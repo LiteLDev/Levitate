@@ -1,0 +1,21 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Levitate BP",
+    "description": "Blocks, items and recipes of Levitate (Create for Bedrock)",
+    "uuid": "2ad69043-82f6-49ea-ae58-9e9ce902feb6",
+    "version": "${version}",
+    "min_engine_version": [
+      1,
+      21,
+      40
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "140bd20a-f17f-4c77-a177-81135cd0c7be",
+      "version": "${version}"
+    }
+  ]
+}

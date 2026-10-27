@@ -1,0 +1,21 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Levitate RP",
+    "description": "Textures, models and names of Levitate (Create for Bedrock)",
+    "uuid": "0e003cde-d3b5-4e8a-9dda-4147c929e436",
+    "version": "${version}",
+    "min_engine_version": [
+      1,
+      21,
+      40
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "1d0a7a38-ab3b-4420-9ac7-84ac2c3fce7f",
+      "version": "${version}"
+    }
+  ]
+}
