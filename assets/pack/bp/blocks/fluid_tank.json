@@ -1,0 +1,1004 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:fluid_tank",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:top": [
+          1,
+          0
+        ],
+        "levitate:bottom": [
+          1,
+          0
+        ],
+        "levitate:shape": [
+          1,
+          0,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:light": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_fluid_tank_window_single",
+          "render_method": "alpha_test"
+        },
+        "up": {
+          "texture": "levitate_fluid_tank_top",
+          "render_method": "alpha_test"
+        },
+        "down": {
+          "texture": "levitate_fluid_tank_bottom",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/fluid_tank.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 3",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 4",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 5",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_middle",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_middle",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 3",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 4",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 0 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 5",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_bottom",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_bottom",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 3",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 4",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 0 && q.block_state('levitate:shape') == 5",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_top",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_top",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 3",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 4",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:bottom') == 1 && q.block_state('levitate:shape') == 5",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_fluid_tank_window_single",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_fluid_tank_top",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_fluid_tank_bottom",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_fluid_tank_side_single",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 1",
+        "components": {
+          "minecraft:light_emission": 1
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 2",
+        "components": {
+          "minecraft:light_emission": 2
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 3",
+        "components": {
+          "minecraft:light_emission": 3
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 4",
+        "components": {
+          "minecraft:light_emission": 4
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 5",
+        "components": {
+          "minecraft:light_emission": 5
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 6",
+        "components": {
+          "minecraft:light_emission": 6
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 7",
+        "components": {
+          "minecraft:light_emission": 7
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 8",
+        "components": {
+          "minecraft:light_emission": 8
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 9",
+        "components": {
+          "minecraft:light_emission": 9
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 10",
+        "components": {
+          "minecraft:light_emission": 10
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 11",
+        "components": {
+          "minecraft:light_emission": 11
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 12",
+        "components": {
+          "minecraft:light_emission": 12
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 13",
+        "components": {
+          "minecraft:light_emission": 13
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 14",
+        "components": {
+          "minecraft:light_emission": 14
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 15",
+        "components": {
+          "minecraft:light_emission": 15
+        }
+      }
+    ]
+  }
+}

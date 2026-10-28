@@ -1,0 +1,16 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:fluid_tank"
+    },
+    "tags": ["crafting_table"],
+    "pattern": ["C", "B", "C"],
+    "key": {
+      "C": { "item": "levitate:copper_sheet" },
+      "B": { "item": "minecraft:barrel" }
+    },
+    "unlock": [{ "item": "levitate:copper_sheet" }],
+    "result": { "item": "levitate:fluid_tank" }
+  }
+}
