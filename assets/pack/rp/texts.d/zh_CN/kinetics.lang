@@ -1,0 +1,5 @@
+tile.levitate:kinetics_test_shaft.name=动力测试传动杆
+tile.levitate:kinetics_test_cog.name=动力测试齿轮
+tile.levitate:kinetics_test_large_cog.name=动力测试大齿轮
+tile.levitate:kinetics_test_source.name=动力测试动力源
+tile.levitate:kinetics_test_consumer.name=动力测试负载

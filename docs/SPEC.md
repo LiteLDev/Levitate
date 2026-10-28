@@ -230,30 +230,74 @@ list, whitelist-any/whitelist-all/blacklist).
 
 ### 3.1 Kinetic network (U2)
 
-- A **kinetic block** declares, per block state: rotation axis, which faces carry a shaft
-  connection, whether it has small or large cog teeth (and on which axis), and its stress impact or
-  capacity (config, §5). Units register blocks with `kinetics::registerBlock(id, spec)`.
-- **Propagation**: from each source, speed spreads through shaft connections (same speed, same
-  direction), small cog ↔ small cog on parallel axes adjacent sideways (same speed, opposite
-  direction), large ↔ small diagonal mesh (ratio 2:1 / 1:2, opposite direction), large ↔ large
-  ⚠ (same speed opposite direction), encased chain drives (same speed), adjustable chain gearshift
-  (×2 when powered ⚠ analog), gearbox (90° transfer with Create's direction rules), gearshift
-  (reverses when powered), clutch (disconnects when powered), speed controller (sets target speed).
-- **Speed limits**: max 256 RPM (config `maxRotationSpeed`), speeds above are clamped; Create's
-  speed levels: slow < 30 ≤ medium < 100 ≤ fast ⚠ (used by tooltips/goggles/particles).
-- **Conflicts**: two sources forcing different speeds/directions into one network → the component
-  where they meet breaks (pops as item) as in Create; a network that would exceed max speed through
-  ratios breaks the offending cog.
-- **Stress**: the network sums capacity of sources at their speed and impact of consumers at their
-  speed; when impact > capacity the whole network is **overstressed**: every component stops
-  (speed 0 for processing), gauges show it, goggles show "Overstressed".
-- **Networks** recompute on place, break, state change (powered, axis) and chunk load; results are
-  cached per network id and persisted (speed per block in BlockData) so a reload resumes.
-- **Client**: each kinetic block's rotating part is drawn rotating at its speed (degrees/tick =
-  speed·6/20 ⚠), interpolated per frame, offset by Create's per-block initial angle so meshing cogs
-  line up. Speed changes are sent to clients with the client mod in batches per chunk.
-- **Particles/sounds**: rotation sound per network (cogs ticking) and overstress smoke, as Create.
+Code: `src/core/kinetics/` (solver, pure C++, gtest), `src/feature/kinetics/` (world adapter, API,
+command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kinetics/Kinetics.h`.
 
+- **Kinetic blocks** are registered per block id with a `KineticSpec`
+  (`LV_REGISTER_KINETIC_BLOCK(id, spec)` / `kinetics::registerBlock`): the integer block states it
+  reads (`states`), rotation axis, shaft ends per face (`hasShaftTowards`), small / large cog
+  teeth, generator flag, stress defaults and Create's special-case hooks (`axisModifier` for
+  directional shaft halves, `propagate` = `propagateRotationTo`, `customConnection`,
+  `conveyedSpeed` for the speed controller, `extraNeighbours` = `addPropagationLocations`).
+  Builders: `specs::shaft`, `specs::cogwheel`, `specs::generatorShaft`, `specs::gearboxModifier`,
+  `specs::splitShaftModifier`. The network follows the world by itself: any change of a
+  registered block or of one of its listed states (players, commands, pistons, explosions, other
+  units) is applied within the tick; generators call `setGeneratedSpeed`.
+- **Connections and ratios** (Create's `RotationPropagator.getRotationSpeedModifier`):
+  shaft ends facing each other: ×1 (times the halves' `axisModifier`); small cog ↔ small cog,
+  same axis, adjacent sideways: ×−1; large cog → small cog diagonal in the large cog's plane, same
+  axis: ×−2 (small → large ×−½); large ↔ large with perpendicular axes, diagonal in the plane of both
+  axes: ×±1 (−1 when the offsets along the two axes have different signs); cogs stacked along their
+  axis connect through their shaft ends (×1). Small cogs reach the 12 diagonals in their plane,
+  large cogs all 12 diagonals. Gearbox halves: the face opposite the source turns the other way,
+  perpendicular faces turn the same way when their direction sign differs from the source face's
+  (Create's `getAxisModifier`). Gearshift: the far half reverses when powered; clutch: the far half
+  disconnects when powered. Chain drives, adjustable chain gearshift, speed controller and belts
+  are U6/U11 specs using the hooks.
+- **Propagation** (Create's `propagateNewSource` / `propagateMissingSource`): a placed block takes
+  its speed from the first powered neighbour (faces in Create's `Direction` order, then diagonals);
+  a faster source of the same direction overpowers the slower tree (an overpowered generator turns
+  at the network's speed, stays in it and still adds its capacity; when the faster source goes it
+  restarts on the next tick); a removed block stops everything it powered, which then re-attaches
+  to any other powered neighbour. Every block is re-validated every `kineticValidationFrequency`
+  (60) ticks (source gone or stopped → stop).
+- **Breaking** (the block pops as its item, Create's `destroyBlock(pos, true)`): two sources
+  forcing opposite directions into one block; a ratio that would exceed `maxRotationSpeed`
+  (256 RPM; speeds are never clamped); a loop of ratios that would speed itself up (same network,
+  conveyed speed above the existing one); a block whose speed changed direction / started / stopped
+  too often (flicker score: +5 per change, −1 per tick, breaks above 128). One log line per break.
+- **Speed levels** (`speedLevelOf`): none (< 1), slow (≥ 1), medium (≥ `mediumSpeed` 30), fast
+  (≥ `fastSpeed` 100).
+- **Stress**: a network (named after the generator that started it) uses Σ impact·|speed| SU and
+  provides Σ capacity·|generated speed| SU of its generators (driven ones included). When usage >
+  capacity (and `disableStress` is off) the whole network is **overstressed**: every member reports
+  speed 0 (`speedAt`; `theoreticalSpeedAt` keeps the real value), smoke rises from every member,
+  a cloud puff when it recovers; one log line per change. Usage levels for goggles/gauges
+  (`stressLevel`): > 1 overstressed, > .75 high, > .5 medium, else low. Impact / capacity per block
+  come from the stress table (§5) or a per-block override (`setStressImpact` / `setStressCapacity`).
+- **Persistence**: the network state (block, states, speed, source, network, generated speed,
+  overrides) is saved per chunk in the world DB under `lv:kinetics:c:<dim>:<cx>:<cz>` (until U3's
+  `BlockData` exists) and restored when the world loads, then re-attached as Create's block entities
+  do on load. A slow world check re-reads blocks that changed without an event.
+- **API for machines**: `speedAt`, `theoreticalSpeedAt`, `nodeAt`, `networkAt`, `networkMembers`,
+  `isOverstressed`, `stressImpactOf` / `stressCapacityOf`, `onSpeedChanged(blockId, fn)` (batched
+  once per tick), `onBreak(fn)`.
+- **Command**: `/create kinetics <pos>` dumps the block and its network; `/create kinetics <pos>
+  speed <rpm>` (Levitate debug) sets a generator's speed.
+- **Client** (client mod only): a kinetic block with a `rotorState` (int state, e.g.
+  `levitate:rotor`) has three models: `0` the full static model (what the world holds and vanilla
+  clients see), `1` its non-rotating parts (the client mod tessellates this in the chunk mesh), `2..`
+  its rotating parts (`spec.parts`, default one part around the rotation axis). The client mod draws
+  each rotating part every frame at Create's angle `(ticks + partialTicks)·speed·0.3 + offset`
+  degrees, where offset is 22.5° when the sum of the block's coordinates off the axis is even, else
+  0 (11.25 for large cogs), plus the spec's `angleOffset` — so meshing cogs interlock.
+- **Speed sync** (client mod only): a minimal channel over Bedrock's `ScriptMessagePacket`, isolated
+  in `KineticsSync.cpp` / `client/kinetics/` for U3's companion protocol to absorb: the client says
+  hello (`levitate:kinetics/hello`, protocol 1), the server acks and sends a full sync of the
+  player's dimension (again after each dimension change), then once per tick the changed speeds per
+  chunk (`core/kinetics/SyncCodec.h`).
+- **Not yet**: Create's ambient cog/kinetic sound scapes and the coloured rotation-indicator
+  particles need original sound / particle assets: U8 (goggles, overlays) or a later U2 PR.
 ### 3.2 Block data, capabilities, filters, value boxes (U3)
 
 - `BlockData`: JSON per (dim, pos) owned by the block's unit, `get/set/erase`, iterate per chunk,
@@ -406,6 +450,14 @@ place:
 | mechanical_pump | 4 | | |
 | hose_pulley | 4 | | |
 | chain_conveyor | 1 ⚠ | | |
+
+`config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
+(60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
+`mediumCapacity` (256), `highCapacity` (1024), `impact` {block path: SU per RPM} and `capacity`
+{block path: SU per RPM} (the table above, plus `cuckoo_clock` 1, `weighted_ejector` 2, backtanks 4,
+`elevator_pulley` 4 ⚠, `gantry_shaft` 4 ⚠ and 0 for the transmission blocks), `syncToClients` (true).
+A block without a table entry uses its spec's `impact` / `capacity`. The generated RPM column is the
+generators' own behaviour (U7, U18, U21), not a config value.
 
 ## 6. Commands
 
