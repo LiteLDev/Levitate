@@ -173,7 +173,35 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 ### 2.16 Rotating contraptions (U21)
 
 `mechanical_bearing`, `windmill_bearing`, `clockwork_bearing`, `sail_frame`, `white_sail` +
-`<colour>_sail`, `cart_assembler`, `minecart_coupling` (item), `controller_rail`, `turntable`.
+`<colour>_sail`, `cart_assembler`, `minecart_coupling` (item), `controller_rail`, `turntable`,
+`minecart_contraption` (item; listed under §2.25 too, made by U21 as the pickup of a cart contraption).
+Mechanics in §3.6.1.
+
+- Bearings: states `levitate:facing` 0..5 (down, up, north, south, west, east: the turning face) and
+  `levitate:rotor` (kinetic render state, §3.1). Placed as Create's DirectionalKineticBlock: facing
+  away from the one adjacent block with a shaft end towards it (two on different axes: none), else
+  towards the player (sneaking: away). The shaft end is the back face. Names: Mechanical Bearing,
+  Windmill Bearing, Clockwork Bearing; they drop themselves.
+- Sails: `sail_frame` ("Windmill Sail Frame") and 16 sails (`white_sail` "Windmill Sail",
+  `<colour>_sail` "<Colour> Sail"), state `levitate:facing` (placed facing the player, sneaking:
+  away), a thin panel (collision as the panel), flammable.
+- `turntable`: kinetic, shaft end at the bottom, `levitate:rotor`.
+- `cart_assembler`: states `levitate:rail_axis` (0 north-south, 1 east-west), `levitate:rail_type`
+  (0 regular, 1 powered, 2 detector, 3 activator, 4 controller: the rail it was placed on),
+  `levitate:powered`, `levitate:backwards`. Only placed by using the item on a straight, flat rail
+  (anything else: "Place your Cart Assembler on a rail block"); breaking it drops itself and its
+  rail (not in creative). Backwards when the placing player looks south or east (Create: the
+  player's motion direction is positive); on a controller rail it keeps the rail's direction.
+- `controller_rail`: states `levitate:rail_axis`, `levitate:power` 0..15, `levitate:backwards`; runs
+  along the player's view, backwards (driving south / east) when placed looking south or east.
+- Recipes (Create 6.0.10; ⚠ = not verified): sail = sail frame + white wool ⚠ (shapeless),
+  `<colour>_sail` = sail + dye (both in the BP now). Waiting for U6 / U9 / U10 ingredients
+  (`assets/pending_recipes/bearings/`): mechanical bearing (wooden slab / andesite casing / shaft),
+  windmill bearing (wooden slab / stone / shaft), clockwork bearing (wooden slab / electron tube,
+  brass casing, electron tube / shaft), turntable (wooden slab / shaft), sail frame ×8 ⚠ (sticks
+  around an andesite alloy), cart assembler (andesite alloy, redstone, andesite alloy / log, -, log),
+  controller rail ×6 (gold ingots around a stick, electron tube at the bottom), minecart coupling
+  (andesite alloys on a diagonal with an iron sheet).
 
 ### 2.17 Contraption support (U4)
 
@@ -604,6 +632,93 @@ the details and numbers it implemented. Short reminders of the less obvious ones
 - **Ponder (U30)**: hold W over an item to open Ponder (client mod only), index of all scenes,
   animated scenes built from our blocks.
 
+#### 3.6.1 Rotating contraptions (U21)
+
+Checked against Create 6.0.10 (MechanicalBearingBlockEntity, WindmillBearingBlockEntity,
+ClockworkBearingBlockEntity, BearingContraption, ClockworkContraption, TurntableBlock,
+CartAssemblerBlock(Entity), MountedContraption, ControllerRailBlock, OrientedContraptionEntity,
+CouplingHandler / CouplingPhysics, MinecartContraptionItem). Pure rules in `src/core/bearings/`
+(gtest), game side in `src/feature/bearings/`. Every anchor uses the contraption engine (§3.4);
+the bearing's state (running, angle, contraption ids, mode) lives in its BlockData (`bearings`).
+
+- **Mechanical bearing** (stress impact 4 SU/RPM): the structure attached to the block in front is
+  assembled when the bearing starts turning (Create's onSpeedChanged sets assembleNextTick) or on an
+  empty-hand right-click (not sneaking, may build); it doesn't assemble while the bearing stands
+  still. Assembly errors (`create.gui.assembly.exception.*`) are shown to the clicking player and
+  kept in the BlockData (goggles, U8). It turns about the facing axis by `speed · 0.3`° per tick
+  (right-hand rule, the same sense as its shaft; 0 while overstressed; held while an actor stalls
+  it). When the speed changes sign the angle is rounded to a whole degree. When the speed drops to 0
+  the structure is placed depending on the **Movement Mode** value box (side faces, 2 px towards the
+  back): Always Place when Stopped / Only Place near Initial Angle (|angle| < 45° or > 315°) / Only
+  Place when Anchor Destroyed. A right-click while running places it at once (rounded to the
+  nearest quarter turn); breaking the bearing places it too.
+- **Windmill bearing** (generator, capacity 512 SU/RPM): assembles on right-click regardless of
+  speed; the structure must contain at least `minimumWindmillSails` (8) sail-like blocks (sails,
+  sail frames, wool: Create's `#create:windmill_sails`), else `not_enough_sails`. It generates
+  `clamp(sails / windmillSailsPerRPM, 1, 16)` RPM (8 sails per RPM), clockwise (+) or
+  counter-clockwise (−) from the **Rotation Direction** box (changing it while running turns it the
+  other way at once), and turns its structure at its generated speed. A right-click stops it: the
+  structure is turned back to its assembly angle and placed.
+- **Clockwork bearing** (impact 4): on right-click it assembles the hour hand (the structure in front)
+  and, behind the hour hand's straight run along the axis (up to 16 blocks), a separate minute hand.
+  Each tick a hand turns towards its target at most `|speed · 0.3|`° (hour hand: half):
+  hours = `(dayTime / 1000 + 6) % 24`, hour target `−360 / 12 · (hours % 12)` (24-hour mode
+  `/ 24`), minutes = `(dayTime % 1000) · 60 / 1000`, minute target `−360 / 60 · minutes`, times −1
+  for bearings facing a negative direction (clockwise seen from the front). **Clock Hands** box:
+  Hour hand first / Minute hand first / 24-Hour hand first. Stopping (speed 0) or a right-click
+  places both hands.
+- **Turntable** (impact 4): entities standing on it turn: players are carried around its centre by
+  `clamp(speed · 0.3, −16, 16)`° per tick (their view doesn't turn); other entities turn on the spot
+  by `speed · 0.3`° (yaw).
+- **Sails**: a sail (or frame) is attached to its neighbours in its own plane (Create's
+  BlockMovementChecks), so a sail structure moves without glue. A sail or frame in hand on a sail
+  (not sneaking) places it next to the clicked one in
+  the same plane, on the free side nearest to the click, with the same facing (Create's placement
+  helper). Dye on a sail: the sail takes the colour; if it already has it, the nearest neighbour of
+  the plane that doesn't; if all do, every connected sail of the plane (up to 100 steps). Shears:
+  the same with "no colour" (back to sail frames). Dye is not used up.
+- **Cart assembler**: Create's action per rail type for a minecart on it: regular — powered:
+  assemble, unpowered: disassemble; powered rail — powered: assemble + accelerate (0.4 b/t along the
+  motion, away from a redstone conductor at either end), unpowered: disassemble + brake (velocity
+  `(centre − cart) / 16`); detector — empty cart: assemble + accelerate, else disassemble; activator
+  — powered: disassemble; controller — powered: assemble + accelerate in the assembler's direction,
+  unpowered: disassemble + brake. Assembly/disassembly at most once per 8 ticks. Assembling needs an
+  empty rideable (or chest) minecart and a block above the assembler: the structure attached to it
+  is lifted, anchored at the assembler and rides the cart; a second cart assembler under the
+  structure with an empty cart on it makes a two-cart contraption: the carts are coupled (≥ 2 blocks
+  apart) and the structure points from the first cart to the second. Disassembly places the
+  structure at the assembler turned to the assembler's direction (coupled: both carts must be on
+  disassembling assemblers; it keeps its orientation). **Cart Movement Mode** box: Always face toward
+  motion (the structure turns towards the cart's motion along the rail by at most
+  `|motion| · 12 / max(1, width / 6)`° per tick) / Pause actors while rotating / Lock rotation.
+  If the cart breaks, the structure is placed where it is.
+- **Controller rail**: a cart on it is driven at `0.4 · power / 15` b/t in the rail's direction when
+  powered and not moving against it; otherwise it is braked to the rail's centre.
+- **Minecart coupling**: use on a cart, then on another: coupled at their distance (whole blocks,
+  at least 2) if ≤ `maxCartCouplingLength` (32), each cart has at most two couplings and they don't
+  form a loop (`create.minecart_coupling.*` messages); one coupling item used (not in creative).
+  Coupled carts keep their distance (Create's soft collision step: each cart corrected along the
+  coupling by the predicted stretch, clamped to 1.75, projected on its rail, speeds ≤ 0.4). Wrench on
+  a coupled cart removes its couplings (items dropped, "Removed all couplings from minecart"); a
+  broken cart drops its couplings.
+- **Minecart contraption** (item, stack 1): wrench right-click on a cart carrying a contraption
+  (survival only when `survivalContraptionPickup`) picks it up as `minecart_contraption` with the
+  structure; refused for spawners ("A mystical force…") and for structures over 512 KB of data
+  ("…too big to pick up"). Using the item on a rail places a minecart with the structure, facing the
+  player's view along the rail.
+- **Config** `config/bearings.json` (Create's CKinetics keys and defaults): `windmillSailsPerRPM` 8,
+  `minimumWindmillSails` 8, `maxCartCouplingLength` 32, `survivalContraptionPickup` true. Stress
+  values come from `config/kinetics.json` (mechanical / clockwork bearing 4, turntable 4, windmill
+  capacity 512).
+- **Client mod**: contraptions turn smoothly through the contraption renderer (§3.4); the bearings'
+  top plate and shaft and the turntable's plate are kinetic rotor parts (§3.1; the clockwork's top
+  stays still); clock hands are their own contraptions.
+- **Log lines**: `<kind> at <pos> assembled contraption #<id> (...)`, `... disassembled`,
+  `windmill_bearing at <pos>: <n> sails, <rpm> RPM`, `bearing at <pos> could not assemble: ...`,
+  `cart assembler at <pos> assembled contraption #<id> on minecart <uid>`, `cart contraption #<id>
+  disassembled at ...`, `minecarts <a> and <b> coupled (<n> blocks)`, `cart contraption #<id> picked
+  up by <player>` / `placed at <pos> by <player>`, `sail at <pos> dyed <colour> by <player>`.
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -710,6 +825,13 @@ matches Create's official Chinese translation wording).
 | Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
 | Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
+| Cart assembler and controller rail as real rails (U21) | Bedrock minecarts only ride vanilla rail blocks; a data-driven block can't be a rail | they are rail-shaped blocks without collision; a minecart on one is guided by the server: held on the rail line at rail height and moved along it at the speed the rail gives it (no off-rail friction), then the next vanilla rail takes it over. A minecart item used on them places a cart there |
+| Redstone input of the cart assembler / controller rail (U21) | custom blocks get no neighbour updates and the game's signal levels aren't exposed | power polled every 4 ticks from the neighbours' states (wire level, redstone block, torches, levers, buttons, repeaters / comparators, observers, `redstone_signal`, solid blocks on a lit torch) |
+| "Pause actors while rotating" (U21) | the contraption engine has no API to pause a contraption's actors | the mode is kept and turns the structure like "Always face toward motion" |
+| Furnace minecart contraptions and the chest minecart contraption item (U21) | Bedrock has no furnace minecart; a chest minecart's own inventory can't travel in the item | contraptions ride rideable and chest minecarts; only rideable carts are picked up (`minecart_contraption`) |
+| Picking up a minecart contraption (U21) | the engine has no "discard" | the structure is placed and its blocks removed again silently (refused when something is in the way: `lv.bearings.pickup_blocked`); the item carries the engine's own record of the structure |
+| Coupling chains drawn between carts (U21) | no client-side line rendering for entities | couplings work but aren't drawn |
+| Sequenced gearshift angle limits on bearings (U21) | the kinetic contract has no sequence context | bearings turn at their speed; the gearshift's own timing still applies |
 
 Units add rows here in their PRs when they find something else impossible.
 

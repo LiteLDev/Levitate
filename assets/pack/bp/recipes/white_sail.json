@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:white_sail"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:sail_frame"
+      },
+      {
+        "item": "minecraft:white_wool"
+      }
+    ],
+    "result": {
+      "item": "levitate:white_sail",
+      "count": 1
+    },
+    "unlock": [
+      {
+        "item": "levitate:sail_frame"
+      }
+    ]
+  }
+}

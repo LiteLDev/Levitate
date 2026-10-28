@@ -1,0 +1,36 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:controller_rail"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "A A",
+      "ASA",
+      "AEA"
+    ],
+    "key": {
+      "A": {
+        "item": "minecraft:gold_ingot"
+      },
+      "S": {
+        "item": "minecraft:stick"
+      },
+      "E": {
+        "item": "levitate:electron_tube"
+      }
+    },
+    "result": {
+      "item": "levitate:controller_rail",
+      "count": 6
+    },
+    "unlock": [
+      {
+        "item": "levitate:electron_tube"
+      }
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:minecart_coupling"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "  E",
+      " S ",
+      "E  "
+    ],
+    "key": {
+      "E": {
+        "item": "levitate:andesite_alloy"
+      },
+      "S": {
+        "item": "levitate:iron_sheet"
+      }
+    },
+    "result": {
+      "item": "levitate:minecart_coupling",
+      "count": 1
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_alloy"
+      }
+    ]
+  }
+}

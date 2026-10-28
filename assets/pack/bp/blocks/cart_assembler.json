@@ -1,0 +1,231 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:cart_assembler",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:rail_axis": [
+          0,
+          1
+        ],
+        "levitate:rail_type": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "levitate:powered": [
+          0,
+          1
+        ],
+        "levitate:backwards": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.levitate.cart_assembler",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_cart_assembler_model",
+          "render_method": "alpha_test"
+        },
+        "rail": {
+          "texture": "rail_normal",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": false,
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          9,
+          16
+        ]
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 3
+      },
+      "minecraft:map_color": "#8a7a5a",
+      "minecraft:loot": "loot_tables/blocks/cart_assembler.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:rail_axis') == 1",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_type') == 0 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_cart_assembler_model",
+              "render_method": "alpha_test"
+            },
+            "rail": {
+              "texture": "rail_normal",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_type') == 0 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_cart_assembler_model",
+              "render_method": "alpha_test"
+            },
+            "rail": {
+              "texture": "rail_normal",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_type') == 1 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_cart_assembler_model",
+              "render_method": "alpha_test"
+            },
+            "rail": {
+              "texture": "rail_golden",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_type') == 1 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_cart_assembler_model",
+              "render_method": "alpha_test"
+            },
+            "rail": {
+              "texture": "rail_golden_powered",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_type') == 2 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_cart_assembler_model",
+              "render_method": "alpha_test"
+            },
+            "rail": {
+              "texture": "rail_detector",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_type') == 2 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_cart_assembler_model",
+              "render_method": "alpha_test"
+            },
+            "rail": {
+              "texture": "rail_detector_powered",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_type') == 3 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_cart_assembler_model",
+              "render_method": "alpha_test"
+            },
+            "rail": {
+              "texture": "rail_activator",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_type') == 3 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_cart_assembler_model",
+              "render_method": "alpha_test"
+            },
+            "rail": {
+              "texture": "rail_activator_powered",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_type') == 4 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_cart_assembler_model",
+              "render_method": "alpha_test"
+            },
+            "rail": {
+              "texture": "levitate_controller_rail",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_type') == 4 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_cart_assembler_model",
+              "render_method": "alpha_test"
+            },
+            "rail": {
+              "texture": "levitate_controller_rail_on",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
