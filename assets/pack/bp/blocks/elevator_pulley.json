@@ -1,0 +1,116 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:elevator_pulley",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:facing": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:running": [
+          0,
+          1
+        ],
+        "levitate:rotor": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.elevator_pulley",
+        "bone_visibility": {
+          "shaft_x": "q.block_state('levitate:rotor') == 0"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_elevator_pulley_side",
+          "render_method": "alpha_test"
+        },
+        "side": {
+          "texture": "levitate_elevator_pulley_side",
+          "render_method": "alpha_test"
+        },
+        "top": {
+          "texture": "levitate_elevator_pulley_top",
+          "render_method": "alpha_test"
+        },
+        "coil": {
+          "texture": "levitate_elevator_belt",
+          "render_method": "alpha_test"
+        },
+        "shaft": {
+          "texture": "levitate_pistons_shaft",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#8a5a3a",
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/elevator_pulley.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:rope_pulley",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:axis": [
+          0,
+          2
+        ],
+        "levitate:running": [
+          0,
+          1
+        ],
+        "levitate:rotor": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.rope_pulley",
+        "bone_visibility": {
+          "shaft_x": "q.block_state('levitate:rotor') == 0"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_rope_pulley_side",
+          "render_method": "alpha_test"
+        },
+        "side": {
+          "texture": "levitate_rope_pulley_side",
+          "render_method": "alpha_test"
+        },
+        "top": {
+          "texture": "levitate_rope_pulley_top",
+          "render_method": "alpha_test"
+        },
+        "coil": {
+          "texture": "levitate_rope_coil",
+          "render_method": "alpha_test"
+        },
+        "shaft": {
+          "texture": "levitate_pistons_shaft",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#7a5c3a",
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/rope_pulley.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:axis') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

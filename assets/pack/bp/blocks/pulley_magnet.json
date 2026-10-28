@@ -1,0 +1,63 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:pulley_magnet",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.pulley_magnet"
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_pulley_magnet",
+          "render_method": "alpha_test"
+        },
+        "rope": {
+          "texture": "levitate_rope",
+          "render_method": "alpha_test"
+        },
+        "magnet": {
+          "texture": "levitate_pulley_magnet",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#8e8e8e",
+      "minecraft:light_dampening": 0,
+      "minecraft:collision_box": {
+        "origin": [
+          -5,
+          0,
+          -5
+        ],
+        "size": [
+          10,
+          16,
+          10
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -5,
+          0,
+          -5
+        ],
+        "size": [
+          10,
+          16,
+          10
+        ]
+      },
+      "minecraft:loot": "loot_tables/blocks/pulley_magnet.json"
+    }
+  }
+}
