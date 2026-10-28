@@ -4,6 +4,7 @@ namespace lv::core::tracks {
 
 void CurveStore::index(DimData& d, Key const& key, CurvePtr const& c) {
     d.primaries[key]          = c;
+    d.byChunk[chunkOf(key.a)].insert(key);
     d.byEnd[key.a][key.b]     = c;
     d.byEnd[key.b][key.a]     = std::make_shared<Curve const>(c->secondary());
     for (auto const& p : c->occupiedBlocks()) d.byBlock[p].insert(key);
@@ -11,6 +12,10 @@ void CurveStore::index(DimData& d, Key const& key, CurvePtr const& c) {
 
 void CurveStore::unindex(DimData& d, Key const& key, CurvePtr const& c) {
     d.primaries.erase(key);
+    if (auto it = d.byChunk.find(chunkOf(key.a)); it != d.byChunk.end()) {
+        it->second.erase(key);
+        if (it->second.empty()) d.byChunk.erase(it);
+    }
     for (auto const& [from, to] : {std::pair{key.a, key.b}, std::pair{key.b, key.a}}) {
         auto it = d.byEnd.find(from);
         if (it == d.byEnd.end()) continue;
@@ -111,8 +116,12 @@ std::vector<CurveStore::CurvePtr> CurveStore::inChunk(int dim, int cx, int cz) c
     std::vector<CurvePtr> out;
     auto                  dit = mDims.find(dim);
     if (dit == mDims.end()) return out;
-    for (auto const& [key, c] : dit->second.primaries)
-        if (chunkOf(key.a) == std::pair{cx, cz}) out.push_back(c);
+    auto it = dit->second.byChunk.find({cx, cz});
+    if (it == dit->second.byChunk.end()) return out;
+    for (auto const& key : it->second) {
+        auto ct = dit->second.primaries.find(key);
+        if (ct != dit->second.primaries.end()) out.push_back(ct->second);
+    }
     return out;
 }
 

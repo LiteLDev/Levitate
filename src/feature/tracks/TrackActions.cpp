@@ -216,6 +216,7 @@ int paveCurve(BlockSource& region, ct::Curve const& curve, PaveBlock const& pave
         ct::BlockPos3 target{base.x + xz.first, base.y + floorY + (placeSlab ? 1 : 0), base.z + xz.second};
         Block const&  state = placeSlab ? *pave.bottom : *pave.full;
         if (!visited.insert(target).second) continue;
+        // as Create's TrackPaver: a full block under a curve costs 2 items, a half slab 1
         if (placeIfFree(region, target, state, simulate)) needed += !placeSlab ? 2 : 1;
         if (placeSlab) {
             if (!visited.insert(target.below()).second) continue;
@@ -570,7 +571,10 @@ void removeCurveData(int dim, ct::Curve const& curve, bool drops, Player* refund
 void addCurve(int dim, ct::Curve const& curve) {
     auto& s        = state();
     auto  replaced = s.curves.add(dim, curve);
-    if (replaced) syncCurveRemoved(dim, *replaced);
+    if (replaced) {
+        markCurveChunkDirty(dim, replaced->block(0));
+        syncCurveRemoved(dim, *replaced);
+    }
     markCurveChunkDirty(dim, curve.primary() ? curve.block(0) : curve.block(1));
     syncCurveAdded(dim, curve.primary() ? curve : curve.secondary());
     placeFakeTracks(dim, curve);
@@ -717,6 +721,7 @@ void connectToPortal(int dim, ct::BlockPos3 const& pos, ct::Shape shape) {
         log().info("tracks: portal track linked {}:{} with {}:{}", dim, pos.str(), exit->dim, exit->pos.str());
         pop = false;
     }
+    // (as Create, `pop` is per direction: a portal on both sides where only one links still pops)
     if (!pop) return;
     // Create pops the track (with its drop)
     auto const* air = game::blockWith("minecraft:air");

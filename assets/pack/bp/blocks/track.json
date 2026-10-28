@@ -1,5 +1,5 @@
 {
-  "format_version": "1.21.60",
+  "format_version": "1.21.90",
   "minecraft:block": {
     "description": {
       "identifier": "levitate:track",
@@ -27,11 +27,11 @@
       "minecraft:geometry": {
         "identifier": "geometry.levitate.track",
         "bone_visibility": {
-          "oz": "(q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 9) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 10) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 13) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 2)",
-          "ox": "(q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 11) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 12) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 13) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 15) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 1)",
-          "dp": "(q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 3) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 14) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 15) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 0)",
-          "dn": "(q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 4) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 14) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 2)",
-          "asc": "(q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 5) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 6) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 7) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 8)"
+          "oz": true,
+          "ox": false,
+          "dp": false,
+          "dn": false,
+          "asc": false
         }
       },
       "minecraft:material_instances": {
@@ -78,8 +78,93 @@
     },
     "permutations": [
       {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 0",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": true,
+              "ox": false,
+              "dp": false,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": true,
+              "ox": false,
+              "dp": false,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": true,
+              "dp": false,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": false,
+              "dp": true,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 4",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": false,
+              "dp": false,
+              "dn": true,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
         "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 5",
         "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": false,
+              "dp": false,
+              "dn": false,
+              "asc": true
+            }
+          },
           "minecraft:transformation": {
             "rotation": [
               0,
@@ -105,6 +190,16 @@
       {
         "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 6",
         "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": false,
+              "dp": false,
+              "dn": false,
+              "asc": true
+            }
+          },
           "minecraft:collision_box": false,
           "minecraft:selection_box": {
             "origin": [
@@ -123,6 +218,16 @@
       {
         "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 7",
         "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": false,
+              "dp": false,
+              "dn": false,
+              "asc": true
+            }
+          },
           "minecraft:transformation": {
             "rotation": [
               0,
@@ -148,6 +253,16 @@
       {
         "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 8",
         "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": false,
+              "dp": false,
+              "dn": false,
+              "asc": true
+            }
+          },
           "minecraft:transformation": {
             "rotation": [
               0,
@@ -167,6 +282,156 @@
               16,
               16
             ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 9",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": true,
+              "ox": false,
+              "dp": false,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 10",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": true,
+              "ox": false,
+              "dp": false,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 11",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": true,
+              "dp": false,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 12",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": true,
+              "dp": false,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 13",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": true,
+              "ox": true,
+              "dp": false,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 14",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": false,
+              "dp": true,
+              "dn": true,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 15",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": true,
+              "dp": true,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 0",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": true,
+              "ox": false,
+              "dp": true,
+              "dn": false,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": false,
+              "ox": true,
+              "dp": false,
+              "dn": true,
+              "asc": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.track",
+            "bone_visibility": {
+              "oz": true,
+              "ox": false,
+              "dp": false,
+              "dn": true,
+              "asc": false
+            }
           }
         }
       }

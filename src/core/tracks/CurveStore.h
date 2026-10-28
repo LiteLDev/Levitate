@@ -55,6 +55,7 @@ private:
         std::map<Key, CurvePtr>                                 primaries;
         std::map<BlockPos3, std::map<BlockPos3, CurvePtr>>      byEnd;     ///< pos → other end → oriented from pos
         std::map<BlockPos3, std::set<Key>>                      byBlock;   ///< fake track block → curves
+        std::map<std::pair<int, int>, std::set<Key>>            byChunk;   ///< chunk of the primary block → curves
     };
     void index(DimData& d, Key const& key, CurvePtr const& c);
     void unindex(DimData& d, Key const& key, CurvePtr const& c);

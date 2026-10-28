@@ -181,6 +181,7 @@ std::map<std::pair<int, int>, double> Curve::rasterise() const {
 
     std::vector<Vec3d> samples(static_cast<size_t>(mSegments));
     for (int i = 0; i < mSegments; ++i) {
+        // Create's rasterise scales the half-segment offset by the LUT too (unlike its paver)
         double t          = std::clamp((i + 0.5) * mStepLut[size_t(i)] / mSegments, 0.0, 1.0);
         Vec3d  result     = bezier(end1, end2, finish1, finish2, t);
         Vec3d  derivative = bezierDerivative(end1, end2, finish1, finish2, t).normalize();

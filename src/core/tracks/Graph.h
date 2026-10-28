@@ -60,6 +60,7 @@ struct DiscoveredLocation : NodeLocation {
     bool                         forceNode = false;
     std::optional<Vec3d>         direction;      ///< unit track direction here
     Vec3d                        normal{0, 1, 0};
+    /// track materials on both sides (only andesite track exists, as in Create without add-ons)
     std::string                  materialA = "andesite", materialB = "andesite";
 
     [[nodiscard]] bool differentMaterials() const { return materialA != materialB; }

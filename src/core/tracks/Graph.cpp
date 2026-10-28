@@ -745,7 +745,7 @@ GraphLocation Railways::advance(
         distance -= len - loc.position;
         std::vector<Edge const*> options;
         for (auto const& [to, next] : g->connectionsFrom(loc.node2)) {
-            if (to == loc.node1 && !next.interDimensional) continue;
+            if (to == loc.node1) continue; // no U-turns (also not back through a portal)
             if (g->canTravelTo(*e, next)) options.push_back(&next);
         }
         if (options.empty()) {
@@ -853,7 +853,7 @@ std::optional<PathResult> Railways::findPath(PathQuery const& q) const {
         Edge const* e = g->edge(entry.edge.first, entry.edge.second);
         if (!e) continue;
         for (auto const& [to, next] : g->connectionsFrom(entry.edge.second)) {
-            if (!g->canTravelTo(*e, next)) continue;
+            if (to == entry.edge.first || !g->canTravelTo(*e, next)) continue; // no U-turns
             auto key = std::make_pair(next.node1, next.node2);
             if (visited.contains(key)) continue;
             if (!parentOf.contains(key)) parentOf[key] = entry.edge;

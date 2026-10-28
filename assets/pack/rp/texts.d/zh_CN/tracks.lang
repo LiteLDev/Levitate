@@ -1,4 +1,4 @@
 tile.levitate:track.name=列车轨道
-item.levitate:track.name=列车轨道
+item.levitate:track=列车轨道
 tile.levitate:fake_track.name=用于地图上的轨道标记
-item.levitate:incomplete_track.name=列车轨道（半成品）
+item.levitate:incomplete_track=列车轨道（半成品）

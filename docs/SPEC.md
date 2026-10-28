@@ -314,14 +314,77 @@ list, whitelist-any/whitelist-all/blacklist).
 
 ### 3.5 Tracks (U5)
 
-- Placing track on another track's end with the track item in hand connects them with a curve
-  (bezier between the two endpoints, constraints as Create: max turn angle, min radius, slopes,
-  `maxTrackPlacementLength` 32 ⚠); cost in tracks taken from inventory (survival); girders under
-  curves optional (holding girders in offhand ⚠).
-- Track graph: nodes at track ends/junctions, edges straight or curved, persisted in WorldDb, keyed
-  by dimension; nether portals link graphs across dimensions.
-- Query API: path finding (A* on the graph), edge points, positions along edges, for trains and
-  signals.
+Checked against Create 6.0.10 (TrackBlock, TrackShape, TrackPlacement, TrackPaver,
+BezierConnection, TrackPropagator, TrackGraph, Navigation). Pure maths in `src/core/tracks/`
+(gtest), game side in `src/feature/tracks/`, curve drawing in `src/client/tracks/`.
+
+**Block `levitate:track`.** States `levitate:shape` + 16 · `levitate:shape_hi` = Create's
+TrackShape (0 none, 1 ZO, 2 XO, 3 PD, 4 ND, 5–8 ascending N/S/E/W, 9–12 portal N/S/E/W, 13 CR_O,
+14 CR_D, 15 CR_PDX, 16 CR_PDZ, 17 CR_NDX, 18 CR_NDZ; Bedrock allows 16 values per state) and
+`levitate:turn` (Create's HAS_BE: curves start here). Hardness 0.8, metal sound, drops itself,
+collision 2 px (none on slopes), can't stand on another track.
+- **Placing** (Create's getStateForPlacement): the shape whose axis is closest to the horizontal
+  look (straight or diagonal; yaw when looking straight up/down). A straight track next to a block
+  with a sturdy top (and no sturdy bottom above it) along its axis ascends towards it (the negative
+  side wins).
+- **Crossings**: a straight run laid over an existing track overlays it: ZO+XO → CR_O, PD+ND →
+  CR_D, XO/ZO + PD/ND → CR_PDX/CR_PDZ/CR_NDX/CR_NDZ.
+
+**Connecting with the track item** (Create's TrackBlockItem / TrackPlacement):
+- Right-click a track: selects the end facing the look direction ("Place track or select a second
+  point", item frame sound). Junctions can't be selected (`create.track.junction_start`).
+- Right-click a second track (or a free spot: a track is placed there with the placement shape):
+  the connection is planned with Create's rules and either built or refused with its message
+  (`create.track.*`: `second_point`, `too_far` (> `maxTrackPlacementLength` = 32, config
+  `config/tracks.json`), `original_missing`, `perpendicular`, `ascending_s_curve`, `too_sharp`,
+  `too_steep`, `slope_turn`, `opposing_slopes`, `leave_slope_ascending`, `leave_slope_descending`,
+  `turn_90`), with the deny sound. Rules: turns between 60° and 300° of heading change (90° max per
+  curve); 90° turns need a radius ≥ 7, 45° turns ≥ 3.25, plus room for the height change
+  (90°: +2 per block above 3, 45°: +1.5 per block above 1.5); S-bends need a forward run of 3 (or
+  twice the side offset) and must be flat; straight slopes need 4 blocks per block of height
+  (3 from 4 blocks up, at least 6); curves leave/enter slopes only straight. Without Sprint the
+  curve is standardised (smallest turn, straight track fills the rest); with Sprint held it takes the
+  whole space (Create's "maximized turn").
+- Cost (survival): one track per straight block placed + `(segments + 1) / 2` for the curve
+  (segments = ⌊length · 2⌋), taken from every slot but the selected one, then the selected one,
+  then the off hand (`not_enough_tracks`). A block item in the off hand paves under the tracks
+  (Create's TrackPaver: slabs half-step on curves, walls and girders along the sides only;
+  `not_enough_pavement`); a metal girder (`levitate:metal_girder`, U10) in the off hand builds the
+  curve with girders (twice the track cost in girders).
+- Sneak + right-click (on a block or in the air) clears the selection ("Selection Cleared").
+
+**Curves** are stored in the world DB (`lv:tracks:curves:<dim>:<cx>:<cz>`, by the chunk of their
+first block) as Create's BezierConnection (end blocks, start points, axes, normals, girder): handles
+`radius · 4/3 · tan(angle/4)` (S-bends: the side offset), length from 16 straight pieces. The blocks
+the curve passes through (Create's rasterise) hold `levitate:fake_track` (no collision, replaceable,
+breakable: breaking it destroys the curve). Breaking either end track removes its curves, dropping
+one track per two segments (and two girders each when built with girders) unless in creative or
+`doTileDrops` is off; `tracks::dismantleCurves` gives them to a player instead (wrench, U8).
+
+**Graph** (Create's TrackGraph): nodes at track ends, junctions, curve ends, portal crossings and
+on the 16-block grid of long straight runs (TrackNodeLocation: x/z on a half-block grid, y per
+block); edges straight or curved (both directions stored, curves oriented from the edge's first
+node); graphs are the connected components and may span dimensions. Updated incrementally on
+every track change (Create's TrackPropagator: remove reachable nodes, rebuild from the first valid
+node; splits re-checked). Persisted per dimension in `lv:tracks:graph:<dim>` (nodes with their graph
+id, edges with their node1, edge points) so trains can run through unloaded chunks.
+
+**Portal tracks**: a straight track placed against a nether portal along its axis looks up the
+linked portal (the game's portal records; overworld ↔ nether at 1:8) and becomes a portal track
+(TN/TS/TE/TW) bound to a new portal track on the other side, which must be loaded and free;
+otherwise it pops with "Cannot place portal track:" + `missing` / `blocked`. The two are joined by
+a zero-length inter-dimensional edge; removing either (or the portal) removes both.
+
+**Contract for U27/U28** (`feature/tracks/Tracks.h`, `core/tracks/Graph.h`): `railways()` (graphs,
+nodes, edges, lengths, positions/normals along edges, `canTravelTo`), `locate(dim, pos)`,
+`targetAt(pos, facing)` (Create's track targeting), `advance(loc, distance)`, `findPath` (A* over
+directed edges, cost = distance + `edgePenalty`, heuristic = distance to the nearest destination;
+no U-turns, Create's 7/8 direction rule at junctions), edge points (`addPoint` / `pointsOn` /
+`onPointInvalidated`: points survive rebuilds of their edge, owners re-add them when it is gone),
+`onGraphChanged`.
+
+**Client**: curves are drawn by the client mod (ties and rails along the curve segments) from
+`levitate:tracks` script messages the server sends on join and on every change (see §8).
 
 ### 3.6 Feature mechanics
 
@@ -434,6 +497,10 @@ matches Create's official Chinese translation wording).
 | Placeable flowing honey/chocolate in the world | Bedrock has no data-driven custom fluids | they exist in pipes, tanks, basins, buckets (as items); emptying a bucket in the world places a custom non-flowing source block ⚠ U19 decides |
 | JEI/EMI recipe viewers, Create's config GUI | no such mods on Bedrock | recipes visible in Ponder/tooltips; JSON configs + `/create reload` |
 | Create's mod-compat crushed ores for absent mods | no such mods | items exist (as Create registers them), with the vanilla-only recipes |
+| Curved tracks drawn for **vanilla** clients (U5) | Bedrock block models are fixed per block state; a curve is not a block | the client mod draws the curve; vanilla clients see the straight end tracks and a track bed (`levitate:fake_track`) on every block the curve passes through |
+| Track placement preview while hovering (U5) | Create draws the planned curve and its message client-side every frame | the message (`create.track.*`) is shown in the action bar when clicking; the selection is kept per player on the server (the item is not enchanted-looking) |
+| "Hold Ctrl for maximized turn" (U5) | the server can't see a held key without the client mod | the player's sprint state is used (sprinting = maximized) |
+| Tilted tracks between two sloped curves (U5) | Create re-shapes the curves and tilts the block model at runtime | curves keep their original handles; the middle track stays flat |
 
 Units add rows here in their PRs when they find something else impossible.
 

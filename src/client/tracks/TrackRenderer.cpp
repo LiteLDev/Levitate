@@ -12,6 +12,8 @@
 #include <tuple>
 #include <vector>
 
+#include "ll/api/event/EventBus.h"
+#include "ll/api/event/client/ClientExitLevelEvent.h"
 #include "ll/api/memory/Hook.h"
 
 #include "mc/client/gui/screens/ScreenContext.h"
@@ -95,8 +97,8 @@ RenderCurve build(ct::Curve const& curve) {
         ct::Vec3d   up   = s.faceNormal;
         ct::Vec3d   side = s.normal;
         ct::Vec3d   fwd  = s.derivative;
-        // ties on every second segment (one every block), not on the end blocks' edges
-        if (i % 2 == 1 && i + 1 < segs.size()) {
+        // a tie on every segment (every half block, as the block model), not on the curve ends
+        if (i > 0 && i + 1 < segs.size()) {
             ct::Vec3d c = s.position;
             box(rc.quads,
                 {c - side * kTieHalfW - fwd * kTieHalfL,
@@ -239,13 +241,23 @@ public:
     void install() {
         TracksScriptMessageHook::hook();
         TracksRenderHook::hook();
+        // the next world (or server) sends its own curves
+        mExit = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
+            std::lock_guard lock(gMutex);
+            gCurves.clear();
+            gLoggedFirstFrame = false;
+        });
     }
     void uninstall() {
+        ll::event::EventBus::getInstance().removeListener(mExit);
         TracksRenderHook::unhook();
         TracksScriptMessageHook::unhook();
         std::lock_guard lock(gMutex);
         gCurves.clear();
     }
+
+private:
+    ll::event::ListenerPtr mExit;
 };
 
 /// Number of curves the client knows (selftests / debugging).

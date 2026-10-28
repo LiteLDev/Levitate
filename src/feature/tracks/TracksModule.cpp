@@ -179,9 +179,13 @@ void loadWorld() {
     s.rail.finishLoading();
     if (auto j = game::db::load(kPortalsKey)) {
         for (auto const& e : *j) {
-            if (!e.is_array() || e.size() < 8) continue;
-            s.portals[{e[0].get<int>(), {e[1].get<int>(), e[2].get<int>(), e[3].get<int>()}}] =
-                PortalLink{e[4].get<int>(), {e[5].get<int>(), e[6].get<int>(), e[7].get<int>()}};
+            try {
+                if (!e.is_array() || e.size() < 8) continue;
+                s.portals[{e[0].get<int>(), {e[1].get<int>(), e[2].get<int>(), e[3].get<int>()}}] =
+                    PortalLink{e[4].get<int>(), {e[5].get<int>(), e[6].get<int>(), e[7].get<int>()}};
+            } catch (...) {
+                log().warn("tracks: skipped an unreadable portal track link");
+            }
         }
     }
     s.savedGraphVersion = s.rail.version();
