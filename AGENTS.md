@@ -88,7 +88,7 @@ In a fresh pwsh refresh PATH first (the build script does this and adds LLVM if 
 ```powershell
 pwsh tools/build.ps1 -Target all -Tests     # bin/server/Levitate + bin/client/Levitate + gtest
 pwsh tools/build.ps1 -Target server -Tests  # one platform + unit tests
-xmake build -y lv-tests; xmake run lv-tests
+xmake build -P . -y lv-tests; xmake run -P . lv-tests  # -P .: worktrees nested in another checkout
 pwsh -NoProfile -File tools/e2e/server/run.ps1 -Scenario smoke       # BDS (4 slots, waits for a free one)
 pwsh -NoProfile -File tools/e2e/client/run.ps1 -Scenario smoke       # headless client via LeviHeadlessInput
 ```

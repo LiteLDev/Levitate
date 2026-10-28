@@ -33,6 +33,9 @@ try {
     if ($clang) { Write-Host "==> using $($clang.Source) ($((& $clang.Source --version | Select-Object -First 1)))" }
     git config --global core.longpaths true | Out-Null
 
+    # `-P $root` everywhere: a worktree nested in another checkout (.claude/worktrees/...) would
+    # otherwise make xmake pick the outer project.
+
     # xmake needs to be told about Visual Studio 18 (2026) explicitly.
     $vsArgs = @()
     foreach ($pf in $env:ProgramFiles, ${env:ProgramFiles(x86)}) {
@@ -42,10 +45,10 @@ try {
     $targets = if ($Target -eq 'all') { @('server', 'client') } else { @($Target) }
     foreach ($t in $targets) {
         Write-Host "==> configuring $t ($Mode)"
-        xmake f -a x64 -m $Mode -p windows --target_type=$t -o "build/$t" @vsArgs -y
+        xmake f -P $root -a x64 -m $Mode -p windows --target_type=$t -o "build/$t" @vsArgs -y
         if ($LASTEXITCODE) { throw "xmake config failed for $t" }
         Write-Host "==> building $t"
-        xmake build -y Levitate
+        xmake build -P $root -y Levitate
         if ($LASTEXITCODE) { throw "build failed for $t" }
         $out = Join-Path $root "bin/$t/Levitate"
         if (-not (Test-Path (Join-Path $out 'Levitate.dll'))) { throw "missing output $out" }
@@ -53,9 +56,9 @@ try {
     }
     if ($Tests) {
         Write-Host '==> unit tests'
-        xmake build -y lv-tests
+        xmake build -P $root -y lv-tests
         if ($LASTEXITCODE) { throw 'lv-tests build failed' }
-        xmake run lv-tests
+        xmake run -P $root lv-tests
         if ($LASTEXITCODE) { throw 'unit tests failed' }
     }
 } finally {
