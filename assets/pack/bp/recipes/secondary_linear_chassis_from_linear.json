@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:secondary_linear_chassis_from_linear"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:linear_chassis"
+      }
+    ],
+    "result": {
+      "item": "levitate:secondary_linear_chassis",
+      "count": 1
+    },
+    "unlock": [
+      {
+        "item": "levitate:linear_chassis"
+      }
+    ]
+  }
+}

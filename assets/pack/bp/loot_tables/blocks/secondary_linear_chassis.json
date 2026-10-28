@@ -1,0 +1,14 @@
+{
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "item",
+          "name": "levitate:secondary_linear_chassis",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

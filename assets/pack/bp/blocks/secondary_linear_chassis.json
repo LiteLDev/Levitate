@@ -1,0 +1,273 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:secondary_linear_chassis",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:axis": [
+          0,
+          1,
+          2
+        ],
+        "levitate:sticky_top": [
+          0,
+          1
+        ],
+        "levitate:sticky_bottom": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:map_color": "#8a6a43",
+      "minecraft:loot": "loot_tables/blocks/secondary_linear_chassis.json",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_secondary_linear_chassis_side",
+          "render_method": "opaque"
+        }
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:sticky_top') == 0 && q.block_state('levitate:sticky_bottom') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:sticky_top') == 0 && q.block_state('levitate:sticky_bottom') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:sticky_top') == 1 && q.block_state('levitate:sticky_bottom') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:sticky_top') == 1 && q.block_state('levitate:sticky_bottom') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:sticky_top') == 0 && q.block_state('levitate:sticky_bottom') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:sticky_top') == 0 && q.block_state('levitate:sticky_bottom') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:sticky_top') == 1 && q.block_state('levitate:sticky_bottom') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:sticky_top') == 1 && q.block_state('levitate:sticky_bottom') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:sticky_top') == 0 && q.block_state('levitate:sticky_bottom') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:sticky_top') == 0 && q.block_state('levitate:sticky_bottom') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:sticky_top') == 1 && q.block_state('levitate:sticky_bottom') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_secondary_linear_chassis_end",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:sticky_top') == 1 && q.block_state('levitate:sticky_bottom') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_secondary_linear_chassis_side",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_secondary_linear_chassis_end_sticky",
+              "render_method": "opaque"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
