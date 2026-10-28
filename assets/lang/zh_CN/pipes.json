@@ -1,0 +1,9 @@
+{
+  "lv.pipes.cmd.none": "{0} 处没有管道。",
+  "lv.pipes.cmd.block": "{1} 处的 {0}",
+  "lv.pipes.cmd.idle": "没有压力。",
+  "lv.pipes.cmd.pressure": "压力 入 {0} / 出 {1}",
+  "lv.pipes.cmd.flow": "{0} {1}流动（{2}%）",
+  "lv.pipes.cmd.network": "每刻向 {1} 个目标输送 {0} mB",
+  "lv.pipes.fluid.milk": "牛奶"
+}
