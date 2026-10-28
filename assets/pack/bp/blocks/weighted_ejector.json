@@ -1,0 +1,144 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:weighted_ejector",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "levitate:lid": [
+          0,
+          1
+        ],
+        "levitate:rotor": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.weighted_ejector",
+        "bone_visibility": {
+          "plate_down": "q.block_state('levitate:lid') == 0",
+          "plate_up": "q.block_state('levitate:lid') == 1",
+          "spring": "q.block_state('levitate:lid') == 1",
+          "shaft_static": "q.block_state('levitate:rotor') == 0",
+          "rotor": false
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_weighted_ejector_side",
+          "render_method": "opaque"
+        },
+        "down": {
+          "texture": "levitate_weighted_ejector_bottom",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "levitate_weighted_ejector_side",
+          "render_method": "opaque"
+        },
+        "plate": {
+          "texture": "levitate_weighted_ejector_top",
+          "render_method": "opaque"
+        },
+        "shaft": {
+          "texture": "levitate_weighted_ejector",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          13,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          13,
+          16
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/weighted_ejector.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 0",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 1",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
