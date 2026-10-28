@@ -1,0 +1,272 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:sticker",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:extended": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:map_color": "#9a9d96",
+      "minecraft:loot": "loot_tables/blocks/sticker.json",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_sticker_side",
+          "render_method": "opaque"
+        }
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:extended') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_sticker_front",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:extended') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_sticker_front_extended",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:extended') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_sticker_front",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:extended') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_sticker_front_extended",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:extended') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_sticker_front",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:extended') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_sticker_front_extended",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:extended') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_sticker_front",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:extended') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_sticker_front_extended",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:extended') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_sticker_front",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:extended') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_sticker_front_extended",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:extended') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_sticker_front",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:extended') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_sticker_side",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_sticker_front_extended",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_sticker_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

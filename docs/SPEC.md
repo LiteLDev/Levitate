@@ -179,6 +179,30 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
 `super_glue` (item), `linear_chassis`, `secondary_linear_chassis`, `radial_chassis`, `sticker`.
 
+- `super_glue`: tool, stack 1, 99 uses (one use per glued region; creative uses none). Right-click a
+  block: first corner ("Click again to confirm"); right-click the second corner: the box is glued if
+  every side is at most `maxSuperGlueRange` (24) blocks ("Selected area is too big") and the corners
+  are connected through solid blocks inside the box ("Selected blocks must be connected"); sneak +
+  right-click discards ("Selection discarded"). Hitting a glued block while holding glue removes
+  its regions. Players holding glue see the regions (particle outlines, §8).
+- `linear_chassis` / `secondary_linear_chassis`: states `levitate:axis` 0..2 (x, y, z; from the clicked
+  face when placed), `levitate:sticky_top` (positive axis end), `levitate:sticky_bottom`. Slime ball or
+  super glue on a non-sticky end makes it sticky; on a sticky end makes both ends sticky; sneak +
+  empty hand on a sticky end clears it (no item is used, as Create). Range 1..`maxChassisRange`,
+  default `maxChassisRange / 2` = 8, shared by the connected chassis group (U3's value box; until then
+  `/create contraption chassis <x y z> <range>`). The secondary chassis connects only to secondary
+  chassis (shapeless crafting turns one into the other).
+- `radial_chassis`: `levitate:axis`, sticky sides `levitate:sticky_north|south|east|west` (for axis y
+  the world sides; axis x: north, south, up, down; axis z: up, down, east, west).
+- `sticker`: states `levitate:facing` 0..5 (down, up, north, south, west, east; placed facing the
+  player, sneaking: away), `levitate:extended` = powered by redstone (polled every 4 ticks). Extended,
+  it holds the block in front on a contraption.
+- Recipes (Create 6.0.10): super glue = andesite alloy, slime ball / iron sheet, andesite alloy;
+  linear chassis ×3 = andesite alloy / log / andesite alloy; radial chassis ×3 = andesite alloy, log,
+  andesite alloy; sticker = andesite alloy, slime ball, andesite alloy / cobblestone, redstone,
+  cobblestone. They need U9's andesite alloy and iron sheet and are added with U9; the shapeless
+  linear ↔ secondary conversions ship now.
+
 ### 2.18 Contraption actors (U22)
 
 `mechanical_harvester`, `mechanical_plough`, `mechanical_roller`, `portable_storage_interface`,
@@ -312,6 +336,58 @@ list, whitelist-any/whitelist-all/blacklist).
 - **Client**: the client mod renders contraption blocks at their interpolated transform, including
   rotating kinetic parts and actors' animations.
 
+Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
+
+- **API for anchors**: `assemble(AssembleOptions{anchor, start, forced, axis, pivot, kind,
+  includeAnchor}) -> AssembleResult{id | errorKey, errorText}`; `find(id)` → `Contraption&` with
+  `setTransform(t)` (anchors that compute their position each tick: bearings, pistons),
+  `setMotion({velocity, angularVelocity, follow, ticks})` (velocity per tick, follow an actor),
+  `stop()`, `storage()`, `anchorData()`, `seat()`; `disassemble(id)`; `all()`. Ids are persisted:
+  keep the id in your BlockData, never the pointer. Transform: local block coordinates relative to
+  the anchor; `world = origin + offset + pivot + R(local - pivot)`, R = rotation by `angle` degrees
+  about `axis` (right-hand rule). `/create contraption assemble|move|rotate|stop|disassemble|list|
+  demo` is the test anchor.
+- **Assembly rules** (Create's `Contraption#moveBlock`, pure code in `src/core/contraption/Assembly`):
+  BFS from the start positions; a neighbour joins when both are in one glue region, when it is
+  attached towards the block (torches, ladders, signs, banners, buttons, levers, lanterns, bells,
+  rails, carpets, redstone, pressure plates, doors, beds, extended stickers), when the block is slime
+  or honey and both can stick (not brittle, not glazed terracotta, supportive, slime ≠ honey), or in
+  the forced direction. Chassis add their connected chassis (same kind and axis; radial: along the
+  axis) and their included positions (linear: up to the range along each sticky end, stopping at
+  air, brittle or non-supportive blocks; radial: a disc of radius `range + 0.5` from each sticky
+  side). Doors, beds and double chests move whole. Blocks are moved when they are not air, not
+  replaceable and have a collision shape or a block entity (brittle blocks and fence gates always).
+  Unmovable: unbreakable blocks (destroy time −1: bedrock, barrier, command/structure blocks, end
+  portal frame…) and `unmovableBlocks` (portals, piston parts, moving blocks); obsidian is movable as in
+  Create. Errors (world untouched): `create.gui.assembly.exception.unmovableBlock` (a forced
+  neighbour or a start block), `.chunkNotLoaded`, `.structureTooLarge` (> `maxBlocksMoved`).
+- **Carried data**: block NBT (`name` + states) and block entity NBT (chests keep their pair);
+  `registerDataCarrier({name, capture, restore, rotate})` moves other units' per-block data (U3's
+  BlockData plugs in here; chassis ranges use it). Merged storage: vanilla chests, trapped chests,
+  barrels, shulker boxes, hoppers, dispensers and droppers (`Storage::insertItem/extractItem/slot`);
+  tanks through `registerFluidStorage(blockId, {read, write})` on the carried data.
+- **Movement each tick**: the anchor's transform or the motion; actors (`registerActor(blockId,
+  MovementBehaviour{startMoving, tick, visitNewPosition, stopMoving, isActive})`, Create's
+  MovementBehaviour; an actor may `stall` the contraption); entities standing on it are carried
+  (the point under their feet follows the transform, rotation included); players and mobs are pushed
+  out of its blocks (also while it stands still: the blocks are gone from the world, the contraption
+  is the floor); seated entities (`registerSeat(blockId, height)`, entities in a seat block at assembly
+  or `seat()`) follow their seat, players leave by sneaking. Unloaded anchor chunk: frozen.
+- **Disassembly**: angle rounded to the nearest quarter turn, offset to whole blocks; block states
+  rotated (`facing_direction`, `minecraft:facing_direction`, `minecraft:block_face`,
+  `minecraft:cardinal_direction`, `pillar_axis`, `direction`, `weirdo_direction`,
+  `ground_sign_direction`, `torch_facing_direction`, `rail_direction`, `minecraft:vertical_half` /
+  `upside_down_bit` on half turns, `levitate:facing`, `levitate:axis`, chassis sticky sides;
+  `registerRotationHandler` for others); solid blocks first, then brittle ones bottom-up; a block whose
+  place is occupied drops as an item (with its container's contents) and the world block stays; glue
+  regions are placed back transformed. One log line per assembly / disassembly / dropped block.
+- **Display**: each block is a vanilla falling-block entity (never falls, never lands; orphans from a
+  saved world vanish) at the block's rotated center showing the block rotated by the nearest quarter
+  turn; its own rotation carries the axis (pitch) and the remaining angle (yaw), so the client mod
+  turns it by the exact angle about its center. Persistence: `lv:contraption:c:<id>` (blocks,
+  transform, motion, glue, seats, anchor data), `lv:contraption:glue`, `lv:contraption:chassis`,
+  `lv:contraption:stickers`.
+
 ### 3.5 Tracks (U5)
 
 - Placing track on another track's end with the track item in hand connects them with a curve
@@ -407,6 +483,9 @@ place:
 | hose_pulley | 4 | | |
 | chain_conveyor | 1 ⚠ | | |
 
+`config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
+keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
+
 ## 6. Commands
 
 | Command | Who | Owner |
@@ -414,7 +493,8 @@ place:
 | `/create reload`, `/create selftest ["glob"]` | op | foundation |
 | `/create kinetics <pos>` (dump network: speed, stress, sources) | op | U2 |
 | `/create killtrain <name>`, `/create trains` | op | U27 |
-| `/create glue clear <radius>` ⚠ (Create's `/create clearglue` equivalent) | op | U4 |
+| `/create glue clear [radius]` (Create's `/create clearglue`; default 16, around the sender) | op | U4 |
+| `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
 | `/create ponder <id>` (client mod) | anyone | U30 |
 | `/create highlight <pos>` | op | U3 |
 | `/create overlay reset` | anyone | U8 |
@@ -434,6 +514,10 @@ matches Create's official Chinese translation wording).
 | Placeable flowing honey/chocolate in the world | Bedrock has no data-driven custom fluids | they exist in pipes, tanks, basins, buckets (as items); emptying a bucket in the world places a custom non-flowing source block ⚠ U19 decides |
 | JEI/EMI recipe viewers, Create's config GUI | no such mods on Bedrock | recipes visible in Ponder/tooltips; JSON configs + `/create reload` |
 | Create's mod-compat crushed ores for absent mods | no such mods | items exist (as Create registers them), with the vanilla-only recipes |
+| Contraption blocks drawn as one rotating model on **vanilla** clients (U4) | a vanilla client draws a falling-block entity axis-aligned and can't be told to turn it | each block is its own falling-block entity at its exact rotated position, showing the block turned by the nearest quarter turn; the client mod turns each block by the remaining angle so the structure looks exact |
+| Contraption collision computed by the client (U4) | Bedrock clients only collide with real blocks and a few entity types | the server pushes players out of the contraption and carries them (teleports); with lag this is less smooth than Create's client-side collision |
+| Glue region outlines (U4) | no client-side line rendering without a client renderer for it | particles along the edges of nearby regions for players holding super glue (client mod and vanilla) |
+| Redstone input of the sticker (U4) | custom blocks get no redstone neighbour update | the sticker polls the redstone power of its neighbours every 4 ticks (redstone blocks, wire, torches, levers, buttons, repeaters, comparators, observers, anything with `redstone_signal`) |
 
 Units add rows here in their PRs when they find something else impossible.
 

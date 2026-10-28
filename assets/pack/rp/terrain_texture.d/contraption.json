@@ -1,0 +1,41 @@
+{
+  "levitate_linear_chassis_side": {
+    "textures": "textures/blocks/linear_chassis_side"
+  },
+  "levitate_linear_chassis_end": {
+    "textures": "textures/blocks/linear_chassis_end"
+  },
+  "levitate_linear_chassis_end_sticky": {
+    "textures": "textures/blocks/linear_chassis_end_sticky"
+  },
+  "levitate_secondary_linear_chassis_side": {
+    "textures": "textures/blocks/secondary_linear_chassis_side"
+  },
+  "levitate_secondary_linear_chassis_end": {
+    "textures": "textures/blocks/secondary_linear_chassis_end"
+  },
+  "levitate_secondary_linear_chassis_end_sticky": {
+    "textures": "textures/blocks/secondary_linear_chassis_end_sticky"
+  },
+  "levitate_radial_chassis_side": {
+    "textures": "textures/blocks/radial_chassis_side"
+  },
+  "levitate_radial_chassis_side_sticky": {
+    "textures": "textures/blocks/radial_chassis_side_sticky"
+  },
+  "levitate_radial_chassis_end": {
+    "textures": "textures/blocks/radial_chassis_end"
+  },
+  "levitate_sticker_side": {
+    "textures": "textures/blocks/sticker_side"
+  },
+  "levitate_sticker_back": {
+    "textures": "textures/blocks/sticker_back"
+  },
+  "levitate_sticker_front": {
+    "textures": "textures/blocks/sticker_front"
+  },
+  "levitate_sticker_front_extended": {
+    "textures": "textures/blocks/sticker_front_extended"
+  }
+}

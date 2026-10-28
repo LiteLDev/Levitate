@@ -1,0 +1,14 @@
+{
+  "levitate:linear_chassis": {
+    "sound": "wood"
+  },
+  "levitate:secondary_linear_chassis": {
+    "sound": "wood"
+  },
+  "levitate:radial_chassis": {
+    "sound": "wood"
+  },
+  "levitate:sticker": {
+    "sound": "stone"
+  }
+}
