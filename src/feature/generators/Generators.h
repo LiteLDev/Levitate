@@ -19,6 +19,7 @@
 
 class Block;
 class BlockSource;
+class ItemStack;
 class Player;
 
 namespace lv::feature::generators {
@@ -49,7 +50,7 @@ inline constexpr char kExtendoGrip[] = "levitate:extendo_grip";
 struct Config {
     int   version               = 1;
     /// Hunger used per hand crank use, multiplied by the crank's speed (Create's crankHungerMultiplier).
-    float crankHungerMultiplier = 0.01f;
+    float crankHungerMultiplier = cg::kCrankHunger;
 };
 
 enum class Kind : std::uint8_t { None, Crank, Valve, WaterWheel, LargeWheel, Structure, Motor };
@@ -83,7 +84,7 @@ bool applyMaterial(GlobalPos const& pos, std::string const& heldId);
 void orientPlaced(Player& player, GlobalPos const& pos, Face clickedFace);
 /// Places a large water wheel as Create's LargeWaterWheelBlockItem (the clicked position or one
 /// further). Returns false (and tells the player) when there is no room.
-bool placeLargeWheel(Player& player, GlobalPos const& clickedPlacement, Face clickedFace);
+bool placeLargeWheel(Player& player, ItemStack& held, GlobalPos const& clickedPlacement, Face clickedFace);
 /// Notes that a creative player broke the block at `pos` (structure blocks: no drop).
 void noteCreativeBreak(GlobalPos const& pos);
 

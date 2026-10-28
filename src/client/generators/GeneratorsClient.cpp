@@ -20,6 +20,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -98,12 +99,11 @@ struct PosEq {
     bool operator()(BlockPos const& a, BlockPos const& b) const noexcept { return a.x == b.x && a.y == b.y && a.z == b.z; }
 };
 
-/// What the client knows about a block state (computed once per Block).
+/// What the client knows about a block state (computed once per Block, copied out under the lock).
 struct Info {
     Kind         kind   = Kind::None;
     Block const* hidden = nullptr; ///< structure: its `rotor = 1` variant
     int          facing = 1;
-    std::string  model, texture;   ///< handles
 };
 
 struct Synced {
@@ -111,6 +111,7 @@ struct Synced {
     int   sourceFace = -1;
 };
 struct ValveTurn {
+    int           dim    = 0;
     std::uint64_t start  = 0;
     int           total  = 0;
     int           target = 0;
@@ -124,8 +125,9 @@ struct Crank {
 };
 
 struct State {
-    std::mutex                                                                     mutex; ///< infos, tracked (chunk builder threads), speeds
+    std::shared_mutex                                                              infoMutex; ///< infos (chunk builder threads)
     std::unordered_map<Block const*, Info>                                         infos;
+    std::mutex                                                                     mutex; ///< tracked (chunk builder threads), speeds, valves
     std::unordered_set<BlockPos, PosHash, PosEq>                                   tracked;
     std::unordered_map<int, std::unordered_map<BlockPos, Synced, PosHash, PosEq>> speeds;
     std::unordered_map<BlockPos, ValveTurn, PosHash, PosEq>                        valves;
@@ -140,21 +142,14 @@ State& state() {
     return s;
 }
 
-Info const& infoOf(Block const& block) {
-    auto&           s = state();
-    std::lock_guard lock(s.mutex);
-    auto [it, fresh] = s.infos.try_emplace(&block);
-    if (!fresh) return it->second;
-    auto&       info = it->second;
-    std::string id   = block.getTypeName();
+Info computeInfo(Block const& block) {
+    Info        info;
+    std::string id = block.getTypeName();
     if (!id.starts_with("levitate:")) return info;
-    std::string path = id.substr(9);
     if (id == "levitate:hand_crank") {
-        info.kind  = Kind::Crank;
-        info.model = "geometry.levitate.hand_crank.rotor";
-    } else if (path.ends_with("_valve_handle")) {
-        info.kind  = Kind::Valve;
-        info.model = "geometry.levitate.valve_handle.rotor";
+        info.kind = Kind::Crank;
+    } else if (id.ends_with("_valve_handle")) {
+        info.kind = Kind::Valve;
     } else if (id == "levitate:water_wheel_structure") {
         if (game::intState(block, "levitate:rotor").value_or(-1) == 0) {
             if (auto const* st = block.getBlockType().getBlockState(HashedString("levitate:rotor"))) {
@@ -168,10 +163,27 @@ Info const& infoOf(Block const& block) {
     } else {
         return info;
     }
-    info.texture = "levitate_" + path;
-    int f        = game::intState(block, "levitate:facing").value_or(1);
-    info.facing  = f >= 0 && f <= 5 ? f : 1;
+    int f       = game::intState(block, "levitate:facing").value_or(1);
+    info.facing = f >= 0 && f <= 5 ? f : 1;
     return info;
+}
+
+Info infoOf(Block const& block) {
+    auto& s = state();
+    {
+        std::shared_lock lock(s.infoMutex);
+        if (auto it = s.infos.find(&block); it != s.infos.end()) return it->second;
+    }
+    Info            info = computeInfo(block);
+    std::unique_lock lock(s.infoMutex);
+    s.infos.emplace(&block, info);
+    return info;
+}
+
+/// The rotor geometry and terrain texture of a handle block.
+std::pair<std::string, std::string> handleModel(Block const& block, Kind kind) {
+    std::string id = block.getTypeName();
+    return {kind == Kind::Crank ? "geometry.levitate.hand_crank.rotor" : "geometry.levitate.valve_handle.rotor", "levitate_" + id.substr(9)};
 }
 
 // ---- meshes (as the kinetics renderer builds its rotor meshes) -------------------------------------------
@@ -220,20 +232,26 @@ mce::Mesh* handleMesh(Tessellator& tess, std::string const& model, std::string c
     return slot.get();
 }
 
-void resetLevel(bool dropTracked) {
-    auto&           s = state();
+/// A new level (block states are registered again) or leaving it (`all`: the speeds too).
+void resetLevel(bool all) {
+    auto& s = state();
+    {
+        std::unique_lock lock(s.infoMutex);
+        s.infos.clear();
+    }
     std::lock_guard lock(s.mutex);
-    s.infos.clear();
-    s.speeds.clear();
     s.valves.clear();
     s.cranks.clear();
     s.loggedDraw = false;
-    if (dropTracked) s.tracked.clear();
+    if (all) {
+        s.speeds.clear();
+        s.tracked.clear();
+    }
     meshCache().clear();
 }
 
 /// The handle's angle in degrees about the facing's positive axis.
-float handleAngle(Info const& info, BlockPos const& pos, Synced const& synced, std::uint64_t tick, float partial) {
+float handleAngle(Info const& info, int dim, BlockPos const& pos, Synced const& synced, std::uint64_t tick, float partial) {
     auto& s = state();
     if (info.kind == Kind::Crank) {
         // HandCrankBlockEntity.tick / getIndependentAngle: angle (radians) = (independentAngle + pt * chasing) / 360
@@ -251,7 +269,7 @@ float handleAngle(Info const& info, BlockPos const& pos, Synced const& synced, s
     std::optional<ValveTurn> turn;
     {
         std::lock_guard lock(s.mutex);
-        if (auto it = s.valves.find(pos); it != s.valves.end()) turn = it->second;
+        if (auto it = s.valves.find(pos); it != s.valves.end() && it->second.dim == dim) turn = it->second;
     }
     float elapsed = turn ? static_cast<float>(tick - turn->start) + partial : 0.f;
     if ((!turn || elapsed >= static_cast<float>(turn->total)) && synced.sourceFace >= 0 && synced.speed != 0) {
@@ -264,9 +282,10 @@ float handleAngle(Info const& info, BlockPos const& pos, Synced const& synced, s
 }
 
 struct DrawItem {
-    BlockPos    pos;
-    Info const* info;
-    Synced      synced;
+    BlockPos     pos;
+    Info         info;
+    Block const* block;
+    Synced       synced;
 };
 
 void renderHandles(BaseActorRenderContext& ctx) {
@@ -296,12 +315,13 @@ void renderHandles(BaseActorRenderContext& ctx) {
             stale.push_back(p);
             continue;
         }
-        auto const& info = infoOf(region.getBlock(p));
+        auto const& block = region.getBlock(p);
+        auto        info  = infoOf(block);
         if (info.kind != Kind::Crank && info.kind != Kind::Valve) {
             stale.push_back(p);
             continue;
         }
-        items.push_back(DrawItem{p, &info, {}});
+        items.push_back(DrawItem{p, info, &block, {}});
     }
     {
         std::lock_guard lock(s.mutex);
@@ -329,11 +349,12 @@ void renderHandles(BaseActorRenderContext& ctx) {
     auto&      world  = screen.camera.worldMatrixStack.get();
 
     for (auto const& item : items) {
-        auto const& info   = *item.info;
-        auto        facing = static_cast<Face>(info.facing);
-        auto*       mesh   = handleMesh(tess, info.model, k::isPositive(facing) ? "handle_pos" : "handle_neg", info.texture);
+        auto const& info          = item.info;
+        auto        facing        = static_cast<Face>(info.facing);
+        auto [model, textureName] = handleModel(*item.block, info.kind);
+        auto* mesh                = handleMesh(tess, model, k::isPositive(facing) ? "handle_pos" : "handle_neg", textureName);
         if (!mesh) continue;
-        float     angle = handleAngle(info, item.pos, item.synced, tick, alpha);
+        float     angle = handleAngle(info, dim, item.pos, item.synced, tick, alpha);
         auto      a     = k::axisOf(facing);
         glm::vec3 axis{a == k::Axis::X ? 1.f : 0.f, a == k::Axis::Y ? 1.f : 0.f, a == k::Axis::Z ? 1.f : 0.f};
         auto      ref = world.push(false);
@@ -387,7 +408,7 @@ LL_STATIC_HOOK(
     bool                                                               checkIgnoreBlockTransforms
 ) {
     if (visualReference == ClientBlockPipeline::VisualReference::Block) {
-        auto const& info = infoOf(block);
+        auto info = infoOf(block);
         if (info.kind == Kind::Structure && info.hidden) {
             return origin(*info.hidden, iterData, extraction, worldView, shouldGenerateFaceCulling, visualReference, tintResolver, biomeTintCache, chunkMinPos, checkIgnoreBlockTransforms);
         }
@@ -445,6 +466,7 @@ public:
             auto* level = ci ? ci->getLevel() : nullptr;
             if (!level) return;
             ValveTurn t;
+            t.dim       = pos[0].get<int>();
             t.start     = static_cast<std::uint64_t>(level->getCurrentTick().tickID);
             t.total     = msg.value("ticks", 0);
             t.target    = msg.value("target", 0);

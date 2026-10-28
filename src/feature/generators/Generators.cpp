@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
+#include "ll/api/event/player/PlayerPlaceBlockEvent.h"
 #include "ll/api/event/world/BlockChangedEvent.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
 #include "ll/api/service/Bedrock.h"
@@ -35,6 +36,7 @@
 #include "mc/world/level/block/LiquidBlockBase.h"
 #include "mc/world/level/dimension/Dimension.h"
 #include "mc/world/level/material/Material.h"
+#include "mc/world/phys/AABB.h"
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
@@ -74,7 +76,8 @@ struct Wheel {
 struct State {
     std::map<GlobalPos, Handle>                 handles;
     std::map<GlobalPos, Wheel>                  wheels;
-    std::map<GlobalPos, std::vector<GlobalPos>> watch; ///< checked position -> wheels
+    std::map<GlobalPos, std::vector<GlobalPos>> watch;    ///< checked position -> wheels
+    std::map<GlobalPos, std::vector<GlobalPos>> watching; ///< wheel -> its checked positions
     std::set<GlobalPos>                         dirtyWheels;
     std::set<GlobalPos>                         refresh; ///< generators whose speed must be re-applied
     std::vector<GlobalPos>                      build;   ///< large wheels that need their structure
@@ -149,26 +152,33 @@ std::optional<std::pair<Axis, bool>> wheelShape(Block const& block) {
 }
 
 void unwatch(GlobalPos const& wheel) {
-    auto& s = state();
-    for (auto it = s.watch.begin(); it != s.watch.end();) {
-        std::erase_if(it->second, [&](GlobalPos const& p) { return p == wheel; });
-        it = it->second.empty() ? s.watch.erase(it) : std::next(it);
+    auto& s  = state();
+    auto  it = s.watching.find(wheel);
+    if (it == s.watching.end()) return;
+    for (auto const& cell : it->second) {
+        auto w = s.watch.find(cell);
+        if (w == s.watch.end()) continue;
+        std::erase_if(w->second, [&](GlobalPos const& p) { return p == wheel; });
+        if (w->second.empty()) s.watch.erase(w);
     }
+    s.watching.erase(it);
 }
 
 void watchWheel(GlobalPos const& wheel, Block const& block) {
     auto shape = wheelShape(block);
     if (!shape) return;
     unwatch(wheel);
-    auto& s = state();
-    for (auto const& o : cg::wheelOffsets(shape->first, shape->second)) s.watch[shifted(wheel, o)].push_back(wheel);
-    s.watch[wheel].push_back(wheel);
+    auto& s     = state();
+    auto& cells = s.watching[wheel];
+    for (auto const& o : cg::wheelOffsets(shape->first, shape->second)) cells.push_back(shifted(wheel, o));
+    cells.push_back(wheel);
+    for (auto const& c : cells) s.watch[c].push_back(wheel);
 }
 
-void trackWheel(GlobalPos const& pos, Block const& block) {
+void trackWheel(GlobalPos const& pos, Block const& block, bool shapeChanged) {
     auto& s = state();
     s.wheels.try_emplace(pos);
-    watchWheel(pos, block);
+    if (shapeChanged || !s.watching.contains(pos)) watchWheel(pos, block);
     s.dirtyWheels.insert(pos);
 }
 
@@ -355,7 +365,7 @@ void onBlockChanged(ll::event::BlockChangedEvent& ev) {
     if (kn == Kind::None && kp == Kind::None) return;
 
     bool sameType = &now.getBlockType() == &prev.getBlockType();
-    if (kn == Kind::WaterWheel || kn == Kind::LargeWheel) trackWheel(pos, now);
+    if (kn == Kind::WaterWheel || kn == Kind::LargeWheel) trackWheel(pos, now, !sameType || wheelShape(now) != wheelShape(prev));
     else if (kp == Kind::WaterWheel || kp == Kind::LargeWheel) untrackWheel(pos);
 
     if (kn == Kind::Crank || kn == Kind::Valve || kn == Kind::Motor) s.refresh.insert(pos);
@@ -610,7 +620,7 @@ void orientPlaced(Player& player, GlobalPos const& pos, Face clickedFace) {
     log().info("{} placed at {} facing {} by {}", b->getTypeName(), posText(pos), k::faceName(facing), player.getRealName());
 }
 
-bool placeLargeWheel(Player& player, GlobalPos const& placement, Face clickedFace) {
+bool placeLargeWheel(Player& player, ItemStack& held, GlobalPos const& placement, Face clickedFace) {
     auto* region = regionOf(placement.dim);
     if (!region) return false;
     bool sneaking = player.isSneaking();
@@ -643,11 +653,21 @@ bool placeLargeWheel(Player& player, GlobalPos const& placement, Face clickedFac
             return false;
         }
     }
+    // BlockItem.place: nobody in the way, and other mods (land claims) may refuse it
+    AABB box{Vec3{static_cast<float>(at.x), static_cast<float>(at.y), static_cast<float>(at.z)}, Vec3{at.x + 1.f, at.y + 1.f, at.z + 1.f}};
+    if (!region->isUnobstructedByEntities(box, nullptr)) return false;
+    uchar                               face = static_cast<uchar>(clickedFace);
+    ll::event::PlayerPlacingBlockEvent placing(player, bp(at), face);
+    ll::event::EventBus::getInstance().publish(placing);
+    if (placing.isCancelled()) return false;
     auto const* block = game::blockWith(kLargeWheel, {{kAxisState, static_cast<int>(axis)}, {kWood, cg::kDefaultWood}});
     if (!block || !game::setBlock(*region, bp(at), *block)) return false;
+    ll::event::PlayerPlacedBlockEvent placed(player, bp(at), *block);
+    ll::event::EventBus::getInstance().publish(placed);
     if (!player.isCreative()) {
-        auto const& held = player.getSelectedItem();
-        player.setSelectedItem(common::items::withCount(held, common::items::countOf(held) - 1));
+        auto rest = common::items::withCount(held, common::items::countOf(held) - 1);
+        if (&held == &player.getOffhandSlot()) player.setOffhandSlot(rest);
+        else player.setSelectedItem(rest);
     }
     player.sendInventory(false);
     playSound(at, "use.wood", 1.f, .8f);
@@ -724,7 +744,7 @@ void evaluateWheel(GlobalPos const& pos) {
         untrackWheel(pos);
         return;
     }
-    if (!s.watch.contains(pos)) watchWheel(pos, block);
+    if (!s.watching.contains(pos)) watchWheel(pos, block);
     int score = cg::flowScore(shape->first, shape->second, [&](k::Offset const& o) { return flowAt(*region, shifted(pos, o)); });
     if (it->second.score == score) return;
     bool first        = !it->second.score.has_value();

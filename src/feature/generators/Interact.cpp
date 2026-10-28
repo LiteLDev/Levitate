@@ -151,7 +151,7 @@ LL_TYPE_INSTANCE_HOOK(
     BlockPos target = placementPos(region, at, face);
     if (placing == Kind::LargeWheel) {
         if (!player.canUseAbility(AbilitiesIndex::Build)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-        bool placed = placeLargeWheel(player, game::globalPos(region, target), static_cast<Face>(face));
+        bool placed = placeLargeWheel(player, item, game::globalPos(region, target), static_cast<Face>(face));
         if (!placed) {
             resendBlock(player, region, target);
             player.sendInventory(false);
