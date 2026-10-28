@@ -9,6 +9,8 @@
 --   assets/pack/rp/texts.d/<locale>/*.lang    -> RP texts/<locale>.lang (+ texts/languages.json)
 --   assets/pack/rp/sounds.d/*.json            -> RP sounds/sound_definitions.json (sound_definitions entries)
 --   assets/pack/rp/blocks.d/*.json            -> RP blocks.json (per-block "sound" / "textures" entries)
+--   assets/recipes/<type>/**.json             -> recipes/<type>/**.json (processing recipes, U3 loader)
+--   assets/recipes/tags/*.json                -> recipes/tags/*.json (item / fluid tag fragments)
 -- Empty merges write nothing (an empty Lua table would be saved as a JSON array).
 -- Everything else under assets/pack/{bp,rp} is copied as is (directories ending in ".d" are skipped).
 -- "${version}" in pack manifests is replaced by the mod version as a JSON array [major, minor, patch].
@@ -130,6 +132,20 @@ local function merge_texts(src, dst)
     json.savefile(path.join(dst, "texts", "languages.json"), locales)
 end
 
+-- Processing recipes (Create's recipe types) for the U3 loader: copied as they are, the
+-- previous copy is replaced so deleted recipes disappear.
+local function copy_recipes(projectdir, outdir)
+    local src = path.join(projectdir, "assets", "recipes")
+    local dst = path.join(outdir, "recipes")
+    os.tryrm(dst)
+    if not os.isdir(src) then return end
+    for _, file in ipairs(os.files(path.join(src, "**.json"))) do
+        local target = path.join(dst, path.relative(file, src))
+        os.mkdir(path.directory(target))
+        os.cp(file, target)
+    end
+end
+
 function main(target, target_type)
     local projectdir = os.projectdir()
     local outdir = path.join(projectdir, "bin", target_type, "Levitate")
@@ -152,6 +168,7 @@ function main(target, target_type)
     io.writefile(path.join(outdir, "manifest.json"), manifest)
 
     merge_lang(projectdir, path.join(outdir, "lang"))
+    copy_recipes(projectdir, outdir)
 
     local version = {major, minor, patch}
     if major == 0 and minor == 0 and patch == 0 then version = {0, 0, 1} end -- packs reject 0.0.0
