@@ -127,6 +127,21 @@ LV_REGISTER_SELFTEST("assembly.deployer_places_block", [](Context& ctx) -> ll::c
     ctx.check(items::countOf(deployer::held(p)) == 1, "one cobblestone used");
 });
 
+LV_REGISTER_SELFTEST("assembly.deployer_places_oriented", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // with a block to place against, the placement goes through the player's item use: a log
+    // placed by a deployer facing down stands upright on the floor
+    auto p = up(ctx.testPos(1525), 3);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    auto target = off(p, 0, -2, 0);
+    ctx.cleanupBlock(target);
+    ctx.require(ctx.setBlock(off(target, 0, -1, 0), "minecraft:stone"), "floor");
+    ctx.require(poweredDeployer(ctx, p, Face::Down, core::kinetics::Axis::X), "powered deployer facing down");
+    deployer::setHeld(p, item(ctx, "minecraft:oak_log", 1));
+    bool placed = co_await waitFor([&] { return idAt(ctx, target) == "minecraft:oak_log"; }, 120);
+    ctx.check(placed, "a log was placed on the floor: " + idAt(ctx, target));
+    ctx.check(items::isEmpty(deployer::held(p)), "the log was used");
+});
+
 LV_REGISTER_SELFTEST("assembly.deployer_punch_breaks", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto p = up(ctx.testPos(1505), 1);
     ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");

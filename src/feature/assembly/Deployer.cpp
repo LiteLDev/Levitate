@@ -24,6 +24,7 @@
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/gamemode/GameMode.h"
+#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/HandSlot.h"
 #include "mc/world/item/Item.h"
 #include "mc/world/item/ItemStack.h"
@@ -321,10 +322,22 @@ void act(Hand const& h, ItemStack& held, std::vector<ItemStack>& extra, std::opt
                 game::clearBlock(*region, firePos);
                 detail::playSound(h.dim, firePos.x + .5, firePos.y + .5, firePos.z + .5, "random.fizz", .5f, 2.6f);
             } else {
-                float before = breaking && breaking->first == c ? breaking->second : 0.f;
+                float before   = breaking && breaking->first == c ? breaking->second : 0.f;
                 float progress = fp->getDestroyProgress(block) * ca::kDeployerBreakFactor + before;
                 if (progress >= 1.f) {
-                    gm.destroyBlock(c, static_cast<uchar>(face));
+                    // harvest as the player would (tool, enchantments), without the survival
+                    // break timing checks GameMode applies to network players
+                    bool destroyed = false;
+                    gm.startDestroyBlock(c, static_cast<uchar>(face), destroyed);
+                    if (!destroyed && region->getBlock(c).getTypeName() == block.getTypeName()) {
+                        block.playerDestroy(*fp, c);
+                        game::clearBlock(*region, c);
+                        auto& tool = const_cast<ItemStack&>(inv.getItem(0));
+                        if (!items::isEmpty(tool) && tool.isDamageableItem()) {
+                            tool.hurtAndBreak(1, fp);
+                            if (tool.isNull()) inv.setItem(0, items::empty());
+                        }
+                    }
                     captureDrops(*region, c.x - .5, c.y - .5, c.z - .5, c.x + 1.5, c.y + 1.5, c.z + 1.5, extra);
                     breaking.reset();
                 } else if (progress <= 0.f) {
@@ -335,15 +348,34 @@ void act(Hand const& h, ItemStack& held, std::vector<ItemStack>& extra, std::opt
             }
         }
     } else if (!done) {
-        auto o = core::kinetics::offsetOf(face);
-        Vec3 hit{0.5f + o.x * 0.5f, 0.5f + o.y * 0.5f, 0.5f + o.z * 0.5f};
-        fp->mInputCooldownTick->reset();
-        bool used = fp->simulateUseItemInSlotOnBlock(0, c, static_cast<ScriptModuleMinecraft::ScriptFacing>(face), hit);
-        auto const& cur = inv.getItem(0);
-        if (!used && !items::isEmpty(cur) && items::idOf(cur) != "minecraft:ender_pearl") {
-            fp->mInputCooldownTick->reset();
-            fp->simulateUseItemInSlot(0);
-            fp->simulateStopUsingItem();
+        auto& slot0  = const_cast<ItemStack&>(inv.getItem(0));
+        auto  useOn  = [&](BlockPos const& at, Face f) {
+            auto o = core::kinetics::offsetOf(f);
+            Vec3 hit{0.5f + o.x * 0.5f, 0.5f + o.y * 0.5f, 0.5f + o.z * 0.5f};
+            auto const& target = region->getBlock(at);
+            return gm.useItemOn(slot0, at, static_cast<uchar>(f), hit, HandSlot::Mainhand, &target, true).mSuccess;
+        };
+        bool used = useOn(c, face);
+        // a block item facing air: place it against a neighbour of the target (Create's ray
+        // places into the empty block in front; Bedrock needs a face to click)
+        if (!used && !items::isEmpty(slot0) && game::replaceable(*region, c) && game::blockWith(items::idOf(slot0)) != nullptr) {
+            for (Face side : {h.facing, Face::Down, Face::North, Face::South, Face::West, Face::East, Face::Up}) {
+                if (side == face) continue;
+                auto n = detail::offsetPos(c, side);
+                if (!region->hasChunksAt(n, 0, false) || game::replaceable(*region, n)) continue;
+                if ((used = useOn(n, core::kinetics::opposite(side)))) break;
+            }
+            if (!used) {
+                // nothing to place against: Create places into the air in front
+                if (auto const* b = game::blockWith(items::idOf(slot0)); b && game::setBlock(*region, c, *b)) {
+                    inv.setItem(0, items::withCount(slot0, items::countOf(slot0) - 1));
+                    used = true;
+                }
+            }
+        }
+        if (!used && !items::isEmpty(slot0) && items::idOf(slot0) != "minecraft:ender_pearl") {
+            gm.useItem(slot0, HandSlot::Mainhand);
+            gm.releaseUsingItem();
         }
     }
 
