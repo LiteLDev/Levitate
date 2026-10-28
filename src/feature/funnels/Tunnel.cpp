@@ -455,8 +455,9 @@ void updateTunnelShape(BlockSource& region, GlobalPos const& pos) {
     bool canWindow  = tunnelBlock(region, offset(bp, fw)) && tunnelBlock(region, offset(bp, cf::oppositeFace(fw)));
     auto shape      = cf::tunnelShape(output(left), output(cf::oppositeFace(left)), canWindow);
     auto current    = shapeOf(*b);
-    // Create's updateShape keeps a window / closed choice while the tunnel stays straight
-    if (axis == axisOf(*b) && cf::hasWindow(shape) == cf::hasWindow(current)) shape = current;
+    // Create keeps the wrench's window / closed choice while the tunnel stays straight between
+    // two tunnels
+    if (axis == axisOf(*b) && shape == cf::TunnelShape::Window && current == cf::TunnelShape::Closed) shape = current;
     setStates(region, bp, {{kAxis, axis}, {kShape, static_cast<int>(shape)}});
 }
 

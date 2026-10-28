@@ -243,7 +243,7 @@ void tickFunnel(BlockSource& region, GlobalPos const& pos, Block const& blockIn,
     activateExtractor(region, pos, *block);
 }
 
-bool useFunnel(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block, int face, ItemStack const& held) {
+bool useFunnel(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block, int face, ItemStack& held) {
     int facing = facingOf(block);
     if (face != facing) return false;
     if (state(block, kExtracting) || state(block, kPowered)) return false;
@@ -251,10 +251,11 @@ bool useFunnel(Player& player, BlockSource& region, GlobalPos const& pos, Block 
     if (items::isEmpty(held)) return true;
     ItemStack toInsert = held;
     auto      rest     = funnelInsert(region, pos, toInsert, false);
-    if (items::countOf(rest) != items::countOf(held)) {
-        player.setSelectedItem(rest);
-        log().info("funnels: {} inserted {} x{} through the funnel at {}", player.getRealName(), items::idOf(held),
-            items::countOf(held) - items::countOf(rest), pos.key());
+    if (items::countOf(rest) != items::countOf(toInsert)) {
+        held = rest; // the stack in the hand that used the funnel
+        player.sendInventory(false);
+        log().info("funnels: {} inserted {} x{} through the funnel at {}", player.getRealName(), items::idOf(toInsert),
+            items::countOf(toInsert) - items::countOf(rest), pos.key());
     }
     return true;
 }

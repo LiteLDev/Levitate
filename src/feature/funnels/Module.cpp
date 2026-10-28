@@ -426,7 +426,7 @@ void onPlaced(GlobalPos const& pos, Kind kind, std::optional<Intent> intent) {
 }
 
 /// A right-click on one of our blocks; true when it was handled (no placement / item use).
-bool onUse(Player& player, BlockSource& region, BlockPos const& at, int face, Vec3 const& click, ItemStack const& held) {
+bool onUse(Player& player, BlockSource& region, BlockPos const& at, int face, Vec3 const& click, ItemStack& held) {
     auto const* block = loadedBlock(region, at);
     if (!block) return false;
     Kind kind = kindOf(block->getTypeName());

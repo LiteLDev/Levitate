@@ -224,11 +224,11 @@ std::optional<int> comparatorRear(Block const& b) {
         int d = game::intState(b, "direction").value_or(0);
         dir   = names[std::clamp(d, 0, 3)];
     }
-    // the comparator outputs towards the placer's facing; its input is the block behind
-    if (dir == "north") return cf::kSouth;
-    if (dir == "south") return cf::kNorth;
-    if (dir == "west") return cf::kEast;
-    if (dir == "east") return cf::kWest;
+    // Bedrock's cardinal direction of a comparator points from its output to its input (rear)
+    if (dir == "north") return cf::kNorth;
+    if (dir == "south") return cf::kSouth;
+    if (dir == "west") return cf::kWest;
+    if (dir == "east") return cf::kEast;
     return std::nullopt;
 }
 

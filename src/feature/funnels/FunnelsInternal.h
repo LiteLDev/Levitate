@@ -135,7 +135,7 @@ void registerAmountBox(std::string const& blockId, std::function<std::optional<s
 // funnels
 void installFunnels();
 void tickFunnel(BlockSource& region, GlobalPos const& pos, Block const& block, std::uint64_t tick);
-bool useFunnel(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block, int face, ItemStack const& held);
+bool useFunnel(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block, int face, ItemStack& held);
 bool wrenchFunnel(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block);
 void placeFunnel(Player* player, BlockSource& region, GlobalPos const& pos, bool sneaking, Vec3 const& look);
 /// Inserts into the inventory a funnel is attached to (Create's FunnelBlock.tryInsert).

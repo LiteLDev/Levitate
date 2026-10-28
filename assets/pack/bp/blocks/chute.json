@@ -1,0 +1,224 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:chute",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:shape": [
+          2,
+          0,
+          1,
+          3
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#a9adb2",
+      "minecraft:loot": "loot_tables/blocks/chute.json",
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.chute"
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_chute_side",
+          "render_method": "alpha_test"
+        },
+        "side": {
+          "texture": "levitate_chute_side",
+          "render_method": "alpha_test"
+        },
+        "top": {
+          "texture": "levitate_chute_top",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -6,
+          0,
+          -6
+        ],
+        "size": [
+          12,
+          16,
+          12
+        ]
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -6,
+          0,
+          -6
+        ],
+        "size": [
+          12,
+          16,
+          12
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_chute_window",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_chute_window",
+              "render_method": "alpha_test"
+            },
+            "top": {
+              "texture": "levitate_chute_top",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_chute_intersection",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_chute_intersection",
+              "render_method": "alpha_test"
+            },
+            "top": {
+              "texture": "levitate_chute_top",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape') == 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.chute_encased"
+          },
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_chute_encased",
+              "render_method": "opaque"
+            },
+            "side": {
+              "texture": "levitate_chute_encased",
+              "render_method": "opaque"
+            },
+            "top": {
+              "texture": "levitate_chute_top",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') != 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.chute_diagonal"
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') != 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.chute_diagonal"
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') != 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.chute_diagonal"
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') != 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.chute_diagonal"
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
