@@ -1,7 +1,7 @@
 #pragma once
 
 // Deployer maths (Create's DeployerBlockEntity / DeployerRenderer / DirectionalAxisKineticBlock),
-// independent of the game (U15, SPEC §3.6.1).
+// independent of the game (U15, SPEC §3.6.15).
 
 #include "core/kinetics/Types.h"
 

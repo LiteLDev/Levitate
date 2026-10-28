@@ -1,5 +1,5 @@
 // Mechanical arm (Create's ArmBlock / ArmBlockEntity / ArmInteractionPoint(Type)s /
-// ArmInteractionPointHandler), SPEC §3.6.2.
+// ArmInteractionPointHandler), SPEC §3.6.15.
 //
 // Holding the arm item, right-clicking a block that is an interaction point selects it as an input
 // ("Take items from"), clicking it again makes it an output ("Deposit items to"); placing the arm

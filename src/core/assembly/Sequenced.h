@@ -1,7 +1,7 @@
 #pragma once
 
 // Sequenced assembly recipes (Create's SequencedAssemblyRecipe), independent of the game (U15,
-// SPEC §3.6.3).
+// SPEC §3.6.15).
 //
 //     {"type": "create:sequenced_assembly",
 //      "ingredient": {"item": "create:golden_sheet"},

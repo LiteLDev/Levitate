@@ -55,7 +55,7 @@ SimulatedPlayer* get(int dim) {
         auto* p = detail::playerById(e.id);
         if (p && p->isSimulatedPlayer() && static_cast<int>(p->getDimensionId()) == dim) {
             // a freshly created player needs a few ticks before it can act
-            if (detail::currentTick() - e.created < 3) return nullptr;
+            if (detail::currentTick() - e.created < 2) return nullptr;
             return static_cast<SimulatedPlayer*>(p);
         }
         if (p && p->isSimulatedPlayer()) static_cast<SimulatedPlayer*>(p)->simulateDisconnect();

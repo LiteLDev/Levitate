@@ -1,6 +1,6 @@
 #pragma once
 
-// Sequenced assembly engine (U15, SPEC §3.6.3): the contract other units' machines use.
+// Sequenced assembly engine (U15, SPEC §3.6.15): the contract other units' machines use.
 //
 // Create's sequenced assembly recipes (`assets/recipes/sequenced_assembly/*.json`) are chains of
 // deploying / pressing / cutting / filling steps on a transitional ("incomplete") item. Every

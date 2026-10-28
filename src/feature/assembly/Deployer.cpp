@@ -1,5 +1,5 @@
 // Deployer (Create's DeployerBlock / DeployerBlockEntity / DeployerHandler / DeployerItemHandler /
-// BeltDeployerCallbacks / DeployerMovementBehaviour), SPEC §3.6.1.
+// BeltDeployerCallbacks / DeployerMovementBehaviour), SPEC §3.6.15.
 //
 // A kinetic block that, while turning, reaches its hand out two blocks in front of it and uses or
 // punches with the item it holds, through the dimension's deployer player (FakePlayer.cpp).

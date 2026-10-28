@@ -1,7 +1,7 @@
 #pragma once
 
 // Mechanical arm maths (Create's ArmBlockEntity / ArmAngleTarget), independent of the game
-// (U15, SPEC §3.6.2).
+// (U15, SPEC §3.6.15).
 
 #include <array>
 
