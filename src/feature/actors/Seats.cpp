@@ -281,7 +281,10 @@ struct Registrar {
                 return std::nullopt;
             },
             [](BlockSource& region, core::GlobalPos const& pos, Json const& data) {
-                if (data.value("controls", false)) trackStationaryControls(pos);
+                if (data.value("controls", false)) {
+                    trackStationaryControls(pos);
+                    if (data.contains("disabled")) setIntState(region, toBlockPos(pos), "levitate:disabled", data.value("disabled", false) ? 1 : 0);
+                }
                 if (!data.value("seat", false)) return;
                 // Create's addPassengersToWorld: the riders sit on the placed seat
                 cc::Vec3d p{pos.x + .5, pos.y + kCarriedHeight, pos.z + .5};

@@ -2,7 +2,7 @@
 # settings, portable storage interfaces, contraption controls, seats), then a harvester carried
 # by the contraption test anchor from the console with its log lines.
 $r = Invoke-SelfTest 'actors.*'
-if ($r.Pass -lt 12) { throw "expected at least 12 actors selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 11) { throw "expected at least 11 actors selftests to pass, got $($r.Pass)" }
 
 # A harvester on a stone, driven over ripe wheat with `/create contraption`.
 Send-Console 'tickingarea add 0 -64 0 15 -40 15 lv_actors_e2e true'

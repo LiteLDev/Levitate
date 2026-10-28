@@ -265,8 +265,9 @@ void controlsStopMoving(con::MovementContext& ctx) {
     if (!doc.is_object()) doc = Json::object();
     std::string f = filterIdOf(&doc);
     doc["actors"]["disabled"] = typeDisabled(ctx.contraption.id(), f) || typeDisabled(ctx.contraption.id(), "");
-    // its indicator (the carried block state shows on vanilla clients after disassembly)
-    ctx.states["levitate:disabled"] = std::int64_t{doc["actors"]["disabled"].get<bool>() ? 1 : 0};
+    // its indicator: set on the placed block at disassembly (the "actors" carrier, Seats.cpp)
+    bool off = doc["actors"]["disabled"].get<bool>();
+    if (data.contains("actors") && data["actors"].is_object()) data["actors"]["disabled"] = off;
 }
 
 void trackStationaryControls(GlobalPos const& pos) {
