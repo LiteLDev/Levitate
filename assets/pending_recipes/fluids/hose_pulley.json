@@ -1,0 +1,35 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:hose_pulley"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "C",
+      "K",
+      "S"
+    ],
+    "key": {
+      "C": {
+        "item": "levitate:copper_casing"
+      },
+      "K": {
+        "item": "minecraft:dried_kelp_block"
+      },
+      "S": {
+        "item": "levitate:copper_sheet"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:copper_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:hose_pulley"
+    }
+  }
+}
