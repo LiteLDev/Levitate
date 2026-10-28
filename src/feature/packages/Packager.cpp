@@ -73,24 +73,6 @@ Access accessOf(Target const& t) { return Access{*regionOf(t.pos.dim), game::blo
 /// Key identifying item + data (for summaries).
 std::string keyOf(ItemStack const& s) { return items::toJson(items::withCount(s, 1)).dump(); }
 
-ItemStack insertStacked(std::vector<ItemStack>& slots, ItemStack const& stack) {
-    int count = items::countOf(stack);
-    int limit = std::min(64, std::max(1, int(stack.getMaxStackSize())));
-    for (int pass = 0; pass < 2 && count > 0; ++pass) {
-        for (auto& slot : slots) {
-            bool empty = items::isEmpty(slot);
-            if (pass == 0 ? (empty || !items::sameItemSameData(slot, stack)) : !empty) continue;
-            int have  = items::countOf(slot);
-            int moved = std::min(limit - have, count);
-            if (moved <= 0) continue;
-            slot = items::withCount(stack, have + moved);
-            count -= moved;
-            if (count <= 0) break;
-        }
-    }
-    return items::withCount(stack, count);
-}
-
 void wakeTheFrogs(GlobalPos const& pos) {
     auto up = offsetFace(pos, 1);
     if (kindOf(idAt(up)) != Kind::Frogport) return;
@@ -143,7 +125,7 @@ bool defaultUnpack(BlockSource& region, BlockPos const& target, int facing, std:
     int                    n = handler->slots(at);
     for (int i = 0; i < n; ++i) copy.push_back(handler->getSlot(at, i));
     for (auto const& s : stacks) {
-        if (!items::isEmpty(insertStacked(copy, s))) return false;
+        if (!items::isEmpty(insertStackedInto(copy, s))) return false;
         if (!items::isEmpty(handler->insert(at, s, true))) return false;
     }
     return true;
@@ -465,12 +447,12 @@ void sendFromInventory(GlobalPos const& pos, std::vector<PackagingRequest>* queu
                 if (bulky && anyItemPresent) continue;
                 // how much fits into the package
                 auto probe = extracted;
-                int  fits  = want - items::countOf(insertStacked(probe, items::withCount(inSlot, want)));
+                int  fits  = want - items::countOf(insertStackedInto(probe, items::withCount(inSlot, want)));
                 if (fits <= 0) continue;
                 auto got = t->handler->extract(at, [inSlot](ItemStack const& x) { return items::sameItemSameData(x, inSlot); }, fits, false);
                 if (items::isEmpty(got)) continue;
                 anyItemPresent = true;
-                auto rest      = insertStacked(extracted, got);
+                auto rest      = insertStackedInto(extracted, got);
                 if (!items::isEmpty(rest)) (void)t->handler->insert(at, rest, false);
                 int transferred = items::countOf(got) - items::countOf(rest);
                 if (isPackage(got)) extractedPackage = got;

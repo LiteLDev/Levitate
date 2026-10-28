@@ -215,6 +215,7 @@ struct ConveyorState {
     std::map<cp::Offset, ConnectedPort>          travelPorts;
     cp::RoutingTable                             routing;
     bool                                         reversed     = false;
+    bool                                         tickReversed = false; ///< `reversed` as of this conveyor's last tick
     bool                                         checkInvalid = true;
     std::map<cp::Offset, cp::ConnectionStats>    stats;
     bool                                         statsValid = false;
@@ -265,6 +266,8 @@ void openPackage(Player& player);
 /// Release after holding use: throws the package (Create's releaseUsing).
 void throwPackage(Player& player, int ticksHeld);
 void openPackageFilterForm(Player& player);
+/// NeoForge's insertItemStacked into `slots` (slot limit 64): returns what did not fit.
+ItemStack insertStackedInto(std::vector<ItemStack>& slots, ItemStack const& stack);
 void installItemScreens();
 
 // ---- client sync (Sync.cpp) ---------------------------------------------------------------------------------
@@ -272,7 +275,6 @@ void installItemScreens();
 void syncFrog(GlobalPos const& pos, PortState const& s);
 /// Chains and packages of conveyors near companions (called every few ticks).
 void syncConveyors();
-void syncConveyorNow(GlobalPos const& pos);
 
 /// Sends `payload` on `channel` to companions within 96 blocks of `near` (same dimension).
 void broadcast(GlobalPos const& near, std::string const& channel, Json const& payload);

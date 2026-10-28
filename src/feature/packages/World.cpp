@@ -265,7 +265,10 @@ std::vector<std::string> const& chainItemIds() {
     static std::vector<std::string> ids = [] {
         std::vector<std::string> out;
         for (char const* id : {"minecraft:chain", "minecraft:iron_chain"})
-            if (items::make(id)) out.emplace_back(id);
+            if (auto s = items::make(id)) {
+                auto real = items::idOf(*s);
+                if (std::find(out.begin(), out.end(), real) == out.end()) out.push_back(real);
+            }
         return out;
     }();
     return ids;

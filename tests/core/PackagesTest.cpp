@@ -50,6 +50,14 @@ TEST(PackageGlob, Syntax) {
     EXPECT_FALSE(Glob("*{!_old}").matches("depot_old"));
 }
 
+TEST(PackageGlob, Pathological) {
+    std::string longA(200, 'a');
+    EXPECT_FALSE(matchAddress(longA, "*a*a*a*a*a*a*a*a*a*a*b"));
+    std::string huge(5000, 'x');
+    EXPECT_TRUE(matchAddress(huge, huge));
+    EXPECT_FALSE(matchAddress(huge, "x*"));
+}
+
 TEST(PackageGlob, InvalidMatchesOnlyEmpty) {
     for (char const* bad : {"[]", "[!]", "[abc", "{a,{b}}", "{abc", "abc\\", "[c-a]"}) {
         Glob g(bad);

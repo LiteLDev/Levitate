@@ -1,6 +1,7 @@
 #include "core/packages/Address.h"
 
 #include <functional>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -34,7 +35,12 @@ bool classContains(Element const& e, char c) {
 
 using Cont = std::function<bool(std::size_t)>;
 
+/// Work limit of one match: player-typed globs like `*a*a*a*b` must not stall the server tick.
+constexpr long kStepBudget = 200000;
+thread_local long tSteps   = 0;
+
 bool matchSeq(Sequence const& seq, std::size_t i, std::string_view text, std::size_t pos, Cont const& cont) {
+    if (++tSteps > kStepBudget) return false;
     if (i == seq.size()) return cont(pos);
     auto const& e = seq[i];
     switch (e.kind) {
@@ -195,13 +201,14 @@ bool parse(std::string_view p, Sequence& out) {
 } // namespace
 
 struct Glob::Impl {
+    // (see Address.h)
     Sequence seq;
     bool     invalid = false;
 };
 
 Glob::Glob(std::string_view pattern) {
     auto impl = std::make_shared<Impl>();
-    if (!parse(pattern, impl->seq)) {
+    if (pattern.size() > kMaxAddressLength || !parse(pattern, impl->seq)) {
         impl->seq.clear();
         impl->invalid = true;
     }
@@ -210,6 +217,8 @@ Glob::Glob(std::string_view pattern) {
 
 bool Glob::matches(std::string_view text) const {
     if (mImpl->invalid) return text.empty();
+    if (text.size() > kMaxAddressLength) return false;
+    tSteps = 0;
     return matchSeq(mImpl->seq, 0, text, 0, [&](std::size_t p) { return p == text.size(); });
 }
 
@@ -225,7 +234,15 @@ bool matchAddress(std::string_view boxAddress, std::string_view address) {
     if (isBlank(address)) return isBlank(boxAddress);
     if (address == "*" || boxAddress == "*") return true;
     if (address == boxAddress) return true;
-    return Glob(boxAddress).matches(address) || Glob(address).matches(boxAddress);
+    // compiled globs are cached: ports and routing tables match the same filters every tick
+    thread_local std::unordered_map<std::string, Glob> cache;
+    auto compiled = [](std::string_view p) -> Glob const& {
+        auto it = cache.find(std::string(p));
+        if (it != cache.end()) return it->second;
+        if (cache.size() > 512) cache.clear();
+        return cache.emplace(std::string(p), Glob(p)).first->second;
+    };
+    return compiled(boxAddress).matches(address) || compiled(address).matches(boxAddress);
 }
 
 } // namespace lv::core::packages

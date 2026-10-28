@@ -178,7 +178,6 @@ bool removeConnectionTo(GlobalPos const& pos, GlobalPos const& target) {
     s.statsValid = false;
     saveConveyor(pos);
     k::refresh(pos);
-    syncConveyorNow(pos);
     return true;
 }
 
@@ -245,7 +244,8 @@ ConveyorState& conveyor(GlobalPos const& pos) {
             auto& list = s.travelling[*to];
             for (auto const& p : t.value("packages", Json::array())) list.push_back(packageFrom(p));
         }
-        s.reversed = j.value("reversed", false);
+        s.reversed     = j.value("reversed", false);
+        s.tickReversed = s.reversed;
     }
     return m.emplace(pos, std::move(s)).first->second;
 }
@@ -313,7 +313,6 @@ bool addLoopingPackage(GlobalPos const& pos, ChainPackage box) {
     box.world = cp::loopPosition(corner(pos), box.chainPosition);
     s.looping.push_back(std::move(box));
     saveConveyor(pos);
-    syncConveyorNow(pos);
     return true;
 }
 
@@ -323,7 +322,6 @@ bool addTravellingPackage(GlobalPos const& pos, ChainPackage box, cp::Offset con
     box.world = packagePosition(pos, s, box.chainPosition, connection);
     s.travelling[connection].push_back(std::move(box));
     saveConveyor(pos);
-    syncConveyorNow(pos);
     return true;
 }
 
@@ -338,8 +336,10 @@ void tickConveyor(GlobalPos const& pos, bool) {
     float rpm             = speedOf(pos);
     float distance        = cp::distancePerTick(rpm);
     float degrees         = cp::degreesPerTick(rpm);
-    bool  reversedBefore  = s.reversed;
     prepareStats(pos, s);
+    // compare with this conveyor's own last tick: other code may have run prepareStats already
+    bool reversedBefore = s.tickReversed;
+    s.tickReversed      = s.reversed;
 
     s.routing.tick();
     if (s.routing.shouldAdvertise()) {
@@ -378,6 +378,8 @@ void tickConveyor(GlobalPos const& pos, bool) {
         }
     }
 
+    auto const travelPorts = s.travelPorts; // exporting may change the maps
+    auto const loopPorts   = s.loopPorts;
     for (auto& [target, list] : s.travelling) {
         auto st = s.stats.find(target);
         if (st == s.stats.end()) continue;
@@ -389,7 +391,7 @@ void tickConveyor(GlobalPos const& pos, bool) {
             box.chainPosition = std::min(stats.chainLength, box.chainPosition + distance);
             float anticipatePosition = std::min(stats.chainLength, box.chainPosition + distance * 4);
             bool  removed = false;
-            for (auto const& [portOffset, portInfo] : std::map<cp::Offset, ConnectedPort>(s.travelPorts)) {
+            for (auto const& [portOffset, portInfo] : travelPorts) {
                 if (prev > portInfo.chainPosition) continue;
                 if (!portInfo.connection || *portInfo.connection != target) continue;
                 bool notYet = box.chainPosition < portInfo.chainPosition;
@@ -433,7 +435,7 @@ void tickConveyor(GlobalPos const& pos, bool) {
         box.chainPosition = cp::wrapAngle(box.chainPosition + degrees);
         float anticipatePosition = cp::wrapAngle(box.chainPosition + degrees * 4);
         bool  removed = false;
-        for (auto const& [portOffset, portInfo] : std::map<cp::Offset, ConnectedPort>(s.loopPorts)) {
+        for (auto const& [portOffset, portInfo] : loopPorts) {
             bool notYet = !cp::loopThresholdCrossed(box.chainPosition, prev, portInfo.chainPosition, s.reversed);
             if (notYet && !cp::loopThresholdCrossed(anticipatePosition, prev, portInfo.chainPosition, s.reversed)) continue;
             if (!matchAddress(addressOf(box.item), portInfo.filter)) continue;
@@ -474,7 +476,6 @@ void tickConveyor(GlobalPos const& pos, bool) {
     updateBoxWorldPositions(pos, s);
     if (changed) {
         saveConveyor(pos);
-        syncConveyorNow(pos);
     }
 }
 
@@ -491,8 +492,6 @@ bool connectConveyors(Player* player, GlobalPos const& a, GlobalPos const& b) {
     saveConveyor(b);
     k::refresh(a);
     k::refresh(b);
-    syncConveyorNow(a);
-    syncConveyorNow(b);
     log().info("packages: chain conveyors at {} and {} connected{}", a.key(), b.key(), player ? " by " + player->getRealName() : "");
     return added;
 }
@@ -520,7 +519,7 @@ void onConveyorRemoved(GlobalPos const& pos, Json const& data, bool creativeBrea
         if (auto to = offsetFrom(t.value("to", Json())))
             for (auto const& p : t.value("packages", Json::array())) s.travelling[*to].push_back(packageFrom(p));
     states().erase(pos);
-    for (auto const& c : s.stats.empty() ? s.connections : s.connections) s.stats[c] = cp::connectionStats(corner(pos), c, s.reversed);
+    for (auto const& c : s.connections) s.stats[c] = cp::connectionStats(corner(pos), c, s.reversed);
     s.statsValid = true;
     for (auto const& c : s.connections) {
         chainDestroyed(pos, s, c, !creativeBreak);
@@ -557,6 +556,7 @@ bool useConveyorWithChain(Player& player, GlobalPos const& pos) {
     auto key  = player.getOrCreateUniqueID().rawID;
     auto fail = [&](char const* keySuffix, char const* fallback) {
         actionBar(player, "§c" + trFor(player, std::string("create.chain_conveyor.") + keySuffix, fallback));
+        log().info("packages: chain connection refused for {}: {}", player.getRealName(), keySuffix);
         playSound(pos.dim, centre(pos), "levitate.packages.deny");
         return false;
     };
@@ -566,6 +566,7 @@ bool useConveyorWithChain(Player& player, GlobalPos const& pos) {
     if (it == selections().end() || it->second.pos.dim != pos.dim || !hasConveyor(it->second.pos)) {
         if (player.isSneaking()) return false;
         selections()[key] = {pos};
+        log().info("packages: {} selected the chain conveyor at {}", player.getRealName(), pos.key());
         actionBar(player, trFor(player, "create.chain_conveyor.select_second", "Select a second conveyor to connect"));
         return true;
     }
@@ -609,10 +610,8 @@ void refundChainsOnWrench(Player& player, GlobalPos const& pos) {
     for (auto const& c : std::set<cp::Offset>(s.connections)) {
         auto other = offset(pos, c);
         removeConnectionTo(other, pos);
-        s.connections.erase(c);
+        removeConnectionTo(pos, other); // drops the boxes on this end's chain too
     }
-    s.statsValid = false;
-    saveConveyor(pos);
 }
 
 // ---- picking ---------------------------------------------------------------------------------------
@@ -684,7 +683,6 @@ bool takePackageFromChain(Player& player, PackagePick const& pick) {
             list.erase(it);
             giveOrDrop(player, box);
             saveConveyor(pick.conveyor);
-            syncConveyorNow(pick.conveyor);
             log().info("packages: {} took a package off the chain conveyor at {}", player.getRealName(), pick.conveyor.key());
             return true;
         }

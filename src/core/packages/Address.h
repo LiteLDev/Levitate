@@ -16,6 +16,9 @@
 
 namespace lv::core::packages {
 
+/// Longer addresses / patterns never glob-match (they still match themselves exactly).
+inline constexpr std::size_t kMaxAddressLength = 256;
+
 /// A compiled glob (cheap to copy; immutable).
 class Glob {
 public:

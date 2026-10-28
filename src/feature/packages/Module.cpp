@@ -312,6 +312,11 @@ LL_TYPE_INSTANCE_HOOK(
     auto         kind    = kindOf(game::blockId(*clicked));
     auto         heldId  = items::idOf(item);
     bool         sneak   = player.isSneaking();
+    // the caller writes `item` back into the hand slot: keep it in sync with what we changed
+    auto done = [&] {
+        item = player.getSelectedItem();
+        return consumed();
+    };
 
     try {
         // chains in front of the clicked block
@@ -321,7 +326,7 @@ LL_TYPE_INSTANCE_HOOK(
             hitAbs = {hit.x, hit.y, hit.z};
         }
         double blockDistance = eyePos(player).distanceTo(hitAbs);
-        if (chainInteraction(player, item, blockDistance)) return consumed();
+        if (chainInteraction(player, item, blockDistance)) return done();
 
         // the logistics blocks themselves
         if (kind == Kind::Packager || kind == Kind::Repackager) {
@@ -329,17 +334,17 @@ LL_TYPE_INSTANCE_HOOK(
                      || (heldId == "levitate:stock_link" && !stateAt(target, kLinked).value_or(0)) || (sneak && !item.isNull());
             if (!pass) {
                 if (!debounced(player, target)) usePackager(player, target);
-                return consumed();
+                return done();
             }
         } else if (kind == Kind::Frogport || kind == Kind::Postbox) {
             if (!sneak) {
                 if (!debounced(player, target)) usePort(player, target, kind);
-                return consumed();
+                return done();
             }
         } else if (kind == Kind::ChainConveyor) {
             if (isChainItem(item)) {
                 if (!debounced(player, target)) useConveyorWithChain(player, target);
-                return consumed();
+                return done();
             }
             if (heldId == kFrogportId) {
                 // Create: the frogport item selects a chain target instead of being placed on the conveyor
@@ -352,7 +357,7 @@ LL_TYPE_INSTANCE_HOOK(
                     t.exact             = pick->exact;
                     setPendingTarget(player, t);
                 }
-                return consumed();
+                return done();
             }
             if (heldId == kWrenchId && sneak) refundChainsOnWrench(player, target);
         }
@@ -368,24 +373,28 @@ LL_TYPE_INSTANCE_HOOK(
                 t.postbox     = true;
                 setPendingTarget(player, t);
             }
-            return consumed();
+            return done();
         }
 
         // package items: sneak opens, otherwise it is put down on the block
         if (isPackage(item)) {
-            if (debounced(player, target)) return consumed();
             if (sneak) {
-                openPackage(player);
-            } else {
-                cp::V3 at3 = hitAbs;
-                if (face == 0) at3.y -= 1.0;
-                dropItem(player.getDimensionId(), at3 + cp::V3{0, 0.1, 0}, items::withCount(item, 1), cp::V3{});
-                if (!player.isCreative()) {
-                    player.setSelectedItem(items::withCount(item, items::countOf(item) - 1));
-                    player.sendInventory(false);
-                }
+                // Java skips the block's use while sneaking with an item: the package opens
+                if (!debounced(player, target)) openPackage(player);
+                return done();
             }
-            return consumed();
+            // the block's own use (chests, doors, other units' machines) comes first, as Create's
+            // PackageItem.useOn only runs when the block passes
+            auto result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+            if (result.mSuccess || !isPackage(item) || debounced(player, target)) return result;
+            cp::V3 at3 = hitAbs;
+            if (face == 0) at3.y -= 1.0;
+            dropItem(player.getDimensionId(), at3 + cp::V3{0, 0.1, 0}, items::withCount(item, 1), cp::V3{});
+            if (!player.isCreative()) {
+                player.setSelectedItem(items::withCount(item, items::countOf(item) - 1));
+                player.sendInventory(false);
+            }
+            return done();
         }
 
         // placing one of our blocks
@@ -426,11 +435,15 @@ LL_TYPE_INSTANCE_HOOK(PackagesUseItemHook, ll::memory::HookPriority::Normal, Gam
     Player& player = mPlayer;
     if (!isServerPlayer(player)) return origin(item, handSlot);
     try {
-        if (chainInteraction(player, item, 1e9)) return true;
+        if (chainInteraction(player, item, 1e9)) {
+            item = player.getSelectedItem();
+            return true;
+        }
         if (isChainItem(item) && player.isSneaking()) clearChainSelection(player, true);
         if (isPackage(item)) {
             if (player.isSneaking()) {
                 if (!debounced(player, GlobalPos{-1, 0, 0, 0})) openPackage(player);
+                item = player.getSelectedItem();
                 return true;
             }
             // Create: hold to charge, release to throw

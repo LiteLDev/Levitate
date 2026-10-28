@@ -1,5 +1,4 @@
 {
-  "create.packager.no_portable_storage": "打包机不能与移动式存储接口直接连接",
   "create.chain_conveyor.already_connected": "传动轮已被连接",
   "create.chain_conveyor.blocks_invalid": "传动轮方块无效，潜行并点击以重置",
   "create.chain_conveyor.cannot_add_more_connections": "无法为此传动轮方块添加更多连接",
@@ -11,9 +10,6 @@
   "create.chain_conveyor.too_far": "太远了",
   "create.chain_conveyor.too_steep": "坡度太陡",
   "create.chain_conveyor.valid_connection": "可以连接 ✔",
-  "create.package_port.cannot_reach_down": "无法向下连接",
-  "create.package_port.too_far": "太远了",
-  "create.package_port.valid": "可以连接 ✔",
   "create.gui.package_port.catch_packages": "截取派往……的包裹",
   "create.gui.package_port.catch_packages_empty": "留空以匹配无目的地的包裹",
   "create.gui.package_port.catch_packages_wildcard": "使用 * 作为文本通配符",
@@ -22,6 +18,10 @@
   "create.gui.package_port.send_only": "仅发送包裹",
   "create.hint.blocked_frogport": "此_蛙港_得到的一个_包裹_无法被运输到_下方__库存_中。请检查其是否已满？",
   "create.hint.blocked_frogport.title": "包含的包裹",
+  "create.package_port.cannot_reach_down": "无法向下连接",
+  "create.package_port.too_far": "太远了",
+  "create.package_port.valid": "可以连接 ✔",
+  "create.packager.no_portable_storage": "打包机不能与移动式存储接口直接连接",
   "lv.packages.chain_riding": "潜行以离开",
   "lv.packages.form.address": "地址",
   "lv.packages.form.insert": "放入我物品栏中的包裹",
@@ -29,7 +29,9 @@
   "lv.packages.form.take": "取出一个包裹",
   "lv.packages.more_items": "以及其他 {} 项……",
   "lv.packages.package_filter": "包裹过滤器",
-  "lv.packages.target_selected": "目标已选取",
   "lv.packages.port.address": "编辑地址",
-  "lv.packages.port.inventory": "包裹"
+  "lv.packages.port.inventory": "包裹",
+  "lv.packages.target_selected": "目标已选取",
+  "lv.packages.postbox": "邮箱",
+  "lv.packages.frogport": "货物蛙港"
 }

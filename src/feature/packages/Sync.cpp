@@ -70,10 +70,6 @@ void syncPackager(GlobalPos const& pos, PackagerState const& s) {
     );
 }
 
-void syncConveyorNow(GlobalPos const&) {
-    // conveyors are sent every 4 ticks (syncConveyors); structural changes simply wait for it
-}
-
 void syncConveyors() {
     auto level = ll::service::getLevel();
     if (!level) return;

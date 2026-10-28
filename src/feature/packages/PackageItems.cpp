@@ -42,8 +42,10 @@ bool stackable(ItemStack const& a, ItemStack const& b) { return items::sameItemS
 
 int maxStack(ItemStack const& s) { return std::max(1, int(s.getMaxStackSize())); }
 
-/// NeoForge's insertItemStacked into `slots` (slot limit 64). Returns the rest.
-ItemStack insertStackedInto(std::vector<ItemStack>& slots, ItemStack stack) {
+} // namespace
+
+ItemStack insertStackedInto(std::vector<ItemStack>& slots, ItemStack const& stack) {
+    // NeoForge's insertItemStacked (slot limit 64), the same rule as core::packages::insertStacked
     int count = items::countOf(stack);
     int limit = std::min(64, maxStack(stack));
     for (int pass = 0; pass < 2 && count > 0; ++pass) {
@@ -60,7 +62,6 @@ ItemStack insertStackedInto(std::vector<ItemStack>& slots, ItemStack stack) {
     }
     return items::withCount(stack, count);
 }
-} // namespace
 
 // ---- ids ---------------------------------------------------------------------------------------
 

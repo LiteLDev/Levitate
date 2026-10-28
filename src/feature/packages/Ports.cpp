@@ -403,7 +403,8 @@ void onPortPlaced(Player* player, GlobalPos const& pos, Kind kind) {
             cp::V3 source = corner(pos) + cp::V3{0.5, 0, 0.5};
             cp::V3 d      = t.exact - source;
             std::optional<std::string> error;
-            if (d.y < 0 && !t.postbox) error = "create.package_port.cannot_reach_down";
+            if (t.targetPos.dim != pos.dim) error = "create.package_port.too_far";
+            else if (d.y < 0 && !t.postbox) error = "create.package_port.cannot_reach_down";
             else if (d.length() > config().packagePortRange) error = "create.package_port.too_far";
             if (error) {
                 actionBar(*player, "§c" + trFor(*player, *error, *error == "create.package_port.too_far" ? "Too far away" : "Cannot connect downward"));
@@ -530,20 +531,22 @@ void portForm(Player& player, Json const& ctx) {
     form.appendToggle("accepts", trFor(player, "create.gui.package_port.send_and_receive", "Send and receive packages"), s.acceptsPackages);
     std::vector<std::string> options{trFor(player, "lv.packages.form.keep", "(none)")};
     std::vector<int>         slots{-1};
+    std::vector<std::string> shown{""}; // what each option showed: the slot must still hold it
     for (int i = 0; i < kPortSlots; ++i) {
         auto const& b = s.inventory[std::size_t(i)];
         if (items::isEmpty(b)) continue;
         auto a = addressOf(b);
         options.push_back(std::to_string(i + 1) + ": " + items::displayName(b) + (a.empty() ? "" : " → " + a));
         slots.push_back(i);
+        shown.push_back(items::toJson(b).dump());
     }
     form.appendDropdown("take", trFor(player, "lv.packages.form.take", "Take a package"), options, 0);
     form.appendToggle("insert", trFor(player, "lv.packages.form.insert", "Put the packages from my inventory in"), false);
     auto at = *pos;
     setOpen(at, true);
-    form.sendTo(player, [at, slots](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
+    form.sendTo(player, [at, slots, shown](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
         setOpen(at, false);
-        if (!result || !isPort(at)) return;
+        if (!result || !contextPort(p, {{"pos", posJson(at)}})) return;
         if (auto it = result->find("address"); it != result->end())
             if (auto const* t = std::get_if<std::string>(&it->second)) setAddressOf(at, *t, p);
         if (auto it = result->find("accepts"); it != result->end()) {
@@ -551,7 +554,10 @@ void portForm(Player& player, Json const& ctx) {
             else if (auto const* d = std::get_if<double>(&it->second)) setAccepts(at, *d != 0, p);
         }
         if (auto it = result->find("take"); it != result->end())
-            if (auto const* v = std::get_if<uint64>(&it->second); v && *v > 0 && *v < slots.size()) takeSlot(p, at, slots[*v]);
+            if (auto const* v = std::get_if<uint64>(&it->second); v && *v > 0 && *v < slots.size()) {
+                auto const& now = port(at).inventory[std::size_t(slots[*v])];
+                if (items::toJson(now).dump() == shown[*v]) takeSlot(p, at, slots[*v]);
+            }
         if (auto it = result->find("insert"); it != result->end()) {
             bool on = false;
             if (auto const* v = std::get_if<uint64>(&it->second)) on = *v != 0;
@@ -571,7 +577,7 @@ void addressForm(Player& player, GlobalPos const& pos) {
     form.appendLabel(trFor(player, "create.gui.package_port.catch_packages_empty", "Leave empty to match non-addressed"));
     form.appendInput("address", trFor(player, "lv.packages.form.address", "Address"), "", s.address);
     form.sendTo(player, [pos](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
-        if (!result || !isPort(pos)) return;
+        if (!result || !contextPort(p, {{"pos", posJson(pos)}})) return;
         if (auto it = result->find("address"); it != result->end())
             if (auto const* t = std::get_if<std::string>(&it->second)) setAddressOf(pos, *t, p);
         screens::open(p, kPortScreen, {{"pos", posJson(pos)}});
