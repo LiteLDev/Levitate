@@ -20,6 +20,7 @@
 #include "mc/network/MinecraftPackets.h"
 #include "mc/network/packet/PlaySoundPacket.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorHurtResult.h"
 #include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/gamemode/GameMode.h"
@@ -318,24 +319,23 @@ LL_TYPE_INSTANCE_HOOK(
 }
 
 // Create's WrenchItem.wrenchInstaKillsMinecarts: survival players break minecarts in one hit.
+// (Player::attack: network players and SimulatedPlayers both end up here.)
 LL_TYPE_INSTANCE_HOOK(
     WrenchAttackHook,
     ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$attack,
-    bool,
-    Actor&      entity,
-    Vec3 const& hitPosition
+    Player,
+    &Player::$attack,
+    ActorHurtResult,
+    Actor&                                       entity,
+    SharedTypes::Legacy::ActorDamageCause const& cause
 ) {
-    Player& player = mPlayer;
-    if (!player.isClientSide() && !player.isCreative() && isWrench(player.getSelectedItem())
-        && entity.getTypeName().ends_with("minecart")) {
+    if (!isClientSide() && !isCreative() && isWrench(getSelectedItem()) && entity.getTypeName().ends_with("minecart")
+        && entity.isAlive()) {
         auto type = entity.getTypeName();
-        entity.hurtByCause(100, SharedTypes::Legacy::ActorDamageCause::EntityAttack, player);
-        log().info("wrench: {} broke a {}", player.getRealName(), type);
-        if (!entity.isAlive()) return true;
+        entity.hurtByCause(100, SharedTypes::Legacy::ActorDamageCause::EntityAttack, *this);
+        log().info("wrench: {} broke a {}", getRealName(), type);
     }
-    return origin(entity, hitPosition);
+    return origin(entity, cause);
 }
 
 class WrenchModule {
