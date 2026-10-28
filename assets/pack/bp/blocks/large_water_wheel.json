@@ -1,0 +1,254 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:large_water_wheel",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:axis": [
+          0,
+          1,
+          2
+        ],
+        "levitate:extension": [
+          0,
+          1
+        ],
+        "levitate:wood": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "levitate:rotor": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.large_water_wheel.y11",
+        "bone_visibility": {
+          "cell": "q.block_state('levitate:rotor') == 0"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_water_wheel_spruce",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 3
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#6e4f2f",
+      "minecraft:loot": "loot_tables/blocks/large_water_wheel.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:wood') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_oak",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_spruce",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_birch",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 3",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_jungle",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 4",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_acacia",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 5",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_dark_oak",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 6",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_mangrove",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 7",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_cherry",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 8",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_bamboo",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 9",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_crimson",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 10",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_warped",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 11",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_pale_oak",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 0",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.large_water_wheel.x11",
+            "bone_visibility": {
+              "cell": "q.block_state('levitate:rotor') == 0"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.large_water_wheel.y11",
+            "bone_visibility": {
+              "cell": "q.block_state('levitate:rotor') == 0"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.large_water_wheel.z11",
+            "bone_visibility": {
+              "cell": "q.block_state('levitate:rotor') == 0"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
