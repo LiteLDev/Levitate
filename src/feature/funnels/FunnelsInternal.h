@@ -173,6 +173,11 @@ void forgetVaults();
 // crate
 void installCrate();
 
+// display items (client-only item entities showing items inside blocks)
+void        showItem(GlobalPos const& owner, ItemStack const& stack, Vec3 const& pos);
+void        hideItem(GlobalPos const& owner);
+std::size_t shownItems();
+
 /// Contents a broken block leaves behind (drops them at the position next tick).
 void dropLater(GlobalPos const& pos, std::vector<ItemStack> stacks);
 /// Runs `fn` on the next server tick (world edits after an interaction or a block change).

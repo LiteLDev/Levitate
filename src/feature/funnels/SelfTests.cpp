@@ -287,6 +287,8 @@ LV_REGISTER_SELFTEST("funnels.chute_down", [](Context& ctx) -> ll::coro::CoroTas
     auto rest = items::insert(r, bp(lone), -1, item(ctx, "minecraft:stone", 5), false);
     ctx.check(items::isEmpty(rest), "a chute takes a stack");
     ctx.check(items::countOf(fd::chuteItem(lone)) == 5, "and holds it");
+    co_await ctx.ticks(1);
+    ctx.check(fd::shownItems() > 0, "the moving stack is shown to the clients");
     co_await ctx.ticks(8);
     ctx.check(entitiesNear(r, lone, "minecraft:stone", 3.f, true) == 5, "it drops the stack out of the bottom");
     clearEntities(r, base, 4.f);

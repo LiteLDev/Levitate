@@ -382,6 +382,24 @@ std::optional<std::array<double, 3>> smartAmountCentre(Block const&, int face) {
     return core::common::faceLocalPoint(face, 8, 5);
 }
 
+/// Shows the moving stack (Create's ChuteRenderer): at its height in the chute; in the lower
+/// half of a diagonal chute it leans towards the chute it falls into.
+void display(GlobalPos const& pos, Block const& b, Runtime const& r) {
+    if (items::isEmpty(r.item)) {
+        hideItem(pos);
+        return;
+    }
+    float y  = std::clamp(r.itemPos, -3.f, 1.f);
+    Vec3  at{pos.x + .5f, pos.y + y - .125f, pos.z + .5f};
+    int   facing = isSmart(b) ? cf::kDown : state(b, kFacing, cf::kDown);
+    if (cf::isHorizontal(facing) && y < .5f) {
+        auto o = cf::faceOffset(cf::oppositeFace(facing));
+        at.x += o[0] * (.5f - y);
+        at.z += o[2] * (.5f - y);
+    }
+    showItem(pos, r.item, at);
+}
+
 } // namespace
 
 void beginChuteTick() {
@@ -420,6 +438,7 @@ void tickChute(BlockSource& region, GlobalPos const& pos, Block const& blockIn, 
     if (items::isEmpty(r.item)) {
         if (motion < 0) handleInput(region, pos, *b, r, cf::kUp, 1, motion);
         if (motion > 0) handleInput(region, pos, *b, r, cf::kDown, 0, motion);
+        display(pos, *b, r);
         return;
     }
     float next = r.itemPos + motion;
@@ -441,6 +460,7 @@ void tickChute(BlockSource& region, GlobalPos const& pos, Block const& blockIn, 
         }
     }
     r.itemPos = next;
+    display(pos, *b, r);
 }
 
 bool useChute(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block, ItemStack const& held) {
@@ -512,7 +532,10 @@ void placeChute(Player* player, BlockSource& region, GlobalPos const& pos, int c
     updateChuteShape(region, pos);
 }
 
-void forgetChute(GlobalPos const& pos) { runtimes().erase(pos.key()); }
+void forgetChute(GlobalPos const& pos) {
+    runtimes().erase(pos.key());
+    hideItem(pos);
+}
 
 void installChutes() {
     for (char const* id : {kChute, kSmartChute}) common::items::registerBlock(id, capability());
