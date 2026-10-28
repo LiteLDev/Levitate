@@ -20,7 +20,7 @@ void KineticSpec::rotorParts(RenderView const& view, std::vector<RotorPart>& out
     }
     auto axis = axisOf(*view.state);
     if (!axis) return;
-    out.push_back(RotorPart{2, *axis, 1.f, 0.f, cogOf(*view.state) == CogType::Large});
+    out.push_back(RotorPart{"rotor", *axis, 1.f, 0.f, cogOf(*view.state) == CogType::Large});
 }
 
 std::string defaultStressKey(std::string_view id) {
@@ -59,6 +59,12 @@ KineticSpec axial(std::string axisState) {
     return spec;
 }
 } // namespace
+
+KineticSpec withModel(KineticSpec spec, std::string model, std::string texture) {
+    spec.rotorModel   = std::move(model);
+    spec.rotorTexture = std::move(texture);
+    return spec;
+}
 
 KineticSpec shaft(std::string axisState) { return axial(std::move(axisState)); }
 

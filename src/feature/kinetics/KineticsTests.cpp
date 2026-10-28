@@ -29,11 +29,26 @@ KineticSpec testConsumer() {
 
 } // namespace
 
-LV_REGISTER_KINETIC_BLOCK("levitate:kinetics_test_shaft", specs::shaft());
-LV_REGISTER_KINETIC_BLOCK("levitate:kinetics_test_cog", specs::cogwheel(false));
-LV_REGISTER_KINETIC_BLOCK("levitate:kinetics_test_large_cog", specs::cogwheel(true));
-LV_REGISTER_KINETIC_BLOCK("levitate:kinetics_test_source", testSource());
-LV_REGISTER_KINETIC_BLOCK("levitate:kinetics_test_consumer", testConsumer());
+LV_REGISTER_KINETIC_BLOCK(
+    "levitate:kinetics_test_shaft",
+    specs::withModel(specs::shaft(), "geometry.levitate.kinetics_test_shaft", "levitate_kinetics_test_shaft")
+);
+LV_REGISTER_KINETIC_BLOCK(
+    "levitate:kinetics_test_cog",
+    specs::withModel(specs::cogwheel(false), "geometry.levitate.kinetics_test_cog", "levitate_kinetics_test_cog")
+);
+LV_REGISTER_KINETIC_BLOCK(
+    "levitate:kinetics_test_large_cog",
+    specs::withModel(specs::cogwheel(true), "geometry.levitate.kinetics_test_large_cog", "levitate_kinetics_test_cog")
+);
+LV_REGISTER_KINETIC_BLOCK(
+    "levitate:kinetics_test_source",
+    specs::withModel(testSource(), "geometry.levitate.kinetics_test_source", "levitate_kinetics_test_source")
+);
+LV_REGISTER_KINETIC_BLOCK(
+    "levitate:kinetics_test_consumer",
+    specs::withModel(testConsumer(), "geometry.levitate.kinetics_test_consumer", "levitate_kinetics_test_consumer")
+);
 
 namespace {
 

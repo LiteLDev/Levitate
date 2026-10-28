@@ -37,10 +37,10 @@ struct NodeView {
     }
 };
 
-/// One rotating part drawn by the client renderer. The part's model is the block's own
-/// permutation with `rotorState = rotorValue` (see `KineticSpec::rotorState`).
+/// One rotating part drawn by the client renderer: a bone of the spec's `rotorModel`, modelled
+/// around the Y axis through the block centre; the renderer turns it onto `axis` and spins it.
 struct RotorPart {
-    int   rotorValue  = 2;
+    std::string bone        = "rotor";
     Axis  axis        = Axis::Y;
     float speedFactor = 1;    ///< multiplies the block's speed (e.g. -1 for a reversed half shaft)
     float angleOffset = 0;    ///< degrees, added to Create's per-position offset
@@ -100,12 +100,15 @@ struct KineticSpec {
     std::function<void(NodeView const& self, std::vector<GlobalPos>& out)> extraNeighbours;
 
     // ---- client rendering --------------------------------------------------------------------------
-    /// Integer block state that selects the model: 0 = the full static model (what the world
-    /// holds and vanilla clients see), 1 = the parts that do not rotate (drawn in the chunk mesh
-    /// by the client mod; may be empty), 2.. = rotating parts (drawn by the client mod). Empty:
-    /// the client mod draws nothing special for this block.
+    /// Integer block state that selects the chunk model: 0 = the full static model (what the world
+    /// holds and vanilla clients see), 1 = the parts that do not rotate (what the client mod puts
+    /// in the chunk mesh; may be empty). Empty: the client mod draws nothing special.
     std::string rotorState;
-    /// Rotating parts (default: one part `2` around `rotationAxis`, large-cog offset for large cogs).
+    /// Geometry identifier ("geometry.levitate.shaft", RP `models/blocks/*.geo.json`) whose bones
+    /// are the rotating parts, and the terrain texture name they use.
+    std::string rotorModel;
+    std::string rotorTexture;
+    /// Rotating parts (default: bone "rotor" around `rotationAxis`, large-cog offset for large cogs).
     std::function<void(RenderView const&, std::vector<RotorPart>&)> parts;
     /// Create's `getRotationAngleOffset(axis)` (degrees).
     std::function<float(BlockState const&, Axis)> angleOffset;
@@ -136,6 +139,8 @@ namespace specs {
 /// Reads an axis from a `minecraft:block_face`-style facing state (face index -> its axis).
 [[nodiscard]] std::function<std::optional<Axis>(BlockState const&)> axisFromFacing(std::string state);
 
+/// Sets the client model of the rotating parts (`rotorModel`, `rotorTexture`).
+[[nodiscard]] KineticSpec withModel(KineticSpec spec, std::string model, std::string texture);
 /// A shaft along `axisState` (shaft ends on both faces of the axis). Rotor state "levitate:rotor".
 [[nodiscard]] KineticSpec shaft(std::string axisState = "levitate:axis");
 /// A cogwheel (small or large) along `axisState`, with shaft ends on both faces of its axis.

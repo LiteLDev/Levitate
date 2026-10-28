@@ -636,7 +636,7 @@ TEST(Kinetics, DefaultRotorParts) {
     std::vector<RotorPart> parts;
     cog.rotorParts(RenderView{&s, 8, std::nullopt}, parts);
     ASSERT_EQ(parts.size(), 1u);
-    EXPECT_EQ(parts[0].rotorValue, 2);
+    EXPECT_EQ(parts[0].bone, "rotor");
     EXPECT_EQ(parts[0].axis, Axis::Z);
     EXPECT_TRUE(parts[0].largeCog);
     EXPECT_EQ(defaultStressKey("levitate:mechanical_press"), "mechanical_press");

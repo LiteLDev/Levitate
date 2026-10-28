@@ -12,6 +12,12 @@
 // Vanilla clients (no mod) simply see the static `rotor = 0` model.
 
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <map>
+#include <memory>
+
+#include "nlohmann/json.hpp"
 #include <cmath>
 #include <mutex>
 #include <unordered_map>
@@ -29,7 +35,13 @@
 #include "mc/client/network/ClientNetworkHandler.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
+#include "mc/client/renderer/SupplementaryFieldAutoGenerationMode.h"
+#include "mc/client/renderer/Tessellator.h"
+#include "mc/client/renderer/block/BlockGraphics.h"
 #include "mc/client/renderer/block/BlockTessellator.h"
+#include "mc/client/renderer/texture/TextureUVCoordinateSet.h"
+#include "mc/deps/core/math/Vec2.h"
+#include "mc/deps/core_graphics/enums/PrimitiveMode.h"
 #include "mc/client/renderer/block/tessellation_pipeline/client_block_pipeline/PipelineError.h"
 #include "mc/client/renderer/block/tessellation_pipeline/client_block_pipeline/WorldExtractorStep.h"
 #include "mc/client/renderer/blockactor/BlockActorRenderDispatcher.h"
@@ -37,6 +49,7 @@
 #include "mc/client/renderer/blockactor/MovingBlockActorRenderer.h"
 #include "mc/client/renderer/game/LevelRenderer.h"
 #include "mc/client/renderer/game/LevelRendererCamera.h"
+#include "mc/client/renderer/ptexture/LightTexture.h"
 #include "mc/deps/core/math/Matrix.h"
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/minecraft_renderer/renderer/MaterialPtr.h"
@@ -59,11 +72,13 @@
 #include "mc/world/level/block/actor/BlockActorRendererId.h"
 
 #include "client/Client.h"
+#include "core/kinetics/RotorModel.h"
 #include "core/kinetics/Solver.h"
 #include "core/kinetics/SyncCodec.h"
 #include "feature/kinetics/KineticsInternal.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
+#include "mod/Main.h"
 #include "mod/Module.h"
 
 namespace lv::client::kinetics {
@@ -94,7 +109,6 @@ struct RotorInfo {
     KineticSpec const*                    spec   = nullptr;
     Block const*                          hidden = nullptr; ///< `rotor = 1` variant; nullptr: not drawn by us
     k::BlockState                         snap;
-    std::unordered_map<int, Block const*> parts;            ///< rotor value -> block
 };
 
 struct State {
@@ -143,16 +157,59 @@ RotorInfo const& rotorInfo(Block const& block) {
     return it->second;
 }
 
-Block const* partVariant(Block const& block, RotorInfo const& info, int value) {
-    auto&           s = state();
-    std::lock_guard lock(s.mutex);
-    auto&           parts = const_cast<RotorInfo&>(info).parts;
-    if (auto it = parts.find(value); it != parts.end()) return it->second;
-    auto const* b = fk::detail::withState(block, info.spec->rotorState, value);
-    parts[value]  = b;
-    return b;
+// ---- rotor meshes ------------------------------------------------------------------------------------------
+
+/// Geometry of every rotor model, read once from the mod's resource pack (client thread).
+std::map<std::string, k::RotorModel> const& rotorModels() {
+    static std::map<std::string, k::RotorModel> models = [] {
+        std::map<std::string, k::RotorModel> out;
+        auto dir = lv::Mod::getInstance().getSelf().getModDir() / "resource_packs" / "Levitate_RP" / "models" / "blocks";
+        std::error_code ec;
+        for (auto const& entry : std::filesystem::directory_iterator(dir, ec)) {
+            if (entry.path().extension() != ".json") continue;
+            std::ifstream in(entry.path());
+            auto          j = nlohmann::json::parse(in, nullptr, false, true);
+            if (j.is_discarded()) continue;
+            if (auto m = k::parseGeometry(j)) out.merge(*m);
+        }
+        return out;
+    }();
+    return models;
 }
 
+/// Cached GPU meshes per (model, bone, texture); dropped with the level (client thread only).
+std::map<std::string, std::unique_ptr<mce::Mesh>>& meshCache() {
+    static std::map<std::string, std::unique_ptr<mce::Mesh>> cache;
+    return cache;
+}
+
+mce::Mesh* rotorMesh(Tessellator& tess, KineticSpec const& spec, std::string const& bone) {
+    auto  key   = spec.rotorModel + "|" + bone + "|" + spec.rotorTexture;
+    auto& cache = meshCache();
+    if (auto it = cache.find(key); it != cache.end()) return it->second.get();
+    auto& slot   = cache[key];
+    auto const& models = rotorModels();
+    auto  model  = models.find(spec.rotorModel);
+    if (model == models.end()) return nullptr;
+    auto b = model->second.bones.find(bone);
+    if (b == model->second.bones.end() || b->second.empty()) return nullptr;
+    auto  tex = BlockGraphics::getTextureUVCoordinateSet(spec.rotorTexture, 0, 0);
+    float u0 = tex._u0, v0 = tex._v0, u1 = tex._u1, v1 = tex._v1;
+    auto  uv = [&](std::array<float, 2> const& t) { return Vec2{u0 + (u1 - u0) * t[0], v0 + (v1 - v0) * t[1]}; };
+    auto  at = [](std::array<float, 3> const& p) { return Vec3{p[0], p[1], p[2]}; };
+
+    tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
+    tess.color(1.f, 1.f, 1.f, 1.f);
+    for (auto const& q : b->second) {
+        // both windings: the part is seen from every side while it turns
+        tess.simpleQuad(at(q.pos[0]), uv(q.uv[0]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[3]), uv(q.uv[3]));
+        tess.simpleQuad(at(q.pos[3]), uv(q.uv[3]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[0]), uv(q.uv[0]));
+    }
+    slot = std::make_unique<mce::Mesh>(
+        tess.end(Tessellator::UploadMode::Buffered, "levitate_rotor", SupplementaryFieldAutoGenerationMode::None)
+    );
+    return slot.get();
+}
 void resetLevelState(bool dropTracked) {
     auto&           s = state();
     std::lock_guard lock(s.mutex);
@@ -164,6 +221,7 @@ void resetLevelState(bool dropTracked) {
     s.speeds.clear();
     s.infos.clear();
     if (dropTracked) s.tracked.clear();
+    meshCache().clear();
 }
 
 void sendHello() {
@@ -269,7 +327,7 @@ void renderRotors(BaseActorRenderContext& ctx) {
 
     auto&      screen = ctx.mScreenContext;
     auto&      tess   = screen.tessellator;
-    auto&      blocks = lr->getBlockRenderer();
+
     Vec3 const cam    = ctx.mImpl.get()->mCameraTargetPosition;
     double     time   = static_cast<double>(level->getCurrentTick().tickID) + ctx.mFrameAlpha;
     auto&      world  = screen.camera.worldMatrixStack.get();
@@ -282,8 +340,8 @@ void renderRotors(BaseActorRenderContext& ctx) {
         parts.clear();
         info.spec->rotorParts(view, parts);
         for (auto const& part : parts) {
-            auto const* partBlock = partVariant(*item.block, info, part.rotorValue);
-            if (!partBlock) continue;
+            auto* mesh = rotorMesh(tess, *info.spec, part.bone);
+            if (!mesh) continue;
             float extra  = info.spec->angleOffset ? info.spec->angleOffset(info.snap, part.axis) : 0.f;
             float offset = k::rotationOffset(core::GlobalPos{0, item.pos.x, item.pos.y, item.pos.z}, part.axis, part.largeCog, part.angleOffset + extra);
             float angle  = k::rotationAngle(time, item.synced.speed * part.speedFactor, offset);
@@ -293,11 +351,13 @@ void renderRotors(BaseActorRenderContext& ctx) {
             glm::mat4 m{1.f};
             m = glm::translate(m, glm::vec3{item.pos.x - cam.x + .5f, item.pos.y - cam.y + .5f, item.pos.z - cam.z + .5f});
             m = glm::rotate(m, glm::radians(angle), axis);
+            // the model is built around Y: turn it onto the part's axis
+            if (part.axis == k::Axis::X) m = glm::rotate(m, glm::radians(-90.f), glm::vec3{0.f, 0.f, 1.f});
+            else if (part.axis == k::Axis::Z) m = glm::rotate(m, glm::radians(90.f), glm::vec3{1.f, 0.f, 0.f});
             m = glm::translate(m, glm::vec3{-.5f, -.5f, -.5f});
             ref.mat->_m.get() = ref.mat->_m.get() * m;
 
-            auto& mesh = blocks.getMeshForBlock(tess, *partBlock);
-            mesh.renderMesh(screen, material, texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+            mesh->renderMesh(screen, material, texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
         }
     }
     if (!s.loggedDraw) {
