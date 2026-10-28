@@ -1,0 +1,4 @@
+{
+  "levitate_filter": { "textures": "textures/items/filter" },
+  "levitate_attribute_filter": { "textures": "textures/items/attribute_filter" }
+}

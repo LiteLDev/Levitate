@@ -1,0 +1,18 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:filter",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_filter",
+      "minecraft:display_name": {
+        "value": "item.levitate:filter.name"
+      },
+      "minecraft:max_stack_size": 64
+    }
+  }
+}

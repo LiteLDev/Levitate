@@ -223,8 +223,13 @@ U10, `train_door` is U10. U28: `track_signal`, `track_observer`.
 
 ### 2.26 Filters (U3)
 
-`filter` (list filter, 9 slots, respect NBT/data, whitelist/blacklist), `attribute_filter` (attribute
-list, whitelist-any/whitelist-all/blacklist).
+`filter` ("List Filter": 18 ghost slots in 2 rows of 9, Allow-List / Deny-List, Respect Data /
+Ignore Data, entries may be filters themselves), `attribute_filter` (reference item + attribute
+list, Allow-List (Any) / Allow-List (All) / Deny-List; up to 8 attributes ⚠). Both stack to 64
+(stacks with different contents don't merge). Right-click opens the filter screen (§4); the lore
+shows Create's summary (mode + the first entries). Recipes: `filter` = iron nugget, wool, iron
+nugget in a row; `attribute_filter` = brass nugget, wool, brass nugget ⚠ (lands with U9's
+`brass_nugget`). Contents live in the item's user data (`lv:filter`, `lv:attribute_filter`).
 
 ## 3. Mechanics
 
@@ -300,36 +305,101 @@ command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kin
   particles need original sound / particle assets: U8 (goggles, overlays) or a later U2 PR.
 ### 3.2 Block data, capabilities, filters, value boxes (U3)
 
-- `BlockData`: JSON per (dim, pos) owned by the block's unit, `get/set/erase`, iterate per chunk,
-  automatically erased when the block is broken, moved by contraptions (U4 carries it).
-- **Item capability**: `items::register(blockId, Handler)` with `insert(stack, face, simulate)`,
-  `extract(filter, amount, face, simulate)`, `slots()`. Vanilla chests, barrels, hoppers, furnaces,
-  shulker boxes, dispensers/droppers, composters, jukeboxes etc. are adapted (sided as vanilla hoppers).
-- **Fluid capability**: same shape with `FluidStack {fluidId, amountMb}`; 1 bucket = 1000 mB;
-  vanilla cauldrons (water, lava, powder snow) adapted.
-- **Heat capability**: `heat::level(pos)` → none / passive (fire, campfire, lava, magma) / kindled /
-  seething, registered by U14's blaze burner.
-- **Filters**: `filter::matches(filterItem, stack)` with Create's list and attribute semantics
-  (attributes: in tag, mod id, is food, is fuel, is enchanted, has enchant, is damaged, fluid
-  contained, stackable, equipable, in item group, can be smelted/smoked/washed/blasted/haunted/
-  crushed/milled/sandpapered, written book author/title, shulker contents, ...). Filter slots on
-  blocks: right-click the slot with an item sets it; the slot renders the item (client mod) or a
-  floating item display (vanilla).
-- **Value boxes** (scroll values): a block face may expose a numeric value (e.g. creative motor
-  speed, threshold) or an option list. Client mod: hold-scroll with the wrench/empty hand while
-  looking at the box, as Create (Shift for fine steps); vanilla: right-click with the wrench opens a
-  form. U3 provides the registry and both UIs.
-- **Recipe loader**: `recipes::loadType("pressing", parse)` reads `assets/recipes/<type>/*.json`
-  (merged into the mod folder at build time) with Create's ingredient/result/chance/fluid semantics.
+Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested).
+
+- **`BlockData`** (`BlockData.h`): one JSON object per (dim, pos), shared by units through
+  top-level keys (`data["kinetics"]`, `data["filter"]`, ...). `get/edit/set/erase/has`,
+  `forEachInChunk`, `forEach`. Saved per chunk in the world DB (`lv:common:bd:<dim>:<cx>:<cz>`,
+  JSON keyed `"x,y,z"`), loaded lazily, written on every world save. Erased automatically when the
+  block at the position changes to another block *type* (break, replace, explosion, vanilla
+  piston); state changes keep it. `onErase(fn)` lets owners drop contents first. Contraptions (U4)
+  move it with `take(pos)` (before removing the block) and `put(pos, doc)`.
+- **Item capability** (`Capabilities.h`, `items::`): handlers per block id (`registerBlock`) or
+  generic providers, with `slots`, `getSlot`, `insert(stack, simulate) -> remainder`,
+  `extract(predicate, amount, simulate) -> stack`; `face` is the accessed side (Create's
+  `Direction side`). Vanilla adapters: every container block actor (chests incl. double chests,
+  barrels, shulker boxes, hoppers, dispensers, droppers, brewing stands, jukeboxes, crafters ...)
+  with the container's own push/pull rules; furnaces / smokers / blast furnaces sided as hoppers
+  (top → input, sides → fuel, bottom ← result); composters (compostables in from the top, one
+  per insertion, bone meal out at the bottom when ready). Insertion merges into matching stacks
+  first, then fills empty slots, in slot order.
+- **Fluid capability** (`fluids::`): `FluidStack {fluid, amount mB}`, handlers with `tanks`,
+  `fill(stack, simulate) -> accepted`, `drain(request, simulate) -> drained` (request fluid ""
+  = any). 1 bucket = 1000 mB, bottle = 250 mB. Cauldrons hold one bucket of water, lava or powder
+  snow and only move whole buckets (as NeoForge's cauldron wrapper). `fluidInItem` knows water /
+  lava / powder snow / milk buckets and water bottles; units add theirs (`registerFluidItem`).
+- **Heat** (`heat::`): `level(region, pos)` → Create's HeatLevel none / smouldering / fading /
+  kindled / seething. A registered provider wins (U14's blaze burner); otherwise Create's
+  `#create:passive_boiler_heaters` (fire, soul fire, lava, magma block, lit campfires) give
+  smouldering. Recipes' heat condition (Create's HeatCondition): heated needs at least fading,
+  superheated needs seething; passive heat is not enough for heated recipes.
+- **Filters** (`Filter.h`): `matches(filter, stack, matchData)`, `matchesFluid`, `predicate()`
+  with Create's FilterItemStack semantics: an empty filter slot matches everything; a plain item
+  matches the same item (data ignored unless matching data); a list filter matches if any entry
+  matches (entries recursively, with its Respect Data flag), Deny-List inverts, an *empty* list
+  filter only matches list filters; attribute filters combine attribute tests (inverted ones
+  negate) as Allow-List (Any) / (All) / Deny-List, an empty one only matches attribute filters;
+  attribute filters never match fluids. Attribute types (Create's, same ids and wording):
+  placeable, consumable, fluid_container, enchanted, max_enchanted, renamed, damaged,
+  badly_damaged (> 75 %), not_stackable, equipable, furnace_fuel, washable (splashing recipe),
+  hauntable (haunting recipe), crushable (crushing or milling recipe), smeltable / smokable /
+  blastable (vanilla furnace / smoker / blast furnace recipe), compostable, in_tag (Bedrock item
+  tags), in_item_group (creative group), added_by (namespace), has_enchant, shulker_fill_level,
+  has_fluid, has_name, book_author, book_copy. Units add more with `registerAttribute`.
+- **Filter slots** (`ValueBox.h`, `filterslot::`): `registerSlot(blockId, {id, centre, scale,
+  onChanged})`; the stack lives in `data["filter"][id]`. Right-click on the slot with an item sets
+  a copy (filter items are taken from the hand in survival and given back when replaced),
+  right-click with an empty hand clears it (returning a filter item). The client mod shows the
+  slot's content in the hover label (below).
+- **Value boxes** (`valuebox::`): `registerBox(blockId, {id, label, board, centre, scale, get,
+  set, format})`. Create 6 edits values on a *value settings board*: rows (e.g. the creative
+  motor's ⟳ / ⟲) × columns 0..max with milestone ticks (`core/common/ValueSettings.h`: plain,
+  signed and option boards). A box is hit when the click is within `scale / 2` (default 0.25)
+  blocks of its centre (Create's ValueBoxTransform.testHit). Client mod: right-click with the
+  wrench or an empty hand opens the board (pointer picks row and value, wheel ±1, Shift+wheel
+  jumps milestones, click confirms, right-click / Esc cancels); looking at a box or filter slot
+  shows its label and value next to the crosshair. Vanilla: the same right-click opens a form
+  (row dropdown + value slider; small boards as a step slider of the formatted values). Edits are
+  validated server side (reach 8 blocks, value clamped to the board).
+- **Recipe loader** (`Recipes.h`): `recipes::ofType("pressing")` / `loadType` reads
+  `<mod>/recipes/<type>/**.json` (copied from `assets/recipes/` at build time) in Create's 1.20 and
+  1.21 spellings: item ingredients (item / tag / alternatives / `count`), fluid ingredients
+  (fluid or fluid tag + amount), item results with `count` and `chance` (each item rolled, as
+  Create), fluid results, `heat_requirement`, `processing_time`; `create:` ids become `levitate:`.
+  Tags resolve through `assets/recipes/tags/*.json` fragments (one per unit) and then Bedrock item
+  tags. Broken files are skipped with a warning. `/create reload` reloads them.
 
 ### 3.3 Client protocol and screens (U3)
 
-- Handshake on join: the client mod announces itself (protocol version); the server marks the
-  player as "companion". Typed packets for kinetic updates, block data sync, screen open/close,
-  screen actions, value box changes, overlays.
-- Native screen framework (client): Create-style panels (background texture drawn by our texture
-  scripts, slots, buttons, scroll inputs, labels, tooltips). Every screen has a **form fallback**
-  (server forms) for vanilla clients covering the same actions.
+- **Companion protocol** (`src/feature/net/Net.h`): two LeviLamina custom packets (client → server,
+  server → client) carrying a channel name (`<unit>.<name>`) and a JSON payload. On joining a
+  level the client mod sends `net.hello {protocol, mod}` (repeated every 2 s, 15 times, until
+  answered); the server answers `net.welcome {protocol, accepted}` and marks the player as a
+  *companion* (log `companion joined: <name> (protocol N, ...)`). The server never sends to
+  non-companions, so vanilla clients never receive our packets; messages from non-companions
+  are ignored. Protocol version 1; the server accepts `kMinProtocolVersion..kProtocolVersion`.
+  Units use `net::on(channel, fn)` / `net::send(player, channel, json)` on the server and
+  `net::client::on` / `net::client::send` on the client. Typed channels so far:
+  `screen.open/update/close/action`, `valuebox.open/set`, `common.hover`.
+- **Screens** (server side `src/feature/common/Screens.h`): `screens::registerType({id, data,
+  action, form})`, `screens::open(player, type, context)` → native screen for companions
+  (`screen.open {type, context, data}`), the form for vanilla players. Native actions come back
+  as `screen.action`; the server re-validates the context (e.g. the filter is still in that hand
+  slot), runs the action and answers `screen.update` with fresh data (or `screen.close`).
+- **Native screen framework** (client, `src/client/screen/Screen.h`): a `Screen` with widgets
+  (labels, Create icon buttons, ghost item slots, scroll inputs, tooltips) on a Create-style
+  bevelled panel, optionally above the player's inventory (36 slots, clicking picks a ghost copy
+  onto the cursor; Shift-click sends it straight to the screen). The framework pushes a vanilla
+  host scene so the game frees the mouse, draws the screen instead of the host, routes mouse and
+  keyboard input, and closes with Esc or the inventory key. `registerServerScreen(type, factory)`
+  binds server-opened types.
+- **Filter screens** (first users): list filter — 18 ghost slots (click with a ghost item sets,
+  click with an empty cursor / right-click clears), Allow-List / Deny-List and Respect Data /
+  Ignore Data buttons with Create's tooltips, reset. Attribute filter — reference slot, attribute
+  selector (scroll), "Add attribute to List" / "Add opposite attribute to List", the three modes,
+  reset, the selected attributes. Forms: one custom form per filter (a dropdown per slot listing
+  the inventory's items, mode, data); the attribute filter's form sets the mode / resets and then
+  offers the attributes of a chosen inventory item.
 
 ### 3.4 Contraptions (U4)
 
@@ -486,6 +556,10 @@ matches Create's official Chinese translation wording).
 | Placeable flowing honey/chocolate in the world | Bedrock has no data-driven custom fluids | they exist in pipes, tanks, basins, buckets (as items); emptying a bucket in the world places a custom non-flowing source block ⚠ U19 decides |
 | JEI/EMI recipe viewers, Create's config GUI | no such mods on Bedrock | recipes visible in Ponder/tooltips; JSON configs + `/create reload` |
 | Create's mod-compat crushed ores for absent mods | no such mods | items exist (as Create registers them), with the vanilla-only recipes |
+
+| Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
+| Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
+| Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
 
 Units add rows here in their PRs when they find something else impossible.
 
