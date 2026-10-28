@@ -1,0 +1,22 @@
+{
+  "type": "levitate:mixing",
+  "heat_requirement": "heated",
+  "ingredients": [
+    {
+      "item": "minecraft:sugar"
+    },
+    {
+      "item": "minecraft:cocoa_beans"
+    },
+    {
+      "fluidTag": "c:milk",
+      "amount": 250
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:chocolate",
+      "amount": 250
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:mechanical_press",
+      "menu_category": { "category": "items" },
+      "states": {
+        "levitate:axis": [0, 2],
+        "levitate:rotor": [0, 1]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.mechanical_press",
+        "bone_visibility": {
+          "casing": true,
+          "shaft": "q.block_state('levitate:rotor') == 0",
+          "head": "q.block_state('levitate:rotor') == 0"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": { "texture": "levitate_mechanical_press_side", "render_method": "opaque" },
+        "side": { "texture": "levitate_mechanical_press_side", "render_method": "opaque" },
+        "top": { "texture": "levitate_mechanical_press_top", "render_method": "opaque" },
+        "bottom": { "texture": "levitate_mechanical_press_bottom", "render_method": "opaque" },
+        "shaft": { "texture": "levitate_mechanical_press_shaft", "render_method": "opaque" },
+        "head": { "texture": "levitate_mechanical_press_head", "render_method": "opaque" }
+      },
+      "minecraft:collision_box": { "origin": [-8, 0, -8], "size": [16, 16, 16] },
+      "minecraft:selection_box": { "origin": [-8, 0, -8], "size": [16, 16, 16] },
+      "minecraft:destructible_by_mining": { "seconds_to_destroy": 2.5 },
+      "minecraft:destructible_by_explosion": { "explosion_resistance": 6 },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#8e928a",
+      "minecraft:loot": "loot_tables/blocks/mechanical_press.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:axis') == 2",
+        "components": { "minecraft:transformation": { "rotation": [0, 90, 0] } }
+      }
+    ]
+  }
+}

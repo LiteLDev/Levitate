@@ -143,6 +143,21 @@ slabs); `andesite_scaffolding`, `brass_scaffolding`, `copper_scaffolding`; `ande
 `basin`, `mechanical_press`, `mechanical_mixer`, `blaze_burner` (states `blaze` none/smouldering/
 fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
+Bedrock blocks (details in §3.6.1):
+- `basin`: `levitate:facing` 0 (no spout) / 2..5 (spout side, Bedrock face). Drops itself and its contents.
+- `mechanical_press`: `levitate:axis` 0 (x) / 2 (z) (Create's horizontal facing; only the axis is
+  visible), `levitate:rotor` 0/1 (kinetic rotor state, §3.1).
+- `mechanical_mixer`: `levitate:rotor` 0/1.
+- `blaze_burner`: `levitate:blaze` 1..4 = smouldering, fading, kindled, seething, `levitate:facing`
+  2..5 (where the blaze looks), `levitate:rotor` 0/1 (client mod: head drawn separately). Create's
+  heat level *none* (no blaze) is the separate block `empty_blaze_burner` (`levitate:facing`), which
+  is also the item Create calls "Empty Blaze Burner"; both drop themselves.
+- `lit_blaze_burner`: `levitate:facing`, `levitate:flame` 0 regular / 1 soul; drops the empty burner.
+- Recipes (Create 6.0.10): basin = andesite alloy `A A`/`AAA`; mechanical press = shaft / andesite
+  casing / iron block; mechanical mixer = cogwheel / andesite casing / whisk; empty blaze burner =
+  ` I `/`INI`/` I ` (iron sheet, netherrack). They need other units' items and wait in
+  `assets/pending_recipes/basin/`.
+
 ### 2.10 Assembly (U15)
 
 `deployer`, `mechanical_arm`, sequenced assembly intermediates (`incomplete_*`).
@@ -604,6 +619,116 @@ the details and numbers it implemented. Short reminders of the less obvious ones
 - **Ponder (U30)**: hold W over an item to open Ponder (client mod only), index of all scenes,
   animated scenes built from our blocks.
 
+### 3.6.1 Basin processing (U14)
+
+Checked against Create 6.0.10 (BasinBlock, BasinBlockEntity, BasinInventory, BasinRecipe,
+BasinOperatingBlockEntity, MechanicalPressBlockEntity, PressingBehaviour, MechanicalMixerBlockEntity,
+BlazeBurnerBlock(Entity), LitBlazeBurnerBlock, BlazeBurnerBlockItem, CRecipes). Pure numbers in
+`src/core/basin/` (gtest), game side in `src/feature/basin/`, client animation in `src/client/basin/`.
+Contents live in BlockData (`data["basin"]`, `["press"]`, `["mixer"]`, `["burner"]`); the unit's
+blocks are listed in `lv:basin:machines` and ticked while loaded.
+
+**Basin.** 9 input slots and 9 output slots (64 per slot, one stack per item kind, the first free
+slot otherwise), 2 input and 2 output tanks of 1000 mB with enforced variety (one tank per fluid).
+- Item capability (Create's CombinedInvWrapper): slots 0–8 inputs, 9–17 outputs; insertion only
+  into the inputs, extraction from any slot (first matching slot, then more of the same kind).
+  Fluid capability (CombinedTankWrapper(output, input)): fill only the input tanks, drain output
+  tanks first.
+- Right-click: an empty hand takes every item (pickup sound, the operator above stops); a filled
+  bucket / water bottle pours into the input tanks if the whole amount fits (the container comes
+  back empty; creative keeps it); an empty bucket or glass bottle takes a fluid it can hold (bucket
+  1000 mB of water / lava / milk / powder snow / honey / chocolate, bottle 250 mB water); a sponge
+  drains the first fluid. A bucket never pours next to the basin. Wrench: Create's onWrenched
+  (preferred / disabled spout sides). The filter slot (`filter`, on every side 12 px up, U3's
+  filter slot) filters recipes by their first output (a fluid output for fluid-only recipes).
+- Item entities that fall on / into the basin are taken into the inputs (every tick by default,
+  `basinIntakeInterval`).
+- Spout (Create's updateSpoutput, every 10 ticks): a side can be output to when the neighbour has no
+  collision (or is a funnel) and the block below it accepts items from that side and is one of
+  Create's direct belt inputs (belt, depot, weighted ejector, basin, item drain, crushing wheel
+  controller, tunnels; through U3's item capability). The last such side in Create's order south,
+  west, north, east wins unless disabled; the preferred side wins when possible. When spouting,
+  outputs (and the output buffers when the spout opens) go into a spout buffer that is pushed into
+  the target every tick (fluids into its fluid capability, else they stay in the output tanks);
+  processing waits while the buffer isn't empty. Basins spouting into a basin wake its operator.
+- Every 200 ticks a non-empty basin wakes its operator (Create's recipeBackupCheck).
+- Breaking drops inputs, outputs and the spout buffer. A basin can't be placed directly under a
+  press / mixer and vice versa (the placed block pops).
+
+**Basin recipes** (Create's BasinRecipe.apply): ingredients are taken one item per ingredient from
+the combined slots in order; fluid ingredients need a tank with at least the amount; heat
+(`heat_requirement`) is tested against the block under the basin (U3's heat capability: heated =
+fading or hotter, superheated = seething). Outputs are rolled once (chance), plus containers left
+by consumed items (milk / water / lava / powder snow / honey / chocolate buckets → bucket, honey
+bottle → glass bottle), and must all fit (spout or output buffers) or nothing happens. Candidates
+are sorted by ingredient count, most first; the first one starts.
+- Mixer: `mixing` recipes plus every shapeless crafting-table recipe with 2+ ingredients that is not a
+  compression (`allowShapelessInMixer`). Press: `compacting` recipes plus every crafting-table recipe
+  (shaped or shapeless) with 4 or 9 identical ingredients (`allowShapedSquareInPress`). Recipe ids
+  ending in `_manual_only` are ignored. Create's potion brewing in the mixer needs U19's potion
+  fluids (`allowBrewingInMixer`, not yet: §8).
+- Recipes (`assets/recipes/`, Create 6.0.10 data, non-compat): pressing iron / gold / copper / brass
+  ingot → sheets, sugar cane → paper, pulp → cardboard, dirt / coarse dirt / rooted dirt / mycelium /
+  podzol and grass block → dirt path; mixing andesite alloy (andesite + iron or zinc nugget), brass
+  (copper + zinc → 2, heated), cardboard pulp, chocolate (heated), chocolate melting, dough,
+  honey (honey block, heated), lava from cobblestone (50 mB, superheated), mud, builder's tea
+  (heated); compacting andesite / diorite / granite from flint (+100 mB lava), blaze cake base,
+  bar of chocolate, honey block, ice (9 snow blocks). Tags in `assets/recipes/tags/basin.json`.
+
+**Mechanical press** (8 SU/RPM, horizontal shaft; placed along a neighbouring shaft, else across the
+look direction). Cycle of 240 running ticks advancing `lerp(clamp(|speed| / 512), 1, 60)` per
+tick; the work happens at tick 120, then the head returns. Head travel: 1 block in the world,
+19/16 on belts / depots, 22/16 in a basin; head offset `(t / 240 · 2)³` going down, `(240 − t) / 240 ·
+3` going up. Modes:
+- *World*: every 10 ticks (moving) it looks for item entities on the ground in the block below
+  (deflated by 1/8) with a `pressing` recipe; at the half cycle it presses the first one: a single
+  item (or the whole stack with `bulkPressing`) becomes the results, otherwise one item of the
+  stack is pressed and the results drop beside it.
+- *Belt / depot*: a pressable item on `levitate:depot` / `levitate:belt` two blocks below (U3 item
+  capability) starts a cycle; one item is extracted and its results inserted back (left-overs drop).
+- *Basin*: Create's BasinOperatingBlockEntity on the basin two blocks below: when the basin changes
+  (or the speed changes) and the press is idle and turning, the first matching recipe starts a cycle;
+  after the cycle, the same recipe repeats while it still matches.
+Sounds: anvil + item break (wool + item break over a belt), pitch `.75 + |speed| / 1024`.
+
+**Mechanical mixer** (4 SU/RPM, a small cog around Y without shaft ends; needs medium speed ≥ 30
+RPM). Running ticks 0–40: the whisk lowers until tick 20, waits there for
+`max(⌊log2(int(512 / |speed|))⌋ · ⌈processing_time / 100 · 15⌉ + 1, 1)` ticks (processing time
+defaults to 100), applies the recipe, and comes back up; it keeps going while the recipe still matches
+(Create's continueWithPreviousRecipe). Losing speed reverses the motion. Bubble sound when the basin
+holds fluid, a mixing sound while the whisk is down. Head offset 7/16 at rest, up to 1 7/16 blocks;
+whisk speed: half the shaft speed idle, ×2 between ticks 15 and 20.
+
+**Blaze burners.**
+- Empty blaze burner (item and block): right-click a blaze to capture it (the blaze despawns; flame,
+  hurt and fizz effects) or a mob spawner containing blazes (the spawner stays); either gives a blaze
+  burner (one empty burner used unless creative). Flint and steel lights it (`lit_blaze_burner`,
+  damages the flint and steel); on a lit burner a shovel puts it out (empty again), soul sand / soul
+  soil turns the flame to soul fire. Lit burners give smouldering heat (passive heater), light 12 /
+  9, comparator 1 / 2 ⚠ (§8).
+- Blaze burner: smouldering without fuel (light 8, 15 when burning). Fuel (Create's tryUpdateFuel):
+  the blaze cake is special fuel (3200 ticks, seething), any furnace fuel is normal fuel (its furnace
+  burn time, kindled; fading when < 125 ticks remain); special fuel can't be replaced by normal fuel;
+  the same kind adds up when ≤ 500 ticks remain, else players (not automation) top normal fuel up to
+  10000 ticks. When special fuel runs out, 5000 ticks of normal fuel follow. Fuel containers come back
+  (lava bucket → bucket). The creative blaze cake isn't consumed and cycles smouldering → kindled →
+  seething → smouldering (the burner then stays creative). Goggles on / empty hand off (shown by the
+  client mod). Arms / deployers / funnels feed fuel through the item capability without overflow.
+  Shopkeeper role: U26.
+- Particles and sounds (server side so every client sees them): smoke and flames (soul flames when
+  seething) 1 tick in 4, campfire crackle 1 in 10; lit burners smoke and drip lava / soul particles.
+- Client mod: the blaze head looks at the player and turns to the burner's facing while heating a
+  basin or tank above, bobbing (Create's BlazeBurnerRenderer offsets).
+
+**Client mod** (`basin.machines` messages, 96 blocks): press head and mixer whisk animated with
+Create's offsets (the client runs the cycle between messages, waiting at the work point for the
+server), blaze heads, the fluid surface in the basin (height `2/16 + 12/16 · (1 − (1 − f)²)`, f =
+mB / 2000, the last fluid's colour). Vanilla clients see the static models (head at rest, whisk at
+rest, no fluid).
+
+**Command**: `/create basin demo` (op, Levitate debug) builds a mixer, a press and burners in front of
+the player for screenshots.
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -663,6 +788,10 @@ place:
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
 
+`config/basin.json` (U14): Create's CRecipes `bulkPressing` (false), `allowShapelessInMixer` (true),
+`allowShapedSquareInPress` (true), `allowBrewingInMixer` (true, no effect until U19's potion fluids);
+Levitate: `basinIntakeInterval` (1 tick), `burnerParticles` (true).
+
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
 `mediumCapacity` (256), `highCapacity` (1024), `impact` {block path: SU per RPM} and `capacity`
@@ -710,6 +839,12 @@ matches Create's official Chinese translation wording).
 | Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
 | Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
+| Items floating in the basin (U14) | the client mod has no world-space item renderer yet | the fluid surface is drawn; the items are taken out with an empty hand or seen by funnels; a later U14 PR draws them once an item renderer exists |
+| Basin / blaze burner comparator output (U14) | custom blocks can't provide a comparator signal | none yet (Create: basin inputs fill level; burner heat − 1; lit burner 1 / 2) |
+| Hollow basin collision (U14) | a custom block has a single collision box | full-block collision; item entities resting on top are collected as if they fell in |
+| Press on a moving belt (U14) | no belt contract to hold an item under the press | items on a depot or belt below are pressed through the item capability (one per cycle) |
+| Sequenced-assembly pressing steps, potion brewing in the mixer (U14) | they need U15's sequenced assembly and U19's potion fluids | plain pressing / mixing; added with those units |
+| Basin funnel facing check for spouts (U14) | funnel states are U12's | a funnel beside the basin never blocks a spout |
 
 Units add rows here in their PRs when they find something else impossible.
 

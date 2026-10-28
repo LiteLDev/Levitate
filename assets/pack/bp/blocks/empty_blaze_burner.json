@@ -1,0 +1,37 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:empty_blaze_burner",
+      "menu_category": { "category": "items" },
+      "states": {
+        "levitate:facing": [3, 2, 4, 5]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.blaze_burner",
+        "bone_visibility": { "base": true, "cage": true, "head": false, "flame": false }
+      },
+      "minecraft:material_instances": {
+        "*": { "texture": "levitate_blaze_burner_base", "render_method": "alpha_test" },
+        "side": { "texture": "levitate_blaze_burner_base", "render_method": "alpha_test" },
+        "top": { "texture": "levitate_blaze_burner_top", "render_method": "alpha_test" },
+        "bottom": { "texture": "levitate_blaze_burner_base", "render_method": "alpha_test" },
+        "cage": { "texture": "levitate_blaze_burner_cage", "render_method": "alpha_test" }
+      },
+      "minecraft:collision_box": { "origin": [-8, 0, -8], "size": [16, 14, 16] },
+      "minecraft:selection_box": { "origin": [-8, 0, -8], "size": [16, 14, 16] },
+      "minecraft:destructible_by_mining": { "seconds_to_destroy": 2.5 },
+      "minecraft:destructible_by_explosion": { "explosion_resistance": 6 },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#5f6368",
+      "minecraft:loot": "loot_tables/blocks/empty_blaze_burner.json"
+    },
+    "permutations": [
+      { "condition": "q.block_state('levitate:facing') == 3", "components": { "minecraft:transformation": { "rotation": [0, 180, 0] } } },
+      { "condition": "q.block_state('levitate:facing') == 4", "components": { "minecraft:transformation": { "rotation": [0, 90, 0] } } },
+      { "condition": "q.block_state('levitate:facing') == 5", "components": { "minecraft:transformation": { "rotation": [0, 270, 0] } } }
+    ]
+  }
+}

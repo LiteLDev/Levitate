@@ -1,0 +1,15 @@
+{
+  "type": "levitate:mixing",
+  "heat_requirement": "heated",
+  "ingredients": [
+    {
+      "item": "levitate:bar_of_chocolate"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:chocolate",
+      "amount": 250
+    }
+  ]
+}
