@@ -7,6 +7,7 @@
 #ifdef LV_CLIENT
 
 #include <array>
+#include <cmath>
 #include <map>
 #include <mutex>
 #include <tuple>
@@ -66,7 +67,7 @@ constexpr double kPx         = 1 / 16.0;
 constexpr double kTieHalfW   = 15 * kPx;
 constexpr double kTieHalfL   = 2 * kPx;
 constexpr double kTieH       = 2 * kPx;
-constexpr double kRailOffset = 11 * kPx;
+constexpr double kRailOffset = 9 * kPx;
 constexpr double kRailHalfW  = 1 * kPx;
 constexpr double kRailH      = 2 * kPx;
 
@@ -88,9 +89,11 @@ RenderCurve build(ct::Curve const& curve) {
     auto        segs = curve.segments();
     rc.centre        = (curve.bounds().min + curve.bounds().max) * 0.5;
     rc.reach         = (curve.bounds().max - curve.bounds().min).length() / 2;
-    // colours of our track texture (tracks.ps1): dark spruce ties, andesite rails
-    float const tieR = 0.33f, tieG = 0.24f, tieB = 0.16f;
-    float const railR = 0.66f, railG = 0.67f, railB = 0.63f;
+    // colours of our track texture (tracks.ps1: ties #5b4330, rails #a7a89f), converted from sRGB
+    // to the linear vertex colours the colour material expects
+    auto        lin  = [](int c) { return float(std::pow(c / 255.0, 2.2)); };
+    float const tieR = lin(0x5b), tieG = lin(0x43), tieB = lin(0x30);
+    float const railR = lin(0xa7), railG = lin(0xa8), railB = lin(0x9f);
 
     for (size_t i = 0; i < segs.size(); ++i) {
         auto const& s    = segs[i];

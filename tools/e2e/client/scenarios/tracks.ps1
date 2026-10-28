@@ -2,7 +2,7 @@
 # with the track item (select the first end, click the second), and screenshot the curve.
 #   local / remote-mod: the client mod draws the curve (log "tracks: rendering ...")
 #   remote-vanilla:     only the straight tracks and the track bed (fake tracks) are visible
-# Screenshots: out/tracks/{placed,selected,curve,curve-above}.png
+# Screenshots: out/tracks/{placed,selected,curve,curve-above,curve-close}.png
 $mark = Get-LogMark
 $withMod = $script:Mode -ne 'remote-vanilla'
 
@@ -48,9 +48,14 @@ Start-Sleep -Milliseconds 1500
 Invoke-Chat '/tp @s ~-12 ~4 ~10 -135 30'
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'curve' | Out-Null
+Invoke-Chat '/setblock ~7 ~7 ~-8 glass'
 Invoke-Chat '/tp @s ~7 ~8 ~-8 0 90'
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'curve-above' | Out-Null
+# close-up from just outside the middle of the turn
+Invoke-Chat '/tp @s ~2 ~-8 ~10 180 45'
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'curve-close' | Out-Null
 
 if ($withMod) { Wait-LogLine 'tracks: rendering \d+ curve' 20 -Since $mark | Out-Null }
 
