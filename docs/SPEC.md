@@ -138,6 +138,21 @@ slabs); `andesite_scaffolding`, `brass_scaffolding`, `copper_scaffolding`; `ande
 
 `millstone`, `crushing_wheel` (+ `crushing_wheel_controller`, invisible), `encased_fan`, `nozzle`.
 
+- `millstone`: state `levitate:rotor` (client models, §3.1). Hardness 1.5, drops itself (and its
+  contents). Recipe: cogwheel / andesite casing / any of `c:stones` (stone, granite, diorite,
+  andesite, deepslate, tuff: one Bedrock recipe each).
+- `crushing_wheel`: states `levitate:axis` 0..2, `levitate:rotor`. Recipe: mechanical crafting
+  (`assets/recipes/mechanical_crafting/crushing_wheel.json`, U16), 2 wheels.
+- `crushing_wheel_controller`: states `levitate:facing` 0..5 (Create's Direction order),
+  `levitate:valid`; invisible, not selectable, unbreakable by hand, no drops (its contents drop when
+  it goes); collision: Create's 13 px slab on its facing side.
+- `encased_fan`: states `levitate:facing` 0..5, `levitate:rotor`. Recipe: shaft / andesite casing /
+  propeller.
+- `nozzle`: state `levitate:facing` 0..5 (the clicked face). Recipe: ` S ` / ` C ` / `SSS`
+  (andesite alloy, wool).
+- The crafting recipes need U6/U9/U10 items (cogwheel, shaft, andesite casing, propeller, andesite
+  alloy) and wait in `assets/pending_recipes/bulk/`.
+
 ### 2.9 Basin processing (U14)
 
 `basin`, `mechanical_press`, `mechanical_mixer`, `blaze_burner` (states `blaze` none/smouldering/
@@ -587,8 +602,9 @@ the details and numbers it implemented. Short reminders of the less obvious ones
 - **Belts (U11)**: 2–20 ⚠ blocks long, connect two shafts in a line or slope (45°), items move at
   speed proportional to RPM, belt carries entities, funnels/tunnels/depots/processing work on belt
   items, belt casing, dye, wrench to adjust, breaking returns belts.
-- **Fans (U13)**: push/pull entities and items along up to `fanPushDistance` 20 ⚠ blocks; items in the
-  air stream through water → washing, fire/campfire/lava → smoking or blasting, soul fire → haunting.
+- **Fans (U13)**: push/pull entities and items along up to `fanPushDistance` / `fanPullDistance` 20
+  blocks; items in the air stream through water → washing, fire/campfire → smoking, lava → blasting,
+  soul fire → haunting (details in "Bulk processing (U13)" below).
 - **Blaze burner (U14)**: capture blazes with an empty burner, feed fuel (normal: kindled), blaze
   cake (seething), creative cake; heat levels drive basin recipes and boilers.
 - **Steam (U18)**: fluid tank boiler size/water/heat give boiler level 0–18 ⚠; each level drives
@@ -604,6 +620,89 @@ the details and numbers it implemented. Short reminders of the less obvious ones
 - **Ponder (U30)**: hold W over an item to open Ponder (client mod only), index of all scenes,
   animated scenes built from our blocks.
 
+#### Bulk processing (U13)
+
+Checked against Create 6.0.10 (MillstoneBlock(Entity), CrushingWheelBlock(Entity),
+CrushingWheelControllerBlock(Entity), EncasedFanBlock(Entity), AirCurrent, FanProcessing,
+AllFanProcessingTypes, NozzleBlock(Entity), CKinetics). Pure maths in `src/core/bulk/` (gtest), game
+side in `src/feature/bulk/`. Machine state lives in BlockData `data["bulk"]`; the unit's blocks are
+indexed in `lv:bulk:index` and ticked by the unit.
+
+**Millstone** (impact 4 SU/RPM): a small cog (meshes with cogwheels around it) with a shaft below.
+One input slot, 9 output slots. Items go in when thrown on top (item entities resting on it) or
+through the item capability (any side; only items with a milling recipe, up to 64). While turning it
+counts a timer down by `clamp((int) |RPM / 16|, 1, 512)` per tick: the recipe's `processing_time`
+(100 without a recipe), then mills one input item (rolled results, stacked into the outputs; what
+doesn't fit is lost, as Create); it pauses while an output slot holds 64. Right-click with an empty
+hand takes all outputs into the inventory (the inputs when there are no outputs). The capability
+extracts only from the outputs. Item crack particles of the input while milling.
+
+**Crushing wheels** (impact 8 SU/RPM, pillar with shaft ends along its axis): two wheels with the
+same axis two blocks apart get a `crushing_wheel_controller` between them (when the block is
+replaceable); it is valid when both turn and their speeds have opposite signs, facing
+`nearest(axis × side · sign(speed) · step(side))` (Create's updateControllers) — the way items move
+through the pair. Checked on placement, on speed changes and every 20 ticks; a removed wheel takes
+its controllers with it. A wheel can't stand next to a controller on a non-axis side or next to a
+wheel that isn't stacked along their common axis (it pops). Crushing speed = |wheel RPM| / 50.
+Controller (valid and turning): the first entity entering it is taken (not creative / spectator
+players, no players on peaceful, not items it ejected itself); items are pulled through and taken in
+once 0.25 past the centre; the inventory (32 slots) counts `processing_time` (crushing recipe, else
+milling, else 100) down by `clamp(4 · crushingSpeed / log2(count), 0.25, 20)` per tick (20 for one
+item), applies the recipe once per item below 20 (no recipe: the items are destroyed, as Create)
+and at 0 outputs: into the Levitate block below / in front when it has an item handler (Create's
+DirectBeltInputBehaviour: belts, depots, chutes, ...), else as item entities 0.55 past the centre
+with Create's out-speed (0.25 sideways, 0.5 up, 0 down). Other entities get `crushingDamage` (4) per
+hit (Bedrock's hurt cooldown applies) and are moved out below the wheels before a lethal hit; their
+drops keep no motion. Item capability: insert a whole stack into an empty, unoccupied controller.
+
+**Encased fan** (impact 2 SU/RPM, shaft at the back, `facing` = the side the air leaves through).
+Placement (Create's getStateForPlacement): against a chute it faces the chute's way; else the side
+whose neighbour has a shaft pointing at it (unless ambiguous) or the look direction, turned to face
+away (sneaking: towards). Air current, rebuilt on speed changes, neighbour changes and every
+`fanBlockCheckRate` (30) ticks:
+- pushing when the speed converted to the facing's direction (negated for down/north/west) is
+  positive, else pulling; reach `lerp(min(|RPM| / fanRotationArgmax, 1), 3, fanPushDistance |
+  fanPullDistance)` (256, 20, 20);
+- the reach stops at the first full collision box, unloaded chunk or partial block that covers the
+  5 test points (then `i + depth + 1/32`); air, liquids, non-colliding blocks and
+  `#create:fan_transparent` (iron bars, copper grates, mangrove roots, fences, leaves, campfires,
+  blaze burners, sail frames, metal bars, copycat base) let it through;
+- processing types (a catalyst changes the air from there on in the flow direction; priority
+  splashing 400 > haunting 300 > smoking 200 > blasting 100): water / flowing water (also
+  waterlogged) → **splashing**; lava → **blasting**; fire, lit campfire, smouldering blaze burner, lit
+  blaze burner with a regular flame → **smoking**; soul fire, lit soul campfire, lit blaze burner with
+  a soul flame (U14: state `levitate:flame_type` = 1) → **haunting**; blaze burner at fading or more →
+  **blasting**;
+- entities in the current (searched every 5 ticks; not creative-flying players or spectators) get
+  `motion += clamp(flow · a − motion, ±5) / 8` with `a = |RPM| / (512, sneaking 4096) / (distance to
+  the fan's centre / reach)`, and no fall damage;
+- items in processing air: after `fanProcessingTime · ((count − 1) / 16 + 1) + 1` ticks (150) the
+  stack becomes the outputs (the first stays in place with the same motion and is not processed
+  again by that air; the rest spawn next to it): splashing / haunting = their recipes rolled per
+  item; smoking = the smoker recipe × count; blasting = the furnace (else blast furnace) recipe ×
+  count unless the smoker gives the same item (food burns up); anything else that isn't fire
+  resistant burns up in blasting air;
+- other entities: splashing hurts endermen, snow golems and blazes (2, drowning) and puts out fire;
+  smoking sets on fire 2 s and hurts 2; blasting sets on fire 10 s and hurts 4 (not fire immune);
+  haunting gives blindness (30 ticks) and slowness II (20 ticks), and turns a horse into a skeleton
+  horse after 100 ticks;
+- items on `levitate:belt`, `levitate:depot` and `levitate:weighted_ejector` in the current (or one
+  below a horizontal one) are processed the same way through their item capability;
+- airflow particles (`levitate:fan_airflow`, density `fanParticleDensity` 0.5 per tick) flow along the
+  current at `(reach + 1 − distance) / 16` blocks per tick, tinted per air type (Create's colours);
+  processing particles at items (smoke, soul flames, poof, splash).
+Other units use `feature/common/BulkExt.h` (`airflow::sourceAt`, `typeAt`, `canProcess`, `process`,
+`processingTime`), e.g. chutes for fans blowing up into them.
+
+**Nozzle**: placed on the clicked face; survives only in front of a fan facing the same way (else it
+pops). Range = the fan's reach (0 when stopped), pushing like the fan. Every 5 ticks it collects
+entities within the range it can see; each tick it pushes them `normalize(diff) · (range −
+distance) · (1/32, items 1/128)` away (pulling: towards it, except closer than 1.5); sneaking and
+creative-flying entities are left alone; poof particles around it. The nozzle blocks the fan's own
+current (its shape stops it at once).
+
+**Client**: rotating parts through the kinetic renderer (millstone stone; crushing wheel; fan shaft
+at the network speed and propeller at 5×); every block has a static model for vanilla clients.
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -663,7 +762,10 @@ place:
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
 
-`config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
+``config/bulk.json` (U13, Create's CKinetics keys): `crushingDamage` 4, `fanPushDistance` 20,
+`fanPullDistance` 20, `fanBlockCheckRate` 30, `fanRotationArgmax` 256, `fanProcessingTime` 150, and
+`fanParticleDensity` 0.5 (Create's client option).
+config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
 `mediumCapacity` (256), `highCapacity` (1024), `impact` {block path: SU per RPM} and `capacity`
 {block path: SU per RPM} (the table above, plus `cuckoo_clock` 1, `weighted_ejector` 2, backtanks 4,
@@ -710,6 +812,13 @@ matches Create's official Chinese translation wording).
 | Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
 | Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
+| Crushing wheel controller letting only the crushed entity through (U13) | Bedrock block collision can't depend on the entity | the controller keeps Create's 13 px slab for everyone; the item being crushed is moved through it by the server; mobs are hurt where they stand on it |
+| Create's crushing death messages, looting 2 for crushed mobs, fan damage types (U13) | Bedrock has no data-driven damage types or per-kill looting | crushing uses the contact cause, fans fire / lava / drowning causes; drops are the mob's plain loot; the strings exist in the lang files |
+| Fan processing state kept on the item entity (U13) | Bedrock item entities can't change their item for clients and carry no free data | a processed item entity is replaced by a new one with the same motion; the processing state lives in the server's memory (restarts after a reload) |
+| Haunted horses keep their data (U13) | no generic entity NBT copy between types | a skeleton horse is spawned in place; saddle, armour and taming are not carried over |
+| Placing a crushing wheel or nozzle where Create refuses it (U13) | the placement can't be vetoed per position for custom blocks | the block pops off right after placement |
+| Millstone / crusher ambient sounds, air current wind sound (U13) | Create's soundscapes are client-side sound assets | not played (U2's note on kinetic soundscapes) |
+| Pulling nozzle explosion with more than 256 entities (U13) | rare edge case | not ported |
 
 Units add rows here in their PRs when they find something else impossible.
 

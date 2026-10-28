@@ -1,0 +1,155 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:crushing_wheel_controller",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:valid": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.levitate.crushing_wheel_controller",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_crushing_wheel_controller",
+          "render_method": "blend"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          13,
+          16
+        ]
+      },
+      "minecraft:selection_box": false,
+      "minecraft:destructible_by_mining": false,
+      "minecraft:destructible_by_explosion": false,
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/crushing_wheel_controller.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 0",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 1",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              3,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              13
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -5
+            ],
+            "size": [
+              16,
+              16,
+              13
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              13,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -5,
+              0,
+              -8
+            ],
+            "size": [
+              13,
+              16,
+              16
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

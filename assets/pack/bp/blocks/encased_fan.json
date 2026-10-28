@@ -1,0 +1,139 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:encased_fan",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:rotor": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.encased_fan",
+        "bone_visibility": {
+          "casing": "q.block_state('levitate:rotor') != 2",
+          "shaft_up": "q.block_state('levitate:rotor') == 0",
+          "blades_up": "q.block_state('levitate:rotor') == 0",
+          "shaft_down": false,
+          "blades_down": false
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_encased_fan",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#9b7a4c",
+      "minecraft:loot": "loot_tables/blocks/encased_fan.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 0",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              180,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              -90,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              90
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              -90
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
