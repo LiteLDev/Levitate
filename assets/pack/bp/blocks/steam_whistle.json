@@ -8,8 +8,8 @@
       },
       "states": {
         "levitate:size": [
-          1,
           0,
+          1,
           2
         ],
         "levitate:powered": [
@@ -35,8 +35,8 @@
         "identifier": "geometry.levitate.steam_whistle",
         "bone_visibility": {
           "bracket": "q.block_state('minecraft:block_face') != 'up' && q.block_state('minecraft:block_face') != 'down'",
-          "small": "q.block_state('levitate:size') == 0",
-          "medium": "q.block_state('levitate:size') == 1",
+          "small": "q.block_state('levitate:size') == 1",
+          "medium": "q.block_state('levitate:size') == 0",
           "large": "q.block_state('levitate:size') == 2"
         }
       },

@@ -121,9 +121,11 @@ std::string text(Player const* viewer, std::string_view key, std::string_view fa
 
 std::optional<int> shaftAxis(Block const& block) { return intState(block, "levitate:axis"); }
 
-cs::WhistleSize whistleSize(Block const& block) {
-    return static_cast<cs::WhistleSize>(std::clamp(intState(block, "levitate:size").value_or(1), 0, 2));
-}
+/// `levitate:size` holds 0 medium (the default), 1 small, 2 large.
+cs::WhistleSize sizeOfState(int v) { return v == 1 ? cs::WhistleSize::Small : v == 2 ? cs::WhistleSize::Large : cs::WhistleSize::Medium; }
+int stateOfSize(cs::WhistleSize s) { return s == cs::WhistleSize::Small ? 1 : s == cs::WhistleSize::Large ? 2 : 0; }
+
+cs::WhistleSize whistleSize(Block const& block) { return sizeOfState(intState(block, "levitate:size").value_or(0)); }
 
 std::optional<cs::ExtensionShape> extensionShapeAt(BlockSource& region, GlobalPos const& p) {
     if (idAt(region, p) != kExtension) return std::nullopt;
@@ -483,7 +485,7 @@ void onExtensionChanged(GlobalPos const& pos, bool added) {
             removeBlock(*region, pos);
             return;
         }
-        auto size = belowId == kWhistle || belowId == kExtension ? intState(region->getBlock(game::blockPos(below)), "levitate:size").value_or(1) : 1;
+        auto size = intState(region->getBlock(game::blockPos(below)), "levitate:size").value_or(0);
         auto shape = cs::connectedShape(extensionShapeAt(*region, pos).value_or(cs::ExtensionShape::Single), idAt(*region, offset(pos, cs::Dir::Up)) == kExtension);
         setStates(*region, pos, {{"levitate:size", size}, {"levitate:shape", static_cast<int>(shape)}});
     } else {
@@ -573,7 +575,7 @@ bool useOnWhistle(Player& player, GlobalPos const& pos, ItemStack const& held, b
         if (action.kind == cs::IncrementAction::Widen) {
             setStates(*region, target, {{"levitate:shape", static_cast<int>(cs::ExtensionShape::Double)}});
         } else if (action.kind == cs::IncrementAction::Place) {
-            auto size = intState(baseBlock, "levitate:size").value_or(1);
+            auto size = intState(baseBlock, "levitate:size").value_or(0);
             if (auto const* b = game::blockWith(kExtension, {{"levitate:size", size}, {"levitate:shape", 0}})) game::setBlock(*region, game::blockPos(target), *b);
         }
         if (action.kind != cs::IncrementAction::None) {
@@ -595,7 +597,8 @@ bool useOnWhistle(Player& player, GlobalPos const& pos, ItemStack const& held, b
         }
         if (sneaking) return false; // dismantling is the wrench's own (U8)
         // Create's WhistleBlock.onWrenched: the next size, for the whole column
-        int size = (intState(baseBlock, "levitate:size").value_or(1) + 1) % 3;
+        auto next = static_cast<cs::WhistleSize>((static_cast<int>(whistleSize(baseBlock)) + 1) % 3);
+        int  size = stateOfSize(next);
         setStates(*region, base, {{"levitate:size", size}});
         for (int i = 1; i <= 32; ++i) {
             GlobalPos p = offset(base, cs::Dir::Up, i);
@@ -604,7 +607,7 @@ bool useOnWhistle(Player& player, GlobalPos const& pos, ItemStack const& held, b
         }
         playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "block.itemframe.rotate_item", 1.f, 1.f);
         static constexpr char const* names[]{"small", "medium", "large"};
-        log().info("steam: whistle at {} is now {}", at(base), names[size]);
+        log().info("steam: whistle at {} is now {}", at(base), names[static_cast<int>(next)]);
         return true;
     }
     return false;

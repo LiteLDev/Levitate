@@ -246,14 +246,18 @@ void refreshStructure(GlobalPos const& controller) {
                 auto p    = c.offset(x, y, z);
                 auto part = world.get(p);
                 if (!part || !(part->controller == c)) continue;
+                // block states (a lone windowed tank is the default state, for the item's look):
+                // above / below = another part continues there; shape = Create's Shape with
+                // window and plain swapped (0 window, 1 plain, 2..5 corner windows)
+                int shape = cs::windowShape(ctrl->window, ctrl->width, x, z);
                 setStates(
                     *region,
                     globalOf(controller.dim, p),
                     {
-                        {"levitate:top",    y == ctrl->height - 1 ? 1 : 0                                      },
-                        {"levitate:bottom", y == 0 ? 1 : 0                                                     },
-                        {"levitate:shape",  cs::windowShape(ctrl->window, ctrl->width, x, z)                   },
-                        {"levitate:light",  cs::partLight(light, amount, capacity, ctrl->height, y, ctrl->window)},
+                        {"levitate:above", y < ctrl->height - 1 ? 1 : 0                                       },
+                        {"levitate:below", y > 0 ? 1 : 0                                                      },
+                        {"levitate:shape", shape == 0 ? 1 : shape == 1 ? 0 : shape                            },
+                        {"levitate:light", cs::partLight(light, amount, capacity, ctrl->height, y, ctrl->window)},
                 }
                 );
             }

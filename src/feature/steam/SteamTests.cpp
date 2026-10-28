@@ -109,8 +109,8 @@ LV_REGISTER_SELFTEST("steam.tank_forms", [](Context& ctx) -> ll::coro::CoroTask<
     ctx.check(t->width == 2 && t->height == 2, "a 2x2x2 tank formed: " + std::to_string(t->width) + "x" + std::to_string(t->height));
     ctx.check(t->controller == a.at(0, 1, 0), "its controller is the lowest corner");
     ctx.check(t->capacity == 64000, "capacity 8 blocks x 8000 mB: " + std::to_string(t->capacity));
-    ctx.check(state(a.at(0, 1, 0), "levitate:bottom") == 1 && state(a.at(0, 1, 0), "levitate:top") == 0, "bottom part states");
-    ctx.check(state(a.at(1, 2, 1), "levitate:top") == 1 && state(a.at(1, 2, 1), "levitate:bottom") == 0, "top part states");
+    ctx.check(state(a.at(0, 1, 0), "levitate:below") == 0 && state(a.at(0, 1, 0), "levitate:above") == 1, "bottom part states");
+    ctx.check(state(a.at(1, 2, 1), "levitate:above") == 0 && state(a.at(1, 2, 1), "levitate:below") == 1, "top part states");
     ctx.check(state(a.at(0, 1, 0), "levitate:shape") == 2 && state(a.at(1, 1, 1), "levitate:shape") == 5, "corner windows (nw / se)");
     // a third layer on top joins
     for (int x = 0; x < 2; ++x)
@@ -153,9 +153,11 @@ LV_REGISTER_SELFTEST("steam.tank_split", [](Context& ctx) -> ll::coro::CoroTask<
     ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
     for (int y = 1; y <= 3; ++y) place(ctx, a.at(0, y), kTank);
     co_await ctx.ticks(2);
-    ctx.require(fill(a.at(0, 1), "minecraft:lava", 20000) == 20000, "fill the column with 20 buckets of lava");
+    ctx.require(fill(a.at(0, 1), "minecraft:lava", 8000) == 8000, "fill a third of the column with lava");
     co_await ctx.ticks(1);
-    ctx.check(state(a.at(0, 1), "levitate:light") == 12 && state(a.at(0, 3), "levitate:light") == 1, "lava glows up to its level");
+    ctx.check(state(a.at(0, 1), "levitate:light") == 12 && state(a.at(0, 2), "levitate:light") == 12 && state(a.at(0, 3), "levitate:light") == 1,
+              "lava glows up to its level (12), 1 above");
+    ctx.require(fill(a.at(0, 1), "minecraft:lava", 12000) == 12000, "fill up to 20 buckets");
     clear(a.at(0, 2));
     co_await ctx.ticks(2);
     auto bottom = tank(a.at(0, 1)), top = tank(a.at(0, 3));
@@ -193,14 +195,15 @@ LV_REGISTER_SELFTEST("steam.windows", [](Context& ctx) -> ll::coro::CoroTask<> {
     ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
     tankBox(ctx, a, 0, 1, 0, 3, 1);
     co_await ctx.ticks(2);
-    ctx.check(state(a.at(1, 1, 0), "levitate:shape") == 1 && state(a.at(0, 1, 0), "levitate:shape") == 0 && state(a.at(1, 1, 1), "levitate:shape") == 0,
+    // levitate:shape: 0 window, 1 plain
+    ctx.check(state(a.at(1, 1, 0), "levitate:shape") == 0 && state(a.at(0, 1, 0), "levitate:shape") == 1 && state(a.at(1, 1, 1), "levitate:shape") == 1,
               "3 wide: windows in the middle of each side only");
     ctx.check(toggleWindows(a.at(2, 1, 2)), "the wrench toggles windows");
     co_await ctx.ticks(1);
-    ctx.check(state(a.at(1, 1, 0), "levitate:shape") == 0, "windows closed");
+    ctx.check(state(a.at(1, 1, 0), "levitate:shape") == 1, "windows closed");
     toggleWindows(a.at(0, 1, 1));
     co_await ctx.ticks(1);
-    ctx.check(state(a.at(0, 1, 1), "levitate:shape") == 1, "windows open again");
+    ctx.check(state(a.at(0, 1, 1), "levitate:shape") == 0, "windows open again");
 });
 
 LV_REGISTER_SELFTEST("steam.multi_place", [](Context& ctx) -> ll::coro::CoroTask<> {

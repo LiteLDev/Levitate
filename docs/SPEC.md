@@ -161,15 +161,18 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
 - `fluid_tank` / `creative_fluid_tank`: full blocks (copper, hardness as Create's copper machines,
   drop themselves; the fluid inside is lost when its share no longer fits, §3.6.1). States
-  `levitate:top`, `levitate:bottom` (vertical connected textures), `levitate:shape` (Create's
-  FluidTankBlock.Shape: 0 plain, 1 window, 2 window_nw, 3 window_sw, 4 window_ne, 5 window_se),
-  `levitate:light` (0..15, Create's luminosity of a tank holding a glowing fluid).
+  `levitate:above`, `levitate:below` (another part continues there: Create's TOP / BOTTOM inverted,
+  the vertical connected textures), `levitate:shape` (Create's FluidTankBlock.Shape with window and
+  plain swapped so a lone windowed tank is the default state: 0 window, 1 plain, 2 window_nw,
+  3 window_sw, 4 window_ne, 5 window_se), `levitate:light` (0..15, Create's luminosity of a tank
+  holding a glowing fluid). (Bedrock reads integer states by their index in the declared list, so
+  every list is in ascending order and defaults are 0.)
 - `steam_engine`: attaches to the face of a tank it is placed on (`minecraft:block_face` from
   `minecraft:placement_position`, `minecraft:cardinal_direction` for the floor / ceiling facing);
   it can only be placed on tanks and pops when its tank goes. Drops itself.
 - `steam_whistle`: on the side of a tank (wall, bracket towards the tank) or on its top (floor,
-  mouth towards the player who placed it); states `levitate:size` (0 small, 1 medium (default),
-  2 large), `levitate:powered`. `steam_whistle_extension` (no item, drops nothing): `levitate:size`,
+  mouth towards the player who placed it); states `levitate:size` (0 medium (the default),
+  1 small, 2 large), `levitate:powered`. `steam_whistle_extension` (no item, drops nothing): `levitate:size`,
   `levitate:shape` (0 single = half, 1 double, 2 double_connected).
 - `powered_shaft`: what a shaft (U6's `levitate:shaft`, `levitate:axis`) becomes two blocks in front of
   an engine; states `levitate:axis`, `levitate:rotor` (kinetic rotor model); drops a shaft.
