@@ -1,0 +1,27 @@
+{
+  "type": "levitate:sequenced_assembly",
+  "ingredient": { "tag": "levitate:sleepers" },
+  "tags": {
+    "levitate:sleepers": ["minecraft:stone_slab", "minecraft:smooth_stone_slab", "minecraft:andesite_slab"]
+  },
+  "transitional_item": { "item": "levitate:incomplete_track" },
+  "loops": 1,
+  "sequence": [
+    {
+      "type": "levitate:deploying",
+      "ingredients": [{ "item": "levitate:incomplete_track" }, [{ "item": "minecraft:iron_nugget" }, { "item": "levitate:zinc_nugget" }]],
+      "results": [{ "item": "levitate:incomplete_track" }]
+    },
+    {
+      "type": "levitate:deploying",
+      "ingredients": [{ "item": "levitate:incomplete_track" }, [{ "item": "minecraft:iron_nugget" }, { "item": "levitate:zinc_nugget" }]],
+      "results": [{ "item": "levitate:incomplete_track" }]
+    },
+    {
+      "type": "levitate:pressing",
+      "ingredients": [{ "item": "levitate:incomplete_track" }],
+      "results": [{ "item": "levitate:incomplete_track" }]
+    }
+  ],
+  "results": [{ "item": "levitate:track", "count": 1 }]
+}

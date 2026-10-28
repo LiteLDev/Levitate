@@ -1,0 +1,175 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:track",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:shape": {
+          "values": {
+            "min": 0,
+            "max": 15
+          }
+        },
+        "levitate:shape_hi": [
+          0,
+          1
+        ],
+        "levitate:turn": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.track",
+        "bone_visibility": {
+          "oz": "(q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 9) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 10) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 13) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 2)",
+          "ox": "(q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 11) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 12) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 13) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 15) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 1)",
+          "dp": "(q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 3) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 14) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 15) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 0)",
+          "dn": "(q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 4) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 14) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:shape_hi') == 1 && q.block_state('levitate:shape') == 2)",
+          "asc": "(q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 5) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 6) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 7) || (q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 8)"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_track",
+          "render_method": "alpha_test",
+          "ambient_occlusion": false,
+          "face_dimming": true
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          2,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          4,
+          16
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.8
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.8
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#7d6a52",
+      "minecraft:loot": "loot_tables/blocks/track.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 5",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          },
+          "minecraft:collision_box": false,
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 6",
+        "components": {
+          "minecraft:collision_box": false,
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 7",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          },
+          "minecraft:collision_box": false,
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape_hi') == 0 && q.block_state('levitate:shape') == 8",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          },
+          "minecraft:collision_box": false,
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
