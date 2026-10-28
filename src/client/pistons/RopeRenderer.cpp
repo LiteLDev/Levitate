@@ -124,7 +124,7 @@ void renderRopes(BaseActorRenderContext& ctx) {
     Colour magnet{lin(0x9a), lin(0x9d), lin(0xa3)}, magnetTip{lin(0xb0), lin(0x3a), lin(0x2e)};
     ScreenContext& sc   = ctx.mScreenContext;
     Tessellator&   tess = sc.tessellator;
-    tess.begin({}, mce::PrimitiveMode::QuadList, int(visible.size() * 3 * 24), false);
+    tess.begin({}, mce::PrimitiveMode::QuadList, int(visible.size() * 4 * 24), false);
     auto now = Clock::now();
     for (auto const& [k, r] : visible) {
         float ticks  = std::min(3.f, std::chrono::duration<float>(now - r.at).count() * 20.f);

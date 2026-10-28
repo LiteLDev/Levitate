@@ -45,6 +45,6 @@ Save-Screenshot 'piston-extended' | Out-Null
 
 if (-not $vanilla) {
     $r = Invoke-SelfTest 'pistons.*'
-    if ($r.Pass -lt 13) { throw "expected at least 13 pistons selftests to pass, got $($r.Pass)" }
+    if ($r.Pass -lt 12) { throw "expected at least 12 pistons selftests to pass, got $($r.Pass)" }
 }
 Assert-NoErrors

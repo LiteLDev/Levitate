@@ -92,15 +92,15 @@ std::optional<ColumnCoords> columnOf(GlobalPos const& contact) {
 }
 
 std::vector<int> columnContacts(ColumnCoords const& c) {
+    // the tracked contacts of that x/z (every contact is tracked when it appears)
     std::vector<int> out;
-    auto*            r = regionOf(c.dim);
-    if (!r) return out;
-    for (int y = r->getMinHeight(); y < r->getMaxHeight(); ++y) {
-        GlobalPos p{c.dim, c.x, y, c.z};
-        if (idAt(p) != kElevatorContact) continue;
-        if (facingAt(p) != c.side) continue;
-        out.push_back(y);
+    auto&            s = st().contacts;
+    for (auto it = s.lower_bound({c.dim, c.x, INT32_MIN, INT32_MIN}); it != s.end() && it->dim == c.dim && it->x == c.x; ++it) {
+        if (it->z != c.z) continue;
+        if (idAt(*it) != kElevatorContact || facingAt(*it) != c.side) continue;
+        out.push_back(it->y);
     }
+    std::sort(out.begin(), out.end());
     return out;
 }
 
@@ -199,9 +199,22 @@ void callToContact(GlobalPos const& p, bool powered) {
     log().info("elevator column at {} {} called to contact y {}", c->x, c->z, p.y);
 }
 
+/// The first `chars` UTF-8 characters of `s` (never splits a character).
+std::string utf8Prefix(std::string const& s, std::size_t chars) {
+    std::size_t i = 0, n = 0;
+    while (i < s.size() && n < chars) {
+        auto c = static_cast<unsigned char>(s[i]);
+        std::size_t len = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 1;
+        if (i + len > s.size()) break;
+        i += len;
+        ++n;
+    }
+    return s.substr(0, i);
+}
+
 void setContactNames(GlobalPos const& p, std::string shortName, std::string longName, int doorMode) {
-    if (shortName.size() > 4) shortName.resize(4);
-    if (longName.size() > 30) longName.resize(30);
+    shortName = utf8Prefix(shortName, 4);
+    longName  = utf8Prefix(longName, 30);
     auto& d    = data(p);
     d["short"] = shortName;
     d["long"]  = longName;

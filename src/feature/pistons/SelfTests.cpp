@@ -277,7 +277,7 @@ LV_REGISTER_SELFTEST("pistons.gantry", [](Context& ctx) -> ll::coro::CoroTask<> 
     auto o = ctx.testPos(2080);
     o.y += 1;
     ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
-    clearBox(ctx, o, -1, 0, 0, 4, 2, 0);
+    clearBox(ctx, o, -1, 0, 0, 5, 2, 0);
     // shafts facing east along x: start (0), middle (1, 2), end (3)
     for (int i = 0; i < 4; ++i) {
         auto q = at(o, i, 0, 0);
@@ -292,20 +292,24 @@ LV_REGISTER_SELFTEST("pistons.gantry", [](Context& ctx) -> ll::coro::CoroTask<> 
     auto carriage = at(o, 2, 1, 0);
     put(ctx, carriage, kGantryCarriage, {{kFacing, int(cc::Dir::Up)}, {kAxisFirst, 0}});
     put(ctx, at(o, 2, 2, 0), "minecraft:oak_planks");
-    auto source = at(o, -1, 0, 0);
+    // two generators: the kinetics table (U2) still gives gantry shafts 4 SU/RPM (Create: 0)
+    auto source = at(o, -1, 0, 0), source2 = at(o, 4, 0, 0);
     put(ctx, source, kSource, {{"levitate:axis", 0}});
+    put(ctx, source2, kSource, {{"levitate:axis", 0}});
     co_await Context::ticks(3);
     // pinion speed = -rpm / 512 along the shaft facing: positive rpm moves the carriage west
     kinetics::setGeneratedSpeed(source, 128);
+    kinetics::setGeneratedSpeed(source2, 128);
     auto moved = co_await waitFor(ctx, [&] { return idAt(at(o, 0, 1, 0)) == kGantryCarriage; }, 200);
     ctx.check(moved, "the carriage runs to the start of the shaft line");
     ctx.check(idAt(at(o, 0, 2, 0)) == "minecraft:oak_planks", "its load comes along");
     ctx.check(idAt(carriage) == "minecraft:air", "the old place is empty");
     // a powered shaft line doesn't move carriages
-    put(ctx, at(o, 4, 0, 0), "minecraft:redstone_block");
+    put(ctx, at(o, 3, 1, 0), "minecraft:redstone_block");
     co_await Context::ticks(5);
     ctx.check(stateOr(o, kPowered, 0) == 1, "redstone powers the whole line");
     kinetics::setGeneratedSpeed(source, -128);
+    kinetics::setGeneratedSpeed(source2, -128);
     co_await Context::ticks(20);
     ctx.check(idAt(at(o, 0, 1, 0)) == kGantryCarriage, "a powered line holds the carriage");
     for (auto id : gantryContraptions()) ct::disassemble(id);

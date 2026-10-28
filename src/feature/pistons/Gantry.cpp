@@ -330,8 +330,9 @@ void tickGantries() {
             log().error("gantry carriage at {} {} {}: {}", q.x, q.y, q.z, e.what());
         }
     }
-    // shafts: parts and redstone power
-    std::vector<GlobalPos> shafts(s.shafts.begin(), s.shafts.end());
+    // shafts: parts and redstone power (polled every 2 ticks: custom blocks get no neighbour updates)
+    std::vector<GlobalPos> shafts;
+    if (currentTick() % 2 == 0) shafts.assign(s.shafts.begin(), s.shafts.end());
     for (auto const& q : shafts) {
         if (!loaded(q)) continue;
         if (idAt(q) != kGantryShaft) {

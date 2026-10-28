@@ -58,7 +58,10 @@
         "explosion_resistance": 6
       },
       "minecraft:map_color": "#c9a447",
-      "minecraft:loot": "loot_tables/blocks/elevator_contact.json"
+      "minecraft:loot": "loot_tables/blocks/elevator_contact.json",
+      "minecraft:redstone_producer": {
+        "power": 0
+      }
     },
     "permutations": [
       {

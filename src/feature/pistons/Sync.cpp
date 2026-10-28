@@ -29,8 +29,10 @@ struct Rope {
 
 struct SyncState {
     std::map<GlobalPos, Rope> ropes;
-    std::map<GlobalPos, bool> changed; ///< pos -> still running
-    bool                      hooked = false;
+    std::map<GlobalPos, bool>         changed; ///< pos -> still running
+    std::map<std::int64_t, int>       dims;    ///< companion -> dimension last sent
+    std::uint64_t                     ticks  = 0;
+    bool                              hooked = false;
 };
 SyncState& st() {
     static SyncState s;
@@ -76,6 +78,22 @@ void syncRopeRemoved(GlobalPos const& pulley) { syncRope(pulley, 0, 0, false, fa
 
 void tickRopeSync() {
     auto& s = st();
+    // a companion that changed dimension gets that dimension's ropes
+    if (++s.ticks % 20 == 0) {
+        if (auto level = ll::service::getLevel()) {
+            level->forEachPlayer([&](Player& p) {
+                if (!net::isCompanion(p)) return true;
+                auto uid = p.getOrCreateUniqueID().rawID;
+                int  dim = static_cast<int>(p.getDimensionId());
+                auto it  = s.dims.find(uid);
+                if (it == s.dims.end() || it->second != dim) {
+                    s.dims[uid] = dim;
+                    sendAll(p);
+                }
+                return true;
+            });
+        }
+    }
     if (s.changed.empty()) return;
     std::map<int, Json> sets, removes;
     for (auto const& [p, running] : s.changed) {
@@ -99,6 +117,7 @@ void tickRopeSync() {
 void resetRopeSync() {
     st().ropes.clear();
     st().changed.clear();
+    st().dims.clear();
 }
 
 } // namespace lv::feature::pistons

@@ -89,6 +89,7 @@ struct Ctx {
     Json      d;
     bool      removed = false;
     bool      discard = false;
+    Json      orig; ///< as loaded (written back only when changed)
 
     [[nodiscard]] float offset() const { return d.value("offset", 0.0f); }
     void                setOffset(float o) { d["offset"] = o; }
@@ -111,8 +112,9 @@ struct Ctx {
 };
 
 void writeBack(Ctx& c) {
-    if (c.discard) return;
+    if (c.discard || c.d == c.orig) return;
     data(c.p) = c.d;
+    c.orig    = c.d;
 }
 
 void setError(Ctx& c, std::string const& key, std::string const& fallback, std::vector<std::string> const& args) {
@@ -207,6 +209,18 @@ bool collidesWithOthers(ct::Contraption const& self, std::vector<cc::Pos> const&
         if (o->kind() != "piston" && o->kind() != "pulley" && o->kind() != "elevator") continue;
         auto    pos = o->transform().origin + o->transform().offset;
         cc::Pos grid{int(std::floor(pos.x)), int(std::floor(pos.y)), int(std::floor(pos.z))};
+        // bounds first: most structures are far apart
+        cc::Pos lo{INT32_MAX, INT32_MAX, INT32_MAX}, hi{INT32_MIN, INT32_MIN, INT32_MIN};
+        for (auto const& b : o->blocks()) {
+            lo = {std::min(lo.x, b.local.x), std::min(lo.y, b.local.y), std::min(lo.z, b.local.z)};
+            hi = {std::max(hi.x, b.local.x), std::max(hi.y, b.local.y), std::max(hi.z, b.local.z)};
+        }
+        bool near = false;
+        for (auto const& w : worldColliders) {
+            auto l = w - grid;
+            if (l.x >= lo.x && l.x <= hi.x && l.y >= lo.y && l.y <= hi.y && l.z >= lo.z && l.z <= hi.z) near = true;
+        }
+        if (!near) continue;
         std::set<cc::Pos> mine;
         for (auto const& b : o->blocks()) mine.insert(b.local);
         for (auto const& w : worldColliders)
@@ -253,7 +267,8 @@ void disassemblePiston(Ctx& c) {
         Block const* piston = blockAt(c.p);
         bool         wasPiston = piston && isPiston(piston->getTypeName());
         auto         facing    = c.facing();
-        std::optional<Json> doc = common::blockdata::take(c.p);
+        std::optional<Json> doc;
+        if (!c.removed) doc = common::blockdata::take(c.p);
         {
             EditGuard g;
             if (wasPiston) clearAt(c.p, 2);
@@ -280,28 +295,40 @@ void disassemblePiston(Ctx& c) {
     c.d.erase("target");
 }
 
+/// Create: getDestroySpeed == -1 (bedrock, barriers...); air and liquids are replaced.
+bool unbreakable(GlobalPos const& q) {
+    auto const* b = blockAt(q);
+    if (!b) return true;
+    if (b->isAir() || replaceableAt(q)) return false;
+    return destroySpeedAt(q) < 0;
+}
+
+/// Breaks what is in the rope's way like the game (other units / actuators see it go); rope
+/// pieces of ours are just replaced.
+void clearForRope(GlobalPos const& q, int dim) {
+    auto const* b = blockAt(q);
+    if (!b || b->isAir() || isRopeLike(b->getTypeName())) return;
+    destroyAt(q, !ct::ext::hasCollision(dim, cpos(q)));
+}
+
 void createRopes(Ctx& c) {
     int off = static_cast<int>(c.offset());
-    EditGuard g;
     if (off > 0) {
         auto magnetPos = rel(c.p, cc::Dir::Down, off);
-        if (destroySpeedAt(magnetPos) != -1.f) {
-            if (!replaceableAt(magnetPos) || !idAt(magnetPos).empty()) {
-                auto const* b = blockAt(magnetPos);
-                if (b && !b->isAir()) destroyAt(magnetPos, !ct::ext::hasCollision(c.p.dim, cpos(magnetPos)));
-            }
+        if (!unbreakable(magnetPos)) {
+            clearForRope(magnetPos, c.p.dim);
+            EditGuard g;
             place(magnetPos, kMagnet, {}, 2);
         }
     }
     for (int i = 1; i <= off - 1; ++i) {
         auto ropePos = rel(c.p, cc::Dir::Down, i);
-        if (destroySpeedAt(ropePos) == -1.f) continue;
-        auto const* b = blockAt(ropePos);
-        if (b && !b->isAir()) destroyAt(ropePos, !ct::ext::hasCollision(c.p.dim, cpos(ropePos)));
+        if (!unbreakable(ropePos)) clearForRope(ropePos, c.p.dim);
     }
+    EditGuard g;
     for (int i = 1; i <= off - 1; ++i) {
         auto ropePos = rel(c.p, cc::Dir::Down, i);
-        if (destroySpeedAt(ropePos) == -1.f) continue;
+        if (unbreakable(ropePos)) continue;
         place(ropePos, kRope, {}, 2);
     }
 }
@@ -379,6 +406,14 @@ void assembleLog(Ctx& c, ct::Contraption const* con) {
     );
 }
 
+/// Sets assemblingPiston() for a scope (also when the assembly throws).
+struct PistonFlag {
+    PistonFlag() { assemblingPiston() = true; }
+    ~PistonFlag() { assemblingPiston() = false; }
+    PistonFlag(PistonFlag const&)            = delete;
+    PistonFlag& operator=(PistonFlag const&) = delete;
+};
+
 bool isPoleAlong(GlobalPos const& q, cc::Axis axis) { return idAt(q) == kPole && cc::axisOf(facingAt(q)) == axis; }
 
 void assemblePiston(Ctx& c) {
@@ -388,7 +423,7 @@ void assemblePiston(Ctx& c) {
     cc::Dir     facing  = facingAt(c.p);
     bool        sticky  = id == kStickyPiston;
     float       rpm     = rpmAt(c.p);
-    float       raw     = cp::pistonMovementSpeed(rpm, facing, 0, 1 << 20);
+    float       raw     = cp::pistonMovementSpeed(rpm, facing, 1e6f, 2000000); // unclamped direction
     bool        retract = raw < 0;
     cc::Axis    axis    = cc::axisOf(facing);
 
@@ -470,9 +505,11 @@ void assemblePiston(Ctx& c) {
         info.id        = std::string(front == 0 ? kHead : kPole);
         info.notSupportive = 0x3F;
     };
-    assemblingPiston() = true;
-    auto dry           = ct::ext::dryRun(opts, virtualInfo);
-    assemblingPiston() = false;
+    cc::AssemblyResult dry;
+    {
+        PistonFlag flag;
+        dry = ct::ext::dryRun(opts, virtualInfo);
+    }
     if (!dry.ok()) {
         auto e = ct::ext::errorOf(dry);
         setError(c, e.key, e.fallback, e.args);
@@ -497,9 +534,10 @@ void assemblePiston(Ctx& c) {
         EditGuard g;
         if (front == 0) place(c.p, kHead, {{kFacing, int(facing)}, {kSticky, sticky ? 1 : 0}}, 2);
         else place(c.p, kPole, {{kFacing, int(facing)}}, 2);
-        assemblingPiston() = true;
-        r                  = ct::assemble(opts);
-        assemblingPiston() = false;
+        {
+            PistonFlag flag;
+            r = ct::assemble(opts);
+        }
         auto const* moving = piston ? withStates(*piston, {{kState, int(r.ok() ? PistonState::Moving : PistonState(stateOr(c.p, kState, 0)))}}) : nullptr;
         if (r.ok()) {
             if (moving) placeBlock(c.p, *moving, 3);
@@ -627,7 +665,6 @@ void assemblePulley(Ctx& c) {
         }
         if (!canBuild && rpm > 0) return;
 
-        if (!elevator) removeRopes(static_cast<int>(offset));
         c.d["init"] = init;
         if (!dry.blocks.empty()) {
             auto r = ct::assemble(opts);
@@ -635,6 +672,7 @@ void assemblePulley(Ctx& c) {
                 setError(c, r.errorKey, r.errorText, r.errorArgs);
                 return;
             }
+            if (!elevator) removeRopes(static_cast<int>(offset));
             c.d["id"]    = *r.id;
             c.d["needs"] = true;
             c.d.erase("target");
@@ -670,8 +708,10 @@ void assemblePulley(Ctx& c) {
                 c.d["arrived"] = true;
                 c.d["prev"]    = 0.0f;
             }
+            c.setOffset(offset);
             assembleLog(c, ct::find(*r.id));
         } else {
+            if (!elevator) removeRopes(static_cast<int>(offset));
             c.d["id"] = 0;
             log().info("{} at {} {} {} running without a structure", kindName(c.kind), c.p.x, c.p.y, c.p.z);
         }
@@ -739,9 +779,11 @@ void elevatorAfterTick(Ctx& c, bool wasArrived, std::uint64_t tick) {
     if (tick % 3 == 0 && c.d.value("tgt", 0) == static_cast<int>(c.offset())) triggerContact(cc, static_cast<int>(std::floor(0.5 + ey)) + cy);
     // a controls request from the cabin (U22's contraption controls write it into anchorData)
     auto& ad = con->anchorData();
-    if (ad.contains("elevator") && ad["elevator"].contains("request")) {
-        int y = ad["elevator"]["request"].get<int>();
+    if (ad.contains("elevator") && ad["elevator"].is_object() && ad["elevator"].contains("request")) {
+        auto req = ad["elevator"]["request"];
         ad["elevator"].erase("request");
+        if (!req.is_number()) return;
+        int y = static_cast<int>(req.get<double>());
         GlobalPos contact{c.p.dim, cc.x, y, cc.z};
         if (idAt(contact) == kElevatorContact) callToContact(contact, false);
     }
@@ -771,7 +813,20 @@ void publishFloors(Ctx& c) {
 
 void tickOne(Ctx& c, std::uint64_t tick) {
     if (c.d.value("id", ct::Id{0}) && !c.contraption()) c.d["id"] = 0;
-    if (c.parent()) return; // Create: mirrored pulleys are passive
+    if (auto parent = c.parent()) {
+        // Create: mirrored pulleys are passive; one whose parent is gone places its rope
+        bool listed = false;
+        if (loaded(*parent)) {
+            if (auto const* pd = dataIf(*parent); pd && pd->contains("children"))
+                for (auto const& j : (*pd)["children"])
+                    if (posFrom(c.p.dim, j) == c.p) listed = true;
+            if (!listed) {
+                disassemble(c);
+                c.d.erase("parent");
+            }
+        }
+        return;
+    }
     bool wasArrived = c.d.value("arrived", true);
 
     if (c.d.value("waiting", false)) {
@@ -837,6 +892,8 @@ std::optional<Ctx> load(GlobalPos const& p) {
     if (!kind) return std::nullopt;
     Ctx c{p, *kind, Json::object()};
     if (auto const* d = dataIf(p)) c.d = *d;
+    c.orig = c.d;
+    if (c.orig.empty()) c.orig = nullptr; // a fresh document is always written
     return c;
 }
 
@@ -979,6 +1036,13 @@ void tickActuators() {
             tickOne(*c, tick);
         } catch (std::exception const& e) {
             log().error("{} at {} {} {} tick failed: {}", kindName(c->kind), p.x, p.y, p.z, e.what());
+        }
+        if (c->kind != Kind::Piston && c->running() && c->d.value("waiting", false) && tick % 20 == 0 && !c->parent()) {
+            bool elevator = c->kind == Kind::ElevatorPulley;
+            syncRope(p, c->offset(), 0, true, elevator);
+            if (c->d.contains("children"))
+                for (auto const& j : c->d["children"])
+                    if (auto child = posFrom(p.dim, j)) syncRope(*child, c->offset(), 0, true, elevator);
         }
         writeBack(*c);
         bool idle = !c->running() && !c->d.value("assemble", false) && !c->d.value("id", ct::Id{0}) && !c->parent();
