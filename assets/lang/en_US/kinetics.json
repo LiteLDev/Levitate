@@ -1,0 +1,16 @@
+{
+  "create.generic.unit.rpm": "RPM",
+  "create.generic.unit.stress": "su",
+  "lv.kinetics.cmd.none": "No kinetic block at {0}.",
+  "lv.kinetics.cmd.block": "{0} at {1}",
+  "lv.kinetics.cmd.speed": "Speed: {0} {1} (theoretical {2} {1})",
+  "lv.kinetics.cmd.generated": "Generating: {0} {1}",
+  "lv.kinetics.cmd.source": "Source: {0}",
+  "lv.kinetics.cmd.no_source": "Source: none",
+  "lv.kinetics.cmd.stress": "Stress impact: {0} {1}/{2}, capacity: {3} {1}/{2}",
+  "lv.kinetics.cmd.network": "Network {0}: {1} blocks, {2} sources",
+  "lv.kinetics.cmd.usage": "Stress: {0} / {1} {2}",
+  "lv.kinetics.cmd.no_network": "Not part of a network.",
+  "lv.kinetics.cmd.not_generator": "No generator at {0}.",
+  "lv.kinetics.cmd.speed_set": "Generator at {0} now turns at {1} {2}."
+}

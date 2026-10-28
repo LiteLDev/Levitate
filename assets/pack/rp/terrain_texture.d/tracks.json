@@ -1,0 +1,4 @@
+{
+  "levitate_track": { "textures": "textures/blocks/track" },
+  "levitate_fake_track": { "textures": "textures/blocks/fake_track" }
+}

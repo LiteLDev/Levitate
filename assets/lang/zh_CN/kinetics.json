@@ -1,0 +1,16 @@
+{
+  "create.generic.unit.rpm": "RPM",
+  "create.generic.unit.stress": "su",
+  "lv.kinetics.cmd.none": "{0} 处没有动力方块。",
+  "lv.kinetics.cmd.block": "{0}，位于 {1}",
+  "lv.kinetics.cmd.speed": "转速：{0} {1}（理论 {2} {1}）",
+  "lv.kinetics.cmd.generated": "产生转速：{0} {1}",
+  "lv.kinetics.cmd.source": "动力来源：{0}",
+  "lv.kinetics.cmd.no_source": "动力来源：无",
+  "lv.kinetics.cmd.stress": "应力影响：{0} {1}/{2}，应力容量：{3} {1}/{2}",
+  "lv.kinetics.cmd.network": "动力网络 {0}：{1} 个方块，{2} 个动力源",
+  "lv.kinetics.cmd.usage": "应力：{0} / {1} {2}",
+  "lv.kinetics.cmd.no_network": "不属于任何动力网络。",
+  "lv.kinetics.cmd.not_generator": "{0} 处没有动力源。",
+  "lv.kinetics.cmd.speed_set": "{0} 处的动力源现在以 {1} {2} 转动。"
+}

@@ -247,69 +247,183 @@ U10, `train_door` is U10. U28: `track_signal`, `track_observer`.
 
 ### 2.26 Filters (U3)
 
-`filter` (list filter, 9 slots, respect NBT/data, whitelist/blacklist), `attribute_filter` (attribute
-list, whitelist-any/whitelist-all/blacklist).
+`filter` ("List Filter": 18 ghost slots in 2 rows of 9, Allow-List / Deny-List, Respect Data /
+Ignore Data, entries may be filters themselves), `attribute_filter` (reference item + attribute
+list, Allow-List (Any) / Allow-List (All) / Deny-List; up to 8 attributes ⚠). Both stack to 64
+(stacks with different contents don't merge). Right-click opens the filter screen (§4); the lore
+shows Create's summary (mode + the first entries). Recipes: `filter` = iron nugget, wool, iron
+nugget in a row; `attribute_filter` = brass nugget, wool, brass nugget ⚠ (lands with U9's
+`brass_nugget`). Contents live in the item's user data (`lv:filter`, `lv:attribute_filter`).
 
 ## 3. Mechanics
 
 ### 3.1 Kinetic network (U2)
 
-- A **kinetic block** declares, per block state: rotation axis, which faces carry a shaft
-  connection, whether it has small or large cog teeth (and on which axis), and its stress impact or
-  capacity (config, §5). Units register blocks with `kinetics::registerBlock(id, spec)`.
-- **Propagation**: from each source, speed spreads through shaft connections (same speed, same
-  direction), small cog ↔ small cog on parallel axes adjacent sideways (same speed, opposite
-  direction), large ↔ small diagonal mesh (ratio 2:1 / 1:2, opposite direction), large ↔ large
-  ⚠ (same speed opposite direction), encased chain drives (same speed), adjustable chain gearshift
-  (×2 when powered ⚠ analog), gearbox (90° transfer with Create's direction rules), gearshift
-  (reverses when powered), clutch (disconnects when powered), speed controller (sets target speed).
-- **Speed limits**: max 256 RPM (config `maxRotationSpeed`), speeds above are clamped; Create's
-  speed levels: slow < 30 ≤ medium < 100 ≤ fast ⚠ (used by tooltips/goggles/particles).
-- **Conflicts**: two sources forcing different speeds/directions into one network → the component
-  where they meet breaks (pops as item) as in Create; a network that would exceed max speed through
-  ratios breaks the offending cog.
-- **Stress**: the network sums capacity of sources at their speed and impact of consumers at their
-  speed; when impact > capacity the whole network is **overstressed**: every component stops
-  (speed 0 for processing), gauges show it, goggles show "Overstressed".
-- **Networks** recompute on place, break, state change (powered, axis) and chunk load; results are
-  cached per network id and persisted (speed per block in BlockData) so a reload resumes.
-- **Client**: each kinetic block's rotating part is drawn rotating at its speed (degrees/tick =
-  speed·6/20 ⚠), interpolated per frame, offset by Create's per-block initial angle so meshing cogs
-  line up. Speed changes are sent to clients with the client mod in batches per chunk.
-- **Particles/sounds**: rotation sound per network (cogs ticking) and overstress smoke, as Create.
+Code: `src/core/kinetics/` (solver, pure C++, gtest), `src/feature/kinetics/` (world adapter, API,
+command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kinetics/Kinetics.h`.
 
+- **Kinetic blocks** are registered per block id with a `KineticSpec`
+  (`LV_REGISTER_KINETIC_BLOCK(id, spec)` / `kinetics::registerBlock`): the integer block states it
+  reads (`states`), rotation axis, shaft ends per face (`hasShaftTowards`), small / large cog
+  teeth, generator flag, stress defaults and Create's special-case hooks (`axisModifier` for
+  directional shaft halves, `propagate` = `propagateRotationTo`, `customConnection`,
+  `conveyedSpeed` for the speed controller, `extraNeighbours` = `addPropagationLocations`).
+  Builders: `specs::shaft`, `specs::cogwheel`, `specs::generatorShaft`, `specs::gearboxModifier`,
+  `specs::splitShaftModifier`. The network follows the world by itself: any change of a
+  registered block or of one of its listed states (players, commands, pistons, explosions, other
+  units) is applied within the tick; generators call `setGeneratedSpeed`.
+- **Connections and ratios** (Create's `RotationPropagator.getRotationSpeedModifier`):
+  shaft ends facing each other: ×1 (times the halves' `axisModifier`); small cog ↔ small cog,
+  same axis, adjacent sideways: ×−1; large cog → small cog diagonal in the large cog's plane, same
+  axis: ×−2 (small → large ×−½); large ↔ large with perpendicular axes, diagonal in the plane of both
+  axes: ×±1 (−1 when the offsets along the two axes have different signs); cogs stacked along their
+  axis connect through their shaft ends (×1). Small cogs reach the 12 diagonals in their plane,
+  large cogs all 12 diagonals. Gearbox halves: the face opposite the source turns the other way,
+  perpendicular faces turn the same way when their direction sign differs from the source face's
+  (Create's `getAxisModifier`). Gearshift: the far half reverses when powered; clutch: the far half
+  disconnects when powered. Chain drives, adjustable chain gearshift, speed controller and belts
+  are U6/U11 specs using the hooks.
+- **Propagation** (Create's `propagateNewSource` / `propagateMissingSource`): a placed block takes
+  its speed from the first powered neighbour (faces in Create's `Direction` order, then diagonals);
+  a faster source of the same direction overpowers the slower tree (an overpowered generator turns
+  at the network's speed, stays in it and still adds its capacity; when the faster source goes it
+  restarts on the next tick); a removed block stops everything it powered, which then re-attaches
+  to any other powered neighbour. Every block is re-validated every `kineticValidationFrequency`
+  (60) ticks (source gone or stopped → stop).
+- **Breaking** (the block pops as its item, Create's `destroyBlock(pos, true)`): two sources
+  forcing opposite directions into one block; a ratio that would exceed `maxRotationSpeed`
+  (256 RPM; speeds are never clamped); a loop of ratios that would speed itself up (same network,
+  conveyed speed above the existing one); a block whose speed changed direction / started / stopped
+  too often (flicker score: +5 per change, −1 per tick, breaks above 128). One log line per break.
+- **Speed levels** (`speedLevelOf`): none (< 1), slow (≥ 1), medium (≥ `mediumSpeed` 30), fast
+  (≥ `fastSpeed` 100).
+- **Stress**: a network (named after the generator that started it) uses Σ impact·|speed| SU and
+  provides Σ capacity·|generated speed| SU of its generators (driven ones included). When usage >
+  capacity (and `disableStress` is off) the whole network is **overstressed**: every member reports
+  speed 0 (`speedAt`; `theoreticalSpeedAt` keeps the real value), smoke rises from every member,
+  a cloud puff when it recovers; one log line per change. Usage levels for goggles/gauges
+  (`stressLevel`): > 1 overstressed, > .75 high, > .5 medium, else low. Impact / capacity per block
+  come from the stress table (§5) or a per-block override (`setStressImpact` / `setStressCapacity`).
+- **Persistence**: the network state (block, states, speed, source, network, generated speed,
+  overrides) is saved per chunk in the world DB under `lv:kinetics:c:<dim>:<cx>:<cz>` (until U3's
+  `BlockData` exists) and restored when the world loads, then re-attached as Create's block entities
+  do on load. A slow world check re-reads blocks that changed without an event.
+- **API for machines**: `speedAt`, `theoreticalSpeedAt`, `nodeAt`, `networkAt`, `networkMembers`,
+  `isOverstressed`, `stressImpactOf` / `stressCapacityOf`, `onSpeedChanged(blockId, fn)` (batched
+  once per tick), `onBreak(fn)`.
+- **Command**: `/create kinetics <pos>` dumps the block and its network; `/create kinetics <pos>
+  speed <rpm>` (Levitate debug) sets a generator's speed.
+- **Client** (client mod only): a kinetic block with a `rotorState` (int state, e.g.
+  `levitate:rotor`) has three models: `0` the full static model (what the world holds and vanilla
+  clients see), `1` its non-rotating parts (the client mod tessellates this in the chunk mesh), `2..`
+  its rotating parts (`spec.parts`, default one part around the rotation axis). The client mod draws
+  each rotating part every frame at Create's angle `(ticks + partialTicks)·speed·0.3 + offset`
+  degrees, where offset is 22.5° when the sum of the block's coordinates off the axis is even, else
+  0 (11.25 for large cogs), plus the spec's `angleOffset` — so meshing cogs interlock.
+- **Speed sync** (client mod only): a minimal channel over Bedrock's `ScriptMessagePacket`, isolated
+  in `KineticsSync.cpp` / `client/kinetics/` for U3's companion protocol to absorb: the client says
+  hello (`levitate:kinetics/hello`, protocol 1), the server acks and sends a full sync of the
+  player's dimension (again after each dimension change), then once per tick the changed speeds per
+  chunk (`core/kinetics/SyncCodec.h`).
+- **Not yet**: Create's ambient cog/kinetic sound scapes and the coloured rotation-indicator
+  particles need original sound / particle assets: U8 (goggles, overlays) or a later U2 PR.
 ### 3.2 Block data, capabilities, filters, value boxes (U3)
 
-- `BlockData`: JSON per (dim, pos) owned by the block's unit, `get/set/erase`, iterate per chunk,
-  automatically erased when the block is broken, moved by contraptions (U4 carries it).
-- **Item capability**: `items::register(blockId, Handler)` with `insert(stack, face, simulate)`,
-  `extract(filter, amount, face, simulate)`, `slots()`. Vanilla chests, barrels, hoppers, furnaces,
-  shulker boxes, dispensers/droppers, composters, jukeboxes etc. are adapted (sided as vanilla hoppers).
-- **Fluid capability**: same shape with `FluidStack {fluidId, amountMb}`; 1 bucket = 1000 mB;
-  vanilla cauldrons (water, lava, powder snow) adapted.
-- **Heat capability**: `heat::level(pos)` → none / passive (fire, campfire, lava, magma) / kindled /
-  seething, registered by U14's blaze burner.
-- **Filters**: `filter::matches(filterItem, stack)` with Create's list and attribute semantics
-  (attributes: in tag, mod id, is food, is fuel, is enchanted, has enchant, is damaged, fluid
-  contained, stackable, equipable, in item group, can be smelted/smoked/washed/blasted/haunted/
-  crushed/milled/sandpapered, written book author/title, shulker contents, ...). Filter slots on
-  blocks: right-click the slot with an item sets it; the slot renders the item (client mod) or a
-  floating item display (vanilla).
-- **Value boxes** (scroll values): a block face may expose a numeric value (e.g. creative motor
-  speed, threshold) or an option list. Client mod: hold-scroll with the wrench/empty hand while
-  looking at the box, as Create (Shift for fine steps); vanilla: right-click with the wrench opens a
-  form. U3 provides the registry and both UIs.
-- **Recipe loader**: `recipes::loadType("pressing", parse)` reads `assets/recipes/<type>/*.json`
-  (merged into the mod folder at build time) with Create's ingredient/result/chance/fluid semantics.
+Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested).
+
+- **`BlockData`** (`BlockData.h`): one JSON object per (dim, pos), shared by units through
+  top-level keys (`data["kinetics"]`, `data["filter"]`, ...). `get/edit/set/erase/has`,
+  `forEachInChunk`, `forEach`. Saved per chunk in the world DB (`lv:common:bd:<dim>:<cx>:<cz>`,
+  JSON keyed `"x,y,z"`), loaded lazily, written on every world save. Erased automatically when the
+  block at the position changes to another block *type* (break, replace, explosion, vanilla
+  piston); state changes keep it. `onErase(fn)` lets owners drop contents first. Contraptions (U4)
+  move it with `take(pos)` (before removing the block) and `put(pos, doc)`.
+- **Item capability** (`Capabilities.h`, `items::`): handlers per block id (`registerBlock`) or
+  generic providers, with `slots`, `getSlot`, `insert(stack, simulate) -> remainder`,
+  `extract(predicate, amount, simulate) -> stack`; `face` is the accessed side (Create's
+  `Direction side`). Vanilla adapters: every container block actor (chests incl. double chests,
+  barrels, shulker boxes, hoppers, dispensers, droppers, brewing stands, jukeboxes, crafters ...)
+  with the container's own push/pull rules; furnaces / smokers / blast furnaces sided as hoppers
+  (top → input, sides → fuel, bottom ← result); composters (compostables in from the top, one
+  per insertion, bone meal out at the bottom when ready). Insertion merges into matching stacks
+  first, then fills empty slots, in slot order.
+- **Fluid capability** (`fluids::`): `FluidStack {fluid, amount mB}`, handlers with `tanks`,
+  `fill(stack, simulate) -> accepted`, `drain(request, simulate) -> drained` (request fluid ""
+  = any). 1 bucket = 1000 mB, bottle = 250 mB. Cauldrons hold one bucket of water, lava or powder
+  snow and only move whole buckets (as NeoForge's cauldron wrapper). `fluidInItem` knows water /
+  lava / powder snow / milk buckets and water bottles; units add theirs (`registerFluidItem`).
+- **Heat** (`heat::`): `level(region, pos)` → Create's HeatLevel none / smouldering / fading /
+  kindled / seething. A registered provider wins (U14's blaze burner); otherwise Create's
+  `#create:passive_boiler_heaters` (fire, soul fire, lava, magma block, lit campfires) give
+  smouldering. Recipes' heat condition (Create's HeatCondition): heated needs at least fading,
+  superheated needs seething; passive heat is not enough for heated recipes.
+- **Filters** (`Filter.h`): `matches(filter, stack, matchData)`, `matchesFluid`, `predicate()`
+  with Create's FilterItemStack semantics: an empty filter slot matches everything; a plain item
+  matches the same item (data ignored unless matching data); a list filter matches if any entry
+  matches (entries recursively, with its Respect Data flag), Deny-List inverts, an *empty* list
+  filter only matches list filters; attribute filters combine attribute tests (inverted ones
+  negate) as Allow-List (Any) / (All) / Deny-List, an empty one only matches attribute filters;
+  attribute filters never match fluids. Attribute types (Create's, same ids and wording):
+  placeable, consumable, fluid_container, enchanted, max_enchanted, renamed, damaged,
+  badly_damaged (> 75 %), not_stackable, equipable, furnace_fuel, washable (splashing recipe),
+  hauntable (haunting recipe), crushable (crushing or milling recipe), smeltable / smokable /
+  blastable (vanilla furnace / smoker / blast furnace recipe), compostable, in_tag (Bedrock item
+  tags), in_item_group (creative group), added_by (namespace), has_enchant, shulker_fill_level,
+  has_fluid, has_name, book_author, book_copy. Units add more with `registerAttribute`.
+- **Filter slots** (`ValueBox.h`, `filterslot::`): `registerSlot(blockId, {id, centre, scale,
+  onChanged})`; the stack lives in `data["filter"][id]`. Right-click on the slot with an item sets
+  a copy (filter items are taken from the hand in survival and given back when replaced),
+  right-click with an empty hand clears it (returning a filter item). The client mod shows the
+  slot's content in the hover label (below).
+- **Value boxes** (`valuebox::`): `registerBox(blockId, {id, label, board, centre, scale, get,
+  set, format})`. Create 6 edits values on a *value settings board*: rows (e.g. the creative
+  motor's ⟳ / ⟲) × columns 0..max with milestone ticks (`core/common/ValueSettings.h`: plain,
+  signed and option boards). A box is hit when the click is within `scale / 2` (default 0.25)
+  blocks of its centre (Create's ValueBoxTransform.testHit). Client mod: right-click with the
+  wrench or an empty hand opens the board (pointer picks row and value, wheel ±1, Shift+wheel
+  jumps milestones, click confirms, right-click / Esc cancels); looking at a box or filter slot
+  shows its label and value next to the crosshair. Vanilla: the same right-click opens a form
+  (row dropdown + value slider; small boards as a step slider of the formatted values). Edits are
+  validated server side (reach 8 blocks, value clamped to the board).
+- **Recipe loader** (`Recipes.h`): `recipes::ofType("pressing")` / `loadType` reads
+  `<mod>/recipes/<type>/**.json` (copied from `assets/recipes/` at build time) in Create's 1.20 and
+  1.21 spellings: item ingredients (item / tag / alternatives / `count`), fluid ingredients
+  (fluid or fluid tag + amount), item results with `count` and `chance` (each item rolled, as
+  Create), fluid results, `heat_requirement`, `processing_time`; `create:` ids become `levitate:`.
+  Tags resolve through `assets/recipes/tags/*.json` fragments (one per unit) and then Bedrock item
+  tags. Broken files are skipped with a warning. `/create reload` reloads them.
 
 ### 3.3 Client protocol and screens (U3)
 
-- Handshake on join: the client mod announces itself (protocol version); the server marks the
-  player as "companion". Typed packets for kinetic updates, block data sync, screen open/close,
-  screen actions, value box changes, overlays.
-- Native screen framework (client): Create-style panels (background texture drawn by our texture
-  scripts, slots, buttons, scroll inputs, labels, tooltips). Every screen has a **form fallback**
-  (server forms) for vanilla clients covering the same actions.
+- **Companion protocol** (`src/feature/net/Net.h`): two LeviLamina custom packets (client → server,
+  server → client) carrying a channel name (`<unit>.<name>`) and a JSON payload. On joining a
+  level the client mod sends `net.hello {protocol, mod}` (repeated every 2 s, 15 times, until
+  answered); the server answers `net.welcome {protocol, accepted}` and marks the player as a
+  *companion* (log `companion joined: <name> (protocol N, ...)`). The server never sends to
+  non-companions, so vanilla clients never receive our packets; messages from non-companions
+  are ignored. Protocol version 1; the server accepts `kMinProtocolVersion..kProtocolVersion`.
+  Units use `net::on(channel, fn)` / `net::send(player, channel, json)` on the server and
+  `net::client::on` / `net::client::send` on the client. Typed channels so far:
+  `screen.open/update/close/action`, `valuebox.open/set`, `common.hover`.
+- **Screens** (server side `src/feature/common/Screens.h`): `screens::registerType({id, data,
+  action, form})`, `screens::open(player, type, context)` → native screen for companions
+  (`screen.open {type, context, data}`), the form for vanilla players. Native actions come back
+  as `screen.action`; the server re-validates the context (e.g. the filter is still in that hand
+  slot), runs the action and answers `screen.update` with fresh data (or `screen.close`).
+- **Native screen framework** (client, `src/client/screen/Screen.h`): a `Screen` with widgets
+  (labels, Create icon buttons, ghost item slots, scroll inputs, tooltips) on a Create-style
+  bevelled panel, optionally above the player's inventory (36 slots, clicking picks a ghost copy
+  onto the cursor; Shift-click sends it straight to the screen). The framework pushes a vanilla
+  host scene so the game frees the mouse, draws the screen instead of the host, routes mouse and
+  keyboard input, and closes with Esc or the inventory key. `registerServerScreen(type, factory)`
+  binds server-opened types.
+- **Filter screens** (first users): list filter — 18 ghost slots (click with a ghost item sets,
+  click with an empty cursor / right-click clears), Allow-List / Deny-List and Respect Data /
+  Ignore Data buttons with Create's tooltips, reset. Attribute filter — reference slot, attribute
+  selector (scroll), "Add attribute to List" / "Add opposite attribute to List", the three modes,
+  reset, the selected attributes. Forms: one custom form per filter (a dropdown per slot listing
+  the inventory's items, mode, data); the attribute filter's form sets the mode / resets and then
+  offers the attributes of a chosen inventory item.
 
 ### 3.4 Contraptions (U4)
 
@@ -390,14 +504,77 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
 
 ### 3.5 Tracks (U5)
 
-- Placing track on another track's end with the track item in hand connects them with a curve
-  (bezier between the two endpoints, constraints as Create: max turn angle, min radius, slopes,
-  `maxTrackPlacementLength` 32 ⚠); cost in tracks taken from inventory (survival); girders under
-  curves optional (holding girders in offhand ⚠).
-- Track graph: nodes at track ends/junctions, edges straight or curved, persisted in WorldDb, keyed
-  by dimension; nether portals link graphs across dimensions.
-- Query API: path finding (A* on the graph), edge points, positions along edges, for trains and
-  signals.
+Checked against Create 6.0.10 (TrackBlock, TrackShape, TrackPlacement, TrackPaver,
+BezierConnection, TrackPropagator, TrackGraph, Navigation). Pure maths in `src/core/tracks/`
+(gtest), game side in `src/feature/tracks/`, curve drawing in `src/client/tracks/`.
+
+**Block `levitate:track`.** States `levitate:shape` + 16 · `levitate:shape_hi` = Create's
+TrackShape (0 none, 1 ZO, 2 XO, 3 PD, 4 ND, 5–8 ascending N/S/E/W, 9–12 portal N/S/E/W, 13 CR_O,
+14 CR_D, 15 CR_PDX, 16 CR_PDZ, 17 CR_NDX, 18 CR_NDZ; Bedrock allows 16 values per state) and
+`levitate:turn` (Create's HAS_BE: curves start here). Hardness 0.8, metal sound, drops itself,
+collision 2 px (none on slopes), can't stand on another track.
+- **Placing** (Create's getStateForPlacement): the shape whose axis is closest to the horizontal
+  look (straight or diagonal; yaw when looking straight up/down). A straight track next to a block
+  with a sturdy top (and no sturdy bottom above it) along its axis ascends towards it (the negative
+  side wins).
+- **Crossings**: a straight run laid over an existing track overlays it: ZO+XO → CR_O, PD+ND →
+  CR_D, XO/ZO + PD/ND → CR_PDX/CR_PDZ/CR_NDX/CR_NDZ.
+
+**Connecting with the track item** (Create's TrackBlockItem / TrackPlacement):
+- Right-click a track: selects the end facing the look direction ("Place track or select a second
+  point", item frame sound). Junctions can't be selected (`create.track.junction_start`).
+- Right-click a second track (or a free spot: a track is placed there with the placement shape):
+  the connection is planned with Create's rules and either built or refused with its message
+  (`create.track.*`: `second_point`, `too_far` (> `maxTrackPlacementLength` = 32, config
+  `config/tracks.json`), `original_missing`, `perpendicular`, `ascending_s_curve`, `too_sharp`,
+  `too_steep`, `slope_turn`, `opposing_slopes`, `leave_slope_ascending`, `leave_slope_descending`,
+  `turn_90`), with the deny sound. Rules: turns between 60° and 300° of heading change (90° max per
+  curve); 90° turns need a radius ≥ 7, 45° turns ≥ 3.25, plus room for the height change
+  (90°: +2 per block above 3, 45°: +1.5 per block above 1.5); S-bends need a forward run of 3 (or
+  twice the side offset) and must be flat; straight slopes need 4 blocks per block of height
+  (3 from 4 blocks up, at least 6); curves leave/enter slopes only straight. Without Sprint the
+  curve is standardised (smallest turn, straight track fills the rest); with Sprint held it takes the
+  whole space (Create's "maximized turn").
+- Cost (survival): one track per straight block placed + `(segments + 1) / 2` for the curve
+  (segments = ⌊length · 2⌋), taken from every slot but the selected one, then the selected one,
+  then the off hand (`not_enough_tracks`). A block item in the off hand paves under the tracks
+  (Create's TrackPaver: slabs half-step on curves, walls and girders along the sides only;
+  `not_enough_pavement`); a metal girder (`levitate:metal_girder`, U10) in the off hand builds the
+  curve with girders (twice the track cost in girders).
+- Sneak + right-click (on a block or in the air) clears the selection ("Selection Cleared").
+
+**Curves** are stored in the world DB (`lv:tracks:curves:<dim>:<cx>:<cz>`, by the chunk of their
+first block) as Create's BezierConnection (end blocks, start points, axes, normals, girder): handles
+`radius · 4/3 · tan(angle/4)` (S-bends: the side offset), length from 16 straight pieces. The blocks
+the curve passes through (Create's rasterise) hold `levitate:fake_track` (no collision, replaceable,
+breakable: breaking it destroys the curve). Breaking either end track removes its curves, dropping
+one track per two segments (and two girders each when built with girders) unless in creative or
+`doTileDrops` is off; `tracks::dismantleCurves` gives them to a player instead (wrench, U8).
+
+**Graph** (Create's TrackGraph): nodes at track ends, junctions, curve ends, portal crossings and
+on the 16-block grid of long straight runs (TrackNodeLocation: x/z on a half-block grid, y per
+block); edges straight or curved (both directions stored, curves oriented from the edge's first
+node); graphs are the connected components and may span dimensions. Updated incrementally on
+every track change (Create's TrackPropagator: remove reachable nodes, rebuild from the first valid
+node; splits re-checked). Persisted per dimension in `lv:tracks:graph:<dim>` (nodes with their graph
+id, edges with their node1, edge points) so trains can run through unloaded chunks.
+
+**Portal tracks**: a straight track placed against a nether portal along its axis looks up the
+linked portal (the game's portal records; overworld ↔ nether at 1:8) and becomes a portal track
+(TN/TS/TE/TW) bound to a new portal track on the other side, which must be loaded and free;
+otherwise it pops with "Cannot place portal track:" + `missing` / `blocked`. The two are joined by
+a zero-length inter-dimensional edge; removing either (or the portal) removes both.
+
+**Contract for U27/U28** (`feature/tracks/Tracks.h`, `core/tracks/Graph.h`): `railways()` (graphs,
+nodes, edges, lengths, positions/normals along edges, `canTravelTo`), `locate(dim, pos)`,
+`targetAt(pos, facing)` (Create's track targeting), `advance(loc, distance)`, `findPath` (A* over
+directed edges, cost = distance + `edgePenalty`, heuristic = distance to the nearest destination;
+no U-turns, Create's 7/8 direction rule at junctions), edge points (`addPoint` / `pointsOn` /
+`onPointInvalidated`: points survive rebuilds of their edge, owners re-add them when it is gone),
+`onGraphChanged`.
+
+**Client**: curves are drawn by the client mod (ties and rails along the curve segments) from
+`levitate:tracks` script messages the server sends on join and on every change (see §8).
 
 ### 3.6 Feature mechanics
 
@@ -486,6 +663,14 @@ place:
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
 
+`config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
+(60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
+`mediumCapacity` (256), `highCapacity` (1024), `impact` {block path: SU per RPM} and `capacity`
+{block path: SU per RPM} (the table above, plus `cuckoo_clock` 1, `weighted_ejector` 2, backtanks 4,
+`elevator_pulley` 4 ⚠, `gantry_shaft` 4 ⚠ and 0 for the transmission blocks), `syncToClients` (true).
+A block without a table entry uses its spec's `impact` / `capacity`. The generated RPM column is the
+generators' own behaviour (U7, U18, U21), not a config value.
+
 ## 6. Commands
 
 | Command | Who | Owner |
@@ -518,6 +703,13 @@ matches Create's official Chinese translation wording).
 | Contraption collision computed by the client (U4) | Bedrock clients only collide with real blocks and a few entity types | the server pushes players out of the contraption and carries them (teleports); with lag this is less smooth than Create's client-side collision |
 | Glue region outlines (U4) | no client-side line rendering without a client renderer for it | particles along the edges of nearby regions for players holding super glue (client mod and vanilla) |
 | Redstone input of the sticker (U4) | custom blocks get no redstone neighbour update | the sticker polls the redstone power of its neighbours every 4 ticks (redstone blocks, wire, torches, levers, buttons, repeaters, comparators, observers, anything with `redstone_signal`) |
+| Curved tracks drawn for **vanilla** clients (U5) | Bedrock block models are fixed per block state; a curve is not a block | the client mod draws the curve; vanilla clients see the straight end tracks and a track bed (`levitate:fake_track`) on every block the curve passes through |
+| Track placement preview while hovering (U5) | Create draws the planned curve and its message client-side every frame | the message (`create.track.*`) is shown in the action bar when clicking; the selection is kept per player on the server (the item is not enchanted-looking) |
+| "Hold Ctrl for maximized turn" (U5) | the server can't see a held key without the client mod | the player's sprint state is used (sprinting = maximized) |
+| Tilted tracks between two sloped curves (U5) | Create re-shapes the curves and tilts the block model at runtime | curves keep their original handles; the middle track stays flat |
+| Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
+| Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
+| Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
 
 Units add rows here in their PRs when they find something else impossible.
 

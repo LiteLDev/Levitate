@@ -1,0 +1,5 @@
+tile.levitate:kinetics_test_shaft.name=Kinetics Test Shaft
+tile.levitate:kinetics_test_cog.name=Kinetics Test Cogwheel
+tile.levitate:kinetics_test_large_cog.name=Kinetics Test Large Cogwheel
+tile.levitate:kinetics_test_source.name=Kinetics Test Source
+tile.levitate:kinetics_test_consumer.name=Kinetics Test Consumer

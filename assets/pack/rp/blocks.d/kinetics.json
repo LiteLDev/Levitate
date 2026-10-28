@@ -1,0 +1,7 @@
+{
+  "levitate:kinetics_test_shaft": { "sound": "stone" },
+  "levitate:kinetics_test_cog": { "sound": "wood" },
+  "levitate:kinetics_test_large_cog": { "sound": "wood" },
+  "levitate:kinetics_test_source": { "sound": "metal" },
+  "levitate:kinetics_test_consumer": { "sound": "metal" }
+}
