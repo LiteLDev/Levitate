@@ -381,7 +381,7 @@ void anticipate(GlobalPos const& pos) {
 
 void setPendingTarget(Player& player, PendingTarget t) {
     pending()[player.getOrCreateUniqueID().rawID] = t;
-    actionBar(player, "§a" + trFor(player, "create.packager_link.set", "Target selected"));
+    actionBar(player, "§a" + trFor(player, "lv.packages.target_selected", "Target selected"));
     log().info("packages: {} selected a {} target at {}", player.getRealName(), t.postbox ? "station" : "chain", t.targetPos.key());
 }
 
@@ -569,7 +569,7 @@ void addressForm(Player& player, GlobalPos const& pos) {
     ll::form::CustomForm form(trFor(player, "create.gui.package_port.catch_packages", "Catch packages addressed to..."));
     form.appendLabel(trFor(player, "create.gui.package_port.catch_packages_wildcard", "Use * as a text wildcard"));
     form.appendLabel(trFor(player, "create.gui.package_port.catch_packages_empty", "Leave empty to match non-addressed"));
-    form.appendInput("address", trFor(player, "create.gui.stock_keeper.package_address", "Package Address"), "", s.address);
+    form.appendInput("address", trFor(player, "lv.packages.form.address", "Address"), "", s.address);
     form.sendTo(player, [pos](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
         if (!result || !isPort(pos)) return;
         if (auto it = result->find("address"); it != result->end())

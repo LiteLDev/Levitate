@@ -1,0 +1,47 @@
+{
+  "levitate_cardboard_package_12x12": {
+    "textures": "textures/items/cardboard_package_12x12"
+  },
+  "levitate_cardboard_package_10x12": {
+    "textures": "textures/items/cardboard_package_10x12"
+  },
+  "levitate_cardboard_package_10x8": {
+    "textures": "textures/items/cardboard_package_10x8"
+  },
+  "levitate_cardboard_package_12x10": {
+    "textures": "textures/items/cardboard_package_12x10"
+  },
+  "levitate_rare_creeper_package": {
+    "textures": "textures/items/rare_creeper_package"
+  },
+  "levitate_rare_darcy_package": {
+    "textures": "textures/items/rare_darcy_package"
+  },
+  "levitate_rare_evan_package": {
+    "textures": "textures/items/rare_evan_package"
+  },
+  "levitate_rare_jinx_package": {
+    "textures": "textures/items/rare_jinx_package"
+  },
+  "levitate_rare_kryppers_package": {
+    "textures": "textures/items/rare_kryppers_package"
+  },
+  "levitate_rare_simi_package": {
+    "textures": "textures/items/rare_simi_package"
+  },
+  "levitate_rare_starlotte_package": {
+    "textures": "textures/items/rare_starlotte_package"
+  },
+  "levitate_rare_thunder_package": {
+    "textures": "textures/items/rare_thunder_package"
+  },
+  "levitate_rare_up_package": {
+    "textures": "textures/items/rare_up_package"
+  },
+  "levitate_rare_vector_package": {
+    "textures": "textures/items/rare_vector_package"
+  },
+  "levitate_package_filter": {
+    "textures": "textures/items/package_filter"
+  }
+}

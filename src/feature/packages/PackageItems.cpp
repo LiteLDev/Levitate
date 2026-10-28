@@ -214,7 +214,7 @@ void updateLore(ItemStack& box) {
             ++visible;
             lines.push_back("§7" + items::displayName(s) + " x" + std::to_string(items::countOf(s)));
         }
-        if (skipped > 0) lines.push_back("§o" + tr("container.shulkerBox.more", "and {} more...", skipped));
+        if (skipped > 0) lines.push_back("§o" + tr("lv.packages.more_items", "and {} more...", skipped));
     }
     if (lines.empty()) box.clearCustomLore();
     else box.setCustomLore(lines);
@@ -269,11 +269,11 @@ void throwPackage(Player& player, int ticksHeld) {
 void openPackageFilterForm(Player& player) {
     int slot = player.getSelectedItemSlot();
     if (!isPackageFilter(player.getSelectedItem())) return;
-    ll::form::CustomForm form(trFor(player, "item.levitate:package_filter.name", "Package Filter"));
+    ll::form::CustomForm form(trFor(player, "lv.packages.package_filter", "Package Filter"));
     form.appendLabel(trFor(player, "create.gui.package_port.catch_packages_wildcard", "Use * as a text wildcard"));
     form.appendInput(
         "address",
-        trFor(player, "create.gui.stock_keeper.package_address", "Package Address"),
+        trFor(player, "lv.packages.form.address", "Address"),
         "",
         addressOf(player.getSelectedItem())
     );
