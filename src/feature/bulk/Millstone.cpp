@@ -120,18 +120,13 @@ void millstoneCatchItems(BlockSource& region, GlobalPos const& pos) {
     for (auto* a : entitiesIn(region, top)) {
         auto* stack = itemOf(*a);
         if (!stack || items::isEmpty(*stack)) continue;
-        if (!canProcess(*stack)) continue;
-        auto v    = load(pos);
-        int  room = 0;
-        if (items::isEmpty(v.input)) room = slotLimit(*stack);
-        else if (sameItem(v.input, *stack)) room = slotLimit(v.input) - items::countOf(v.input);
-        int move = std::min(room, items::countOf(*stack));
-        if (move <= 0) continue;
-        v.input = items::isEmpty(v.input) ? items::withCount(*stack, move) : items::withCount(v.input, items::countOf(v.input) + move);
-        save(pos, v);
-        int left = items::countOf(*stack) - move;
-        if (left <= 0) a->remove();
-        else *stack = items::withCount(*stack, left);
+        auto rest = millstone_cap::insert(pos, *stack, false);
+        if (items::countOf(rest) == items::countOf(*stack)) continue;
+        // clients never see a changed item entity: replace it with the remainder
+        auto feet   = feetOf(*a);
+        auto motion = motionOf(*a);
+        a->remove();
+        if (!items::isEmpty(rest)) spawnItem(region, rest, feet, motion);
     }
 }
 

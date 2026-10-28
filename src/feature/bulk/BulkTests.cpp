@@ -14,6 +14,7 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/GameType.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/Spawner.h"
 #include "mc/world/level/block/Block.h"
@@ -88,6 +89,13 @@ cb::Box around(GlobalPos const& p, double r) {
     };
 }
 
+/// Loads the area; the test player then watches as a spectator (never picks up the test items).
+ll::coro::CoroTask<bool> loadArea(Context& ctx, GlobalPos pos) {
+    bool ok = co_await ctx.ensureLoaded(pos);
+    ctx.player().setPlayerGameType(GameType::Spectator);
+    co_return ok;
+}
+
 /// Temporarily shorter fan processing (restored by the destructor).
 struct FastFans {
     int saved;
@@ -142,7 +150,7 @@ LV_REGISTER_SELFTEST("bulk.recipe_items", [](Context& ctx) {
 
 LV_REGISTER_SELFTEST("bulk.millstone", [](Context& ctx) -> ll::coro::CoroTask<> {
     Area a{ctx, 0};
-    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(0)), "test area loaded");
     auto& region = overworld(ctx);
     auto  mill   = a.at(0, 1);
     ctx.require(ctx.setBlock(a.at(0), kSource, {{"levitate:axis", Y}}), "place the source");
@@ -187,7 +195,7 @@ LV_REGISTER_SELFTEST("bulk.millstone", [](Context& ctx) -> ll::coro::CoroTask<> 
 
 LV_REGISTER_SELFTEST("bulk.millstone_throw", [](Context& ctx) -> ll::coro::CoroTask<> {
     Area a{ctx, 6};
-    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(0)), "test area loaded");
     auto& region = overworld(ctx);
     auto  mill   = a.at(0, 1);
     ctx.require(ctx.setBlock(a.at(0), kSource, {{"levitate:axis", Y}}), "place the source");
@@ -203,7 +211,7 @@ LV_REGISTER_SELFTEST("bulk.millstone_throw", [](Context& ctx) -> ll::coro::CoroT
 
 LV_REGISTER_SELFTEST("bulk.crusher_controller", [](Context& ctx) -> ll::coro::CoroTask<> {
     Area a{ctx, 10};
-    ctx.require(co_await ctx.ensureLoaded(a.at(1)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     auto  w1 = a.at(1, 1, 0), w2 = a.at(1, 1, 2), ctrl = a.at(1, 1, 1);
     ctx.require(ctx.setBlock(a.at(0, 1, 0), kSource, {{"levitate:axis", X}}), "source 1");
@@ -232,7 +240,7 @@ LV_REGISTER_SELFTEST("bulk.crusher_controller", [](Context& ctx) -> ll::coro::Co
 
 LV_REGISTER_SELFTEST("bulk.crusher_crushes", [](Context& ctx) -> ll::coro::CoroTask<> {
     Area a{ctx, 15};
-    ctx.require(co_await ctx.ensureLoaded(a.at(1)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     // wheels two blocks up so the output has room below
     auto w1 = a.at(1, 2, 0), w2 = a.at(1, 2, 2), ctrl = a.at(1, 2, 1);
@@ -271,7 +279,7 @@ LV_REGISTER_SELFTEST("bulk.crusher_crushes", [](Context& ctx) -> ll::coro::CoroT
 
 LV_REGISTER_SELFTEST("bulk.crusher_damages", [](Context& ctx) -> ll::coro::CoroTask<> {
     Area a{ctx, 20};
-    ctx.require(co_await ctx.ensureLoaded(a.at(1)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     auto  w1 = a.at(1, 1, 0), w2 = a.at(1, 1, 2), ctrl = a.at(1, 1, 1);
     ctx.setBlock(a.at(0, 1, 0), kSource, {{"levitate:axis", X}});
@@ -305,7 +313,7 @@ LV_REGISTER_SELFTEST("bulk.crusher_damages", [](Context& ctx) -> ll::coro::CoroT
 
 LV_REGISTER_SELFTEST("bulk.fan_current", [](Context& ctx) -> ll::coro::CoroTask<> {
     Area a{ctx, 36};
-    ctx.require(co_await ctx.ensureLoaded(a.at(10)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(10)), "test area loaded");
     auto& region = overworld(ctx);
     auto  fan    = a.at(1, 0, 0);
     ctx.setBlock(a.at(0, 0, 0), kSource, {{"levitate:axis", X}});
@@ -346,7 +354,7 @@ LV_REGISTER_SELFTEST("bulk.fan_current", [](Context& ctx) -> ll::coro::CoroTask<
 
 LV_REGISTER_SELFTEST("bulk.fan_pushes", [](Context& ctx) -> ll::coro::CoroTask<> {
     Area a{ctx, 36};
-    ctx.require(co_await ctx.ensureLoaded(a.at(10, 0, 2)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(10, 0, 2)), "test area loaded");
     auto& region = overworld(ctx);
     auto  fan    = a.at(1, 0, 2);
     ctx.setBlock(a.at(0, 0, 2), kSource, {{"levitate:axis", X}});
@@ -370,7 +378,7 @@ LV_REGISTER_SELFTEST("bulk.fan_pushes", [](Context& ctx) -> ll::coro::CoroTask<>
 LV_REGISTER_SELFTEST("bulk.fan_washing", [](Context& ctx) -> ll::coro::CoroTask<> {
     FastFans fast;
     Area     a{ctx, 36};
-    ctx.require(co_await ctx.ensureLoaded(a.at(1, 0, 4)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(1, 0, 4)), "test area loaded");
     auto& region = overworld(ctx);
     // a fan 3 blocks up blowing down into a one-block water pit in the ground (water can't spread)
     auto fan = a.at(1, 3, 4), pit = a.at(1, -1, 4);
@@ -396,7 +404,7 @@ LV_REGISTER_SELFTEST("bulk.fan_washing", [](Context& ctx) -> ll::coro::CoroTask<
 LV_REGISTER_SELFTEST("bulk.fan_smoking", [](Context& ctx) -> ll::coro::CoroTask<> {
     FastFans fast;
     Area     a{ctx, 60};
-    ctx.require(co_await ctx.ensureLoaded(a.at(10)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(10)), "test area loaded");
     auto& region = overworld(ctx);
     auto  fan    = a.at(1, 0, 0);
     ctx.setBlock(a.at(0, 0, 0), kSource, {{"levitate:axis", X}});
@@ -421,7 +429,7 @@ LV_REGISTER_SELFTEST("bulk.fan_smoking", [](Context& ctx) -> ll::coro::CoroTask<
 // Blasting and haunting results (no entities: lava flows, soul fire needs soul soil).
 LV_REGISTER_SELFTEST("bulk.fan_types", [](Context& ctx) -> ll::coro::CoroTask<> {
     Area a{ctx, 85};
-    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(0)), "test area loaded");
     auto& region = overworld(ctx);
     auto  p      = a.at(0, 0, 0);
     ctx.setBlock(a.at(0, -1, 0), "minecraft:soul_soil");
@@ -450,7 +458,7 @@ LV_REGISTER_SELFTEST("bulk.fan_types", [](Context& ctx) -> ll::coro::CoroTask<> 
 
 LV_REGISTER_SELFTEST("bulk.nozzle", [](Context& ctx) -> ll::coro::CoroTask<> {
     Area a{ctx, 26};
-    ctx.require(co_await ctx.ensureLoaded(a.at(1)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     auto  fan = a.at(1, 1, 2), nozzle = a.at(1, 2, 2);
     ctx.setBlock(a.at(1, 0, 2), kSource, {{"levitate:axis", Y}});
@@ -477,7 +485,7 @@ LV_REGISTER_SELFTEST("bulk.nozzle", [](Context& ctx) -> ll::coro::CoroTask<> {
 
 LV_REGISTER_SELFTEST("bulk.placement", [](Context& ctx) -> ll::coro::CoroTask<> {
     Area a{ctx, 31};
-    ctx.require(co_await ctx.ensureLoaded(a.at(1)), "test area loaded");
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     auto& player = ctx.player();
     // a shaft (axis x) west of the spot: the fan's back connects to it and it blows away (east)

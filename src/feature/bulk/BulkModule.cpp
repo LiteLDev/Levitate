@@ -181,7 +181,8 @@ void onPlaced(int dim, BlockPos p, Kind kind) {
             else axis = preferred && in.sneaking ? k::axisOf(faceOf(in.face)) : k::axisOf(nearestLooking(in.look));
             setStates(*region, p, {{"levitate:axis", int(axis)}});
         }
-        if (!wheelCanSurvive(*region, p)) {
+        // Create checks this when a player places the wheel (commands bypass it)
+        if (fresh && !wheelCanSurvive(*region, p)) {
             log().info("crushing wheel at {} {} {}: no room next to another wheel / controller, dropped", p.x, p.y, p.z);
             breakBlock(*region, p);
             break;

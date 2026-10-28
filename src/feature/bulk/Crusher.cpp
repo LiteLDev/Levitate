@@ -119,13 +119,9 @@ void applyRecipe(GlobalPos const& pos, ControllerView& v) {
         log().info("crushing wheels at {} {} {}: destroyed {} x{} (no recipe)", pos.x, pos.y, pos.z, items::idOf(input), items::countOf(input));
         return;
     }
-    std::vector<ItemStack> list;
-    int                    rolls = items::countOf(input);
-    for (int i = 0; i < rolls; ++i)
-        for (auto const& s : common::recipes::rollResults(*r)) addToList(s, list);
-    float remaining = v.remaining;
-    clearInventory(v);
-    v.remaining = remaining;
+    int  rolls = items::countOf(input);
+    auto list  = rollRecipe(*r, rolls);
+    clearInventory(v); // Create's ProcessingInventory.clear() also resets the remaining time
     int produced = 0;
     for (std::size_t i = 0; i < list.size() && i + 1 < kSlots; ++i) {
         v.inventory[i + 1] = list[i];
@@ -191,11 +187,13 @@ void tickController(BlockSource& region, GlobalPos const& pos) {
     auto const& block  = region.getBlock(bp);
     bool        valid  = stateOf(block, "levitate:valid") != 0;
     auto        facing = faceOf(stateOf(block, "levitate:facing"));
-    float       cs     = valid ? crushingSpeedAt(region, pos) : 0;
-    auto        v      = load(pos);
+    if (!valid) return; // crushing speed 0: Create's controller does nothing
+    float cs = crushingSpeedAt(region, pos);
+    if (cs == 0) return;
+    auto v = load(pos);
 
     // entities entering the controller (Create's entityInside -> checkEntityForProcessing)
-    if (valid && cs != 0 && !occupied(v)) {
+    if (!occupied(v)) {
         cb::Box cell{
             {pos.x + 0., pos.y + 0., pos.z + 0.},
             {pos.x + 1., pos.y + 1., pos.z + 1.}

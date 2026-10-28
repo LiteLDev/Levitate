@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -380,7 +381,14 @@ bool applyProcessing(BlockSource& region, GlobalPos const& fan, Actor& entity, F
 
 void tickHandlers(BlockSource& region, GlobalPos const& fan, FanState const& st) {
     for (auto const& [p, type] : st.handlers) {
-        if (type == FanType::None) continue;
+        if (type == FanType::None) {
+            // plain air resets the items' processing (Create clears processedBy)
+            std::erase_if(transported(), [&](auto const& kv) {
+                auto const& [d, x, y, z, s] = kv.first;
+                return d == fan.dim && x == p.x && y == p.y && z == p.z;
+            });
+            continue;
+        }
         common::Access at{region, p, -1};
         auto           handler = common::items::find(at);
         if (!handler || !handler->slots || !handler->getSlot) continue;
@@ -402,10 +410,12 @@ void tickHandlers(BlockSource& region, GlobalPos const& fan, FanState const& st)
             processingParticles(fan.dim, {p.x + .5, p.y + .8, p.z + .5}, type);
             if (tp.time == -1) continue;
             if (tp.time-- > 0) continue;
-            auto results = fanProcess(stack, type);
-            if (!results) continue;
+            if (!fanProcess(stack, type)) continue;
+            // the capability extracts by item, not by slot: process exactly what came out
             auto taken = handler->extract(at, [&](ItemStack const& s) { return sameItem(s, stack); }, items::countOf(stack), false);
             if (items::isEmpty(taken)) continue;
+            auto results = fanProcess(taken, type);
+            if (!results) results.emplace();
             std::vector<ItemStack> spill;
             for (auto const& out : *results) {
                 auto rest = handler->insert ? handler->insert(at, out, false) : out;
@@ -413,9 +423,14 @@ void tickHandlers(BlockSource& region, GlobalPos const& fan, FanState const& st)
             }
             dropStacks(region, p, spill);
             log().info("encased fan at {} {} {}: {} processed {} x{} at {} {} {}", fan.x, fan.y, fan.z, cb::fanTypeName(type), id, items::countOf(taken), p.x, p.y, p.z);
-            // the results are not processed again by the same air (Create keeps processedBy)
-            auto now = handler->getSlot(at, slot);
-            tp       = {type, items::idOf(now), items::countOf(now), -1};
+            // the results are not processed again by the same air (Create copies processedBy onto
+            // every result): mark every slot now holding one of them
+            for (int s = 0; s < slots; ++s) {
+                auto now = handler->getSlot(at, s);
+                if (items::isEmpty(now)) continue;
+                bool isResult = std::any_of(results->begin(), results->end(), [&](ItemStack const& r) { return sameItem(r, now); });
+                if (s == slot || isResult) transported()[std::make_tuple(fan.dim, p.x, p.y, p.z, s)] = {type, items::idOf(now), items::countOf(now), -1};
+            }
         }
     }
 }
@@ -639,6 +654,13 @@ void clearFans() {
 }
 
 void pruneFanState() {
+    std::set<std::tuple<int, int, int, int>> reached;
+    for (auto const& [pos, st] : fans())
+        for (auto const& [p, t] : st.handlers) reached.insert({pos.dim, p.x, p.y, p.z});
+    std::erase_if(transported(), [&](auto const& kv) {
+        auto const& [d, x, y, z, s] = kv.first;
+        return !reached.contains({d, x, y, z});
+    });
     std::erase_if(itemProcessing(), [](auto const& kv) { return entityById(kv.first) == nullptr; });
     std::erase_if(hauntingProgress(), [](auto const& kv) { return entityById(kv.first) == nullptr; });
 }
