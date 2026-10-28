@@ -58,7 +58,7 @@ void writeSign(BlockSource& region, GlobalPos const& pos, int line, Lines const&
     current.resize(kSignLines);
     bool changed = false;
     for (int i = 0; i < static_cast<int>(lines.size()) && line + i < kSignLines; ++i) {
-        auto value = lines[static_cast<std::size_t>(i)].substr(0, 64);
+        auto value = truncateGlyphs(lines[static_cast<std::size_t>(i)], 64);
         if (current[static_cast<std::size_t>(line + i)] == value) continue;
         current[static_cast<std::size_t>(line + i)] = value;
         changed                                    = true;

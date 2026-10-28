@@ -42,6 +42,26 @@ inline constexpr std::array<char const*, 16> kDyeNames{
     "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"};
 inline constexpr int kOrange = 1;
 
+/// The characters (UTF-8 code points) of a string.
+[[nodiscard]] inline std::vector<std::string> utf8Glyphs(std::string const& s) {
+    std::vector<std::string> out;
+    for (std::size_t i = 0; i < s.size();) {
+        auto        c   = static_cast<unsigned char>(s[i]);
+        std::size_t len = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : (c >> 3) == 30 ? 4 : 1;
+        out.push_back(s.substr(i, len));
+        i += len;
+    }
+    return out;
+}
+/// `s` cut to `max` characters (never inside a code point).
+[[nodiscard]] inline std::string truncateGlyphs(std::string const& s, int max) {
+    auto g = utf8Glyphs(s);
+    if (static_cast<int>(g.size()) <= max) return s;
+    std::string out;
+    for (int i = 0; i < max; ++i) out += g[static_cast<std::size_t>(i)];
+    return out;
+}
+
 /// Dye index of a dye item ("minecraft:red_dye" -> 14), nullopt for other items.
 [[nodiscard]] std::optional<int> dyeOf(std::string_view itemId);
 /// Text colour (RGB) of a dye as used on display boards and nixie tubes.

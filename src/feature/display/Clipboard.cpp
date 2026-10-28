@@ -69,11 +69,12 @@ bool hasContent(Contents const& c) {
     return false;
 }
 
-/// Create's onClose clean-up: blank entries and empty pages go.
+/// Create's onClose clean-up: blank entries go; empty pages go from the end (pages in the middle
+/// stay so the open screen keeps its page numbers).
 void tidy(Contents& c) {
     for (auto& p : c.pages) std::erase_if(p, [](Entry const& e) { return e.text.find_first_not_of(" \t\n") == std::string::npos; });
-    std::erase_if(c.pages, [](auto const& p) { return p.empty(); });
-    c.type                 = c.pages.empty() ? 0 : 2;
+    while (!c.pages.empty() && c.pages.back().empty()) c.pages.pop_back();
+    c.type = hasContent(c) ? 2 : 0;
     c.previouslyOpenedPage = std::clamp(c.previouslyOpenedPage, 0, std::max(0, static_cast<int>(c.pages.size()) - 1));
 }
 

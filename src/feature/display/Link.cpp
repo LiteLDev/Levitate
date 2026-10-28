@@ -61,8 +61,14 @@ std::set<GlobalPos>&                links() {
     static std::set<GlobalPos> s;
     return s;
 }
-std::map<GlobalPos, int>& refreshTicks() {
-    static std::map<GlobalPos, int> m;
+/// Create's refreshTicks plus the cached refresh interval of the selected source (0 = unknown,
+/// -1 = no source / no passive refresh).
+struct Timer {
+    int ticks = 0;
+    int every = 0;
+};
+std::map<GlobalPos, Timer>& refreshTicks() {
+    static std::map<GlobalPos, Timer> m;
     return m;
 }
 
@@ -234,12 +240,16 @@ bool update(GlobalPos const& link) {
         }
         Lines lines = source->text(ctx, stats);
         if (lines.empty()) lines.emplace_back();
+        // a list that got shorter clears the lines it wrote before
+        if (source->multiLine)
+            while (static_cast<int>(lines.size()) < stats.maxRows - data.line) lines.emplace_back();
         if (target->accept) target->accept(ctx.region, ctx.target, data.line, lines, ctx);
         return true;
     });
 }
 
 void selectSource(GlobalPos const& link, std::string const& sourceId) {
+    refreshTicks()[link] = {};
     withSource(link, [&](Source const*, Context& ctx, LinkData& data) {
         if (data.sourceId == sourceId) return true;
         auto        sources = sourcesAt(ctx.region, ctx.source);
@@ -266,7 +276,7 @@ void notify(GlobalPos const& source) {
         auto* region = regionOf(l.dim);
         auto const* b = region ? loadedBlock(*region, game::blockPos(l)) : nullptr;
         if (b && intState(*b, kPowered).value_or(0)) continue; // powered links don't send
-        refreshTicks()[l] = 0;
+        refreshTicks()[l].ticks = 0;
         update(l);
     }
 }
@@ -278,12 +288,14 @@ void itemsPassed(GlobalPos const& source, int count) {
         if (!region) continue;
         auto s = sourcePos(*region, l);
         if (!s || *s != source) continue;
+        auto const* lb = loadedBlock(*region, game::blockPos(l));
+        if (!lb || intState(*lb, kPowered).value_or(0)) continue; // a powered link ignores them
         auto data = read(l);
         if (!data || (data->sourceId != "item_throughput" && data->sourceId != "accumulate_items")) continue;
         data->config["lv:pending"] = data->config.value("lv:pending", 0) + count;
         write(l, *data);
         if (data->sourceId == "accumulate_items") {
-            refreshTicks()[l] = 0;
+            refreshTicks()[l].ticks = 0;
             update(l);
         }
     }
@@ -293,7 +305,7 @@ void itemsPassed(GlobalPos const& source, int count) {
 
 namespace {
 void onNoLongerPowered(GlobalPos const& link) {
-    refreshTicks()[link] = 0;
+    refreshTicks()[link] = {};
     withSource(link, [](Source const* source, Context& ctx, LinkData&) {
         if (source && source->onSignalReset) source->onSignalReset(ctx);
         return true;
@@ -324,17 +336,21 @@ void tickAll(std::uint64_t tick) {
             }
         }
         // Create's DisplayLinkBlockEntity.tick
-        auto data = read(l);
-        if (!data || data->sourceId.empty()) continue;
-        int& ticks = refreshTicks()[l];
-        ++ticks;
-        auto        src     = sourcePos(*region, l);
-        if (!src) continue;
-        auto        sources = sourcesAt(*region, *src);
-        auto const* active  = findSource(sources, data->sourceId);
-        int         every   = active ? active->refreshTicks : 100;
-        if (ticks < every || (active && !active->passiveRefresh)) continue;
-        ticks = 0;
+        auto& timer = refreshTicks()[l];
+        if (timer.every == 0) {
+            timer.every = -1;
+            auto data   = read(l);
+            auto src    = sourcePos(*region, l);
+            if (data && src && !data->sourceId.empty()) {
+                auto        sources = sourcesAt(*region, *src);
+                auto const* active  = findSource(sources, data->sourceId);
+                if (active && active->passiveRefresh) timer.every = std::max(1, active->refreshTicks);
+            }
+        }
+        if (timer.every < 0) continue;
+        if (++timer.ticks < timer.every) continue;
+        timer.ticks = 0;
+        timer.every = 0; // re-read: the source block may have changed
         if (powered) continue; // tickSource: a powered link resets its timer and sends nothing
         toUpdate.push_back(l);
     }
@@ -505,7 +521,7 @@ void applyAction(Player& player, GlobalPos const& link, Json const& action) {
     } else {
         return;
     }
-    refreshTicks()[link] = 0;
+    refreshTicks()[link] = {};
     // Create sends the new configuration and updates the target at once
     auto* region = regionOf(link.dim);
     auto const* b = region ? loadedBlock(*region, game::blockPos(link)) : nullptr;
@@ -556,7 +572,7 @@ void openForm(Player& player, GlobalPos const& link) {
     auto sourceIds = Json::array();
     for (auto const& s : sources) sourceIds.push_back(s.value("id", std::string{}));
     form.sendTo(player, [link, sourceIds, selected](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
-        if (!result) return;
+        if (!result || !withinReach(p, link, 16)) return;
         std::string newSource = selected;
         if (auto it = result->find("source"); it != result->end()) {
             if (auto const* v = std::get_if<uint64>(&it->second)) newSource = (*v == 0 || *v > sourceIds.size()) ? std::string{} : sourceIds[static_cast<std::size_t>(*v - 1)].get<std::string>();

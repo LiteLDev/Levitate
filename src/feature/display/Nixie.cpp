@@ -69,17 +69,6 @@ int leftOf(TubeBlock const& t) {
     return faceOfHorizontal(game::opposite(t.facing));
 }
 
-std::vector<std::string> glyphs(std::string const& s) {
-    std::vector<std::string> out;
-    for (std::size_t i = 0; i < s.size();) {
-        auto c   = static_cast<unsigned char>(s[i]);
-        int  len = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : (c >> 3) == 30 ? 4 : 1;
-        out.push_back(s.substr(i, static_cast<std::size_t>(len)));
-        i += static_cast<std::size_t>(len);
-    }
-    return out;
-}
-
 struct TubeData {
     std::optional<std::string> text;
     int                        index  = 0;
@@ -109,7 +98,7 @@ std::string charOrSpace(std::vector<std::string> const& g, int i) {
 
 std::string shown(TubeData const& d) {
     if (d.text) {
-        auto g = glyphs(*d.text);
+        auto g = utf8Glyphs(*d.text);
         return charOrSpace(g, d.index * 2) + charOrSpace(g, d.index * 2 + 1);
     }
     // Create: "0"/"1" for the tens, the ones digit

@@ -77,26 +77,6 @@ std::optional<BoardBlock> boardAt(BlockSource& region, GlobalPos const& p) {
 
 GlobalPos step(GlobalPos p, int facing2d, int n = 1) { return offsetPos(p, faceOfHorizontal(facing2d), n); }
 
-/// Code points of a UTF-8 string.
-std::vector<std::string> glyphs(std::string const& s) {
-    std::vector<std::string> out;
-    for (std::size_t i = 0; i < s.size();) {
-        auto c   = static_cast<unsigned char>(s[i]);
-        int  len = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : (c >> 3) == 30 ? 4 : 1;
-        out.push_back(s.substr(i, static_cast<std::size_t>(len)));
-        i += static_cast<std::size_t>(len);
-    }
-    return out;
-}
-
-std::string truncate(std::string const& s, int max) {
-    auto g = glyphs(s);
-    if (static_cast<int>(g.size()) <= max) return s;
-    std::string out;
-    for (int i = 0; i < max; ++i) out += g[static_cast<std::size_t>(i)];
-    return out;
-}
-
 /// The row of boards with the same facing through `p` (left to right as seen from the front).
 std::vector<GlobalPos> rowOf(BlockSource& region, GlobalPos const& p, int facing) {
     std::vector<GlobalPos> out;
@@ -211,7 +191,7 @@ std::string composeSections(Lines const& sections, int width) {
         if (i) out += " ";
         out += sections[i];
     }
-    return truncate(out, width);
+    return truncateGlyphs(out, width);
 }
 
 // ---- sync -------------------------------------------------------------------------------------
@@ -265,13 +245,12 @@ std::string vanillaText(Json const& state) {
 void sendState(GlobalPos const& c, Json const& state) {
     auto& last = lastSent()[c];
     if (last == state) return;
-    bool textChanged = last.is_null() || last["lines"] != state["lines"] || last["w"] != state["w"] || last["h"] != state["h"];
-    last             = state;
+    last = state;
     broadcast(c.dim, "display.board", state);
     // vanilla fallback: the text of a turning board as a name tag (the flaps keep their text while stopped)
-    if (state.value("running", false) || textChanged) {
+    if (state.value("running", false)) {
         Structure s{c, state.value("facing", 0), state.value("w", 1), state.value("h", 1)};
-        if (state.value("running", false)) setFloatingText("board:" + c.key(), c.dim, frontCentre(s), vanillaText(state));
+        setFloatingText("board:" + c.key(), c.dim, frontCentre(s), vanillaText(state));
     }
 }
 
@@ -284,6 +263,26 @@ void forget(GlobalPos const& c) {
 
 void refreshController(BlockSource& region, GlobalPos const& c) {
     auto s = structureOf(region, c);
+    if (s && s->controller == c) {
+        // a block of the rectangle went without a player breaking it: settle the rows again
+        bool whole = true;
+        for (int x = 0; x < s->width && whole; ++x)
+            for (int y = 0; y < s->height && whole; ++y) {
+                auto q = step(c, counterClockwise(s->facing), x);
+                q.y -= y;
+                auto b = boardAt(region, q);
+                whole  = b && b->facing == s->facing;
+            }
+        if (!whole) {
+            for (int x = 0; x < s->width; ++x)
+                for (int y = 0; y < s->height; ++y) {
+                    auto q = step(c, counterClockwise(s->facing), x);
+                    q.y -= y;
+                    fixRow(region, q);
+                }
+            s = structureOf(region, c);
+        }
+    }
     if (!s || s->controller != c) {
         forget(c);
         if (s && controllers().insert(s->controller).second) persist();
@@ -422,12 +421,11 @@ void setLine(BlockSource& region, GlobalPos const& controller, int line, std::st
     auto d = linesFor(*s);
     if (line < 0 || line >= static_cast<int>(d.lines.size())) return;
     auto& l  = d.lines[static_cast<std::size_t>(line)];
-    l.text   = truncate(text, maxChars(s->width));
+    l.text   = truncateGlyphs(text, maxChars(s->width));
     l.manual = manual && !text.empty();
     if (manual) l.owner.clear();
     writeLines(s->controller, d);
-    controllers().insert(s->controller);
-    persist();
+    if (controllers().insert(s->controller).second) persist();
     sendState(s->controller, renderState(region, *s));
 }
 
@@ -630,7 +628,7 @@ void acceptLines(BlockSource& region, GlobalPos const& target, int line, Lines c
         auto& l = d.lines[static_cast<std::size_t>(line + i)];
         if (!mayWrite(region, *s, l, ctx.link)) continue;
         l.owner  = linkKey(ctx.link);
-        l.text   = truncate(text[static_cast<std::size_t>(i)], width);
+        l.text   = truncateGlyphs(text[static_cast<std::size_t>(i)], width);
         l.manual = false;
     }
     writeLines(s->controller, d);
@@ -662,8 +660,3 @@ TargetRegistration const gTarget;
 } // namespace
 
 } // namespace lv::feature::display::board
-
-namespace lv::feature::display {
-/// Called by the hooks once per player tick-ish (cheap): resends boards / tubes after a dimension change.
-void trackPlayerDimension(Player& p) { board::trackPlayerDims(p); }
-} // namespace lv::feature::display
