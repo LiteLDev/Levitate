@@ -1,0 +1,6 @@
+{
+  "levitate_kinetics_test_shaft": { "textures": "textures/blocks/kinetics_test_shaft" },
+  "levitate_kinetics_test_cog": { "textures": "textures/blocks/kinetics_test_cog" },
+  "levitate_kinetics_test_source": { "textures": "textures/blocks/kinetics_test_source" },
+  "levitate_kinetics_test_consumer": { "textures": "textures/blocks/kinetics_test_consumer" }
+}
