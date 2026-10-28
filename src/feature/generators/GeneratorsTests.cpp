@@ -65,6 +65,28 @@ bool useOn(SimulatedPlayer& sp, ItemStack& stack, GlobalPos const& pos, ScriptMo
 
 void stand(SimulatedPlayer& sp, GlobalPos const& p) { sp.teleport(Vec3{p.x + .5f, static_cast<float>(p.y), p.z + .5f}, DimensionType(p.dim)); }
 
+/// A rising bubble column at x = `dx`, y = `y0..y1`: water sources walled in by stone (so they
+/// don't spread into the wheel's other cells), soul sand below; waits until the game turned the
+/// water into a bubble column.
+ll::coro::CoroTask<bool> bubbleColumn(Context& ctx, Area const& a, int dx, int y0, int y1) {
+    for (int y = y0; y <= y1; ++y) {
+        ctx.setBlock(a.at(dx - 1, y), "minecraft:stone");
+        ctx.setBlock(a.at(dx, y, 1), "minecraft:stone");
+        ctx.setBlock(a.at(dx, y, -1), "minecraft:stone");
+        ctx.setBlock(a.at(dx, y), "minecraft:water");
+    }
+    ctx.setBlock(a.at(dx, y1 + 1), "minecraft:stone");
+    ctx.setBlock(a.at(dx, y0 - 1), "minecraft:soul_sand");
+    for (int i = 0; i < 40; ++i) {
+        co_await ctx.ticks(2);
+        bool all = true;
+        for (int y = y0; y <= y1; ++y) all &= id(a.at(dx, y)) == "minecraft:bubble_column";
+        if (all) co_return true;
+    }
+    ctx.info("column blocks: " + id(a.at(dx, y0)) + " .. " + id(a.at(dx, y1)));
+    co_return false;
+}
+
 } // namespace
 
 LV_REGISTER_SELFTEST("generators.registry", [](Context& ctx) {
@@ -142,6 +164,8 @@ LV_REGISTER_SELFTEST("generators.placement", [](Context& ctx) -> ll::coro::CoroT
     // a valve handle on the east side of a stone block faces east (the clicked face)
     ctx.require(ctx.setBlock(a.at(3), "minecraft:stone"), "stone");
     ctx.cleanupBlock(a.at(4));
+    stand(sp, a.at(3, 0, 2));
+    co_await ctx.ticks(10);
     auto valve = item(kCopperValve);
     useOn(sp, valve, a.at(3), ScriptModuleMinecraft::ScriptFacing::East);
     co_await ctx.ticks(2);
@@ -151,6 +175,8 @@ LV_REGISTER_SELFTEST("generators.placement", [](Context& ctx) -> ll::coro::CoroT
     ctx.require(ctx.setBlock(a.at(7, 1), kShaft, {{"levitate:axis", 0}}), "horizontal shaft");
     ctx.require(ctx.setBlock(a.at(6), "minecraft:stone"), "stone below");
     ctx.cleanupBlock(a.at(6, 1));
+    stand(sp, a.at(6, 1, 2));
+    co_await ctx.ticks(10);
     auto motor = item(kMotor);
     useOn(sp, motor, a.at(6), ScriptModuleMinecraft::ScriptFacing::Up);
     co_await ctx.ticks(2);
@@ -252,9 +278,7 @@ LV_REGISTER_SELFTEST("generators.water_wheel_bubbles", [](Context& ctx) -> ll::c
     ctx.check(tracksWheel(wheel), "the wheel is tracked");
     ctx.check(kinetics::speedAt(wheel) == 0, "no flow: no speed");
     // a rising bubble column on its west side turns it clockwise seen from the south
-    ctx.require(ctx.setBlock(a.at(-1, 2), "minecraft:soul_sand"), "soul sand");
-    ctx.require(ctx.setBlock(a.at(-1, 3), "minecraft:bubble_column"), "bubble column");
-    co_await ctx.ticks(2);
+    ctx.require(co_await bubbleColumn(ctx, a, -1, 3, 3), "a bubble column forms");
     auto* region = regionOf(wheel.dim);
     ctx.require(region != nullptr, "region");
     auto f = flowAt(*region, a.at(-1, 3));
@@ -262,7 +286,8 @@ LV_REGISTER_SELFTEST("generators.water_wheel_bubbles", [](Context& ctx) -> ll::c
     evaluateWheel(wheel);
     ctx.check(wheelFlowScore(wheel) == -1, "flow score -1, got " + std::to_string(wheelFlowScore(wheel)));
     ctx.check(kinetics::speedAt(wheel) == -8, "-8 RPM, got " + num(kinetics::speedAt(wheel)));
-    ctx.require(ctx.setBlock(a.at(-1, 3), "minecraft:air"), "remove the column");
+    ctx.require(ctx.setBlock(a.at(-1, 2), "minecraft:stone"), "replace the soul sand");
+    ctx.require(ctx.setBlock(a.at(-1, 3), "minecraft:stone"), "remove the column");
     co_await ctx.ticks(2);
     ctx.check(kinetics::speedAt(wheel) == 0, "the wheel stops when the flow is gone, got " + num(kinetics::speedAt(wheel)));
 });
@@ -271,24 +296,27 @@ LV_REGISTER_SELFTEST("generators.water_wheel_flow", [](Context& ctx) -> ll::coro
     Area a{ctx, 760};
     ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
     auto wheel = a.at(0, 3);
-    // everything the water may reach is cleared after the test
-    for (int dx = -8; dx <= 8; ++dx)
-        for (int dz = -8; dz <= 8; ++dz)
-            for (int dy = 0; dy <= 5; ++dy) ctx.cleanupBlock(a.at(dx, dy, dz));
     ctx.require(ctx.setBlock(wheel, kWaterWheel, {{kFacing, static_cast<int>(Face::South)}}), "wheel along z");
-    ctx.require(ctx.setBlock(a.at(-1, 3), "minecraft:stone"), "stone on the west side");
-    ctx.require(ctx.setBlock(a.at(-1, 4), "minecraft:water"), "a water source above it");
-    // the water runs east over the wheel and falls down its east side
-    bool turning = false;
-    for (int i = 0; i < 40 && !turning; ++i) {
-        co_await ctx.ticks(5);
-        evaluateWheel(wheel);
-        turning = kinetics::speedAt(wheel) != 0;
+    co_await ctx.ticks(2);
+    // water running east over the wheel: a source west of its top, thinning out to the east
+    // (the liquid's depths give the flow, read the same tick)
+    for (int dx = -1; dx <= 1; ++dx) {
+        ctx.setBlock(a.at(dx, 3), dx == 0 ? kWaterWheel : "minecraft:stone", dx == 0 ? std::vector<std::pair<std::string, int>>{{kFacing, 3}} : std::vector<std::pair<std::string, int>>{});
+        ctx.setBlock(a.at(dx, 4, 1), "minecraft:stone");
+        ctx.setBlock(a.at(dx, 4, -1), "minecraft:stone");
     }
-    ctx.check(turning, "flowing water turns the wheel");
+    ctx.require(ctx.setBlock(a.at(-1, 4), "minecraft:flowing_water", {{"liquid_depth", 0}}), "a source");
+    ctx.require(ctx.setBlock(a.at(0, 4), "minecraft:flowing_water", {{"liquid_depth", 1}}), "flowing water over the wheel");
+    ctx.require(ctx.setBlock(a.at(1, 4), "minecraft:flowing_water", {{"liquid_depth", 2}}), "flowing water east of it");
+    auto* region = regionOf(wheel.dim);
+    ctx.require(region != nullptr, "region");
+    auto f = flowAt(*region, a.at(0, 4));
+    ctx.info("flow over the wheel " + std::to_string(f.x) + "," + std::to_string(f.y) + "," + std::to_string(f.z));
+    ctx.check(f.x > 0, "the water over the wheel flows east");
+    evaluateWheel(wheel);
+    ctx.check(wheelFlowScore(wheel) == -1, "flow score -1, got " + std::to_string(wheelFlowScore(wheel)));
     ctx.check(kinetics::speedAt(wheel) == -8, "water running east over the top: -8 RPM, got " + num(kinetics::speedAt(wheel)));
-    ctx.info("flow score " + std::to_string(wheelFlowScore(wheel)));
-    ctx.require(ctx.setBlock(a.at(-1, 4), "minecraft:air"), "remove the source");
+    for (int dx = -1; dx <= 1; ++dx) ctx.setBlock(a.at(dx, 4), "minecraft:air");
 });
 
 LV_REGISTER_SELFTEST("generators.large_wheel", [](Context& ctx) -> ll::coro::CoroTask<> {
@@ -306,9 +334,7 @@ LV_REGISTER_SELFTEST("generators.large_wheel", [](Context& ctx) -> ll::coro::Cor
     }
     ctx.check(built == 8, "8 structure blocks around it, got " + std::to_string(built));
     // bubble columns along its west edge (3 of the 12 checked cells)
-    ctx.require(ctx.setBlock(a.at(-2, 2), "minecraft:soul_sand"), "soul sand");
-    for (int dy = 3; dy <= 5; ++dy) ctx.require(ctx.setBlock(a.at(-2, dy), "minecraft:bubble_column"), "bubble column");
-    co_await ctx.ticks(2);
+    ctx.require(co_await bubbleColumn(ctx, a, -2, 3, 5), "a bubble column forms");
     evaluateWheel(wheel);
     ctx.check(wheelFlowScore(wheel) == -3, "flow score -3, got " + std::to_string(wheelFlowScore(wheel)));
     ctx.check(kinetics::speedAt(wheel) == -4, "a large wheel turns at -4 RPM, got " + num(kinetics::speedAt(wheel)));
@@ -357,6 +383,7 @@ LV_REGISTER_SELFTEST("generators.large_wheel_place", [](Context& ctx) -> ll::cor
     ctx.check(id(a.at(0, 2)) != kLargeWheel && id(a.at(0, 3)) != kLargeWheel, "no room: nothing placed");
     ctx.require(ctx.setBlock(a.at(1, 2, 0), "minecraft:air"), "clear");
     ctx.require(ctx.setBlock(a.at(0, 2, 1), "minecraft:air"), "clear");
+    co_await ctx.ticks(10);
     useOn(sp, stack, a.at(0, 1), ScriptModuleMinecraft::ScriptFacing::Up);
     co_await ctx.ticks(3);
     GlobalPos at = id(a.at(0, 2)) == kLargeWheel ? a.at(0, 2) : a.at(0, 3);
