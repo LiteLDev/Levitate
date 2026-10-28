@@ -374,13 +374,21 @@ LV_REGISTER_SELFTEST("display.link_item", [](Context& ctx) -> ll::coro::CoroTask
     auto sel = items::getData(sp.getInventory().getItem(0), "display_link");
     ctx.check(sel.is_object() && sel.contains("pos"), "target selected on the item");
     co_await ctx.ticks(6);
-    // second click: placed on top of the stone, bound to the board
-    sp.simulateLookAt(Vec3{p.x + 0.5f, p.y + 1.0f, p.z + 2.5f}, sim::LookDuration::Continuous);
-    co_await ctx.ticks(2);
-    bool usedOk = sp.simulateUseItemInSlotOnBlock(0, lv::game::blockPos(at(p, 0, 0, 2)), ScriptModuleMinecraft::ScriptFacing::Up, Vec3{0.5f, 1.0f, 0.5f});
-    ctx.info(std::string("second use returned ") + (usedOk ? "true" : "false") + ", item " + items::idOf(sp.getInventory().getItem(0)));
-    co_await ctx.ticks(2);
-    auto link = at(p, 0, 1, 2);
+    // second click: the item lets the game place the block (SimulatedPlayers can't place this
+    // block item, so the placement itself is done here; the client e2e places it for real)
+    ctx.check(!dsp::link::useItem(sp, r, lv::game::blockPos(at(p, 0, 0, 2)), 1), "the second click places");
+    ctx.setBlock(at(p, 0, 1, 2), dsp::kLinkId);
+    {
+        auto const& b = r.getBlock(lv::game::blockPos(at(p, 0, 1, 2)));
+        if (auto const* next = dsp::withStates(b, {{"minecraft:block_face", std::string("up")}})) lv::game::setBlock(r, lv::game::blockPos(at(p, 0, 1, 2)), *next);
+    }
+    dsp::link::placed(sp, at(p, 0, 1, 2));
+    ctx.check(items::getData(sp.getSelectedItem(), "display_link").is_null(), "the selection is cleared");
+    // too far: a selection 64+ blocks away is refused
+    auto far = items::make(dsp::kLinkId);
+    items::setData(*far, "display_link", {{"pos", JsonT::array({p.dim, p.x + 80, p.y, p.z})}});
+    sp.setSelectedItem(*far);
+    ctx.check(dsp::link::useItem(sp, r, lv::game::blockPos(at(p, 0, 0, 2)), 1), "a far target is refused");    auto link = at(p, 0, 1, 2);
     ctx.check(lv::game::blockIdAt(r, lv::game::blockPos(link)) == dsp::kLinkId, "link placed, found " + lv::game::blockIdAt(r, lv::game::blockPos(link)));
     auto d = dsp::link::read(link);
     ctx.check(d && d->targetOffset == std::array<int, 3>{0, 0, -2}, "bound to the board");

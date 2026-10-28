@@ -217,6 +217,31 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
 `display_link`, `display_board`, `nixie_tube` + `<colour>_nixie_tube`, `clipboard`.
 
+- `display_link`: states `minecraft:block_face` (the face it was placed on; it reads the block
+  behind it) and `levitate:powered`. Hardness 1.5 (soft metal), drops itself. The item first selects
+  a target (right-click any block: "Targeted position selected"), sneak-right-click clears it
+  ("Cleared position selection"); the next placement binds the link to it when the target is closer
+  than `displayLinkRange` (64) blocks ("Successfully bound to targeted position", else "Targeted
+  position is too far from here"). Right-click (not sneaking, not the wrench) opens the
+  configuration screen; without a valid target: "Link has no valid target, try placing it again".
+- `display_board`: states `levitate:facing` (Java 2D facing of the front: 0 S, 1 W, 2 N, 3 E; placed
+  towards the player, or with the facing of a board it is placed against unless sneaking),
+  `levitate:up` / `levitate:down` (connected rows). Kinetic: a small cog turning about its facing
+  axis with shafts on both ends, no stress impact; it shows text only at medium speed or more
+  (Create's `getMinimumRequiredSpeedLevel` = MEDIUM, ≥ 30 RPM); flaps change at once above 128 RPM.
+  A board item used on a board places the next block beside it (Create's placement helper).
+- `nixie_tube` (orange) and the 15 other `<colour>_nixie_tube`s: states `levitate:facing` (0..3) and
+  `levitate:face` (0 floor, 1 ceiling, 2 wall, 3 wall reversed). Light level 5, every colour drops the
+  orange tube; only the orange one is in the creative inventory.
+- `clipboard`: item (stack 1) and block (states `levitate:face` 0 floor / 1 wall / 2 ceiling,
+  `levitate:facing`, `levitate:written`). Sneak-right-click places it; a broken clipboard drops
+  itself with its pages (creative: only when written); sneak-right-click on a placed one picks it up.
+- Recipes (Create 6.0.10): display link = transmitter / brass casing; display board ×2 = andesite
+  alloy, electron tube, andesite alloy; nixie tube ×4 = two electron tubes (shapeless); clipboard =
+  andesite alloy / paper / planks. They need U9's and U10's items and wait in
+  `assets/pending_recipes/display/`. Shapeless clipboard → clipboard clears it (ships now: the crafted
+  item carries no pages).
+
 ### 2.21 Packages (U25)
 
 `packager`, `repackager`, `cardboard_package_*` (box styles), `package_frogport`, `chain_conveyor`,
@@ -604,6 +629,94 @@ the details and numbers it implemented. Short reminders of the less obvious ones
 - **Ponder (U30)**: hold W over an item to open Ponder (client mod only), index of all scenes,
   animated scenes built from our blocks.
 
+#### 3.6.1 Display (U24)
+
+Checked against Create 6.0.10 (AllDisplaySources / AllDisplayTargets, DisplayLinkBlock(Entity /
+Item), FlapDisplayBlock(Entity), NixieTubeBlock(Entity), Clipboard*). Code: `src/feature/display/`
+(server), `src/client/display/` (text rendering, native screens).
+
+**Contract** (`feature/display/Display.h`, for units whose blocks are display sources / targets):
+`registerSource(blockId, Source{id, name, text(ctx, stats) -> lines, options, refreshTicks,
+passiveRefresh, multiLine, onSignalReset, onSelected, boardText})`, `registerSourceProvider(applies,
+source)` (vanilla block entities), `registerTarget(blockId, Target{id, stats, accept,
+acceptSections, lineName})`, `registerTargetProvider`, `sourcesAt` / `targetAt`,
+`notifyGatherers(source)` (Create's DisplayLinkBlock.notifyGatherers: links reading that block send
+at once), `itemsPassed(source, count)` (tunnels report passing items for `item_throughput` /
+`accumulate_items`), `formatValue` (value lists: "1.2k", "3.4m"), `progressBar`. A registration
+with the same (block, source id) replaces an earlier one, so the owner of a block can refine a
+built-in source. `Context` gives the region, the link, source and target positions, the source's
+persisted `config` (Create's sourceConfig) and the game time.
+
+**Display link** (data `BlockData["display_link"]` = target offset, line, source id, config;
+positions in `lv:display:links`): every tick its timer grows; at the source's
+`getPassiveRefreshTicks` (default 100; stopwatch and item throughput 20) it resets and, unless the
+link is powered, reads the source and writes the target (`updateGatheredData`). Redstone: powered
+links send nothing; when the power goes the timer resets, the source's `onSignalReset` runs and the
+data is sent at once. The source is the block behind the link; a selected source the block no
+longer offers is deselected. Lines of a display board are *reserved* by the link that wrote them
+(another link skips them while that one still targets the board).
+
+**Sources** (ids, names and options as Create): speedometer `kinetic_speed` (Ignore / Include
+Direction, "64 RPM"), stressometer `kinetic_stress` (Progress Bar / Percentage / Stress in SU /
+Total Capacity / Remaining SU, "su"), cuckoo clocks `time_of_day` (12 / 24-hour, minutes rounded
+down to 5, "--:--" when the clock stands still, nonsense outside the overworld) and `stopwatch`
+(h:mm:ss since the last signal reset), smart observer `count_items` / `list_items` /
+`count_fluids` / `list_fluids` (contents of the observed block through U3's capabilities and the
+observer's filter slot), threshold switch `fill_level` (Percent / Progress Bar), belt / depot /
+weighted ejector `item_names`, tunnels `accumulate_items` / `item_throughput` (per second / minute /
+hour), seats `entity_name`, nixie tubes `nixie_tube`, and the vanilla `target` → `redstone_power`
+(Number / Progress Bar), `enchanting_table` → `enchant_power` (Max Enchanting Cost: twice the
+bookshelves, at least 1 + shelves / 2 ⚠ Create rolls Java's bottom-slot cost), command blocks →
+`scoreboard` (objective id, value list), `respawn_anchor` → `death_count` (Player Deaths, counted by
+Levitate). Every single-line source has Create's "Attached Label" option. Numbers use Create's
+formatting (up to 2 decimals, grouped thousands); units get a space on display boards only. Boiler
+status (U18), station summary / train status (U27), observed train name (U28), elevator floor
+(U20), factory gauge (U26) and package address (U25) are registered by those units.
+
+**Targets**: display board (2 lines per block row, `⌊(16·width − 2) / 3.5⌋` characters per line: 4,
+8, 13, 17, …, 145 at 32 wide), nixie tube row (1 line, 2 characters per tube), sign (4 lines,
+⚠ 15 characters, front side), lectern (one page per line, ⚠ 256 characters; a book and quill becomes
+a written book "Printed Book" by "Data Gatherer" ⚠).
+
+**Display board** (data at the controller `BlockData["display_board"]`, controllers in
+`lv:display:boards`): the controller is the top block at the left end as seen from the front
+(Create: no UP flag, no identical neighbour clockwise); width up to 32 counter-clockwise, height
+down the DOWN flags; rows connect up / down only when the whole row matches. A size change keeps
+line colours and glow and clears the text. Right-click a line (hit point moved ⅛ block into the
+block; not sneaking): empty hand clears it (needs rotation), dye colours it (needs rotation; white
+resets to Create's default `#D3C6BA`), glow ink makes it glow, a named name tag writes its name, a
+clipboard writes the entries of its last viewed page (split at line breaks) from that line down.
+Every 10 ticks (Create's lazy tick) the state goes to companions (`display.board`); the client mod
+spins every character through Create's flap cycles (letters " ABCDEFGHIJKLMNOPQRSTUVXYZ", digits
+" 0123456789", anything else at once; one step per tick, all at once above 128 RPM) only while the
+board turns, and draws them on the front face.
+
+**Nixie tubes** (data per tube `BlockData["nixie"]`, tubes in `lv:display:nixies`): a row is the
+tubes with the same facing and face, from the left (floor / ceiling: opposite the facing; wall: up;
+wall reversed: down); placed on the floor / ceiling the player's facing is turned clockwise, on a
+wall the clicked face is used (reversed when the player looks up ⚠). Custom text (clipboard: first
+entry of the last viewed page, name tag, display link) goes to the whole row, tube *i* showing
+characters 2i and 2i+1; an empty hand clears it. Without text a tube shows the redstone power around
+it as "00".."15" (polled every 2 ticks). Dye recolours the whole row (block id changes, data kept).
+
+**Clipboard** (item data `lv:clipboard`, block `BlockData["clipboard"]` = type, pages of {text,
+checked}, last opened page, copied settings): right-click (in the air, or on a block without
+settings) opens it; pages 1..51, ~15 entries per page ⚠ (Create: height-limited); "#text" entries are
+addresses (no checkbox); empty entries and pages are dropped when saved; Erase checked items.
+Right-click a block with value boxes or filter slots (U3) copies them ("Copying settings from …";
+values per box id, filters per slot id), left-click pastes ("Applied settings to …"; in survival a
+filter item is taken from the inventory ⚠); right-click another clipboard merges its entries
+(duplicates skipped, pages of 12). Sneaking disables copy / paste (Create).
+
+**Vanilla clients**: board text and nixie characters as name tags of an invisible entity
+`levitate:display_text` (one per board / tube; the client mod hides them); forms for the link
+(source, line, options; a second form for a newly chosen source's options) and the clipboard (one
+page per form: inputs, check toggles, page selector, erase checked).
+
+**Commands** (op, Levitate debug): `/create display text <x y z> <line> <text>` (`_` = space) writes
+a board line or a nixie row; `/create display bind <x y z> <tx ty tz> <source>` binds a link and
+sends.
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -660,6 +773,8 @@ place:
 | hose_pulley | 4 | | |
 | chain_conveyor | 1 ⚠ | | |
 
+`config/display.json` (U24): `displayLinkRange` 64 (Create's CLogistics).
+
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
 
@@ -682,6 +797,7 @@ generators' own behaviour (U7, U18, U21), not a config value.
 | `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
 | `/create ponder <id>` (client mod) | anyone | U30 |
 | `/create highlight <pos>` | op | U3 |
+| `/create display text <x y z> <line> <text>` / `bind <x y z> <tx ty tz> <source>` (Levitate debug) | op | U24 |
 | `/create overlay reset` | anyone | U8 |
 
 ## 7. Strings
@@ -710,6 +826,14 @@ matches Create's official Chinese translation wording).
 | Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
 | Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
+
+| Display board text for **vanilla** clients (U24) | no client-side text rendering on blocks without the client mod | the lines as a name tag in front of a turning board (invisible entity, colours as § codes, no flap animation); the client mod draws the split flaps |
+| Nixie tube glyphs for **vanilla** clients (U24) | same | the two characters as a coloured name tag above each tube |
+| Display link / nixie tube redstone input (U24) | custom blocks get no redstone neighbour updates | polled every 2 ticks from the neighbours' states (wire, torches, levers, buttons, plates, repeaters, comparators, observers, redstone blocks); strong power through solid blocks is not seen |
+| Clipboard text editing in the native screen (U24) | the client mod's screen framework has no text field | the native screen shows pages, checkboxes, erase and page buttons; its edit button opens the server form for the text |
+| "Clipboard Actions" hover tip and block outline while holding a clipboard (U24) | per-frame client logic for every block's settings | the action bar tells what was copied / pasted |
+| Deaths statistic of the respawn anchor source (U24) | Bedrock has no deaths statistic | Levitate counts player deaths per world (`lv:display:deaths`) |
+| Display link placement by a SimulatedPlayer (U24 selftests) | `simulateUseItemInSlotOnBlock` does not place this block item | the selftest places the block itself after the item logic; the client e2e places it for real |
 
 Units add rows here in their PRs when they find something else impossible.
 

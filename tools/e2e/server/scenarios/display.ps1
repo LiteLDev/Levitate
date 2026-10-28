@@ -12,8 +12,8 @@ Send-Console 'setblock 3 -57 6 levitate:display_link ["minecraft:block_face"="up
 Send-Console 'setblock 6 -58 6 levitate:display_board'
 Wait-Seconds 1
 $mark = Get-LogMark
-Send-Console 'create display text 3 -58 6 0 42'
-Wait-LogLine "display text '42' written at 0:3:-58:6" 20 -Since $mark | Out-Null
+Send-Console 'create display text 3 -58 6 0 A42'
+Wait-LogLine "display text 'A42' written at 0:3:-58:6" 20 -Since $mark | Out-Null
 Send-Console 'create display bind 3 -57 6 6 -58 6 nixie_tube'
 Wait-LogLine 'display link at 0:3:-57:6 bound to 6 -58 6 \(nixie_tube\), update sent' 20 -Since $mark | Out-Null
 Send-Console 'setblock 3 -57 6 air'
