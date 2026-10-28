@@ -1,0 +1,4 @@
+{
+  "levitate_track": { "textures": "textures/items/track" },
+  "levitate_incomplete_track": { "textures": "textures/items/incomplete_track" }
+}
