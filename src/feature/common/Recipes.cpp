@@ -25,6 +25,7 @@ struct Cache {
     std::map<std::string, std::vector<ProcessingRecipe>, std::less<>>          types;
     std::map<std::string, std::vector<std::string>, std::less<>>               tags; ///< raw entries
     bool                                                                       tagsLoaded = false;
+    std::map<std::string, std::set<std::string>, std::less<>>                  closures; ///< resolved tags
 };
 Cache& cache() {
     static Cache c;
@@ -61,8 +62,11 @@ void loadTags() {
         for (auto& [tag, values] : j->items()) {
             if (!values.is_array()) continue;
             auto& list = c.tags[core::common::mapId(tag)];
-            for (auto const& v : values)
-                if (v.is_string()) list.push_back(core::common::mapId(v.get<std::string>()));
+            for (auto const& v : values) {
+                if (!v.is_string()) continue;
+                auto str = v.get<std::string>();
+                list.push_back(str.starts_with('#') ? "#" + core::common::mapId(str.substr(1)) : core::common::mapId(str));
+            }
         }
     }
 }
@@ -131,19 +135,23 @@ ProcessingRecipe const* byId(std::string const& type, std::string const& id) {
     return nullptr;
 }
 
-bool inTag(std::string const& tag, ItemStack const& stack) {
-    if (items::isEmpty(stack)) return false;
+std::set<std::string> const& closure(std::string const& tag) {
     loadTags();
+    auto& c = cache();
+    if (auto it = c.closures.find(tag); it != c.closures.end()) return it->second;
     std::set<std::string> ids, seen;
     collectTag(tag, ids, seen);
-    if (ids.contains(items::idOf(stack))) return true;
+    return c.closures.emplace(tag, std::move(ids)).first->second;
+}
+
+bool inTag(std::string const& tag, ItemStack const& stack) {
+    if (items::isEmpty(stack)) return false;
+    if (closure(tag).contains(items::idOf(stack))) return true;
     return stack.hasTag(ItemTag{HashedString(tag)});
 }
 
 std::vector<std::string> tagItems(std::string const& tag) {
-    loadTags();
-    std::set<std::string> ids, seen;
-    collectTag(tag, ids, seen);
+    auto const& ids = closure(tag);
     return {ids.begin(), ids.end()};
 }
 
@@ -159,10 +167,7 @@ bool matches(ItemIngredient const& ingredient, ItemStack const& stack) {
 
 bool matchesFluid(FluidIngredient const& ingredient, std::string const& fluid) {
     if (!ingredient.fluid.empty()) return ingredient.fluid == fluid;
-    loadTags();
-    std::set<std::string> ids, seen;
-    collectTag(ingredient.tag, ids, seen);
-    return ids.contains(fluid);
+    return closure(ingredient.tag).contains(fluid);
 }
 
 std::vector<ItemStack> rollResults(ProcessingRecipe const& recipe) {
@@ -180,7 +185,11 @@ std::vector<ItemStack> rollResults(ProcessingRecipe const& recipe) {
 
 void reload() {
     auto& c = cache();
+    // recipes handed out before stay valid (machines keep pointers across ticks): retire them
+    static std::vector<std::map<std::string, std::vector<ProcessingRecipe>, std::less<>>> retired;
+    if (!c.types.empty()) retired.push_back(std::move(c.types));
     c.types.clear();
+    c.closures.clear();
     c.tags.clear();
     c.tagsLoaded = false;
 }

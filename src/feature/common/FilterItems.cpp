@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
+#include "ll/api/event/player/PlayerDisconnectEvent.h"
 #include "ll/api/event/player/PlayerUseItemEvent.h"
 #include "ll/api/form/CustomForm.h"
 #include "ll/api/form/SimpleForm.h"
@@ -347,11 +348,18 @@ public:
                 screens::open(player, list ? kListScreen : kAttributeScreen, ctx);
             }
         );
+        mLeave = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerDisconnectEvent>(
+            [](ll::event::PlayerDisconnectEvent& ev) { references().erase(ev.self().getOrCreateUniqueID().rawID); }
+        );
     }
-    void uninstall() { ll::event::EventBus::getInstance().removeListener(mListener); }
+    void uninstall() {
+        ll::event::EventBus::getInstance().removeListener(mListener);
+        ll::event::EventBus::getInstance().removeListener(mLeave);
+    }
 
 private:
     ll::event::ListenerPtr mListener;
+    ll::event::ListenerPtr mLeave;
 };
 
 } // namespace lv::feature::common::filter

@@ -302,7 +302,11 @@ public:
             server().companions.clear();
             server().testInbox.clear();
         });
+    }
 #ifdef LV_CLIENT
+    // client listeners at mod load, before the game's threads run (see ScreenModule)
+    void load() {
+        auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ClientJoinLevelEvent>([](auto&) {
             auto& s     = client::state();
             s.inLevel   = true;
@@ -321,8 +325,8 @@ public:
             if (!s.inLevel || s.connected || s.helloSent >= client::kHelloAttempts) return;
             if (++s.ticks % client::kHelloInterval == 0) client::sendHello();
         }));
-#endif
     }
+#endif
     void uninstall() {
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);

@@ -9,6 +9,7 @@
 #include "ll/api/form/CustomForm.h"
 #include "ll/api/service/Bedrock.h"
 
+#include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
@@ -55,9 +56,12 @@ Block const* reachableBlock(Player& player, core::GlobalPos const& pos) {
 
 /// Block-local hit position from the event's click position (relative or absolute).
 core::common::Vec localHit(BlockPos const& pos, Vec3 const& click) {
-    double x = click.x, y = click.y, z = click.z;
-    if (std::abs(x) > 1.5 || std::abs(y) > 1.5 || std::abs(z) > 1.5) x -= pos.x, y -= pos.y, z -= pos.z;
-    return {x, y, z};
+    auto inside = [](double a, double b, double c) {
+        auto in = [](double v) { return v >= -0.01 && v <= 1.01; };
+        return in(a) && in(b) && in(c);
+    };
+    if (inside(click.x, click.y, click.z)) return {click.x, click.y, click.z};
+    return {click.x - pos.x, click.y - pos.y, click.z - pos.z};
 }
 
 /// Deferred actions (inventory edits after the interaction event finished).
@@ -275,7 +279,21 @@ void set(GlobalPos const& pos, ItemStack const& filter, std::string const& slotI
 }
 
 bool matches(GlobalPos const& pos, ItemStack const& stack, std::string const& slotId) {
-    return filter::matches(get(pos, slotId), stack);
+    // predicates are cached per stored filter document (parsing it per item would be slow)
+    static std::unordered_map<std::string, items::ItemPredicate> cache;
+    auto const* d = blockdata::get(pos);
+    if (!d) return true;
+    auto f = d->find("filter");
+    if (f == d->end() || !f->is_object()) return true;
+    auto s = f->find(slotId);
+    if (s == f->end() || s->is_null()) return true;
+    auto key = s->dump();
+    auto it  = cache.find(key);
+    if (it == cache.end()) {
+        if (cache.size() > 1024) cache.clear();
+        it = cache.emplace(key, filter::predicate(items::fromJson(*s))).first;
+    }
+    return it->second(stack);
 }
 
 void interact(Player& player, GlobalPos const& pos, SlotSpec const& slot) {
@@ -332,6 +350,9 @@ public:
             auto block = ev.block();
             if (!block) return;
             auto& player = ev.self();
+            // as Create's canInteract: sneaking players place / use normally, spectators and
+            // players who may not build don't edit machines
+            if (player.isSneaking() || player.isSpectator() || !player.canUseAbility(AbilitiesIndex::Build)) return;
             auto  face   = static_cast<int>(ev.face());
             auto  hit    = localHit(ev.blockPos(), ev.clickPos());
             auto  pos    = game::globalPos(player.getDimensionBlockSource(), ev.blockPos());
@@ -350,6 +371,9 @@ public:
                     auto* p   = level->getPlayer(id);
                     auto  it  = filterslot::registry().find(blockId);
                     if (!p || it == filterslot::registry().end()) return;
+                    // the block may have changed since the click
+                    auto& region = p->getDimensionBlockSource();
+                    if (static_cast<int>(p->getDimensionId()) != pos.dim || lv::game::blockIdAt(region, lv::game::blockPos(pos)) != blockId) return;
                     for (auto const& s : it->second)
                         if (s.id == slotId) filterslot::interact(*p, pos, s);
                 });

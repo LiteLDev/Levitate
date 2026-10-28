@@ -208,10 +208,18 @@ void registerBuiltins() {
     valued("shulker_fill_level", [](ItemStack const& s) {
         if (items::idOf(s).find("shulker_box") == std::string::npos) return std::vector<std::string>{};
         auto const* tag   = items::userData(s);
-        int         count = 0;
-        if (tag && tag->contains("Items", Tag::Type::List)) count = static_cast<int>((*tag)["Items"].get<ListTag>().size());
+        int         count = 0, full = 0;
+        if (tag && tag->contains("Items", Tag::Type::List)) {
+            for (auto const& e : (*tag)["Items"].get<ListTag>()) {
+                if (!e.is_object()) continue;
+                auto stack = ItemStack::fromTag(e.get<CompoundTag>());
+                if (items::isEmpty(stack)) continue;
+                ++count;
+                if (items::countOf(stack) >= stack.getMaxStackSize()) ++full;
+            }
+        }
         if (count == 0) return std::vector<std::string>{"empty"};
-        return std::vector<std::string>{count >= 27 ? "full" : "partial"};
+        return std::vector<std::string>{full >= 27 ? "full" : "partial"};
     });
     valued("has_fluid", [](ItemStack const& s) {
         auto f = fluids::fluidInItem(s);

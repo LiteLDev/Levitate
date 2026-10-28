@@ -1,5 +1,7 @@
 #include "feature/common/Items.h"
 
+#include <algorithm>
+
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/deps/nbt/StringTag.h"
 #include "mc/world/item/Item.h"
@@ -32,7 +34,8 @@ int countOf(ItemStack const& stack) { return isEmpty(stack) ? 0 : static_cast<in
 ItemStack withCount(ItemStack const& stack, int count) {
     if (count <= 0 || isEmpty(stack)) return ItemStack::EMPTY_ITEM();
     ItemStack copy = stack;
-    copy.set(count);
+    // not ItemStack::set(): it asserts on the client thread (ids are server-owned); the count is plain data
+    copy.mCount = static_cast<uchar>(std::min(count, 255));
     return copy;
 }
 

@@ -52,7 +52,8 @@ std::vector<ProcessingRecipe> const& loadType(std::string const& type);
 /// Rolls every item result with Create's chance semantics; returns the produced stacks.
 [[nodiscard]] std::vector<ItemStack> rollResults(ProcessingRecipe const& recipe);
 
-/// Drops every cached type (next access reloads). Called by `/create reload`.
+/// Drops every cached type (next access reloads). Called by `/create reload`. Recipes handed
+/// out earlier stay valid (they are retired, not freed), but are no longer listed.
 void reload();
 
 } // namespace lv::feature::common::recipes

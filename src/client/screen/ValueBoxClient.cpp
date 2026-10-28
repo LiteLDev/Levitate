@@ -90,10 +90,13 @@ private:
 
     void updateFromPointer(float mx, float my) {
         if (mx == mLastX && my == mLastY) return;
-        bool moved = mLastX >= 0;
+        bool first = mLastX < 0;
         mLastX = mx, mLastY = my;
-        if (!moved && mPointerLocked) return;
-        mPointerLocked = false;
+        if (first || mPointerLocked) {
+            // the board opens on the server's value: only a real pointer move picks another one
+            mPointerLocked = false;
+            if (first) return;
+        }
         int row = static_cast<int>((my - 22) / kRowH);
         if (row < 0 || row >= static_cast<int>(mBoard.rows.size()) || mx < kTrackX - 6 || mx > kTrackX + kTrackW + 6) return;
         mSel.row   = row;
@@ -172,11 +175,13 @@ void pollHover() {
     bool onBox = lv::feature::common::valuebox::boxAt(block, hit.mFacing, local) || lv::feature::common::filterslot::slotAt(block, hit.mFacing, local);
     if (!onBox) {
         h.has = false;
+        h.face = -1;
         return;
     }
     core::GlobalPos pos{static_cast<int>(player->getDimensionId()), hit.mBlock.x, hit.mBlock.y, hit.mBlock.z};
     std::array<int, 3> key{static_cast<int>(lx * 8), static_cast<int>(ly * 8), static_cast<int>(lz * 8)};
-    if (h.has && h.pos == pos && h.face == hit.mFacing && h.hitKey == key && h.cooldown > 0) return;
+    bool same = h.pos == pos && h.face == hit.mFacing && h.hitKey == key;
+    if (same && h.cooldown > 0) return; // at most one query per target every 10 ticks
     h.pos = pos, h.face = hit.mFacing, h.hitKey = key, h.cooldown = 10;
     net::client::send(
         "common.hover",
@@ -187,7 +192,10 @@ void pollHover() {
 
 class ValueBoxClientModule {
 public:
-    void install() {
+    // Client input / render listeners are added at mod load, before the game's threads run:
+    // hooking them while the client is running (mod enable) can deadlock the game.
+    void install() {}
+    void load() {
         net::client::on("valuebox.open", [](Json const& msg) {
             auto screen = std::make_unique<BoardScreen>(msg);
             screen->add<BoardScroll>(*screen);

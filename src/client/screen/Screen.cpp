@@ -36,6 +36,9 @@
 #include "mod/Log.h"
 #include "mod/Module.h"
 
+#include <windows.h>
+#pragma comment(lib, "user32.lib")
+
 namespace lv::client::screen {
 
 namespace {
@@ -419,6 +422,43 @@ void handleScroll(int delta) {
     }
 }
 
+/// The game's main window (the largest visible top-level window of this process).
+HWND gameWindow() {
+    static HWND cached = nullptr;
+    if (cached && IsWindow(cached)) return cached;
+    struct Best {
+        HWND h    = nullptr;
+        long area = 0;
+    } best;
+    EnumWindows(
+        [](HWND h, LPARAM p) -> BOOL {
+            DWORD pid = 0;
+            GetWindowThreadProcessId(h, &pid);
+            if (pid != GetCurrentProcessId() || !IsWindowVisible(h)) return TRUE;
+            RECT r{};
+            GetClientRect(h, &r);
+            auto* b    = reinterpret_cast<Best*>(p);
+            long  area = (r.right - r.left) * (r.bottom - r.top);
+            if (area > b->area) b->h = h, b->area = area;
+            return TRUE;
+        },
+        reinterpret_cast<LPARAM>(&best)
+    );
+    cached = best.h;
+    return cached;
+}
+
+std::pair<float, float> toGui(short x, short y);
+
+/// The pointer in GUI pixels. The pointer is read from the OS cursor (the mouse events carry
+/// stale positions while a screen is open); LeviHeadlessInput virtualises that cursor.
+std::pair<float, float> pointerGui() {
+    POINT p{};
+    HWND  w = gameWindow();
+    if (!w || !GetCursorPos(&p) || !ScreenToClient(w, &p)) return {state().mouseX, state().mouseY};
+    return toGui(static_cast<short>(p.x), static_cast<short>(p.y));
+}
+
 /// Pointer position in GUI pixels from window pixels.
 std::pair<float, float> toGui(short x, short y) {
     auto* c = currentClient();
@@ -434,7 +474,10 @@ std::pair<float, float> toGui(short x, short y) {
 
 class ScreenModule {
 public:
-    void install() {
+    // Client input / render listeners are added at mod load, before the game's threads run:
+    // hooking them while the client is running (mod enable) can deadlock the game.
+    void install() {}
+    void load() {
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::BeforeUIRenderEvent>([](ll::event::BeforeUIRenderEvent& ev) {
             auto& s = state();
@@ -450,6 +493,7 @@ public:
                 return;
             }
             if (!s.hostScene.empty() && name == s.hostScene) {
+                std::tie(s.mouseX, s.mouseY) = pointerGui();
                 renderScreen(ev.uiRenderContext());
                 ev.cancel(); // the host scene itself stays invisible
             }
@@ -457,8 +501,8 @@ public:
         mListeners.push_back(bus.emplaceListener<ll::event::MouseInputEvent>([](ll::event::MouseInputEvent& ev) {
             auto& s = state();
             if (!s.screen || s.hostScene.empty()) return;
-            auto [gx, gy] = toGui(ev.x(), ev.y());
-            if (ev.x() != 0 || ev.y() != 0) s.mouseX = gx, s.mouseY = gy;
+            auto [gx, gy] = pointerGui();
+            s.mouseX = gx, s.mouseY = gy;
             char id   = ev.actionButtonId();
             auto data = ev.buttonData();
             if (id == 1 && data == 1) handleClick(Button::Left);
