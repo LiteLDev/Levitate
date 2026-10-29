@@ -1493,7 +1493,8 @@ every 4 ticks, §8).
 
 **Track observers** (edge point type `levitate:observer`, never shared, can't be within 0.75 of
 another point): powered while a train covers its position, and for 8 ticks after (Create's
-`keepAlive`), with redstone 15 to all sides (`minecraft:redstone_producer`). The filter slot on
+`keepAlive`), with redstone 15 to all sides (`minecraft:redstone_producer` on the powered state;
+the circuit component's strength is set with the state change). The filter slot on
 top (U3 filter slot, "filter") limits it to trains carrying a matching item (in any carriage
 inventory) or fluid (any tank), asked through the trains' cargo provider; an empty filter
 matches every train.
@@ -1712,7 +1713,6 @@ matches Create's official Chinese translation wording).
 | Signal lamp rendered toward the track, track overlay for vanilla clients (U28) | Bedrock block models are fixed per state and can't face an edge point | the lamp shows on all four sides of the signal head (block state); the client mod draws Create's arrows / squares on the track |
 | Redstone input of signals (U28) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker; diodes count only when facing the signal) |
 | Comparator output of signals (U28) | Bedrock asks only containers for analog signals | the signal's 15 / 0 is handed to the comparator's circuit component before it evaluates (ComparatorCapacitor hook, as U12's vault) |
-| Observer redstone output on state change (U28) | a data-driven block's redstone producer is set up when the block is placed; a state change alone doesn't reconnect it | the observer block is placed anew (its filter kept) when it turns on or off |
 | Train occupancy by front/back signal listeners (U28) | not a limitation: trains report the track they cover | sections and observers follow the covered track (same results as Create's listeners, robust against skipped ticks) |
 Units add rows here in their PRs when they find something else impossible.
 

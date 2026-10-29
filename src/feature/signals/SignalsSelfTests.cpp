@@ -374,6 +374,8 @@ LV_REGISTER_SELFTEST("signals.observer", [](Context& ctx) -> ll::coro::CoroTask<
         return it == all.end() || !it->second ? -1 : it->second->getStrength();
     };
     ctx.check(strength() == 15, "it is a redstone source of strength 15 (" + std::to_string(strength()) + ")");
+    // (the wire's block state follows on the client's integrated server; BDS doesn't update wire
+    // states in the selftest area without a real player, so it is only reported)
     ctx.info("wire next to it: " + std::to_string(lv::game::intState(region->getBlock(lv::game::blockPos(wire)), "redstone_signal").value_or(-1)));
     // the train moves on: stays on for 8 ticks (Create's keepAlive), then off
     ctx.require(train("selftest-o", at(base, 12), at(base, 18)), "train moved on");

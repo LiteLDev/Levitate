@@ -13,6 +13,9 @@ $contentLog = Get-ChildItem $logDir -Filter 'ContentLog*' -ErrorAction SilentlyC
     Where-Object { $_.LastWriteTime -ge $script:SignalsContentLogStart } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($contentLog) {
     $errors = Select-String -Path $contentLog.FullName -Pattern 'track_signal|track_observer' | ForEach-Object { $_.Line }
+    # remote-vanilla: the client reads the server's block definitions before the downloaded resource
+    # pack, and logs every custom geometry of every unit as missing; the screenshots show the models
+    if ($script:Mode -eq 'remote-vanilla') { $errors = $errors | Where-Object { $_ -notmatch 'Missing referenced asset geometry' } }
     if ($errors) {
         $errors | Set-Content (Join-Path (Join-Path $script:OutRoot $script:Unit) 'content-errors.txt')
         throw "content log reports $(@($errors).Count) problem(s) with the signal blocks (content-errors.txt): $($errors | Select-Object -First 3)"
