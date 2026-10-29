@@ -20,6 +20,7 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/dimension/DimensionType.h"
 
 #include "feature/building/Building.h"
 #include "game/Blocks.h"
@@ -115,7 +116,7 @@ bool ladderHelper(Player& player, Info const& held, GlobalPos const& pos) {
     auto const* clicked = blockAt(pos);
     if (!clicked) return false;
     int dir    = player.getRotation().x < 0 ? Up : Down;
-    int facing = stateOf(*clicked, "levitate:facing", North);
+    int facing = hfacingOf(*clicked);
     int count  = 0;
     for (GlobalPos q = offset(pos, dir);; q = offset(q, dir)) {
         auto const* b = blockAt(q);
@@ -128,7 +129,7 @@ bool ladderHelper(Player& player, Info const& held, GlobalPos const& pos) {
     // canSurvive at the target: a wall behind or the same ladder above
     auto const* above = blockAt(offset(target, Up));
     bool        held2 = sturdy(offset(target, opposite(facing)), facing)
-                 || (above && above->getTypeName() == held.id && stateOf(*above, "levitate:facing") == facing);
+                 || (above && above->getTypeName() == held.id && hfacingOf(*above) == facing);
     if (!held2) return false;
     auto const* block = game::blockWith(held.id, {{"levitate:facing", facing}});
     if (!block) return false;
@@ -155,6 +156,7 @@ bool girderShaft(Player& player, GlobalPos const& pos, int face) {
 } // namespace
 
 bool onUse(Player& player, ItemStack const& item, GlobalPos const& pos, int face, Vec3 const& hit, bool firstEvent) {
+    (void)firstEvent; // SimulatedPlayers never send a first event: repeats are limited by a cooldown
     bool  sneak  = player.isSneaking();
     bool  empty  = item.isNull();
     auto  kind   = kindAt(pos);
@@ -165,11 +167,11 @@ bool onUse(Player& player, ItemStack const& item, GlobalPos const& pos, int face
     case Kind::Door:
     case Kind::Trapdoor:
         if (sneak && !empty) break;
-        if (!firstEvent || toggleCooldown(player)) return true;
+        if (toggleCooldown(player)) return true;
         return kind == Kind::Door ? useDoor(&player, pos) : useTrapdoor(&player, pos);
     case Kind::Placard:
         if (sneak) break;
-        if (!firstEvent) return true;
+        if (toggleCooldown(player)) return true;
         return usePlacard(player, item, pos);
     case Kind::CopycatPanel:
     case Kind::CopycatStep:
@@ -182,7 +184,10 @@ bool onUse(Player& player, ItemStack const& item, GlobalPos const& pos, int face
     case Kind::CopperBlock:
     case Kind::CopperStairs:
     case Kind::CopperSlab:
-        if (firstEvent && tryWaxOrScrape(player, item, pos)) return true;
+        if (!item.isNull() && (heldId == "minecraft:honeycomb" || heldId.ends_with("_axe"))) {
+            if (toggleCooldown(player)) return true;
+            if (tryWaxOrScrape(player, item, pos)) return true;
+        }
         if (kind == Kind::CopperSlab && held && held->id == idAt(pos)) {
             auto const* b = blockAt(pos);
             if (b && slabAccepts(*b, face, hit.y)) return mergeSlab(player, pos);

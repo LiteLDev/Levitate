@@ -8,7 +8,8 @@
 #
 # Conventions shared with src/feature/building (keep them in sync):
 #   levitate:facing      0..5 = down, up, north, south, west, east (Java Direction order)
-#   horizontal "facing"  2..5; a model is drawn for facing north and turned clockwise
+#   horizontal "facing"  2..5 of a 0..5 state (Bedrock stores list states by index: lists must
+#                        be 0..n); a model is drawn for facing north and turned clockwise
 #   levitate:c_<dir>     connected-texture neighbours (casings, framed glass, windows)
 #   levitate:north/..    pane / bars arms
 #   Block-space boxes are [x0,y0,z0,x1,y1,z1] in pixels (0..16), as Create's VoxelShapes.
@@ -74,6 +75,8 @@ function Tex([string]$name, [string]$file) {
     return $key
 }
 function Q([string]$state) { "q.block_state('levitate:$state')" }
+# a horizontal facing condition; down / up (the default 0) count as north
+function HF([int]$f) { if ($f -eq 2) { return "$(Q facing) <= 2" } return "$(Q facing) == $f" }
 function Mat([string]$tex, [string]$method = 'opaque', [bool]$ao = $true) {
     $m = [ordered]@{ texture = $tex; render_method = $method }
     if (-not $ao) { $m.ambient_occlusion = $false }
@@ -327,7 +330,7 @@ foreach ($f in 2, 3, 4, 5) {
     foreach ($s in 0..4) {
         foreach ($qi in $StairQuads[$s]) {
             $world = ($qi + $Quarter[$f]) % 4
-            $stairVis[$QuadName[$world]].Add("($(Q facing) == $f && $(Q shape) == $s)")
+            $stairVis[$QuadName[$world]].Add("($(HF $f) && $(Q shape) == $s)")
         }
     }
 }
@@ -359,7 +362,7 @@ foreach ($type in @('shingles', 'tiles')) {
             $comps = Base-Components $sid 3 6 $map @('pickaxe')
             $comps['minecraft:geometry'] = [ordered]@{ identifier = $StairGeo; bone_visibility = $StairBones }
             $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat $tex) }
-            $states = [ordered]@{ 'levitate:facing' = @(2, 3, 4, 5); 'levitate:upside' = @(0, 1); 'levitate:shape' = @(0, 1, 2, 3, 4) }
+            $states = [ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:upside' = @(0, 1); 'levitate:shape' = @(0, 1, 2, 3, 4) }
             Block-Json $sid $states $comps $null
             Loot $sid; $CopperIds.Add($sid)
             # slab
@@ -408,7 +411,7 @@ foreach ($f in 2, 3, 4, 5) {
         (Cube (Rot-Y @(3, 10, 15, 13, 11, 16) $q)), (Cube (Rot-Y @(3, 14, 15, 13, 15, 16) $q))
     )
     $LadderBones += Bone "f$f" $cubes
-    $LadderVis["f$f"] = "$(Q facing) == $f"
+    $LadderVis["f$f"] = "$(HF $f)"
 }
 $LadderGeo = Write-Geo 'ladder' $LadderBones
 foreach ($m in $Metals) {
@@ -419,9 +422,9 @@ foreach ($m in $Metals) {
     $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat (Tex "${m}_ladder" "${m}_ladder") 'alpha_test') }
     $perms = foreach ($f in 2, 3, 4, 5) {
         $b = Rot-Y @(0, 0, 13, 16, 16, 16) $Quarter[$f]
-        [ordered]@{ condition = "$(Q facing) == $f"; components = [ordered]@{ 'minecraft:collision_box' = (Box6 $b); 'minecraft:selection_box' = (Box6 $b) } }
+        [ordered]@{ condition = "$(HF $f)"; components = [ordered]@{ 'minecraft:collision_box' = (Box6 $b); 'minecraft:selection_box' = (Box6 $b) } }
     }
-    Block-Json $id ([ordered]@{ 'levitate:facing' = @(2, 3, 4, 5) }) $comps $perms
+    Block-Json $id ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5) }) $comps $perms
     Loot $id
     $BlockSounds["levitate:$id"] = 'metal'
 }
@@ -438,7 +441,7 @@ function Door-Geo([string]$name, [bool]$folds) {
             $v = if ($half -eq 'u') { 0 } else { 16 }
             $hu = if ($half -eq 'u') { 1 } else { 0 }
             $bones += Bone "c$half$f" (Cube (Rot-Y @(0, 0, 13, 16, 16, 16) $q) @(0, $v))
-            $vis["c$half$f"] = "$(Q facing) == $f && $(Q upper) == $hu && $(Q open) == 0"
+            $vis["c$half$f"] = "$(HF $f) && $(Q upper) == $hu && $(Q open) == 0"
             if ($folds) {
                 # folded leaves (Create: 9 px deep against the hinge side)
                 $bones += Bone "r$half$f" @((Cube (Rot-Y @(13, 0, 7, 16, 16, 16) $q) @(0, $v)), (Cube (Rot-Y @(16, 0, 7, 19, 16, 16) $q) @(8, $v)))
@@ -448,8 +451,8 @@ function Door-Geo([string]$name, [bool]$folds) {
                 $bones += Bone "o$half$f" (Cube (Rot-Y @(-7, 0, 13, 3, 16, 16) $q) @(6, $v))
             }
             # hinge 1 (right) slides east for facing north, hinge 0 (left) slides west
-            $vis["r$half$f"] = "$(Q facing) == $f && $(Q upper) == $hu && $(Q open) == 1 && $(Q hinge) == 1"
-            $vis["o$half$f"] = "$(Q facing) == $f && $(Q upper) == $hu && $(Q open) == 1 && $(Q hinge) == 0"
+            $vis["r$half$f"] = "$(HF $f) && $(Q upper) == $hu && $(Q open) == 1 && $(Q hinge) == 1"
+            $vis["o$half$f"] = "$(HF $f) && $(Q upper) == $hu && $(Q open) == 1 && $(Q hinge) == 0"
         }
     }
     $g = Write-Geo $name $bones 16 32
@@ -466,7 +469,7 @@ foreach ($id in $Doors.Keys) {
     $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat (Tex $id $id) 'alpha_test') }
     $comps['minecraft:collision_box'] = Box6 @(0, 0, 0, 16, 16, 16)
     $perms = @([ordered]@{ condition = "$(Q upper) == 1"; components = [ordered]@{ 'minecraft:loot' = 'loot_tables/blocks/building_empty.json' } })
-    $states = [ordered]@{ 'levitate:facing' = @(2, 3, 4, 5); 'levitate:upper' = @(0, 1); 'levitate:hinge' = @(0, 1); 'levitate:open' = @(0, 1); 'levitate:powered' = @(0, 1) }
+    $states = [ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:upper' = @(0, 1); 'levitate:hinge' = @(0, 1); 'levitate:open' = @(0, 1); 'levitate:powered' = @(0, 1) }
     Block-Json $id $states $comps $perms
     Loot $id
     $BlockSounds["levitate:$id"] = $d.sound
@@ -477,9 +480,9 @@ foreach ($f in 2, 3, 4, 5) {
     $tdBones += Bone "b$f" (Cube (Rot-Y @(0, 0, 0, 16, 3, 16) $q))
     $tdBones += Bone "t$f" (Cube (Rot-Y @(0, 13, 0, 16, 16, 16) $q))
     $tdBones += Bone "o$f" (Cube (Rot-Y @(0, 0, 13, 16, 16, 16) $q))
-    $tdVis["b$f"] = "$(Q facing) == $f && $(Q open) == 0 && $(Q top) == 0"
-    $tdVis["t$f"] = "$(Q facing) == $f && $(Q open) == 0 && $(Q top) == 1"
-    $tdVis["o$f"] = "$(Q facing) == $f && $(Q open) == 1"
+    $tdVis["b$f"] = "$(HF $f) && $(Q open) == 0 && $(Q top) == 0"
+    $tdVis["t$f"] = "$(HF $f) && $(Q open) == 0 && $(Q top) == 1"
+    $tdVis["o$f"] = "$(HF $f) && $(Q open) == 1"
 }
 $TrapdoorGeo = Write-Geo 'trapdoor' $tdBones
 foreach ($id in $Trapdoors.Keys) {
@@ -493,9 +496,9 @@ foreach ($id in $Trapdoors.Keys) {
         [ordered]@{ condition = "$(Q open) == 0 && $(Q top) == 1"; components = [ordered]@{ 'minecraft:collision_box' = (Box6 @(0, 13, 0, 16, 16, 16)) } }
     )
     foreach ($f in 2, 3, 4, 5) {
-        $perms += [ordered]@{ condition = "$(Q open) == 1 && $(Q facing) == $f"; components = [ordered]@{ 'minecraft:collision_box' = (Box6 (Rot-Y @(0, 0, 13, 16, 16, 16) $Quarter[$f])) } }
+        $perms += [ordered]@{ condition = "$(Q open) == 1 && $(HF $f)"; components = [ordered]@{ 'minecraft:collision_box' = (Box6 (Rot-Y @(0, 0, 13, 16, 16, 16) $Quarter[$f])) } }
     }
-    $states = [ordered]@{ 'levitate:facing' = @(2, 3, 4, 5); 'levitate:top' = @(0, 1); 'levitate:open' = @(0, 1); 'levitate:powered' = @(0, 1) }
+    $states = [ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:top' = @(0, 1); 'levitate:open' = @(0, 1); 'levitate:powered' = @(0, 1) }
     Block-Json $id $states $comps $perms
     Loot $id
     $BlockSounds["levitate:$id"] = $d.sound
@@ -551,7 +554,7 @@ $comps['minecraft:geometry'] = [ordered]@{
 }
 $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat (Tex 'metal_girder' 'metal_girder') 'alpha_test') }
 $comps['minecraft:collision_box'] = Box6 @(0, 2, 0, 16, 14, 16)
-$states = [ordered]@{ 'levitate:axis' = @(0, 2); 'levitate:top' = @(0, 1); 'levitate:bottom' = @(0, 1); 'levitate:rotor' = @(0, 1) }
+$states = [ordered]@{ 'levitate:axis' = @(0, 1, 2); 'levitate:top' = @(0, 1); 'levitate:bottom' = @(0, 1); 'levitate:rotor' = @(0, 1) }
 Block-Json 'metal_girder_encased_shaft' $states $comps $null
 # Create: the encased girder drops the girder and the shaft
 Write-Json 'assets/pack/bp/loot_tables/blocks/metal_girder_encased_shaft.json' ([ordered]@{ pools = @(
@@ -621,7 +624,9 @@ foreach ($f in 0..5) {
         }
     }
 }
+$FormatVersion = '1.21.120' # minecraft:redstone_producer needs it
 Block-Json 'placard' ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:powered' = @(0, 1) }) $comps $plPerms
+$FormatVersion = '1.21.90'
 Loot 'placard'
 $BlockSounds['levitate:placard'] = 'copper'
 
@@ -648,8 +653,8 @@ foreach ($f in 2, 3, 4, 5) {
         $y0 = 8 * $t
         $b = Rot-Y @(0, $y0, 0, 16, ($y0 + 8), 8) $Quarter[$f]
         $csBones += Bone "f$f$t" (Cube $b)
-        $csVis["f$f$t"] = "$(Q facing) == $f && $(Q top) == $t"
-        $csPerms += [ordered]@{ condition = "$(Q facing) == $f && $(Q top) == $t"; components = [ordered]@{ 'minecraft:collision_box' = (Box6 $b); 'minecraft:selection_box' = (Box6 $b) } }
+        $csVis["f$f$t"] = "$(HF $f) && $(Q top) == $t"
+        $csPerms += [ordered]@{ condition = "$(HF $f) && $(Q top) == $t"; components = [ordered]@{ 'minecraft:collision_box' = (Box6 $b); 'minecraft:selection_box' = (Box6 $b) } }
     }
 }
 $CopyStepGeo = Write-Geo 'copycat_step' $csBones
@@ -657,7 +662,7 @@ $comps = Base-Components 'copycat_step' 0.5 0.5 '#8a8d84' @('pickaxe', 'axe')
 $comps['minecraft:light_dampening'] = 0
 $comps['minecraft:geometry'] = [ordered]@{ identifier = $CopyStepGeo; bone_visibility = $csVis }
 $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat (Tex 'copycat_base' 'copycat_base') 'alpha_test') }
-Block-Json 'copycat_step' ([ordered]@{ 'levitate:facing' = @(2, 3, 4, 5); 'levitate:top' = @(0, 1) }) $comps $csPerms
+Block-Json 'copycat_step' ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:top' = @(0, 1) }) $comps $csPerms
 Loot 'copycat_step'
 $BlockSounds['levitate:copycat_step'] = 'metal'
 

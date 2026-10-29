@@ -8,6 +8,8 @@
       },
       "states": {
         "levitate:facing": [
+          0,
+          1,
           2,
           3,
           4,

@@ -46,7 +46,7 @@ Info const* infoOfType(BlockType const& type) {
 bool climbable(Kind k) { return k == Kind::Ladder || k == Kind::Scaffold; }
 
 void markClimbable(BlockType& type) {
-    auto& props = type.mProperties.get();
+    BlockProperty& props = type.mProperties;
     props       = static_cast<BlockProperty>(static_cast<std::uint64_t>(props) | static_cast<std::uint64_t>(BlockProperty::Climbable));
 }
 
@@ -56,7 +56,7 @@ std::optional<std::vector<Box>> collisionBoxes(Info const& info, Block const& bl
     std::vector<Box> out;
     switch (info.kind) {
     case Kind::CopperStairs: {
-        int facing = stateOf(block, "levitate:facing", North), shape = stateOf(block, "levitate:shape"), upside = stateOf(block, "levitate:upside");
+        int facing = hfacingOf(block), shape = stateOf(block, "levitate:shape"), upside = stateOf(block, "levitate:upside");
         float slab0 = upside ? 8.f : 0.f, step0 = upside ? 0.f : 8.f;
         out.push_back({0, slab0, 0, 16, slab0 + 8, 16});
         // quadrants for facing north (0 nw, 1 ne, 2 se, 3 sw), as the model
@@ -72,7 +72,7 @@ std::optional<std::vector<Box>> collisionBoxes(Info const& info, Block const& bl
         return out;
     }
     case Kind::Door: {
-        int  q    = quarterOf(stateOf(block, "levitate:facing", North));
+        int  q    = quarterOf(hfacingOf(block));
         bool open = stateOf(block, "levitate:open") != 0;
         int  hinge = stateOf(block, "levitate:hinge");
         Box  b;

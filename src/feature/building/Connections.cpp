@@ -7,6 +7,8 @@
 #include <set>
 #include <string>
 
+#include "mc/deps/core/math/Vec3.h"
+#include "mc/world/item/ItemStack.h"
 #include "mc/world/level/block/Block.h"
 
 #include "feature/building/Building.h"
@@ -63,7 +65,7 @@ StairView stairAt(GlobalPos const& p) {
     if (!b) return {};
     auto const* i = infoOf(*b);
     if (!i || i->kind != Kind::CopperStairs) return {};
-    return {true, stateOf(*b, "levitate:facing", North), stateOf(*b, "levitate:upside")};
+    return {true, hfacingOf(*b), stateOf(*b, "levitate:upside")};
 }
 
 /// Java StairBlock.getStairsShape (0 straight, 1 inner_left, 2 inner_right, 3 outer_left, 4 outer_right).
@@ -166,7 +168,7 @@ bool updateConnections(GlobalPos const& p) {
         );
         break;
     case Kind::CopperStairs: {
-        int facing = stateOf(*block, "levitate:facing", North), upside = stateOf(*block, "levitate:upside");
+        int facing = hfacingOf(*block), upside = stateOf(*block, "levitate:upside");
         next       = withStates(*block, {{"levitate:shape", stairShape(p, facing, upside)}});
         break;
     }
@@ -205,10 +207,10 @@ bool updateConnections(GlobalPos const& p) {
     }
     case Kind::Ladder: {
         // MetalLadderBlock.canSurvive: a sturdy wall behind, or the same ladder above
-        int  facing = stateOf(*block, "levitate:facing", North);
+        int  facing = hfacingOf(*block);
         auto above  = blockAt(offset(p, Up));
         bool held   = sturdy(offset(p, opposite(facing)), facing)
-                 || (above && above->getTypeName() == info->id && stateOf(*above, "levitate:facing") == facing);
+                 || (above && above->getTypeName() == info->id && hfacingOf(*above) == facing);
         if (!held) scheduleBreak(p, info->id, true);
         return false;
     }

@@ -12,6 +12,8 @@
 #include "nlohmann/json.hpp"
 
 #include "mc/world/actor/player/Player.h"
+#include "mc/deps/core/math/Vec3.h"
+#include "mc/world/item/ItemStack.h"
 #include "mc/world/level/block/Block.h"
 
 #include "feature/building/Building.h"
@@ -48,12 +50,12 @@ void doorSound(GlobalPos const& p, Info const& info, bool open) {
 
 /// The other door of a double door (Java SlidingDoorBlock.isDoubleDoor, `state` already toggled).
 std::optional<GlobalPos> doubleDoorPartner(GlobalPos const& lower, Block const& state) {
-    int  facing = stateOf(state, "levitate:facing", North);
+    int  facing = hfacingOf(state);
     int  hinge  = stateOf(state, "levitate:hinge");
     auto other  = offset(lower, hinge == 0 ? clockwise(facing) : counterClockwise(facing));
     auto const* o = blockAt(other);
     if (!o || o->getTypeName() != state.getTypeName()) return std::nullopt;
-    if (stateOf(*o, "levitate:hinge") == hinge || stateOf(*o, "levitate:facing") != facing) return std::nullopt;
+    if (stateOf(*o, "levitate:hinge") == hinge || hfacingOf(*o) != facing) return std::nullopt;
     if (stateOf(*o, "levitate:open") == stateOf(state, "levitate:open")) return std::nullopt;
     if (stateOf(*o, "levitate:upper") != stateOf(state, "levitate:upper")) return std::nullopt;
     return other;
@@ -117,11 +119,11 @@ void redstoneTick() {
         if (info && info->kind == Kind::Door && !stateOf(*b, "levitate:upper")) {
             // Java isDoorPowered: either half, or either half of the double door partner
             bool powered = hasNeighborSignal(p) || hasNeighborSignal(offset(p, Up));
-            int  facing  = stateOf(*b, "levitate:facing", North);
+            int  facing  = hfacingOf(*b);
             int  hinge   = stateOf(*b, "levitate:hinge");
             auto other   = offset(p, hinge == 0 ? clockwise(facing) : counterClockwise(facing));
             if (auto const* o = blockAt(other); o && o->getTypeName() == info->id && stateOf(*o, "levitate:hinge") != hinge
-                                                 && stateOf(*o, "levitate:facing") == facing && !stateOf(*o, "levitate:upper")) {
+                                                 && hfacingOf(*o) == facing && !stateOf(*o, "levitate:upper")) {
                 powered = powered || hasNeighborSignal(other) || hasNeighborSignal(offset(other, Up));
             }
             if (powered == (stateOf(*b, "levitate:powered") != 0)) continue;
@@ -212,7 +214,7 @@ void doorHalfChanged(GlobalPos const& pos, Block const& previous, Block const& n
             if (!a || !o || a->getTypeName() != id || o->getTypeName() != id || stateOf(*o, "levitate:upper") == upper) return;
             auto const* n = withStates(*o, {{"levitate:open", stateOf(*a, "levitate:open")},
                                             {"levitate:powered", stateOf(*a, "levitate:powered")},
-                                            {"levitate:facing", stateOf(*a, "levitate:facing", North)},
+                                            {"levitate:facing", hfacingOf(*a)},
                                             {"levitate:hinge", stateOf(*a, "levitate:hinge")}});
             if (n && n != o) set(other, *n);
         });

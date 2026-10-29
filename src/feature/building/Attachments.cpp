@@ -60,7 +60,7 @@ void setUnitValue(GlobalPos const& pos, char const* key, nlohmann::json value) {
 /// The block a block item places, nullptr if the item isn't a block item.
 Block const* blockOfItem(ItemStack const& stack) {
     if (stack.isNull()) return nullptr;
-    auto const* block = stack.getBlockForRendering();
+    auto const* block = stack.mBlock;
     if (!block || block->isAir()) return nullptr;
     return block;
 }

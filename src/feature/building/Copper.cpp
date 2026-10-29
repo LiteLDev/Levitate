@@ -69,7 +69,9 @@ int randomTickSpeed() {
     auto const& rules = level->getGameRules().mGameRules.get();
     auto        idx   = static_cast<std::size_t>(GameRules::GameRulesIndex::RandomTickSpeed);
     if (idx >= rules.size()) return 1;
-    return std::max(0, rules[idx].getInt());
+    auto const& v = rules[idx].mValue.get();
+    if (auto const* i = std::get_if<int>(&v)) return std::max(0, *i);
+    return 1;
 }
 
 void saveTracked() {

@@ -11,6 +11,7 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/dimension/DimensionType.h"
 
 #include "feature/building/Building.h"
 #include "feature/contraption/Contraption.h"

@@ -123,6 +123,11 @@ int stateOf(Block const& block, std::string_view name, int fallback) {
     return game::intState(block, name).value_or(fallback);
 }
 
+int hfacingOf(Block const& block) {
+    int f = stateOf(block, "levitate:facing", North);
+    return f < 2 || f > 5 ? North : f;
+}
+
 Block const* withStates(Block const& block, std::initializer_list<std::pair<std::string_view, int>> states) {
     Block const* b = &block;
     for (auto const& [name, value] : states) {

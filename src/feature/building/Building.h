@@ -111,6 +111,8 @@ inline constexpr char kDataKey[]          = "building"; ///< BlockData top-level
 
 // ---- block states -----------------------------------------------------------------------------------
 [[nodiscard]] int stateOf(Block const& block, std::string_view name, int fallback = 0);
+/// The horizontal facing (2..5) of a horizontal block; the default 0 / 1 reads as north.
+[[nodiscard]] int hfacingOf(Block const& block);
 /// `block` with integer states changed (unknown states are ignored).
 [[nodiscard]] Block const* withStates(Block const& block, std::initializer_list<std::pair<std::string_view, int>> states);
 [[nodiscard]] Block const* withStates(Block const& block, std::vector<std::pair<std::string, int>> const& states);

@@ -12,16 +12,16 @@
       "#X#"
     ],
     "key": {
-      "X": {
-        "item": "minecraft:glass"
-      },
       "#": {
         "item": "minecraft:birch_planks"
+      },
+      "X": {
+        "item": "minecraft:glass"
       }
     },
     "unlock": [
       {
-        "item": "minecraft:glass"
+        "item": "minecraft:birch_planks"
       }
     ],
     "result": {
