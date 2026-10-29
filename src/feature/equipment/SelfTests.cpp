@@ -365,13 +365,23 @@ LV_REGISTER_SELFTEST("equipment.potato_cannon_damage", [](Context& ctx) -> ll::c
     co_await ctx.ticks(3);
     int before = mob->getHealth();
     ctx.give(sp, item(ctx, "levitate:potato_cannon"), 0);
-    ctx.give(sp, item(ctx, "minecraft:baked_potato", 2), 5);
-    ctx.require(eq::firePotatoCannon(sp), "the cannon fires");
-    co_await ctx.ticks(15);
+    ctx.give(sp, item(ctx, "minecraft:baked_potato", 4), 5);
     ActorUniqueID id;
     id.rawID  = pigId;
-    auto* pig = level->fetchEntity(id, false);
-    int   now = pig && pig->isAlive() ? pig->getHealth() : 0;
+    Actor* pig = nullptr;
+    int    now = before;
+    // the pig wanders: aim at where it is now, and shoot again (after the cooldown) if it moved away
+    for (int attempt = 0; attempt < 3 && now >= before; ++attempt) {
+        pig = level->fetchEntity(id, false);
+        if (!pig || !pig->isAlive()) break;
+        auto at = pig->getPosition();
+        sp.simulateLookAt(Vec3{at.x, at.y + .4f, at.z}, sim::LookDuration::Continuous);
+        co_await ctx.ticks(2);
+        ctx.require(eq::firePotatoCannon(sp), "the cannon fires");
+        co_await ctx.ticks(16);
+        pig = level->fetchEntity(id, false);
+        now = pig && pig->isAlive() ? pig->getHealth() : 0;
+    }
     ctx.check(now < before, "the baked potato hurt the pig (" + std::to_string(before) + " -> " + std::to_string(now) + ")");
     ctx.check(!pig || !pig->isAlive() || pig->isOnFire(), "and set it on fire");
     if (pig && pig->isAlive()) pig->remove();
