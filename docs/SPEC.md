@@ -561,7 +561,12 @@ U10, `train_door` is U10. U28: `track_signal`, `track_observer`.
 ### 2.24 Schematics (U29)
 
 `schematic_table`, `schematicannon`, `empty_schematic`, `schematic`, `schematic_and_quill`,
-`crafting_blueprint`.
+`crafting_blueprint` (item), `placed_crafting_blueprint` (the placed blueprint's sections, §8).
+Empty schematics, schematics and the schematic and quill stack to 1, blueprints to 64. Recipes
+(Create 6.0.10): empty schematic = paper + light blue dye (shapeless); schematic and quill = empty
+schematic + feather; schematic table = `WWW / S / S` (wooden slabs, smooth stone); schematicannon =
+` I / LIL / SDS` (iron block, logs, smooth stone, dispenser); crafting blueprint = painting +
+crafting table. Details in §3.6.29.
 
 ### 2.25 Equipment (U31)
 
@@ -1750,6 +1755,83 @@ shaft turns after the outer one stops). Stress impact 0 (Create: setNoImpact; th
 structure (`pistons.rope` messages, every 3 ticks, extrapolated in between); contraption blocks are
 drawn by U4's display entities.
 
+#### 3.6.29 Schematics (U29)
+
+Checked against Create 6.0.10 (SchematicAndQuillHandler, SchematicExport, ServerSchematicLoader,
+ClientSchematicLoader, SchematicTableBlockEntity, SchematicItem, SchematicHandler and its tools,
+SchematicannonBlockEntity, SchematicPrinter, LaunchedItem, MaterialChecklist, BlueprintEntity,
+BlueprintItem, BlueprintMenu, CSchematics). Code: `src/core/schematics/` (NBT both byte orders,
+DEFLATE/GZIP, `.mcstructure` reader/writer, Create `.nbt` reader, Java→Bedrock state mapping,
+placement transforms, print order, replace modes, checklist, blueprint layout; gtest),
+`src/feature/schematics/`, `src/client/schematics/`.
+
+- **Files.** The server keeps each player's schematics in `<mod>/schematics/<player>/` (Create's
+  `schematics/uploaded/<player>/`); the client mod's local folder is `<mod>/schematics/` (Create's
+  `schematics/`). Files are `.mcstructure` (what the quill saves, Bedrock block states, Levitate
+  BlockData kept per block) or Create/Java `.nbt` (GZIP or raw NBT, block states mapped to Bedrock:
+  vanilla ids with Bedrock's renames and flattened families, state names converted; `create:<path>`
+  → `levitate:<path>` with `levitate:axis` / `levitate:facing` / `levitate:<bool>`; states a block
+  doesn't have are dropped, alternatives tried). Block types without a Bedrock block are skipped and
+  listed to the player once per file (`lv.schematics.unmapped`).
+- **Schematic and quill.** Right-click a block: first, then second corner (clicking the top or
+  bottom face of a non-replaceable block selects the block beyond it); with Ctrl (vanilla:
+  sprinting) the corner is the block `range` (10, Ctrl-scroll 1..100) blocks along the view. With
+  both corners: Ctrl-scroll pushes/pulls the face looked at (inverted from inside, never below one
+  block; size shown in the action bar), right-click opens the name prompt (title "Schematic Name:",
+  Save / "Save and Upload Immediately" / abort; empty name = "My Schematic"). Sneak-right-click
+  discards ("Removed selection."). Saving writes `<name>.mcstructure` (a free `<name>_2...` unless
+  converting), clears the selection, sends the file to the client mod's local folder; the oldest
+  file of the player's server folder is deleted when `maxSchematics` is reached; converting replaces
+  the quill with a written schematic (`maxTotalSchematicSize` checked). Areas above 512 blocks per
+  axis or 8M blocks are refused ("Failed to save schematic"). Client mod: Create's blue (0x6886c5) box outline following the
+  cursor, the face being resized highlighted; vanilla: particle edges.
+- **Schematic table.** Input slot (empty schematic), output slot (written schematic). Client mod:
+  native screen listing the local folder (selection input, refresh, upload); an upload sends
+  `schematics.upload.begin {pos, name, size}` (refused above `maxTotalSchematicSize` KB with
+  Create's two messages; `.nbt` must be GZIP), then one chunk (≤ `maxSchematicPacketSize` bytes,
+  base64) per tick and `schematics.upload.end`; the empty schematic is used up at the start, the
+  progress bar follows the server, an upload idle for `schematicIdleTimeout` ticks is cancelled, a
+  finished file replaces a same-named one (oldest deleted at `maxSchematics`) and becomes the written
+  schematic in the output. Vanilla: a form lists the player's files on the server and writes one.
+- **Written schematic.** Item data `lv:schematic` {file, owner, deployed, anchor, rotation 0..3
+  (clockwise), mirror (none, left-right = z flip, front-back = x flip), size}; lore shows the file
+  (gold) or Create's invalid-item text. Placement = Create's StructurePlaceSettings: mirror, then
+  rotation about the anchor. Client mod: the held schematic's ghost (textured blocks) and bounds,
+  Alt+scroll picks a tool (Position, Move XZ, Move Y, Rotate, Mirror, Print in creative; only
+  Position until deployed), Ctrl+scroll uses it (distance / push along the look axis / up-down /
+  90° turns and mirroring about the footprint's centre), right-click with Position deploys with the
+  target block as the bottom centre (Ctrl: at the fixed distance), Print places it instantly
+  (creative, `creativePrintIncludesAir`). Sneak-right-click: coordinates screen (x, y, z, rotation,
+  mirror). Vanilla: right-click a block deploys there, sneak-right-click opens the same values as a
+  form (with Print for creative players), particle outline of the bounds.
+- **Schematicannon.** Slots: schematic, used schematics out, book (book / book and quill /
+  clipboard), checklist out, gunpowder (hoppers, funnels and arms insert into the matching slot and
+  extract outputs). States STOPPED / PAUSED / RUNNING with Create's status keys
+  (`create.schematicannon.status.*`). A schematic loads as soon as it is inserted ("Ready", paused):
+  not anchored → "Schematic not Positioned", no file / empty → "Schematic File Expired" and broken
+  file → "Incompatible Blocks" (the schematic comes back empty), anchor ≥ 256 blocks away →
+  "Target too far away". Play prints layer by layer (y, then z, then x), brittle blocks (torches,
+  rails, levers, buttons, doors, signs, carpets, ...) deferred to the end; one shot every
+  `schematicannonDelay` (10) ticks, each using one shot of fuel (one gunpowder = 400 shots, from
+  its slot or the attached inventories, "Out of Gunpowder" pauses). Targets within 2 blocks of the
+  cannon, unbreakable blocks, blocks already right and (Protect Block Entities, on by default)
+  data-holding blocks are skipped; the replace mode decides the rest (Don't Replace Solid /
+  Solid with Solid / Solid with Any (default) / Solid with Empty). The item of each block comes
+  from the six neighbouring inventories (any item capability; a creative crate makes everything
+  free); missing items pause with "Missing Item:" or, with Skip missing Blocks (default on), skip
+  the block. A launched block flies `max(10, 4·dist^½)` ticks and is placed with its second half
+  (doors, beds, tall plants); sounds as Create (explode 0.1/1.1 per shot, note bell 1/0.7 at the
+  end). The checklist printer turns a book into a written "Material Checklist" (5 entries per page,
+  missing ones first, `xN | stacks▤ +rest`) in 20 ticks. Client mod: launched blocks drawn along
+  their arc; everyone: smoke at the barrel, particles at the target.
+- **Crafting blueprint.** Placed against a face (walls, floor, ceiling) as the largest of 3x3, 2x2,
+  1x1 that fits (free blocks with a solid block behind each). Each section: 9 recipe slots (filters
+  allowed), the display item (inferred from the crafting recipe, or set by hand) and a secondary
+  display item. Right-click a configured section crafts once from the inventory (sneaking: until
+  64 items or the ingredients run out); an empty section or the wrench opens the recipe screen
+  (native ghost slots / form); hitting a configured section clears it; breaking any section
+  removes the blueprint and drops one item (none in creative).
+
 #### 3.6.1 Belts, depots and weighted ejectors (U11)
 
 Checked against Create 6.0.10 (BeltBlock, BeltConnectorItem, BeltSlicer, BeltInventory,
@@ -2812,6 +2894,9 @@ pulleys 4; gantry shaft and carriage 0 (`gantry_shaft` 4 in the table above is w
 
 `config/stock.json` (U26): `factoryGaugeTimer` 100 (ticks between a gauge's requests, Create's
 CLogistics default, at least 5).
+`config/schematics.json` (U29, Create's CSchematics keys and defaults): `creativePrintIncludesAir`
+false, `maxSchematics` 10, `maxTotalSchematicSize` 256 (KB), `maxSchematicPacketSize` 1024 (bytes),
+`schematicIdleTimeout` 600 (ticks), `schematicannonDelay` 10 (ticks), `schematicannonShotsPerGunpowder` 400.
 
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
@@ -2874,6 +2959,7 @@ generators' own behaviour (U7, U18, U21), not a config value.
 | `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
 | `/create ponder <id>` (client mod) | anyone | U30 |
 | `/create highlight <pos>` | op | U3 |
+| `/create schematic list` (the caller's stored schematics), `/create schematic give <file>` (op: a written schematic of one of them) | anyone / op | U29 |
 | `/create overlay` (overlay position screen, client mod) / `/create overlay reset` | anyone | U8 |
 | `/create pipes <pos>` (pressures, flows and transfers of a pipe) | op | U17 |
 | `/create steam <pos>` (tank / boiler goggle lines) / `steam <pos> fill <fluid> <mB>` (Levitate debug: fills, or drains when negative, through the fluid capability) | op | U18 |
@@ -2992,6 +3078,15 @@ matches Create's official Chinese translation wording).
 | Climbable ropes and magnets (U20) | data-driven blocks can't be climbable | they are thin solid blocks |
 | Native elevator contact screen (U20) | the native screen framework (U3) has no text field | the contact's form (floor identifier, description, door control) is used for every player |
 | Elevator door control acting on doors (U20) | the sliding / train doors are U10's | the mode is stored per contact (`data["pistons"]["door"]`) for U10 to apply |
+| Crafting blueprint as a hanging entity (U29) | custom entities need their own entity definitions and renderers; a block group behaves the same for clicks and breaking | each section is a thin, non-colliding `levitate:placed_crafting_blueprint` block; the 2x2 / 3x3 group is placed and removed together; the display items are not drawn on the blueprint (shown in its screen) |
+| Schematic files saved as Create `.nbt` (U29) | Bedrock block states have no lossless Java form | the quill saves Bedrock `.mcstructure`; Create `.nbt` files are read (uploads, `schematics/`) with best-effort Java→Bedrock state mapping, unmapped block types are reported and skipped |
+| Entities and vanilla block entity data in schematics (U29) | Bedrock entities and block actors can't be serialised / restored safely from a mod without the game's structure system | blocks, waterlogging and Levitate BlockData are saved; the cannon places blocks only (like Create's safe-NBT rule, data is not printed); creative Print restores Levitate BlockData; entities (item frames, armor stands) are not printed |
+| Schematic tools, ghost and quill outline for **vanilla** clients (U29) | no client-side input (Ctrl / Alt / scroll) or world rendering without the client mod | sprinting = Ctrl for mid-air corners; no face resizing; right-click a block deploys a schematic there, sneak-right-click opens a form for exact coordinates / rotation / mirror / Print; particle outlines of the selection and of the deployed bounds |
+| Picking local files at the schematic table for **vanilla** clients (U29) | the server can't read the player's disk | the form lists the player's schematics stored on the server (quill saves, earlier uploads) |
+| Ghost preview of exact block models (U29) | drawing every block model translucently needs the chunk tessellator | the client mod draws each block as a textured cube with its own face textures |
+| Animated schematicannon barrel (U29) | the barrel is part of the block model | static barrel; the client mod draws the launched blocks flying to their target, everyone sees smoke and placement particles |
+| Material checklist on a clipboard (U29) | the clipboard is U24's | a clipboard in the paper slot also gives a written book |
+| Text input in native screens (U29) | the screen framework sees key codes, not text | the quill prompt and the coordinates screen take letters, digits, space, `-`, `_`, `.`; other characters through the form fallback |
 | Sequenced gearshift distance limits on pistons / gantries (U20) | Create passes the sequence context through its kinetic block entities; the U2 contract has no such channel | pistons and gantries run until their end / collision |
 
 | Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer (U11) | Bedrock has no item renderer for vanilla clients, and the client framework has no world-space item renderer yet | the server shows each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick; for every client, the client mod included); with `displayItems` off nothing is shown |

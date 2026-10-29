@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:crafting_blueprint"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:painting"
+      },
+      {
+        "item": "minecraft:crafting_table"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:crafting_table"
+      }
+    ],
+    "result": {
+      "count": 1,
+      "item": "levitate:crafting_blueprint"
+    }
+  }
+}

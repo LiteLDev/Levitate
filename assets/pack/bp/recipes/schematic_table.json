@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:schematic_table"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "WWW",
+      " S ",
+      " S "
+    ],
+    "key": {
+      "W": {
+        "tag": "minecraft:wooden_slabs"
+      },
+      "S": {
+        "item": "minecraft:smooth_stone"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:smooth_stone"
+      }
+    ],
+    "result": {
+      "count": 1,
+      "item": "levitate:schematic_table"
+    }
+  }
+}
