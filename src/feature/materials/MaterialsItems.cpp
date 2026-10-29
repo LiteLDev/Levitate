@@ -58,7 +58,12 @@ void particles(Actor& a, Vec3 const& at, int n) {
 
 /// Create's NoGravMagicalDohickyItem.onCreated (the "JustCreated" flag is our conversion call).
 void onCreated(Actor& a, bool shadow) {
-    if (shadow) velocity(a) = Vec3{0, (a.getFallDistance() + 3) / 50.0f, 0};
+    if (shadow) {
+        // Java items accumulate their fall distance; Bedrock items may not: at least the depth below
+        // the world (the conversion needs 10 blocks of fall), so the steel always comes back up.
+        float fell = std::max(a.getFallDistance(), a.getDimensionBlockSource().getMinHeight() - a.getPosition().y + 10.0f);
+        velocity(a) = Vec3{0, (fell + 3) / 50.0f, 0};
+    }
     else velocity(a).y += 0.25f;
     particles(a, a.getPosition(), 20);
 }
@@ -68,6 +73,14 @@ ItemActor* spawnLike(ItemActor& from, ItemStack const& stack) {
     auto* spawned = region.getLevel().getSpawner().spawnItem(region, stack, nullptr, from.getPosition(), 0);
     if (spawned) velocity(*spawned) = from.getPosDelta();
     return spawned;
+}
+
+/// Clients only learn an item entity's stack when it spawns: a changed stack is a new entity.
+/// Replaces `from` by an entity holding `stack` (nothing when empty); returns the new one.
+ItemActor* replaceStack(ItemActor& from, ItemStack const& stack) {
+    ItemActor* next = stack.isNull() || stack.mCount <= 0 ? nullptr : spawnLike(from, stack);
+    if (stack.isNull() || stack.mCount <= 0 || next) from.remove();
+    return next;
 }
 
 bool overActiveBeacon(ItemActor& a) {
@@ -107,10 +120,11 @@ bool tryAbsorbLight(ItemActor& a, ItemStack& stack, BlockPos const& target) {
     ItemStack charged = stack;
     charged.set(1);
     setChromaticLight(charged, chromaticLight(stack) + 1);
-    spawnLike(a, charged);
-    stack.set(stack.mCount - 1);
+    if (!spawnLike(a, charged)) return false;
+    ItemStack rest = stack;
+    rest.set(stack.mCount - 1);
     game::clearBlock(region, target);
-    if (stack.mCount <= 0) a.remove();
+    replaceStack(a, rest.mCount > 0 ? rest : ItemStack{});
     lv::log().info("materials: chromatic compound absorbed {} ({} light)", b.getTypeName(), chromaticLight(charged));
     return true;
 }
@@ -150,8 +164,7 @@ void tickMagicalItem(Actor& actor) {
     if (pos.y < minY && pos.y - vy < minY - 10 && cfg.enableShadowSteelRecipe) {
         auto steel = makeStack(kShadow, stack.mCount);
         if (!steel.isNull()) {
-            a.mItem = steel;
-            onCreated(a, true);
+            if (auto* s = replaceStack(a, steel)) onCreated(*s, true);
             lv::log().info("materials: chromatic compound turned into shadow steel");
         }
         return;
@@ -159,19 +172,23 @@ void tickMagicalItem(Actor& actor) {
     if (!cfg.enableRefinedRadianceRecipe) return;
     // enough light collected: one refined radiance
     if (chromaticLight(stack) >= cfg.lightSourceCountForRefinedRadiance) {
-        if (auto* r = spawnLike(a, makeStack(kRadiance, 1))) onCreated(*r, false);
-        stack.set(stack.mCount - 1);
-        if (stack.mCount <= 0) a.remove();
-        else setChromaticLight(stack, 0);
+        auto one = makeStack(kRadiance, 1);
+        if (one.isNull()) return;
+        auto* r = spawnLike(a, one);
+        if (!r) return;
+        onCreated(*r, false);
+        ItemStack rest = stack;
+        rest.set(stack.mCount - 1);
+        setChromaticLight(rest, 0);
+        replaceStack(a, rest.mCount > 0 ? rest : ItemStack{});
         lv::log().info("materials: chromatic compound turned into refined radiance");
         return;
     }
     // over an active beacon: the whole stack
-    if (overActiveBeacon(a)) {
+    if (a.getLevel().getCurrentTick().tickID % 4 == 0 && overActiveBeacon(a)) { // checked every 4 ticks
         auto radiance = makeStack(kRadiance, stack.mCount);
         if (!radiance.isNull()) {
-            a.mItem = radiance;
-            onCreated(a, false);
+            if (auto* r = replaceStack(a, radiance)) onCreated(*r, false);
             lv::log().info("materials: chromatic compound turned into refined radiance over a beacon");
         }
         return;

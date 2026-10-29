@@ -114,7 +114,10 @@ Create: osmium, platinum, silver, tin, lead, quicksilver, aluminum, uranium, nic
 `bound_cardboard_block`, `experience_nugget`, `experience_block`, `refined_radiance`, `shadow_steel`,
 `chromatic_compound`, `bar_of_chocolate`, `sweet_roll`, `chocolate_glazed_berries`, `honeyed_apple`,
 `builders_tea`, `blaze_cake_base`, `blaze_cake`, `creative_blaze_cake`, `dough`, `tree_fertilizer` is U31.
-World generation (Create 6.0.10's worldgen data, details in §3.6.9): zinc ore veins (every overworld\nbiome, ore size 12, 8 per chunk, uniform y −63..70), striated stone layers (overworld: 1 in 18 chunks,\ny −30..70, size 32, six patterns around asurine, crimsite, ochrum, veridium, limestone, scoria;\nnether: 1 in 18 chunks, y 40..90, scoria and scorchia patterns).
+World generation (Create 6.0.10's worldgen data, details in §3.6.9): zinc ore veins (every overworld
+biome, ore size 12, 8 per chunk, uniform y −63..70), striated stone layers (overworld: 1 in 18 chunks,
+y −30..70, size 32, six patterns around asurine, crimsite, ochrum, veridium, limestone, scoria;
+nether: 1 in 18 chunks, y 40..90, scoria and scorchia patterns).
 
 Decorative stone (U9): for each of `granite, diorite, andesite, calcite, dripstone, deepslate, tuff,
 asurine, crimsite, limestone, ochrum, scoria, scorchia, veridium`: the raw stone (for Create's own

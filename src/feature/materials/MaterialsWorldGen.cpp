@@ -57,7 +57,10 @@ Block const* blockOf(char const* id) {
     return t ? t->mDefaultState : nullptr;
 }
 
+std::atomic<bool> gIncompleteLogged{false};
+
 std::shared_ptr<Palette const> palette() {
+    if (auto p = std::atomic_load(&gPalette)) return p; // fast path, no lock
     std::lock_guard lock(gMutex);
     if (gPalette) return gPalette;
     auto p   = std::make_shared<Palette>();
@@ -90,8 +93,11 @@ std::shared_ptr<Palette const> palette() {
     p->nether    = {typeOf("minecraft:netherrack"), typeOf("minecraft:basalt"), typeOf("minecraft:blackstone")};
     p->complete  = true;
     for (auto const* b : p->mats) p->complete = p->complete && b;
-    if (!p->complete) return nullptr; // the behavior pack isn't loaded (yet): try again next chunk
-    gPalette = p;
+    if (!p->complete) { // the behavior pack isn't loaded (yet): try again next chunk
+        if (!gIncompleteLogged.exchange(true)) lv::log().warn("materials: world generation blocks are not loaded, chunks stay undecorated");
+        return nullptr;
+    }
+    std::atomic_store(&gPalette, std::shared_ptr<Palette const>(p));
     return gPalette;
 }
 
@@ -106,7 +112,8 @@ bool contains(std::array<BlockType const*, N> const& a, BlockType const* t) {
 
 void resetWorldGenCache() {
     std::lock_guard lock(gMutex);
-    gPalette.reset();
+    std::atomic_store(&gPalette, std::shared_ptr<Palette const>());
+    gIncompleteLogged = false;
     gDecorated = 0;
     gAnnounced = false;
 }

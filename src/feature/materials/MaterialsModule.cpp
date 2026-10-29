@@ -26,6 +26,8 @@
 #include "mc/world/item/enchanting/Enchant.h"
 #include "mc/world/item/enchanting/EnchantUtils.h"
 #include "mc/world/level/BlockPos.h"
+#include "mc/world/level/GameType.h"
+#include "mc/world/phys/AABB.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/Spawner.h"
@@ -125,6 +127,7 @@ bool toolCanHarvest(BlockInfo const& info, ItemStack const& tool) {
 
 std::vector<std::pair<std::string, int>>
 dropsFor(BlockInfo const& info, Block const& block, bool silkTouch, int fortune, std::function<int(int)> const& nextInt) {
+    (void)block;
     std::vector<std::pair<std::string, int>> out;
     switch (info.drop) {
     case Drop::ZincOre:
@@ -144,12 +147,9 @@ dropsFor(BlockInfo const& info, Block const& block, bool silkTouch, int fortune,
             out.emplace_back("levitate:cardboard_block", 1);
         }
         break;
-    case Drop::Self: {
-        int n = 1;
-        if (info.shape == Shape::Slab && strState(block, "levitate:double") == "1") n = 2;
-        out.emplace_back(std::string(info.id), n);
+    case Drop::Self: // the pack's loot tables (double slabs: their permutation's table drops two)
+        out.emplace_back(std::string(info.id), 1);
         break;
-    }
     }
     return out;
 }
@@ -282,24 +282,28 @@ LL_TYPE_INSTANCE_HOOK(
     Block const& clicked = targetBlock ? *targetBlock : region.getBlock(at);
     std::optional<BlockPos> mergeAt;
     if (&clicked.getBlockType() == &itemBlock->getBlockType()) {
-        if (auto top = singleSlabHalf(clicked); top && ((face == 1 && !*top) || (face == 0 && *top))) mergeAt = at;
+        // the clicked slab: its top face (bottom slab), bottom face (top slab), or a side clicked in
+        // the empty half
+        if (auto top = singleSlabHalf(clicked)) {
+            bool upper = hit.y - std::floor(hit.y) > 0.5f;
+            bool side  = face >= 2 && face < 6;
+            if ((!*top && (face == 1 || (upper && side))) || (*top && (face == 0 || (!upper && side)))) mergeAt = at;
+        }
     }
-    if (!mergeAt) {
+    if (!mergeAt && !game::replaceable(region, at)) {
+        // placing into the block beside the clicked face: a single slab there always takes it
         static int const dx[] = {0, 0, 0, 0, -1, 1}, dy[] = {-1, 1, 0, 0, 0, 0}, dz[] = {0, 0, -1, 1, 0, 0};
         if (face < 6) {
             BlockPos     n{at.x + dx[face], at.y + dy[face], at.z + dz[face]};
             Block const& there = region.getBlock(n);
-            if (&there.getBlockType() == &itemBlock->getBlockType()) {
-                if (auto top = singleSlabHalf(there)) {
-                    float frac = hit.y - std::floor(hit.y);
-                    if (face == 1) frac = 0.0f; // clicked the top of the block below: lower half
-                    if (face == 0) frac = 1.0f;
-                    if ((*top && frac < 0.5f) || (!*top && frac >= 0.5f)) mergeAt = n;
-                }
-            }
+            if (&there.getBlockType() == &itemBlock->getBlockType() && singleSlabHalf(there)) mergeAt = n;
         }
     }
-    if (!mergeAt || !mergeSlab(region, *mergeAt)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    if (mergeAt) {
+        // vanilla placement rules: no adventure mode, nobody standing in the block
+        AABB box{Vec3{float(mergeAt->x), float(mergeAt->y), float(mergeAt->z)}, Vec3{mergeAt->x + 1.0f, mergeAt->y + 1.0f, mergeAt->z + 1.0f}};
+        if (player.getPlayerGameType() == GameType::Adventure || !region.isUnobstructedByEntities(box, nullptr)) mergeAt.reset();
+    }    if (!mergeAt || !mergeSlab(region, *mergeAt)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
     if (!player.isCreative()) {
         item.set(item.mCount - 1);
         if (item.mCount <= 0) item = ItemStack::EMPTY_ITEM();
