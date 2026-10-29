@@ -1,0 +1,20 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "levitate:raw_zinc_block"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:crushed_raw_zinc",
+      "count": 9
+    },
+    {
+      "id": "levitate:experience_nugget",
+      "count": 9,
+      "chance": 0.75
+    }
+  ],
+  "processing_time": 400
+}

@@ -1,0 +1,23 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "minecraft:nether_gold_ore"
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:gold_nugget",
+      "count": 18
+    },
+    {
+      "id": "levitate:experience_nugget",
+      "chance": 0.75
+    },
+    {
+      "id": "minecraft:netherrack",
+      "chance": 0.125
+    }
+  ],
+  "processing_time": 350
+}

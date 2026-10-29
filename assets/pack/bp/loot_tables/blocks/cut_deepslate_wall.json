@@ -1,0 +1,14 @@
+{
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "item",
+          "name": "levitate:cut_deepslate_wall",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:small_tuff_brick_slab_from_polished_cut_tuff_stairs_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": ""
+      }
+    ],
+    "unlock": [
+      {
+        "item": ""
+      }
+    ],
+    "result": {
+      "item": "levitate:small_tuff_brick_slab",
+      "count": 2
+    }
+  }
+}

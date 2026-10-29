@@ -1,0 +1,26 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "levitate:zinc_ore"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:crushed_raw_zinc"
+    },
+    {
+      "id": "levitate:crushed_raw_zinc",
+      "chance": 0.75
+    },
+    {
+      "id": "levitate:experience_nugget",
+      "chance": 0.75
+    },
+    {
+      "id": "minecraft:cobblestone",
+      "chance": 0.125
+    }
+  ],
+  "processing_time": 250
+}

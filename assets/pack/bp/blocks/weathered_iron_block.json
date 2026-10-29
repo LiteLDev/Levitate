@@ -1,0 +1,36 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:weathered_iron_block",
+      "menu_category": {
+        "category": "construction"
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 3.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6.0
+      },
+      "minecraft:map_color": "#4c4c4c",
+      "minecraft:loot": "loot_tables/blocks/weathered_iron_block.json",
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_weathered_iron_block",
+          "render_method": "opaque"
+        },
+        "down": {
+          "texture": "levitate_weathered_iron_block_top",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "levitate_weathered_iron_block_top",
+          "render_method": "opaque"
+        }
+      }
+    }
+  }
+}

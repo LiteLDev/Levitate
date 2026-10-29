@@ -1,0 +1,16 @@
+{
+  "type": "levitate:item_application",
+  "ingredients": [
+    {
+      "item": "levitate:cardboard_block"
+    },
+    {
+      "tag": "c:strings"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:bound_cardboard_block"
+    }
+  ]
+}

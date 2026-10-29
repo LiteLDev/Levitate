@@ -1,0 +1,19 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "minecraft:raw_gold"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:crushed_raw_gold"
+    },
+    {
+      "id": "levitate:experience_nugget",
+      "count": 2,
+      "chance": 0.75
+    }
+  ],
+  "processing_time": 400
+}

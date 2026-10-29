@@ -1,0 +1,17 @@
+{
+  "type": "levitate:filling",
+  "ingredients": [
+    {
+      "item": "minecraft:apple"
+    },
+    {
+      "fluid_tag": "c:honey",
+      "amount": 250
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:honeyed_apple"
+    }
+  ]
+}

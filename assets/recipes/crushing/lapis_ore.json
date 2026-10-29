@@ -1,0 +1,27 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "minecraft:lapis_ore"
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:lapis_lazuli",
+      "count": 10
+    },
+    {
+      "id": "minecraft:lapis_lazuli",
+      "chance": 0.5
+    },
+    {
+      "id": "levitate:experience_nugget",
+      "chance": 0.75
+    },
+    {
+      "id": "minecraft:cobblestone",
+      "chance": 0.125
+    }
+  ],
+  "processing_time": 250
+}

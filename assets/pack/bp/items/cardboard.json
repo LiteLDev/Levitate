@@ -1,0 +1,21 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:cardboard",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_cardboard",
+      "minecraft:display_name": {
+        "value": "item.levitate:cardboard.name"
+      },
+      "minecraft:max_stack_size": 64,
+      "minecraft:fuel": {
+        "duration": 50.0
+      }
+    }
+  }
+}

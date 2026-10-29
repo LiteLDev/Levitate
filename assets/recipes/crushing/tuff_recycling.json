@@ -1,0 +1,31 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "tag": "levitate:stone_types/tuff"
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:flint",
+      "chance": 0.25
+    },
+    {
+      "id": "minecraft:gold_nugget",
+      "chance": 0.1
+    },
+    {
+      "id": "levitate:copper_nugget",
+      "chance": 0.1
+    },
+    {
+      "id": "levitate:zinc_nugget",
+      "chance": 0.1
+    },
+    {
+      "id": "minecraft:iron_nugget",
+      "chance": 0.1
+    }
+  ],
+  "processing_time": 350
+}

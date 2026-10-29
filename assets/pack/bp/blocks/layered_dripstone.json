@@ -1,0 +1,36 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:layered_dripstone",
+      "menu_category": {
+        "category": "construction"
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 1.0
+      },
+      "minecraft:map_color": "#4c3223",
+      "minecraft:loot": "loot_tables/blocks/layered_dripstone.json",
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_dripstone_layered",
+          "render_method": "opaque"
+        },
+        "down": {
+          "texture": "levitate_dripstone_cap",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "levitate_dripstone_cap",
+          "render_method": "opaque"
+        }
+      }
+    }
+  }
+}

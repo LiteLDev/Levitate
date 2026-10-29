@@ -1,0 +1,17 @@
+{
+  "type": "levitate:filling",
+  "ingredients": [
+    {
+      "item": "levitate:blaze_cake_base"
+    },
+    {
+      "fluid": "minecraft:lava",
+      "amount": 250
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:blaze_cake"
+    }
+  ]
+}

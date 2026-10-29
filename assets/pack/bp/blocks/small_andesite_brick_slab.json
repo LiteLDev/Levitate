@@ -1,0 +1,126 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:small_andesite_brick_slab",
+      "menu_category": {
+        "category": "construction",
+        "group": "minecraft:itemGroup.name.slab"
+      },
+      "states": {
+        "levitate:double": [
+          false,
+          true
+        ]
+      },
+      "traits": {
+        "minecraft:placement_position": {
+          "enabled_states": [
+            "minecraft:vertical_half"
+          ]
+        }
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6.0
+      },
+      "minecraft:map_color": "#707070",
+      "minecraft:loot": "loot_tables/blocks/small_andesite_brick_slab.json",
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.materials_slab",
+        "bone_visibility": {
+          "bottom": "q.block_state('minecraft:vertical_half') == 'bottom'",
+          "top": "q.block_state('minecraft:vertical_half') == 'top'"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_andesite_small_brick",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "levitate_andesite_small_brick",
+          "render_method": "opaque"
+        },
+        "down": {
+          "texture": "levitate_andesite_small_brick",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          8,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          8,
+          16
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('minecraft:vertical_half') == 'top' && !q.block_state('levitate:double')",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              8,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              8,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:double')",
+        "components": {
+          "minecraft:geometry": "minecraft:geometry.full_block",
+          "minecraft:collision_box": true,
+          "minecraft:selection_box": true,
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_andesite_small_brick",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:loot": "loot_tables/blocks/small_andesite_brick_slab_double.json"
+        }
+      }
+    ]
+  }
+}

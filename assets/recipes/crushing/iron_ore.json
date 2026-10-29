@@ -1,0 +1,26 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "minecraft:iron_ore"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:crushed_raw_iron"
+    },
+    {
+      "id": "levitate:crushed_raw_iron",
+      "chance": 0.75
+    },
+    {
+      "id": "levitate:experience_nugget",
+      "chance": 0.75
+    },
+    {
+      "id": "minecraft:cobblestone",
+      "chance": 0.125
+    }
+  ],
+  "processing_time": 250
+}

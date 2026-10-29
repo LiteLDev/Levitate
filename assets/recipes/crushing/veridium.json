@@ -1,0 +1,19 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "levitate:veridium"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:crushed_raw_copper",
+      "chance": 0.8
+    },
+    {
+      "id": "levitate:copper_nugget",
+      "chance": 0.8
+    }
+  ],
+  "processing_time": 250
+}

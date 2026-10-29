@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:cut_veridium_slab_from_small_veridium_brick_stairs_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": ""
+      }
+    ],
+    "unlock": [
+      {
+        "item": ""
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_veridium_slab",
+      "count": 2
+    }
+  }
+}

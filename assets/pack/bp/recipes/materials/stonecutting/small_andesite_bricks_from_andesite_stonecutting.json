@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:small_andesite_bricks_from_andesite_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": ""
+      }
+    ],
+    "unlock": [
+      {
+        "item": ""
+      }
+    ],
+    "result": {
+      "item": "levitate:small_andesite_bricks",
+      "count": 1
+    }
+  }
+}

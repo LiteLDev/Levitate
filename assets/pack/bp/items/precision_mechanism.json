@@ -1,0 +1,18 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:precision_mechanism",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_precision_mechanism",
+      "minecraft:display_name": {
+        "value": "item.levitate:precision_mechanism.name"
+      },
+      "minecraft:max_stack_size": 64
+    }
+  }
+}

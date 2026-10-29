@@ -1,0 +1,19 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "levitate:ochrum"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:crushed_raw_gold",
+      "chance": 0.2
+    },
+    {
+      "id": "minecraft:gold_nugget",
+      "chance": 0.2
+    }
+  ],
+  "processing_time": 250
+}

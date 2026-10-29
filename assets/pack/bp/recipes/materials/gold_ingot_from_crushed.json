@@ -1,0 +1,14 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_furnace": {
+    "description": {
+      "identifier": "levitate:gold_ingot_from_crushed"
+    },
+    "tags": [
+      "furnace",
+      "blast_furnace"
+    ],
+    "input": "",
+    "output": "minecraft:gold_ingot"
+  }
+}

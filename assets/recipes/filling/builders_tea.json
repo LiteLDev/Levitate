@@ -1,0 +1,17 @@
+{
+  "type": "levitate:filling",
+  "ingredients": [
+    {
+      "item": "minecraft:glass_bottle"
+    },
+    {
+      "fluid": "levitate:tea",
+      "amount": 250
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:builders_tea"
+    }
+  ]
+}

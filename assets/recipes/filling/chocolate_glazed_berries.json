@@ -1,0 +1,17 @@
+{
+  "type": "levitate:filling",
+  "ingredients": [
+    {
+      "item": "minecraft:sweet_berries"
+    },
+    {
+      "fluid": "levitate:chocolate",
+      "amount": 250
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:chocolate_glazed_berries"
+    }
+  ]
+}

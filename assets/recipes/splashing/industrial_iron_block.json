@@ -1,0 +1,13 @@
+{
+  "type": "levitate:splashing",
+  "ingredients": [
+    {
+      "item": "levitate:industrial_iron_block"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:weathered_iron_block"
+    }
+  ]
+}

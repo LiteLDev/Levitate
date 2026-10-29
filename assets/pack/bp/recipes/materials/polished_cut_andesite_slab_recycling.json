@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:polished_cut_andesite_slab_recycling"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:polished_cut_andesite_slab"
+      },
+      {
+        "item": "levitate:polished_cut_andesite_slab"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:polished_cut_andesite_slab"
+      }
+    ],
+    "result": {
+      "item": "levitate:polished_cut_andesite",
+      "count": 1
+    }
+  }
+}

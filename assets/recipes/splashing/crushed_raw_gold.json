@@ -1,0 +1,18 @@
+{
+  "type": "levitate:splashing",
+  "ingredients": [
+    {
+      "item": "levitate:crushed_raw_gold"
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:gold_nugget",
+      "count": 9
+    },
+    {
+      "id": "minecraft:quartz",
+      "chance": 0.5
+    }
+  ]
+}

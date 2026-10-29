@@ -1,0 +1,27 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "minecraft:deepslate_iron_ore"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:crushed_raw_iron",
+      "count": 2
+    },
+    {
+      "id": "levitate:crushed_raw_iron",
+      "chance": 0.25
+    },
+    {
+      "id": "levitate:experience_nugget",
+      "chance": 0.75
+    },
+    {
+      "id": "minecraft:cobbled_deepslate",
+      "chance": 0.125
+    }
+  ],
+  "processing_time": 350
+}

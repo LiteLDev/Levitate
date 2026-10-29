@@ -1,0 +1,26 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "minecraft:emerald_ore"
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:emerald"
+    },
+    {
+      "id": "minecraft:emerald",
+      "chance": 0.75
+    },
+    {
+      "id": "levitate:experience_nugget",
+      "chance": 0.75
+    },
+    {
+      "id": "minecraft:cobblestone",
+      "chance": 0.125
+    }
+  ],
+  "processing_time": 350
+}

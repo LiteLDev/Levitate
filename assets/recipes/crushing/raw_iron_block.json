@@ -1,0 +1,20 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "minecraft:raw_iron_block"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:crushed_raw_iron",
+      "count": 9
+    },
+    {
+      "id": "levitate:experience_nugget",
+      "count": 9,
+      "chance": 0.75
+    }
+  ],
+  "processing_time": 400
+}

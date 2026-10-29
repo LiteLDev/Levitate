@@ -1,0 +1,27 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "item": "minecraft:copper_ore"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:crushed_raw_copper",
+      "count": 5
+    },
+    {
+      "id": "levitate:crushed_raw_copper",
+      "chance": 0.25
+    },
+    {
+      "id": "levitate:experience_nugget",
+      "chance": 0.75
+    },
+    {
+      "id": "minecraft:cobblestone",
+      "chance": 0.125
+    }
+  ],
+  "processing_time": 250
+}

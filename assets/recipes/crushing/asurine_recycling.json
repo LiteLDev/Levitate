@@ -1,0 +1,19 @@
+{
+  "type": "levitate:crushing",
+  "ingredients": [
+    {
+      "tag": "levitate:stone_types/asurine"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:crushed_raw_zinc",
+      "chance": 0.3
+    },
+    {
+      "id": "levitate:zinc_nugget",
+      "chance": 0.3
+    }
+  ],
+  "processing_time": 250
+}

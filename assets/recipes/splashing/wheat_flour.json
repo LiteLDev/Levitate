@@ -1,0 +1,13 @@
+{
+  "type": "levitate:splashing",
+  "ingredients": [
+    {
+      "tag": "c:flours/wheat"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:dough"
+    }
+  ]
+}

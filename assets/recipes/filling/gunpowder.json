@@ -1,0 +1,19 @@
+{
+  "type": "levitate:filling",
+  "ingredients": [
+    {
+      "item": "levitate:cinder_flour"
+    },
+    {
+      "fluid": "levitate:potion",
+      "amount": 25,
+      "potion": "minecraft:harming",
+      "bottle": "regular"
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:gunpowder"
+    }
+  ]
+}
