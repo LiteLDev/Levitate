@@ -32,7 +32,23 @@ using core::common::kListFilterSlots;
 
 bool isListFilter(ItemStack const& stack) { return items::idOf(stack) == kListFilterId; }
 bool isAttributeFilter(ItemStack const& stack) { return items::idOf(stack) == kAttributeFilterId; }
-bool isFilterItem(ItemStack const& stack) { return isListFilter(stack) || isAttributeFilter(stack); }
+namespace {
+std::unordered_map<std::string, Matcher>& matchers() {
+    static std::unordered_map<std::string, Matcher> m;
+    return m;
+}
+Matcher const* matcherFor(ItemStack const& filter) {
+    if (matchers().empty() || items::isEmpty(filter)) return nullptr;
+    auto it = matchers().find(items::idOf(filter));
+    return it == matchers().end() ? nullptr : &it->second;
+}
+} // namespace
+
+void registerMatcher(std::string itemId, Matcher fn) { matchers()[std::move(itemId)] = std::move(fn); }
+
+bool isFilterItem(ItemStack const& stack) {
+    return isListFilter(stack) || isAttributeFilter(stack) || matcherFor(stack) != nullptr;
+}
 
 // ---- contents ----------------------------------------------------------------------------------
 
@@ -341,6 +357,7 @@ bool testAttributes(AttributeFilter const& data, ItemStack const& stack) {
 
 bool matches(ItemStack const& filter, ItemStack const& stack, bool matchData) {
     if (items::isEmpty(filter)) return true;
+    if (auto const* m = matcherFor(filter)) return (*m)(filter, stack, matchData);
     if (isListFilter(filter)) {
         auto data = readList(filter);
         std::vector<ItemStack const*> entries;
@@ -381,6 +398,10 @@ bool matchesFluid(ItemStack const& filter, fluids::FluidStack const& fluid) {
 
 items::ItemPredicate predicate(ItemStack const& filter, bool matchData) {
     if (items::isEmpty(filter)) return items::any();
+    if (auto const* m = matcherFor(filter)) {
+        auto held = std::make_shared<ItemStack>(filter); // server thread
+        return [fn = *m, held, matchData](ItemStack const& stack) { return fn(*held, stack, matchData); };
+    }
     if (isListFilter(filter)) {
         auto data = std::make_shared<ListFilter>(readList(filter));
         std::erase_if(data->items, [](ItemStack const& s) { return items::isEmpty(s); });

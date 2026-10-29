@@ -205,6 +205,7 @@ void attributeAction(Player& player, Json const& ctx, Json const& action) {
         auto ref = items::fromJson(action.value("item", Json()));
         if (items::isEmpty(ref)) references().erase(key);
         else references()[key] = items::withCount(ref, 1);
+        log().info("attribute filter: {} set the reference item to {}", player.getRealName(), items::isEmpty(ref) ? "nothing" : items::idOf(ref));
         return; // the filter itself does not change
     }
     if (op == "add") {

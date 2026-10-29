@@ -3,6 +3,7 @@
 #include "client/screen/Screen.h"
 
 #include <algorithm>
+#include <mutex>
 #include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
@@ -32,6 +33,7 @@
 #include "mc/world/item/ItemStack.h"
 
 #include "client/Client.h"
+#include "feature/common/Items.h"
 #include "feature/net/Net.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
@@ -61,8 +63,18 @@ constexpr int   kKeyShift      = 16;
 constexpr int   kKeyEscape     = 27;
 constexpr int   kKeyInventory  = 69; ///< E
 
+/// A click / wheel notch from the input thread, handled on the client thread.
+struct PendingInput {
+    float  x = 0, y = 0; ///< GUI pixels at the time of the event
+    Button button = Button::Left;
+    int    scroll = 0; ///< 0: a click
+    bool   shift  = false;
+};
+
 struct State {
     std::unique_ptr<Screen> screen;
+    std::mutex                inputMutex;
+    std::vector<PendingInput> pendingInput;
     std::string             baseScene; ///< top scene before the host was pushed
     std::string             hostScene; ///< the pushed host scene ("" until it appeared)
     int                     framesWaiting = 0;
@@ -379,7 +391,7 @@ void renderScreen(MinecraftUIRenderContext& ctx) {
         if (w->hovered(px, py) && !w->tooltip.empty()) tip = w->tooltip;
     }
     s.screen->renderExtra(c, px, py);
-    if (s.screen->cursor && !s.screen->cursor->isNull()) {
+    if (s.screen->cursor && !s.screen->cursor->isNull()) { // render-only icon of cursorItem
         c.setOrigin(0, 0);
         c.item(*s.screen->cursor, mx - 8, my - 8);
     }
@@ -388,6 +400,20 @@ void renderScreen(MinecraftUIRenderContext& ctx) {
         c.tooltip(mx, my, tip);
     }
 }
+
+} // namespace
+
+void Screen::setCursorItem(Json item) {
+    cursorItem = std::move(item);
+    cursor.reset();
+    if (cursorItem.is_null()) return;
+    // a fresh stack built from data on the client thread (never a copy of a game-owned stack)
+    auto icon = std::make_shared<ItemStack>();
+    *icon     = lv::feature::common::items::fromJson(cursorItem);
+    if (!icon->isNull()) cursor = std::move(icon);
+}
+
+namespace {
 
 void handleClick(Button b) {
     auto& s = state();
@@ -409,7 +435,7 @@ void handleClick(Button b) {
     }
     if (s.screen->clickBackground(px, py, b, s.shift)) return;
     // clicking outside everything drops the ghost cursor (as dropping a ghost item)
-    if (s.screen->cursor) s.screen->cursor.reset();
+    if (s.screen->cursor || !s.screen->cursorItem.is_null()) s.screen->setCursorItem(nullptr);
 }
 
 void handleScroll(int delta) {
@@ -493,6 +519,23 @@ public:
                 return;
             }
             if (!s.hostScene.empty() && name == s.hostScene) {
+                // clicks queued by the input thread run here, on the client thread: screens read
+                // the inventory and items, which the game only allows on this thread
+                std::vector<PendingInput> inputs;
+                {
+                    std::lock_guard lock(s.inputMutex);
+                    inputs.swap(s.pendingInput);
+                }
+                for (auto const& in : inputs) {
+                    if (!state().screen) break;
+                    s.mouseX = in.x, s.mouseY = in.y;
+                    bool shift = s.shift;
+                    s.shift    = in.shift;
+                    if (in.scroll) handleScroll(in.scroll);
+                    else handleClick(in.button);
+                    s.shift = shift;
+                }
+                if (!state().screen) return;
                 std::tie(s.mouseX, s.mouseY) = pointerGui();
                 renderScreen(ev.uiRenderContext());
                 ev.cancel(); // the host scene itself stays invisible
@@ -502,13 +545,19 @@ public:
             auto& s = state();
             if (!s.screen || s.hostScene.empty()) return;
             auto [gx, gy] = pointerGui();
-            s.mouseX = gx, s.mouseY = gy;
             char id   = ev.actionButtonId();
             auto data = ev.buttonData();
-            if (id == 1 && data == 1) handleClick(Button::Left);
-            else if (id == 2 && data == 1) handleClick(Button::Right);
-            else if (id == 3 && data == 1) handleClick(Button::Middle);
-            else if (id == 4 && data != 0) handleScroll(data > 0 ? 1 : -1);
+            PendingInput in{gx, gy, Button::Left, 0, s.shift};
+            bool         any = true;
+            if (id == 1 && data == 1) in.button = Button::Left;
+            else if (id == 2 && data == 1) in.button = Button::Right;
+            else if (id == 3 && data == 1) in.button = Button::Middle;
+            else if (id == 4 && data != 0) in.scroll = data > 0 ? 1 : -1;
+            else any = false;
+            if (any) { // handled on the client thread (the render listener)
+                std::lock_guard lock(s.inputMutex);
+                s.pendingInput.push_back(in);
+            }
             ev.cancel();
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>([](ll::event::KeyInputEvent& ev) {

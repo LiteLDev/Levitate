@@ -62,6 +62,22 @@ nlohmann::json toJson(ItemStack const& stack) {
     return j;
 }
 
+nlohmann::json toJsonWithCount(ItemStack const& stack, int count) {
+    if (isEmpty(stack) || count <= 0) return nullptr;
+    count = std::min(count, 255);
+    nlohmann::json j{
+        {"id",    stack.getTypeName()},
+        {"count", count              },
+        {"aux",   stack.getAuxValue()},
+    };
+    auto ctx = SaveContextFactory::createCloneSaveContext();
+    if (auto tag = stack.save(*ctx)) {
+        (*tag)["Count"] = static_cast<uchar>(count); // the saved tag, not the stack
+        j["nbt"]        = tag->toSnbt(SnbtFormat::Minimize, 0);
+    }
+    return j;
+}
+
 ItemStack fromJson(nlohmann::json const& j) {
     if (!j.is_object()) return ItemStack::EMPTY_ITEM();
     if (auto it = j.find("nbt"); it != j.end() && it->is_string()) {

@@ -179,7 +179,9 @@ public:
     virtual void onClose() {}
     /// Whether the player's inventory is drawn below the panel (and clickable).
     bool showInventory = false;
-    /// Called when an inventory slot is clicked (`slot` in the player's inventory).
+    /// Called when an inventory slot is clicked (`slot` in the player's inventory). `stack` is the
+    /// game's own stack: read it (`items::toJsonWithCount`), never copy it. Clicks are handled on
+    /// the client (render) thread.
     virtual void clickInventory(int /*slot*/, ItemStack const& /*stack*/, Button /*b*/, bool /*shift*/) {}
 
     template <class W, class... Args>
@@ -192,7 +194,13 @@ public:
 
     std::vector<std::unique_ptr<Widget>> widgets;
     /// The item held on the cursor (ghost: picking from the inventory copies, never moves).
+    /// Render-only icon of `cursorItem`; set both with `setCursorItem`.
     std::shared_ptr<ItemStack> cursor;
+    /// The ghost item on the cursor as item JSON (`items::toJson` format; null: none). Screens
+    /// send this to the server; never copy a game-owned ItemStack on the client.
+    Json cursorItem;
+    /// Sets (or with null clears) the cursor item and builds its icon.
+    void setCursorItem(Json item);
 };
 
 /// Opens a screen (replaces the current one).

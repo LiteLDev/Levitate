@@ -33,6 +33,9 @@ namespace lv::feature::common::items {
 /// Serialises a stack (item, count, aux, user data) to JSON for BlockData / packets:
 /// {"id": "...", "count": n, "aux": n, "nbt": "<snbt of the full stack>"}.
 [[nodiscard]] nlohmann::json toJson(ItemStack const& stack);
+/// `toJson` of `stack` as if it held `count` items, without copying the stack (safe for stacks
+/// the game owns, e.g. the client's inventory: copying them on the client asserts).
+[[nodiscard]] nlohmann::json toJsonWithCount(ItemStack const& stack, int count);
 /// The stack back (empty stack for null / unreadable input).
 [[nodiscard]] ItemStack fromJson(nlohmann::json const& j);
 
