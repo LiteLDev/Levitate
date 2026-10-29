@@ -24,6 +24,7 @@
 #include "mc/world/actor/ActorDefinitionIdentifier.h"
 #include "mc/world/actor/ActorFactory.h"
 #include "mc/world/actor/ActorType.h"
+#include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -73,6 +74,7 @@ struct CartRecord {
     std::int64_t coupled = 0; ///< the other cart of a two-cart contraption
     double       baseY   = 0; ///< anchor block y - cart y
     cc::Vec3d    last;        ///< cart position last tick
+    int          missing = 0; ///< ticks the cart couldn't be found while its chunk was loaded
     bool         pending = false; ///< placed at `placeAt` on the next tick
     cc::Pos      placeAt;
     double       placeHeading = 0;
@@ -82,7 +84,14 @@ struct Coupling {
     std::int64_t a = 0, b = 0;
     double       length      = 2;
     bool         contraption = false; ///< made by a two-cart contraption (no item to drop)
+    int          dim         = 0;
+    cc::Vec3d    lastA, lastB;        ///< positions last seen
+    int          missing     = 0;     ///< ticks one cart was missing in a loaded chunk
 };
+
+/// A cart counts as broken after this many ticks missing while its chunk is loaded (entities of a
+/// freshly loaded chunk may appear a little after the chunk).
+constexpr int kMissingTicks = 40;
 
 struct State {
     std::map<std::int64_t, CartRecord>                  carts; // by cart
@@ -93,8 +102,9 @@ struct State {
     std::map<GP, std::uint64_t>                         cooldown;    // assembler -> last action tick
     std::map<GP, int>                                   railTypes;   // assembler -> rail type (drops)
     std::set<GP>                                        creativeBroken;
-    double                                              railY = 0.3725; ///< cart y above its rail block (measured on BDS 1.26.51, calibrated)
+    double                                              railY = 0.35; ///< cart y above its rail block (measured on BDS 1.26.51, calibrated)
     bool                                                dirty = false;
+    bool                                                calibrated = false;
 };
 
 State& state() {
@@ -165,9 +175,11 @@ void calibrate(BlockSource& region, Actor& cart) {
         double off = p.y - q.y;
         // a cart resting on (or rolling along) a flat rail; jumps don't count
         if (std::abs(cart.getPosDelta().y) > 0.05) return;
-        if (off >= 0.3 && off < 0.45 && std::abs(off - state().railY) > 1e-3) {
+        // the height is a constant of the game: learnt once per world
+        if (!state().calibrated && off >= 0.3 && off < 0.45) {
+            state().calibrated = true;
+            if (std::abs(off - state().railY) > 1e-3) log().info("minecart rail height calibrated: {:.4f}", off);
             state().railY = off;
-            log().info("minecart rail height calibrated: {:.4f}", off);
         }
         return;
     }
@@ -543,13 +555,16 @@ void tickCarts() {
         }
         if (!cart) {
             // the cart broke (its chunk is loaded but it is gone): Create's contraption dismounts and is placed
-            if (region->hasChunksAt(game::blockPosOf(mcv(rec.last)), 0, false)) {
+            if (region->hasChunksAt(game::blockPosOf(mcv(rec.last)), 0, false) && ++rec.missing >= kMissingTicks) {
                 log().info("minecart {} is gone: cart contraption #{} disassembled", uid, rec.id);
                 ct::disassemble(rec.id);
                 gone.push_back(uid);
             }
             continue;
         }
+        rec.missing = 0;
+        // a two-cart contraption whose coupling is gone rides on its first cart alone
+        if (rec.coupled && !couplingLength(rec.cart, rec.coupled)) rec.coupled = 0;
         calibrate(*region, *cart);
         cc::Vec3d p    = ccv(cart->getPosition());
         cc::Vec3d diff = p - rec.last;
@@ -588,17 +603,21 @@ void tickCarts() {
         auto& cp = st.couplings[i];
         auto* a  = actorById(cp.a);
         auto* b  = actorById(cp.b);
+        if (a) cp.lastA = ccv(a->getPosition()), cp.dim = static_cast<int>(a->getDimensionId());
+        if (b) cp.lastB = ccv(b->getPosition());
         if (!a || !b) {
-            Actor* left = a ? a : b;
-            if (left) {
-                // the other cart broke: the coupling drops
-                if (!cp.contraption) {
-                    if (auto* region = regionOf(static_cast<int>(left->getDimensionId()))) dropCoupling(*region, ccv(left->getPosition()));
-                }
+            // a cart broke (missing although its chunk is loaded): the coupling drops
+            auto*     region = regionOf(cp.dim);
+            cc::Vec3d where  = a ? cp.lastB : cp.lastA;
+            bool      inside = region && region->hasChunksAt(game::blockPosOf(mcv(where)), 0, false);
+            if ((a || b) && inside && ++cp.missing >= kMissingTicks) {
+                Actor* left = a ? a : b;
+                if (!cp.contraption) dropCoupling(*region, ccv(left->getPosition()));
                 broken.push_back(i);
             }
             continue;
         }
+        cp.missing = 0;
         cc::Vec3d pa = ccv(a->getPosition()), pb = ccv(b->getPosition());
         cc::Vec3d va = posDelta(*a), vb = posDelta(*b);
         auto      clampLen = [](cc::Vec3d v, double max) {
@@ -839,7 +858,7 @@ bool cartInteract(Player& player, Actor& target) {
     std::string held = it::idOf(player.getSelectedItem());
     auto        uid  = uidOf(target);
     if (held == kWrench) {
-        if (state().carts.contains(uid)) return pickupContraption(player, target);
+        if (state().carts.contains(uid)) return player.canUseAbility(AbilitiesIndex::Build) && pickupContraption(player, target);
         if (couplingCount(uid) == 0) return false;
         int dropped = 0;
         std::erase_if(state().couplings, [&](Coupling const& c) {

@@ -467,6 +467,29 @@ void registerOptionBox(
 // ---- API of the unit ------------------------------------------------------------------------------
 
 void registerBearingBoxes() {
+    static bool erasing = false;
+    if (!erasing) {
+        erasing = true;
+        // the bearing's data goes with its block: its structures are placed (Create's remove()),
+        // also when the bearing was never ticked since the world loaded
+        bd::onErase([](GP const& pos, Json const& doc, std::string const&) {
+            auto it = doc.find("bearings");
+            if (it == doc.end()) return;
+            auto s = State::of(*it);
+            if (!s.running) return;
+            std::vector<ct::Id> ids;
+            if (s.id) ids.push_back(s.id);
+            if (s.second) ids.push_back(s.second);
+            defer([pos, ids] {
+                for (auto id : ids) {
+                    if (!ct::find(id)) continue;
+                    ct::disassemble(id);
+                    log().info("bearing at {} removed: contraption #{} disassembled", pos.key(), id);
+                }
+                anchored().erase(pos);
+            });
+        });
+    }
     registerOptionBox(
         kMechanicalBearing,
         "mode",

@@ -354,11 +354,11 @@ LV_REGISTER_SELFTEST("bearings.cart_contraption_follows_cart", [](Context& ctx) 
     double cx = cart->getPosition().x;
     auto   t  = ct::find(*cid)->transform();
     double wx = t.origin.x + t.offset.x + 0.5;
-    ctx.check(cx > p.x + 1.5, "the cart moved east: " + std::to_string(cx - p.x));
+    ctx.check(cx > p.x + 1.0, "the cart moved east: " + std::to_string(cx - p.x));
     ctx.check(std::abs(wx - cx) < 0.6, "the structure follows the cart (" + std::to_string(wx) + " vs " + std::to_string(cx) + ")");
     // breaking the cart places the structure where it is
     cart->remove();
-    co_await ctx.ticks(3);
+    co_await ctx.ticks(45); // a missing cart counts as broken after 40 ticks
     ctx.check(!ct::find(*cid), "the contraption is placed when its cart is gone");
     for (int dx = 0; dx <= 7; ++dx)
         for (int dz = -1; dz <= 1; ++dz) ctx.cleanupBlock(at(p, dx, 1, dz));

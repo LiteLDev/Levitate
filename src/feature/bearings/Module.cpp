@@ -202,7 +202,7 @@ LL_TYPE_INSTANCE_HOOK(
         return handled(player);
     }
     // sails: placement helper, dye, shears
-    if (isSail(target) && !held.empty() && (isSail(held) || held == "minecraft:shears" || dyeColourOf(held))) {
+    if (build && isSail(target) && !held.empty() && (isSail(held) || held == "minecraft:shears" || dyeColourOf(held))) {
         if ((isSail(held) && !player.isSneaking()) || held == "minecraft:shears" || (!isSailFrame(target) && dyeColourOf(held))) {
             if (!debounce(player)) {
                 int face_ = face;
@@ -214,19 +214,19 @@ LL_TYPE_INSTANCE_HOOK(
             return handled(player);
         }
     }
-    if (held == kCartAssembler) {
+    if (build && held == kCartAssembler) {
         if (!debounce(player)) defer([uid, pos] {
             if (auto* p = playerById(uid)) placeAssembler(*p, pos);
         });
         return handled(player);
     }
-    if (held == kMinecartContraption) {
+    if (build && held == kMinecartContraption) {
         if (!debounce(player)) defer([uid, pos] {
             if (auto* p = playerById(uid)) placeMinecartContraption(*p, pos);
         });
         return handled(player);
     }
-    if ((target == kCartAssembler || target == kControllerRail) && held.ends_with("minecart")) {
+    if (build && (target == kCartAssembler || target == kControllerRail) && held.ends_with("minecart")) {
         if (!debounce(player)) defer([uid, pos, held] {
             if (auto* p = playerById(uid)) placeMinecartOn(*p, pos, held);
         });
