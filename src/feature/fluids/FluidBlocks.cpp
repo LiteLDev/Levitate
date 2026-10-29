@@ -83,7 +83,7 @@ bool useBucket(Player& player, GlobalPos const& clicked, int face, ItemStack con
     if (heldId == "minecraft:bucket") {
         auto id = blockIdAt(clicked);
         if (!isFluidBlock(id)) return false;
-        auto bucket = bucketOf(fluidOfBlock(id));
+        auto bucket = common::fluidtypes::bucketOf(fluidOfBlock(id));
         auto filled = items::make(bucket);
         if (!filled) return false;
         game::clearBlock(*region, toBlockPos(clicked));

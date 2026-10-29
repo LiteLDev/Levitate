@@ -77,11 +77,13 @@ function Cube($part, [string]$axis, [int]$a = 0, [int]$b = 0, [bool]$clip = $fal
     $pp = ($p0 + $p1) / 2; $pq = ($q0 + $q1) / 2
     switch ($axis) {
         'y' { $X = @($p0, $p1); $Y = @(($r0 + 8), ($r1 + 8)); $Z = @($q0, $q1); $piv = @($pp, 8, $pq); $rot = @(0, $part.rot, 0) }
-        'x' { $X = @($r0, $r1); $Y = @(($p0 + 8), ($p1 + 8)); $Z = @($q0, $q1); $piv = @(0, (8 + $pp), $pq); $rot = @($part.rot, 0, 0) }
-        'z' { $X = @($p0, $p1); $Y = @(($q0 + 8), ($q1 + 8)); $Z = @($r0, $r1); $piv = @($pp, (8 + $pq), 0); $rot = @(0, 0, (-$part.rot)) }
+        'x' { $X = @($r0, $r1); $Y = @(($p0 + 8), ($p1 + 8)); $Z = @($q0, $q1); $piv = @(0, (8 + $pp), $pq); $rot = @((-$part.rot), 0, 0) }
+        'z' { $X = @($p0, $p1); $Y = @(($q0 + 8), ($q1 + 8)); $Z = @($r0, $r1); $piv = @($pp, (8 + $pq), 0); $rot = @(0, 0, $part.rot) }
     }
     # world rotation about +axis by theta: y: -rot, x: rot, z: rot; model x is mirrored, which
-    # negates rotations about y and z (the values above already include that)
+    # negates rotations about y and z. Bedrock reads a cube's x and z rotation with the opposite
+    # sign of a right-handed rotation in model space (y as is), so the x / z values are negated
+    # once more (the client mod's rotor parser, core/kinetics/RotorModel, only gets y-axis models)
     $sx = $X[1] - $X[0]; $sy = $Y[1] - $Y[0]; $sz = $Z[1] - $Z[0]
     $reg = $regions[$part.tex]
     $face = {

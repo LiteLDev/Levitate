@@ -1,5 +1,5 @@
 {
   "create.kinetics.creative_motor.rotation_speed": "Generated Speed in RPM",
   "create.kinetics.valve_handle.rotated_angle": "Rotation when used",
-  "create.large_water_wheel.not_enough_space": "Remove Blocks for Placement"
+  "create.large_water_wheel.not_enough_space": "Clear Blocks for Placement"
 }

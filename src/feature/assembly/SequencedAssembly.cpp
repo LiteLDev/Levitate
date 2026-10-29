@@ -6,6 +6,7 @@
 
 #include "mc/world/item/ItemStack.h"
 
+#include "feature/common/FluidRegistry.h"
 #include "feature/common/Items.h"
 #include "feature/common/Recipes.h"
 #include "mod/Config.h"
@@ -80,12 +81,7 @@ std::string ingredientName(SequencedRecipe const& recipe, core::common::ItemIngr
 }
 
 std::string fluidName(std::string const& fluid, std::string const& locale) {
-    auto path = fluid.substr(fluid.find(':') + 1);
-    auto key  = "lv.assembly.fluid." + path;
-    std::string fallback = path;
-    if (!fallback.empty()) fallback[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(fallback[0])));
-    std::replace(fallback.begin(), fallback.end(), '_', ' ');
-    return std::string(translate(key, fallback, locale));
+    return common::fluidtypes::displayName(fluid, locale);
 }
 
 void writeLore(ItemStack& stack) {

@@ -52,8 +52,8 @@ TEST(FluidsPotions, ItemsMapToFluidsAndBack) {
 }
 
 TEST(FluidsNames, KeysAndColours) {
-    EXPECT_EQ(fluidNameKey("levitate:honey"), "fluid_type.create.honey");
-    EXPECT_EQ(fluidNameKey("levitate:potion/regular/harming"), "fluid_type.create.potion");
+    EXPECT_EQ(fluidNameKey("levitate:honey"), "fluid.create.honey");
+    EXPECT_EQ(fluidNameKey("levitate:potion/regular/harming"), "fluid.create.potion");
     EXPECT_EQ(fluidNameKey("minecraft:water"), "fluid_type.minecraft.water");
     EXPECT_EQ(fluidColor("levitate:honey"), 0xEAAE2Fu);
     EXPECT_NE(fluidColor("levitate:potion/regular/healing"), fluidColor("levitate:potion/regular/poison"));

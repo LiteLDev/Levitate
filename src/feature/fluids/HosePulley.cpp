@@ -201,7 +201,7 @@ FluidStack pullNext(Hose const& h, bool simulate) {
 /// infinite body / the nether's heat).
 bool tryDeposit(Hose const& h, std::string const& fluid, bool simulate) {
     auto* region = regionOf(h.pos.dim);
-    if (!region || h.moving || h.offset <= 0 || !hasBlockState(fluid)) return false;
+    if (!region || h.moving || h.offset <= 0 || !common::fluidtypes::hasBlockState(fluid)) return false;
     GlobalPos root  = rootOf(h);
     auto&     cache = caches()[h.pos];
     auto      query = [&](cf::Pos const& q) { return cellAt(*region, h.pos.dim, q); };
@@ -242,7 +242,7 @@ bool tryDeposit(Hose const& h, std::string const& fluid, bool simulate) {
 /// Create's HosePulleyFluidHandler.fill.
 int handlerFill(GlobalPos const& p, FluidStack const& resource, bool simulate) {
     auto h = load(p);
-    if (resource.empty() || !hasBlockState(resource.fluid)) return 0;
+    if (resource.empty() || !common::fluidtypes::hasBlockState(resource.fluid)) return 0;
     if (!h.tank.empty() && h.tank.fluid != resource.fluid) return 0;
     int        diff     = resource.amount;
     int        total    = diff + (h.tank.empty() ? 0 : h.tank.amount);

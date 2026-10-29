@@ -1,6 +1,6 @@
 {
-  "create.boiler.status": "Boiler Status: {0}",
-  "create.boiler.status_short": "Boiler: {0}",
+  "create.boiler.status": "Boiler Status:  {0}",
+  "create.boiler.status_short": "Boiler:  {0}",
   "create.boiler.passive": "Passive",
   "create.boiler.idle": "Idle",
   "create.boiler.lvl": "Lvl {0}",
@@ -15,10 +15,6 @@
   "create.boiler.via_engines": "via {0} engines",
   "create.boiler.water_input_rate": "Water input rate",
   "create.boiler.per_tick": "{0} per Tick",
-  "lv.steam.fluid.water": "Water",
-  "lv.steam.fluid.lava": "Lava",
-  "lv.steam.fluid.milk": "Milk",
-  "lv.steam.fluid.powder_snow": "Powder Snow",
   "lv.steam.cmd.none": "No fluid tank, steam engine or steam whistle at {0} {1} {2}.",
   "lv.steam.cmd.filled": "{0} mB of {1} moved at {2} {3} {4}."
 }

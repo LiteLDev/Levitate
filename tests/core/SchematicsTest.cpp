@@ -286,6 +286,13 @@ TEST(SchematicsMapping, CreateBlocks) {
     auto glass = *mapJavaState(parseJavaState("create:encased_chain_drive[axis=y,attach_face=none,powered=true]"));
     EXPECT_EQ(stateInt(glass, "levitate:axis"), 1);
     EXPECT_EQ(stateInt(glass, "levitate:powered"), 1);
+    // chute states run 0..n (facing 0 down, 1..4 north..east; shape 0 normal .. 3 encased)
+    auto chute = *mapJavaState(parseJavaState("create:chute[facing=west,shape=intersection]"));
+    EXPECT_EQ(stateInt(chute, "levitate:facing"), 3);
+    EXPECT_EQ(stateInt(chute, "levitate:shape"), 2);
+    auto down = *mapJavaState(parseJavaState("create:chute[facing=down,shape=window]"));
+    EXPECT_EQ(stateInt(down, "levitate:facing"), 0);
+    EXPECT_EQ(stateInt(down, "levitate:shape"), 1);
 }
 
 // ---- transforms -------------------------------------------------------------------------------------
@@ -335,6 +342,21 @@ TEST(SchematicsTransform, StatesFollowRotationAndMirror) {
     chest.states.set("minecraft:cardinal_direction", Tag(std::string("north")));
     transformStates(chest, {1, Mirror::None});
     EXPECT_EQ(stateStr(chest, "minecraft:cardinal_direction"), "east");
+
+    // chute facing: 0 down, 1..4 north / south / west / east
+    BlockState chute{"levitate:chute", {}, 0, {}};
+    chute.states.set("levitate:facing", Tag(std::int32_t(1))); // north
+    auto c1 = chute;
+    transformStates(c1, {1, Mirror::None});
+    EXPECT_EQ(stateInt(c1, "levitate:facing"), 4); // east
+    chute.states.set("levitate:facing", Tag(std::int32_t(3))); // west
+    auto c2 = chute;
+    transformStates(c2, {0, Mirror::FrontBack});
+    EXPECT_EQ(stateInt(c2, "levitate:facing"), 4); // east
+    chute.states.set("levitate:facing", Tag(std::int32_t(0))); // down
+    auto c3 = chute;
+    transformStates(c3, {1, Mirror::None});
+    EXPECT_EQ(stateInt(c3, "levitate:facing"), 0);
 
     BlockState log{"minecraft:oak_log", {}, 0, {}};
     log.states.set("pillar_axis", Tag(std::string("x")));

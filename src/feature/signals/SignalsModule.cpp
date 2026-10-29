@@ -694,7 +694,7 @@ public:
             display::Source{
                 .id           = "observed_train_name",
                 .name         = "create.display_source.observed_train_name",
-                .nameFallback = "Observed Train Name",
+                .nameFallback = "Detected Train Name",
                 .text         = [](display::Context& ctx, display::TargetStats const&) -> display::Lines {
                     std::string train = api::observedTrain(ctx.source);
                     if (train.empty()) return {""};

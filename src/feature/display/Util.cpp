@@ -57,7 +57,7 @@ std::optional<int> dyeOf(std::string_view itemId) {
 }
 
 unsigned dyeRgb(int dye) {
-    // Java DyeColor text colours ⚠ (Create's DyeHelper uses its own pairs; SPEC §3.6 Display)
+    // Java DyeColor text colours ⚠ (Create's DyeHelper uses its own pairs; SPEC §3.6.24)
     static constexpr unsigned rgb[16]{0xFFFFFF, 0xFF681F, 0xFF00FF, 0x9AC0CD, 0xFFFF00, 0xBFFF00, 0xFF69B4, 0x808080,
                                       0xD3D3D3, 0x00FFFF, 0xA020F0, 0x0000FF, 0x8B4513, 0x00FF00, 0xFF0000, 0x000000};
     return rgb[std::clamp(dye, 0, 15)];

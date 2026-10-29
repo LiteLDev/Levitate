@@ -1,6 +1,6 @@
 #pragma once
 
-// Item transport contract of the belts unit (U11, SPEC §3.6.1). Other units act on belt / depot
+// Item transport contract of the belts unit (U11, SPEC §3.6.11). Other units act on belt / depot
 // items through this header only (they never include the belts unit's other headers):
 //
 // - Processors 2 blocks above a belt segment or a depot (Create's BeltProcessingBehaviour:
