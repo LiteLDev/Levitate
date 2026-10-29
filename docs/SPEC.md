@@ -550,8 +550,7 @@ U28 (details in §3.6.28): `track_signal` ("Train Signal", states `levitate:sign
 with a lamp head, metal sound, 1.5 s to mine, drops itself) and `track_observer` ("Train
 Observer", `levitate:powered`, full block with a lens on top that lights up, emits redstone 15
 on every side while powered). Both are placed by first right-clicking the track they should
-watch (Create's track targeting items). Recipes (pending until U9 / U10 land, in
-`assets/pending_recipes/signals/`): `track_signal` ×4 = railway casing + electron tube
+watch (Create's track targeting items). Recipes: `track_signal` ×4 = railway casing + electron tube
 (shapeless), `track_observer` ×2 = railway casing + any pressure plate (shapeless) ⚠.
 
 ### 2.24 Schematics (U29)
