@@ -1,11 +1,12 @@
 // Client mod: contraption blocks turn smoothly.
 //
 // The server shows each contraption block as a display entity (a falling block entity placed at
-// the block's rotated center, showing the block rotated by the nearest quarter turn). It encodes
-// the rotation axis and the remaining angle (-45..45 degrees) in the entity's own rotation
-// (see feature/contraption/Internal.h). Vanilla clients draw the
-// block axis-aligned; here the block is turned by that remaining angle about its center, so the
-// structure is drawn at its exact transform.
+// the block's rotated center, showing the block rotated by the nearest quarter turn). Vanilla
+// clients draw the block axis-aligned; here the block is turned by the remaining angle about its
+// center, so the structure is drawn at its exact transform. The angle comes from the
+// contraption's motion at this frame's partial tick (ContraptionClient.cpp, which also moves the
+// display entities); a display the client doesn't know yet falls back to the angle the server
+// encodes in the entity's own rotation (see feature/contraption/Internal.h).
 
 #ifdef LV_CLIENT
 
@@ -24,6 +25,7 @@
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorType.h"
 
+#include "client/contraption/Display.h"
 #include "feature/contraption/Internal.h"
 #include "mod/Module.h"
 
@@ -59,7 +61,10 @@ LL_TYPE_INSTANCE_HOOK(
 ) {
     int   axis    = 0;
     float degrees = 0;
-    if (!turnedDisplay(entity, axis, degrees)) return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
+    bool  turned  = entity.getEntityTypeId() == ActorType::FallingBlock
+                && (displayTurn(entity, context.mFrameAlpha, axis, degrees) ? std::abs(degrees) > 0.01f
+                                                                             : turnedDisplay(entity, axis, degrees));
+    if (!turned) return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
     ScreenContext& screen = context.mScreenContext;
     mce::Camera&   camera = screen.camera;
     MatrixStack&   stack  = camera.worldMatrixStack;

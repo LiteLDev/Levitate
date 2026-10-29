@@ -120,6 +120,9 @@ void reloadAll();
 [[nodiscard]] bool ownsDisplay(std::int64_t uniqueId);
 /// Server side: the falling block is one of our display entities (owned or orphaned).
 [[nodiscard]] bool isDisplayActor(::Actor const& actor);
+/// Selftests: behave as if a player without the client mod were in every dimension (displays
+/// are spawned again as they move, see Engine::needsRespawn).
+void forceVanillaViewers(bool on);
 
 } // namespace detail
 } // namespace lv::feature::contraption

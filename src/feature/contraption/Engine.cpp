@@ -284,8 +284,30 @@ public:
     /// Client mod sync: contraptions whose display entities changed this tick, actor visuals.
     std::set<Id>                                                  displaysChanged;
     std::map<std::tuple<Id, int, int, int>, json>                 visuals;
+    /// Client mod sync: the transform last sent to the companions, per contraption.
+    std::map<Id, cc::Transform>                                   sentTransforms;
+    /// Vanilla viewers: where a display entity was spawned and when. Clients never apply the
+    /// movement the server sends for a falling block that isn't falling, so a display stays
+    /// where it appeared on a client without the mod.
+    struct Shown {
+        cc::Vec3d     feet;
+        std::uint64_t tick = 0;
+    };
+    std::unordered_map<std::int64_t, Shown> shown;
+    std::uint64_t                           tickCount = 0;
+    std::set<int>                           vanillaDims; ///< dimensions with players without the client mod
+    bool                                    forceVanilla = false; ///< selftests
 
     // -- client mod sync (channel "contraption.*", see client/contraption/ContraptionClient.h) --
+    /// [axis, angle, tx, ty, tz, px, py, pz]: world = t + p + R(local - p) (t = origin + offset).
+    static json transformJson(cc::Transform const& t) {
+        auto o = t.origin + t.offset;
+        return json::array({int(t.axis), t.angle, o.x, o.y, o.z, t.pivot.x, t.pivot.y, t.pivot.z});
+    }
+    static bool sameTransform(cc::Transform const& a, cc::Transform const& b) {
+        auto d = (a.origin + a.offset) - (b.origin + b.offset);
+        return a.axis == b.axis && a.angle == b.angle && d.lengthSqr() == 0 && (a.pivot - b.pivot).lengthSqr() == 0;
+    }
     json blocksMessage(Contraption const& c) const {
         json blocks = json::array();
         for (auto const& b : c.mBlocks)
@@ -300,6 +322,7 @@ public:
             {"dim",     c.mDim                                },
             {"axis",    int(c.mTransform.axis)                },
             {"quarter", cc::quarterTurnsOf(c.mTransform.angle)},
+            {"transform", transformJson(c.mTransform)         },
             {"blocks",  std::move(blocks)                     },
             {"visuals", std::move(vis)                        },
         };
@@ -312,7 +335,24 @@ public:
             return true;
         });
     }
+    /// Companions get each changed transform once per tick ("contraption.motion") and move the
+    /// display entities from it (Create's approach: the client interpolates the motion).
+    void syncMotion() {
+        std::map<int, json> byDim;
+        for (auto const& [id, c] : live) {
+            auto it = sentTransforms.find(id);
+            if (it != sentTransforms.end() && sameTransform(it->second, c->mTransform)) continue;
+            sentTransforms[id] = c->mTransform;
+            auto entry = transformJson(c->mTransform);
+            entry.insert(entry.begin(), id);
+            auto& list = byDim[c->mDim];
+            if (list.is_null()) list = json::array();
+            list.push_back(std::move(entry));
+        }
+        for (auto& [dim, list] : byDim) sendToDim(dim, "contraption.motion", {{"m", std::move(list)}});
+    }
     void syncClients() {
+        syncMotion();
         if (displaysChanged.empty()) return;
         auto changed = std::move(displaysChanged);
         displaysChanged.clear();
@@ -324,6 +364,7 @@ public:
         net::send(player, "contraption.reset", json::object());
         for (auto const& [id, c] : live)
             if (c->mDim == static_cast<int>(player.getDimensionId())) net::send(player, "contraption.blocks", blocksMessage(*c));
+        // (the blocks messages carry the current transforms; motion follows from the next change)
     }
 
     void install() {
@@ -498,6 +539,9 @@ public:
         displays.clear();
         displaysChanged.clear();
         visuals.clear();
+        sentTransforms.clear();
+        shown.clear();
+        vanillaDims.clear();
     }
 
     // -- display entities --
@@ -523,14 +567,19 @@ public:
         if (!added) return 0;
         added->addTag(kDisplayTag); // tags need the entity in the level
         setDisplayRotation(*added, rot);
+        // a spawned falling block stands half a block higher than one teleported to the same
+        // place: put it where the teleports keep it, before clients first see it
+        added->teleportTo(mcVec(at), true, 0, 0, false);
         auto id = added->getOrCreateUniqueID().rawID;
         displays.insert(id);
+        shown[id] = {at, tickCount};
         return id;
     }
 
     void removeDisplay(CarriedBlock& b) {
         if (auto* a = fetchActor(b.display)) a->remove();
         displays.erase(b.display);
+        shown.erase(b.display);
         b.display = 0;
     }
 
@@ -548,6 +597,22 @@ public:
         return detail::withStates(block, states);
     }
 
+    /// Vanilla clients see a display only where it was spawned. While one is in the dimension, a
+    /// display that moved away from there is spawned again at its place: half a block at a
+    /// time, and once more where it comes to rest. Clients with the mod move the displays
+    /// themselves (client/contraption/ContraptionClient.cpp).
+    static constexpr double kStepDistance = 0.5;
+    static constexpr int    kStepTicks    = 2;  ///< at most every 2 ticks per block
+    static constexpr int    kSettleTicks  = 10; ///< smaller offsets are caught up after this
+    bool needsRespawn(Contraption const& c, CarriedBlock const& b, cc::Vec3d const& feet) const {
+        if (!vanillaDims.contains(c.mDim)) return false;
+        auto it = shown.find(b.display);
+        if (it == shown.end()) return false;
+        double        drift = (feet - it->second.feet).length();
+        std::uint64_t age   = tickCount - it->second.tick;
+        return (drift >= kStepDistance && age >= kStepTicks) || (drift > 1e-3 && age >= kSettleTicks);
+    }
+
     void syncDisplays(Contraption& c, BlockSource& region) {
         int    quarter  = cc::quarterTurnsOf(c.mTransform.angle);
         double residual = c.mTransform.angle - quarter * 90.0;
@@ -557,12 +622,15 @@ public:
             cc::Vec3d center = c.mTransform.toWorld(cc::Vec3d::center(b.local));
             cc::Vec3d feet   = center - cc::Vec3d{0, 0.5, 0};
             auto*     actor  = fetchActor(b.display);
-            if (actor && requart) {
+            if (actor && (requart || needsRespawn(c, b, feet))) {
                 removeDisplay(b);
                 actor = nullptr;
             }
             if (!actor) {
-                if (b.display) displays.erase(b.display);
+                if (b.display) {
+                    displays.erase(b.display);
+                    shown.erase(b.display);
+                }
                 b.display = 0;
                 if (!region.hasChunksAt(game::blockPosOf(mcVec(center)), 0, false)) continue;
                 if (auto const* block = displayBlock(c, b, quarter)) {
@@ -645,7 +713,17 @@ public:
 
     // -- tick --
     void tick() {
+        ++tickCount;
         if (live.empty()) return;
+        vanillaDims.clear();
+        if (auto level = ll::service::getLevel()) {
+            level->forEachPlayer([&](Player& p) {
+                if (!p.isSimulatedPlayer() && !net::isCompanion(p)) vanillaDims.insert(static_cast<int>(p.getDimensionId()));
+                return true;
+            });
+        }
+        if (forceVanilla)
+            for (auto const& [id, c] : live) vanillaDims.insert(c->mDim);
         std::vector<Id> ids;
         for (auto const& [id, c] : live) ids.push_back(id);
         for (Id id : ids) {
@@ -994,6 +1072,7 @@ public:
         log().info("contraption #{} disassembled: {} placed, {} dropped", c.mId, placed, dropped);
         game::db::erase(kDbPrefix + std::to_string(c.mId));
         sendToDim(c.mDim, "contraption.remove", {{"id", c.mId}});
+        sentTransforms.erase(c.mId);
         std::erase_if(visuals, [id = c.mId](auto const& e) { return std::get<0>(e.first) == id; });
         displaysChanged.erase(c.mId);
         live.erase(it);
@@ -1095,6 +1174,7 @@ void reloadAll() {
     Engine::get().loadAll();
 }
 bool ownsDisplay(std::int64_t uniqueId) { return Engine::get().displays.contains(uniqueId); }
+void forceVanillaViewers(bool on) { Engine::get().forceVanilla = on; }
 bool isDisplayActor(::Actor const& actor) {
     return ownsDisplay(actor.getOrCreateUniqueID().rawID) || actor.hasTag(kDisplayTag);
 }
