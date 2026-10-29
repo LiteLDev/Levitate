@@ -44,10 +44,11 @@ Save-Screenshot 'built' | Out-Null
 
 $mark = Get-LogMark
 Invoke-Chat '/setblock ~6 ~6 ~1 levitate:kinetics_test_source ["levitate:axis"=2]'
-# pictures while it goes down (taken at once: the log is read with some delay)
-$shots = foreach ($i in 1..4) { Save-Screenshot "pulley-moving-$i"; Start-Sleep -Milliseconds 600 }
-Assert-ContraptionMoved $shots[0] $shots[3] 'the lowered block'
+# slowly at first, for pictures on the way down (the log is read with some delay)
+Invoke-Chat '/create kinetics ~6 ~6 ~1 speed 16'
 Wait-LogLine 'pulley at -?\d+ -?\d+ -?\d+ assembled: \d+ blocks' 90 -Since $mark | Out-Null
+$shots = foreach ($i in 1..4) { Save-Screenshot "pulley-moving-$i"; Start-Sleep -Milliseconds 700 }
+Assert-ContraptionMoved $shots[0] $shots[3] 'the lowered block'
 Invoke-Chat '/create kinetics ~6 ~6 ~1 speed 96'
 if (-not $vanilla) { Wait-LogLine 'pistons: rendering \d+ rope' 30 -Since $mark | Out-Null }
 Wait-LogLine 'pulley at -?\d+ -?\d+ -?\d+ disassembled' 120 -Since $mark | Out-Null
@@ -57,11 +58,13 @@ Save-Screenshot 'pulley-placed' | Out-Null
 # east-facing pistons extend with negative speed (Create's movement modifier)
 $mark = Get-LogMark
 Invoke-Chat '/setblock ~6 ~1 ~-2 levitate:kinetics_test_source ["levitate:axis"=2]'
-Start-Sleep -Seconds 1
-Invoke-Chat '/create kinetics ~6 ~1 ~-2 speed -128'
+Start-Sleep -Seconds 2
 # (the game sometimes drops a chat command: send it again then)
-try { Wait-LogLine 'Generator at -?\d+ -?\d+ -?\d+ now turns at -128 ' 10 -Since $mark | Out-Null }
-catch { Invoke-Chat '/create kinetics ~6 ~1 ~-2 speed -128' }
+foreach ($try in 1..3) {
+    Invoke-Chat '/create kinetics ~6 ~1 ~-2 speed -128'
+    try { Wait-LogLine 'Generator at -?\d+ -?\d+ -?\d+ now turns at -128 ' 10 -Since $mark | Out-Null; break }
+    catch { Write-Step "speed command not seen (try $try)" }
+}
 Wait-LogLine 'piston at -?\d+ -?\d+ -?\d+ disassembled at offset 2' 90 -Since $mark | Out-Null
 Start-Sleep -Seconds 1
 Save-Screenshot 'piston-extended' | Out-Null
