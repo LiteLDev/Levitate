@@ -9,5 +9,6 @@
   "create.track_target.invalid": "无法选中此处的轨道",
   "create.track_signal.cannot_change_mode": "无法切换此信号机的模式",
   "create.track_signal.mode_change.entry_signal": "-> 区段未被占用时允许通行",
-  "create.track_signal.mode_change.cross_signal": "-> 区段可完全通过时允许通行"
+  "create.track_signal.mode_change.cross_signal": "-> 区段可完全通过时允许通行",
+  "create.display_source.observed_train_name": "观察到的列车名称"
 }

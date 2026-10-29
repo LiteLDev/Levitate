@@ -131,5 +131,11 @@ using FluidTest     = std::function<bool(common::fluids::FluidStack const&)>;
 using CargoProvider = std::function<bool(std::string const& trainId, ItemTest const& item, FluidTest const& fluid)>;
 /// Without a provider, observers with a filter never trigger (empty filters always do).
 void setCargoProvider(CargoProvider provider);
+/// The train's name (Create's Train.name), shown by display links on a track observer
+/// ("Observed Train Name"). Without a provider the source shows nothing.
+using NameProvider = std::function<std::string(std::string const& trainId)>;
+void setTrainNameProvider(NameProvider provider);
+/// The train a track observer currently sees ("" when none).
+[[nodiscard]] std::string observedTrain(core::GlobalPos const& pos);
 
 } // namespace lv::feature::tracks::signals

@@ -23,6 +23,7 @@
 #include "core/tracks/Shape.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
+#include "feature/goggles/Wrenchable.h"
 #include "feature/signals/SignalsInternal.h"
 #include "feature/tracks/SignalsExt.h"
 #include "feature/tracks/Tracks.h"
@@ -322,7 +323,14 @@ LV_REGISTER_SELFTEST("signals.cross_signal", [](Context& ctx) -> ll::coro::CoroT
     t1.dim = t2.dim = base.dim;
     ctx.require(sg::addBlock(sg::Kind::Signal, ns1, t1) && sg::addBlock(sg::Kind::Signal, ns2, t2), "north-south signals bound");
     // the wrench switches the signal before the crossing to a cross signal
-    ctx.require(sg::cycleType(entry), "the signal type can be switched");
+    {
+        auto const* handler = lv::feature::goggles::wrench::handlerOf(api::kSignalId);
+        ctx.require(handler && handler->onWrenched, "the signal is wrenchable");
+        auto* rg = sg::regionOf(entry.dim);
+        lv::feature::goggles::wrench::Context wc{ctx.player(), *rg, entry, rg->getBlock(lv::game::blockPos(entry)), 2};
+        handler->onWrenched(wc);
+    }
+    ctx.require(sg::state().blocks.at(entry).type == 1, "the wrench switches it to a cross signal");
     co_await ctx.ticks(3);
     ctx.check(api::signalState(entry) == cs::SignalState::Green, "cross signal green");
     auto* region = sg::regionOf(entry.dim);
@@ -363,6 +371,7 @@ LV_REGISTER_SELFTEST("signals.observer", [](Context& ctx) -> ll::coro::CoroTask<
     ctx.require(train("selftest-o", at(base, 5), at(base, 11)), "train over the observer");
     co_await ctx.ticks(4);
     ctx.check(api::observerPowered(obs), "a train passing powers it");
+    ctx.check(api::observedTrain(obs) == "selftest-o", "it knows the train (display link source)");
     auto* region = sg::regionOf(obs.dim);
     ctx.check(lv::game::intState(region->getBlock(lv::game::blockPos(obs)), api::kPoweredState).value_or(0) == 1, "powered block state");
     co_await ctx.ticks(2);

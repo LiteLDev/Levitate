@@ -2629,7 +2629,8 @@ another point): powered while a train covers its position, and for 8 ticks after
 the circuit component's strength is set with the state change). The filter slot on
 top (U3 filter slot, "filter") limits it to trains carrying a matching item (in any carriage
 inventory) or fluid (any tank), asked through the trains' cargo provider; an empty filter
-matches every train.
+matches every train. A display link on an observer offers "Observed Train Name" (Create's
+`observed_train_name` source, U24 contract): the name of the train it sees, empty otherwise.
 
 **Client mod** (Create's track overlay): an arrow is drawn on the track at every bound signal side
 (pointing the way of the trains it controls, in the signal's colour) and a square at every
@@ -2657,6 +2658,7 @@ trains and other units. Train ids are stable strings (Create: the train UUID).
 - Queries: `sectionAt(location)`, `trainsIn(section)`, `signalState(pos)`, `observerPowered(pos)`.
 - Provided by trains: `setCargoProvider(fn(id, itemTest, fluidTest) -> bool)` (any carried item /
   fluid passes the test); without it filtered observers never trigger.
+  `setTrainNameProvider(fn(id) -> name)` for the display source; `observedTrain(pos)`.
 
 Persistence: the blocks (target, bound point, side, cached type and power) in `lv:signals:blocks`;
 edge points are stored with the track graph (U5); observer filters in BlockData; sections,

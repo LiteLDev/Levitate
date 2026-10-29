@@ -19,6 +19,7 @@
 #include "mc/world/redstone/circuit/CircuitSystem.h"
 #include "mc/world/redstone/circuit/components/ComparatorCapacitor.h"
 
+#include "feature/goggles/Wrenchable.h"
 #include "feature/signals/SignalsInternal.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
@@ -27,7 +28,6 @@ namespace lv::feature::signals {
 
 namespace {
 
-constexpr char const* kWrenchId = "levitate:wrench";
 /// Create's TrackTargetingBlockItem: the block must be placed closer than 16 blocks to the track.
 constexpr double kMaxDistance = 16;
 
@@ -139,26 +139,28 @@ LL_TYPE_INSTANCE_HOOK(
         if (onTargetingItemUse(player, id, at, face)) return ok();
         return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
     }
-    if (id == kWrenchId && !player.isSneaking()) {
-        auto&        region = player.getDimensionBlockSource();
-        Block const* block  = targetBlock ? targetBlock : &region.getBlock(at);
-        if (kindOf(*block) == Kind::Signal) {
-            // Create's SignalBlock.onWrenched
-            GlobalPos pos = game::globalPos(region, at);
-            if (cycleType(pos)) {
-                auto const& rec = state().blocks.at(pos);
-                if (rec.type == int(cs::SignalType::Cross))
-                    actionbar(player, "create.track_signal.mode_change.cross_signal", "-> Allow passage if section fully traversable", 'f');
-                else actionbar(player, "create.track_signal.mode_change.entry_signal", "-> Allow passage if section unoccupied", 'f');
-            } else {
-                actionbar(player, "create.track_signal.cannot_change_mode", "Unable to switch mode of this Signal", 'f');
-            }
-            playSound(player, "random.click", 1, 1);
-            return ok();
-        }
-    }
     return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
 }
+
+namespace wrench = goggles::wrench;
+
+// Create's SignalBlock.onWrenched (U8's wrench contract; sneak-wrenching picks the block up)
+LV_REGISTER_WRENCHABLE(
+    std::string(api::kSignalId),
+    {.onWrenched = [](wrench::Context& c) {
+        if (cycleType(c.pos)) {
+            auto const& rec = state().blocks.at(c.pos);
+            if (rec.type == int(cs::SignalType::Cross))
+                actionbar(c.player, "create.track_signal.mode_change.cross_signal", "-> Allow passage if section fully traversable", 'f');
+            else actionbar(c.player, "create.track_signal.mode_change.entry_signal", "-> Allow passage if section unoccupied", 'f');
+        } else {
+            actionbar(c.player, "create.track_signal.cannot_change_mode", "Unable to switch mode of this Signal", 'f');
+        }
+        return wrench::Result::Success;
+    }}
+);
+// Create's TrackObserverBlock is IWrenchable with the defaults (nothing to rotate; sneak: pick up)
+LV_REGISTER_WRENCHABLE(std::string{api::kObserverId});
 
 LL_TYPE_INSTANCE_HOOK(
     SignalsComparatorHook,

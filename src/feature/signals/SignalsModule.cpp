@@ -39,6 +39,7 @@
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
+#include "feature/display/Display.h"
 #include "feature/net/Net.h"
 #include "feature/signals/SignalsInternal.h"
 #include "feature/tracks/Tracks.h"
@@ -777,6 +778,21 @@ public:
              .scale     = 0.5,
              .onChanged = [](GlobalPos const& pos) { log().info("signals: track observer filter at {} changed", pos.key()); }}
         );
+        // Create's ObservedTrainNameSource: the name of the train the observer sees
+        display::registerSource(
+            std::string(api::kObserverId),
+            display::Source{
+                .id           = "observed_train_name",
+                .name         = "create.display_source.observed_train_name",
+                .nameFallback = "Observed Train Name",
+                .text         = [](display::Context& ctx, display::TargetStats const&) -> display::Lines {
+                    std::string train = api::observedTrain(ctx.source);
+                    if (train.empty()) return {""};
+                    auto const& names = state().trainName;
+                    return {names ? names(train) : std::string()};
+                },
+            }
+        );
         installHooks();
     }
 
@@ -927,5 +943,15 @@ bool observerPowered(core::GlobalPos const& pos) {
 }
 
 void setCargoProvider(CargoProvider provider) { sg::state().cargo = std::move(provider); }
+
+void setTrainNameProvider(NameProvider provider) { sg::state().trainName = std::move(provider); }
+
+std::string observedTrain(core::GlobalPos const& pos) {
+    auto& s  = sg::state();
+    auto  it = s.blocks.find(pos);
+    if (it == s.blocks.end() || it->second.kind != sg::Kind::Observer) return {};
+    auto o = s.observers.find(it->second.point);
+    return o == s.observers.end() || o->second.activated <= 0 ? std::string() : o->second.train;
+}
 
 } // namespace lv::feature::tracks::signals

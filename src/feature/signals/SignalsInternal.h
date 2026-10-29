@@ -73,6 +73,7 @@ struct State {
     std::map<GlobalPos, std::pair<std::string, Selection>> intents; ///< placement in progress: uuid, selection
     std::vector<std::function<void()>> tasks;      ///< run at the start of the next tick
     api::CargoProvider                 cargo;
+    api::NameProvider                  trainName;
     uint64_t                           tick         = 0;
     uint64_t                           seenVersion  = ~0ull;
     bool                               indexDirty   = false;
