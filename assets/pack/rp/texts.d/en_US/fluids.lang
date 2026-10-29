@@ -1,0 +1,9 @@
+tile.levitate:spout.name=Spout
+tile.levitate:item_drain.name=Item Drain
+tile.levitate:hose_pulley.name=Hose Pulley
+tile.levitate:portable_fluid_interface.name=Portable Fluid Interface
+tile.levitate:honey.name=Honey
+tile.levitate:chocolate.name=Chocolate
+tile.levitate:fluids_test_depot.name=Fluids Test Depot
+item.levitate:honey_bucket.name=Honey Bucket
+item.levitate:chocolate_bucket.name=Chocolate Bucket

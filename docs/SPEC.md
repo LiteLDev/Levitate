@@ -180,8 +180,19 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
 ### 2.14 Fluid machines (U19)
 
-`spout`, `item_drain`, `hose_pulley`, `portable_fluid_interface`, fluids `honey`, `chocolate`,
-`tea` (builder's tea), potion fluid (by potion type), `bucket` variants `honey_bucket`, `chocolate_bucket`.
+`spout`, `item_drain`, `hose_pulley` (states `levitate:facing` 2..5, `levitate:rotor`),
+`portable_fluid_interface` (state `levitate:facing` 0..5), fluids `honey`, `chocolate`, `tea`
+(builder's tea), potion fluids (by potion type and bottle), `honey_bucket`, `chocolate_bucket`, the
+world blocks `honey` / `chocolate` (non-flowing sources, §3.6.19, §8). Fluid ids: `minecraft:water`,
+`minecraft:lava`, `minecraft:milk`, `levitate:honey`, `levitate:chocolate`, `levitate:tea`,
+`levitate:potion/<regular|splash|lingering>/<potion>` (Java potion names, e.g. `long_swiftness`;
+Bedrock's wither potion is `decay`). Recipes: spout = copper casing over dried kelp; item drain = iron
+bars over copper casing; hose pulley = copper casing, dried kelp block, copper sheet (column);
+portable fluid interface = copper casing + chute (shapeless) — all in `assets/pending_recipes/fluids/`
+until their ingredients exist. Filling recipes (`assets/recipes/filling/`): honey bottle, builder's
+tea, blaze cake, honeyed apple, sweet roll, chocolate glazed berries, grass block (dirt + 500 mB
+water), gunpowder / redstone / glowstone dust (cinder flour + 25 mB potion of harming / strength /
+night vision); emptying recipes: honey bottle, builder's tea.
 
 ### 2.15 Linear contraptions (U20)
 
@@ -1005,6 +1016,79 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
 - **Client mod**: belts are left out of the chunk mesh and drawn every frame from the same geometry:
   the band texture scrolls at the surface speed (1 px steps), pulleys turn at Create's kinetic angle;
   speeds over `belts.query` / `belts.speed`. The ejector's shaft turns through U2's rotor rendering.
+#### 3.6.19 Fluid machines (U19)
+
+Code in `src/feature/fluids/` (pure logic `src/core/fluids/`, gtested), client drawing in
+`src/client/fluids/`. Machine state lives in `BlockData` under `"fluids"` and travels with
+contraptions (data carrier `fluids`). Every machine exposes the U3 fluid capability.
+
+- **Fluid registry** (`feature/fluids/FluidRegistry.h`, Create's GenericItemEmptying /
+  GenericItemFilling / FillingBySpout / PotionFluidHandler): buckets ↔ 1000 mB (water, lava, milk,
+  honey, chocolate; powder snow is not a fluid, as in Create), bottles ↔ 250 mB (a regular water
+  bottle is water; every other potion item is the potion fluid of its type and bottle; honey bottle
+  and builder's tea through the emptying / filling recipes and the U3 container registry). Glass
+  bottles take water, potion fluids and tea directly; empty buckets take every fluid with a bucket.
+  The spout additionally uses filling recipes and sequenced assembly filling steps.
+- **Sequenced assembly** (shared with U15): a transitional item carries Levitate item data
+  `"sequenced_assembly": {"recipe": "<recipe id>", "step": n, "progress": f}`; an item matching a
+  sequenced assembly recipe's `ingredient` starts at step 0. When step `n mod len(sequence)` is a
+  `filling` step and the fluid matches, the spout fills it and advances the step; after
+  `len × loops` steps one result is picked by weight (Create's rollResult).
+- **Spout**: 1000 mB tank, filled from every side but the nozzle (bottom). It processes the item two
+  blocks below (the block between must have no collision, funnels excepted: Create's
+  BeltProcessingBehaviour). The item is the slot 0 seen from the top through the item capability of
+  a **Levitate** block (depots, belts; vanilla containers have no processing behaviour). Filling
+  takes 20 ticks (FILLING_TIME); the item is filled 15 ticks in, one item per cycle; the result goes
+  back through the capability (leftovers drop). With too little fluid it waits. A cauldron two
+  blocks below is filled with a whole bucket (water, lava, powder snow). Sounds: start / fill.
+  Logs: `spout at x y z filled <in> into <out>`, `... filled a cauldron with <fluid>`.
+- **Item drain**: 1500 mB tank, pipes extract on every side, nothing is inserted from outside.
+  Items enter through the item capability (one at a time when they hold fluid, otherwise the whole
+  stack), from item entities landing on top, and travel at 1/8 block per tick away from the side
+  they came from (from above: down, starting at the centre). At the centre an item that can be
+  emptied is held for 20 ticks; 15 ticks in it is emptied if all of its fluid fits (otherwise it
+  waits). At the far edge it goes into the next Levitate block (belt, depot, chute, funnel, drain:
+  Create's DirectBeltInputBehaviour), or, if that side is not solid, is ejected as an item entity
+  (motion 1/8 outwards + 1/8 up); else it waits. Right-click with a fluid container empties it into
+  the tank / fills an empty bucket or bottle from it (Create's FluidHelper exchange); right-click
+  with anything else takes the held item; block items without fluid are placed. Breaking drops the
+  held item. Logs: `item drain at x y z emptied <item> (<n> mB <fluid>)`, `... passed <item> on`,
+  `... ejected <item>`, `... exchanged fluid with <player>`.
+- **Hose pulley**: kinetic (impact `hose_pulley` 4 SU/RPM), rotation axis = the clockwise neighbour
+  of its facing; placed facing the player (sneak: away). The hose moves `speed / 512` blocks per tick
+  (positive speed lowers it) through replaceable blocks and fluids and stops on the first solid
+  block (whole blocks). Pipes connect on its back (the side opposite its facing). While still, with
+  the hose end in a fluid body: draining removes source blocks (and water from waterlogged blocks)
+  top layer first, farthest first, only at or above the hose end, within `hosePulleyRange`; filling
+  places sources (with `fluidFillPlaceFluidSourceBlocks` off the fluid is voided) lowest first, nearest first, sideways and
+  downwards only; water evaporates in the nether. A body of more than `hosePulleyBlockThreshold`
+  fluid blocks is infinite: drained without removing blocks when the fluid is bottomless
+  (`bottomlessFluidMode` / lists), filled without placing blocks unless `fillInfinite`. Both go
+  through a 1500 mB buffer (Create's HosePulleyFluidHandler); draining invalidates the filling
+  search and vice versa. Logs: `hose pulley at x y z stopped at <n> blocks`, `... drained <fluid> at
+  ...`, `... placed <fluid> at ...`, `... found an infinite <fluid> source`. Client mod: the hose and
+  its end piece are drawn, extrapolated between server updates (channel `fluids.sync`).
+- **Portable fluid interface**: Create's PSI rules for fluids. A moving interface finds a
+  stationary one directly in front of it or with one block between them, facing it and not powered;
+  the contraption stalls once it passes the centre of the block where it found it. The stationary
+  interface then exposes the contraption's mounted tanks (U4 storage) on every side; it connects
+  after 4 ticks of animation and stays connected `psiTimeout` (60) ticks after the last transfer,
+  then the contraption moves on (while it is still there the connection stays open; it closes 2
+  ticks after it left). Redstone power disables the stationary interface. Logs: `portable fluid
+  interface at x y z connected to contraption #n`, `... on contraption #n moves on`, `...
+  disconnected`.
+- **Honey and chocolate in the world**: see §8. `levitate:honey` / `levitate:chocolate` are
+  non-flowing, non-colliding, translucent source blocks (replaceable, not minable, explosion
+  resistance 100). Honey / chocolate buckets place them (on the clicked block if it is replaceable,
+  else next to the clicked face; survival keeps an empty bucket); an empty bucket picks them up;
+  hose pulleys drain and place them like water. Entities inside get Slowness II (hidden, refreshed
+  every 5 ticks) and no fall damage (Create's viscous fluids). Lava next to them (not below) turns
+  into obsidian (lava source) or limestone (honey) / scoria (chocolate) for flowing lava, as Create's
+  fluid interactions (skipped while U9's stones are missing). Log: `<player> placed / picked up
+  <fluid> at ...`.
+- Test block `levitate:fluids_test_depot` (not in the creative menu): one item slot from the top and
+  an 8000 mB tank when mounted on a contraption; it stands in for U11's depot in the selftests.
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -1070,6 +1154,12 @@ keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlock
 
 `config/belts.json` (U11): `maxBeltLength` 20, `maxEjectorDistance` 32 (Create's CKinetics keys and
 defaults), `displayItems` true (show items on belts / depots / in flight as item entities, §8).
+`config/fluids.json` (U19, Create's CFluids and CLogistics defaults): `hosePulleyBlockThreshold`
+10000 (-1: never infinite), `fillInfinite` false, `hosePulleyRange` 128, `bottomlessFluidMode`
+`ALLOW_BY_TAG` (`ALLOW_ALL`, `DENY_ALL`, `ALLOW_BY_TAG`, `DENY_BY_TAG`), `bottomlessAllow`
+[water, lava] (Create's `create:bottomless/allow` tag), `bottomlessDeny` [], `fluidFillPlaceFluidSourceBlocks`
+true, `psiTimeout` 60.
+
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
 `mediumCapacity` (256), `highCapacity` (1024), `impact` {block path: SU per RPM} and `capacity`
@@ -1105,7 +1195,10 @@ matches Create's official Chinese translation wording).
 | Create feature | Why | What Levitate does instead |
 |---|---|---|
 | Animated parts / contraptions for **vanilla** clients | Bedrock has no client-side rendering hooks without a client mod | static block models; moving contraptions shown as their blocks only when stopped plus a placeholder entity while moving; the client mod shows everything |
-| Placeable flowing honey/chocolate in the world | Bedrock has no data-driven custom fluids | they exist in pipes, tanks, basins, buckets (as items); emptying a bucket in the world places a custom non-flowing source block ⚠ U19 decides |
+| Flowing honey/chocolate in the world (U19) | Bedrock has no data-driven custom fluids: a custom block can't flow, be swum in or use the fluid renderer | they exist everywhere fluids are handled (pipes, tanks, basins, spouts, drains, buckets); in the world a bucket or a hose pulley places a translucent, non-colliding, non-flowing source block (`levitate:honey` / `levitate:chocolate`) that buckets and hose pulleys pick up again; entities in it are slowed (Slowness II) and take no fall damage instead of Create's viscous fluid motion; lava touching it turns into obsidian / limestone / scoria; no fog colour under it |
+| Hose drawn for **vanilla** clients (U19) | Create draws the hose with a block entity renderer; a block in its place would block the fluid it hangs in | the client mod draws the hose and its end piece; vanilla clients see the pulley only (draining and filling work the same) |
+| Spout nozzle squeeze and splash particles (U19) | client-side animation and fluid particles | the client mod draws Create's fluid stream (its width follows Create's curve over the 20 ticks); the nozzle model is static; vanilla clients hear the sounds only |
+| Spout over a moving belt item (U19 + U11) | wave-2 units can't call each other: the spout sees the item through the item capability (slot 0 from the top of a Levitate block) and can't stop a belt item itself | works on depots (and any block that exposes the item at its centre as slot 0); belt items are filled when the belt unit exposes the item under the spout that way |
 | JEI/EMI recipe viewers, Create's config GUI | no such mods on Bedrock | recipes visible in Ponder/tooltips; JSON configs + `/create reload` |
 | Create's mod-compat crushed ores for absent mods | no such mods | items exist (as Create registers them), with the vanilla-only recipes |
 | Contraption blocks drawn as one rotating model on **vanilla** clients (U4) | a vanilla client draws a falling-block entity axis-aligned and can't be told to turn it | each block is its own falling-block entity at its exact rotated position, showing the block turned by the nearest quarter turn; the client mod turns each block by the remaining angle so the structure looks exact |
