@@ -91,7 +91,7 @@ public:
             mOrder.push_back(&add<CountSlot>(r, [this, i](Button b, bool shift) { clickOrder(i, b, shift); }));
         }
         // Create's search box filters the stock as the player types
-        mSearch              = &add<TextField>(Rect{12, 12, 140, 16}, mData.value("search", std::string{}));
+        mSearch              = &add<TextField>(Rect{12, 15, 140, 14}, mData.value("search", std::string{}));
         mSearch->placeholder = ctr("create.gui.stock_keeper.search_items", "Search Items");
         mSearch->onChange    = [this](std::string const& text) { mSend({{"op", "search"}, {"text", text}}); };
         mSearch->onSubmit    = [this](std::string const& text) {

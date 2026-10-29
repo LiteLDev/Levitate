@@ -73,7 +73,7 @@ if ($vanilla) {
     Save-Screenshot 'keeper-form' | Out-Null
     Close-Screen
 } else {
-    Click-Panel $mark (12 + 70) (12 + 8)          # the search box
+    Click-Panel $mark (12 + 70) (15 + 7)          # the search box
     Type-Text 'log'
     Start-Sleep -Milliseconds 600
     Save-Screenshot 'keeper-search' | Out-Null
