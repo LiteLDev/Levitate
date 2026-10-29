@@ -3,6 +3,10 @@
 # then the test anchor commands from the console with their log lines.
 $r = Invoke-SelfTest 'contraption.*'
 if ($r.Pass -lt 16) { throw "expected at least 16 contraption selftests to pass, got $($r.Pass)" }
+# Motion on clients (U34): the transform sent to companions, display spawn height, respawn steps
+# for vanilla viewers.
+$r = Invoke-SelfTest 'contraptionmotion.*'
+if ($r.Pass -lt 3) { throw "expected 3 contraptionmotion selftests to pass, got $($r.Pass)" }
 
 # The test anchor through the console: a single stone near the world origin.
 Send-Console 'tickingarea add 0 -64 0 15 -40 15 lv_contraption_e2e true'

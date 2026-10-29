@@ -3,8 +3,26 @@
 # train on it and station "Demo B" on the north branch; the train's schedule drives it through
 # the curve to B. Then the station screen and the schedule editor.
 #   local / remote-mod: native screens (client mod); remote-vanilla: the server forms
-# Screenshots: out/trains/{assembled,moving-1..5,arrived,station-screen,schedule-screen}.png
+# Screenshots: out/trains/{assembled,departing-1..4,moving-1..5,arrived,station-screen,schedule-screen}.png
 $mark = Get-LogMark
+# Two pictures of a moving contraption must differ in a region of the screen (by default right of
+# the chat lines, above the hotbar): the structure moves on the client (U34).
+function Assert-ContraptionMoved([string]$a, [string]$b, [string]$what, [double]$x0 = 0.42, [double]$x1 = 0.85, [double]$y0 = 0.05, [double]$y1 = 0.85) {
+    Add-Type -AssemblyName System.Drawing
+    $ia = [System.Drawing.Bitmap]::new($a); $ib = [System.Drawing.Bitmap]::new($b)
+    try {
+        $changed = 0; $total = 0
+        for ($x = [int]($ia.Width * $x0); $x -lt [int]($ia.Width * $x1); $x += 8) {
+            for ($y = [int]($ia.Height * $y0); $y -lt [int]($ia.Height * $y1); $y += 8) {
+                $p = $ia.GetPixel($x, $y); $q = $ib.GetPixel($x, $y); $total++
+                if ([Math]::Abs($p.R - $q.R) + [Math]::Abs($p.G - $q.G) + [Math]::Abs($p.B - $q.B) -gt 60) { $changed++ }
+            }
+        }
+    } finally { $ia.Dispose(); $ib.Dispose() }
+    Write-Step "${what}: $changed of $total sampled pixels changed between the two pictures"
+    if ($changed -lt [Math]::Max(10, $total * 0.01)) { throw "$what did not move on the client ($changed of $total pixels changed)" }
+}
+
 
 Invoke-Chat '/gamemode creative'
 Invoke-Chat '/time set noon'
@@ -31,13 +49,16 @@ Start-Sleep -Milliseconds 500
 Invoke-Chat '/tp @s ~-29 ~ ~6 -90 0'
 Start-Sleep -Milliseconds 600
 Invoke-Chat '/create trains demo'
-Wait-LogLine "trains: assembled train #\d+ '.*' with 1 carriages" 20 -Since $mark | Out-Null
-# watch from just south-west of the curve
+# watch from just south-west of the curve at once (the train leaves right away; the log is read
+# with some delay)
 Invoke-Chat '/tp @s ~17 ~5 ~4 -135 32'
-Start-Sleep -Milliseconds 600
-Save-Screenshot 'assembled' | Out-Null
+$assembled = Save-Screenshot 'assembled'
+$departing = foreach ($i in 1..4) { Start-Sleep -Milliseconds 500; Save-Screenshot "departing-$i" }
+# the carriage leaves Demo A or goes on towards Demo B (top of the picture, above the chat lines
+# and the curve): it moves on the client
+Assert-ContraptionMoved $assembled $departing[3] 'the train' 0.3 0.65 0.0 0.1
+Wait-LogLine "trains: assembled train #\d+ '.*' with 1 carriages" 20 -Since $mark | Out-Null
 Wait-LogLine "trains: train #\d+ '.*' heading to station 'Demo B'" 20 -Since $mark | Out-Null
-Start-Sleep -Milliseconds 1800
 foreach ($i in 1..5) {
     Save-Screenshot "moving-$i" | Out-Null
     Start-Sleep -Milliseconds 700

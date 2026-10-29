@@ -45,10 +45,10 @@ inline constexpr std::string_view kRadialChassis  = "levitate:radial_chassis";
 inline constexpr std::string_view kSticker        = "levitate:sticker";
 
 /// Display entities (falling blocks, which never rotate in vanilla) carry the contraption's
-/// rotation in their own rotation, which every client receives with their movement:
-/// pitch = 20 * (axis + 1) marks them (and gives the axis), yaw = the angle left after the
-/// nearest quarter turn (-45..45). The game sends rotations in 1/256 turns, so the pitch is
-/// decoded by rounding.
+/// rotation in their own rotation: pitch = 20 * (axis + 1) marks them (and gives the axis),
+/// yaw = the angle left after the quarter turns their block shows (-45..45 while a vanilla
+/// player watches, any angle otherwise). The game sends rotations in 1/256 turns, so the pitch
+/// is decoded by rounding.
 inline constexpr float kDisplayPitchStep = 20.0f;
 struct DisplayRotation {
     float pitch = 0, yaw = 0;
@@ -120,6 +120,9 @@ void reloadAll();
 [[nodiscard]] bool ownsDisplay(std::int64_t uniqueId);
 /// Server side: the falling block is one of our display entities (owned or orphaned).
 [[nodiscard]] bool isDisplayActor(::Actor const& actor);
+/// Selftests: behave as if a player without the client mod were in every dimension (displays
+/// are spawned again as they move, see Engine::needsRespawn).
+void forceVanillaViewers(bool on);
 
 } // namespace detail
 } // namespace lv::feature::contraption

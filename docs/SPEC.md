@@ -953,8 +953,20 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   regions are placed back transformed. One log line per assembly / disassembly / dropped block.
 - **Display**: each block is a vanilla falling-block entity (never falls, never lands; orphans from a
   saved world vanish) at the block's rotated center showing the block rotated by the nearest quarter
-  turn; its own rotation carries the axis (pitch) and the remaining angle (yaw), so the client mod
-  turns it by the exact angle about its center. Display entities are never written to the world
+  turn; its own rotation carries the axis (pitch) and the remaining angle (yaw). Bedrock clients
+  never apply the movement the server sends for a falling block that isn't falling (it stays where
+  it was spawned), so (U34): companions get each changed transform once per tick
+  (`contraption.motion` `{"m": [[id, axis, angle, tx, ty, tz, px, py, pz], ...]}`, world =
+  t + p + R(local − p); `contraption.blocks` carries the transform too); the client mod takes the newest
+  at each client tick (`core/contraption/Motion.h`), moves every display entity there with the previous
+  place as its old position, and draws each block at the frame's partial tick, turned by the exact
+  interpolated angle about its center (Create's approach: the client interpolates the
+  contraption's motion; without vanilla viewers the displays keep the quarter turn they were
+  spawned with and the client mod turns them by the rest, so they aren't spawned again every 90
+  degrees). While a player without the client mod is in the dimension, a display that
+  moved away from where it was spawned is spawned again at its place (from half a block away, at
+  most every 4 ticks per block, and once more where it comes to rest), so vanilla clients see the
+  structure move in steps. Display entities are never written to the world
   (`Actor::save` refuses them): contraptions live in our DB and spawn their displays again after a
   load, so a world saved mid-move (autosave, or the last save before a crash) holds no falling
   blocks that could land when it is opened without Levitate (§8). Persistence:
@@ -3589,6 +3601,7 @@ matches Create's official Chinese translation wording).
 | Filter slot items rendered on the block face for **vanilla** clients | no item rendering hooks for vanilla clients | the client mod draws the filter item on every face its slot is on, facing out, a quarter block big (display items, U33), and the hover label names it; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
 | Contraption blocks drawn as one rotating model on **vanilla** clients (U4) | a vanilla client draws a falling-block entity axis-aligned and can't be told to turn it | each block is its own falling-block entity at its exact rotated position, showing the block turned by the nearest quarter turn; the client mod turns each block by the remaining angle so the structure looks exact |
+| Smooth contraption motion on **vanilla** clients (U34) | a vanilla client never applies the movement packets of a falling block that isn't falling: it stays where it was spawned | while a vanilla player is in the dimension, each display entity is spawned again at its place once it is half a block away (at most every 4 ticks per block, and where it comes to rest), so vanilla players see the structure move in half-block steps; the client mod moves the displays smoothly from the contraption's motion |
 | Contraption blocks while moving in a world opened **without** Levitate (U4, U32) | the moving blocks are vanilla falling-block entities (so vanilla clients see them); a custom entity type would be dropped by a world without our behavior pack, but vanilla clients can't draw a custom entity as an arbitrary block | display entities are never saved with the world; the blocks of a contraption that was moving when the world was last saved live only in Levitate's DB, so without the mod they are missing (with the mod they come back as the contraption). Falling blocks saved by an older build vanish on load with the mod |
 | Contraption collision computed by the client (U4) | Bedrock clients only collide with real blocks and a few entity types | the server pushes players out of the contraption and carries them (teleports); with lag this is less smooth than Create's client-side collision |
 | Glue region outlines (U4) | no client-side line rendering without a client renderer for it | particles along the edges of nearby regions for players holding super glue (client mod and vanilla) |

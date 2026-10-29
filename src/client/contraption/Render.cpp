@@ -1,11 +1,12 @@
 // Client mod: contraption blocks turn smoothly.
 //
 // The server shows each contraption block as a display entity (a falling block entity placed at
-// the block's rotated center, showing the block rotated by the nearest quarter turn). It encodes
-// the rotation axis and the remaining angle (-45..45 degrees) in the entity's own rotation
-// (see feature/contraption/Internal.h). Vanilla clients draw the
-// block axis-aligned; here the block is turned by that remaining angle about its center, so the
-// structure is drawn at its exact transform.
+// the block's rotated center, showing the block rotated by the nearest quarter turn). Vanilla
+// clients draw the block axis-aligned; here the block is turned by the remaining angle about its
+// center, so the structure is drawn at its exact transform. The angle comes from the
+// contraption's motion at this frame's partial tick (ContraptionClient.cpp, which also moves the
+// display entities); a display the client doesn't know yet falls back to the angle the server
+// encodes in the entity's own rotation (see feature/contraption/Internal.h).
 
 #ifdef LV_CLIENT
 
@@ -24,6 +25,7 @@
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorType.h"
 
+#include "client/contraption/Display.h"
 #include "feature/contraption/Internal.h"
 #include "mod/Module.h"
 
@@ -57,21 +59,32 @@ LL_TYPE_INSTANCE_HOOK(
     Vec2 const&             rot,
     bool                    ignoreLighting
 ) {
-    int   axis    = 0;
-    float degrees = 0;
-    if (!turnedDisplay(entity, axis, degrees)) return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
+    if (entity.getEntityTypeId() != ActorType::FallingBlock) return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
+    int         axis    = 0;
+    float       degrees = 0;
+    Vec3        at      = pos;
+    DisplayPose pose;
+    if (displayPose(entity, context.mFrameAlpha, pose)) {
+        // from the straight line between its places onto the contraption's arc
+        at      = Vec3{pos.x + float(pose.shift.x), pos.y + float(pose.shift.y), pos.z + float(pose.shift.z)};
+        axis    = pose.axis;
+        degrees = pose.degrees;
+        if (std::abs(degrees) <= 0.01f) return origin(context, entity, cameraTargetPos, at, rot, ignoreLighting);
+    } else if (!turnedDisplay(entity, axis, degrees)) {
+        return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
+    }
     ScreenContext& screen = context.mScreenContext;
     mce::Camera&   camera = screen.camera;
     MatrixStack&   stack  = camera.worldMatrixStack;
     auto           ref    = stack.push(false);
     Matrix*        mat    = ref.mat;
     glm::mat4&     m      = mat->_m;
-    glm::vec3 pivot(pos.x, pos.y + 0.5f, pos.z);
+    glm::vec3 pivot(at.x, at.y + 0.5f, at.z);
     glm::vec3 dir(axis == 0 ? 1.f : 0.f, axis == 1 ? 1.f : 0.f, axis == 2 ? 1.f : 0.f);
     m = glm::translate(m, pivot);
     m = glm::rotate(m, glm::radians(degrees), dir);
     m = glm::translate(m, -pivot);
-    origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
+    origin(context, entity, cameraTargetPos, at, rot, ignoreLighting);
 }
 
 class RenderModule {
