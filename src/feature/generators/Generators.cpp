@@ -426,6 +426,7 @@ void onTick() {
         auto& [p, h] = *it;
         auto* b      = blockAt(p);
         if (b && kindOf(*b) != Kind::Crank && kindOf(*b) != Kind::Valve) {
+            kinetics::setSequenceContext(p, std::nullopt);
             it = s.handles.erase(it);
             continue;
         }
@@ -434,6 +435,7 @@ void onTick() {
             if (--h.inUse == 0) {
                 if (b) applyHandleSpeed(p, *b, h);
                 else kinetics::setGeneratedSpeed(p, 0);
+                if (!b || kindOf(*b) == Kind::Valve) kinetics::setSequenceContext(p, std::nullopt);
             }
         } else if (h.cooldown > 0) {
             --h.cooldown;
@@ -564,6 +566,9 @@ bool useValve(Player& player, GlobalPos const& pos, std::string const& heldId, b
     auto& h    = handles[pos];
     h.inUse    = turn.useTicks;
     h.backwards = sneaking;
+    // Create's sequenceContext of the valve: bearings / turntables it drives stop after exactly the
+    // set angle (scaled by the speed ratio)
+    kinetics::setSequenceContext(pos, kinetics::SequenceContext{kinetics::SequenceContext::Kind::TurnAngle, static_cast<double>(std::abs(angle))});
     applyHandleSpeed(pos, *b, h);
     h.cooldown = cg::kValveCooldown;
     sendValveTurn(pos, turn, sneaking, facingOf(*b));

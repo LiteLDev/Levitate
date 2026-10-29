@@ -20,6 +20,7 @@
 // Everything here runs on the server thread (integrated server on the client). Speeds are RPM
 // (signed: the sign is the direction), stress is SU (see docs/SPEC.md §1.3, §3.1).
 
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
@@ -93,6 +94,9 @@ struct SequenceContext {
     enum class Kind { TurnAngle, MoveDistance };
     Kind   kind  = Kind::TurnAngle;
     double value = 0; ///< degrees / blocks, as given at the block that set it
+    /// Set by `setSequenceContext` (every call a new number): consumers see a new instruction even
+    /// when the speed they are driven at doesn't change (two equal steps in a row). Added by U37.
+    std::uint64_t serial = 0;
 };
 /// A block (the sequenced gearshift) declares the instruction it is running for everything it
 /// drives; nullopt clears it. Not persisted: the owner sets it again after a load.

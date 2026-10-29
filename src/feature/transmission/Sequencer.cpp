@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "ll/api/form/CustomForm.h"
 
@@ -75,6 +76,29 @@ ct::Instruction const* instructionAt(Run const& r, int index) {
     return index >= 0 && index < static_cast<int>(r.instructions.size()) ? &r.instructions[static_cast<std::size_t>(index)] : nullptr;
 }
 
+/// Gearshifts that declared a sequence context (kinetics doesn't persist them: set again after a load).
+std::unordered_set<GlobalPos, ck::GlobalPosHash>& withContext() {
+    static std::unordered_set<GlobalPos, ck::GlobalPosHash> s;
+    return s;
+}
+
+/// Create's SequenceContext.fromGearshift: turning by an angle / for a distance reaches the
+/// machines downstream, which stop exactly there. Kinetics scales the value by the speed ratio
+/// between this block (its input speed) and the machine, so the output modifier is divided out
+/// here (Create: relativeValue = value / (speed * modifier)).
+void declareContext(GlobalPos const& pos, ct::Instruction const* instr) {
+    using SC = kinetics::SequenceContext;
+    std::optional<SC> context;
+    if (instr && (instr->type == ct::Instr::TurnAngle || instr->type == ct::Instr::TurnDistance)) {
+        int    modifier = std::abs(ct::instructionSpeedModifier(*instr));
+        double value    = modifier == 0 ? 0.0 : static_cast<double>(instr->value) / modifier;
+        context         = SC{instr->type == ct::Instr::TurnAngle ? SC::Kind::TurnAngle : SC::Kind::MoveDistance, value};
+    }
+    kinetics::setSequenceContext(pos, context);
+    if (instr) withContext().insert(pos); // declared for this instruction (maybe none)
+    else withContext().erase(pos);
+}
+
 /// Create's SequencedGearshiftBlockEntity.run.
 void run(BlockSource& region, GlobalPos const& pos, Run& r, int index, bool powered) {
     auto const* instr = instructionAt(r, index);
@@ -84,8 +108,10 @@ void run(BlockSource& region, GlobalPos const& pos, Run& r, int index, bool powe
         r.progress = 0;
         r.timer    = 0;
         store(pos, r);
+        declareContext(pos, nullptr);
         if (!powered) setStates(region, pos, {{kSeqState, 0}, {kSeqMod, 0}});
         else setStates(region, pos, {{kSeqMod, 0}}); // idle: the output half is disconnected
+        kinetics::refresh(pos);
         log().info("transmission: sequenced gearshift at {} finished", pos.key());
         return;
     }
@@ -94,7 +120,10 @@ void run(BlockSource& region, GlobalPos const& pos, Run& r, int index, bool powe
     r.progress = 0;
     r.timer    = 0;
     store(pos, r);
+    declareContext(pos, instr);
     setStates(region, pos, {{kSeqState, index + 1}, {kSeqMod, ct::modifierToState(ct::instructionSpeedModifier(*instr))}});
+    // the machines downstream see the new speed and the instruction in the same tick
+    kinetics::refresh(pos);
     log().info("transmission: sequenced gearshift at {} runs instruction {} ({})", pos.key(), index + 1, ct::instrDef(instr->type).id);
 }
 
@@ -142,6 +171,7 @@ void sequencerTick(BlockSource& region, GlobalPos const& pos) {
     auto const* d = blockdata::get(pos);
     if (!d || !d->contains(kKey) || (*d)[kKey].value("current", -1) == -1) return;
     Run r = load(pos);
+    if (!withContext().contains(pos)) declareContext(pos, instructionAt(r, r.current)); // after a load
     if (r.duration < 0) return;
     if (r.timer < r.duration) {
         ++r.timer;
@@ -194,9 +224,15 @@ void setSequencerInstructions(GlobalPos const& pos, std::vector<ct::Instruction>
     log().info("transmission: sequenced gearshift at {} configured ({} instructions)", pos.key(), r.instructions.size());
 }
 
-void clearSequencers() { lastPower().clear(); }
+void clearSequencers() {
+    lastPower().clear();
+    withContext().clear();
+}
 
-void sequencerForget(GlobalPos const& pos) { lastPower().erase(pos); }
+void sequencerForget(GlobalPos const& pos) {
+    lastPower().erase(pos);
+    if (withContext().erase(pos)) kinetics::setSequenceContext(pos, std::nullopt);
+}
 
 // ---- screen ---------------------------------------------------------------------------------------------
 

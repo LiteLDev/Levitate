@@ -588,8 +588,13 @@ void refresh(GlobalPos const& pos) {
 }
 
 void setSequenceContext(GlobalPos const& pos, std::optional<SequenceContext> context) {
-    if (context) sequenceContexts()[pos] = *context;
-    else sequenceContexts().erase(pos);
+    static std::uint64_t serial = 0;
+    if (context) {
+        auto& stored  = sequenceContexts()[pos] = *context;
+        stored.serial = ++serial;
+    } else {
+        sequenceContexts().erase(pos);
+    }
 }
 
 std::optional<SequenceContext> sequenceContextAt(GlobalPos const& pos) {
