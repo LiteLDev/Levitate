@@ -153,14 +153,15 @@ constexpr double toLinear(double speed) { return speed / 512; }     // KineticBl
 int instructionDuration(Instruction const& i, float progress, float speed) {
     double s      = std::abs(static_cast<double>(speed) * i.speedModifier);
     double target = i.value - progress;
+    // always overshoot (Create: the target stops early); no rotation: finish right away
+    auto turn = [&](double perTick) { return perTick <= 0 ? 0 : std::max(0, static_cast<int>(std::ceil(target / perTick)) + 2); };
     switch (i.type) {
-    // always overshoot (Create: the target stops early)
     case Instr::TurnAngle:
-        return static_cast<int>(std::ceil(target / toAngular(s))) + 2;
+        return turn(toAngular(s));
     case Instr::TurnDistance:
-        return static_cast<int>(std::ceil(target / toLinear(s))) + 2;
+        return turn(toLinear(s));
     case Instr::Delay:
-        return static_cast<int>(target);
+        return std::max(0, static_cast<int>(target));
     case Instr::Await:
         return -1;
     default:

@@ -489,14 +489,17 @@ LL_TYPE_INSTANCE_HOOK(
     }
     if (held == kVerticalGearbox) {
         // the vertical gearbox item places the gearbox itself (Create's VerticalGearboxItem)
-        if (states && cooledDown(player)
+        if (states
             && placeLikeHelper(player, item, region, ctx.pos, kGearbox, *states)) {
             return used();
         }
         return InteractionResult{};
     }
+    Block const* before = region.hasChunksAt(game::blockPos(ctx.pos), 0, false) ? &region.getBlock(game::blockPos(ctx.pos)) : nullptr;
     auto result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    if (states && idAt(region, ctx.pos) == blockId) {
+    // only a block this call placed takes the placement state (never re-orient an existing one)
+    bool placed = before && &region.getBlock(game::blockPos(ctx.pos)) != before;
+    if (states && placed && idAt(region, ctx.pos) == blockId) {
         setStates(region, ctx.pos, *states);
         if (isChainDrive(blockId)) {
             for (Face side : ck::kFaces) updateChainShape(region, stepPos(ctx.pos, side));

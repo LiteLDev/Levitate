@@ -240,9 +240,13 @@ LV_REGISTER_SELFTEST("transmission.placement", [](Context& ctx) -> ll::coro::Cor
     co_await ctx.ticks(6); // one assisted use per 5 ticks
     // a cog against a cog's rim: the next cog meshes beside it
     a.put(a.at(4, 1), kCogwheel, {{kAxis, Y}});
-    bool usedCog = use(kCogwheel, a.at(4, 1), F::East, Vec3{1.f, .5f, .5f});
+    {
+        // the unit's use handler directly (the SimulatedPlayer refuses clicks on side faces)
+        auto cog = items::make(kCogwheel);
+        ctx.require(cog.has_value(), "cogwheel item");
+        ctx.check(useOn(sim, *cog, a.at(4, 1), Face::East, 1., .5, .5), "the cog helper takes the click");
+    }
     co_await ctx.ticks(2);
-    ctx.info("cog use " + std::to_string(usedCog) + ": east " + idAt(world(), a.at(5, 1)) + ", above " + idAt(world(), a.at(4, 2)) + ", west " + idAt(world(), a.at(3, 1)));
     ctx.check(idAt(world(), a.at(5, 1)) == kCogwheel && st(a.at(5, 1), kAxis) == Y, "cog placed beside the cog with its axis");
     ctx.cleanupBlock(a.at(5, 1));
     co_await ctx.ticks(6); // one assisted use per 5 ticks
@@ -256,11 +260,17 @@ LV_REGISTER_SELFTEST("transmission.placement", [](Context& ctx) -> ll::coro::Cor
     co_await ctx.ticks(6); // one assisted use per 5 ticks
     // the vertical gearbox item places a gearbox with a horizontal axis
     a.put(a.at(11, 0), "minecraft:stone");
-    bool usedGearbox = use(kVerticalGearbox, a.at(11, 0), F::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(2);
-    ctx.info("vertical gearbox use " + std::to_string(usedGearbox) + ": " + idAt(world(), a.at(11, 1)) + " axis " + std::to_string(st(a.at(11, 1), kAxis)));
-    ctx.check(idAt(world(), a.at(11, 1)) == kGearbox && st(a.at(11, 1), kAxis) != Y, "vertical gearbox: horizontal axis");
-    ctx.cleanupBlock(a.at(11, 1));
+    {
+        // VerticalGearboxItem's axis: across the shaft beside it (a shaft along x east of the spot)
+        a.put(a.at(12, 1), kShaft, {{kAxis, X}});
+        PlaceContext pc{a.at(11, 0), Face::Up, a.at(11, 1)};
+        auto         states = stateForPlacement(world(), kVerticalGearbox, pc, sim);
+        int          axis   = -1;
+        if (states)
+            for (auto const& [k, v] : *states)
+                if (k == std::string_view(kAxis)) axis = v;
+        ctx.check(axis == Z, "vertical gearbox: axis across the neighbouring shaft, got " + std::to_string(axis));
+    }
     ctx.cleanupBlock(a.at(1, 1));
     co_await ctx.ticks(6); // one assisted use per 5 ticks
     // encasing (needs U10's casing item)

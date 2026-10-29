@@ -13,9 +13,11 @@
 #include "core/transmission/Transmission.h"
 #include "mod/Module.h"
 
-namespace lv::client::screen {
+namespace lv::client::transmission {
 
 namespace {
+
+using namespace lv::client::screen;
 
 namespace ct = core::transmission;
 
@@ -145,8 +147,8 @@ public:
 
 } // namespace
 
-} // namespace lv::client::screen
+} // namespace lv::client::transmission
 
-LV_REGISTER_MODULE(lv::client::screen::SequencerScreenModule);
+LV_REGISTER_MODULE(lv::client::transmission::SequencerScreenModule);
 
 #endif // LV_CLIENT

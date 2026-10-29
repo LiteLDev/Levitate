@@ -79,12 +79,20 @@ void exposeComparators(BlockSource& region, GlobalPos const& pos, int signal) {
     }
 }
 
+/// The dimension of a circuit system (cached; cleared with the world).
+std::unordered_map<CircuitSystem const*, int>& circuitDims() {
+    static std::unordered_map<CircuitSystem const*, int> m;
+    return m;
+}
+
 int dimOfCircuit(CircuitSystem const& system) {
+    auto& cache = circuitDims();
+    if (auto it = cache.find(&system); it != cache.end()) return it->second;
     auto level = ll::service::getLevel();
     if (!level) return -1;
     for (int d = 0; d < 3; ++d) {
         auto dim = level->getDimension(d).lock();
-        if (dim && dim->mCircuitSystem.get() == &system) return d;
+        if (dim && dim->mCircuitSystem.get() == &system) return cache[&system] = d;
     }
     return -1;
 }
@@ -119,6 +127,7 @@ void track(GlobalPos const& pos) {
 void untrack(GlobalPos const& pos) {
     if (tracked().positions.erase(pos)) tracked().dirty = true;
     gaugeForget(pos);
+    sequencerForget(pos);
 }
 
 int comparatorSignal(GlobalPos const& pos) {
@@ -197,6 +206,7 @@ void saveTracked() {
 }
 
 void clearTracked() {
+    circuitDims().clear();
     tracked().positions.clear();
     tracked().comparators.clear();
     tracked().dirty = false;

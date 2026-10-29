@@ -160,6 +160,7 @@ void setSequencerInstructions(GlobalPos const& pos, std::vector<ct::Instruction>
 [[nodiscard]] int sequencerCurrent(GlobalPos const& pos);
 void registerSequencerScreen();
 void clearSequencers();
+void sequencerForget(GlobalPos const& pos);
 
 // ---- speed controller (SpeedController.cpp) -------------------------------------------------------
 [[nodiscard]] int  targetSpeed(GlobalPos const& pos);

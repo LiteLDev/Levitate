@@ -126,13 +126,22 @@ bool replaceableAt(BlockSource& region, GlobalPos const& pos) {
 }
 
 namespace {
+/// A redstone torch at `n` is attached to `pos` (Java torches don't power their support).
+/// torch_facing_direction: unknown, west, east, north, south, top (the way the flame leans).
+bool torchOn(Block const& block, GlobalPos const& n, GlobalPos const& pos) {
+    static constexpr Face kSupport[] = {Face::Down, Face::East, Face::West, Face::South, Face::North, Face::Down};
+    int  dir = std::clamp(game::intState(block, "torch_facing_direction").value_or(5), 0, 5);
+    auto s   = stepPos(n, kSupport[dir]);
+    return s == pos;
+}
+
 /// Power a neighbour gives through its block state (sources that need no circuit lookup).
-int stateSignal(Block const& block, Face towardsUs) {
+int stateSignal(Block const& block, Face towardsUs, GlobalPos const& n, GlobalPos const& pos) {
     auto const& id = block.getTypeName();
     if (id == "minecraft:redstone_block") return 15;
     if (id == "minecraft:lever") return game::intState(block, "open_bit").value_or(0) ? 15 : 0;
     if (game::intState(block, "button_pressed_bit").value_or(0)) return 15;
-    if (id == "minecraft:redstone_torch") return towardsUs == Face::Down ? 0 : 15; // not into its support
+    if (id == "minecraft:redstone_torch") return torchOn(block, n, pos) ? 0 : 15;
     if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator" || id == "minecraft:observer") {
         if (id == "minecraft:observer" && !game::intState(block, "powered_bit").value_or(0)) return 0;
         if (id == "minecraft:observer") {
@@ -158,7 +167,7 @@ int neighbourSignal(BlockSource& region, GlobalPos const& pos) {
         GlobalPos n  = stepPos(pos, f);
         BlockPos  bp = game::blockPos(n);
         if (!loaded(region, bp)) continue;
-        best = std::max(best, stateSignal(region.getBlock(bp), ck::opposite(f)));
+        best = std::max(best, stateSignal(region.getBlock(bp), ck::opposite(f), n, pos));
     }
     auto* system = region.getDimension().mCircuitSystem.get();
     if (!system) return std::clamp(best, 0, 15);
@@ -176,8 +185,7 @@ int neighbourSignal(BlockSource& region, GlobalPos const& pos) {
         auto group = type & static_cast<std::uint64_t>(CircuitComponentType::GroupMask);
         if (type == static_cast<std::uint64_t>(CircuitComponentType::RedstoneTorchCapacitor)) {
             // a torch powers every neighbour but the block it is attached to
-            // (a torch standing on top of the block uses it as its support)
-            if (f == Face::Up) continue;
+            if (torchOn(region.getBlock(bp), n, pos)) continue;
             best = std::max(best, strength);
         } else if (group == static_cast<std::uint64_t>(CircuitComponentType::CapacitorComponent)) {
             // repeaters, comparators, observers power the block they face

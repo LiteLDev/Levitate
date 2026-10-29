@@ -196,6 +196,8 @@ void setSequencerInstructions(GlobalPos const& pos, std::vector<ct::Instruction>
 
 void clearSequencers() { lastPower().clear(); }
 
+void sequencerForget(GlobalPos const& pos) { lastPower().erase(pos); }
+
 // ---- screen ---------------------------------------------------------------------------------------------
 
 namespace {
