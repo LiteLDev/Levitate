@@ -1,0 +1,7 @@
+tile.levitate:fluid_pipe.name=流体管道
+tile.levitate:glass_fluid_pipe.name=玻璃流体管道
+tile.levitate:encased_fluid_pipe.name=流体管道箱
+tile.levitate:mechanical_pump.name=动力泵
+tile.levitate:fluid_valve.name=流体阀门
+tile.levitate:smart_fluid_pipe.name=智能流体管道
+tile.levitate:pipes_test_tank.name=管道测试储罐

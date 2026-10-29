@@ -1,0 +1,17 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:mechanical_press"
+    },
+    "tags": ["crafting_table"],
+    "pattern": ["S", "C", "I"],
+    "key": {
+      "S": { "item": "levitate:shaft" },
+      "C": { "item": "levitate:andesite_casing" },
+      "I": { "item": "minecraft:iron_block" }
+    },
+    "unlock": [{ "item": "levitate:andesite_casing" }],
+    "result": { "item": "levitate:mechanical_press" }
+  }
+}

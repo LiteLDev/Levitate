@@ -1,0 +1,13 @@
+{
+  "type": "levitate:pressing",
+  "ingredients": [
+    {
+      "item": "minecraft:grass_block"
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:grass_path"
+    }
+  ]
+}

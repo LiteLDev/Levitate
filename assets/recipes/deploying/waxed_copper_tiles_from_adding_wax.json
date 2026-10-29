@@ -1,0 +1,17 @@
+{
+  "type": "levitate:deploying",
+  "ingredients": [
+    {
+      "item": "levitate:copper_tiles"
+    },
+    {
+      "item": "minecraft:honeycomb_block"
+    }
+  ],
+  "results": [
+    {
+      "item": "levitate:waxed_copper_tiles"
+    }
+  ],
+  "keep_held_item": true
+}

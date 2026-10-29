@@ -1,0 +1,19 @@
+{
+  "type": "levitate:compacting",
+  "ingredients": [
+    {
+      "tag": "c:eggs"
+    },
+    {
+      "item": "minecraft:sugar"
+    },
+    {
+      "item": "levitate:cinder_flour"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:blaze_cake_base"
+    }
+  ]
+}

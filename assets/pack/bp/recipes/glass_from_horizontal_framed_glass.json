@@ -1,0 +1,13 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_furnace": {
+    "description": {
+      "identifier": "levitate:glass_from_horizontal_framed_glass"
+    },
+    "tags": [
+      "furnace"
+    ],
+    "input": "levitate:horizontal_framed_glass",
+    "output": "minecraft:glass"
+  }
+}

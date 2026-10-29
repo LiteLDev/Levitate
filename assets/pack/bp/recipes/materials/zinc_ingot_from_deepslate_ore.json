@@ -1,0 +1,14 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_furnace": {
+    "description": {
+      "identifier": "levitate:zinc_ingot_from_deepslate_ore"
+    },
+    "tags": [
+      "furnace",
+      "blast_furnace"
+    ],
+    "input": "levitate:deepslate_zinc_ore",
+    "output": "levitate:zinc_ingot"
+  }
+}

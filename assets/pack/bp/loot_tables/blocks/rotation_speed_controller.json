@@ -1,0 +1,14 @@
+{
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "item",
+          "name": "levitate:rotation_speed_controller",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

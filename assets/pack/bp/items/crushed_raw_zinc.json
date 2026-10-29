@@ -1,0 +1,18 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:crushed_raw_zinc",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_crushed_raw_zinc",
+      "minecraft:display_name": {
+        "value": "item.levitate:crushed_raw_zinc.name"
+      },
+      "minecraft:max_stack_size": 64
+    }
+  }
+}

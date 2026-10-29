@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:cut_crimsite_slab_recycling"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:cut_crimsite_slab"
+      },
+      {
+        "item": "levitate:cut_crimsite_slab"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:cut_crimsite_slab"
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_crimsite",
+      "count": 1
+    }
+  }
+}

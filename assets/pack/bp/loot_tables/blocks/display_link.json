@@ -1,0 +1,14 @@
+{
+  "pools": [
+    {
+      "entries": [
+        {
+          "name": "levitate:display_link",
+          "type": "item",
+          "weight": 1
+        }
+      ],
+      "rolls": 1
+    }
+  ]
+}

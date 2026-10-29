@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:cut_diorite_from_polished_cut_diorite_stairs_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:polished_cut_diorite_stairs"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:polished_cut_diorite_stairs"
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_diorite",
+      "count": 1
+    }
+  }
+}

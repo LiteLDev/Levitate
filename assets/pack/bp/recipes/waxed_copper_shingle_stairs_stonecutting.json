@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:waxed_copper_shingle_stairs_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:waxed_copper_shingles"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:waxed_copper_shingles"
+      }
+    ],
+    "result": {
+      "item": "levitate:waxed_copper_shingle_stairs",
+      "count": 1
+    }
+  }
+}

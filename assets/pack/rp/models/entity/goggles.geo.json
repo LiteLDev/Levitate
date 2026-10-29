@@ -1,0 +1,36 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.goggles",
+        "texture_width": 64,
+        "texture_height": 32,
+        "visible_bounds_width": 2,
+        "visible_bounds_height": 2.5,
+        "visible_bounds_offset": [0, 1.25, 0]
+      },
+      "bones": [
+        {
+          "name": "goggles",
+          "parent": "head",
+          "pivot": [0, 24, 0],
+          "cubes": [
+            { "origin": [-4.5, 27, -4.5], "size": [9, 2, 9], "uv": [0, 0] },
+            { "origin": [-3.75, 26.5, -5.25], "size": [3, 3, 1], "uv": [0, 12] },
+            { "origin": [0.75, 26.5, -5.25], "size": [3, 3, 1], "uv": [10, 12] }
+          ]
+        },
+        {
+          "name": "held",
+          "parent": "rightItem",
+          "pivot": [-6, 15, 1],
+          "cubes": [
+            { "origin": [-7, 13, -3.5], "size": [1, 3, 3], "uv": [20, 12] },
+            { "origin": [-7, 13, 0.5], "size": [1, 3, 3], "uv": [30, 12] }
+          ]
+        }
+      ]
+    }
+  ]
+}

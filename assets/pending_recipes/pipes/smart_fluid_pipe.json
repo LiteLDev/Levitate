@@ -1,0 +1,15 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "levitate:smart_fluid_pipe" },
+    "tags": ["crafting_table"],
+    "pattern": ["S", "P", "T"],
+    "key": {
+      "S": { "item": "levitate:brass_sheet" },
+      "P": { "item": "levitate:fluid_pipe" },
+      "T": { "item": "levitate:electron_tube" }
+    },
+    "unlock": [{ "item": "levitate:fluid_pipe" }],
+    "result": { "item": "levitate:smart_fluid_pipe" }
+  }
+}

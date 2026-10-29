@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:bamboo_window"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " # ",
+      "#X#"
+    ],
+    "key": {
+      "#": {
+        "item": "minecraft:bamboo_planks"
+      },
+      "X": {
+        "item": "minecraft:glass"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:bamboo_planks"
+      }
+    ],
+    "result": {
+      "item": "levitate:bamboo_window",
+      "count": 2
+    }
+  }
+}

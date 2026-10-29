@@ -1,0 +1,31 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:sequenced_gearshift"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:brass_casing"
+      },
+      {
+        "item": "levitate:cogwheel"
+      },
+      {
+        "item": "levitate:electron_tube"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:brass_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:sequenced_gearshift",
+      "count": 1
+    }
+  }
+}

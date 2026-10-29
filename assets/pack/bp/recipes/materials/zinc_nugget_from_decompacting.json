@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:zinc_nugget_from_decompacting"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:zinc_ingot"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:zinc_ingot"
+      }
+    ],
+    "result": {
+      "item": "levitate:zinc_nugget",
+      "count": 9
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:vertical_gearbox"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "C C",
+      " B ",
+      "C C"
+    ],
+    "key": {
+      "B": {
+        "item": "levitate:andesite_casing"
+      },
+      "C": {
+        "item": "levitate:cogwheel"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:cogwheel"
+      }
+    ],
+    "result": {
+      "item": "levitate:vertical_gearbox",
+      "count": 1
+    }
+  }
+}

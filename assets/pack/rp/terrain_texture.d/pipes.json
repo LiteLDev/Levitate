@@ -1,0 +1,50 @@
+{
+  "levitate_fluid_pipe": {
+    "textures": "textures/blocks/fluid_pipe"
+  },
+  "levitate_glass_fluid_pipe": {
+    "textures": "textures/blocks/glass_fluid_pipe"
+  },
+  "levitate_encased_fluid_pipe": {
+    "textures": "textures/blocks/encased_fluid_pipe"
+  },
+  "levitate_mechanical_pump": {
+    "textures": "textures/blocks/mechanical_pump"
+  },
+  "levitate_fluid_valve": {
+    "textures": "textures/blocks/fluid_valve"
+  },
+  "levitate_smart_fluid_pipe": {
+    "textures": "textures/blocks/smart_fluid_pipe"
+  },
+  "levitate_pipe_bracket_wood": {
+    "textures": "textures/blocks/pipe_bracket_wood"
+  },
+  "levitate_pipe_bracket_metal": {
+    "textures": "textures/blocks/pipe_bracket_metal"
+  },
+  "levitate_pipes_test_tank": {
+    "textures": "textures/blocks/pipes_test_tank"
+  },
+  "levitate_pipe_fluid_water": {
+    "textures": "textures/blocks/pipe_fluid_water"
+  },
+  "levitate_pipe_fluid_lava": {
+    "textures": "textures/blocks/pipe_fluid_lava"
+  },
+  "levitate_pipe_fluid_honey": {
+    "textures": "textures/blocks/pipe_fluid_honey"
+  },
+  "levitate_pipe_fluid_chocolate": {
+    "textures": "textures/blocks/pipe_fluid_chocolate"
+  },
+  "levitate_pipe_fluid_milk": {
+    "textures": "textures/blocks/pipe_fluid_milk"
+  },
+  "levitate_pipe_fluid_potion": {
+    "textures": "textures/blocks/pipe_fluid_potion"
+  },
+  "levitate_pipe_fluid_tea": {
+    "textures": "textures/blocks/pipe_fluid_tea"
+  }
+}

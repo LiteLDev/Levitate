@@ -1,0 +1,20 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "levitate:display_text",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/blocks/nixie_tube_glass"
+      },
+      "geometry": {
+        "default": "geometry.levitate.display_text"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ]
+    }
+  }
+}

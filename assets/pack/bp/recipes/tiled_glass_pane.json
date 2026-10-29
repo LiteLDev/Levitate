@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:tiled_glass_pane"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "###",
+      "###"
+    ],
+    "key": {
+      "#": {
+        "item": "levitate:tiled_glass"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:tiled_glass"
+      }
+    ],
+    "result": {
+      "item": "levitate:tiled_glass_pane",
+      "count": 16
+    }
+  }
+}
