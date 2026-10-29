@@ -27,6 +27,7 @@ bool isMushroomStem(Block const& b, std::string_view id) {
 /// BlockTags.LOGS (+ Create's slimy logs, mushroom stems).
 bool isLog(Block const& b, std::string_view id) {
     if (!id.starts_with("minecraft:")) return endsWith(id, "_log") || endsWith(id, "_wood");
+    if (id == "minecraft:pumpkin_stem" || id == "minecraft:melon_stem") return false; // crop stems are no logs
     return endsWith(id, "_log") || endsWith(id, "_wood") || endsWith(id, "_stem") || endsWith(id, "_hyphae") || id == "minecraft:wood"
         || isMushroomStem(b, id);
 }
@@ -73,7 +74,9 @@ core::crafter::TreeBlock describeId(std::string_view id) {
     else if (isLeaf(id)) t.kind = core::crafter::TreeKind::Leaf;
     else if (isVerticalPlant(id)) t.kind = core::crafter::TreeKind::VerticalPlant;
     else if (isChorus(id)) t.kind = core::crafter::TreeKind::Chorus;
-    else if (endsWith(id, "_log") || endsWith(id, "_wood") || endsWith(id, "_stem") || endsWith(id, "_hyphae")) t.kind = core::crafter::TreeKind::Log;
+    else if ((endsWith(id, "_log") || endsWith(id, "_wood") || endsWith(id, "_stem") || endsWith(id, "_hyphae")) && id != "minecraft:pumpkin_stem"
+             && id != "minecraft:melon_stem")
+        t.kind = core::crafter::TreeKind::Log;
     return t;
 }
 

@@ -93,6 +93,8 @@ void                    discard(Actor& a);
 void                    hurt(Actor& a, float damage);
 void                    push(Actor& a, double vx, double vy, double vz);
 [[nodiscard]] Player*   playerById(std::int64_t uniqueId);
+/// Calls `fn` for every companion player (client mod) in `pos`'s dimension within `radius` blocks.
+void                    forEachCompanionNear(GlobalPos const& pos, double radius, std::function<void(Player&)> const& fn);
 /// Gives the item to the player (inventory, else dropped at their feet).
 void                    give(Player& player, ItemStack const& stack);
 /// Whether `id` (a Levitate block) accepts items from a belt/saw/crafter output like Create's

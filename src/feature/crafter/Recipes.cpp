@@ -124,11 +124,16 @@ struct MechanicalRecipe {
 };
 
 std::vector<MechanicalRecipe> const& mechanicalRecipes() {
-    static std::vector<core::common::ProcessingRecipe> const* source = nullptr;
+    static std::vector<core::common::ProcessingRecipe> const* source     = nullptr;
+    static std::size_t                                         sourceSize = 0;
+    static std::string                                         sourceFirst;
     static std::vector<MechanicalRecipe>                       parsed;
-    auto const&                                                all = rc::ofType("mechanical_crafting");
-    if (source == &all && !parsed.empty()) return parsed;
-    source = &all;
+    auto const&                                                all   = rc::ofType("mechanical_crafting");
+    std::string                                                first = all.empty() ? std::string() : all.front().id;
+    if (source == &all && sourceSize == all.size() && sourceFirst == first) return parsed;
+    source      = &all;
+    sourceSize  = all.size();
+    sourceFirst = first;
     parsed.clear();
     for (auto const& r : all) {
         auto const& raw = r.raw;

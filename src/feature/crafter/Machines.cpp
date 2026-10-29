@@ -338,7 +338,8 @@ std::optional<Face> preferredFacing(GlobalPos const& pos) {
         if (!n) continue;
         auto const* spec = kinetics::specOf(n->state.id);
         if (!spec || !spec->shaftTowards(n->state, k::opposite(f))) continue;
-        if (preferred && *preferred != f) return std::nullopt; // Create: only an unambiguous neighbour counts
+        // Create's getPreferredFacing: shafts on two different axes make it ambiguous
+        if (preferred && k::axisOf(*preferred) != k::axisOf(f)) return std::nullopt;
         preferred = f;
     }
     return preferred;

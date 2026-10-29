@@ -32,6 +32,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/crafter/Internal.h"
+#include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "mod/Config.h"
 
@@ -280,6 +281,20 @@ Player* playerById(std::int64_t uniqueId) {
     ActorUniqueID id;
     id.rawID = uniqueId;
     return level->getPlayer(id);
+}
+
+void forEachCompanionNear(GlobalPos const& pos, double radius, std::function<void(Player&)> const& fn) {
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    std::vector<Player*> players;
+    level->forEachPlayer([&](Player& p) {
+        if (static_cast<int>(p.getDimensionId()) != pos.dim || !net::isCompanion(p)) return true;
+        auto const& at = p.getPosition();
+        double      dx = at.x - (pos.x + .5), dy = at.y - (pos.y + .5), dz = at.z - (pos.z + .5);
+        if (dx * dx + dy * dy + dz * dz <= radius * radius) players.push_back(&p);
+        return true;
+    });
+    for (auto* p : players) fn(*p);
 }
 
 void give(Player& player, ItemStack const& stack) {

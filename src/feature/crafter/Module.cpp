@@ -163,7 +163,10 @@ LL_TYPE_INSTANCE_HOOK(
     auto result   = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
     try {
         if (!before && world::idAt(target) == itemId) {
-            if (itemId == kCrafter) crafterlogic::orientPlaced(target, static_cast<Face>(std::min<int>(face, 5)), pos, hlook, sneaking);
+            // Create: the block the new one was placed against (behind the clicked face)
+            Face clickedFace = static_cast<Face>(std::min<int>(face, 5));
+            auto placedOn    = world::offset(target, k::opposite(clickedFace));
+            if (itemId == kCrafter) crafterlogic::orientPlaced(target, clickedFace, placedOn, hlook, sneaking);
             else machines::orientPlaced(target, itemId, look, hlook, sneaking);
         }
     } catch (std::exception const& e) {

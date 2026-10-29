@@ -105,6 +105,12 @@ void visit(ct::MovementContext& ctx, std::string const& kind, GlobalPos const& p
     ctx.stall               = true;
 }
 
+bool isFalling(std::string const& id) {
+    return id == "minecraft:sand" || id == "minecraft:red_sand" || id == "minecraft:gravel" || id.find("concrete_powder") != std::string::npos
+        || id == "minecraft:suspicious_sand" || id == "minecraft:suspicious_gravel" || id == "minecraft:anvil" || id == "minecraft:dragon_egg"
+        || id == "minecraft:pointed_dripstone";
+}
+
 void onBlockBroken(ct::MovementContext& ctx, std::string const& kind, GlobalPos const& pos, std::string const& brokenId) {
     if (isSawActor(kind)) {
         if (brokenId.find("leaves") != std::string::npos) return;
@@ -120,20 +126,13 @@ void onBlockBroken(ct::MovementContext& ctx, std::string const& kind, GlobalPos 
         return;
     }
     // falling blocks above: wait 10 ticks and visit again (BlockBreakingMovementBehaviour)
-    if (brokenId == "minecraft:sand" || brokenId == "minecraft:red_sand" || brokenId == "minecraft:gravel"
-        || brokenId.find("concrete_powder") != std::string::npos || brokenId == "minecraft:suspicious_sand"
-        || brokenId == "minecraft:suspicious_gravel" || brokenId == "minecraft:anvil") {
+    if (isFalling(brokenId)) {
         ctx.data["WaitingTicks"] = 10;
         ctx.data["LastPos"]      = posJson(pos);
         ctx.stall                = true;
     }
 }
 
-bool isFalling(std::string const& id) {
-    return id == "minecraft:sand" || id == "minecraft:red_sand" || id == "minecraft:gravel" || id.find("concrete_powder") != std::string::npos
-        || id == "minecraft:suspicious_sand" || id == "minecraft:suspicious_gravel" || id == "minecraft:anvil" || id == "minecraft:dragon_egg"
-        || id == "minecraft:pointed_dripstone";
-}
 
 void tickBreaker(ct::MovementContext& ctx, std::string const& kind) {
     auto& data = ctx.data;

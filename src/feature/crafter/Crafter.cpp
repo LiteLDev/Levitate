@@ -255,10 +255,7 @@ std::optional<std::string> remainderOf(ItemStack const& stack) {
     if (id == "minecraft:milk_bucket" || id == "minecraft:water_bucket" || id == "minecraft:lava_bucket"
         || id == "minecraft:powder_snow_bucket")
         return "minecraft:bucket";
-    if (id == "minecraft:honey_bottle" || id == "minecraft:dragon_breath" || id == "minecraft:experience_bottle") {
-        if (id == "minecraft:experience_bottle") return std::nullopt;
-        return "minecraft:glass_bottle";
-    }
+    if (id == "minecraft:honey_bottle" || id == "minecraft:dragon_breath") return "minecraft:glass_bottle";
     return std::nullopt;
 }
 
@@ -534,14 +531,8 @@ void sendData(GlobalPos const& pos) {
         msg["pointing"] = static_cast<int>(info->pointing);
         msg["target"]   = targetingCrafter(pos).has_value();
     }
-    auto level = world::regionOf(pos.dim);
-    if (!level) return;
     // every companion in the dimension within 64 blocks
-    for (auto* a : world::entitiesIn(pos.dim, pos.x - 64., pos.y - 64., pos.z - 64., pos.x + 64., pos.y + 64., pos.z + 64.)) {
-        if (!a->isPlayer()) continue;
-        auto& p = static_cast<Player&>(*a);
-        if (net::isCompanion(p)) net::send(p, "crafter.state", msg);
-    }
+    world::forEachCompanionNear(pos, 64, [&](Player& p) { net::send(p, "crafter.state", msg); });
 }
 
 // ---- recipe start -------------------------------------------------------------------------------
@@ -755,7 +746,10 @@ void tickAll(std::uint64_t tick) {
             continue;
         }
         tickOne(pos, *s, tick);
-        if ((tick + static_cast<std::uint64_t>(pos.x * 7 + pos.z * 13 + pos.y)) % kLazyRate == 0) lazyTick(pos);
+        auto phase = static_cast<std::uint64_t>(pos.x * 7 + pos.z * 13 + pos.y);
+        if ((tick + phase) % kLazyRate == 0) lazyTick(pos);
+        // players coming into range (or back from another dimension) get the state again
+        if ((tick + phase) % 100 == 0) sendData(pos);
     }
     if (!gone.empty()) {
         for (auto const& p : gone) trackedSet().erase(p);
