@@ -20,7 +20,7 @@ namespace bd = common::blockdata;
 struct BlockDataCarrier {
     BlockDataCarrier() {
         registerDataCarrier({
-            "blockdata",
+            "common:blockdata", // not "blockdata": U22's own carrier (ActorsExt.h) has that name
             [](BlockSource&, core::GlobalPos const& pos) -> std::optional<nlohmann::json> {
                 auto doc = bd::take(pos);
                 if (!doc || !doc->is_object()) return doc;

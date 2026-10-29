@@ -649,7 +649,7 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   block at the position changes to another block *type* (break, replace, explosion, vanilla
   piston); state changes keep it. `onErase(fn)` lets owners drop contents first. Contraptions (U4)
   move every document with `take(pos)` (before removing the block) and `put(pos, doc)` (the
-  `blockdata` data carrier, so units need no carrier for what they keep here). Owners that cache
+  `common:blockdata` data carrier, so units need no carrier for what they keep here). Owners that cache
   their part elsewhere write it back in `onWriteBack(fn)` (before every save and before `take`) and
   adopt moved data in `onPut(fn)` (U2's kinetic records do both).
 - **Interactions** (`Interactions.h`, U32): one hook per GameMode action (`useItemOn`, `baseUseItem`,
@@ -808,7 +808,7 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   neighbour or a start block), `.chunkNotLoaded`, `.structureTooLarge` (> `maxBlocksMoved`).
 - **Carried data**: block NBT (`name` + states) and block entity NBT (chests keep their pair);
   `registerDataCarrier({name, capture, restore, rotate})` moves other units' per-block data; the
-  `blockdata` carrier moves every BlockData document (restore merges with what other carriers put
+  `common:blockdata` carrier moves every BlockData document (restore merges with what other carriers put
   back first), chassis ranges included; keys a unit carries itself are declared with
   `blockdata::ownCarrier`, direction-dependent ones turn through `blockdata::onRotate`. While
   moving, `Contraption::blockData(local)` / `actorData(local)` are the writable carried data
