@@ -30,6 +30,8 @@
 #include "feature/common/Items.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/contraption/PistonsExt.h"
+#include "feature/display/Display.h"
+#include "feature/packages/Packages.h"
 #include "feature/tracks/Tracks.h"
 #include "feature/tracks/TrainsExt.h"
 #include "feature/trains/Trains.h"
@@ -335,12 +337,14 @@ double navigationPenalty(Train const& self, tk::Graph const& g, tk::Edge const& 
 
 } // namespace
 
-ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual, std::string const& onlyStation) {
+ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual, std::string const& onlyStation, std::vector<std::string> const& anyOf) {
     std::vector<Station*>     candidates;
     std::vector<ct::TrackPos> dests;
     bool                      anyMatch = false;
     for (auto& [key, s] : state().stations) {
-        bool match = onlyStation.empty() ? ct::stationMatches(filter, s.name) : key == onlyStation;
+        bool match = !onlyStation.empty() ? key == onlyStation
+                   : !anyOf.empty()       ? std::find(anyOf.begin(), anyOf.end(), key) != anyOf.end()
+                                          : ct::stationMatches(filter, s.name);
         if (!match || s.pos.dim != t.dim) continue;
         anyMatch = true;
         if (s.assembling) continue;
@@ -410,6 +414,7 @@ void arriveAt(Train& t, Station& s) {
         }
     }
     log().info("trains: train #{} '{}' arrived at station '{}'", t.id, t.name, s.name);
+    display::notifyGatherers(s.pos); // Create: arrivals refresh display links
     if (auto* p = playerByUuid(t.controller)) actionBar(*p, trFor(*p, "create.train.arrived_at", "Arrived at {0}", s.name));
 }
 
@@ -422,7 +427,38 @@ public:
     explicit TrainDriver(Train& t) : mT(t) {}
 
     ct::StartResult startDestination(std::string const& filter) override { return navigateTo(mT, filter); }
-    ct::StartResult startPackages(bool, std::string const&) override { return ct::StartResult::NoTarget; }
+    ct::StartResult startPackages(bool delivery, std::string const& filter) override {
+        // Create's Deliver Package: the first package in cargo with a postbox for its address;
+        // Retrieve Package: a postbox holding a package addressed to `filter`
+        std::vector<std::string> targets;
+        if (delivery) {
+            std::vector<std::string> addresses;
+            forEachSlot([&](ItemStack const& s) {
+                if (!s.isNull() && packages::isPackage(s)) addresses.push_back(packages::addressOf(s));
+            });
+            if (addresses.empty()) return ct::StartResult::AlreadyThere; // nothing to deliver
+            for (auto const& address : addresses) {
+                for (auto const& [key, st] : state().stations)
+                    for (auto const& port : packages::postboxesForStation(st.pos))
+                        if (packages::matchAddress(address, port.address)) targets.push_back(key);
+                if (!targets.empty()) break;
+            }
+        } else {
+            for (auto const& [key, st] : state().stations) {
+                for (auto const& port : packages::postboxesForStation(st.pos)) {
+                    for (auto const& item : packages::portInventory(port.pos)) {
+                        if (item.isNull() || !packages::isPackage(item)) continue;
+                        auto address = packages::addressOf(item);
+                        if (packages::matchAddress(address, port.address)) continue; // delivered here
+                        if (filter.empty() || packages::matchAddress(address, filter)) targets.push_back(key);
+                    }
+                }
+            }
+        }
+        if (targets.empty()) return ct::StartResult::NoTarget;
+        auto r = navigateTo(mT, "", false, {}, targets);
+        return r == ct::StartResult::NoMatch ? ct::StartResult::NoTarget : r;
+    }
     void            rename(std::string const& title) override {
         log().info("trains: train #{} '{}' schedule title is now '{}'", mT.id, mT.name, title);
     }
@@ -716,6 +752,46 @@ void damageEntities(Train& t, Vec3d const& motion) {
     }
 }
 
+/// Create's Train.mailTransfer: packages addressed to a postbox of the station leave the train;
+/// packages waiting in the postboxes for other addresses board it.
+void transferMail(Train& t, Station const& st) {
+    auto ports = packages::postboxesForStation(st.pos);
+    if (ports.empty()) return;
+    for (auto& c : t.carriages) {
+        auto* con = contraption::find(c.contraption);
+        if (!con) continue;
+        auto& storage = con->storage();
+        for (auto const& port : ports) {
+            // unload
+            for (int guard = 0; guard < 18; ++guard) {
+                auto box = storage.extractItem(
+                    [&](ItemStack const& s) { return packages::isPackage(s) && packages::matchAddress(packages::addressOf(s), port.address); },
+                    1,
+                    true
+                );
+                if (box.isNull() || !packages::insertIntoPort(port.pos, box, true).isNull()) break;
+                box = storage.extractItem(
+                    [&](ItemStack const& s) { return packages::isPackage(s) && packages::matchAddress(packages::addressOf(s), port.address); },
+                    1,
+                    false
+                );
+                (void)packages::insertIntoPort(port.pos, box, false);
+                packages::notifyDelivered(port.pos);
+                log().info("trains: train #{} '{}' delivered a package to the postbox at {} {} {}", t.id, t.name, port.pos.x, port.pos.y, port.pos.z);
+            }
+            // load
+            for (int guard = 0; guard < 18; ++guard) {
+                auto outgoing = [&](ItemStack const& s) { return packages::isPackage(s) && !packages::matchAddress(packages::addressOf(s), port.address); };
+                auto box      = packages::extractFromPort(port.pos, outgoing, true);
+                if (box.isNull() || !storage.insertItem(box, true).isNull()) break;
+                box = packages::extractFromPort(port.pos, outgoing, false);
+                (void)storage.insertItem(box, false);
+                log().info("trains: train #{} '{}' picked up a package at {} {} {}", t.id, t.name, port.pos.x, port.pos.y, port.pos.z);
+            }
+        }
+    }
+}
+
 /// Tries to put a train whose track changed back on the graph (Create's reattachToTracks).
 bool reattach(Train& t) {
     auto loc = rail().nearestEdge(t.dim, t.lastFront, 0.6);
@@ -796,6 +872,10 @@ void tickTrain(Train& t) {
         t.runtime.tick(d);
     }
 
+    // mail: packages for the station's postboxes are unloaded, outgoing ones loaded (every 20 ticks)
+    if (s.tick % 20 == 0 && !t.currentStation.empty() && std::abs(t.speed) < 1e-6) {
+        if (auto* st = stationByKey(t.currentStation)) transferMail(t, *st);
+    }
     // cargo inactivity (Create checks every 20 ticks)
     if (s.tick % 20 == 0) {
         auto h = cargoHashOf(t);

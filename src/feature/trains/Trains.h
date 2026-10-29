@@ -220,7 +220,14 @@ void         tickTrains();
 /// Recomputes and applies every carriage transform (after load / assembly).
 void         placeCarriages(Train& t);
 /// Starts navigation to a station. Returns the schedule start result.
-ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual = false, std::string const& onlyStation = {});
+/// `anyOf` (station keys) replaces the name filter when not empty (package instructions).
+ct::StartResult navigateTo(
+    Train&                          t,
+    std::string const&              filter,
+    bool                            manual      = false,
+    std::string const&              onlyStation = {},
+    std::vector<std::string> const& anyOf       = {}
+);
 void         cancelNavigation(Train& t);
 /// Removes a train (carriages vanish, as Create's /create train remove).
 void         removeTrain(std::uint64_t id);

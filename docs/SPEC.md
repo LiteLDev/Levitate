@@ -544,8 +544,7 @@ U10, `train_door` is U10. U28: `track_signal`, `track_observer`.
 - `schedule` ("Train Schedule", stack 16): its schedule lives in the item's user data
   (`lv:schedule`, Create's NBT layout: `Entries` [{`Instruction` {Id, Data}, `Conditions` [[{Id,
   Data}]]}], `Cyclic`, `Progress`). Recipe: sturdy sheet (Create's `c:plates/obsidian`) + paper → 4.
-- The three crafting recipes need U10's railway casing and U9's precision mechanism / sturdy sheet:
-  they wait in `assets/pending_recipes/trains/`.
+- The three crafting recipes use U10's railway casing and U9's precision mechanism / sturdy sheet.
 
 ### 2.24 Schematics (U29)
 
