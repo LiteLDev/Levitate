@@ -6,6 +6,8 @@
 #include "ll/api/memory/Hook.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/world/Container.h"
+#include "mc/world/actor/Hopper.h"
 #include "mc/world/actor/item/ItemActor.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/gamemode/GameMode.h"
@@ -166,15 +168,36 @@ LL_TYPE_INSTANCE_HOOK(BeltsDisplayTickHook, ll::memory::HookPriority::Normal, It
     origin();
 }
 
+// ... and hoppers don't suck them in
+LL_TYPE_INSTANCE_HOOK(
+    BeltsDisplayHopperHook,
+    ll::memory::HookPriority::Normal,
+    Hopper,
+    &Hopper::_tryMoveInItem,
+    bool,
+    BlockSource&                                                  region,
+    Container&                                                    container,
+    std::optional<std::reference_wrapper<ItemActor>> const&       itemActor,
+    ItemStack&                                                    item,
+    int                                                           slot,
+    int                                                           face,
+    int                                                           itemCount
+) {
+    if (itemActor && isDisplayActor(itemActor->get())) return false;
+    return origin(region, container, itemActor, item, slot, face, itemCount);
+}
+
 void installHooks() {
     BeltsUseItemOnHook::hook();
     BeltsUseItemHook::hook();
     BeltsDestroyBlockHook::hook();
     BeltsDisplayTouchHook::hook();
     BeltsDisplayTickHook::hook();
+    BeltsDisplayHopperHook::hook();
 }
 
 void uninstallHooks() {
+    BeltsDisplayHopperHook::unhook();
     BeltsDisplayTickHook::unhook();
     BeltsDisplayTouchHook::unhook();
     BeltsDestroyBlockHook::unhook();

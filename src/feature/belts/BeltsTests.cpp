@@ -14,6 +14,8 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
+#include "mc/world/actor/Actor.h"
+#include "mc/world/actor/item/ItemActor.h"
 
 #include "feature/belts/BeltsInternal.h"
 #include "feature/common/BlockData.h"
@@ -261,16 +263,18 @@ LV_REGISTER_SELFTEST("belts.entities", [](Context& ctx) -> ll::coro::CoroTask<> 
     // dropped items land on the belt (players out of pickup range)
     p.teleport(Vec3{float(start.x) + .5f, float(start.y) + 12.f, float(start.z) - 6.f}, DimensionType(start.dim));
     ctx.player().teleport(Vec3{float(start.x) + .5f, float(start.y) + 12.f, float(start.z) - 8.f}, DimensionType(start.dim));
+    ctx.setBlock(a.at(6, 0, 1), "minecraft:stone"); // the stack stays on the (moving) belt
     auto level = ll::service::getLevel();
     auto mid   = a.at(3, 0, 1);
-    level->getSpawner().spawnItem(*regionOf(mid.dim), stackOf(ctx, "minecraft:apple", 2), nullptr, Vec3{mid.x + .5f, mid.y + 1.2f, mid.z + .5f}, 0);
+    auto* dropped = level->getSpawner().spawnItem(*regionOf(mid.dim), stackOf(ctx, "minecraft:apple", 2), nullptr, Vec3{mid.x + .5f, mid.y + 1.2f, mid.z + .5f}, 0);
+    ctx.require(dropped != nullptr, "item spawned");
+    dropped->mBuiltInComponents->mStateVectorComponent->mPosDelta = Vec3{0, 0, 0}; // straight down
     bool landed = false;
-    for (int i = 0; i < 40 && !landed; ++i) {
+    for (int i = 0; i < 60 && !landed; ++i) {
         co_await ctx.ticks(1);
         auto* belt = beltFor(a.at(0, 0, 1));
         landed     = belt && !belt->inv.empty();
-    }
-    ctx.check(landed, "a dropped item lands on the belt");
+    }    ctx.check(landed, "a dropped item lands on the belt");
     clearItems(a.at(0, 0, 1));
 });
 

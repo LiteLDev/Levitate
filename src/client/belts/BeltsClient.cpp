@@ -329,7 +329,7 @@ void renderBelts(BaseActorRenderContext& ctx) {
         }
         float rpm = 0;
         if (auto it = s.speeds.find(p); it != s.speeds.end()) rpm = it->second;
-        else if (s.asked.insert(p).second && ask.size() < 256) ask.push_back({p.x, p.y, p.z});
+        else if (ask.size() < 256 && s.asked.insert(p).second) ask.push_back({p.x, p.y, p.z});
 
         // the band moves at the items' speed (blocks per tick) -> texture pixels
         float surface = cb::beltMovementSpeed(rpm) * float(cb::facingStep(seg->facing)) * (cb::facingAxis(seg->facing) == cb::Axis::X ? -1.f : 1.f);

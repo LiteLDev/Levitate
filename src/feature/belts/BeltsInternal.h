@@ -73,18 +73,12 @@ struct StackData {
     std::int64_t display = 0; ///< display item entity (unique id), 0 none
 };
 
-struct Passenger {
-    GlobalPos segment;
-    int       ticksSinceCollision = 0;
-};
-
 struct Belt {
     GlobalPos                           controller;
     int                                 length = 0;
     cb::Inventory                       inv;
     std::map<std::uint64_t, StackData>  stacks;
-    std::map<std::int64_t, Passenger>   passengers; ///< by actor unique id
-    bool                                dirty = false;
+    cb::SegmentState                    state; ///< the controller's states (kept for when it is broken)
 };
 
 /// A launched item (weighted ejector).
@@ -105,7 +99,6 @@ struct Depot {
     std::vector<cb::Item>              incoming;
     std::map<std::uint64_t, StackData> stacks; ///< of `held` and `incoming`
     std::array<ItemStack, 8>           outputs{};
-    bool                               dirty = false;
     // weighted ejector
     EjectorState          state     = EjectorState::Charged;
     float                 lid       = 0;

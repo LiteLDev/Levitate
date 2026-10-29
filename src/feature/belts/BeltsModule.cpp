@@ -281,7 +281,10 @@ std::optional<GlobalPos> rebuildBelt(GlobalPos const& anySegment) {
     }
     indexAdd(*start);
     auto& s = state();
-    if (auto it = s.belts.find(*start); it != s.belts.end()) it->second->length = n;
+    if (auto it = s.belts.find(*start); it != s.belts.end()) {
+        it->second->length = n;
+        if (auto st = segmentAt(*start)) it->second->state = *st;
+    }
     return start;
 }
 
@@ -347,6 +350,7 @@ Belt* beltFor(GlobalPos const& controller) {
     auto b        = std::make_unique<Belt>();
     b->controller = controller;
     b->length     = int(chainFrom(controller).size());
+    b->state      = *seg;
     if (auto const* d = blockdata::get(controller)) {
         if (auto it = d->find("belt"); it != d->end() && it->is_object()) {
             std::vector<cb::Item> items;
@@ -456,7 +460,7 @@ void indexRemove(GlobalPos const& p) {
 // ---- items in the world -------------------------------------------------------------------------------
 
 cb::Vec3d itemWorldPos(Belt const& belt, cb::Item const& item) {
-    auto      seg = segmentAt(belt.controller).value_or(cb::SegmentState{});
+    auto      seg = segmentAt(belt.controller).value_or(belt.state); // the START may be gone (breaking)
     cb::Vec3d v   = cb::vectorForOffset(seg, belt.length, item.beltPosition);
     // side offset: along the clockwise horizontal of the facing (Create negates it for x belts)
     cb::Vec3i side = cb::facingNormal(cb::clockwise(seg.facing));
@@ -476,7 +480,6 @@ void ejectAll(Belt& belt) {
     }
     belt.inv.items.clear();
     belt.stacks.clear();
-    belt.dirty = true;
 }
 
 void dropDepotContents(Depot& d) {
@@ -780,14 +783,14 @@ void saveWorld() {
     auto& s = state();
     if (!game::db::available()) return;
     for (auto& [pos, b] : s.belts) {
-        if (!loadedAt(pos) || !segmentAt(pos)) continue;
+        if (loadedAt(pos) && !segmentAt(pos)) continue; // gone (an unloaded belt is still saved)
         auto& d = blockdata::edit(pos);
         if (!d.contains("belt") || !d["belt"].is_object()) d["belt"] = Json::object();
         d["belt"]["items"]    = itemsJson(b->inv.all(), b->stacks);
         d["belt"]["positive"] = b->inv.movementPositive;
     }
     for (auto& [pos, dep] : s.depots) {
-        if (!loadedAt(pos) || !isDepotId(idAt(pos))) continue;
+        if (loadedAt(pos) && !isDepotId(idAt(pos))) continue;
         blockdata::edit(pos)["depot"] = depotJson(*dep);
     }
     if (s.indexDirty) {

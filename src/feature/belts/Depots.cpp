@@ -71,7 +71,6 @@ void setHeld(Depot& d, cb::Item item, StackData data) {
     }
     d.held             = item;
     d.stacks[item.id]  = std::move(data);
-    d.dirty            = true;
 }
 
 void removeHeld(Depot& d) {
@@ -81,7 +80,6 @@ void removeHeld(Depot& d) {
         d.stacks.erase(it);
     }
     d.held.reset();
-    d.dirty = true;
 }
 
 /// Create's DepotBehaviour.insert.
@@ -110,7 +108,6 @@ ItemStack insertInternal(Depot& d, TransportedItem const& t, bool simulate) {
         } else {
             setHeld(d, it, std::move(sd));
         }
-        d.dirty = true;
     };
     if (canMergeItems(d)) {
         int remaining = depotMaxStack(d) - presentCount(d);
@@ -185,7 +182,8 @@ bool poweredAt(GlobalPos const& p) {
         if (game::intState(*b, "button_pressed_bit").value_or(0)) return true;
         if (id == "minecraft:observer" && game::intState(*b, "powered_bit").value_or(0)) return true;
         if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return true;
-        if (id == "minecraft:redstone_torch" && dy[f] >= 0) return true;
+        // a lit torch below powers the block above it (a torch on top stands on the ejector)
+        if (id == "minecraft:redstone_torch" && dy[f] < 0) return true;
     }
     return false;
 }
@@ -260,7 +258,6 @@ void activate(Depot& d) {
     d.state       = EjectorState::Launching;
     d.launchTicks = 0;
     d.lid         = 1;
-    d.dirty       = true;
     setLidState(d, 1);
     playSound(d.pos, "tile.piston.out", .35f, 1.5f);
 }
@@ -297,7 +294,6 @@ void tickAirborne(Depot& d) {
             spawnItem(d.pos, at.x, at.y, at.z, rest, n.x * (a1 - a0), u1 - u0, n.z * (a1 - a0));
         }
         it      = d.airborne.erase(it);
-        d.dirty = true;
     }
 }
 
@@ -381,7 +377,6 @@ bool applyOnDepot(Depot& d, float maxDistance, ProcessFn const& fn) {
         auto rest = insertOutput(d, out);
         spawnItem(d.pos, d.pos.x + .5, d.pos.y + 1, d.pos.z + .5, rest);
     }
-    d.dirty = true;
     return true;
 }
 
@@ -410,7 +405,6 @@ void tickDepot(Depot& d) {
             d.stacks.erase(sd);
         }
         it      = d.incoming.erase(it);
-        d.dirty = true;
     }
     if (d.held && citems::isEmpty(heldStack(d))) removeHeld(d);
 
@@ -446,7 +440,6 @@ void tickDepot(Depot& d) {
                     } else if (d.held) {
                         d.held->locked = same ? result == ProcessingResult::Hold : d.held->locked;
                     }
-                    d.dirty = true;
                 }
             } else if (d.held->locked) {
                 d.held->locked = false;
@@ -458,13 +451,13 @@ void tickDepot(Depot& d) {
     // displays: the held stack on top, the outputs are not shown
     cb::Vec3d centre{d.pos.x + .5, d.pos.y + cb::kBeltTop, d.pos.z + .5};
     if (d.held) {
-        auto      from = cb::faceNormal(d.held->insertedFrom);
+        auto      from = cb::faceNormal(cb::oppositeFace(d.held->insertedFrom)); // the side it came in through
         double    k    = .5 - d.held->beltPosition; // 0.5 at the edge, 0 at the centre
         cb::Vec3d at   = centre + cb::Vec3d{from.x * k, 0, from.z * k};
         syncDisplay(d.pos, d.stacks[d.held->id], at);
     }
     for (auto& i : d.incoming) {
-        auto      from = cb::faceNormal(i.insertedFrom);
+        auto      from = cb::faceNormal(cb::oppositeFace(i.insertedFrom));
         double    k    = .5 - i.beltPosition;
         syncDisplay(d.pos, d.stacks[i.id], centre + cb::Vec3d{from.x * k, 0, from.z * k});
     }
@@ -502,15 +495,11 @@ bool onDepotUse(Player& player, GlobalPos const& pos, int /*face*/, cb::Vec3d co
         ++took;
     }
     if (!wasEmpty) {
-        TransportedItem t;
-        t.stack        = held;
-        t.insertedFrom = cb::faceOfFacing(game::playerFacing(player));
-        t.beltPosition = .25f;
         cb::Item it;
         it.id               = newItemId();
         it.beltPosition     = .25f;
         it.prevBeltPosition = .25f;
-        it.insertedFrom     = t.insertedFrom;
+        it.insertedFrom     = cb::faceOfFacing(game::playerFacing(player)); // travels away from the player
         StackData sd;
         sd.stack = held;
         setHeld(*d, it, std::move(sd));
@@ -521,7 +510,6 @@ bool onDepotUse(Player& player, GlobalPos const& pos, int /*face*/, cb::Vec3d co
     } else if (took) {
         log().info("belts: {} took {} stack(s) from the {} at {}", player.getRealName(), took, d->ejector ? "ejector" : "depot", posText(pos));
     }
-    d->dirty = true;
     return true;
 }
 
@@ -559,7 +547,6 @@ void onEjectorPlaced(GlobalPos const& pos, State::PlaceIntent const& intent) {
         }
     }
     if (auto const* b = game::blockWith(kEjectorId, {{kFacing, facing}, {kLid, 0}, {kRotor, 0}})) setBlockQuiet(pos, *b);
-    d->dirty = true;
     common::blockdata::edit(pos)["depot"]["target"] = Json::array({d->targetH, d->targetV});
     log().info("belts: ejector placed at {} facing {} (target {} ahead, {} up)", posText(pos), facing, d->targetH, d->targetV);
 }
@@ -595,7 +582,6 @@ void registerDepotCapabilities() {
                     auto out = citems::withCount(o, n);
                     if (!simulate) {
                         o       = citems::withCount(o, citems::countOf(o) - n);
-                        d->dirty = true;
                     }
                     return out;
                 }
@@ -608,7 +594,6 @@ void registerDepotCapabilities() {
                     int left = citems::countOf(sd.stack) - n;
                     if (left <= 0) removeHeld(*d);
                     else sd.stack = citems::withCount(sd.stack, left);
-                    d->dirty = true;
                 }
                 return out;
             },
@@ -653,7 +638,6 @@ void registerEjectorBox() {
                     auto* d = depotFor(p);
                     if (!d) return;
                     d->stackSize = core::common::plainFromSettings(v, 0, 64);
-                    d->dirty     = true;
                     common::blockdata::edit(p)["depot"]["stackSize"] = d->stackSize;
                     log().info("belts: {} set the ejector at {} to stack size {}", editor.getRealName(), posText(p), d->stackSize);
                 },

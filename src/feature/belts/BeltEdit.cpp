@@ -100,7 +100,6 @@ void putItems(std::vector<Loose>& items) {
         l.item.insertedAt = info->index;
         b->stacks[l.item.id] = std::move(l.data);
         b->inv.insertSorted(l.item);
-        b->dirty = true;
     }
     items.clear();
 }
@@ -209,7 +208,6 @@ std::optional<bool> useWrench(Player& player, GlobalPos const& pos, cb::SegmentS
     }
 
     // split in two
-    GlobalPos centre{pos.dim, pos.x, pos.y, pos.z};
     double    dot          = hitFromCentre.x * v.x + hitFromCentre.y * v.y + hitFromCentre.z * v.z;
     bool      towardsStart = dot < 0;
     int       a            = towardsStart ? info->index - 1 : info->index; // split between a and a + 1
@@ -227,7 +225,6 @@ std::optional<bool> useWrench(Player& player, GlobalPos const& pos, cb::SegmentS
     rebuildBelt(pa);
     rebuildBelt(pb);
     putItems(items);
-    (void)centre;
     log().info("belts: {} split the belt at {} into {} + {} blocks", player.getRealName(), posText(pos), a + 1, length - a - 1);
     return true;
 }

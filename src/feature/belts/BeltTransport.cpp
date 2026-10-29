@@ -138,14 +138,12 @@ public:
             auto             c    = ctxFor(current, proc);
             if (!c || !proc->held) {
                 item.locked = false;
-                mBelt.dirty = true;
                 return false;
             }
             auto result = run(proc->held, *c);
             if (result == ProcessingResult::Remove) return removeItem(item);
             if (result == ProcessingResult::Hold) return false;
             item.locked = false;
-            mBelt.dirty = true;
             return false;
         }
         if (noMovement) return false;
@@ -163,7 +161,6 @@ public:
                 if (result == ProcessingResult::Hold) {
                     item.beltPosition = segment + .5f + (positive ? 1 / 512.f : -1 / 512.f);
                     item.locked       = true;
-                    mBelt.dirty       = true;
                     return false;
                 }
             }
@@ -188,7 +185,6 @@ public:
             fromApi(api, item, sd);
             if (citems::isEmpty(sd.stack)) {
                 removeDisplay(sd);
-                mBelt.dirty = true;
                 return true; // removed next tick (empty stack)
             }
             if (r == PassResult::Stop) return true;
@@ -201,7 +197,6 @@ public:
             removeDisplay(it->second);
             mBelt.stacks.erase(it);
         }
-        mBelt.dirty = true;
         return true;
     }
 
@@ -272,7 +267,7 @@ void transportEntity(Belt& belt, BeltEnv const& env, Actor& entity, GlobalPos co
                       || (part == (slope == cb::Slope::Upward ? cb::Part::Start : cb::Part::End) && rel > top));
     bool movingDown = onSlope && slope == (movementFacing == beltFacing ? cb::Slope::Downward : cb::Slope::Upward);
     bool movingUp   = onSlope && slope == (movementFacing == beltFacing ? cb::Slope::Upward : cb::Slope::Downward);
-    if (axis == cb::Axis::Z) std::swap(movingDown, movingUp);
+    // (Create swaps these on the z axis to undo its own movement facing there; ours is the real one)
     double along = axis == cb::Axis::X ? mx : mz;
     if (movingUp) my += std::abs(along);
     if (movingDown) my -= std::abs(along);
@@ -308,7 +303,7 @@ void tickBelt(Belt& belt) {
         if (!belt.inv.empty()) ejectAll(belt);
         return;
     }
-    if (belt.inv.tick(env)) belt.dirty = true;
+    belt.inv.tick(env);
 
     auto* region = regionOf(belt.controller.dim);
     auto  level  = ll::service::getLevel();
@@ -391,7 +386,6 @@ ItemStack insertOnSegment(GlobalPos const& segment, ItemStack const& stack, bool
     it.prevBeltPosition = it.beltPosition;
     belt->stacks[it.id].stack = stack;
     belt->inv.addItem(it);
-    belt->dirty = true;
     return ItemStack();
 }
 
@@ -415,7 +409,6 @@ ItemStack extractFromSegment(GlobalPos const& segment, int amount, std::function
     } else {
         sd->second.stack = citems::withCount(sd->second.stack, left);
     }
-    belt->dirty = true;
     return out;
 }
 
@@ -468,7 +461,6 @@ ItemStack insertFromSide(GlobalPos const& segment, TransportedItem const& item, 
     sd.processedBy      = item.processedBy;
     sd.extra            = item.extra;
     belt->inv.addItem(it);
-    belt->dirty = true;
     return ItemStack();
 }
 
@@ -508,7 +500,6 @@ bool applyOnBelt(Belt& belt, float position, float maxDistance, ProcessFn const&
         }
         belt.inv.toRemove.push_back(it.id);
     }
-    if (dirty) belt.dirty = true;
     return dirty;
 }
 
