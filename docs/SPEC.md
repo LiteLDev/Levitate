@@ -206,7 +206,24 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 ### 2.18 Contraption actors (U22)
 
 `mechanical_harvester`, `mechanical_plough`, `mechanical_roller`, `portable_storage_interface`,
-`contraption_controls`, `<colour>_seat` (16).
+`contraption_controls`, `<colour>_seat` (16, Create's dye order: white, orange, magenta, light_blue,
+yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, black). Behaviour in §3.6.1.
+
+- States: `levitate:facing` 0..5 (Bedrock facing order, the front). Harvester, plough and roller
+  (Create's AttachedActorBlock): placed on a side face they face away from it (on another of
+  these actors: its facing), placed on a top / bottom face they face the player; they hang on the
+  block behind them (moved with it). Harvester and roller also have `levitate:anim` 0..3 (the
+  animation step the client mod shows on contraptions; always 0 in the world). Portable storage
+  interface: faces the player (the nearest look direction, 6 ways; sneaking: away), plus
+  `levitate:extended` (shown while connected). Contraption controls: faces the player
+  (horizontal), plus `levitate:disabled` (the indicator). Seats: no states, 8 px high.
+- Drops: themselves. Mining time 2.5 s (actors), 1 s (seats).
+- Recipes (Create 6.0.10): harvester = andesite alloy, iron sheet, andesite alloy ×2 rows / _
+  andesite casing _; plough = iron sheet ×3 / andesite alloy ×3 / _ andesite casing _; roller =
+  electron tube / andesite casing / crushing wheel; portable storage interface = andesite casing +
+  chute (shapeless); contraption controls = button / andesite casing / electron tube; seat =
+  `<colour>_wool` + any wooden slab (shapeless, in the BP). The actor recipes need other units'
+  items and wait in `assets/pending_recipes/actors/`.
 
 ### 2.19 Redstone (U23)
 
@@ -604,6 +621,94 @@ the details and numbers it implemented. Short reminders of the less obvious ones
 - **Ponder (U30)**: hold W over an item to open Ponder (client mod only), index of all scenes,
   animated scenes built from our blocks.
 
+#### 3.6.1 Contraption actors (U22)
+
+Implemented in `src/feature/actors/` (client part `src/client/actors/`); every actor is a
+`contraption::registerActor` behaviour (Create's MovementBehaviour). An actor's *active area* is
+a point ahead of its centre (rotated with the contraption); whenever that point enters a new
+block, the actor *visits* it. Common rules (Create's MovementBehaviour / BlockBreakingMovementBehaviour):
+
+- **Items** an actor collects go into contraption storage when `moveItemsToStorage` (default
+  true); the rest drops at the actor with velocity `(motion + (0, 0.5, 0)) · random[0, 0.3)`.
+- **Breaking** (plough, roller): a breakable block (not air / liquid / unbreakable) stalls the
+  contraption until broken. Speed = `|animation speed| / 500` clamped to [1/128, 16] (roller × 1.5),
+  animation speed = `⌊(|motion| · 1000 + 100) / 100⌋ · 100` (blocks per tick); every step adds
+  `clamp(⌊speed / hardness⌋, 1, 10 − progress)` to a progress of 10 and waits `⌊hardness / speed⌋`
+  ticks, playing the hit sound (0.25 volume); progress only advances while the contraption tries
+  to move. Breaking is cancelled when the actor stops.
+- **Entities** in a visited block (unless it is a solid full block) are thrown: the motion plus a
+  quarter of its length upwards, capped at 4 blocks per tick (players get the motion packet).
+  The roller also hurts them: `clamp(6 · |motion|^0.4 + 1, 2, 10)`. Items, display entities and
+  seat entities are left alone.
+- **Contraption controls** can disable an actor type (below); a disabled actor does nothing.
+
+Actors:
+
+- **Mechanical harvester**: area 0.45 ahead; inactive while moving towards its back. Visited:
+  crops (wheat, carrots, potatoes, beetroot, torchflower crop, melon / pumpkin stems, nether wart,
+  sweet berry bush, cocoa) are harvested when fully grown (`harvestPartiallyGrown`: any age above 0
+  when replanting, berries above 1; cocoa always needs full age) and replanted at age 0 (berry bush
+  age 1) when `harvesterReplants`, one seed (the crop's own item) taken from the drops; sugar cane,
+  kelp, weeping / twisting / cave vines and bush-type plants (grass, ferns, flowers, saplings,
+  roots, fungi, seagrass, dead bush, ...; not mushrooms) are cut to air (water for kelp and
+  seagrass); leaves are sheared (each drop with 45 % chance). Cactus, bamboo, melons and pumpkins
+  are not harvested (as Create). No stationary effect.
+- **Mechanical plough**: area 0.45 ahead; inactive while moving towards its back. Breaks blocks
+  without a collision shape (grass, flowers, torches, rails, redstone, snow layers — dropped as with
+  an iron shovel) and Create's tracks, never liquids, fake tracks or anything standing on farmland;
+  throws entities (no damage); then uses a hoe on the block below each visited block (vanilla:
+  grass / dirt / dirt path → farmland, coarse / rooted dirt → dirt, rooted dirt drops hanging roots;
+  needs air above). No stationary effect.
+- **Mechanical roller**: active only while moving towards its front (not on pulleys); area 0.45
+  ahead and 2 blocks down. Settings on its top face (shared along a row of rollers facing the same
+  way, up to 99 each side; a placed roller copies its neighbour's): *Paving Material* (filter slot,
+  a full-cube block without block entity, not stairs / slabs) and *Roller Mode* (value box):
+  *Clear Blocks and Pave* (default), *Straight Fill Below*, *Sloped Fill Below*. Visiting a block:
+  hurts and throws entities; in tunnel mode it breaks the blocks with a collision shape 1..2 blocks
+  above the visited block (0..2 when the material is in storage; the material itself is kept),
+  hardest first, the others at once (drops: nothing from blocks that need a tool, otherwise each
+  drop 50 % into storage, the rest is lost); then it paves the visited block's column: layer by
+  layer from depth 0 down to `rollerFillDepth` (12), straight = one block, sloped = a diamond of
+  radius `⌊(depth + 1) / 2⌋`, tunnel = depth 0 only; a position already holding the material passes,
+  a solid non-replaceable one (or a portal) fails, a replaceable one (or leaves) takes one item
+  from storage; a layer with a placement stops (falling blocks keep going), an all-failed layer
+  below the first stops. After a placement the roller waits 2 ticks (stalled) and fills the same
+  column again.
+- **Portable storage interface**: a carried PSI's area is 1.85 ahead of its front; a stationary
+  PSI there or one block further that faces back at it and is not powered connects (Create's
+  timer: connecting sets 14, connected while 4 ≤ timer ≤ `psiTimeout` + 4, a transfer sets
+  `psiTimeout` + 4, it counts down every tick, at 0 or when powered it disconnects; the carried PSI
+  keeps it alive every tick, 2 ticks after the contraption left it retracts). While connected the
+  stationary PSI exposes the contraption's merged inventories through the item capability (funnels,
+  chutes, arms ...), and vanilla hoppers next to it work as with a container (one item per 8 ticks
+  from a hopper pointing into it, into a hopper below it). A moving contraption is held once the
+  carried PSI's active point passes the stationary PSI's centre, until its timer drops to 4
+  (`psiTimeout` = 60 ticks after the last transfer). It also connects when the contraption stands
+  still. Block state `levitate:extended` shows the connection.
+- **Contraption controls**: on a contraption, right-click (empty hand into the air needs the client
+  mod; with an item, or when a world block is behind it, any client) toggles the actors its filter
+  targets (Create's disabled-actor list; empty filter: all actors): message "All Actors: On/Off" /
+  "<item> Actors: On/Off" (action bar), click sound pitch 1.5 on / 0.8 off. Toggling one type
+  while everything is off switches every other type off one by one. Stationary: right-click
+  toggles it, a change of redstone power sets disabled = powered (polled every 2 ticks); filter
+  slot on its top (Targeted Component). Assembled while disabled, its target starts disabled; when
+  the contraption stops it remembers whether its target is disabled (indicator). Actors of every
+  unit can be disabled (their block item is the type); the controls themselves cannot.
+- **Seats**: right-click sits the player (an invisible rideable `levitate:seat` entity, as Create's
+  SeatEntity; sneak to leave), or a mob the player leads on a leash within 10 blocks; a mob already
+  sitting there is ejected for the player, a player there keeps the seat. A dye of another colour
+  recolours it (the dye stays). A living mob (not a shulker / armor stand; hostile ones only with
+  `seatHostileMobs`) standing on a free seat sits down (checked every 2 ticks); the seat entity
+  disappears when its seat or rider is gone and puts a mob rider half a block up. On a contraption
+  the engine carries seated entities (assembled riders stay seated); a moving seat picks up mobs it
+  touches, a solid block (or a bottom slab) moving into it puts its rider on top; at disassembly
+  riders sit down on the placed seat again. Right-clicking a seat on a contraption sits the player.
+- **Client mod**: on moving contraptions the harvester's blades turn by 50° per block travelled
+  (Create: animation speed / 20 per tick) and the roller's drum rolls on the ground; shown by
+  swapping the display entity's block for the animation step while it is drawn.
+- Config `config/actors.json`, log lines `actors: ...` (harvested / broke / tilled / paved,
+  psi connected / disconnected / holds, controls toggled, seat sat down / dyed).
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -663,6 +768,10 @@ place:
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
 
+`config/actors.json` (U22): `harvestPartiallyGrown` false, `harvesterReplants` true,
+`moveItemsToStorage` true, `rollerFillDepth` 12 (Create's CKinetics), `psiTimeout` 60,
+`seatHostileMobs` true (Create's CLogistics).
+
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
 `mediumCapacity` (256), `highCapacity` (1024), `impact` {block path: SU per RPM} and `capacity`
@@ -710,6 +819,12 @@ matches Create's official Chinese translation wording).
 | Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
 | Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
+| PSI comparator output (U22) | a data-driven block can't give a comparator signal (the block type's comparator virtuals are folded game functions that can't be hooked per block) | the `levitate:extended` state shows the connection |
+| Actors dropping off when the block behind them goes (U22) | data-driven blocks get no neighbour updates and placement filters can't follow a facing state | they stay; they still move with the block behind them |
+| Seats halving fall damage, mobs bouncing on seats (U22) | no fall-damage or bounce hook for data-driven blocks | normal landing; mobs that land on a free seat sit down |
+| Right-clicking contraption blocks with an empty hand into the air on **vanilla** clients (U22) | a vanilla client sends nothing for an empty-hand click into the air, and display entities can't be clicked | with an item in hand, or with a world block behind, the server casts the look itself; the client mod sends the click |
+| Seat dyeing recipe (seat + dye) (U22) | Bedrock recipes can't use an item tag of our seats | dye a placed seat with a right-click (as Create) |
+| Riders sitting on moving contraption seats (U22) | the engine (U4) carries riders by teleporting them | they stand on the seat while it moves and sit down again on the placed seat |
 
 Units add rows here in their PRs when they find something else impossible.
 

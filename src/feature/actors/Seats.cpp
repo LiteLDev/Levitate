@@ -4,7 +4,7 @@
 // Create's SeatEntity; sneak to leave), or seats a mob the player leads on a leash within 10
 // blocks; a mob sitting there is replaced by the player. Dye of another colour recolours it (the
 // dye is not used). Mobs that stand on a free seat sit down (hostile ones when seatHostileMobs).
-// Seats halve fall damage (Bedrock: the block's fall damage multiplier). On a contraption the
+// On a contraption the
 // engine carries the seated entities (`registerSeat`); a moving seat picks up mobs it touches
 // and drops its rider on top of a solid block it moves into; at disassembly the riders sit down
 // on the placed seats again.
