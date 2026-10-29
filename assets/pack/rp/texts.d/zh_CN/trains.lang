@@ -1,0 +1,7 @@
+tile.levitate:track_station.name=列车站点
+item.levitate:track_station=列车站点
+tile.levitate:small_bogey.name=小转向架
+tile.levitate:large_bogey.name=大转向架
+tile.levitate:controls.name=列车驾驶台
+item.levitate:controls=列车驾驶台
+item.levitate:schedule.name=列车时刻表

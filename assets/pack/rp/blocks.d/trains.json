@@ -1,0 +1,14 @@
+{
+  "levitate:track_station": {
+    "sound": "metal"
+  },
+  "levitate:small_bogey": {
+    "sound": "metal"
+  },
+  "levitate:large_bogey": {
+    "sound": "metal"
+  },
+  "levitate:controls": {
+    "sound": "metal"
+  }
+}

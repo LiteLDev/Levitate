@@ -1,0 +1,20 @@
+{
+  "levitate_track_station_side": {
+    "textures": "textures/blocks/track_station_side"
+  },
+  "levitate_track_station_side_assembling": {
+    "textures": "textures/blocks/track_station_side_assembling"
+  },
+  "levitate_track_station_top": {
+    "textures": "textures/blocks/track_station_top"
+  },
+  "levitate_track_station_bottom": {
+    "textures": "textures/blocks/track_station_bottom"
+  },
+  "levitate_bogey": {
+    "textures": "textures/blocks/bogey"
+  },
+  "levitate_controls": {
+    "textures": "textures/blocks/controls"
+  }
+}
