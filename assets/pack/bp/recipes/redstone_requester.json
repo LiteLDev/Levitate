@@ -1,0 +1,36 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:redstone_requester"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "C",
+      "A",
+      "B"
+    ],
+    "key": {
+      "C": {
+        "item": "minecraft:redstone"
+      },
+      "A": {
+        "item": "levitate:stock_link"
+      },
+      "B": {
+        "item": "minecraft:iron_ingot"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:redstone"
+      }
+    ],
+    "result": {
+      "item": "levitate:redstone_requester",
+      "count": 1
+    }
+  }
+}
