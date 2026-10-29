@@ -4,7 +4,6 @@
   "create.gui.goggles.fluid_container.capacity": "容量：",
   "create.gui.goggles.generator_stats": "应力发生器状态：",
   "create.gui.goggles.kinetic_stats": "动力学状态：",
-  "create.gui.stressometer.overstressed": "应力过载",
   "create.gui.contraptions.network_overstressed": "显然此应力网络_已过载_。请添加更多动力源或者_减慢_网络中高_应力影响_的元件。",
   "create.gui.contraptions.not_fast_enough": "显然 {} _没有_达到_足够_的_转速_。",
   "create.gui.config.overlay1": "嗨 :)",
