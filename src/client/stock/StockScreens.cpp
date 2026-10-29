@@ -328,8 +328,8 @@ public:
             r.name->maxLength   = 64;
             r.name->placeholder = ctr("create.gui.stock_ticker.empty_category_name_placeholder", "(Empty)");
             r.del  = &add<IconButton>(Rect{167, y + 1, 16, 16}, "x", [this, i] { mSend({{"op", "remove"}, {"index", i}}); });
-            r.up->tooltip   = {ctr("lv.stock.screen.category_up", "Move up")};
-            r.down->tooltip = {ctr("lv.stock.screen.category_down", "Move down")};
+            r.up->tooltip   = {ctr("create.gui.schedule.move_up", "Move up")};
+            r.down->tooltip = {ctr("create.gui.schedule.move_down", "Move down")};
             r.name->tooltip = {ctr("create.gui.stock_ticker.category_name", "Category Name")};
             r.del->tooltip  = {ctr("create.gui.stock_ticker.delete_category", "Delete Category")};
             r.del->litColour = color::kButtonOff;

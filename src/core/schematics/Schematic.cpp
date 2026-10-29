@@ -445,9 +445,15 @@ bool transformStates(BlockState& st, Transform const& t) {
     auto  name    = std::string_view(st.name);
     bool  odd     = (((t.rotation % 4) + 4) % 4) % 2 == 1;
 
+    // the chute's facing runs 0 down, 1..4 north / south / west / east (U35, SPEC §3.6.35)
+    bool chute = name == "levitate:chute";
     for (auto const* key : {"facing_direction", "levitate:facing"}) {
         if (auto* tag = s.find(key)) {
             auto v = tag->asInt();
+            if (chute && std::string_view(key) == "levitate:facing") {
+                if (v && *v >= 1 && *v <= 4) changed |= setInt(*tag, dirIndex(tv(t, kDir[static_cast<std::size_t>(*v + 1)])) - 1);
+                continue;
+            }
             if (v && *v >= 0 && *v <= 5) changed |= setInt(*tag, dirIndex(tv(t, kDir[static_cast<std::size_t>(*v)])));
         }
     }

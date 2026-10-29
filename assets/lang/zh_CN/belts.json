@@ -1,7 +1,7 @@
 {
-  "create.weighted_ejector.target_set": "已选定目标",
-  "create.weighted_ejector.target_not_valid": "将弹射至相邻方块（目标无效）",
-  "create.weighted_ejector.no_target": "将弹射至相邻方块（未选择目标）",
-  "create.weighted_ejector.targeting": "将弹射至 [{0},{1},{2}]",
-  "create.weighted_ejector.stack_size": "弹射堆叠数量"
+  "create.weighted_ejector.target_set": "目标已选取",
+  "create.weighted_ejector.target_not_valid": "弹射至临近方块（目标无效）",
+  "create.weighted_ejector.no_target": "弹射至临近方块（未选择目标）",
+  "create.weighted_ejector.targeting": "弹射至 [{0},{1},{2}]",
+  "create.weighted_ejector.stack_size": "弹射物品堆数量"
 }

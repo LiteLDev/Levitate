@@ -167,13 +167,6 @@ end
 
 -- Bedrock reads a list-valued integer block state by the value's POSITION in the list, so a state
 -- declared [2,3,4,5] reads back 0..3. Every integer state list must be 0..n in order.
--- Files that broke the rule before the check existed: reported as warnings until their unit fixes
--- them (then remove the entry; a new violation anywhere else fails the build).
-local known_state_violations = {
-    ["chute.json"]       = "U12: levitate:facing and levitate:shape must be 0..n",
-    ["smart_chute.json"] = "U12: levitate:powered must be [0, 1]",
-}
-
 local function check_block_states(bpsrc)
     for _, file in ipairs(os.files(path.join(bpsrc, "blocks", "**.json"))) do
         local doc = json.loadfile(file)
@@ -186,10 +179,7 @@ local function check_block_states(bpsrc)
                         if type(v) ~= "number" or v ~= i - 1 then
                             local msg = string.format("block state '%s' in %s must list the integers 0..%d in order (Bedrock reads integer states by position), got %s at index %d",
                                 name, file, #values - 1, tostring(v), i - 1)
-                            local known = known_state_violations[path.filename(file)]
-                            if not known then raise(msg) end
-                            cprint("${bright yellow}[assemble] warning (%s): ${reset}%s", known, msg)
-                            break
+                            raise(msg)
                         end
                     end
                 end

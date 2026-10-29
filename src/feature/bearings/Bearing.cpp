@@ -546,7 +546,7 @@ void registerBearingBoxes() {
         kClockworkBearing,
         "hands",
         "create.contraptions.clockwork.clock_hands",
-        "Clock Hands",
+        "Clock Hand Arrangement",
         {
             {"create.contraptions.clockwork.hour_first",    "Hour hand first"   },
             {"create.contraptions.clockwork.minute_first",  "Minute hand first" },

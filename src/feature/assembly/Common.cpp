@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <numbers>
+#include <unordered_map>
 
 #include "ll/api/service/Bedrock.h"
 
@@ -28,8 +29,10 @@
 
 #include "feature/assembly/AssemblyInternal.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
+#include "game/WorldDb.h"
 #include "mod/Config.h"
 
 namespace lv::feature::assembly {
@@ -54,6 +57,31 @@ Player* playerById(std::int64_t uniqueId) {
     ActorUniqueID id;
     id.rawID = uniqueId;
     return level->getPlayer(id);
+}
+
+bool logAction(std::string const& key, int& suppressed) {
+    struct Entry {
+        std::uint64_t last    = 0;
+        int           skipped = 0;
+        bool          logged  = false;
+    };
+    static std::unordered_map<std::string, Entry> entries;
+    // the tick restarts with every world (the client loads several): forget the old entries
+    static bool const registered = [] {
+        game::db::onWorldClosed([] { entries.clear(); });
+        return true;
+    }();
+    (void)registered;
+    constexpr std::uint64_t kInterval = 200; // 10 s
+    auto  now = currentTick();
+    auto& e   = entries[key];
+    if (e.logged && now >= e.last && now - e.last < kInterval) {
+        ++e.skipped;
+        return false;
+    }
+    suppressed = e.skipped;
+    e          = Entry{now, 0, true};
+    return true;
 }
 
 void actionBar(Player& player, std::string const& text) {
@@ -105,27 +133,7 @@ Block const* withStates(Block const& block, std::vector<std::pair<std::string, i
     return cur;
 }
 
-bool powered(BlockSource& region, BlockPos const& pos) {
-    for (int f = 0; f < 6; ++f) {
-        auto n = offsetPos(pos, static_cast<Face>(f));
-        if (!region.hasChunksAt(n, 0, false)) continue;
-        auto const& block = region.getBlock(n);
-        if (block.isAir()) continue;
-        std::string const& id = block.getTypeName();
-        if (id == "minecraft:redstone_block") return true;
-        if (game::intState(block, "redstone_signal").value_or(0) > 0) return true;
-        if (id == "minecraft:lever" && game::intState(block, "open_bit").value_or(0)) return true;
-        if (game::intState(block, "button_pressed_bit").value_or(0)) return true;
-        if (id == "minecraft:observer" && game::intState(block, "powered_bit").value_or(0)) return true;
-        if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return true;
-        if (id == "minecraft:redstone_torch") {
-            // a torch powers every neighbour but the block it is attached to; floor torches stand
-            // below, which is the common case checked here
-            if (f != static_cast<int>(Face::Up)) return true;
-        }
-    }
-    return false;
-}
+bool powered(BlockSource& region, BlockPos const& pos) { return common::redstone::powered(region, pos); }
 
 bool shaftTowards(BlockSource& region, BlockPos const& pos, Face face) {
     if (!region.hasChunksAt(pos, 0, false)) return false;

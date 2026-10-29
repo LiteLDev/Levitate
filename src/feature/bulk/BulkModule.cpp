@@ -1,7 +1,7 @@
 // Bulk unit module: tracks the unit's blocks (world DB index), ticks them, orients placed blocks
 // as Create's getStateForPlacement, the millstone's right-click and the cleanup on removal.
 //
-// Player actions are handled in GameMode::$useItemOn (network players and SimulatedPlayers alike);
+// Player actions come from the shared interaction dispatch (common/Interactions.h);
 // placements and removals of any cause come from the BlockChangedEvent.
 
 #include <algorithm>
@@ -18,8 +18,6 @@
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -28,6 +26,7 @@
 
 #include "feature/bulk/Bulk.h"
 #include "feature/common/BlockData.h"
+#include "feature/common/Interactions.h"
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -262,39 +261,20 @@ bool useOnMillstone(Player& player, BlockPos const& at) {
 namespace {
 
 using namespace lv::feature::bulk;
+namespace ia = lv::feature::common::interactions;
 
-LL_TYPE_INSTANCE_HOOK(
-    BulkUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (!player.isClientSide()) {
-        auto&        region  = player.getDimensionBlockSource();
-        Block const* clicked = targetBlock ? targetBlock : &region.getBlock(at);
-        bool         empty   = item.isNull() || item.mCount == 0;
-        if (empty && clicked->getTypeName() == kMillstone) {
-            useOnMillstone(player, at);
-            InteractionResult r{};
-            r.mSuccess = true;
-            r.mSwing   = true;
-            return r;
-        }
-        if (!empty) {
-            auto kind = kindOf(item.getTypeName());
-            if (kind && (*kind == Kind::Fan || *kind == Kind::Nozzle || *kind == Kind::Wheel)) recordPlacement(player, at, face);
-        }
+ia::Result onUseOn(ia::UseOnContext const& c) {
+    BlockPos at{c.pos.x, c.pos.y, c.pos.z};
+    bool     empty = c.item.isNull() || c.item.mCount == 0;
+    if (empty && c.blockId == kMillstone) {
+        useOnMillstone(c.player, at);
+        return ia::Result::Consume;
     }
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    if (!empty) {
+        auto kind = kindOf(c.itemId);
+        if (kind && (*kind == Kind::Fan || *kind == Kind::Nozzle || *kind == Kind::Wheel)) recordPlacement(c.player, at, c.face);
+    }
+    return ia::Result::Pass;
 }
 
 class BulkModule {
@@ -362,7 +342,7 @@ public:
         }();
         (void)once;
         registerCapabilities();
-        BulkUseItemOnHook::hook();
+        mUseOn = ia::onUseOn({}, onUseOn);
         if (lv::game::db::available()) {
             resetWorld();
             loadIndex();
@@ -370,7 +350,7 @@ public:
     }
 
     void uninstall() {
-        BulkUseItemOnHook::unhook();
+        ia::remove(mUseOn);
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
@@ -439,6 +419,7 @@ private:
     }
 
     std::vector<ll::event::ListenerPtr> mListeners;
+    ia::HandlerId                       mUseOn = 0;
     lv::kinetics::ListenerId                mWheelListener = 0;
     lv::kinetics::ListenerId                mFanListener   = 0;
 };

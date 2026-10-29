@@ -1,6 +1,6 @@
 #pragma once
 
-// Redstone link networks (U23, SPEC §3.6 "Redstone"): the contract other units use to send and
+// Redstone link networks (U23, SPEC §3.6.23): the contract other units use to send and
 // receive on Create's two-item link frequencies without knowing the redstone link block.
 //
 // Users: the linked controller (U31, a player's buttons transmit on frequency pairs), links on

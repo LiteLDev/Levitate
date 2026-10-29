@@ -1,6 +1,6 @@
 #pragma once
 
-// Basin processing (U14, SPEC §3.6.1): the numbers and state machines of Create 6.0.10's basin,
+// Basin processing (U14, SPEC §3.6.14): the numbers and state machines of Create 6.0.10's basin,
 // mechanical press, mechanical mixer and blaze burner, independent of the game (gtest:
 // tests/core/BasinTest.cpp).
 

@@ -1,5 +1,5 @@
-// Building unit: player actions. GameMode is where every player action ends up (network players
-// and SimulatedPlayers alike), so the unit hooks it rather than the LeviLamina player events:
+// Building unit: player actions, through the shared interaction dispatch (common/Interactions.h;
+// network players and SimulatedPlayers alike):
 // - use on a block: block interactions first (doors, trapdoors, placards, copycats, girder +
 //   shaft, copper + axe / honeycomb, slab merging, scaffolding and ladder placement helpers,
 //   brackets), then the game's own placement, after which placed blocks are oriented as Create
@@ -9,13 +9,10 @@
 
 #include <cmath>
 #include <unordered_map>
-
-#include "ll/api/memory/Hook.h"
+#include <vector>
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -23,10 +20,13 @@
 #include "mc/world/level/dimension/DimensionType.h"
 
 #include "feature/building/Building.h"
+#include "feature/common/Interactions.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
 
 namespace lv::feature::building {
+
+namespace ia = common::interactions;
 
 namespace detail {
 void placeDoor(Player& player, GlobalPos const& pos, Vec3 const& hitRel, double hitX, double hitZ);
@@ -300,113 +300,59 @@ bool onAttack(Player& player, GlobalPos const& pos) {
 
 namespace {
 
-bool isServerPlayer(Player const& p) { return !p.isClientSide(); }
-
-Vec3 relativeHit(Vec3 const& hit, BlockPos const& at) {
-    bool rel = hit.x >= -0.01f && hit.x <= 1.01f && hit.y >= -0.01f && hit.y <= 1.01f && hit.z >= -0.01f && hit.z <= 1.01f;
-    if (rel) return hit;
-    return Vec3{hit.x - at.x, hit.y - at.y, hit.z - at.z};
+Vec3 vec3Of(core::common::Vec const& v) {
+    return Vec3{static_cast<float>(v[0]), static_cast<float>(v[1]), static_cast<float>(v[2])};
 }
 
-GlobalPos placementPos(GlobalPos const& clicked, int face) {
-    if (replaceableAt(clicked)) return clicked;
-    return face < 6 ? offset(clicked, face) : clicked;
+ia::Result useOn(ia::UseOnContext const& c) {
+    if (!onUse(c.player, c.item, c.pos, c.face, vec3Of(c.hit), c.firstEvent)) return ia::Result::Pass;
+    c.player.sendInventory(false); // undo the client's predicted placement
+    return ia::Result::Consume;
+}
+
+void placed(ia::PlaceContext const& c) {
+    auto const* held = c.itemId.empty() ? nullptr : infoOf(c.itemId);
+    if (!held || c.blockId != held->id) return;
+    // Java measures the click from the placed block
+    Vec3 placedHit{
+        static_cast<float>(c.clicked.x + c.hit[0] - c.pos.x),
+        static_cast<float>(c.clicked.y + c.hit[1] - c.pos.y),
+        static_cast<float>(c.clicked.z + c.hit[2] - c.pos.z),
+    };
+    try {
+        onPlaced(c.player, c.pos, c.face, placedHit);
+    } catch (std::exception const& e) {
+        log().error("building: placing {} failed: {}", held->id, e.what());
+    }
+}
+
+ia::Result startDestroy(ia::DestroyContext const& c) { return onAttack(c.player, c.pos) ? ia::Result::Deny : ia::Result::Pass; }
+
+ia::Result destroy(ia::DestroyContext const& c) {
+    // creative players break instantly: punching a placard with an item only takes the item
+    if (c.player.isCreative() && placardItem(c.pos) && onAttack(c.player, c.pos)) return ia::Result::Deny;
+    notePlayerBreak(c.pos, c.player.isCreative());
+    return ia::Result::Pass;
+}
+
+std::vector<ia::HandlerId>& handlerIds() {
+    static std::vector<ia::HandlerId> ids;
+    return ids;
 }
 
 } // namespace
 
-LL_TYPE_INSTANCE_HOOK(
-    BuildingUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (!isServerPlayer(player)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    GlobalPos pos{static_cast<int>(player.getDimensionId()), at.x, at.y, at.z};
-    Vec3      rel = relativeHit(hit, at);
-    if (onUse(player, item, pos, face, rel, isFirstEvent)) {
-        InteractionResult r{};
-        r.mSuccess = true;
-        r.mSwing   = true;
-        player.sendInventory(false); // undo the client's predicted placement
-        return r;
-    }
-    auto const* held = item.isNull() ? nullptr : infoOf(item.getTypeName());
-    if (!held) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto target = placementPos(pos, face);
-    auto before = idAt(target);
-    auto result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    if (before != held->id && idAt(target) == held->id) {
-        // Java measures the click from the placed block
-        Vec3 placedHit{at.x + rel.x - target.x, at.y + rel.y - target.y, at.z + rel.z - target.z};
-        try {
-            onPlaced(player, target, face, placedHit);
-        } catch (std::exception const& e) {
-            log().error("building: placing {} failed: {}", held->id, e.what());
-        }
-    }
-    return result;
-}
-
-LL_TYPE_INSTANCE_HOOK(
-    BuildingStartDestroyHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$startDestroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face,
-    bool&           hasDestroyedBlock
-) {
-    Player& player = mPlayer;
-    if (isServerPlayer(player)) {
-        GlobalPos p{static_cast<int>(player.getDimensionId()), pos.x, pos.y, pos.z};
-        if (onAttack(player, p)) {
-            hasDestroyedBlock = false;
-            return false;
-        }
-    }
-    return origin(pos, face, hasDestroyedBlock);
-}
-
-LL_TYPE_INSTANCE_HOOK(
-    BuildingDestroyHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$destroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face
-) {
-    Player& player = mPlayer;
-    if (isServerPlayer(player)) {
-        GlobalPos p{static_cast<int>(player.getDimensionId()), pos.x, pos.y, pos.z};
-        // creative players break instantly: punching a placard with an item only takes the item
-        if (player.isCreative() && placardItem(p) && onAttack(player, p)) return false;
-        notePlayerBreak(p, player.isCreative());
-    }
-    return origin(pos, face);
-}
-
 void installHooks() {
-    BuildingUseItemOnHook::hook();
-    BuildingStartDestroyHook::hook();
-    BuildingDestroyHook::hook();
+    auto& ids = handlerIds();
+    ids.push_back(ia::onUseOn({}, useOn));
+    ids.push_back(ia::onPlace({}, placed));
+    ids.push_back(ia::onStartDestroy({}, startDestroy));
+    ids.push_back(ia::onDestroy({}, destroy));
 }
 
 void uninstallHooks() {
-    BuildingDestroyHook::unhook();
-    BuildingStartDestroyHook::unhook();
-    BuildingUseItemOnHook::unhook();
+    for (auto id : handlerIds()) ia::remove(id);
+    handlerIds().clear();
 }
 
 namespace detail {

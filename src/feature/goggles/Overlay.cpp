@@ -30,6 +30,7 @@
 #include "mc/world/phys/HitResult.h"
 
 #include "feature/common/Capabilities.h"
+#include "feature/common/FluidRegistry.h"
 #include "feature/common/Items.h"
 #include "feature/goggles/GogglesConfig.h"
 #include "feature/kinetics/Kinetics.h"
@@ -149,7 +150,9 @@ std::string blockName(BlockSource& region, BlockPos const& pos, Block const& blo
     return prettyId(block.getTypeName());
 }
 
-std::string fluidName(InfoContext const& ctx, std::string const& fluid) { return ctx.tr("fluid." + fluid, prettyId(fluid)); }
+std::string fluidName(InfoContext const& ctx, std::string const& fluid) {
+    return common::fluidtypes::displayName(fluid, localeOf(ctx.player));
+}
 
 std::string heatName(InfoContext const& ctx, core::common::HeatLevel h) {
     auto name = std::string(core::common::heatLevelName(h));

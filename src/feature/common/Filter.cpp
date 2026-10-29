@@ -308,13 +308,13 @@ std::string describe(AttributeEntry const& entry, std::string const& locale) {
     static std::unordered_map<std::string, std::pair<char const*, char const*>> const english{
         {"placeable",          {"is placeable", "is not placeable"}                                     },
         {"consumable",         {"can be eaten", "cannot be eaten"}                                      },
-        {"fluid_container",    {"can store fluids", "can't store fluids"}                               },
+        {"fluid_container",    {"can store fluids", "cannot store fluids"}                              },
         {"enchanted",          {"is enchanted", "is unenchanted"}                                       },
         {"max_enchanted",      {"is enchanted at max level", "is not enchanted at max level"}           },
         {"renamed",            {"has a custom name", "does not have a custom name"}                     },
         {"damaged",            {"is damaged", "is not damaged"}                                         },
         {"badly_damaged",      {"is heavily damaged", "is not heavily damaged"}                         },
-        {"not_stackable",      {"cannot stack", "can stack"}                                            },
+        {"not_stackable",      {"cannot stack", "can be stacked"}                                       },
         {"equipable",          {"can be equipped", "cannot be equipped"}                                },
         {"furnace_fuel",       {"is furnace fuel", "is not furnace fuel"}                               },
         {"washable",           {"can be Washed", "cannot be Washed"}                                    },
@@ -322,25 +322,37 @@ std::string describe(AttributeEntry const& entry, std::string const& locale) {
         {"crushable",          {"can be Crushed", "cannot be Crushed"}                                  },
         {"smeltable",          {"can be Smelted", "cannot be Smelted"}                                  },
         {"smokable",           {"can be Smoked", "cannot be Smoked"}                                    },
-        {"blastable",          {"is smeltable in Blast Furnace", "is not smeltable in Blast Furnace"}   },
+        {"blastable",          {"can be Smelted in a Blast Furnace", "cannot be Smelted in a Blast Furnace"}},
         {"compostable",        {"can be composted", "cannot be composted"}                              },
         {"in_tag",             {"is tagged {0}", "is not tagged {0}"}                                   },
         {"in_item_group",      {"is in group '{0}'", "is not in group '{0}'"}                           },
         {"added_by",           {"was added by {0}", "was not added by {0}"}                             },
         {"has_enchant",        {"is enchanted with {0}", "is not enchanted with {0}"}                   },
-        {"shulker_fill_level", {"is {0} shulker box", "is not {0} shulker box"}                         },
+        {"shulker_level",      {"is shulker {0}", "is shulker not {0}"}                                 },
         {"has_fluid",          {"contains {0}", "does not contain {0}"}                                 },
-        {"has_name",           {"has custom name {0}", "does not have custom name {0}"}                 },
+        {"has_name",           {"has the custom name {0}", "does not have the custom name {0}"}         },
         {"book_author",        {"was authored by {0}", "was not authored by {0}"}                       },
-        {"book_copy",          {"is {0}", "is not {0}"}                                                 },
+        {"book_copy_original", {"is an original", "is not an original"}                                 },
+        {"book_copy_first",    {"is a first-generation copy", "is not a first-generation copy"}         },
+        {"book_copy_second",   {"is a second-generation copy", "is not a second-generation copy"}       },
+        {"book_copy_tattered", {"is a tattered mess", "is not a tattered mess"}                         },
     };
-    std::string key      = "create.item_attributes." + entry.type + (entry.inverted ? ".inverted" : "");
-    std::string fallback = entry.type;
-    if (auto it = english.find(entry.type); it != english.end()) fallback = entry.inverted ? it->second.second : it->second.first;
+    // Create's translation keys: ShulkerFillLevelAttribute uses "shulker_level" (+ the level),
+    // BookCopyAttribute one key per generation
+    std::string type  = entry.type;
     std::string value = entry.value;
-    if (entry.type == "shulker_fill_level" || entry.type == "book_copy") {
-        value = std::string(translate("create.item_attributes." + entry.type + "." + entry.value, entry.value, locale));
+    if (type == "shulker_fill_level") {
+        type  = "shulker_level";
+        value = std::string(translate("create.item_attributes.shulker_level." + value, value == "partial" ? "partially filled" : value, locale));
+    } else if (type == "book_copy") {
+        type = value == "copy_of_original" ? "book_copy_first"
+             : value == "copy_of_copy"     ? "book_copy_second"
+             : value == "tattered"         ? "book_copy_tattered"
+                                           : "book_copy_original";
     }
+    std::string key      = "create.item_attributes." + type + (entry.inverted ? ".inverted" : "");
+    std::string fallback = type;
+    if (auto it = english.find(type); it != english.end()) fallback = entry.inverted ? it->second.second : it->second.first;
     return core::formatMessageArgs(translate(key, fallback, locale), value);
 }
 

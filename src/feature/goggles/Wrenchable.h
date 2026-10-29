@@ -1,6 +1,6 @@
 #pragma once
 
-// Wrench contract (U8, docs/SPEC.md §3.6): Create's IWrenchable for Levitate blocks.
+// Wrench contract (U8, docs/SPEC.md §3.6.8): Create's IWrenchable for Levitate blocks.
 //
 // Right-click with the wrench calls the block's `onWrenched` (default: Create's rotation of
 // `levitate:facing` / `levitate:axis` / `levitate:horizontal_facing` / `levitate:horizontal_axis` /

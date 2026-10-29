@@ -3,14 +3,13 @@
 // drive shapes following their neighbours and the speed controller's cog bracket.
 //
 // Custom Bedrock blocks get no redstone neighbour updates, so the blocks that read redstone are
-// tracked (saved in the world DB) and read the power of their neighbours every tick from the
-// dimension's circuit system. Comparators read our blocks through a hook on their evaluation.
+// tracked (saved in the world DB) and read the power of their neighbours every tick through the
+// shared redstone input. Comparators read our blocks through the shared comparator output registry.
 
 #include <map>
 #include <set>
 #include <unordered_map>
 
-#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/world/level/BlockPos.h"
@@ -18,9 +17,8 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/dimension/Dimension.h"
-#include "mc/world/redstone/circuit/CircuitSystem.h"
-#include "mc/world/redstone/circuit/components/ComparatorCapacitor.h"
 
+#include "feature/common/Redstone.h"
 #include "feature/transmission/TransmissionInternal.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -35,8 +33,6 @@ constexpr char kDbTracked[] = "lv:transmission:tracked";
 struct Tracked {
     std::set<GlobalPos> positions;
     bool                dirty = false;
-    /// Comparators reading one of our blocks: (dim, comparator pos) -> signal.
-    std::map<GlobalPos, int> comparators;
 };
 Tracked& tracked() {
     static Tracked t;
@@ -47,78 +43,7 @@ bool needsTicking(std::string_view id) {
     return readsRedstone(id) || hasComparatorOutput(id) || id == kSpeedController;
 }
 
-bool solidFull(BlockSource& region, GlobalPos const& p) {
-    auto bp = game::blockPos(p);
-    if (!region.hasChunksAt(bp, 0, false)) return false;
-    return region.getBlock(bp).canProvideFullSupport(1) && region.getBlock(bp).canProvideFullSupport(0);
-}
-
-/// A comparator at `p` whose output points along `f` (its rear faces back towards -f).
-bool comparatorFacing(BlockSource& region, GlobalPos const& p, Face f) {
-    std::string id = idAt(region, p);
-    if (id != "minecraft:unpowered_comparator" && id != "minecraft:powered_comparator") return false;
-    // minecraft:cardinal_direction: south, west, north, east (the way the placing player looked,
-    // which is where the signal goes)
-    static constexpr Face kCardinal[] = {Face::South, Face::West, Face::North, Face::East};
-    int dir = std::clamp(stateAt(region, p, "minecraft:cardinal_direction", 0), 0, 3);
-    return kCardinal[dir] == f;
-}
-
-/// Registers the comparators that read `pos` (Java: directly behind, or behind a solid block).
-void exposeComparators(BlockSource& region, GlobalPos const& pos, int signal) {
-    auto& comps = tracked().comparators;
-    for (Face f : {Face::North, Face::South, Face::West, Face::East}) {
-        GlobalPos n = stepPos(pos, f);
-        if (comparatorFacing(region, n, f)) {
-            comps[n] = signal;
-            continue;
-        }
-        if (!solidFull(region, n)) continue;
-        GlobalPos n2 = stepPos(pos, f, 2);
-        if (comparatorFacing(region, n2, f)) comps[n2] = signal;
-    }
-}
-
-/// The dimension of a circuit system (cached; cleared with the world).
-std::unordered_map<CircuitSystem const*, int>& circuitDims() {
-    static std::unordered_map<CircuitSystem const*, int> m;
-    return m;
-}
-
-int dimOfCircuit(CircuitSystem const& system) {
-    auto& cache = circuitDims();
-    if (auto it = cache.find(&system); it != cache.end()) return it->second;
-    auto level = ll::service::getLevel();
-    if (!level) return -1;
-    for (int d = 0; d < 3; ++d) {
-        auto dim = level->getDimension(d).lock();
-        if (dim && dim->mCircuitSystem.get() == &system) return cache[&system] = d;
-    }
-    return -1;
-}
-
 } // namespace
-
-// Comparators: the rear analog input of a comparator behind one of our blocks.
-LL_TYPE_INSTANCE_HOOK(
-    TransmissionComparatorHook,
-    ll::memory::HookPriority::Normal,
-    ComparatorCapacitor,
-    &ComparatorCapacitor::$evaluate,
-    bool,
-    CircuitSystem&  system,
-    BlockPos const& pos
-) {
-    auto& comps = tracked().comparators;
-    if (!comps.empty()) {
-        int dim = dimOfCircuit(system);
-        if (auto it = comps.find(GlobalPos{dim, pos.x, pos.y, pos.z}); it != comps.end()) {
-            mRearAnalogStrength = it->second;
-            mHasAnalogBeenSet   = true;
-        }
-    }
-    return origin(system, pos);
-}
 
 void track(GlobalPos const& pos) {
     if (tracked().positions.insert(pos).second) tracked().dirty = true;
@@ -141,7 +66,6 @@ int comparatorSignal(GlobalPos const& pos) {
 
 void tickBlocks() {
     auto& t = tracked();
-    t.comparators.clear();
     std::vector<GlobalPos> gone;
     for (auto const& pos : std::vector<GlobalPos>(t.positions.begin(), t.positions.end())) {
         auto* region = regionOf(pos.dim);
@@ -177,10 +101,6 @@ void tickBlocks() {
             bool bracket = (aboveId == kLargeCogwheel) && stateAt(*region, above, kAxis, 1) != 1;
             if (bracket != (stateAt(*region, pos, kBracket, 0) != 0)) setStates(*region, pos, {{kBracket, bracket ? 1 : 0}});
         }
-        if (hasComparatorOutput(id)) {
-            int s = comparatorSignal(pos);
-            if (s >= 0) exposeComparators(*region, pos, s);
-        }
     }
     for (auto const& p : gone) untrack(p);
 }
@@ -188,7 +108,6 @@ void tickBlocks() {
 void loadTracked() {
     auto& t = tracked();
     t.positions.clear();
-    t.comparators.clear();
     if (auto j = game::db::load(kDbTracked); j && j->is_array()) {
         for (auto const& e : *j)
             if (e.is_array() && e.size() == 4) t.positions.insert(GlobalPos{e[0].get<int>(), e[1].get<int>(), e[2].get<int>(), e[3].get<int>()});
@@ -206,14 +125,24 @@ void saveTracked() {
 }
 
 void clearTracked() {
-    circuitDims().clear();
     tracked().positions.clear();
-    tracked().comparators.clear();
     tracked().dirty = false;
 }
 
-void installComparatorHook() { TransmissionComparatorHook::hook(); }
-void uninstallComparatorHook() { TransmissionComparatorHook::unhook(); }
+// Comparator output (gauges, sequenced gearshift) through the shared registry.
+void installComparatorOutput() {
+    for (auto id : {kSpeedometer, kStressometer, kSequencedGearshift}) {
+        common::redstone::registerAnalog(std::string(id), [](BlockSource& region, BlockPos const& pos, Block const&) -> std::optional<int> {
+            int s = comparatorSignal(game::globalPos(region, pos));
+            if (s < 0) return std::nullopt;
+            return s;
+        });
+    }
+}
+
+void uninstallComparatorOutput() {
+    for (auto id : {kSpeedometer, kStressometer, kSequencedGearshift}) common::redstone::unregisterAnalog(std::string(id));
+}
 
 /// Whether a block change at `pos` (from `before` to `after`) concerns the unit.
 void onBlockChanged(BlockSource& region, GlobalPos const& pos, std::string const& before, std::string const& after,

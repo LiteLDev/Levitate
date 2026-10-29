@@ -1,6 +1,6 @@
 #pragma once
 
-// Redstone components of Create 6.0.10 as pure state machines (U23, SPEC §3.6 "Redstone"):
+// Redstone components of Create 6.0.10 as pure state machines (U23, SPEC §3.6.23):
 // pulse repeater / extender / timer (Create's brass diodes), powered latch, powered toggle latch,
 // the delay value settings and the vanilla diode tick scheduling they build on.
 //

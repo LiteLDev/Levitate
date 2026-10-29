@@ -31,6 +31,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "feature/common/BlockData.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/fluids/FluidsInternal.h"
@@ -386,64 +387,30 @@ void syncAllTo(Player& player) {
     net::send(player, kSyncChannel, {{"op", "hoses"}, {"dim", dim}, {"hoses", list}});
 }
 
-// ---- hooks -------------------------------------------------------------------------------------
+/// ---- interactions (common/Interactions.h) --------------------------------------------------------
 
-LL_TYPE_INSTANCE_HOOK(
-    FluidsUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&       region  = player.getDimensionBlockSource();
-    Block const* clicked = targetBlock ? targetBlock : &region.getBlock(at);
-    std::string  target  = clicked->getTypeName();
-    std::string  held    = items::idOf(item);
-    GlobalPos    pos     = game::globalPos(region, at);
-    auto         done    = [&] {
-        InteractionResult r{};
-        r.mSuccess = true;
-        r.mSwing   = true;
+namespace ia = common::interactions;
+
+namespace {
+
+bool isOurFluidBlock(std::string const& id) { return id == kItemDrain || id == kHoneyBlock || id == kChocolateBlock; }
+bool isOurBucket(std::string const& id) { return id == kHoneyBucket || id == kChocolateBucket; }
+
+/// A bucket click on `pos` (drain / our fluid blocks / our buckets); Bedrock repeats the use while
+/// the button is held: one action per 5 ticks.
+ia::Result bucketClick(ia::UseOnContext const& c) {
+    auto& player = c.player;
+    auto& last   = state().lastUse[player.getOrCreateUniqueID().rawID];
+    if (state().ticks - last < 5 && last != 0) {
         player.sendInventory(false);
-        return r;
-    };
-    try {
-        // Bedrock repeats the use while the button is held: one action per 5 ticks
-        bool ourBlock  = target == kItemDrain || target == kHoneyBlock || target == kChocolateBlock;
-        bool ourBucket = held == kHoneyBucket || held == kChocolateBucket;
-        if (ourBucket && !ourBlock) {
-            // the clicked block's own use first (chests, doors, other units' tanks)
-            auto r = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-            if (r.mSuccess) return r;
-        }
-        if (ourBlock || ourBucket) {
-            auto& last = state().lastUse[player.getOrCreateUniqueID().rawID];
-            if (state().ticks - last < 5 && last != 0) return done();
-            bool handled = (target == kItemDrain && !player.isSneaking() && useOnDrain(player, pos, heldCopy(item)))
-                        || useBucket(player, pos, face, heldCopy(item));
-            if (handled) {
-                last = state().ticks;
-                return done();
-            }
-        }
-        if (held == kHosePulley || held == kPfi) {
-            GlobalPos place = game::replaceable(region, at) ? pos : offsetPos(pos, face);
-            Vec3      look  = player.getViewVector();
-            state().intents[place] = PlaceIntent{nearestFace(look), horizontalFace(player), player.isSneaking()};
-        }
-    } catch (std::exception const& e) {
-        log().error("fluids: use failed: {}", e.what());
+        return ia::Result::Consume;
     }
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    bool handled = (c.blockId == kItemDrain && !c.sneaking && useOnDrain(player, c.pos, heldCopy(c.item)))
+                || useBucket(player, c.pos, c.face, heldCopy(c.item));
+    if (!handled) return ia::Result::Pass;
+    last = state().ticks;
+    player.sendInventory(false);
+    return ia::Result::Consume;
 }
 
 /// The first non-air block along the player's view within reach (an empty bucket is used "in the
@@ -460,37 +427,75 @@ std::optional<GlobalPos> lookedAt(Player& player) {
     return std::nullopt;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    FluidsUseItemHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItem,
-    bool,
-    ItemStack& item,
-    HandSlot   handSlot
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || items::idOf(item) != "minecraft:bucket") return origin(item, handSlot);
-    try {
-        if (auto p = lookedAt(player)) {
-            auto id = blockIdAt(*p);
-            if (id == kItemDrain || id == kHoneyBlock || id == kChocolateBlock) {
-                auto& last = state().lastUse[player.getOrCreateUniqueID().rawID];
-                if (last != 0 && state().ticks - last < 5) return true;
-                bool handled = id == kItemDrain ? (!player.isSneaking() && useOnDrain(player, *p, heldCopy(item)))
-                                                : useBucket(player, *p, 1, heldCopy(item));
-                if (handled) {
-                    last = state().ticks;
-                    player.sendInventory(false);
-                    return true;
+std::vector<ia::HandlerId>& handlerIds() {
+    static std::vector<ia::HandlerId> ids;
+    return ids;
+}
+
+void installInteractions() {
+    auto& ids = handlerIds();
+    ids.push_back(ia::onUseOn({}, [](ia::UseOnContext const& c) {
+        try {
+            // clicks on our blocks (with our buckets elsewhere: after the clicked block's own use)
+            if (isOurFluidBlock(c.blockId)) {
+                if (auto r = bucketClick(c); r != ia::Result::Pass) return r;
+            }
+            if (c.itemId == kHosePulley || c.itemId == kPfi) {
+                auto&     player = c.player;
+                auto&     region = player.getDimensionBlockSource();
+                GlobalPos place  = game::replaceable(region, game::blockPos(c.pos)) ? c.pos : offsetPos(c.pos, c.face);
+                Vec3      look   = player.getViewVector();
+                state().intents[place] = PlaceIntent{nearestFace(look), horizontalFace(player), c.sneaking};
+            }
+        } catch (std::exception const& e) {
+            log().error("fluids: use failed: {}", e.what());
+        }
+        return ia::Result::Pass;
+    }));
+    // our buckets on other blocks: the clicked block's own use (chests, doors, other units' tanks)
+    // comes first
+    auto unused = [](ia::UseOnContext const& c) {
+        if (isOurFluidBlock(c.blockId)) return ia::Result::Pass;
+        try {
+            return bucketClick(c);
+        } catch (std::exception const& e) {
+            log().error("fluids: use failed: {}", e.what());
+        }
+        return ia::Result::Pass;
+    };
+    ids.push_back(ia::onUnusedUseOn({.item = kHoneyBucket}, unused));
+    ids.push_back(ia::onUnusedUseOn({.item = kChocolateBucket}, unused));
+    // the empty bucket "in the air" on a drain or our fluid blocks
+    ids.push_back(ia::onUse("minecraft:bucket", [](ia::UseContext const& c) {
+        if (c.onBlock) return ia::Result::Pass; // a block click was the use-on's
+        auto& player = c.player;
+        try {
+            if (auto p = lookedAt(player)) {
+                auto id = blockIdAt(*p);
+                if (isOurFluidBlock(id)) {
+                    auto& last = state().lastUse[player.getOrCreateUniqueID().rawID];
+                    if (last != 0 && state().ticks - last < 5) return ia::Result::Consume;
+                    bool handled = id == kItemDrain ? (!c.sneaking && useOnDrain(player, *p, heldCopy(c.item)))
+                                                    : useBucket(player, *p, 1, heldCopy(c.item));
+                    if (handled) {
+                        last = state().ticks;
+                        return ia::Result::Consume;
+                    }
                 }
             }
+        } catch (std::exception const& e) {
+            log().error("fluids: bucket use failed: {}", e.what());
         }
-    } catch (std::exception const& e) {
-        log().error("fluids: bucket use failed: {}", e.what());
-    }
-    return origin(item, handSlot);
+        return ia::Result::Pass;
+    }));
 }
+
+void uninstallInteractions() {
+    for (auto id : handlerIds()) ia::remove(id);
+    handlerIds().clear();
+}
+
+} // namespace
 
 // ---- module ------------------------------------------------------------------------------------
 
@@ -556,13 +561,11 @@ public:
             registerSources();
         }
         if (game::db::available()) loadWorld();
-        FluidsUseItemOnHook::hook();
-        FluidsUseItemHook::hook();
+        installInteractions();
     }
 
     void uninstall() {
-        FluidsUseItemHook::unhook();
-        FluidsUseItemOnHook::unhook();
+        uninstallInteractions();
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();

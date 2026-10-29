@@ -29,6 +29,25 @@
 //   IWrenchable#onWrenched / onSneakWrenched are the handler with `sneaking` false / true. The
 //   generic wrench behaviour (rotate / pick up, U8) registers for any block (`""`) with
 //   `priority::Fallback`; value boxes (U3) open before it with `priority::Highest`.
+//
+// Additions (U36): every unit goes through this dispatch, none hooks GameMode itself.
+// - `onPlace`: after vanilla placed a block from a use-on that no handler took (orienting the
+//   new block, Create's getStateForPlacement / onPlace with the placer).
+// - `onStartDestroy`: the first hit on a block (GameMode::startDestroyBlock): `Consume` / `Deny`
+//   stop the mining (left-click actions, e.g. deselecting an arm point, punching a placard).
+// - `onInteract` / `onAttack`: right-click / left-click on an entity (GameMode::interact /
+//   GameMode::attack); `Match::block` is the entity's type id there.
+// - `nextTick(fn)`: runs `fn` on the next server tick (world edits that must not happen inside
+//   the click, e.g. assembling a contraption).
+// - `UseContext::onBlock`: the item use comes from a use-on that no block took (Bedrock calls the
+//   item use from there too); units that only want right-clicks in the air return `Pass` then.
+// - `onUnusedUseOn`: after vanilla's use-on did not succeed (no block took the click and nothing
+//   was placed): Create's item useOn that runs only when the block passes (buckets of custom
+//   fluids, putting a package down). `Consume` / `Deny` make the click a handled one.
+// - `onDestroyed` / `onAttacked`: after vanilla's destroyBlock / attack ran, with its result
+//   (forgetting a removed block's data, knockback of a hit).
+// - `mutableItem(ctx.item)`: the held stack is the player's hand slot; handlers that change it in
+//   place (counts, item data) use this instead of a copy.
 
 #include <functional>
 #include <string>
@@ -36,6 +55,7 @@
 #include "core/GlobalPos.h"
 #include "core/common/ValueSettings.h"
 
+class Actor;
 class Block;
 class ItemStack;
 class Player;
@@ -76,6 +96,7 @@ struct UseOnContext {
     Vec                hit;  ///< block-local click position (0..1)
     bool               sneaking;
     bool               firstEvent; ///< false for the repeats while the button is held
+    bool               offhand = false; ///< (U36) the off-hand's use-on (`item` is the off-hand stack)
 };
 
 /// Using an item (GameMode::baseUseItem): a right-click in the air, or on a block that did not
@@ -85,9 +106,11 @@ struct UseContext {
     ItemStack const&   item;
     std::string const& itemId;
     bool               sneaking;
+    bool               onBlock = false; ///< (U36) called from a use-on that no block took
 };
 
-/// A player breaks a block (GameMode::destroyBlock). `Consume` / `Deny` keep the block.
+/// A player breaks a block (GameMode::destroyBlock). `Consume` / `Deny`: vanilla does not break it
+/// (a handler may have removed it itself; `onDestroyed` handlers are told whether it is gone).
 struct DestroyContext {
     Player&            player;
     ItemStack const&   item;
@@ -99,17 +122,69 @@ struct DestroyContext {
     bool               sneaking;
 };
 
+/// A block placed by vanilla from a use-on that every handler passed (U36).
+struct PlaceContext {
+    Player&            player;
+    std::string const& itemId;  ///< the held item before the placement used it
+    Block const&       block;   ///< the placed block
+    std::string const& blockId; ///< its id
+    GlobalPos          pos;     ///< where it was placed
+    GlobalPos          clicked; ///< the clicked block (== pos when that was replaceable)
+    int                face;    ///< the clicked face
+    Vec                hit;     ///< click position, local to the clicked block (0..1)
+    bool               sneaking;
+    ItemStack const*   itemBefore = nullptr; ///< a copy of the held stack before the placement (data, count)
+};
+
+/// Right- / left-click on an entity (U36).
+struct EntityContext {
+    Player&            player;
+    ItemStack const&   item;
+    std::string const& itemId;
+    Actor&             entity;
+    std::string const& entityId; ///< the entity's type id ("minecraft:minecart")
+    Vec                at;       ///< world position of the click
+    bool               sneaking;
+};
+
 using UseOnHandler   = std::function<Result(UseOnContext const&)>;
 using UseHandler     = std::function<Result(UseContext const&)>;
 using DestroyHandler = std::function<Result(DestroyContext const&)>;
+using PlaceHandler   = std::function<void(PlaceContext const&)>;
+using EntityHandler  = std::function<Result(EntityContext const&)>;
+using DestroyedHandler = std::function<void(DestroyContext const&, bool destroyed)>;
+using AttackedHandler  = std::function<void(EntityContext const&, bool hit)>;
 using HandlerId      = int;
 
+/// The held stack of a context as the mutable hand slot it is (use-on, use, destroy, entity).
+inline ItemStack& mutableItem(ItemStack const& contextItem) { return const_cast<ItemStack&>(contextItem); }
+
 HandlerId onUseOn(Match match, UseOnHandler fn, int priority = priority::Normal);
-/// `itemId` "" = any item (an empty hand never uses an item in the air).
+/// `itemId` "" = any item, an empty hand included (when the game reports an empty-hand use).
 HandlerId onUse(std::string itemId, UseHandler fn, int priority = priority::Normal);
 HandlerId onDestroy(Match match, DestroyHandler fn, int priority = priority::Normal);
 /// Wrench right-click on `blockId` ("" = any block).
 HandlerId onWrench(std::string blockId, UseOnHandler fn, int priority = priority::Normal);
+/// (U36) After vanilla placed a block: `match.block` = the placed block, `match.item` = the held item.
+HandlerId onPlace(Match match, PlaceHandler fn, int priority = priority::Normal);
+/// (U36) First hit on a block (left-click); `Consume` / `Deny` stop the mining.
+HandlerId onStartDestroy(Match match, DestroyHandler fn, int priority = priority::Normal);
+/// (U36) Right-click on an entity; `match.block` = entity type id ("" = any).
+HandlerId onInteract(Match match, EntityHandler fn, int priority = priority::Normal);
+/// (U36) Attacking an entity; `Consume` = the attack is replaced, `Deny` = no attack.
+HandlerId onAttack(Match match, EntityHandler fn, int priority = priority::Normal);
+/// (U36) After vanilla's use-on did not succeed (and no handler took it): `firstEvent` etc. as
+/// for onUseOn; `Consume` / `Deny` turn the click into a handled / refused one.
+HandlerId onUnusedUseOn(Match match, UseOnHandler fn, int priority = priority::Normal);
+/// (U36) After vanilla's destroyBlock ran (also when a handler did not stop it): `destroyed` is
+/// its result. `ctx.block` / `ctx.blockId` are the block before the break.
+HandlerId onDestroyed(Match match, DestroyedHandler fn, int priority = priority::Normal);
+/// (U36) After vanilla's attack ran; `hit` is its result. `match.block` = entity type id.
+HandlerId onAttacked(Match match, AttackedHandler fn, int priority = priority::Normal);
+/// (U36) Runs `fn` on the next server tick (server thread).
+void nextTick(std::function<void()> fn);
+/// (U36) A player of the server level (not the client's own predicting LocalPlayer).
+[[nodiscard]] bool isServerPlayer(Player& player);
 /// Removes a handler (selftests, uninstall).
 void remove(HandlerId id);
 
@@ -118,5 +193,9 @@ void remove(HandlerId id);
 Result dispatchUseOn(UseOnContext const& ctx);
 Result dispatchUse(UseContext const& ctx);
 Result dispatchDestroy(DestroyContext const& ctx);
+void   dispatchPlace(PlaceContext const& ctx);
+Result dispatchStartDestroy(DestroyContext const& ctx);
+Result dispatchInteract(EntityContext const& ctx);
+Result dispatchAttack(EntityContext const& ctx);
 
 } // namespace lv::feature::common::interactions

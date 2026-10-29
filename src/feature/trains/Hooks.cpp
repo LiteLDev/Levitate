@@ -22,6 +22,7 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/net/Net.h"
@@ -34,6 +35,7 @@
 namespace lv::feature::trains {
 
 namespace items = common::items;
+namespace ia    = common::interactions;
 
 namespace {
 
@@ -54,13 +56,6 @@ GlobalPos placementPos(BlockSource& region, BlockPos const& clicked, uchar face)
     return p;
 }
 
-InteractionResult handled() {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    return r;
-}
-
 /// The look direction snapped to the track axis (Create: the targeted direction).
 std::pair<int, int> trackDirection(Player& p, int axis) {
     auto v = p.getViewVector();
@@ -69,7 +64,7 @@ std::pair<int, int> trackDirection(Player& p, int axis) {
 }
 
 /// Right-click on a station block.
-bool useStation(Player& p, GlobalPos const& pos, ItemStack& item) {
+bool useStation(Player& p, GlobalPos const& pos, ItemStack const& item) {
     auto* s = stationAt(pos);
     if (!s) return false;
     if (auto sch = scheduleOf(item)) {
@@ -132,51 +127,47 @@ void orientControls(Player& p, GlobalPos const& pos) {
 
 } // namespace
 
-LL_TYPE_INSTANCE_HOOK(
-    TrainsUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region = player.getDimensionBlockSource();
-    Block const& target = targetBlock ? *targetBlock : region.getBlock(at);
-    std::string  tid    = target.getTypeName();
-    std::string  held   = item.isNull() ? std::string() : std::string(item.getTypeName());
-    GlobalPos    pos    = game::globalPos(region, at);
-    bool         sneak  = player.isSneaking();
+// ---- interactions (U36: on the shared dispatch) --------------------------------------------------
+
+namespace {
+
+std::vector<ia::HandlerId> gHandlers;
+
+/// Right-clicks on stations, tracks, bogeys, and with schedules, station and controls items.
+ia::Result trainsUseOn(ia::UseOnContext const& c) {
+    Player&            player = c.player;
+    auto&              region = player.getDimensionBlockSource();
+    std::string const& tid    = c.blockId;
+    std::string const& held   = c.itemId;
+    ItemStack const&   item   = c.item;
+    GlobalPos          pos    = c.pos;
+    BlockPos           at{pos.x, pos.y, pos.z};
+    bool               sneak        = c.sneaking;
+    bool               isFirstEvent = c.firstEvent;
 
     // a train's controls in front of the clicked block
     {
-        auto   eye  = player.getPosition(); // eye height (getHeadPos drifts with the body yaw of real players)
-        double dist = std::sqrt(double((hit.x - eye.x) * (hit.x - eye.x) + (hit.y - eye.y) * (hit.y - eye.y) + (hit.z - eye.z) * (hit.z - eye.z)));
-        if (!sneak && held != kSchedule && tryControls(player, dist + 0.3)) return handled();
+        auto   eye = player.getPosition(); // eye height (getHeadPos drifts with the body yaw of real players)
+        double hx = at.x + c.hit[0], hy = at.y + c.hit[1], hz = at.z + c.hit[2];
+        double dist = std::sqrt((hx - eye.x) * (hx - eye.x) + (hy - eye.y) * (hy - eye.y) + (hz - eye.z) * (hz - eye.z));
+        if (!sneak && held != kSchedule && tryControls(player, dist + 0.3)) return ia::Result::Consume;
     }
     if (tid == kStation && !sneak) {
-        if (debounced(player, isFirstEvent)) return handled();
+        if (debounced(player, isFirstEvent)) return ia::Result::Consume;
         if (useStation(player, pos, item)) {
             player.sendInventory(false);
-            return handled();
+            return ia::Result::Consume;
         }
     }
     if (tid == tracks::kTrackId) {
         if (held == kStation && !sneak) {
-            if (debounced(player, isFirstEvent)) return handled();
+            if (debounced(player, isFirstEvent)) return ia::Result::Consume;
             useStationItemOnTrack(player, pos);
             player.sendInventory(false);
-            return handled();
+            return ia::Result::Consume;
         }
         if ((held == kRailwayCasing || held.empty()) && !sneak) {
-            if (debounced(player, isFirstEvent)) return handled();
+            if (debounced(player, isFirstEvent)) return ia::Result::Consume;
             auto msg = useCasingOnTrack(&player, pos, held == kRailwayCasing);
             if (!msg.empty()) {
                 if (msg.starts_with("+")) {
@@ -189,12 +180,12 @@ LL_TYPE_INSTANCE_HOOK(
                 }
                 if (msg != "!") actionBar(player, msg);
                 player.sendInventory(false);
-                return handled();
+                return ia::Result::Consume;
             }
         }
     }
     if (isBogey(tid) && held == kWrench) {
-        if (debounced(player, isFirstEvent)) return handled();
+        if (debounced(player, isFirstEvent)) return ia::Result::Consume;
         int axisState = intStateAt(pos, kBogeyAxisState).value_or(0);
         if (sneak) {
             // Create: dismantling gives the drop (train casing)
@@ -208,89 +199,72 @@ LL_TYPE_INSTANCE_HOOK(
             actionBar(player, trFor(player, "create.bogey.style.updated_style_and_size", "Updated style and size"));
         }
         player.sendInventory(false);
-        return handled();
+        return ia::Result::Consume;
     }
     if (held == kSchedule && tid != kStation) {
-        if (debounced(player, isFirstEvent)) return handled();
+        if (debounced(player, isFirstEvent)) return ia::Result::Consume;
         openScheduleEditor(player, player.getSelectedItemSlot());
-        return handled();
+        return ia::Result::Consume;
     }
     if (held == kStation && tid != tracks::kTrackId) {
         auto it = state().targets.find(uuidOf(player));
         if (it == state().targets.end()) {
             actionBar(player, trFor(player, "create.track_target.missing", "Right-click the targeted train track first"));
             player.sendInventory(false);
-            return handled();
+            return ia::Result::Consume;
         }
-        GlobalPos place = placementPos(region, at, face);
-        auto const& tg  = it->second;
+        GlobalPos   place = placementPos(region, at, static_cast<uchar>(c.face));
+        auto const& tg    = it->second;
         double      dx = place.x - tg.track.x, dy = place.y - tg.track.y, dz = place.z - tg.track.z;
         if (tg.track.dim != place.dim || dx * dx + dy * dy + dz * dz > 16 * 16) {
             actionBar(player, trFor(player, "create.track_target.too_far", "Targeted track is too far from here"));
             player.sendInventory(false);
-            return handled();
+            return ia::Result::Consume;
         }
-        state().pendingStations[place] = {tg, uuidOf(player)};
-        auto r = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-        if (idAt(place) == kStation) state().targets.erase(uuidOf(player));
-        return r;
+        state().pendingStations[place] = {tg, uuidOf(player)}; // bound once vanilla placed it
     }
-    if (held == kControls) {
-        GlobalPos place = placementPos(region, at, face);
-        auto      r     = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-        orientControls(player, place);
-        return r;
-    }
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(TrainsUseItemHook, ll::memory::HookPriority::Normal, GameMode, &GameMode::$useItem, bool, ItemStack& item, HandSlot handSlot) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, handSlot);
-    std::string held = item.isNull() ? std::string() : std::string(item.getTypeName());
-    if (held == kStation && player.isSneaking()) {
+/// Right-clicks in the air: sneak-use of a station clears the selection, controls, schedules.
+ia::Result trainsUse(ia::UseContext const& c) {
+    if (c.onBlock) return ia::Result::Pass; // the use-on handler saw this click
+    Player&            player = c.player;
+    std::string const& held   = c.itemId;
+    if (held == kStation && c.sneaking) {
         if (state().targets.erase(uuidOf(player)))
             actionBar(player, trFor(player, "create.track_target.clear", "Cleared track selection"));
-        return true;
+        return ia::Result::Consume;
     }
-    if (!player.isSneaking() && held != kSchedule && tryControls(player)) return true;
+    if (!c.sneaking && held != kSchedule && tryControls(player)) return ia::Result::Consume;
     if (held == kSchedule) {
-        if (debounced(player, true)) return true;
+        if (debounced(player, true)) return ia::Result::Consume;
         openScheduleEditor(player, player.getSelectedItemSlot());
-        return true;
+        return ia::Result::Consume;
     }
-    return origin(item, handSlot);
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    TrainsInteractHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$interact,
-    bool,
-    Actor&      entity,
-    Vec3 const& location,
-    HandSlot    handSlot
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || entity.isPlayer()) return origin(entity, location, handSlot);
-    // a conductor: an entity sitting behind a train's controls
+/// A schedule handed to a conductor (an entity sitting behind a train's controls).
+ia::Result trainsInteract(ia::EntityContext const& c) {
+    Player& player = c.player;
+    Actor&  entity = c.entity;
+    if (entity.isPlayer()) return ia::Result::Pass;
     auto f = entity.getFeetPos();
     for (auto& [id, t] : state().trains) {
         if (t.invalid || t.dim != int(player.getDimensionId())) continue;
-        for (auto const& c : t.carriages) {
-            auto* con = contraption::find(c.contraption);
+        for (auto const& car : t.carriages) {
+            auto* con = contraption::find(car.contraption);
             if (!con) continue;
-            for (auto const& [local, rel] : c.controls) {
+            for (auto const& [local, rel] : car.controls) {
                 cc::Pos seat = local + cc::Pos{t.ax * rel, 0, t.az * rel};
                 auto    w    = con->toWorld(cc::Vec3d::center(seat));
                 if (std::abs(f.x - w.x) > .7 || std::abs(f.z - w.z) > .7 || std::abs(f.y - w.y) > 1) continue;
-                if (handScheduleTo(player, t, player.getSelectedItemSlot())) return true;
+                if (handScheduleTo(player, t, player.getSelectedItemSlot())) return ia::Result::Consume;
             }
         }
     }
-    auto const& held = player.getSelectedItem();
-    if (!held.isNull() && items::idOf(held) == kSchedule) {
+    if (c.itemId == kSchedule) {
         // a schedule on an entity that isn't a conductor (Create's message for seated mobs)
         for (auto const& id : contraption::all()) {
             auto* con = contraption::find(id);
@@ -298,12 +272,14 @@ LL_TYPE_INSTANCE_HOOK(
             auto o = con->transform().toWorld(cc::Vec3d{0, 0, 0});
             if (std::abs(o.x - f.x) < 32 && std::abs(o.z - f.z) < 32) {
                 actionBar(player, trFor(player, "create.schedule.non_controlling_seat", "Conductor needs to sit in front of a Controls block"));
-                return true;
+                return ia::Result::Consume;
             }
         }
     }
-    return origin(entity, location, handSlot);
+    return ia::Result::Pass;
 }
+
+} // namespace
 
 LL_TYPE_INSTANCE_HOOK(
     TrainsAuthInputHook,
@@ -335,9 +311,16 @@ LL_TYPE_INSTANCE_HOOK(
 }
 
 void installHooks() {
-    TrainsUseItemOnHook::hook();
-    TrainsUseItemHook::hook();
-    TrainsInteractHook::hook();
+    gHandlers.push_back(ia::onUseOn({}, trainsUseOn));
+    // a placed station leaves the track selection behind
+    gHandlers.push_back(ia::onPlace({std::string(kStation), std::string(kStation)}, [](ia::PlaceContext const& c) {
+        state().targets.erase(uuidOf(c.player));
+    }));
+    gHandlers.push_back(ia::onPlace({std::string(kControls), std::string(kControls)}, [](ia::PlaceContext const& c) {
+        orientControls(c.player, c.pos);
+    }));
+    gHandlers.push_back(ia::onUse({}, trainsUse));
+    gHandlers.push_back(ia::onInteract({}, trainsInteract));
     TrainsAuthInputHook::hook();
     // companion clients (Create's controls packets):
     // "trains.interact" {} right-click with an empty hand in the air (toggles the controls looked
@@ -358,9 +341,8 @@ void uninstallHooks() {
     net::off("trains.throttle");
     net::off("trains.interact");
     TrainsAuthInputHook::unhook();
-    TrainsInteractHook::unhook();
-    TrainsUseItemHook::unhook();
-    TrainsUseItemOnHook::unhook();
+    for (auto id : gHandlers) ia::remove(id);
+    gHandlers.clear();
 }
 
 } // namespace lv::feature::trains

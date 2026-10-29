@@ -14,14 +14,6 @@
   "create.gui.threshold_switch.range_max": "（最大 {0}）",
   "create.gui.threshold_switch.not_attached": "未附加到方块",
   "create.gui.threshold_switch.incompatible": "不兼容的方块",
-  "lv.redstone.unit.ticks": "Ticks",
-  "lv.redstone.unit.seconds": "秒",
-  "lv.redstone.unit.minutes": "分钟",
-  "lv.redstone.threshold.items": "个",
-  "lv.redstone.threshold.stacks": "组",
-  "lv.redstone.threshold.buckets": "桶",
-  "lv.redstone.threshold.item_measure": "物品度量",
-  "lv.redstone.frequency_empty": "（空）",
   "lv.redstone.transmitter": "发射器",
   "lv.redstone.receiver": "接收器"
 }

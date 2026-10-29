@@ -4,7 +4,7 @@
 //
 // Blocks: levitate:millstone, levitate:crushing_wheel (+ the invisible
 // levitate:crushing_wheel_controller), levitate:encased_fan, levitate:nozzle. Behaviour of
-// Create 6.0.10 (docs/SPEC.md §2.8, §3.6 "Bulk processing"). Server thread only.
+// Create 6.0.10 (docs/SPEC.md §2.8, §3.6.13). Server thread only.
 
 #include <cstdint>
 #include <functional>

@@ -1,4 +1,4 @@
-// Client: text on display boards (split-flap animation) and nixie tubes (SPEC §3.6 Display).
+// Client: text on display boards (split-flap animation) and nixie tubes (SPEC §3.6.24).
 //
 // The server sends every board / tube state on the "display.board" / "display.nixie" channels
 // (src/feature/display/Board.cpp, Nixie.cpp). This file keeps them per dimension and draws the

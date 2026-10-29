@@ -31,7 +31,9 @@
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Filter.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/net/Net.h"
@@ -47,6 +49,8 @@
 LV_REGISTER_CONFIG("redstone", lv::feature::redstone::RedstoneConfig);
 
 namespace lv::feature::redstone {
+
+namespace ia = common::interactions;
 
 namespace {
 
@@ -94,13 +98,6 @@ void load() {
     }
     u.ready = true;
     log().info("redstone: {} blocks tracked", u.tracked.size());
-}
-
-/// Block-local hit position from a use position that may be relative or absolute.
-core::common::Vec localHit(BlockPos const& pos, Vec3 const& click) {
-    auto in = [](double v) { return v >= -0.01 && v <= 1.01; };
-    if (in(click.x) && in(click.y) && in(click.z)) return {click.x, click.y, click.z};
-    return {click.x - pos.x, click.y - pos.y, click.z - pos.z};
 }
 
 bool wearsGoggles(Player& player) {
@@ -226,7 +223,7 @@ Json hoverLines(Player& player, GP const& pos, int face, core::common::Vec const
     if (*kind == Kind::Link) {
         auto [a, b] = frequencies(pos);
         auto name   = [&](ItemStack const& s) {
-            return common::items::isEmpty(s) ? trFor(player, "lv.redstone.frequency_empty", "(empty)") : common::items::displayName(s);
+            return common::items::isEmpty(s) ? trFor(player, "lv.common.filter.empty", "(empty)") : common::items::displayName(s);
         };
         auto slot   = frequencySlotAt(block, hit);
         out["lines"].push_back(
@@ -244,85 +241,59 @@ Json hoverLines(Player& player, GP const& pos, int face, core::common::Vec const
 
 // ---- hooks -------------------------------------------------------------------------------------
 
-LL_TYPE_INSTANCE_HOOK(
-    RedstoneUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || !unit().ready) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region  = player.getDimensionBlockSource();
-    Block const& clicked = targetBlock ? *targetBlock : region.getBlock(at);
-    bool         sneaking = player.isSneaking();
-    GP           pos      = game::globalPos(region, at);
+// ---- interactions (U36: on the shared dispatch) --------------------------------------------------
 
-    if (auto kind = kindOf(clicked.getTypeName())) {
-        auto local = localHit(at, hit);
-        // value boxes and filter slots of U3 come first (they handle the click themselves)
-        bool mayEdit = !sneaking && !player.isSpectator() && player.canUseAbility(AbilitiesIndex::Build);
-        bool tool    = item.isNull() || item.getTypeName() == kWrench;
-        bool forCommon = mayEdit
-                   && (common::filterslot::slotAt(clicked, face, local)
-                       || (tool && common::valuebox::boxAt(clicked, face, local)));
-        if (!forCommon) {
-            // Bedrock repeats the use while the button is held (isFirstEvent false): drop those
-            // repeats, never a new click
-            invalidateCircuitCache();
-            auto& last = unit().lastUse[player.getOrCreateUniqueID().rawID];
-            auto  since = gameTickCounter() - last.second;
-            if (last.first == pos && (since < 2 || (!isFirstEvent && since < 5))) {
-                InteractionResult r{};
-                r.mSuccess = true;
-                return r;
-            }
-            Click c{player, pos, int(face), local, item, sneaking};
-            if (use(c, clicked, *kind)) {
-                last = {pos, gameTickCounter()};
-                InteractionResult r{};
-                r.mSuccess = true;
-                r.mSwing   = true;
-                if (!item.isNull()) player.sendInventory(false); // undo a predicted placement
-                return r;
-            }
-        }
-    }
+/// Right-clicks on the unit's blocks.
+ia::Result redstoneUseOn(ia::UseOnContext const& c) {
+    if (!unit().ready) return ia::Result::Pass;
+    auto kind = kindOf(c.blockId);
+    if (!kind) return ia::Result::Pass;
+    Player& player = c.player;
+    // value boxes and filter slots of U3 come first (they handle the click themselves)
+    bool mayEdit   = !c.sneaking && !player.isSpectator() && player.canUseAbility(AbilitiesIndex::Build);
+    bool tool      = c.itemId.empty() || c.itemId == kWrench;
+    bool forCommon = mayEdit
+                  && (common::filterslot::slotAt(c.block, c.face, c.hit) || (tool && common::valuebox::boxAt(c.block, c.face, c.hit)));
+    if (forCommon) return ia::Result::Pass;
+    // Bedrock repeats the use while the button is held (isFirstEvent false): drop those repeats,
+    // never a new click
+    invalidateCircuitCache();
+    auto& last  = unit().lastUse[player.getOrCreateUniqueID().rawID];
+    auto  since = gameTickCounter() - last.second;
+    if (last.first == c.pos && (since < 2 || (!c.firstEvent && since < 5))) return ia::Result::Consume;
+    Click click{player, c.pos, c.face, c.hit, c.item, c.sneaking};
+    if (!use(click, c.block, *kind)) return ia::Result::Pass;
+    last = {c.pos, gameTickCounter()};
+    if (!c.item.isNull()) player.sendInventory(false); // undo a predicted placement
+    return ia::Result::Consume;
+}
 
-    // placing one of our blocks: orient it as Create does
-    auto heldKind = item.isNull() ? std::nullopt : kindOf(item.getTypeName());
-    if (!heldKind) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    BlockPos target = game::replaceable(region, at) ? at : step(at, face);
-    auto     before = game::blockIdAt(region, target);
-    auto     rot    = player.getRotation();
-    Placement p{int(face), rot.x, rot.y, sneaking};
-    auto     result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    char const* id  = idOf(*heldKind);
-    if (before == id || game::blockIdAt(region, target) != id) return result;
-    auto const& placed = region.getBlock(target);
+/// A placed block of the unit: orient it as Create does (or refuse it when it cannot stay).
+void redstonePlaced(ia::PlaceContext const& c) {
+    if (!unit().ready) return;
+    auto heldKind = kindOf(c.itemId);
+    if (!heldKind || c.blockId != idOf(*heldKind)) return;
+    Player&  player = c.player;
+    auto&    region = player.getDimensionBlockSource();
+    BlockPos target{c.pos.x, c.pos.y, c.pos.z};
+    auto     rot = player.getRotation();
+    Placement p{c.face, rot.x, rot.y, c.sneaking};
+    auto const& placed   = region.getBlock(target);
     auto const* oriented = placementState(region, target, placed, *heldKind, p);
     if (oriented && oriented != &placed) game::setBlock(region, target, *oriented);
     auto const& now = region.getBlock(target);
-    GP          gp  = game::globalPos(region, target);
+    GP          gp  = c.pos;
     if (!canSurvive(region, target, now, *heldKind)) {
         // Create refuses the placement: give the block back
         if (auto level = ll::service::getLevel()) {
             BlockChangeContext ctx{};
             level->destroyBlock(region, target, !player.isCreative(), ctx);
         }
-        return result;
+        return;
     }
     track(gp, *heldKind);
     if (auto* rt = runtimeAt(gp)) onAdded(region, gp, now, *rt);
-    log().info("{} placed at {} by {}", id, posText(gp), player.getRealName());
-    return result;
+    log().info("{} placed at {} by {}", c.blockId, posText(gp), player.getRealName());
 }
 
 // ---- module ------------------------------------------------------------------------------------
@@ -343,6 +314,13 @@ public:
             registerValueBoxes();
             registerFilterSlots();
             registerThresholdScreen();
+            // our signal sources power the custom blocks of other units too (shared redstone input)
+            for (auto k : {Kind::Link, Kind::Lever, Kind::PulseRepeater, Kind::PulseExtender, Kind::PulseTimer, Kind::PoweredLatch,
+                           Kind::ToggleLatch, Kind::SmartObserver, Kind::ThresholdSwitch, Kind::Contact}) {
+                common::redstone::registerEmitter(idOf(k), [](BlockSource&, BlockPos const&, Block const& block, int towards) {
+                    return ourEmission(block, towards).value_or(0);
+                });
+            }
             contraption::registerActor(
                 kContact,
                 contraption::MovementBehaviour{
@@ -389,12 +367,14 @@ public:
             out["pos"]            = p;
             net::send(player, "redstone.hover", out);
         });
-        RedstoneUseItemOnHook::hook();
+        mHandlers.push_back(ia::onUseOn({}, redstoneUseOn));
+        mHandlers.push_back(ia::onPlace({}, redstonePlaced));
         if (game::db::available() && !unit().ready) load(); // BDS: the world exists before mods are enabled
     }
 
     void uninstall() {
-        RedstoneUseItemOnHook::unhook();
+        for (auto id : mHandlers) ia::remove(id);
+        mHandlers.clear();
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
@@ -488,6 +468,7 @@ private:
     }
 
     std::vector<ll::event::ListenerPtr> mListeners;
+    std::vector<ia::HandlerId>          mHandlers;
 };
 
 } // namespace lv::feature::redstone

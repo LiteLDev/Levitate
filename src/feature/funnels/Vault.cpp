@@ -1,5 +1,5 @@
 // Item vaults (Create's ItemVaultBlock / ItemVaultBlockEntity / ConnectivityHandler,
-// SPEC §3.6 U12).
+// SPEC §3.6.12).
 //
 // Vault blocks along the same horizontal axis join into multi-block vaults (square base up to
 // 3x3, up to 3x the width long). Each block holds `vaultCapacity` (20) stacks; the structure
@@ -13,7 +13,6 @@
 #include <set>
 #include <unordered_map>
 
-#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/nbt/CompoundTag.h"
@@ -24,12 +23,11 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/dimension/Dimension.h"
-#include "mc/world/redstone/circuit/CircuitSystem.h"
-#include "mc/world/redstone/circuit/components/ComparatorCapacitor.h"
 
 #include "core/common/Transfer.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/funnels/FunnelsInternal.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
@@ -45,10 +43,6 @@ struct VaultState {
     std::map<GlobalPos, std::shared_ptr<cf::VaultStructure>> structures; ///< every block -> its structure
     std::set<GlobalPos>                                      dirty;
     std::unordered_map<std::string, std::vector<ItemStack>>  inventories;
-    /// comparator overrides: (circuit system, comparator position) -> signal
-    std::map<std::pair<void const*, std::tuple<int, int, int>>, int> comparators;
-    /// comparators that read a vault until now: their analog input is released once
-    std::set<std::pair<void const*, std::tuple<int, int, int>>> released;
 };
 VaultState& vs() {
     static VaultState s;
@@ -217,38 +211,6 @@ common::items::Handler capability() {
     return h;
 }
 
-/// The comparator's rear (input) side: Bedrock stores the direction it was placed facing.
-std::optional<int> comparatorRear(Block const& b) {
-    std::string id = b.getTypeName();
-    if (id != "minecraft:unpowered_comparator" && id != "minecraft:powered_comparator") return std::nullopt;
-    std::string dir;
-    auto const& nbt = b.mSerializationId.get();
-    if (nbt.contains("states", Tag::Type::Compound)) {
-        auto const& st = nbt["states"].get<CompoundTag>();
-        if (st.contains("minecraft:cardinal_direction", Tag::Type::String))
-            dir = std::string(st["minecraft:cardinal_direction"].get<StringTag>());
-    }
-    if (dir.empty()) {
-        static char const* names[]{"south", "west", "north", "east"};
-        int d = game::intState(b, "direction").value_or(0);
-        dir   = names[std::clamp(d, 0, 3)];
-    }
-    // Bedrock's cardinal direction of a comparator points from its output to its input (rear)
-    if (dir == "north") return cf::kNorth;
-    if (dir == "south") return cf::kSouth;
-    if (dir == "west") return cf::kWest;
-    if (dir == "east") return cf::kEast;
-    return std::nullopt;
-}
-
-void const* circuitOf(int dim) {
-    auto level = ll::service::getLevel();
-    if (!level) return nullptr;
-    auto dimension = level->getDimension(DimensionType(dim)).lock();
-    if (!dimension) return nullptr;
-    return dimension->mCircuitSystem.get();
-}
-
 } // namespace
 
 std::optional<cf::VaultStructure> vaultStructure(GlobalPos const& pos) {
@@ -279,7 +241,7 @@ void vaultChanged(GlobalPos const& pos) {
 
 void forgetVaults() { vs() = VaultState{}; }
 
-void tickVaults(std::uint64_t tick) {
+void tickVaults(std::uint64_t /*tick*/) {
     if (!vs().dirty.empty()) {
         auto dirty = std::move(vs().dirty);
         vs().dirty.clear();
@@ -304,29 +266,6 @@ void tickVaults(std::uint64_t tick) {
             formAround(*region, p.dim, toBlockPos(p));
         }
     }
-    // comparators reading vaults (Bedrock asks the block behind a comparator for an analog
-    // signal only for containers: the signal is given to the comparator's circuit component)
-    if (tick % 2 != 0) return;
-    auto previous = std::move(vs().comparators);
-    vs().comparators.clear();
-    std::set<cf::VaultStructure const*> done;
-    std::map<cf::VaultStructure const*, int> signals;
-    for (auto const& [pos, s] : vs().structures) {
-        auto* region = regionOf(pos.dim);
-        if (!region || !loadedBlock(*region, toBlockPos(pos))) continue;
-        for (int f : cf::kHorizontals) {
-            auto        cp = offset(toBlockPos(pos), f);
-            auto const* cb = loadedBlock(*region, cp);
-            if (!cb) continue;
-            auto rear = comparatorRear(*cb);
-            if (!rear || offset(cp, *rear) != toBlockPos(pos)) continue;
-            auto sit = signals.find(s.get());
-            if (sit == signals.end()) sit = signals.emplace(s.get(), vaultSignal(pos).value_or(0)).first;
-            if (auto const* circuit = circuitOf(pos.dim)) vs().comparators[{circuit, {cp.x, cp.y, cp.z}}] = sit->second;
-        }
-    }
-    for (auto const& [key, value] : previous)
-        if (!vs().comparators.contains(key)) vs().released.insert(key);
 }
 
 bool wrenchVault(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block, int face) {
@@ -353,46 +292,12 @@ void placeVault(Player* player, BlockSource& region, GlobalPos const& pos, int c
     vaultChanged(pos);
 }
 
-std::optional<int> comparatorOverride(void const* circuit, BlockPos const& pos) {
-    auto it = vs().comparators.find({circuit, {pos.x, pos.y, pos.z}});
-    if (it == vs().comparators.end()) return std::nullopt;
-    return it->second;
+void installVaults() {
+    common::items::registerBlock(kItemVault, capability());
+    // comparators next to any block of a vault read the fill level of the whole vault
+    common::redstone::registerAnalog(kItemVault, [](BlockSource& region, BlockPos const& pos, Block const&) {
+        return vaultSignal(game::globalPos(region, pos));
+    });
 }
-
-/// The comparator no longer reads a vault: forget the analog input we gave it (once).
-bool comparatorReleased(void const* circuit, BlockPos const& pos) { return vs().released.erase({circuit, {pos.x, pos.y, pos.z}}) > 0; }
-
-void installVaults() { common::items::registerBlock(kItemVault, capability()); }
 
 } // namespace lv::feature::funnels::detail
-
-namespace lv::feature::funnels {
-
-LL_TYPE_INSTANCE_HOOK(
-    VaultComparatorHook,
-    ll::memory::HookPriority::Normal,
-    ComparatorCapacitor,
-    &ComparatorCapacitor::$evaluate,
-    bool,
-    CircuitSystem&  system,
-    BlockPos const& pos
-) {
-    if (auto v = detail::comparatorOverride(&system, pos)) {
-        mRearAnalogStrength = *v;
-        mHasAnalogBeenSet   = true;
-    } else if (detail::comparatorReleased(&system, pos)) {
-        mRearAnalogStrength = 0;
-        mHasAnalogBeenSet   = false;
-    }
-    return origin(system, pos);
-}
-
-class VaultComparatorModule {
-public:
-    void install() { VaultComparatorHook::hook(); }
-    void uninstall() { VaultComparatorHook::unhook(); }
-};
-
-} // namespace lv::feature::funnels
-
-LV_REGISTER_MODULE(lv::feature::funnels::VaultComparatorModule);

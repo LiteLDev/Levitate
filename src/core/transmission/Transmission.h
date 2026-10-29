@@ -1,6 +1,6 @@
 #pragma once
 
-// Pure rules of the transmission blocks (U6, SPEC §2.1 / §3.6.1): chain drive shapes and ratios,
+// Pure rules of the transmission blocks (U6, SPEC §2.1 / §3.6.6): chain drive shapes and ratios,
 // gauge dials, sequenced gearshift instructions, the rotation speed controller's conveyed speed
 // and Create's placement helper orderings. Behaviour reference: Create 6.0.10 (ChainDriveBlock,
 // ChainGearshiftBlockEntity, GaugeBlock, SpeedGaugeBlockEntity, StressGaugeBlockEntity,

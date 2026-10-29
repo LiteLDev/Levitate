@@ -68,7 +68,7 @@ public:
             mLastEdit = std::chrono::steady_clock::now();
         });
         mMeasure->options = {mData.value("unitItems", std::string("Items")), mData.value("unitStacks", std::string("Stacks"))};
-        mMeasure->tooltip = {ctr("lv.redstone.threshold.item_measure", "Item Measure")};
+        mMeasure->tooltip = {ctr("create.schedule.condition.threshold.item_measure", "Item Measure")};
         mInvert = &add<IconButton>(Rect{148, 90, 18, 18}, "~", [this] {
             mInverted = !mInverted;
             send();

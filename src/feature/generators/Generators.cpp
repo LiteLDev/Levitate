@@ -1,5 +1,5 @@
 // Generators (U7): server-side behaviour of Create 6.0.10's hand crank, valve handles, water
-// wheels, large water wheel structure and creative motor (see docs/SPEC.md §3.6.1).
+// wheels, large water wheel structure and creative motor (see docs/SPEC.md §3.6.7).
 
 #include "feature/generators/Generators.h"
 
@@ -646,14 +646,14 @@ bool placeLargeWheel(Player& player, ItemStack& held, GlobalPos const& placement
     if (!fits(at, axis)) {
         // LargeWaterWheelBlockItem.place: one block further along the clicked face
         if (k::axisOf(clickedFace) == axis) {
-            actionBar(player, "§c" + trFor(player, "create.large_water_wheel.not_enough_space", "Remove Blocks for Placement"));
+            actionBar(player, "§c" + trFor(player, "create.large_water_wheel.not_enough_space", "Clear Blocks for Placement"));
             log().info("large water wheel at {}: not enough space", posText(at));
             return false;
         }
         at   = shifted(placement, k::offsetOf(clickedFace));
         axis = axisAt(at);
         if (!fits(at, axis)) {
-            actionBar(player, "§c" + trFor(player, "create.large_water_wheel.not_enough_space", "Remove Blocks for Placement"));
+            actionBar(player, "§c" + trFor(player, "create.large_water_wheel.not_enough_space", "Clear Blocks for Placement"));
             log().info("large water wheel at {}: not enough space", posText(placement));
             return false;
         }

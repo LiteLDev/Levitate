@@ -3,10 +3,14 @@
 #include "feature/common/Redstone.h"
 
 #include <algorithm>
+#include <cmath>
 #include <map>
+#include <set>
+#include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
+#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/nbt/CompoundTag.h"
@@ -20,6 +24,7 @@
 #include "mc/world/redstone/circuit/CircuitSystem.h"
 #include "mc/world/redstone/circuit/components/BaseCircuitComponent.h"
 #include "mc/world/redstone/circuit/components/CircuitComponentType.h"
+#include "mc/world/redstone/circuit/components/ComparatorCapacitor.h"
 
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -83,6 +88,23 @@ BlockPos torchSupport(Block const& torch, BlockPos const& at) {
 
 } // namespace
 
+namespace {
+std::unordered_map<std::string, EmitterFn>& emitters() {
+    static std::unordered_map<std::string, EmitterFn> m;
+    return m;
+}
+
+/// The input side (FacingID) of a repeater or comparator from its block state: Bedrock's
+/// cardinal direction of a diode points from its output to its input. -1 if unknown.
+int diodeRear(Block const& b) {
+    int f = facingByName(stringState(b, "minecraft:cardinal_direction"));
+    return f >= 2 ? f : -1;
+}
+} // namespace
+
+void registerEmitter(std::string const& blockId, EmitterFn fn) { emitters()[blockId] = std::move(fn); }
+void unregisterEmitter(std::string const& blockId) { emitters().erase(blockId); }
+
 int signalFrom(BlockSource& region, BlockPos const& from, BlockPos const& to) {
     int towards = facingOf(from, to);
     if (towards < 0 || !region.hasChunksAt(from, 0, false)) return 0;
@@ -90,6 +112,16 @@ int signalFrom(BlockSource& region, BlockPos const& from, BlockPos const& to) {
     if (block.isAir()) return 0;
     auto const& id = block.getTypeName();
     if (id == "minecraft:redstone_block") return 15;
+    if (auto const& em = emitters(); !em.empty()) {
+        if (auto it = em.find(id); it != em.end() && it->second) {
+            try {
+                return std::clamp(it->second(region, from, block, towards), 0, 15);
+            } catch (std::exception const& e) {
+                log().error("redstone: emitter {} failed: {}", id, e.what());
+                return 0;
+            }
+        }
+    }
     auto* comp = componentAt(region, from);
     if (!comp) return std::clamp(game::intState(block, "redstone_signal").value_or(0), 0, 15);
     int strength = std::clamp(comp->getStrength(), 0, 15);
@@ -99,8 +131,12 @@ int signalFrom(BlockSource& region, BlockPos const& from, BlockPos const& to) {
         return torchSupport(block, from) == to ? 0 : strength; // a torch never powers its support
     case CircuitComponentType::RepeaterCapacitor:
     case CircuitComponentType::ComparatorCapacitor:
-        // they only power the block in front of them (the component's direction is its input side)
-        return comp->getDirection() == (towards ^ 1) ? strength : 0;
+    {
+        // they only power the block in front of them, opposite their input side
+        int rear = diodeRear(block);
+        if (rear < 0) rear = comp->getDirection(); // no block state: the component's input side
+        return rear == (towards ^ 1) ? strength : 0;
+    }
     case CircuitComponentType::ConsumerComponent:
     case CircuitComponentType::PistonConsumer:
         return 0; // lamps, pistons, ... don't pass power on
@@ -196,17 +232,145 @@ WatchId watch(GlobalPos const& pos, WatchFn fn) {
 
 void unwatch(WatchId id) { watches().list.erase(id); }
 
+// ---- comparator output -------------------------------------------------------------------------
+
+namespace {
+std::unordered_map<std::string, AnalogFn>& analogs() {
+    static std::unordered_map<std::string, AnalogFn> m;
+    return m;
+}
+
+/// Comparators we gave an analog input (circuit system, position): released once they stop
+/// reading a registered block.
+std::set<std::pair<void const*, std::tuple<int, int, int>>>& fedComparators() {
+    static std::set<std::pair<void const*, std::tuple<int, int, int>>> s;
+    return s;
+}
+
+/// The dimension's main BlockSource per circuit system (cleared when the world closes; both
+/// live as long as their dimension).
+std::unordered_map<CircuitSystem const*, BlockSource*>& circuitDims() {
+    static std::unordered_map<CircuitSystem const*, BlockSource*> m;
+    return m;
+}
+
+BlockSource* regionOfCircuit(CircuitSystem const& system) {
+    auto& cache = circuitDims();
+    if (auto it = cache.find(&system); it != cache.end()) return it->second;
+    auto level = ll::service::getLevel();
+    if (!level) return nullptr;
+    for (int d = 0; d < 3; ++d) {
+        auto dim = level->getDimension(d).lock();
+        if (dim && dim->mCircuitSystem.get() == &system) return cache[&system] = &dim->getBlockSourceFromMainChunkSource();
+    }
+    return nullptr;
+}
+
+/// Rear side per comparator block permutation (blocks are immutable registry entries).
+std::unordered_map<Block const*, int>& rearCache() {
+    static std::unordered_map<Block const*, int> m;
+    return m;
+}
+
+/// Java's isRedstoneConductor, near enough: a solid, full block.
+bool conductor(Block const& b) {
+    return !b.isAir() && b._isSolid() && b.canProvideFullSupport(1) && b.canProvideFullSupport(0);
+}
+
+int clamp15(int v) { return std::clamp(v, 0, 15); }
+} // namespace
+
+void registerAnalog(std::string const& blockId, AnalogFn fn) { analogs()[blockId] = std::move(fn); }
+void unregisterAnalog(std::string const& blockId) { analogs().erase(blockId); }
+
+std::optional<int> analogOutput(BlockSource& region, BlockPos const& pos) {
+    auto& m = analogs();
+    if (m.empty() || pos.y < region.getMinHeight() || pos.y >= region.getMaxHeight() || !region.hasChunksAt(pos, 0, false))
+        return std::nullopt;
+    auto const& block = region.getBlock(pos);
+    auto        it    = m.find(block.getTypeName());
+    if (it == m.end() || !it->second) return std::nullopt;
+    try {
+        if (auto v = it->second(region, pos, block)) return clamp15(*v);
+    } catch (std::exception const& e) {
+        log().error("redstone: analog output at {} {} {} failed: {}", pos.x, pos.y, pos.z, e.what());
+    }
+    return std::nullopt;
+}
+
+std::optional<int> comparatorRear(Block const& b) {
+    if (auto it = rearCache().find(&b); it != rearCache().end()) return it->second;
+    auto const& id = b.getTypeName();
+    if (id != "minecraft:unpowered_comparator" && id != "minecraft:powered_comparator") return std::nullopt;
+    // Bedrock's cardinal direction of a comparator points from its output to its input (rear)
+    int f = facingByName(stringState(b, "minecraft:cardinal_direction"));
+    if (f < 2) {
+        static constexpr int byDirection[] = {3, 4, 2, 5}; // legacy "direction": south, west, north, east
+        f = byDirection[std::clamp(game::intState(b, "direction").value_or(0), 0, 3)];
+    }
+    rearCache().emplace(&b, f);
+    return f;
+}
+
+std::optional<int> comparatorInput(BlockSource& region, BlockPos const& at) {
+    if (analogs().empty() || !region.hasChunksAt(at, 0, false)) return std::nullopt;
+    auto rear = comparatorRear(region.getBlock(at));
+    if (!rear) return std::nullopt;
+    BlockPos behind = step(at, *rear);
+    if (auto v = analogOutput(region, behind)) return v;
+    if (!region.hasChunksAt(behind, 0, false) || !conductor(region.getBlock(behind))) return std::nullopt;
+    return analogOutput(region, step(behind, *rear));
+}
+
+int fractionToRedstoneLevel(double fraction) {
+    if (!(fraction > 0)) return 0;
+    return clamp15(static_cast<int>(std::floor(fraction * 14 + 1)));
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    RedstoneComparatorHook,
+    ll::memory::HookPriority::Normal,
+    ComparatorCapacitor,
+    &ComparatorCapacitor::$evaluate,
+    bool,
+    CircuitSystem&  system,
+    BlockPos const& pos
+) {
+    if (!analogs().empty()) {
+        std::pair<void const*, std::tuple<int, int, int>> key{&system, {pos.x, pos.y, pos.z}};
+        std::optional<int>                                 v;
+        if (auto* region = regionOfCircuit(system)) v = comparatorInput(*region, pos);
+        if (v) {
+            mRearAnalogStrength = *v;
+            mHasAnalogBeenSet   = true;
+            fedComparators().insert(key);
+        } else if (fedComparators().erase(key) > 0) {
+            mRearAnalogStrength = 0; // no longer reads one of our blocks: forget what we gave it
+            mHasAnalogBeenSet   = false;
+        }
+    }
+    return origin(system, pos);
+}
+
 class RedstoneModule {
 public:
     void install() {
         mTick = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { poll(); });
+        RedstoneComparatorHook::hook();
         static bool registered = false;
         if (!registered) {
             registered = true;
-            game::db::onWorldClosed([] { watches().list.clear(); });
+            game::db::onWorldClosed([] {
+                watches().list.clear();
+                fedComparators().clear();
+                circuitDims().clear();
+            });
         }
     }
-    void uninstall() { ll::event::EventBus::getInstance().removeListener(mTick); }
+    void uninstall() {
+        RedstoneComparatorHook::unhook();
+        ll::event::EventBus::getInstance().removeListener(mTick);
+    }
 
 private:
     ll::event::ListenerPtr mTick;

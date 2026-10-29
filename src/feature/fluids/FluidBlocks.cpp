@@ -23,6 +23,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/fluids/FluidsInternal.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
@@ -82,7 +83,7 @@ bool useBucket(Player& player, GlobalPos const& clicked, int face, ItemStack con
     if (heldId == "minecraft:bucket") {
         auto id = blockIdAt(clicked);
         if (!isFluidBlock(id)) return false;
-        auto bucket = bucketOf(fluidOfBlock(id));
+        auto bucket = common::fluidtypes::bucketOf(fluidOfBlock(id));
         auto filled = items::make(bucket);
         if (!filled) return false;
         game::clearBlock(*region, toBlockPos(clicked));
@@ -164,23 +165,7 @@ void registerSources() {}
 
 bool poweredAt(GlobalPos const& p) {
     auto* region = regionOf(p.dim);
-    if (!region) return false;
-    for (int f = 0; f < 6; ++f) {
-        GlobalPos q  = offsetPos(p, f);
-        auto      bp = toBlockPos(q);
-        if (!region->hasChunksAt(bp, 0, false)) continue;
-        auto const& b = region->getBlock(bp);
-        if (b.isAir()) continue;
-        auto id = b.getTypeName();
-        if (id == "minecraft:redstone_block" || id == "minecraft:redstone_torch" || id == "minecraft:powered_repeater"
-            || id == "minecraft:powered_comparator")
-            return true;
-        if (game::intState(b, "redstone_signal").value_or(0) > 0) return true;
-        if (id == "minecraft:lever" && game::intState(b, "open_bit").value_or(0)) return true;
-        if (game::intState(b, "button_pressed_bit").value_or(0)) return true;
-        if (id == "minecraft:observer" && game::intState(b, "powered_bit").value_or(0)) return true;
-    }
-    return false;
+    return region && common::redstone::powered(*region, toBlockPos(p));
 }
 
 } // namespace lv::feature::fluids

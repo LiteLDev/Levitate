@@ -173,6 +173,15 @@ void facingStates(Out& o, std::string const& f) {
 
 void mapCreate(JavaState const& js, std::string const& path, Out& o) {
     o.name("levitate:" + path);
+    if (path == "chute") {
+        // chute states run 0..n: facing 0 down, 1..4 north / south / west / east; shape 0 normal,
+        // 1 window, 2 intersection, 3 encased
+        int f = facingIndex(js.get("facing"));
+        o.i("levitate:facing", f >= 2 ? f - 1 : 0);
+        auto s = js.get("shape");
+        o.i("levitate:shape", s == "window" ? 1 : s == "intersection" ? 2 : s == "encased" ? 3 : 0);
+        return;
+    }
     for (auto const& [k, v] : js.props) {
         if (k == "waterlogged") continue;
         std::string key = "levitate:" + k;

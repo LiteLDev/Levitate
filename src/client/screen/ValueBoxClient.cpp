@@ -24,6 +24,7 @@
 #include "core/common/ValueSettings.h"
 #include "feature/common/ValueBox.h"
 #include "feature/net/Net.h"
+#include "mod/Log.h"
 #include "mod/Module.h"
 
 namespace lv::client::screen {
@@ -206,6 +207,16 @@ public:
             h.lines.clear();
             for (auto const& l : msg.value("lines", Json::array())) h.lines.push_back(l.get<std::string>());
             h.has = !h.lines.empty();
+            // one line per new target and title (live values don't log again; e2e scenarios wait
+            // for it); colour codes are drawn, not shown
+            static std::string lastTarget;
+            auto target = msg.value("pos", Json()).dump() + "|" + std::to_string(h.face) + "|" + (h.has ? h.lines.front() : "");
+            if (h.has && target != lastTarget) {
+                std::string text;
+                for (auto const& l : h.lines) text += (text.empty() ? "" : " | ") + l;
+                log().info("valuebox client: hover label {}", text);
+            }
+            lastTarget = h.has ? target : std::string{};
         });
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) { pollHover(); }));

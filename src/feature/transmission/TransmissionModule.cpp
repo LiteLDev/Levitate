@@ -56,11 +56,11 @@ public:
             if (!c.removed) sequencerSpeedChanged(c.pos, c.prevTheoretical, c.theoretical);
         });
         installPlacementHooks();
-        installComparatorHook();
+        installComparatorOutput();
     }
 
     void uninstall() {
-        uninstallComparatorHook();
+        uninstallComparatorOutput();
         uninstallPlacementHooks();
         kinetics::removeListener(mSpeedListener);
         auto& bus = ll::event::EventBus::getInstance();

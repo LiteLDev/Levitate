@@ -38,6 +38,7 @@
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/dimension/Dimension.h"
 
+#include "feature/common/Redstone.h"
 #include "feature/display/Internal.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
@@ -56,7 +57,7 @@ std::optional<int> dyeOf(std::string_view itemId) {
 }
 
 unsigned dyeRgb(int dye) {
-    // Java DyeColor text colours ⚠ (Create's DyeHelper uses its own pairs; SPEC §3.6 Display)
+    // Java DyeColor text colours ⚠ (Create's DyeHelper uses its own pairs; SPEC §3.6.24)
     static constexpr unsigned rgb[16]{0xFFFFFF, 0xFF681F, 0xFF00FF, 0x9AC0CD, 0xFFFF00, 0xBFFF00, 0xFF69B4, 0x808080,
                                       0xD3D3D3, 0x00FFFF, 0xA020F0, 0x0000FF, 0x8B4513, 0x00FF00, 0xFF0000, 0x000000};
     return rgb[std::clamp(dye, 0, 15)];
@@ -145,46 +146,11 @@ int faceOfHorizontal(int facing) {
 
 // ---- redstone ---------------------------------------------------------------------------------
 
-namespace {
-bool endsWith(std::string_view s, std::string_view suffix) { return s.size() >= suffix.size() && s.ends_with(suffix); }
-
-/// Power a vanilla emitter at `n` gives towards the block at `n - offset(face)` (face = from the
-/// block to the emitter).
-int emitted(Block const& b, int face) {
-    std::string const& id = b.getTypeName();
-    if (id == "minecraft:redstone_block") return 15;
-    if (id == "minecraft:lever") return intState(b, "open_bit").value_or(0) ? 15 : 0;
-    if (endsWith(id, "_button")) return intState(b, "button_pressed_bit").value_or(0) ? 15 : 0;
-    if (id == "minecraft:observer") return intState(b, "powered_bit").value_or(0) ? 15 : 0;
-    if (id == "minecraft:powered_repeater") return 15;
-    if (id == "minecraft:powered_comparator" || id == "minecraft:unpowered_comparator") {
-        return intState(b, "output_lit_bit").value_or(0) ? 15 : 0;
-    }
-    if (id == "minecraft:redstone_torch") {
-        // a torch powers every neighbour except the block it stands on
-        auto t = strState(b, "torch_facing_direction").value_or("top");
-        int  support = t == "top" || t == "unknown" ? 0 : t == "north" ? 3 : t == "south" ? 2 : t == "west" ? 5 : t == "east" ? 4 : -1;
-        // support is the face of the torch block pointing at its supporting block
-        return support == (face ^ 1) ? 0 : 15;
-    }
-    if (id == "minecraft:redstone_wire") {
-        // wire powers the block below it and the blocks beside it
-        return face == 0 ? 0 : intState(b, "redstone_signal").value_or(0);
-    }
-    if (auto s = intState(b, "redstone_signal")) return *s; // plates, daylight detectors, ...
-    return 0;
-}
-} // namespace
-
 int signalAt(BlockSource& region, BlockPos const& pos, int exceptFace) {
     int best = 0;
-    for (int f = 0; f < 6; ++f) {
+    for (int f = 0; f < 6 && best < 15; ++f) {
         if (f == exceptFace) continue;
-        BlockPos n{pos.x + kDx[f], pos.y + kDy[f], pos.z + kDz[f]};
-        auto const* b = loadedBlock(region, n);
-        if (!b || b->isAir()) continue;
-        best = std::max(best, emitted(*b, f));
-        if (best >= 15) return 15;
+        best = std::max(best, common::redstone::signalFrom(region, {pos.x + kDx[f], pos.y + kDy[f], pos.z + kDz[f]}, pos));
     }
     return best;
 }

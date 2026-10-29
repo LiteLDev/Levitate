@@ -1,6 +1,6 @@
 #pragma once
 
-// Fluid transport (U17, SPEC §2.12 / §3.6.1): fluid pipes, glass and encased pipes, mechanical
+// Fluid transport (U17, SPEC §2.12 / §3.6.17): fluid pipes, glass and encased pipes, mechanical
 // pumps, fluid valves and smart fluid pipes, on top of the pure flow model (core/pipes).
 //
 // Internal header of the unit (other units integrate through the fluid capability and the fluid

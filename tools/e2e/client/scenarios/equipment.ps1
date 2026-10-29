@@ -3,7 +3,7 @@
 #                       worldshaper and wand of symmetry screens, a potato cannon shot, worn
 #                       diving gear; the selftests pass on the (integrated) server.
 #   remote-vanilla:     the same items without the client mod: forms instead of screens.
-# Screenshots: out/equipment/{blocks,toolbox-screen,toolbox-filled,radial,worldshaper-screen,
+# Screenshots: out/equipment/{blocks,toolbox-screen,toolbox-filled,radial,radial-compartments,worldshaper-screen,
 #              symmetry-screen,cannon-shot,diving-gear}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 
@@ -63,13 +63,19 @@ if (-not $vanilla) {
     Hold-Key 0x12 {
         Wait-LogLine 'equipment: toolbox radial menu opened' 15 -Since $mark | Out-Null
         Start-Sleep -Milliseconds 500
-        # point at the top entry (compartment 0, the torches: 62 GUI px above the centre)
+        # point at the top entry (62 GUI px above the centre): the nearest toolbox
         $gui = Wait-LogLine 'screen opened: .* gui=' 10 -Since $mark
         $gh = if ($gui -match 'gui=[\d.]+x([\d.]+)') { [double]$Matches[1] } else { 300 }
-        Move-Mouse 0.5 (0.5 - 62 / $gh) -Relative
+        $script:radialTop = 0.5 - 62 / $gh
+        Move-Mouse 0.5 $script:radialTop -Relative
         Start-Sleep -Milliseconds 500
         Save-Screenshot 'radial' | Out-Null
     }
+    # three toolboxes are in range (SELECT_BOX): the release picked the nearest one (the brown
+    # toolbox, top entry) and the menu now shows its compartments; click the top one (the torches)
+    Start-Sleep -Milliseconds 500
+    Save-Screenshot 'radial-compartments' | Out-Null
+    Click 0.5 $script:radialTop -Relative
     Wait-LogLine 'equipment: .* equipped minecraft:torch from the toolbox' 15 -Since $mark | Out-Null
     Start-Sleep -Milliseconds 600
     Save-Screenshot 'radial-equipped' | Out-Null

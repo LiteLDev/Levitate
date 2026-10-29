@@ -10,5 +10,5 @@
   "create.track_signal.cannot_change_mode": "Unable to switch mode of this Signal",
   "create.track_signal.mode_change.entry_signal": "-> Allow passage if section unoccupied",
   "create.track_signal.mode_change.cross_signal": "-> Allow passage if section fully traversable",
-  "create.display_source.observed_train_name": "Observed Train Name"
+  "create.display_source.observed_train_name": "Detected Train Name"
 }

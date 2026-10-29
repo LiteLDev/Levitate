@@ -1,4 +1,4 @@
-// Chain conveyor (SPEC §2.21, §3.6.1): Create 6.0.10's ChainConveyorBlock(Entity). A kinetic
+// Chain conveyor (SPEC §2.21, §3.6.25): Create 6.0.10's ChainConveyorBlock(Entity). A kinetic
 // block (vertical axis) that connects to other chain conveyors with chains (right-click two of
 // them with chains), carries packages around its loop and along its chains, routes them by
 // address towards the frogports that catch them, and lets players ride the chains with a wrench.

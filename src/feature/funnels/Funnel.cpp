@@ -1,4 +1,4 @@
-// Andesite and brass funnels (Create's FunnelBlock / FunnelBlockEntity, SPEC §3.6 U12).
+// Andesite and brass funnels (Create's FunnelBlock / FunnelBlockEntity, SPEC §3.6.12).
 //
 // A funnel is attached to the block behind it (opposite of `levitate:facing`). Extracting
 // funnels pull items out of that inventory every `defaultExtractionTimer` ticks and drop them in

@@ -228,7 +228,7 @@ void registerScreen() {
                   {"tool", trFor(p, "create.gui.terrainzapper.tool", "Tool")},
                   {"placement", trFor(p, "create.gui.terrainzapper.placement", "Placement")},
                   {"pattern", trFor(p, "create.gui.terrainzapper.patternSection", "Pattern")},
-                  {"confirm", trFor(p, "lv.equipment.confirm", "Confirm")}}},
+                  {"confirm", trFor(p, "create.action.confirm", "Confirm")}}},
             };
         },
         .action =

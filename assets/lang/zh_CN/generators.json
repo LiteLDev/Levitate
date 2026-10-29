@@ -1,5 +1,5 @@
 {
-  "create.kinetics.creative_motor.rotation_speed": "生成转速（RPM）",
-  "create.kinetics.valve_handle.rotated_angle": "使用时的旋转角度",
-  "create.large_water_wheel.not_enough_space": "需要移除方块才能放置"
+  "create.kinetics.creative_motor.rotation_speed": "产生的RPM转速",
+  "create.kinetics.valve_handle.rotated_angle": "使用时旋转的角度",
+  "create.large_water_wheel.not_enough_space": "清理阻挡的方块以便放置"
 }

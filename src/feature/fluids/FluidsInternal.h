@@ -12,7 +12,8 @@
 #include "core/GlobalPos.h"
 #include "core/fluids/Fluids.h"
 #include "feature/common/Capabilities.h"
-#include "feature/fluids/FluidRegistry.h"
+#include "feature/common/FluidRegistry.h"
+#include "feature/fluids/ItemFluids.h"
 
 class BlockSource;
 class BlockPos;

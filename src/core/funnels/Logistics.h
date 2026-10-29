@@ -122,7 +122,7 @@ enum class TunnelShape { Straight = 0, Window = 1, Closed = 2, TLeft = 3, TRight
 [[nodiscard]] float chutePullDistance(float speed);
 
 /// Create's ChuteBlock.Shape (block state `levitate:shape`).
-enum class ChuteShape { Intersection = 0, Window = 1, Normal = 2, Encased = 3 };
+enum class ChuteShape { Normal = 0, Window = 1, Intersection = 2, Encased = 3 };
 
 /// Create's ChuteBlock.updateChuteState. `facing` is the chute's facing (down, or the horizontal
 /// face of a diagonal chute); `diagonalInputs[f]` = a chute above-`f` faces `f` (feeds into this

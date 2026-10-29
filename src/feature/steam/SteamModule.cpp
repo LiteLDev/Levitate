@@ -27,6 +27,7 @@
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/net/Net.h"
@@ -40,6 +41,8 @@
 #include "mod/Module.h"
 
 namespace lv::feature::steam {
+
+namespace ia = common::interactions;
 
 // The powered shaft is a generator shaft; its speed and capacity come from its engine.
 LV_REGISTER_KINETIC_BLOCK(
@@ -242,37 +245,21 @@ bool busy(Player& player) {
     return false;
 }
 
-InteractionResult handled() {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    return r;
-}
-
 } // namespace
 
-LL_TYPE_INSTANCE_HOOK(
-    SteamUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region  = player.getDimensionBlockSource();
-    Block const* clicked = targetBlock ? targetBlock : &region.getBlock(at);
-    std::string  id      = clicked->getTypeName();
-    std::string  heldId  = item.isNull() ? std::string{} : item.getTypeName();
-    auto         pos     = game::globalPos(region, at);
-    bool         sneak   = player.isSneaking();
+// ---- interactions (U36: on the shared dispatch) --------------------------------------------------
+
+namespace {
+
+/// Right-clicks on tanks and whistles, and the placement rules of engines and whistles.
+ia::Result steamUseOn(ia::UseOnContext const& c) {
+    Player&            player = c.player;
+    std::string const& id     = c.blockId;
+    std::string const& heldId = c.itemId;
+    ItemStack const&   item   = c.item;
+    auto               pos    = c.pos;
+    bool               sneak  = c.sneaking;
+    int                face   = c.face;
     try {
         if (isTankId(id)) {
             if (heldId == kWrench && !sneak) {
@@ -280,15 +267,16 @@ LL_TYPE_INSTANCE_HOOK(
                     toggleWindows(pos);
                     playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "block.itemframe.rotate_item", 1.f, 1.f);
                 }
-                return handled();
+                return ia::Result::Consume;
             }
             if (!heldId.empty() && !sneak) {
-                if (isTankId(heldId) && tryMultiPlace(player, pos, face, item)) return handled();
+                if (isTankId(heldId) && tryMultiPlace(player, pos, face, item)) return ia::Result::Consume;
                 if (!isTankId(heldId) && heldId != kEngine && heldId != kWhistle) {
-                    bool container = !common::fluids::fluidInItem(item).empty() || heldId == "minecraft:bucket" || heldId == "minecraft:glass_bottle";
+                    bool container = !common::fluids::fluidInItem(item).empty() || heldId == "minecraft:bucket"
+                                  || heldId == "minecraft:glass_bottle";
                     if (container && (busy(player) || useItemOnTank(player, pos, item))) {
                         player.sendInventory(false);
-                        return handled();
+                        return ia::Result::Consume;
                     }
                 }
             }
@@ -298,53 +286,42 @@ LL_TYPE_INSTANCE_HOOK(
         bool whistleUse = (id == kWhistle || id == kExtension)
                        && ((heldId == kWhistle && !sneak) || (heldId == kWrench && (!sneak || id == kExtension)));
         if (whistleUse) {
-            if (busy(player)) return handled();
+            if (busy(player)) return ia::Result::Consume;
             if (useOnWhistle(player, pos, item, sneak)) {
                 player.sendInventory(false);
-                return handled();
+                return ia::Result::Consume;
             }
         }
         // Create: engines only go on tanks, whistles on tanks (side or top)
         if (heldId == kEngine && !isTankId(id)) {
             player.sendInventory(false);
-            return InteractionResult{};
+            return ia::Result::Deny;
         }
         if (heldId == kWhistle && (!isTankId(id) || face == 0) && id != kWhistle && id != kExtension) {
             player.sendInventory(false);
-            return InteractionResult{};
+            return ia::Result::Deny;
         }
     } catch (std::exception const& ex) {
         log().error("steam: interaction failed: {}", ex.what());
     }
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    SteamDestroyBlockHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$destroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face
-) {
-    Player& player = mPlayer;
-    bool    drop   = false;
-    if (!player.isClientSide() && !player.isCreative()) {
-        auto& region = player.getDimensionBlockSource();
-        drop         = region.getBlock(pos).getTypeName() == kPoweredShaft;
+/// Create's powered shaft drops a shaft when a survival player breaks it.
+void steamDestroyed(ia::DestroyContext const& c, bool destroyed) {
+    if (!destroyed || c.player.isCreative()) return;
+    GlobalPos pos    = c.pos;
+    auto*     region = regionOf(pos.dim);
+    auto      level  = ll::service::getLevel();
+    if (!region || !level) return;
+    BlockPos bp{pos.x, pos.y, pos.z};
+    if (!region->hasChunksAt(bp, 0, false) || region->getBlock(bp).getTypeName() == kPoweredShaft) return;
+    if (auto stack = common::items::make(kShaft)) {
+        level->getSpawner().spawnItem(*region, *stack, nullptr, Vec3{float(pos.x) + .5f, float(pos.y) + .5f, float(pos.z) + .5f}, 0);
     }
-    bool result = origin(pos, face);
-    if (result && drop) {
-        // Create's powered shaft drops a shaft
-        auto level = ll::service::getLevel();
-        if (auto stack = common::items::make(kShaft); stack && level) {
-            level->getSpawner().spawnItem(player.getDimensionBlockSource(), *stack, nullptr,
-                                          Vec3{float(pos.x) + .5f, float(pos.y) + .5f, float(pos.z) + .5f}, 0);
-        }
-    }
-    return result;
 }
+
+} // namespace
 
 class SteamModule {
 public:
@@ -396,14 +373,14 @@ public:
                 log().error("steam: tick failed: {}", ex.what());
             }
         }));
-        SteamUseItemOnHook::hook();
-        SteamDestroyBlockHook::hook();
+        mHandlers.push_back(ia::onUseOn({}, steamUseOn));
+        mHandlers.push_back(ia::onDestroyed({std::string(kPoweredShaft)}, steamDestroyed));
         if (game::db::available()) worldReady(); // BDS: the world exists before mods are enabled
     }
 
     void uninstall() {
-        SteamDestroyBlockHook::unhook();
-        SteamUseItemOnHook::unhook();
+        for (auto id : mHandlers) ia::remove(id);
+        mHandlers.clear();
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
@@ -422,6 +399,7 @@ private:
     }
 
     std::vector<ll::event::ListenerPtr> mListeners;
+    std::vector<ia::HandlerId>          mHandlers;
 };
 
 // ---- command ---------------------------------------------------------------------------------------------
