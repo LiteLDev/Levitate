@@ -1,0 +1,10 @@
+tile.levitate:redstone_link.name=无线红石信号终端
+tile.levitate:analog_lever.name=模拟拉杆
+tile.levitate:pulse_repeater.name=脉冲中继器
+tile.levitate:pulse_extender.name=脉冲延长器
+tile.levitate:pulse_timer.name=脉冲计时器
+tile.levitate:powered_latch.name=锁存器
+tile.levitate:powered_toggle_latch.name=转换锁存器
+tile.levitate:content_observer.name=智能侦测器
+tile.levitate:stockpile_switch.name=存量转信器
+tile.levitate:redstone_contact.name=接触式红石信号发生器
