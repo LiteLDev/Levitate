@@ -13,6 +13,7 @@
 
 #include "mc/world/level/Level.h"
 
+#include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/block/Block.h"
@@ -137,6 +138,7 @@ void schematicUse(Player& player, std::optional<std::pair<cs::Pos, int>> hit) {
         return;
     }
     if (net::isCompanion(player)) return; // the client mod's tools position the schematic
+    if (!hit) hit = lookTrace(player); // Create's tools trace up to 75 blocks
     if (!hit) return;
     // Create's DeployTool: the selected block becomes the bottom centre of the footprint
     auto [pos, face] = *hit;
@@ -274,8 +276,14 @@ void registerPlacement() {
     });
     // the ghost preview: palette (block SNBT, "" = unmapped) + run-length block indices
     net::on("schematics.preview.request", [](Player& p, Json const& msg) {
-        auto d = held(p);
-        if (!d || d->file != msg.value("file", std::string{}) || d->owner != msg.value("owner", std::string{})) return;
+        // any written schematic of that file in the inventory (the hand may have changed meanwhile)
+        std::optional<SchematicData> d;
+        auto&                        inv = p.getInventory();
+        for (int i = 0; i < inv.getContainerSize() && !d; ++i) {
+            auto sd = schematicData(inv.getItem(i));
+            if (sd && sd->file == msg.value("file", std::string{}) && sd->owner == msg.value("owner", std::string{})) d = sd;
+        }
+        if (!d) return;
         std::string err;
         auto        loaded = loadSchematic(d->owner, d->file, &err);
         if (!loaded) {

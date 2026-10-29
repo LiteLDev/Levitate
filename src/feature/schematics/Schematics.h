@@ -101,6 +101,8 @@ void actionBar(Player& player, std::string const& text);
 void sound(GlobalPos const& p, std::string const& name, float volume = 1.f, float pitch = 1.f);
 void particle(int dim, double x, double y, double z, std::string const& effect);
 [[nodiscard]] Player* playerById(std::int64_t uid);
+/// The block the player looks at within `range` (Create's rayTraceRange, fluids ignored) + face.
+[[nodiscard]] std::optional<std::pair<cs::Pos, int>> lookTrace(Player& player, double range = 75);
 [[nodiscard]] std::int64_t uidOf(Player const& player);
 [[nodiscard]] std::uint64_t currentTick();
 void                        defer(std::function<void()> fn);

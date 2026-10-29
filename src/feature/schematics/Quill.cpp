@@ -119,7 +119,7 @@ void quillUse(Player& player, std::optional<std::pair<cs::Pos, int>> hit) {
             static_cast<int>(std::floor(eye.y + look.y * s.range)),
             static_cast<int>(std::floor(eye.z + look.z * s.range))
         };
-    } else if (hit) {
+    } else if (hit || (hit = lookTrace(player))) {
         auto [pos, face] = *hit;
         int dim          = static_cast<int>(player.getDimensionId());
         // Create: clicking the top / bottom of a solid block selects the block beyond that face
@@ -138,6 +138,7 @@ void quillUse(Player& player, std::optional<std::pair<cs::Pos, int>> hit) {
     } else {
         s.first = selected;
         actionBar(player, trFor(player, "create.schematicAndQuill.firstPos", "First position set."));
+        log().info("schematic and quill: {} set the first corner at {} {} {}", player.getRealName(), selected->x, selected->y, selected->z);
     }
     sync(player);
 }

@@ -387,6 +387,22 @@ TEST(SchematicsLogic, SelectionResize) {
     EXPECT_EQ(s.range, 1);
 }
 
+TEST(SchematicsLogic, Raycast) {
+    // looking east along y = 0.5 from x = 0.5: the wall at x = 5 is hit on its west face
+    auto h = raycast(0.5, 0.5, 0.5, 1, 0, 0, 75, [](Pos p) { return p.x == 5; });
+    ASSERT_TRUE(h);
+    EXPECT_EQ(h->first, (Pos{5, 0, 0}));
+    EXPECT_EQ(h->second, 4);
+    // looking down onto the floor at y = -3: top face
+    h = raycast(0.5, 0.5, 0.5, 0, -1, 0, 75, [](Pos p) { return p.y == -3; });
+    ASSERT_TRUE(h);
+    EXPECT_EQ(h->second, 1);
+    // out of range
+    EXPECT_FALSE(raycast(0.5, 0.5, 0.5, 1, 0, 0, 3, [](Pos p) { return p.x == 5; }));
+    // the start block itself never counts
+    EXPECT_FALSE(raycast(0.5, 0.5, 0.5, 0, 0, 1, 2, [](Pos p) { return p == Pos{0, 0, 0}; }));
+}
+
 // ---- schematicannon ---------------------------------------------------------------------------------
 
 TEST(SchematicsLogic, ReplaceModes) {

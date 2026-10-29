@@ -17,8 +17,12 @@ Wait-Seconds 3
 Send-Console 'setblock 3 -60 3 levitate:schematicannon'
 Send-Console 'setblock 5 -60 3 levitate:schematic_table ["levitate:facing"=2]'
 Wait-Seconds 1
+$m = Get-LogMark
 Send-Console 'testforblock 3 -60 3 levitate:schematicannon'
-Wait-LogLine 'Successfully found the block' 10 | Out-Null
+Wait-LogLine 'Successfully found the block' 10 -Since $m | Out-Null
+$m = Get-LogMark
+Send-Console 'testforblock 5 -60 3 levitate:schematic_table'
+Wait-LogLine 'Successfully found the block' 10 -Since $m | Out-Null
 Send-Console 'setblock 3 -60 3 air'
 Send-Console 'setblock 5 -60 3 air'
 Send-Console 'tickingarea remove lv_schematics_e2e'

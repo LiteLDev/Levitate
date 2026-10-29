@@ -289,6 +289,20 @@ void particle(int dim, double x, double y, double z, std::string const& effect) 
     level->spawnParticleEffect(effect, Vec3{float(x), float(y), float(z)}, dimension.get());
 }
 
+std::optional<std::pair<cs::Pos, int>> lookTrace(Player& player, double range) {
+    auto& region = player.getDimensionBlockSource();
+    auto  eye    = player.getEyePos();
+    auto  dir    = player.getViewVector(1.f);
+    return cs::raycast(eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, range, [&](cs::Pos p) {
+        BlockPos b{p.x, p.y, p.z};
+        if (p.y < region.getMinHeight() || p.y >= region.getMaxHeight() || !region.hasChunksAt(b, 0, false)) return false;
+        auto const& block = region.getBlock(b);
+        if (block.isAir()) return false;
+        std::string const& n = block.getTypeName();
+        return n.find("water") == std::string::npos && n.find("lava") == std::string::npos;
+    });
+}
+
 Player* playerById(std::int64_t uid) {
     auto level = ll::service::getLevel();
     if (!level) return nullptr;

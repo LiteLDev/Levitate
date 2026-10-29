@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -34,6 +35,11 @@ struct Selection {
     /// below one block.
     void resize(int face, int delta, bool cameraInside);
 };
+
+/// Create's RaycastHelper.rayTraceRange: the first block along a ray for which `hit(pos)` is true,
+/// with the face it was entered through (0..5, down up north south west east), up to `range`.
+template <class F>
+std::optional<std::pair<Pos, int>> raycast(double ox, double oy, double oz, double dx, double dy, double dz, double range, F&& hit);
 
 // ---- schematicannon ----------------------------------------------------------------------------------
 
@@ -154,6 +160,44 @@ struct Checklist {
 /// (2..5) the player's horizontal facing for floor / ceiling blueprints. Index = col + row * size
 /// (columns left to right, rows bottom to top, as seen by a viewer looking at it).
 [[nodiscard]] std::vector<Pos> blueprintCells(Pos clicked, int face, int horizontal, int size);
+
+template <class F>
+std::optional<std::pair<Pos, int>> raycast(double ox, double oy, double oz, double dx, double dy, double dz, double range, F&& hit) {
+    double len = std::sqrt(dx * dx + dy * dy + dz * dz);
+    if (len < 1e-9) return std::nullopt;
+    dx /= len, dy /= len, dz /= len;
+    Pos    p{static_cast<int>(std::floor(ox)), static_cast<int>(std::floor(oy)), static_cast<int>(std::floor(oz))};
+    int    sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
+    auto   next = [](double o, int c, double d) {
+        if (std::abs(d) < 1e-12) return 1e30;
+        double b = d > 0 ? c + 1.0 : static_cast<double>(c);
+        return (b - o) / d;
+    };
+    double tx = next(ox, p.x, dx), ty = next(oy, p.y, dy), tz = next(oz, p.z, dz);
+    double ddx = std::abs(dx) < 1e-12 ? 1e30 : 1.0 / std::abs(dx), ddy = std::abs(dy) < 1e-12 ? 1e30 : 1.0 / std::abs(dy),
+           ddz = std::abs(dz) < 1e-12 ? 1e30 : 1.0 / std::abs(dz);
+    int    face = -1;
+    for (int guard = 0; guard < 4096; ++guard) {
+        if (face >= 0 && hit(p)) return std::pair{p, face};
+        if (tx <= ty && tx <= tz) {
+            if (tx > range) break;
+            p.x += sx;
+            tx += ddx;
+            face = sx > 0 ? 4 : 5; // entered through the west / east face
+        } else if (ty <= tz) {
+            if (ty > range) break;
+            p.y += sy;
+            ty += ddy;
+            face = sy > 0 ? 0 : 1;
+        } else {
+            if (tz > range) break;
+            p.z += sz;
+            tz += ddz;
+            face = sz > 0 ? 2 : 3;
+        }
+    }
+    return std::nullopt;
+}
 
 template <class NameOf>
 std::vector<Checklist::Entry> Checklist::entries(NameOf&& nameOf) const {

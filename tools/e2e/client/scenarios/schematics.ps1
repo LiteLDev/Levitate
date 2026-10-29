@@ -22,6 +22,8 @@ function Click-Gui($l, [double]$x, [double]$y) {
     Click $rx $ry -Relative; Start-Sleep -Milliseconds 500
 }
 function Hotbar-Gui($l, [int]$slot) { return @(($l.ix + 8 + 18 * $slot + 9), ($l.iy + 8 + 3 * 18 + 4 + 9)) }
+# our native screens close with the inventory key (Esc closes the host scene, which headless input may not reach)
+function Close-Native { Press-Key E; Start-Sleep -Milliseconds 800 }
 function Type-Keys([string]$text) { foreach ($c in $text.ToUpper().ToCharArray()) { if ($c -eq '_') { continue }; Press-Key ([string]$c) 40 } }
 
 Invoke-Chat '/clear @s'
@@ -38,12 +40,12 @@ Invoke-Chat '/setblock 2 -59 4 glass'
 # ---- schematic and quill ----
 Invoke-Chat '/give @s levitate:schematic_and_quill'
 Press-Key '1'
-Invoke-Chat '/tp @s 0.5 -60 0.5 facing 2.5 -61 4.5'
+Invoke-Chat '/tp @s 0.5 -60 0.5 -36.87 17.95'
 Start-Sleep -Milliseconds 600
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
 Start-Sleep -Milliseconds 800
-Invoke-Chat '/tp @s 0.5 -60 0.5 facing 4.5 -59.5 6.5'
+Invoke-Chat '/tp @s 0.5 -60 0.5 -47.7 10.7'
 Start-Sleep -Milliseconds 600
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'schematic and quill: .* selected \d+x\d+x\d+' 20 -Since $mark | Out-Null
@@ -64,12 +66,15 @@ if ($vanilla) {
     Press-Key ENTER
     Wait-LogLine 'schematic and quill: .* saved e2ehouse(_\d+)?\.mcstructure' 20 -Since $mark | Out-Null
     Wait-LogLine 'schematics client: saved e2ehouse(_\d+)?\.mcstructure to the local schematics folder' 20 -Since $mark | Out-Null
+    Start-Sleep -Seconds 2
 }
 
 # ---- schematic table ----
 Invoke-Chat '/setblock -2 -60 0 levitate:schematic_table ["levitate:facing"=3]'
+Start-Sleep -Milliseconds 500
+Invoke-Chat '/setblock -2 -60 0 levitate:schematic_table ["levitate:facing"=3]'
 Invoke-Chat '/give @s levitate:empty_schematic'
-Invoke-Chat '/tp @s 0.5 -60 0.5 facing -1.5 -59.5 0.5'
+Invoke-Chat '/tp @s 0.5 -60 0.5 90 29'
 Start-Sleep -Milliseconds 800
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
@@ -91,13 +96,13 @@ if ($vanilla) {
     Start-Sleep -Milliseconds 1000
     Save-Screenshot 'table-uploaded' | Out-Null
     Click-Gui $l ($l.px + 188 + 9) ($l.py + 70 + 9)
-    Close-Screen
+    Close-Native
 }
 
 if ($vanilla) {
     # vanilla: the cannon form and the particle outlines are enough
     Invoke-Chat '/setblock 0 -60 -3 levitate:schematicannon'
-    Invoke-Chat '/tp @s 0.5 -60 0.5 facing 0.5 -59.5 -2.5'
+    Invoke-Chat '/tp @s 0.5 -60 0.5 180 20'
     Start-Sleep -Milliseconds 800
     $mark = Get-LogMark
     Click 0.5 0.5 -Relative -Right
@@ -111,7 +116,7 @@ if ($vanilla) {
 
 # ---- written schematic: ghost preview and deploying ----
 Press-Key '2'
-Invoke-Chat '/tp @s 0.5 -60 0.5 facing 0.5 -61 -8.5'
+Invoke-Chat '/tp @s 0.5 -60 0.5 180 16'
 $mark = Get-LogMark
 Start-Sleep -Seconds 2
 Wait-LogLine 'schematics client: received the preview of ' 20 | Out-Null
@@ -129,7 +134,7 @@ Invoke-Chat '/replaceitem block 4 -60 -3 slot.container 0 stone 64'
 Invoke-Chat '/replaceitem block 4 -60 -3 slot.container 1 oak_planks 64'
 Invoke-Chat '/replaceitem block 4 -60 -3 slot.container 2 glass 64'
 Invoke-Chat '/replaceitem block 4 -60 -3 slot.container 3 gunpowder 8'
-Invoke-Chat '/tp @s 0.5 -60 0.5 facing 3.5 -59.5 -2.5'
+Invoke-Chat '/tp @s 0.5 -60 0.5 -135 14.8'
 Start-Sleep -Milliseconds 800
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
@@ -140,8 +145,8 @@ Start-Sleep -Seconds 2
 Save-Screenshot 'cannon-ready' | Out-Null
 Click-Gui $l ($l.px + 75 + 9) ($l.py + 50 + 9)
 Wait-LogLine 'schematicannon at .*: started' 20 -Since $mark | Out-Null
-Close-Screen
-Invoke-Chat '/tp @s 0.5 -58 4.5 facing 0.5 -60 -8.5'
+Close-Native
+Invoke-Chat '/tp @s 0.5 -58 4.5 180 15.6'
 Start-Sleep -Seconds 2
 Save-Screenshot 'cannon-printing' | Out-Null
 Wait-LogLine 'schematicannon at .*: finished printing ' 240 -Since $mark | Out-Null
@@ -151,20 +156,20 @@ Save-Screenshot 'cannon-finished' | Out-Null
 # ---- crafting blueprint ----
 Invoke-Chat '/fill -6 -60 3 -6 -58 5 stone'
 Invoke-Chat '/give @s levitate:crafting_blueprint'
-Press-Key '3'
-Invoke-Chat '/tp @s -3.5 -59 4.5 facing -5.5 -59 4.5'
+Press-Key '2'   # the written schematic went into the cannon: the blueprint takes its slot
+Invoke-Chat '/tp @s -3.5 -59 4.5 90 0'
 Start-Sleep -Milliseconds 800
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'crafting blueprint placed at .* \(\d+x\d+\)' 20 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'blueprint-placed' | Out-Null
-Press-Key '4'
+Press-Key '3'   # an empty hand opens the recipe screen
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'screen opened: .* panel=' 20 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'blueprint-screen' | Out-Null
-Close-Screen
+Close-Native
 
 if ($script:Mode -eq 'local') {
     $r = Invoke-SelfTest 'schematics.*'

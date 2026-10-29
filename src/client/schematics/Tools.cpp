@@ -7,7 +7,9 @@
 #ifdef LV_CLIENT
 
 #include <array>
+#include <atomic>
 #include <chrono>
+#include <functional>
 #include <cmath>
 #include <map>
 #include <mutex>
@@ -106,7 +108,7 @@ struct State {
     std::mutex mutex; // previews / launches / quill (network thread vs render)
     // previews: "owner/file" -> data
     std::map<std::string, Preview> previews;
-    std::set<std::string>          requested;
+    std::map<std::string, Clock::time_point> requested;
     // ghost mesh cache
     std::string                  meshKey;
     std::unique_ptr<mce::Mesh>   mesh;
@@ -174,13 +176,10 @@ cs::Pos floorPos(double x, double y, double z) { return {int(std::floor(x)), int
 
 /// Block the crosshair points at (+ face), or nullopt.
 std::optional<std::pair<cs::Pos, int>> hitBlock() {
-    auto* ci = currentClient();
-    if (!ci) return std::nullopt;
-    auto* level = ci->getLevel();
-    if (!level) return std::nullopt;
-    auto& hit = level->getHitResult();
-    if (hit.mType != HitResultType::Tile) return std::nullopt;
-    return std::pair{cs::Pos{hit.mBlock.x, hit.mBlock.y, hit.mBlock.z}, static_cast<int>(hit.mFacing)};
+    // Create's tools trace up to 75 blocks (further than the crosshair's reach)
+    auto* p = currentPlayer();
+    if (!p) return std::nullopt;
+    return fsc::lookTrace(*p, 75);
 }
 
 constexpr std::array<cs::Pos, 6> kDirs{{{0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}}};
@@ -430,11 +429,7 @@ void renderSchematics(BaseActorRenderContext& ctx) {
     if (auto d = heldSchematic(); d && moving) {
         std::lock_guard lock(s.mutex);
         auto            key = keyOf(*d);
-        if (!s.previews.contains(key) && !s.requested.contains(key)) {
-            s.requested.insert(key);
-            net::client::send("schematics.preview.request", {{"owner", d->owner}, {"file", d->file}});
-        }
-        auto it = s.previews.find(key);
+        auto            it  = s.previews.find(key);
         std::optional<cs::Pos> anchor;
         if (d->deployed) anchor = d->anchor;
         else if (s.tool == Deploy) {
@@ -645,7 +640,72 @@ void onQuill(Json const& msg) {
     s.quillRange = msg.value("range", s.quillRange);
 }
 
-bool inGameWorld() { return currentPlayer() && !screen::current(); }
+// ---- input (raw events arrive on the window thread; game work runs on the client thread) ----------------
+
+std::atomic<bool>                  gInWorld{false}, gHoldingQuill{false}, gHoldingSchematic{false};
+std::mutex                         gQueueMutex;
+std::vector<std::function<void()>> gQueue;
+
+void queue(std::function<void()> fn) {
+    std::lock_guard lock(gQueueMutex);
+    if (gQueue.size() < 64) gQueue.push_back(std::move(fn));
+}
+
+void runQueued() {
+    std::vector<std::function<void()>> work;
+    {
+        std::lock_guard lock(gQueueMutex);
+        work.swap(gQueue);
+    }
+    for (auto& fn : work) fn();
+}
+
+void quillScroll(int delta) {
+    auto& s = st();
+    if (!holdingQuill()) return;
+    std::optional<std::pair<int, bool>> face;
+    bool                                second = false;
+    {
+        std::lock_guard lock(s.mutex);
+        second = s.second.has_value();
+        if (!second) s.quillRange = std::clamp(s.quillRange + delta, 1, 100);
+    }
+    if (!second) {
+        net::client::send("schematics.quill.ctrl", {{"down", true}, {"range", s.quillRange}});
+    } else if ((face = selectedFace())) {
+        net::client::send("schematics.quill.resize", {{"face", face->first}, {"delta", delta}, {"inside", face->second}});
+    }
+}
+
+void schematicScroll(int delta, bool alt) {
+    auto& s = st();
+    auto  d = heldSchematic();
+    if (!d) return;
+    if (alt) {
+        int count = currentPlayer()->isCreative() ? ToolCount : ToolCount - 1;
+        if (!d->deployed) s.tool = Deploy; // Create: only the deploy tool until it is placed
+        else s.tool = ((s.tool - delta) % count + count) % count;
+        return;
+    }
+    applyTool(delta);
+}
+
+void schematicClick() {
+    auto& s = st();
+    auto  d = heldSchematic();
+    if (!d || currentPlayer()->isSneaking()) return;
+    if (s.tool == Deploy) {
+        auto t = deployTarget();
+        if (!t) return;
+        d->anchor   = anchorFor(*d, *t);
+        d->deployed = true;
+        sync(*d);
+        log().info("schematics client: deployed {} at {} {} {}", d->file, d->anchor.x, d->anchor.y, d->anchor.z);
+        s.tool = Move;
+    } else if (s.tool == Print && d->deployed && currentPlayer()->isCreative()) {
+        net::client::send("schematics.print", {{"slot", currentPlayer()->getSelectedItemSlot()}});
+    }
+}
 
 } // namespace
 
@@ -675,66 +735,56 @@ public:
         SchematicsRenderHook::hook();
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>([](ll::event::KeyInputEvent& ev) {
+            // window thread: only flags and queued work here
             auto& s = st();
             if (ev.keyCode() == kKeyCtrl && s.ctrl != ev.isDown()) {
-                s.ctrl = ev.isDown();
-                if (holdingQuill()) net::client::send("schematics.quill.ctrl", {{"down", s.ctrl}, {"range", s.quillRange}});
+                s.ctrl    = ev.isDown();
+                bool down = s.ctrl;
+                queue([down] {
+                    if (holdingQuill()) net::client::send("schematics.quill.ctrl", {{"down", down}, {"range", st().quillRange}});
+                });
             }
             if (ev.keyCode() == kKeyAlt) {
                 s.alt = ev.isDown();
-                if (s.alt && heldSchematic() && inGameWorld()) ev.cancel();
+                if (s.alt && gHoldingSchematic && gInWorld) ev.cancel();
             }
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::MouseInputEvent>([](ll::event::MouseInputEvent& ev) {
-            if (!inGameWorld()) return;
-            auto& s     = st();
-            char  id    = ev.actionButtonId();
-            auto  data  = ev.buttonData();
+            if (!gInWorld) return;
+            auto& s    = st();
+            char  id   = ev.actionButtonId();
+            auto  data = ev.buttonData();
             if (id == 4 && data != 0) {
                 int delta = data > 0 ? 1 : -1;
-                if (holdingQuill() && s.ctrl) {
-                    std::lock_guard lock(s.mutex);
-                    if (!s.second) {
-                        s.quillRange = std::clamp(s.quillRange + delta, 1, 100);
-                        net::client::send("schematics.quill.ctrl", {{"down", true}, {"range", s.quillRange}});
-                    } else if (auto f = selectedFace()) {
-                        net::client::send("schematics.quill.resize", {{"face", f->first}, {"delta", delta}, {"inside", f->second}});
-                    }
+                if (gHoldingQuill && s.ctrl) {
+                    queue([delta] { quillScroll(delta); });
                     ev.cancel();
-                    return;
-                }
-                if (heldSchematic()) {
-                    if (s.alt) {
-                        bool creative = currentPlayer()->isCreative();
-                        int  count    = creative ? ToolCount : ToolCount - 1;
-                        auto d        = heldSchematic();
-                        if (d && !d->deployed) s.tool = Deploy; // Create: only the deploy tool until it is placed
-                        else s.tool = ((s.tool - delta) % count + count) % count;
-                        ev.cancel();
-                    } else if (s.ctrl) {
-                        applyTool(delta);
-                        ev.cancel();
-                    }
+                } else if (gHoldingSchematic && (s.alt || s.ctrl)) {
+                    bool alt = s.alt;
+                    queue([delta, alt] { schematicScroll(delta, alt); });
+                    ev.cancel();
                 }
                 return;
             }
-            if (id == 2 && data == 1) {
-                auto d = heldSchematic();
-                if (!d || currentPlayer()->isSneaking()) return;
-                if (s.tool == Deploy) {
-                    auto t = deployTarget();
-                    if (!t) return;
-                    d->anchor   = anchorFor(*d, *t);
-                    d->deployed = true;
-                    sync(*d);
-                    log().info("schematics client: deployed {} at {} {} {}", d->file, d->anchor.x, d->anchor.y, d->anchor.z);
-                    s.tool = Move;
-                } else if (s.tool == Print && d->deployed && currentPlayer()->isCreative()) {
-                    net::client::send("schematics.print", {{"slot", currentPlayer()->getSelectedItemSlot()}});
-                }
-            }
+            if (id == 2 && data == 1 && gHoldingSchematic) queue([] { schematicClick(); });
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::AfterUIRenderEvent>([](ll::event::AfterUIRenderEvent& ev) {
+            // client thread: refresh the flags the input handlers use, run their queued work
+            gInWorld          = currentPlayer() && !screen::current();
+            gHoldingQuill     = holdingQuill();
+            gHoldingSchematic = heldSchematic().has_value();
+            runQueued();
+            // ask the server for the held schematic's blocks (the ghost preview)
+            if (auto d = heldSchematic()) {
+                auto&           s = st();
+                std::lock_guard lock(s.mutex);
+                auto            key = keyOf(*d);
+                auto            last = s.requested.find(key);
+                // ask again after 3 s (the server only answers while the schematic is in the inventory)
+                if (!s.previews.contains(key) && (last == s.requested.end() || Clock::now() - last->second > std::chrono::seconds(3))) {
+                    if (net::client::send("schematics.preview.request", {{"owner", d->owner}, {"file", d->file}})) s.requested[key] = Clock::now();
+                }
+            }
             if (screen::current() || ev.screenView().getScreenName() != "hud_screen") return;
             screen::Canvas c(ev.uiRenderContext());
             hud(c);
