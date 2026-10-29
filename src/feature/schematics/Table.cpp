@@ -100,6 +100,7 @@ Json tableData(Player& player, GlobalPos const& p) {
         {"maxSize",   config().maxTotalSchematicSize                             },
         {"packet",    config().maxSchematicPacketSize                            },
         {"files",     files                                                      },
+        {"pos",       posJson(p)                                                 },
     };
 }
 
