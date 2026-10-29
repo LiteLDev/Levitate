@@ -303,13 +303,12 @@ bool survives(BlockSource& region, BlockPos const& pos, Kind kind) {
 void orientPlaced(Player& player, BlockSource& region, BlockPos const& pos, Kind kind) {
     int dim = static_cast<int>(region.getDimensionId());
     if (!survives(region, pos, kind)) {
-        // Create refuses the placement: the block pops as its item
-        auto level = ll::service::getLevel();
-        if (level) {
-            BlockChangeContext ctx{};
-            level->destroyBlock(region, pos, true, ctx);
-        }
-        log().info("basin: {} at {} {} {} can't stay there (basin under a press / mixer)", idAt(region, pos), pos.x, pos.y, pos.z);
+        // Create refuses the placement: the block goes away and the item comes back
+        auto id = idAt(region, pos);
+        game::clearBlock(region, pos);
+        if (!player.isCreative())
+            if (auto item = common::items::make(id)) giveOrDrop(player, *item);
+        log().info("basin: {} at {} {} {} can't stay there (basin under a press / mixer)", id, pos.x, pos.y, pos.z);
         return;
     }
     switch (kind) {

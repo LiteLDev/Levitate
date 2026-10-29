@@ -119,7 +119,9 @@ void registerHeat() {
         auto gp      = game::globalPos(a.region, a.pos);
         auto [ok, c] = tryInsert(a.region, gp, items::withCount(stack, 1), false, false, simulate);
         if (!ok) return stack;
-        if (items::idOf(stack) == kCreativeCake) return stack; // applied, never used up
+        // the creative cake is applied but never used up (Create's arm keeps holding it); a
+        // simulation reports it as accepted so automation tries
+        if (items::idOf(stack) == kCreativeCake) return simulate ? items::withCount(stack, items::countOf(stack) - 1) : stack;
         if (!simulate && !items::isEmpty(c)) popItem(a.region, a.pos.x + .5f, a.pos.y + 1.f, a.pos.z + .5f, c);
         return items::withCount(stack, items::countOf(stack) - 1);
     };

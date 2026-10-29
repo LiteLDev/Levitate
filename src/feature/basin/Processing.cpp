@@ -209,8 +209,11 @@ bool applyImpl(BlockSource& region, GlobalPos const& basinPos, BasinState& b, Ba
                 for (auto const& res : r.vanilla->getResultItems())
                     if (auto st = fromInstance(res); !items::isEmpty(st)) outItems.push_back(st);
             }
-            for (auto const& c : consumed)
-                if (auto rest = remainderOf(c); !items::isEmpty(rest)) outItems.push_back(rest);
+            // containers left by the consumed items (Bedrock's crafting recipes list them among
+            // their results already: cake -> buckets, honey block -> bottles)
+            if (r.processing)
+                for (auto const& c : consumed)
+                    if (auto rest = remainderOf(c); !items::isEmpty(rest)) outItems.push_back(rest);
         }
         if (!basinops::acceptOutputs(region, basinPos, b, outItems, outFluids, simulate)) return false;
     }
@@ -247,6 +250,8 @@ BasinRecipe const* byId(bool press, std::string const& id) {
 }
 
 bool match(BlockSource& region, GlobalPos const& basinPos, BasinState& b, BasinRecipe const& r) {
+    // the (cheaper) ingredient test first; same result as Create's filter-first order
+    if (!applyImpl(region, basinPos, b, r, true)) return false;
     // Create's FilteringBehaviour.test on the output (the first fluid when there are only fluids)
     auto filter = common::filterslot::get(basinPos, "filter");
     if (!items::isEmpty(filter)) {
@@ -259,7 +264,7 @@ bool match(BlockSource& region, GlobalPos const& basinPos, BasinState& b, BasinR
         }
         if (!pass) return false;
     }
-    return applyImpl(region, basinPos, b, r, true);
+    return true;
 }
 
 bool apply(BlockSource& region, GlobalPos const& basinPos, BasinState& b, BasinRecipe const& r) {
@@ -431,7 +436,9 @@ AABB blockBox(BlockPos const& p, float deflate) {
 void spawnAt(BlockSource& region, Vec3 const& at, ItemStack const& stack) {
     auto level = ll::service::getLevel();
     if (!level || items::isEmpty(stack)) return;
-    level->getSpawner().spawnItem(region, stack, nullptr, at, 10);
+    auto* e = level->getSpawner().spawnItem(region, stack, nullptr, at, 10);
+    // Create: results get a tiny random motion (VecHelper.offsetRandomly(ZERO, .05)), not a throw
+    if (e) const_cast<Vec3&>(e->getPosDelta()) = Vec3{(random01() - .5f) * .05f, 0.f, (random01() - .5f) * .05f};
 }
 
 /// Create's tryProcessInWorld (simulate: only whether a recipe exists).
@@ -464,7 +471,10 @@ bool tryProcessInWorld(BlockSource& region, GlobalPos const& pos, ItemActor& ent
         for (auto const& out : results) spawnAt(region, at, out);
     } else {
         for (auto const& out : recipes::roll(*r)) spawnAt(region, at, out);
-        stack.mCount = static_cast<uchar>(count - 1);
+        // the rest as a fresh entity: clients only learn a changed count from a new entity
+        auto rest = items::withCount(stack, count - 1);
+        entity.remove();
+        spawnAt(region, at, rest);
     }
     log().info("press at {} pressed {} ({})", pos.key(), input, r->id);
     return true;
@@ -476,6 +486,9 @@ void applyInWorld(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
     for (auto* e : itemsIn(region, blockBox(offsetOf(bp, kDown), 0.f))) {
         if (!resting(*e)) continue;
         s.scanCooldown = 0;
+        // Create stops at the first item entity it finds; Bedrock lists entities in another order,
+        // so items without a recipe (e.g. the results of the last cycle) are skipped first
+        if (!tryProcessInWorld(region, pos, *e, true)) continue;
         tryProcessInWorld(region, pos, *e, false);
         if (!bulk) break;
     }
@@ -594,7 +607,8 @@ void tickPress(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
         if (s.scanCooldown <= 0) {
             s.scanCooldown = cb::kPressEntityScan;
             if (id2 == kBasin) return;
-            for (auto* e : itemsIn(region, blockBox(offsetOf(bp, kDown), .125f))) {
+            // Create: the block below deflated by 1/8 against the item box (1/4 wide) = item positions anywhere in the block
+            for (auto* e : itemsIn(region, blockBox(offsetOf(bp, kDown), 0.f))) {
                 if (!resting(*e)) continue;
                 if (!tryProcessInWorld(region, pos, *e, true)) continue;
                 startPress(pos, s, cb::PressMode::World);
@@ -631,7 +645,8 @@ void tickPress(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
     s.prevRunningTicks = s.runningTicks;
     s.runningTicks += cb::pressRunningTickSpeed(speed);
     if (s.prevRunningTicks < cb::kPressCycle / 2 && s.runningTicks >= cb::kPressCycle / 2) s.runningTicks = cb::kPressCycle / 2;
-    if (was != s.running || wasTicks != s.runningTicks) save(pos, s, true);
+    // saved on start / finish (above) and every second while running
+    if (was != s.running || (wasTicks != s.runningTicks && now() % 20 == 0)) save(pos, s, true);
 }
 
 void tickMixer(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
@@ -688,7 +703,7 @@ void tickMixer(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
         if (s.runningTicks != 20) ++s.runningTicks;
     }
     if (was != s.running || wasTicks != s.runningTicks) {
-        save(pos, s, false);
+        if (was != s.running || s.runningTicks == 20 || s.runningTicks == 21 || now() % 20 == 0) save(pos, s, false);
         if (was != s.running || s.runningTicks == 20 || s.runningTicks == 21 || s.runningTicks == 1) sync::dirty(pos);
     }
 }

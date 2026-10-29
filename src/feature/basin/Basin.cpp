@@ -21,6 +21,7 @@
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
+#include "feature/common/ValueBox.h"
 #include "game/Blocks.h"
 #include "mod/Config.h"
 #include "mod/Log.h"
@@ -356,6 +357,13 @@ void tryClearingSpoutputOverflow(BlockSource& region, GlobalPos const& pos, Basi
             ++it;
             continue;
         }
+        // the target's filter (not a recipe filter such as another basin's)
+        auto targetId = idAt(region, target);
+        if (targetId != kBasin && common::filterslot::hasSlots(targetId)
+            && !common::filterslot::matches(game::globalPos(pos.dim, target), *it)) {
+            ++it;
+            continue;
+        }
         if (b.visualOut.size() < 3) b.visualOut.emplace_back(*it, 10);
         update = true;
         rest   = items::insert(region, target, side, *it, false);
@@ -398,7 +406,12 @@ void collectItemEntities(BlockSource& region, GlobalPos const& pos, BasinState& 
         any = true;
         log().info("basin at {} took {} x{}", pos.key(), items::idOf(stack), items::countOf(stack) - items::countOf(rest));
         if (items::isEmpty(rest)) actor->remove();
-        else stack.mCount = static_cast<uchar>(items::countOf(rest));
+        else {
+            // the rest as a fresh entity so clients see the new count
+            Vec3 at = actor->getPosition();
+            actor->remove();
+            popItem(region, at.x, at.y, at.z, rest);
+        }
     }
     if (any) changed(pos, b);
 }
@@ -408,6 +421,7 @@ void wakeOperator(GlobalPos const& basinPos) {
     GlobalPos above{basinPos.dim, basinPos.x, basinPos.y + 2, basinPos.z};
     auto      it = tracked().find(above);
     if (it == tracked().end()) return;
+    if (it->second != Kind::Press && it->second != Kind::Mixer) return;
     if (auto* s = operators::get(above, it->second == Kind::Press)) s->basinCheck = true;
 }
 
@@ -527,7 +541,7 @@ bool use(Player& player, BlockSource& region, GlobalPos const& pos, ItemStack co
     }
     // Create's onEmptied: the operator above stops
     GlobalPos above{pos.dim, pos.x, pos.y + 2, pos.z};
-    if (auto it = tracked().find(above); it != tracked().end()) {
+    if (auto it = tracked().find(above); it != tracked().end() && (it->second == Kind::Press || it->second == Kind::Mixer)) {
         if (auto* s = operators::get(above, it->second == Kind::Press)) s->basinRemoved = true;
     }
     changed(pos, *b);

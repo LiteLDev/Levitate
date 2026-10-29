@@ -508,6 +508,19 @@ LV_REGISTER_SELFTEST("basin.press_world", [](Context& ctx) -> ll::coro::CoroTask
     co_await ctx.ticks(2);
     ctx.info(spawnItem(a.at(0, 1), .1f, stack("minecraft:sugar_cane", 2)));
     for (int i = 0; i < 40 && itemsNear(a.at(0, 1), "minecraft:paper") < 2; ++i) co_await ctx.ticks(5);
+    if (itemsNear(a.at(0, 1), "minecraft:paper") < 2) {
+        std::string seen;
+        auto        q = a.at(0, 1);
+        for (auto* e : region0().getEntities(AABB{Vec3{q.x - 2.f, q.y - 2.f, q.z - 2.f}, Vec3{q.x + 3.f, q.y + 3.f, q.z + 3.f}}, 0.f, ActorType::ItemEntity)) {
+            auto& it = static_cast<ItemActor&>(*e);
+            seen += items::idOf(it.item()) + "x" + std::to_string(items::countOf(it.item())) + "@" + std::to_string(e->getPosition().x) + ","
+                  + std::to_string(e->getPosition().y) + "," + std::to_string(e->getPosition().z) + " dy " + std::to_string(e->getPosDelta().y) + "; ";
+        }
+        auto* s = operators::get(press, true);
+        ctx.info("items: " + seen + " press running " + std::to_string(s->running) + " ticks " + std::to_string(s->runningTicks) + " mode "
+                 + std::to_string(s->mode) + " scan " + std::to_string(s->scanCooldown) + " speed " + std::to_string(k::speedAt(press))
+                 + " tracked " + std::to_string(tracked().contains(press)) + " block " + game::blockIdAt(region0(), game::blockPos(press)));
+    }
     ctx.check(itemsNear(a.at(0, 1), "minecraft:paper") == 2, "the press turned 2 sugar cane on the ground into paper (one per cycle)");
     clearItems(a.at(0, 1));
 });

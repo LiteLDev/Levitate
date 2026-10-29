@@ -681,7 +681,8 @@ tick; the work happens at tick 120, then the head returns. Head travel: 1 block 
 19/16 on belts / depots, 22/16 in a basin; head offset `(t / 240 · 2)³` going down, `(240 − t) / 240 ·
 3` going up. Modes:
 - *World*: every 10 ticks (moving) it looks for item entities on the ground in the block below
-  (deflated by 1/8) with a `pressing` recipe; at the half cycle it presses the first one: a single
+  (deflated by 1/8) with a `pressing` recipe; at the half cycle it presses the first one (Bedrock
+  lists entities in another order than Java, so items without a recipe are skipped): a single
   item (or the whole stack with `bulkPressing`) becomes the results, otherwise one item of the
   stack is pressed and the results drop beside it.
 - *Belt / depot*: a pressable item on `levitate:depot` / `levitate:belt` two blocks below (U3 item
@@ -844,7 +845,7 @@ matches Create's official Chinese translation wording).
 | Hollow basin collision (U14) | a custom block has a single collision box | full-block collision; item entities resting on top are collected as if they fell in |
 | Press on a moving belt (U14) | no belt contract to hold an item under the press | items on a depot or belt below are pressed through the item capability (one per cycle) |
 | Sequenced-assembly pressing steps, potion brewing in the mixer (U14) | they need U15's sequenced assembly and U19's potion fluids | plain pressing / mixing; added with those units |
-| Basin funnel facing check for spouts (U14) | funnel states are U12's | a funnel beside the basin never blocks a spout |
+| Basin spout checks of the funnel facing and the belt direction (U14) | funnel and belt states are U12's / U11's, without a contract | a funnel beside the basin never blocks a spout; a belt below takes outputs whatever its direction |
 
 Units add rows here in their PRs when they find something else impossible.
 
