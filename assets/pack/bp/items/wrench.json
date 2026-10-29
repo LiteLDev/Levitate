@@ -1,0 +1,19 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:wrench",
+      "menu_category": {
+        "category": "equipment"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_wrench",
+      "minecraft:max_stack_size": 1,
+      "minecraft:hand_equipped": true,
+      "minecraft:display_name": {
+        "value": "item.levitate:wrench.name"
+      }
+    }
+  }
+}

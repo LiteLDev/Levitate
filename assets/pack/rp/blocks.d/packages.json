@@ -1,0 +1,62 @@
+{
+  "levitate:packager": {
+    "sound": "metal"
+  },
+  "levitate:repackager": {
+    "sound": "metal"
+  },
+  "levitate:chain_conveyor": {
+    "sound": "metal"
+  },
+  "levitate:package_frogport": {
+    "sound": "wood"
+  },
+  "levitate:white_postbox": {
+    "sound": "wood"
+  },
+  "levitate:orange_postbox": {
+    "sound": "wood"
+  },
+  "levitate:magenta_postbox": {
+    "sound": "wood"
+  },
+  "levitate:light_blue_postbox": {
+    "sound": "wood"
+  },
+  "levitate:yellow_postbox": {
+    "sound": "wood"
+  },
+  "levitate:lime_postbox": {
+    "sound": "wood"
+  },
+  "levitate:pink_postbox": {
+    "sound": "wood"
+  },
+  "levitate:gray_postbox": {
+    "sound": "wood"
+  },
+  "levitate:light_gray_postbox": {
+    "sound": "wood"
+  },
+  "levitate:cyan_postbox": {
+    "sound": "wood"
+  },
+  "levitate:purple_postbox": {
+    "sound": "wood"
+  },
+  "levitate:blue_postbox": {
+    "sound": "wood"
+  },
+  "levitate:brown_postbox": {
+    "sound": "wood"
+  },
+  "levitate:green_postbox": {
+    "sound": "wood"
+  },
+  "levitate:red_postbox": {
+    "sound": "wood"
+  },
+  "levitate:black_postbox": {
+    "sound": "wood"
+  }
+}

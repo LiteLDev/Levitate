@@ -1,0 +1,93 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:encased_fluid_pipe",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "levitate:down": [
+          0,
+          1
+        ],
+        "levitate:up": [
+          0,
+          1
+        ],
+        "levitate:north": [
+          0,
+          1
+        ],
+        "levitate:south": [
+          0,
+          1
+        ],
+        "levitate:west": [
+          0,
+          1
+        ],
+        "levitate:east": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.encased_fluid_pipe",
+        "bone_visibility": {
+          "port_down": "q.block_state('levitate:down') == 1",
+          "port_up": "q.block_state('levitate:up') == 1",
+          "port_north": "q.block_state('levitate:north') == 1",
+          "port_south": "q.block_state('levitate:south') == 1",
+          "port_west": "q.block_state('levitate:west') == 1",
+          "port_east": "q.block_state('levitate:east') == 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_encased_fluid_pipe",
+          "render_method": "opaque"
+        },
+        "port": {
+          "texture": "levitate_fluid_pipe",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8.0,
+          0.0,
+          -8.0
+        ],
+        "size": [
+          16.0,
+          16.0,
+          16.0
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8.0,
+          0.0,
+          -8.0
+        ],
+        "size": [
+          16.0,
+          16.0,
+          16.0
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#c56d43",
+      "minecraft:loot": "loot_tables/blocks/encased_fluid_pipe.json"
+    }
+  }
+}

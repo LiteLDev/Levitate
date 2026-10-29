@@ -1,0 +1,35 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:mechanical_harvester"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "AIA",
+      "AIA",
+      " C "
+    ],
+    "key": {
+      "A": {
+        "item": "levitate:andesite_alloy"
+      },
+      "I": {
+        "item": "levitate:iron_sheet"
+      },
+      "C": {
+        "item": "levitate:andesite_casing"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:mechanical_harvester"
+    }
+  }
+}

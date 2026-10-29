@@ -5,7 +5,7 @@
     ["windows|x64"] = {
         ["bedrockdata v26.51.1-client.11#f56260b5"] = {
             repo = {
-                commit = "56f390b260799fe11e1aee0745c2f3777943d40a",
+                commit = "5af0ecf6399f6c385146fcf6b4aa47e527f06b09",
                 url = "https://github.com/LiteLDev/xmake-repo.git"
             },
             version = "v26.51.1-client.11"
@@ -98,7 +98,7 @@
         },
         ["levilamina 26.51.7#dc67da7f"] = {
             repo = {
-                commit = "56f390b260799fe11e1aee0745c2f3777943d40a",
+                commit = "5af0ecf6399f6c385146fcf6b4aa47e527f06b09",
                 url = "https://github.com/LiteLDev/xmake-repo.git"
             },
             version = "26.51.7"

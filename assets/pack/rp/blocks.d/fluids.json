@@ -1,0 +1,23 @@
+{
+  "levitate:spout": {
+    "sound": "copper"
+  },
+  "levitate:item_drain": {
+    "sound": "copper"
+  },
+  "levitate:hose_pulley": {
+    "sound": "copper"
+  },
+  "levitate:portable_fluid_interface": {
+    "sound": "copper"
+  },
+  "levitate:honey": {
+    "sound": "honey_block"
+  },
+  "levitate:chocolate": {
+    "sound": "honey_block"
+  },
+  "levitate:fluids_test_depot": {
+    "sound": "stone"
+  }
+}

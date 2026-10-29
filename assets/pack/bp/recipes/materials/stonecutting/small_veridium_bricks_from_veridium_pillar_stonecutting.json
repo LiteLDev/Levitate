@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:small_veridium_bricks_from_veridium_pillar_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:veridium_pillar"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:veridium_pillar"
+      }
+    ],
+    "result": {
+      "item": "levitate:small_veridium_bricks",
+      "count": 1
+    }
+  }
+}

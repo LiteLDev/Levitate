@@ -1,0 +1,12 @@
+{
+  "pools": {
+    "rolls": 1,
+    "entries": [
+      {
+        "type": "item",
+        "name": "levitate:water_wheel",
+        "weight": 1
+      }
+    ]
+  }
+}

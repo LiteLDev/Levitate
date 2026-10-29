@@ -1,0 +1,36 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:deployer"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "B",
+      "S",
+      "I"
+    ],
+    "key": {
+      "B": {
+        "item": "levitate:electron_tube"
+      },
+      "S": {
+        "item": "levitate:andesite_casing"
+      },
+      "I": {
+        "item": "levitate:brass_hand"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:electron_tube"
+      }
+    ],
+    "result": {
+      "item": "levitate:deployer",
+      "count": 1
+    }
+  }
+}

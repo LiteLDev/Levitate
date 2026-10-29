@@ -1,0 +1,28 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:small_tuff_bricks",
+      "menu_category": {
+        "category": "construction"
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6.0
+      },
+      "minecraft:map_color": "#392923",
+      "minecraft:loot": "loot_tables/blocks/small_tuff_bricks.json",
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_tuff_small_brick",
+          "render_method": "opaque"
+        }
+      }
+    }
+  }
+}

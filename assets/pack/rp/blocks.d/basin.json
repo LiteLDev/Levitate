@@ -1,0 +1,8 @@
+{
+  "levitate:basin": { "sound": "metal" },
+  "levitate:mechanical_press": { "sound": "wood" },
+  "levitate:mechanical_mixer": { "sound": "wood" },
+  "levitate:blaze_burner": { "sound": "metal" },
+  "levitate:empty_blaze_burner": { "sound": "metal" },
+  "levitate:lit_blaze_burner": { "sound": "metal" }
+}

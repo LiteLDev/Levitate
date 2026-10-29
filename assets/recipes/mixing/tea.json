@@ -1,0 +1,23 @@
+{
+  "type": "levitate:mixing",
+  "heat_requirement": "heated",
+  "ingredients": [
+    {
+      "tag": "minecraft:leaves"
+    },
+    {
+      "fluid": "minecraft:water",
+      "amount": 250
+    },
+    {
+      "fluidTag": "c:milk",
+      "amount": 250
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:tea",
+      "amount": 500
+    }
+  ]
+}

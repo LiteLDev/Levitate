@@ -1,0 +1,134 @@
+{
+  "levitate_actor_casing": {
+    "textures": "textures/blocks/actor_casing"
+  },
+  "levitate_harvester_blade": {
+    "textures": "textures/blocks/harvester_blade"
+  },
+  "levitate_plough_blade": {
+    "textures": "textures/blocks/plough_blade"
+  },
+  "levitate_roller_drum": {
+    "textures": "textures/blocks/roller_drum"
+  },
+  "levitate_psi_side": {
+    "textures": "textures/blocks/psi_side"
+  },
+  "levitate_psi_front": {
+    "textures": "textures/blocks/psi_front"
+  },
+  "levitate_psi_plate": {
+    "textures": "textures/blocks/psi_plate"
+  },
+  "levitate_controls_panel": {
+    "textures": "textures/blocks/controls_panel"
+  },
+  "levitate_controls_button": {
+    "textures": "textures/blocks/controls_button"
+  },
+  "levitate_controls_indicator_on": {
+    "textures": "textures/blocks/controls_indicator_on"
+  },
+  "levitate_controls_indicator_off": {
+    "textures": "textures/blocks/controls_indicator_off"
+  },
+  "levitate_seat_base": {
+    "textures": "textures/blocks/seat_base"
+  },
+  "levitate_white_seat_top": {
+    "textures": "textures/blocks/white_seat_top"
+  },
+  "levitate_white_seat_side": {
+    "textures": "textures/blocks/white_seat_side"
+  },
+  "levitate_orange_seat_top": {
+    "textures": "textures/blocks/orange_seat_top"
+  },
+  "levitate_orange_seat_side": {
+    "textures": "textures/blocks/orange_seat_side"
+  },
+  "levitate_magenta_seat_top": {
+    "textures": "textures/blocks/magenta_seat_top"
+  },
+  "levitate_magenta_seat_side": {
+    "textures": "textures/blocks/magenta_seat_side"
+  },
+  "levitate_light_blue_seat_top": {
+    "textures": "textures/blocks/light_blue_seat_top"
+  },
+  "levitate_light_blue_seat_side": {
+    "textures": "textures/blocks/light_blue_seat_side"
+  },
+  "levitate_yellow_seat_top": {
+    "textures": "textures/blocks/yellow_seat_top"
+  },
+  "levitate_yellow_seat_side": {
+    "textures": "textures/blocks/yellow_seat_side"
+  },
+  "levitate_lime_seat_top": {
+    "textures": "textures/blocks/lime_seat_top"
+  },
+  "levitate_lime_seat_side": {
+    "textures": "textures/blocks/lime_seat_side"
+  },
+  "levitate_pink_seat_top": {
+    "textures": "textures/blocks/pink_seat_top"
+  },
+  "levitate_pink_seat_side": {
+    "textures": "textures/blocks/pink_seat_side"
+  },
+  "levitate_gray_seat_top": {
+    "textures": "textures/blocks/gray_seat_top"
+  },
+  "levitate_gray_seat_side": {
+    "textures": "textures/blocks/gray_seat_side"
+  },
+  "levitate_light_gray_seat_top": {
+    "textures": "textures/blocks/light_gray_seat_top"
+  },
+  "levitate_light_gray_seat_side": {
+    "textures": "textures/blocks/light_gray_seat_side"
+  },
+  "levitate_cyan_seat_top": {
+    "textures": "textures/blocks/cyan_seat_top"
+  },
+  "levitate_cyan_seat_side": {
+    "textures": "textures/blocks/cyan_seat_side"
+  },
+  "levitate_purple_seat_top": {
+    "textures": "textures/blocks/purple_seat_top"
+  },
+  "levitate_purple_seat_side": {
+    "textures": "textures/blocks/purple_seat_side"
+  },
+  "levitate_blue_seat_top": {
+    "textures": "textures/blocks/blue_seat_top"
+  },
+  "levitate_blue_seat_side": {
+    "textures": "textures/blocks/blue_seat_side"
+  },
+  "levitate_brown_seat_top": {
+    "textures": "textures/blocks/brown_seat_top"
+  },
+  "levitate_brown_seat_side": {
+    "textures": "textures/blocks/brown_seat_side"
+  },
+  "levitate_green_seat_top": {
+    "textures": "textures/blocks/green_seat_top"
+  },
+  "levitate_green_seat_side": {
+    "textures": "textures/blocks/green_seat_side"
+  },
+  "levitate_red_seat_top": {
+    "textures": "textures/blocks/red_seat_top"
+  },
+  "levitate_red_seat_side": {
+    "textures": "textures/blocks/red_seat_side"
+  },
+  "levitate_black_seat_top": {
+    "textures": "textures/blocks/black_seat_top"
+  },
+  "levitate_black_seat_side": {
+    "textures": "textures/blocks/black_seat_side"
+  }
+}

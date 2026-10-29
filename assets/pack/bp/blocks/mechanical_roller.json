@@ -1,0 +1,155 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:mechanical_roller",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:anim": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.mechanical_roller",
+        "bone_visibility": {
+          "drum0": "q.block_state('levitate:anim') == 0",
+          "drum1": "q.block_state('levitate:anim') == 1",
+          "drum2": "q.block_state('levitate:anim') == 2",
+          "drum3": "q.block_state('levitate:anim') == 3"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_actor_casing",
+          "render_method": "opaque"
+        },
+        "drum": {
+          "texture": "levitate_roller_drum",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#9a9d96",
+      "minecraft:loot": "loot_tables/blocks/mechanical_roller.json",
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 0",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              -90,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 1",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              270,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

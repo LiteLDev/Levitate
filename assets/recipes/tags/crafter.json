@@ -1,0 +1,60 @@
+{
+  "c:stones": [
+    "minecraft:stone",
+    "minecraft:andesite",
+    "minecraft:diorite",
+    "minecraft:granite",
+    "minecraft:tuff",
+    "minecraft:deepslate"
+  ],
+  "c:rods/wooden": [
+    "minecraft:stick"
+  ],
+  "c:ender_pearls": [
+    "minecraft:ender_pearl"
+  ],
+  "c:glass_blocks": [
+    "minecraft:glass",
+    "minecraft:white_stained_glass",
+    "minecraft:orange_stained_glass",
+    "minecraft:magenta_stained_glass",
+    "minecraft:light_blue_stained_glass",
+    "minecraft:yellow_stained_glass",
+    "minecraft:lime_stained_glass",
+    "minecraft:pink_stained_glass",
+    "minecraft:gray_stained_glass",
+    "minecraft:light_gray_stained_glass",
+    "minecraft:cyan_stained_glass",
+    "minecraft:purple_stained_glass",
+    "minecraft:blue_stained_glass",
+    "minecraft:brown_stained_glass",
+    "minecraft:green_stained_glass",
+    "minecraft:red_stained_glass",
+    "minecraft:black_stained_glass",
+    "minecraft:tinted_glass"
+  ],
+  "c:obsidians": [
+    "minecraft:obsidian",
+    "minecraft:crying_obsidian"
+  ],
+  "c:ingots/brass": [
+    "levitate:brass_ingot"
+  ],
+  "c:plates/iron": [
+    "levitate:iron_sheet"
+  ],
+  "minecraft:planks": [
+    "minecraft:oak_planks",
+    "minecraft:spruce_planks",
+    "minecraft:birch_planks",
+    "minecraft:jungle_planks",
+    "minecraft:acacia_planks",
+    "minecraft:dark_oak_planks",
+    "minecraft:mangrove_planks",
+    "minecraft:cherry_planks",
+    "minecraft:pale_oak_planks",
+    "minecraft:crimson_planks",
+    "minecraft:warped_planks",
+    "minecraft:bamboo_planks"
+  ]
+}

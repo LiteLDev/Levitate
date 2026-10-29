@@ -1,0 +1,17 @@
+{
+  "type": "levitate:mixing",
+  "ingredients": [
+    {
+      "tag": "minecraft:convertable_to_mud"
+    },
+    {
+      "fluid": "minecraft:water",
+      "amount": 250
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:mud"
+    }
+  ]
+}

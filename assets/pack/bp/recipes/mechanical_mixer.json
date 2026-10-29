@@ -1,0 +1,17 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:mechanical_mixer"
+    },
+    "tags": ["crafting_table"],
+    "pattern": ["S", "C", "I"],
+    "key": {
+      "S": { "item": "levitate:cogwheel" },
+      "C": { "item": "levitate:andesite_casing" },
+      "I": { "item": "levitate:whisk" }
+    },
+    "unlock": [{ "item": "levitate:andesite_casing" }],
+    "result": { "item": "levitate:mechanical_mixer" }
+  }
+}

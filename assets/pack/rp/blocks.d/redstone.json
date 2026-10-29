@@ -1,0 +1,32 @@
+{
+  "levitate:redstone_link": {
+    "sound": "wood"
+  },
+  "levitate:analog_lever": {
+    "sound": "wood"
+  },
+  "levitate:pulse_repeater": {
+    "sound": "stone"
+  },
+  "levitate:pulse_extender": {
+    "sound": "stone"
+  },
+  "levitate:pulse_timer": {
+    "sound": "stone"
+  },
+  "levitate:powered_latch": {
+    "sound": "stone"
+  },
+  "levitate:powered_toggle_latch": {
+    "sound": "stone"
+  },
+  "levitate:content_observer": {
+    "sound": "stone"
+  },
+  "levitate:stockpile_switch": {
+    "sound": "stone"
+  },
+  "levitate:redstone_contact": {
+    "sound": "stone"
+  }
+}

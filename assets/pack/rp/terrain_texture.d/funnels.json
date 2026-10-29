@@ -1,0 +1,242 @@
+{
+  "levitate_andesite_funnel_frame": {
+    "textures": "textures/blocks/andesite_funnel_frame"
+  },
+  "levitate_andesite_funnel_side": {
+    "textures": "textures/blocks/andesite_funnel_side"
+  },
+  "levitate_andesite_funnel_flap": {
+    "textures": "textures/blocks/andesite_funnel_flap"
+  },
+  "levitate_andesite_funnel_back_extract": {
+    "textures": "textures/blocks/andesite_funnel_back_extract"
+  },
+  "levitate_andesite_funnel_back_insert": {
+    "textures": "textures/blocks/andesite_funnel_back_insert"
+  },
+  "levitate_andesite_funnel_back_powered": {
+    "textures": "textures/blocks/andesite_funnel_back_powered"
+  },
+  "levitate_brass_funnel_frame": {
+    "textures": "textures/blocks/brass_funnel_frame"
+  },
+  "levitate_brass_funnel_side": {
+    "textures": "textures/blocks/brass_funnel_side"
+  },
+  "levitate_brass_funnel_flap": {
+    "textures": "textures/blocks/brass_funnel_flap"
+  },
+  "levitate_brass_funnel_back_extract": {
+    "textures": "textures/blocks/brass_funnel_back_extract"
+  },
+  "levitate_brass_funnel_back_insert": {
+    "textures": "textures/blocks/brass_funnel_back_insert"
+  },
+  "levitate_brass_funnel_back_powered": {
+    "textures": "textures/blocks/brass_funnel_back_powered"
+  },
+  "levitate_andesite_tunnel_wall": {
+    "textures": "textures/blocks/andesite_tunnel_wall"
+  },
+  "levitate_andesite_tunnel_window": {
+    "textures": "textures/blocks/andesite_tunnel_window"
+  },
+  "levitate_andesite_tunnel_top": {
+    "textures": "textures/blocks/andesite_tunnel_top"
+  },
+  "levitate_andesite_tunnel_pillar": {
+    "textures": "textures/blocks/andesite_tunnel_pillar"
+  },
+  "levitate_andesite_tunnel_flap": {
+    "textures": "textures/blocks/andesite_tunnel_flap"
+  },
+  "levitate_brass_tunnel_wall": {
+    "textures": "textures/blocks/brass_tunnel_wall"
+  },
+  "levitate_brass_tunnel_window": {
+    "textures": "textures/blocks/brass_tunnel_window"
+  },
+  "levitate_brass_tunnel_top": {
+    "textures": "textures/blocks/brass_tunnel_top"
+  },
+  "levitate_brass_tunnel_pillar": {
+    "textures": "textures/blocks/brass_tunnel_pillar"
+  },
+  "levitate_brass_tunnel_flap": {
+    "textures": "textures/blocks/brass_tunnel_flap"
+  },
+  "levitate_chute_side": {
+    "textures": "textures/blocks/chute_side"
+  },
+  "levitate_chute_window": {
+    "textures": "textures/blocks/chute_window"
+  },
+  "levitate_chute_top": {
+    "textures": "textures/blocks/chute_top"
+  },
+  "levitate_chute_encased": {
+    "textures": "textures/blocks/chute_encased"
+  },
+  "levitate_chute_intersection": {
+    "textures": "textures/blocks/chute_intersection"
+  },
+  "levitate_smart_chute_side": {
+    "textures": "textures/blocks/smart_chute_side"
+  },
+  "levitate_smart_chute_side_powered": {
+    "textures": "textures/blocks/smart_chute_side_powered"
+  },
+  "levitate_smart_chute_top": {
+    "textures": "textures/blocks/smart_chute_top"
+  },
+  "levitate_creative_crate_side": {
+    "textures": "textures/blocks/creative_crate_side"
+  },
+  "levitate_creative_crate_top": {
+    "textures": "textures/blocks/creative_crate_top"
+  },
+  "levitate_item_vault_side_0000": {
+    "textures": "textures/blocks/item_vault_side_0000"
+  },
+  "levitate_item_vault_end_0000": {
+    "textures": "textures/blocks/item_vault_end_0000"
+  },
+  "levitate_item_vault_end_large_0000": {
+    "textures": "textures/blocks/item_vault_end_large_0000"
+  },
+  "levitate_item_vault_side_0001": {
+    "textures": "textures/blocks/item_vault_side_0001"
+  },
+  "levitate_item_vault_end_0001": {
+    "textures": "textures/blocks/item_vault_end_0001"
+  },
+  "levitate_item_vault_end_large_0001": {
+    "textures": "textures/blocks/item_vault_end_large_0001"
+  },
+  "levitate_item_vault_side_0010": {
+    "textures": "textures/blocks/item_vault_side_0010"
+  },
+  "levitate_item_vault_end_0010": {
+    "textures": "textures/blocks/item_vault_end_0010"
+  },
+  "levitate_item_vault_end_large_0010": {
+    "textures": "textures/blocks/item_vault_end_large_0010"
+  },
+  "levitate_item_vault_side_0011": {
+    "textures": "textures/blocks/item_vault_side_0011"
+  },
+  "levitate_item_vault_end_0011": {
+    "textures": "textures/blocks/item_vault_end_0011"
+  },
+  "levitate_item_vault_end_large_0011": {
+    "textures": "textures/blocks/item_vault_end_large_0011"
+  },
+  "levitate_item_vault_side_0100": {
+    "textures": "textures/blocks/item_vault_side_0100"
+  },
+  "levitate_item_vault_end_0100": {
+    "textures": "textures/blocks/item_vault_end_0100"
+  },
+  "levitate_item_vault_end_large_0100": {
+    "textures": "textures/blocks/item_vault_end_large_0100"
+  },
+  "levitate_item_vault_side_0101": {
+    "textures": "textures/blocks/item_vault_side_0101"
+  },
+  "levitate_item_vault_end_0101": {
+    "textures": "textures/blocks/item_vault_end_0101"
+  },
+  "levitate_item_vault_end_large_0101": {
+    "textures": "textures/blocks/item_vault_end_large_0101"
+  },
+  "levitate_item_vault_side_0110": {
+    "textures": "textures/blocks/item_vault_side_0110"
+  },
+  "levitate_item_vault_end_0110": {
+    "textures": "textures/blocks/item_vault_end_0110"
+  },
+  "levitate_item_vault_end_large_0110": {
+    "textures": "textures/blocks/item_vault_end_large_0110"
+  },
+  "levitate_item_vault_side_0111": {
+    "textures": "textures/blocks/item_vault_side_0111"
+  },
+  "levitate_item_vault_end_0111": {
+    "textures": "textures/blocks/item_vault_end_0111"
+  },
+  "levitate_item_vault_end_large_0111": {
+    "textures": "textures/blocks/item_vault_end_large_0111"
+  },
+  "levitate_item_vault_side_1000": {
+    "textures": "textures/blocks/item_vault_side_1000"
+  },
+  "levitate_item_vault_end_1000": {
+    "textures": "textures/blocks/item_vault_end_1000"
+  },
+  "levitate_item_vault_end_large_1000": {
+    "textures": "textures/blocks/item_vault_end_large_1000"
+  },
+  "levitate_item_vault_side_1001": {
+    "textures": "textures/blocks/item_vault_side_1001"
+  },
+  "levitate_item_vault_end_1001": {
+    "textures": "textures/blocks/item_vault_end_1001"
+  },
+  "levitate_item_vault_end_large_1001": {
+    "textures": "textures/blocks/item_vault_end_large_1001"
+  },
+  "levitate_item_vault_side_1010": {
+    "textures": "textures/blocks/item_vault_side_1010"
+  },
+  "levitate_item_vault_end_1010": {
+    "textures": "textures/blocks/item_vault_end_1010"
+  },
+  "levitate_item_vault_end_large_1010": {
+    "textures": "textures/blocks/item_vault_end_large_1010"
+  },
+  "levitate_item_vault_side_1011": {
+    "textures": "textures/blocks/item_vault_side_1011"
+  },
+  "levitate_item_vault_end_1011": {
+    "textures": "textures/blocks/item_vault_end_1011"
+  },
+  "levitate_item_vault_end_large_1011": {
+    "textures": "textures/blocks/item_vault_end_large_1011"
+  },
+  "levitate_item_vault_side_1100": {
+    "textures": "textures/blocks/item_vault_side_1100"
+  },
+  "levitate_item_vault_end_1100": {
+    "textures": "textures/blocks/item_vault_end_1100"
+  },
+  "levitate_item_vault_end_large_1100": {
+    "textures": "textures/blocks/item_vault_end_large_1100"
+  },
+  "levitate_item_vault_side_1101": {
+    "textures": "textures/blocks/item_vault_side_1101"
+  },
+  "levitate_item_vault_end_1101": {
+    "textures": "textures/blocks/item_vault_end_1101"
+  },
+  "levitate_item_vault_end_large_1101": {
+    "textures": "textures/blocks/item_vault_end_large_1101"
+  },
+  "levitate_item_vault_side_1110": {
+    "textures": "textures/blocks/item_vault_side_1110"
+  },
+  "levitate_item_vault_end_1110": {
+    "textures": "textures/blocks/item_vault_end_1110"
+  },
+  "levitate_item_vault_end_large_1110": {
+    "textures": "textures/blocks/item_vault_end_large_1110"
+  },
+  "levitate_item_vault_side_1111": {
+    "textures": "textures/blocks/item_vault_side_1111"
+  },
+  "levitate_item_vault_end_1111": {
+    "textures": "textures/blocks/item_vault_end_1111"
+  },
+  "levitate_item_vault_end_large_1111": {
+    "textures": "textures/blocks/item_vault_end_large_1111"
+  }
+}

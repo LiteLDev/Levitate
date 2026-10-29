@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:cyan_postbox_from_magenta_postbox"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:cyan_dye"
+      },
+      {
+        "item": "levitate:magenta_postbox"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:magenta_postbox"
+      }
+    ],
+    "result": {
+      "item": "levitate:cyan_postbox",
+      "count": 1
+    }
+  }
+}

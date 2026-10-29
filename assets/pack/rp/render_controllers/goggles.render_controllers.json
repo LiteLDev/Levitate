@@ -1,0 +1,14 @@
+{
+  "format_version": "1.8.0",
+  "render_controllers": {
+    "controller.render.levitate.goggles": {
+      "geometry": "Geometry.default",
+      "materials": [{ "*": "Material.default" }],
+      "textures": ["Texture.default"],
+      "part_visibility": [
+        { "goggles": "c.item_slot == 'head'" },
+        { "held": "c.item_slot != 'head'" }
+      ]
+    }
+  }
+}

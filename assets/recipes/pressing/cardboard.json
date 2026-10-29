@@ -1,0 +1,13 @@
+{
+  "type": "levitate:pressing",
+  "ingredients": [
+    {
+      "item": "levitate:pulp"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:cardboard"
+    }
+  ]
+}

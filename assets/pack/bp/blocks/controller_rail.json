@@ -1,0 +1,118 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:controller_rail",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:rail_axis": [
+          0,
+          1
+        ],
+        "levitate:power": {
+          "values": {
+            "min": 0,
+            "max": 15
+          }
+        },
+        "levitate:backwards": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.levitate.controller_rail",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_controller_rail",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": false,
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          2,
+          16
+        ]
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.7
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.7
+      },
+      "minecraft:loot": "loot_tables/blocks/controller_rail.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:rail_axis') == 0 && q.block_state('levitate:backwards') == 0",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_axis') == 0 && q.block_state('levitate:backwards') == 1",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_axis') == 1 && q.block_state('levitate:backwards') == 0",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:rail_axis') == 1 && q.block_state('levitate:backwards') == 1",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              270,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:power') > 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_controller_rail_on",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

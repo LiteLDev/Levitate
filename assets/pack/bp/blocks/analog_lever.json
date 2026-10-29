@@ -1,0 +1,2143 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:analog_lever",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:face": [
+          0,
+          1,
+          2
+        ],
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:state": {
+          "values": {
+            "min": 0,
+            "max": 15
+          }
+        },
+        "levitate:power": {
+          "values": {
+            "min": 0,
+            "max": 15
+          }
+        }
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.5
+      },
+      "minecraft:map_color": "#8f7a5c",
+      "minecraft:loot": "loot_tables/blocks/analog_lever.json",
+      "minecraft:redstone_conductivity": {
+        "redstone_conductor": false,
+        "allows_wire_to_step_down": true
+      },
+      "minecraft:redstone_producer": {
+        "power": 0
+      },
+      "minecraft:geometry": "geometry.levitate.analog_lever_0_north",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_analog_lever",
+          "render_method": "alpha_test",
+          "ambient_occlusion": false
+        }
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:collision_box": false
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_0_north",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -4,
+              0,
+              -5
+            ],
+            "size": [
+              8,
+              7,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_0_south",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -4,
+              0,
+              -5
+            ],
+            "size": [
+              8,
+              7,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_0_west",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -5,
+              0,
+              -4
+            ],
+            "size": [
+              10,
+              7,
+              8
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_0_east",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -5,
+              0,
+              -4
+            ],
+            "size": [
+              10,
+              7,
+              8
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_1_north",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -4,
+              3,
+              1
+            ],
+            "size": [
+              8,
+              10,
+              7
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_1_south",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -4,
+              3,
+              -8
+            ],
+            "size": [
+              8,
+              10,
+              7
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_1_west",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              3,
+              -4
+            ],
+            "size": [
+              7,
+              10,
+              8
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_1_east",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              1,
+              3,
+              -4
+            ],
+            "size": [
+              7,
+              10,
+              8
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_2_north",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -4,
+              9,
+              -5
+            ],
+            "size": [
+              8,
+              7,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_2_south",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -4,
+              9,
+              -5
+            ],
+            "size": [
+              8,
+              7,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_2_west",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -5,
+              9,
+              -4
+            ],
+            "size": [
+              10,
+              7,
+              8
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.analog_lever_2_east",
+            "bone_visibility": {
+              "h0": "q.block_state('levitate:state') == 0",
+              "h1": "q.block_state('levitate:state') == 1",
+              "h2": "q.block_state('levitate:state') == 2",
+              "h3": "q.block_state('levitate:state') == 3",
+              "h4": "q.block_state('levitate:state') == 4",
+              "h5": "q.block_state('levitate:state') == 5",
+              "h6": "q.block_state('levitate:state') == 6",
+              "h7": "q.block_state('levitate:state') == 7",
+              "h8": "q.block_state('levitate:state') == 8",
+              "h9": "q.block_state('levitate:state') == 9",
+              "h10": "q.block_state('levitate:state') == 10",
+              "h11": "q.block_state('levitate:state') == 11",
+              "h12": "q.block_state('levitate:state') == 12",
+              "h13": "q.block_state('levitate:state') == 13",
+              "h14": "q.block_state('levitate:state') == 14",
+              "h15": "q.block_state('levitate:state') == 15"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -5,
+              9,
+              -4
+            ],
+            "size": [
+              10,
+              7,
+              8
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "down"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "south"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "north"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "east"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "west"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 1,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 2,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 3,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 4,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 5,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 6",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 6,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 7",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 7,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 8",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 8,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 9",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 9,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 10",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 10,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 11",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 11,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 12",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 12,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 13",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 13,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 14",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 14,
+            "strongly_powered_face": "up"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:power') == 15",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "up"
+          }
+        }
+      }
+    ]
+  }
+}
