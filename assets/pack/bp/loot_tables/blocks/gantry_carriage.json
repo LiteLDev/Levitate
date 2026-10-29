@@ -1,0 +1,12 @@
+{
+  "pools": {
+    "rolls": 1,
+    "entries": [
+      {
+        "type": "item",
+        "name": "levitate:gantry_carriage",
+        "weight": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:mechanical_piston"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "B",
+      "C",
+      "I"
+    ],
+    "key": {
+      "B": {
+        "tag": "minecraft:wooden_slabs"
+      },
+      "C": {
+        "item": "levitate:andesite_casing"
+      },
+      "I": {
+        "item": "levitate:piston_extension_pole"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:mechanical_piston",
+      "count": 1
+    }
+  }
+}

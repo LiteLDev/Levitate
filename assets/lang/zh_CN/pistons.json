@@ -1,0 +1,14 @@
+{
+  "create.contraptions.movement_mode": "运动模式",
+  "create.contraptions.movement_mode.move_place": "停止时总是将结构方块化",
+  "create.contraptions.movement_mode.move_place_returned": "停止时只在初始位置才将结构方块化",
+  "create.contraptions.movement_mode.move_never_place": "只有在动力方块摧毁后才将结构方块化",
+  "create.gui.assembly.exception.noPistonPoles": "活塞缺失部分活塞杆",
+  "create.gui.assembly.exception.tooManyPistonPoles": "活塞加装的活塞杆数量过多\n配置的最大值为：{0}",
+  "create.gui.assembly.exception.no_contacts": "需要附加一个水平的接触式红石信号发生器到升降机结构中",
+  "create.gui.assembly.exception.too_many_contacts": "轿厢中不能附着一个以上的接触式红石信号发生器",
+  "create.gui.assembly.exception.column_conflict": "另一部轿厢已经连接到了此升降机井",
+  "create.elevator_contact.title": "升降机锚点",
+  "create.elevator_contact.floor_identifier": "楼层名称",
+  "create.elevator_contact.floor_description": "楼层描述"
+}
