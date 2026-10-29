@@ -539,6 +539,19 @@ Package"), `package_filter`. `filter` + `attribute_filter` are U3. Mechanics in 
 `stock_link`, `stock_ticker`, `factory_gauge`, `redstone_requester`, `blaze_burner` shopkeeper role on
 `<colour>_table_cloth`, `shopping_list` (item).
 
+- `stock_link` (Create's packager link): face-attached like a lever (`levitate:face` 0 floor /
+  1 wall / 2 ceiling, `levitate:facing` Java 2D facing, `levitate:powered`); it belongs to the
+  packager it is attached to. `stock_ticker`: `levitate:facing` (faces the player, sneak reverses).
+  `factory_gauge`: face-attached, `levitate:panels` = bitmask of its 4 panels (each panel is a
+  quadrant of the model; bone visibility follows the mask). `redstone_requester`: `levitate:axis`
+  (0 x / 1 z, the player's horizontal axis), `levitate:powered`. `shopping_list`: stacks to 1, no
+  recipe (handed out by shops).
+- Recipes (Create 6.0.10): stock link = transmitter over item vault; factory gauge (×2) = stock
+  link + precision mechanism (shapeless) — both in `assets/pending_recipes/stock/` (U9 / U12
+  items); stock ticker = glass, stock link, gold ingot (column); redstone requester = redstone,
+  stock link, iron ingot (column); each linked block alone in the crafting grid clears its tuning
+  (`*_clear` recipes).
+
 ### 2.23 Trains (U5 tracks, U27 trains, U28 signals)
 
 U5: `track`, curved track (no separate id: stored in BlockData + graph), `track_station` is U27.
@@ -2643,6 +2656,96 @@ names come from `tools/gen/materials.names.tsv` (Create's en_US / zh_CN wording)
   targets `stone_ore_replaceables` / `deepslate_ore_replaceables` / `base_stone_nether`). Features
   write into the 8 neighbour chunks when present. Flat worlds get nothing (as Java). Log once per
   world: `materials: world generation active ...`.
+
+### 3.6.26 Stock network (U26)
+
+Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API is
+`feature/stock/Stock.h` (networks, stock summaries, orders, packager seam, gauge panels).
+
+- **Networks** (Create's GlobalLogisticsManager): a network is a frequency (UUID). Linked block
+  items (stock link, ticker, requester, gauge) right-clicked (not sneaking) on a stock link,
+  ticker or requester take its network ("Tuned to this network"); a gauge panel with an item
+  tunes held linked items too. Right-click in the air clears a tuned item ("Cleared connection to
+  network"); tuned items show "Frequency configured" / "Place in crafting grid to reset" in their
+  lore. Placing an untuned link / ticker / requester starts a new network ("New link network
+  started"), a tuned one joins ("Connected to existing network successfully"); gauges must be
+  tuned ("Tune to a stock link before placing"). The player who placed the first link owns the
+  network; the owner may lock it (request screen): then only the owner interacts with its blocks
+  ("Logistics Network is Protected"; at a keeper: "Interact using a Shopping list, direct access has
+  been locked"). Networks (owner, lock, every link position, promises) are saved in the world DB
+  (`lv:stock:networks`); block positions in `lv:stock:blocks`; block settings in BlockData
+  (`data["stock"]`).
+- **Stock** (Create's LogisticsManager): the network's stock = the target inventories of the
+  packagers its loaded stock links sit on; a link powered with 15 leaves the network; links on the
+  same inventory count once. Summaries are cached 20 ticks (accurate: 1 tick). Orders are split
+  over the links sorted by redstone power (lowest first), one random link per shared inventory,
+  each entry taken from the links in turn; requests carry the address, order id, link index, the
+  final-link flag and (first request only) the order context. A packager with too many queued
+  packages refuses: player orders 50, redstone 20, restock 10. Items that newly appear in a
+  linked packager's inventory fulfil the network's promises (oldest first).
+- **Packagers** plug in through `stock::registerPackagerProvider` (is-packager, available items,
+  inventory id, busy check, send requests). The unit registers U25's packagers
+  (`feature/packages/Packages.h`): a link uses the packager it sits on (not a repackager), the
+  packager's target inventory (opposite its facing) is counted slot by slot, requests go to
+  `packages::attemptToSend` (up to 100 packages at once, Create's performPackageRequests), and
+  U25 asks the unit whether a packager has a stock link (linked packagers ignore redstone).
+  Without a packager a link contributes nothing ("No Packagers Linked").
+- **Stock ticker**: right-click the block hands out the payments its shops collected (27 slots);
+  otherwise it opens the category editor if a keeper is present ("Seat a mob or blaze burner next
+  to this block to use it"). Keepers: a mob riding something (a seat) beside the ticker at its
+  level or one below, or a blaze burner (with a blaze) beside it at its level. Right-clicking the
+  keeper (the mob, or the blaze burner block) opens the stock keeper request screen; with a
+  shopping list in hand it checks out. Category editor: categories are list / attribute filters
+  (taken from the inventory, dropped back when deleted or when the ticker breaks) or empty
+  dividers, named, moved up / down (Shift: to top / bottom). Request screen: the network's stock
+  by count in the ticker's categories (+ "Unsorted"; categories can be hidden per player), search,
+  up to 9 ordered item kinds (click +1, Shift +1 stack, right-click -1), the package address
+  (remembered per ticker), "Send" (sound, "Request Sent!") or, holding a redstone requester or a
+  table cloth, "Program Requester" (the order, address and ticker position go into the held item;
+  a requester item is tuned to the network).
+- **Redstone requester**: a rising redstone edge (polled every tick) sends its order: with
+  "Must send all items" every entry must be in stock (else deny sound, nothing sent); with
+  "Allow partial orders" it sends what is there. Placed from a programmed item: "Connected to
+  Stock keeper successfully" if the ticker is within 128 blocks in the same dimension, else
+  "Requester too far away from Stock keeper". Screen: the 9 order entries with amounts 1..256
+  (scroll, Shift ×10), partial / full, address.
+- **Factory gauge**: up to 4 panels per block (placing a tuned gauge on a free quadrant adds a
+  panel; breaking removes the targeted panel only while others remain). A panel watches one item
+  (click with the item, or with an empty hand pick it from the inventory screen; filter items are
+  refused) in its network — or, when the gauge sits on a packager (restocker), in that packager's
+  inventory. Target amount 0..100 items or stacks on the value board (Sneak + empty-hand click;
+  0 = inactive). Connections: "Add new connection" then click another panel: same face and facing,
+  same plane, closer than 16 blocks, at most 9 inputs, both with an item, the input not a
+  restocker (Create's messages). Every tick a panel checks storage (satisfied / promised-satisfied /
+  waiting for unloaded links); when not satisfied, not paused and its timer ran out
+  (`factoryGaugeTimer`, 100 ticks; a new target waits half of it) it requests: a recipe panel
+  orders every input's amount (1..64 each, summed per item and network; all must be in stock) to
+  its address and promises its output (1..64); a restocker orders `clamp(demand - promised -
+  inStorage, 0, 9 stacks)` (capped by the network stock outside its own inventory) to its address
+  and promises it. Promises expire after never / 30 s / 1..31 min. The wrench on a panel with
+  outputs cycles the arrow path mode. Redstone links (U23) pause panels through
+  `stock::setPanelPaused`. A display link (U24) on a gauge offers Create's "Factory gauge status"
+  source (`gauge_status`): one line per panel, `<level in storage> ✔|↑|▪ <item>` (shortened /
+  full numbers); other units read panels with `stock::panelAt`.
+- **Table cloth shops**: a table cloth (U10) programmed at a stock ticker becomes a shop when
+  placed (owner = placer, facing = towards the placer). The owner sets the price with an item on
+  the price tag (front of the top face; Sneak + empty hand clears it, empty hand opens the amount
+  board 1..100, "Price per Order"). Others click the cloth with an empty hand or a shopping list:
+  each click adds one purchase to the list (stock limited: "Out of Stock", "Stock limit reached";
+  "Shop owner must set a price first", "Stock keeper missing"); the list's lore shows the items and
+  the total cost. At the keeper the list checks out: wrong network, stock too low, cash register
+  full and too broke are refused; otherwise the price moves from the inventory into the ticker's
+  payments and the order is sent to the shop's address ("ka-ching"). Sneak-use discards a list.
+  A broken shop drops its programmed cloth.
+- **Client mod**: native screens (request, category editor, requester, gauge, gauge item picker);
+  text (addresses, search, category names) is typed in a form opened from the screen. Looking at a
+  gauge panel shows its label and "in storage / target" (Create's value box text); looking at a
+  ticker with payments shows them (owner).
+- **Log lines**: `stock: stock link placed at x y z on network …`, `stock: order of N item(s) in M
+  stack(s) sent to 'A' through K packager(s)`, `stock: redstone requester at x y z sent its order to
+  'A'`, `stock: factory gauge at x y z restocks <id> xN to 'A'`, `stock: factory gauge at x y z panel S
+  requested its ingredients to 'A'`, `stock: … checked out a shopping list …`.
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -2706,6 +2809,9 @@ place:
 defaults; the push line uses U4's `maxChassisRange`). Stress (checked): pistons, rope and elevator
 pulleys 4; gantry shaft and carriage 0 (`gantry_shaft` 4 in the table above is wrong).
 `config/display.json` (U24): `displayLinkRange` 64 (Create's CLogistics).
+
+`config/stock.json` (U26): `factoryGaugeTimer` 100 (ticks between a gauge's requests, Create's
+CLogistics default, at least 5).
 
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
@@ -2934,7 +3040,12 @@ matches Create's official Chinese translation wording).
 | Chromatic compound charge bar, stack size 1 when charged, absorbing light from belts / depots (U9) | durability bars and per-stack max sizes aren't data-driven; belts are another unit with no transported-item contract | the charge is kept in the item data (stacks of equal charge merge up to 16); placed light sources only |
 | Furnace cook times and xp of the unit's smelting recipes (U9) | Bedrock furnace recipes have fixed times / xp | Bedrock's 10 s / 5 s / 30 s, which equal Create's 200 / 100 / 600 ticks |
 | End rod particles of the block of experience (U9) | no data-driven block particles | none |
-
+| Stock link and redstone requester redstone input (U26) | custom blocks get no redstone neighbour update | polled (links every 4 ticks, requesters every tick so short pulses count); analog power comes from redstone wire, other sources count as 15 |
+| Redstone requester comparator output (U26) | custom blocks can't give a comparator signal | none (the last result is kept in the requester's data) |
+| Factory gauge item icons, counts and connection arrows drawn on the panel (U26) | no world-space item / text renderer | the client mod shows the panel's label and "in storage / target" next to the crosshair; the bulb is the block model |
+| "Click and hold" on a gauge panel / price tag for the amount board (U26) | the server only sees discrete clicks | Sneak + empty-hand click opens the board |
+| Gauge mechanical crafting arrangement ("Use Mechanical Crafting") and JEI recipe sync (U26) | no recipe viewer; Bedrock crafting recipes are not readable as patterns from a mod | panels send their inputs as plain orders |
+| Text fields in the stock screens (U26) | the native screen framework has no text field | the address / search / category name buttons open a form |
 Units add rows here in their PRs when they find something else impossible.
 ## 9. Work plan
 

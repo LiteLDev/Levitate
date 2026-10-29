@@ -1,0 +1,5 @@
+tile.levitate:stock_link.name=Stock Link
+tile.levitate:stock_ticker.name=Stock Ticker
+tile.levitate:factory_gauge.name=Factory Gauge
+tile.levitate:redstone_requester.name=Redstone Requester
+item.levitate:shopping_list.name=Shopping List

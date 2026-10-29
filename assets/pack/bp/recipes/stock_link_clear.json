@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:stock_link_clear"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:stock_link"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:stock_link"
+      }
+    ],
+    "result": {
+      "item": "levitate:stock_link",
+      "count": 1
+    }
+  }
+}
