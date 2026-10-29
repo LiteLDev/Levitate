@@ -1,0 +1,35 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:controls"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "B",
+      "C",
+      "I"
+    ],
+    "key": {
+      "B": {
+        "item": "minecraft:lever"
+      },
+      "C": {
+        "item": "levitate:railway_casing"
+      },
+      "I": {
+        "item": "levitate:precision_mechanism"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:railway_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:controls"
+    }
+  }
+}

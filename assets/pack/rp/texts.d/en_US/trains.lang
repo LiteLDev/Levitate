@@ -1,0 +1,7 @@
+tile.levitate:track_station.name=Train Station
+item.levitate:track_station=Train Station
+tile.levitate:small_bogey.name=Small Bogey
+tile.levitate:large_bogey.name=Large Bogey
+tile.levitate:controls.name=Train Controls
+item.levitate:controls=Train Controls
+item.levitate:schedule.name=Train Schedule
