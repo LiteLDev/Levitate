@@ -1,0 +1,19 @@
+{
+  "type": "create:crushing",
+  "ingredients": [
+    {
+      "tag": "c:raw_materials/gold"
+    }
+  ],
+  "processing_time": 400,
+  "results": [
+    {
+      "id": "create:crushed_raw_gold"
+    },
+    {
+      "id": "create:experience_nugget",
+      "count": 2,
+      "chance": 0.75
+    }
+  ]
+}

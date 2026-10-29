@@ -1,0 +1,14 @@
+{
+  "type": "create:milling",
+  "ingredients": [
+    {
+      "item": "minecraft:hardened_clay"
+    }
+  ],
+  "processing_time": 200,
+  "results": [
+    {
+      "id": "minecraft:red_sand"
+    }
+  ]
+}

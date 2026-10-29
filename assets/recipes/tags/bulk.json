@@ -1,0 +1,226 @@
+{
+  "c:cobblestones": [
+    "minecraft:cobblestone",
+    "minecraft:mossy_cobblestone",
+    "minecraft:cobbled_deepslate",
+    "minecraft:infested_cobblestone"
+  ],
+  "c:flours/wheat": [
+    "levitate:wheat_flour"
+  ],
+  "c:gems/lapis": [
+    "minecraft:lapis_lazuli"
+  ],
+  "c:glass_blocks": [
+    "minecraft:glass",
+    "minecraft:tinted_glass",
+    "minecraft:white_stained_glass",
+    "minecraft:orange_stained_glass",
+    "minecraft:magenta_stained_glass",
+    "minecraft:light_blue_stained_glass",
+    "minecraft:yellow_stained_glass",
+    "minecraft:lime_stained_glass",
+    "minecraft:pink_stained_glass",
+    "minecraft:gray_stained_glass",
+    "minecraft:light_gray_stained_glass",
+    "minecraft:cyan_stained_glass",
+    "minecraft:purple_stained_glass",
+    "minecraft:blue_stained_glass",
+    "minecraft:brown_stained_glass",
+    "minecraft:green_stained_glass",
+    "minecraft:red_stained_glass",
+    "minecraft:black_stained_glass"
+  ],
+  "c:glass_panes": [
+    "minecraft:glass_pane",
+    "minecraft:white_stained_glass_pane",
+    "minecraft:orange_stained_glass_pane",
+    "minecraft:magenta_stained_glass_pane",
+    "minecraft:light_blue_stained_glass_pane",
+    "minecraft:yellow_stained_glass_pane",
+    "minecraft:lime_stained_glass_pane",
+    "minecraft:pink_stained_glass_pane",
+    "minecraft:gray_stained_glass_pane",
+    "minecraft:light_gray_stained_glass_pane",
+    "minecraft:cyan_stained_glass_pane",
+    "minecraft:purple_stained_glass_pane",
+    "minecraft:blue_stained_glass_pane",
+    "minecraft:brown_stained_glass_pane",
+    "minecraft:green_stained_glass_pane",
+    "minecraft:red_stained_glass_pane",
+    "minecraft:black_stained_glass_pane"
+  ],
+  "c:raw_materials/copper": [
+    "minecraft:raw_copper"
+  ],
+  "c:raw_materials/gold": [
+    "minecraft:raw_gold"
+  ],
+  "c:raw_materials/iron": [
+    "minecraft:raw_iron"
+  ],
+  "c:raw_materials/zinc": [
+    "levitate:raw_zinc"
+  ],
+  "c:storage_blocks/raw_copper": [
+    "minecraft:raw_copper_block"
+  ],
+  "c:storage_blocks/raw_gold": [
+    "minecraft:raw_gold_block"
+  ],
+  "c:storage_blocks/raw_iron": [
+    "minecraft:raw_iron_block"
+  ],
+  "c:storage_blocks/raw_zinc": [
+    "levitate:raw_zinc_block"
+  ],
+  "create:stone_types/asurine": [
+    "levitate:asurine",
+    "levitate:cut_asurine",
+    "levitate:cut_asurine_stairs",
+    "levitate:cut_asurine_slab",
+    "levitate:cut_asurine_wall",
+    "levitate:polished_cut_asurine",
+    "levitate:polished_cut_asurine_stairs",
+    "levitate:polished_cut_asurine_slab",
+    "levitate:polished_cut_asurine_wall",
+    "levitate:cut_asurine_bricks",
+    "levitate:cut_asurine_brick_stairs",
+    "levitate:cut_asurine_brick_slab",
+    "levitate:cut_asurine_brick_wall",
+    "levitate:small_asurine_bricks",
+    "levitate:small_asurine_brick_stairs",
+    "levitate:small_asurine_brick_slab",
+    "levitate:small_asurine_brick_wall",
+    "levitate:layered_asurine",
+    "levitate:asurine_pillar"
+  ],
+  "create:stone_types/crimsite": [
+    "levitate:crimsite",
+    "levitate:cut_crimsite",
+    "levitate:cut_crimsite_stairs",
+    "levitate:cut_crimsite_slab",
+    "levitate:cut_crimsite_wall",
+    "levitate:polished_cut_crimsite",
+    "levitate:polished_cut_crimsite_stairs",
+    "levitate:polished_cut_crimsite_slab",
+    "levitate:polished_cut_crimsite_wall",
+    "levitate:cut_crimsite_bricks",
+    "levitate:cut_crimsite_brick_stairs",
+    "levitate:cut_crimsite_brick_slab",
+    "levitate:cut_crimsite_brick_wall",
+    "levitate:small_crimsite_bricks",
+    "levitate:small_crimsite_brick_stairs",
+    "levitate:small_crimsite_brick_slab",
+    "levitate:small_crimsite_brick_wall",
+    "levitate:layered_crimsite",
+    "levitate:crimsite_pillar"
+  ],
+  "create:stone_types/diorite": [
+    "levitate:cut_diorite",
+    "levitate:cut_diorite_stairs",
+    "levitate:cut_diorite_slab",
+    "levitate:cut_diorite_wall",
+    "levitate:polished_cut_diorite",
+    "levitate:polished_cut_diorite_stairs",
+    "levitate:polished_cut_diorite_slab",
+    "levitate:polished_cut_diorite_wall",
+    "levitate:cut_diorite_bricks",
+    "levitate:cut_diorite_brick_stairs",
+    "levitate:cut_diorite_brick_slab",
+    "levitate:cut_diorite_brick_wall",
+    "levitate:small_diorite_bricks",
+    "levitate:small_diorite_brick_stairs",
+    "levitate:small_diorite_brick_slab",
+    "levitate:small_diorite_brick_wall",
+    "levitate:layered_diorite",
+    "levitate:diorite_pillar"
+  ],
+  "create:stone_types/ochrum": [
+    "levitate:ochrum",
+    "levitate:cut_ochrum",
+    "levitate:cut_ochrum_stairs",
+    "levitate:cut_ochrum_slab",
+    "levitate:cut_ochrum_wall",
+    "levitate:polished_cut_ochrum",
+    "levitate:polished_cut_ochrum_stairs",
+    "levitate:polished_cut_ochrum_slab",
+    "levitate:polished_cut_ochrum_wall",
+    "levitate:cut_ochrum_bricks",
+    "levitate:cut_ochrum_brick_stairs",
+    "levitate:cut_ochrum_brick_slab",
+    "levitate:cut_ochrum_brick_wall",
+    "levitate:small_ochrum_bricks",
+    "levitate:small_ochrum_brick_stairs",
+    "levitate:small_ochrum_brick_slab",
+    "levitate:small_ochrum_brick_wall",
+    "levitate:layered_ochrum",
+    "levitate:ochrum_pillar"
+  ],
+  "create:stone_types/tuff": [
+    "levitate:cut_tuff",
+    "levitate:cut_tuff_stairs",
+    "levitate:cut_tuff_slab",
+    "levitate:cut_tuff_wall",
+    "levitate:polished_cut_tuff",
+    "levitate:polished_cut_tuff_stairs",
+    "levitate:polished_cut_tuff_slab",
+    "levitate:polished_cut_tuff_wall",
+    "levitate:cut_tuff_bricks",
+    "levitate:cut_tuff_brick_stairs",
+    "levitate:cut_tuff_brick_slab",
+    "levitate:cut_tuff_brick_wall",
+    "levitate:small_tuff_bricks",
+    "levitate:small_tuff_brick_stairs",
+    "levitate:small_tuff_brick_slab",
+    "levitate:small_tuff_brick_wall",
+    "levitate:layered_tuff",
+    "levitate:tuff_pillar"
+  ],
+  "create:stone_types/veridium": [
+    "levitate:veridium",
+    "levitate:cut_veridium",
+    "levitate:cut_veridium_stairs",
+    "levitate:cut_veridium_slab",
+    "levitate:cut_veridium_wall",
+    "levitate:polished_cut_veridium",
+    "levitate:polished_cut_veridium_stairs",
+    "levitate:polished_cut_veridium_slab",
+    "levitate:polished_cut_veridium_wall",
+    "levitate:cut_veridium_bricks",
+    "levitate:cut_veridium_brick_stairs",
+    "levitate:cut_veridium_brick_slab",
+    "levitate:cut_veridium_brick_wall",
+    "levitate:small_veridium_bricks",
+    "levitate:small_veridium_brick_stairs",
+    "levitate:small_veridium_brick_slab",
+    "levitate:small_veridium_brick_wall",
+    "levitate:layered_veridium",
+    "levitate:veridium_pillar"
+  ],
+  "minecraft:dirt": [
+    "minecraft:dirt",
+    "minecraft:coarse_dirt",
+    "minecraft:dirt_with_roots",
+    "minecraft:grass_block",
+    "minecraft:podzol",
+    "minecraft:mycelium",
+    "minecraft:moss_block",
+    "minecraft:pale_moss_block",
+    "minecraft:mud",
+    "minecraft:muddy_mangrove_roots"
+  ],
+  "minecraft:sand": [
+    "minecraft:sand",
+    "minecraft:red_sand",
+    "minecraft:suspicious_sand"
+  ],
+  "c:stones": [
+    "minecraft:stone",
+    "minecraft:granite",
+    "minecraft:diorite",
+    "minecraft:andesite",
+    "minecraft:deepslate",
+    "minecraft:tuff"
+  ]
+}

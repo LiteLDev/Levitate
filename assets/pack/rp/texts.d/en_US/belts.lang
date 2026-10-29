@@ -1,0 +1,5 @@
+tile.levitate:belt.name=Mechanical Belt
+item.levitate:belt_connector=Mechanical Belt
+item.levitate:belt_connector.name=Mechanical Belt
+tile.levitate:depot.name=Depot
+tile.levitate:weighted_ejector.name=Weighted Ejector
