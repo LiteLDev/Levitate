@@ -15,13 +15,26 @@
 //
 // Server thread only. Watches are polled every `kPollTicks` ticks (and once right after
 // `watch`), only while their chunk is loaded; the callback runs when the power level changes.
-// Redstone *output* of custom blocks (comparator signals, powering wire) is not here: U12's
-// ComparatorCapacitor hook (FunnelsExt.h) covers comparators.
+//
+// Comparator output (U36): a unit registers Create's getAnalogOutputSignal for its block ids and
+// vanilla comparators read it (one ComparatorCapacitor hook here gives the comparator's circuit
+// component its rear analog input):
+//
+//     rs::registerAnalog("levitate:fluid_tank", [](BlockSource& r, BlockPos const& p, Block const& b)
+//         -> std::optional<int> { return level0to15; });   // nullopt: no comparator output now
+//
+// As in Java (ComparatorBlock.getInputSignal) a comparator reads the block right behind it, or,
+// when that is a solid conductor, the block behind that one. The function runs on the server
+// thread whenever the comparator's circuit component is evaluated: keep it cheap.
+// Powering wire from custom blocks (redstone links, ...) stays with the units.
 
 #include <functional>
+#include <optional>
+#include <string>
 
 #include "core/GlobalPos.h"
 
+class Block;
 class BlockPos;
 class BlockSource;
 
@@ -45,5 +58,22 @@ using WatchFn = std::function<void(GlobalPos const& pos, int power)>;
 /// current power, even if 0). Returns an id for `unwatch`. Watches are dropped when the world closes.
 WatchId watch(GlobalPos const& pos, WatchFn fn);
 void    unwatch(WatchId id);
+
+// ---- comparator output (U36) -------------------------------------------------------------------
+
+/// Create's getAnalogOutputSignal for a block id: 0..15, or nullopt for "no output right now".
+using AnalogFn = std::function<std::optional<int>(BlockSource& region, BlockPos const& pos, Block const& block)>;
+/// Registers the comparator output of `blockId` (replaces an earlier one for the same id).
+void registerAnalog(std::string const& blockId, AnalogFn fn);
+void unregisterAnalog(std::string const& blockId);
+/// The registered comparator output of the block at `pos` (nullopt: not registered / not loaded).
+[[nodiscard]] std::optional<int> analogOutput(BlockSource& region, BlockPos const& pos);
+/// What a vanilla comparator at `comparatorPos` reads from a registered block (behind it, or
+/// behind the solid block behind it); nullopt when it doesn't read one.
+[[nodiscard]] std::optional<int> comparatorInput(BlockSource& region, BlockPos const& comparatorPos);
+/// The input side (FacingID) of a vanilla comparator block, nullopt if `block` is none.
+[[nodiscard]] std::optional<int> comparatorRear(Block const& block);
+/// Create's ComparatorUtil.fractionToRedstoneLevel: 0 when empty, else 1 + floor(fraction * 14).
+[[nodiscard]] int fractionToRedstoneLevel(double fraction);
 
 } // namespace lv::feature::common::redstone
