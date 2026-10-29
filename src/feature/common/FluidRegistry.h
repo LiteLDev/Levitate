@@ -72,6 +72,8 @@ void registerFluid(FluidType type);
 /// Display name in `locale` ({} = the server's default): the registered name ("Honey"), potions
 /// "Potion (long swiftness)", unknown ids made readable ("some_fluid" -> "Some Fluid").
 [[nodiscard]] std::string displayName(std::string_view id, std::string_view locale = {});
+/// ARGB tint of a fluid id (potions by their own colour; core::fluids::fluidColor, opaque).
+[[nodiscard]] std::uint32_t colorOf(std::string_view id);
 
 [[nodiscard]] bool        isPotion(std::string_view id);
 /// "swiftness" for "potion:swiftness" and "levitate:potion/regular/swiftness" ("" for other ids).

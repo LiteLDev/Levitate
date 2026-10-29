@@ -23,21 +23,19 @@ constexpr char kBucket[]      = "minecraft:bucket";
 constexpr char kGlassBottle[] = "minecraft:glass_bottle";
 constexpr char kBuildersTea[] = "levitate:builders_tea";
 
-std::uint32_t argb(std::string_view fluid) { return 0xFF000000u | cf::fluidColor(fluid); }
-
 /// Create's fluids (AllFluids) in the common registry; their buckets / bottles reach the U3 fluid
 /// capability through it, so every unit (tanks, basins, pipes) knows them.
 struct FluidRegistrar {
     FluidRegistrar() {
-        ft::registerFluid({.id = std::string(cf::kHoney), .nameKey = "fluid.create.honey", .nameFallback = "Honey",
-                           .sourceBlock = "levitate:honey", .color = argb(cf::kHoney), .renderSlot = 3,
+        ft::registerFluid({.id = std::string(cf::kHoney), .nameKey = cf::fluidNameKey(cf::kHoney), .nameFallback = "Honey",
+                           .sourceBlock = "levitate:honey", .color = ft::colorOf(cf::kHoney), .renderSlot = 3,
                            .lavaInteraction = "levitate:limestone", .bucketItem = "levitate:honey_bucket",
                            .bottleItem = "minecraft:honey_bottle"});
-        ft::registerFluid({.id = std::string(cf::kChocolate), .nameKey = "fluid.create.chocolate", .nameFallback = "Chocolate",
-                           .sourceBlock = "levitate:chocolate", .color = argb(cf::kChocolate), .renderSlot = 4,
+        ft::registerFluid({.id = std::string(cf::kChocolate), .nameKey = cf::fluidNameKey(cf::kChocolate), .nameFallback = "Chocolate",
+                           .sourceBlock = "levitate:chocolate", .color = ft::colorOf(cf::kChocolate), .renderSlot = 4,
                            .lavaInteraction = "levitate:scoria", .bucketItem = "levitate:chocolate_bucket"});
-        ft::registerFluid({.id = std::string(cf::kTea), .nameKey = "fluid.create.tea", .nameFallback = "Builder's Tea",
-                           .color = argb(cf::kTea), .renderSlot = 7, .bottleItem = kBuildersTea});
+        ft::registerFluid({.id = std::string(cf::kTea), .nameKey = cf::fluidNameKey(cf::kTea), .nameFallback = "Builder's Tea",
+                           .color = ft::colorOf(cf::kTea), .renderSlot = 7, .bottleItem = kBuildersTea});
         // every potion id ("potion:<name>", "levitate:potion/<bottle>/<name>") resolves to this
         // entry; a potion's own tint is cf::fluidColor(id)
         ft::registerFluid({.id = "potion:", .nameKey = "fluid.create.potion", .nameFallback = "Potion", .color = 0xFF7E3FB0,

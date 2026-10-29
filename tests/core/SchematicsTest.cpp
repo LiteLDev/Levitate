@@ -343,6 +343,21 @@ TEST(SchematicsTransform, StatesFollowRotationAndMirror) {
     transformStates(chest, {1, Mirror::None});
     EXPECT_EQ(stateStr(chest, "minecraft:cardinal_direction"), "east");
 
+    // chute facing: 0 down, 1..4 north / south / west / east
+    BlockState chute{"levitate:chute", {}, 0, {}};
+    chute.states.set("levitate:facing", Tag(std::int32_t(1))); // north
+    auto c1 = chute;
+    transformStates(c1, {1, Mirror::None});
+    EXPECT_EQ(stateInt(c1, "levitate:facing"), 4); // east
+    chute.states.set("levitate:facing", Tag(std::int32_t(3))); // west
+    auto c2 = chute;
+    transformStates(c2, {0, Mirror::FrontBack});
+    EXPECT_EQ(stateInt(c2, "levitate:facing"), 4); // east
+    chute.states.set("levitate:facing", Tag(std::int32_t(0))); // down
+    auto c3 = chute;
+    transformStates(c3, {1, Mirror::None});
+    EXPECT_EQ(stateInt(c3, "levitate:facing"), 0);
+
     BlockState log{"minecraft:oak_log", {}, 0, {}};
     log.states.set("pillar_axis", Tag(std::string("x")));
     transformStates(log, {3, Mirror::None});

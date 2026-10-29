@@ -203,17 +203,20 @@ public:
             open(std::move(screen));
         });
         net::client::on("common.hover", [](Json const& msg) {
-            auto& h    = hover();
-            auto  prev = std::move(h.lines);
+            auto& h = hover();
             h.lines.clear();
             for (auto const& l : msg.value("lines", Json::array())) h.lines.push_back(l.get<std::string>());
             h.has = !h.lines.empty();
-            if (h.has && h.lines != prev) {
-                // once per new label (e2e scenarios wait for it); colour codes are drawn, not shown
+            // one line per new target and title (live values don't log again; e2e scenarios wait
+            // for it); colour codes are drawn, not shown
+            static std::string lastTarget;
+            auto target = msg.value("pos", Json()).dump() + "|" + std::to_string(h.face) + "|" + (h.has ? h.lines.front() : "");
+            if (h.has && target != lastTarget) {
                 std::string text;
                 for (auto const& l : h.lines) text += (text.empty() ? "" : " | ") + l;
                 log().info("valuebox client: hover label {}", text);
             }
+            lastTarget = h.has ? target : std::string{};
         });
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) { pollHover(); }));

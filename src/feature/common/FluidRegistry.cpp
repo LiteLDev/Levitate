@@ -16,8 +16,6 @@ struct State {
     std::map<std::string, EffectHandler, std::less<>>              effects;
 };
 
-std::uint32_t argb(std::string_view fluid) { return 0xFF000000u | core::fluids::fluidColor(fluid); }
-
 FluidType vanilla(std::string id, std::string key, std::string name, std::string block, std::vector<std::string> world,
                   std::uint32_t color, int slot, std::string bucket, bool hot = false) {
     FluidType t;
@@ -42,10 +40,10 @@ State& state() {
         };
         // vanilla fluids (Bedrock names its source blocks water / lava); their buckets are in the
         // U3 capability already. Create's fluids are registered by U19 `fluids`.
-        add(vanilla("minecraft:water", "fluid_type.minecraft.water", "Water", "minecraft:water", {"minecraft:flowing_water"}, argb("minecraft:water"), 1, "minecraft:water_bucket"));
-        add(vanilla("minecraft:lava", "fluid_type.minecraft.lava", "Lava", "minecraft:lava", {"minecraft:flowing_lava"}, argb("minecraft:lava"), 2, "minecraft:lava_bucket", true));
-        add(vanilla("minecraft:milk", "fluid_type.minecraft.milk", "Milk", "", {}, argb("minecraft:milk"), 5, "minecraft:milk_bucket"));
-        add(vanilla("minecraft:powder_snow", "fluid_type.minecraft.powder_snow", "Powder Snow", "", {}, argb("minecraft:powder_snow"), 5, ""));
+        add(vanilla("minecraft:water", core::fluids::fluidNameKey("minecraft:water"), "Water", "minecraft:water", {"minecraft:flowing_water"}, colorOf("minecraft:water"), 1, "minecraft:water_bucket"));
+        add(vanilla("minecraft:lava", core::fluids::fluidNameKey("minecraft:lava"), "Lava", "minecraft:lava", {"minecraft:flowing_lava"}, colorOf("minecraft:lava"), 2, "minecraft:lava_bucket", true));
+        add(vanilla("minecraft:milk", core::fluids::fluidNameKey("minecraft:milk"), "Milk", "", {}, colorOf("minecraft:milk"), 5, "minecraft:milk_bucket"));
+        add(vanilla("minecraft:powder_snow", core::fluids::fluidNameKey("minecraft:powder_snow"), "Powder Snow", "", {}, colorOf("minecraft:powder_snow"), 5, ""));
         return st;
     }();
     return s;
@@ -108,6 +106,8 @@ std::string bucketOf(std::string_view id) {
     auto const* t = find(id);
     return t ? t->bucketItem : std::string{};
 }
+
+std::uint32_t colorOf(std::string_view id) { return 0xFF000000u | core::fluids::fluidColor(id); }
 
 bool hasBlockState(std::string_view id) {
     auto const* t = find(id);

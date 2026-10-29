@@ -31,6 +31,7 @@
 #include "feature/common/Items.h"
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
+#include "game/WorldDb.h"
 #include "mod/Config.h"
 
 namespace lv::feature::assembly {
@@ -64,6 +65,12 @@ bool logAction(std::string const& key, int& suppressed) {
         bool          logged  = false;
     };
     static std::unordered_map<std::string, Entry> entries;
+    // the tick restarts with every world (the client loads several): forget the old entries
+    static bool const registered = [] {
+        game::db::onWorldClosed([] { entries.clear(); });
+        return true;
+    }();
+    (void)registered;
     constexpr std::uint64_t kInterval = 200; // 10 s
     auto  now = currentTick();
     auto& e   = entries[key];
