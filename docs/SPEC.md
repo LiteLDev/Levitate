@@ -703,7 +703,7 @@ Levitate `tags` object may define tags inline). A machine of another unit asks
 `findStep(kPressing|kCutting|kFilling, stack)` (deploying: `findDeployingStep(stack, held)`,
 filling: `acceptsFluid` / `fluidAmount`) before its own recipes and calls `advance(step, oneItem)`
 per item. The first step accepts the base ingredient or the transitional item, later steps only the
-transitional item carrying that recipe's progress (item data `lv:sequenced_assembly` {id, step,
+transitional item carrying that recipe's progress (item data `sequenced_assembly` {recipe, step,
 progress}); after `sequence.size()·loops` steps one result is picked by weight (Create's
 rollResult). The item's lore shows Create's tooltip: "Recipe Sequence", "Progress: s/t",
 "Next: <step>" and the remaining steps ("Deploy <item>", "Process in Press", "Cut with Saw",

@@ -116,9 +116,9 @@ bool matches(SequencedRecipe const& recipe, core::common::ItemIngredient const& 
 std::optional<Progress> progressOf(ItemStack const& stack) {
     if (items::isEmpty(stack)) return std::nullopt;
     auto d = items::getData(stack, kDataKey);
-    if (!d.is_object() || !d.contains("id")) return std::nullopt;
+    if (!d.is_object() || !d.contains("recipe")) return std::nullopt;
     Progress p;
-    p.recipeId = d.value("id", std::string{});
+    p.recipeId = d.value("recipe", std::string{});
     p.step     = d.value("step", 0);
     p.progress = d.value("progress", 0.f);
     return p;
@@ -197,7 +197,7 @@ ItemStack advance(StepMatch const& match, ItemStack const& input) {
         return input;
     }
     int step = match.finished + 1;
-    items::setData(*out, kDataKey, Json{{"id", r.id}, {"step", step}, {"progress", core::assembly::progressAt(r, step)}});
+    items::setData(*out, kDataKey, Json{{"recipe", r.id}, {"step", step}, {"progress", core::assembly::progressAt(r, step)}});
     writeLore(*out);
     return *out;
 }

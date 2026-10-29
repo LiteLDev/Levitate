@@ -50,8 +50,9 @@ inline constexpr std::string_view kPressing  = core::assembly::kPressing;
 inline constexpr std::string_view kCutting   = core::assembly::kCutting;
 inline constexpr std::string_view kFilling   = core::assembly::kFilling;
 
-/// The item data key holding the progress of a transitional item: {"id", "step", "progress"}.
-inline constexpr std::string_view kDataKey = "lv:sequenced_assembly";
+/// The item data key holding the progress of a transitional item: {"recipe", "step", "progress"}
+/// (shared with U19's spout, SPEC §3.6.19).
+inline constexpr std::string_view kDataKey = "sequenced_assembly";
 
 /// A step that a machine of some type can run on an item now.
 struct StepMatch {
