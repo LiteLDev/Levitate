@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:warped_window_pane"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "###",
+      "###"
+    ],
+    "key": {
+      "#": {
+        "item": "levitate:warped_window"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:warped_window"
+      }
+    ],
+    "result": {
+      "item": "levitate:warped_window_pane",
+      "count": 16
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:framed_glass_pane"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "###",
+      "###"
+    ],
+    "key": {
+      "#": {
+        "item": "levitate:framed_glass"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:framed_glass"
+      }
+    ],
+    "result": {
+      "item": "levitate:framed_glass_pane",
+      "count": 16
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:framed_glass_door_9"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:crimson_door"
+      },
+      {
+        "item": "levitate:framed_glass"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:crimson_door"
+      }
+    ],
+    "result": {
+      "item": "levitate:framed_glass_door",
+      "count": 1
+    }
+  }
+}

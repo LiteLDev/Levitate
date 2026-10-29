@@ -1,0 +1,8 @@
+{
+  "create.recipe.mechanical_crafting": "Mechanical Crafting",
+  "create.recipe.sawing": "Sawing",
+  "create.recipe.block_cutting": "Block Cutting",
+  "create.logistics.recipe_filter": "Recipe Filter",
+  "lv.crafter.inputs_connected": "Crafter inputs connected",
+  "lv.crafter.inputs_disconnected": "Crafter inputs disconnected"
+}

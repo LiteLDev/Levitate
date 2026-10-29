@@ -1,0 +1,344 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:brass_funnel",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:extracting": [
+          0,
+          1
+        ],
+        "levitate:powered": [
+          0,
+          1
+        ],
+        "levitate:flap": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.8
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#d9a941",
+      "minecraft:loot": "loot_tables/blocks/brass_funnel.json",
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.funnel_floor"
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_brass_funnel_side",
+          "render_method": "alpha_test"
+        },
+        "side": {
+          "texture": "levitate_brass_funnel_side",
+          "render_method": "alpha_test"
+        },
+        "frame": {
+          "texture": "levitate_brass_funnel_frame",
+          "render_method": "alpha_test"
+        },
+        "flap": {
+          "texture": "levitate_brass_funnel_flap",
+          "render_method": "alpha_test"
+        },
+        "back": {
+          "texture": "levitate_brass_funnel_back_extract",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          10,
+          16
+        ]
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          10,
+          16
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 0",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_floor"
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              180,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_floor"
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_wall",
+            "bone_visibility": {
+              "flap": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              16,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              16,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_wall",
+            "bone_visibility": {
+              "flap": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              16,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              16,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_wall",
+            "bone_visibility": {
+              "flap": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              16,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              16,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_wall",
+            "bone_visibility": {
+              "flap": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              16,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              16,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:extracting') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_brass_funnel_side",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_brass_funnel_side",
+              "render_method": "alpha_test"
+            },
+            "frame": {
+              "texture": "levitate_brass_funnel_frame",
+              "render_method": "alpha_test"
+            },
+            "flap": {
+              "texture": "levitate_brass_funnel_flap",
+              "render_method": "alpha_test"
+            },
+            "back": {
+              "texture": "levitate_brass_funnel_back_insert",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_brass_funnel_side",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_brass_funnel_side",
+              "render_method": "alpha_test"
+            },
+            "frame": {
+              "texture": "levitate_brass_funnel_frame",
+              "render_method": "alpha_test"
+            },
+            "flap": {
+              "texture": "levitate_brass_funnel_flap",
+              "render_method": "alpha_test"
+            },
+            "back": {
+              "texture": "levitate_brass_funnel_back_powered",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

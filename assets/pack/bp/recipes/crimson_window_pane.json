@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:crimson_window_pane"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "###",
+      "###"
+    ],
+    "key": {
+      "#": {
+        "item": "levitate:crimson_window"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:crimson_window"
+      }
+    ],
+    "result": {
+      "item": "levitate:crimson_window_pane",
+      "count": 16
+    }
+  }
+}
