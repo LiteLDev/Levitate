@@ -26,11 +26,13 @@
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorDataIDs.h"
+#include "mc/legacy/ActorRuntimeID.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/SynchedActorDataEntityWrapper.h"
 #include "mc/world/actor/item/FallingBlockActor.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/Level.h"
+#include "mc/deps/nbt/CompoundTag.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/phys/HitResult.h"
 
@@ -55,12 +57,15 @@ struct Spin {
     Vec3   last{};
     double angle = 0; ///< degrees
     bool   seen  = false;
+    int    frames = 0;
 };
 
 struct State {
     std::unordered_map<std::int64_t, Spin> spins;
     std::atomic<bool>                      useRequested{false};
     bool                                   loggedAnim = false;
+    bool                                   loggedSeen = false;
+    bool                                   loggedTrack = false;
 };
 State& state() {
     static State s;
@@ -81,8 +86,11 @@ Block const* animated(Block const& base, int step) {
 
 /// Create's harvester / roller speed: the block's movement (degrees per block travelled).
 double advance(Actor& entity, std::string const& id) {
-    auto& spin = state().spins[entity.getOrCreateUniqueID().rawID];
-    Vec3  pos  = entity.getPosition();
+    auto& spin = state().spins[static_cast<std::int64_t>(entity.getRuntimeID().rawID)];
+    Vec3  pos  = entity.getInterpolatedPosition(0.f);
+    if (++spin.frames == 300 || spin.frames == 3000) {
+        log().info("actors client: {} at {:.2f} {:.2f} {:.2f}, turned {:.1f} degrees", id, pos.x, pos.y, pos.z, spin.angle);
+    }
     if (!spin.seen) {
         spin.seen = true;
         spin.last = pos;
@@ -117,20 +125,35 @@ LL_TYPE_INSTANCE_HOOK(
     if (entity.getEntityTypeId() != ActorType::FallingBlock || feature::contraption::displayAxis(entity.getRotation().x) < 0) {
         return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
     }
-    auto& data    = *entity.mEntityData;
-    auto  current = static_cast<uint>(data.getInt(static_cast<ushort>(ActorDataIDs::Variant)));
-    auto  base    = Block::tryGetFromRegistry(current);
+    auto& falling = static_cast<FallingBlockActor&>(entity);
+    Block const* base = nullptr;
+    // the block the entity shows: its serialized block (client copy), else the synced variant
+    if (auto const& ser = falling.mFallingBlockSerId; ser) {
+        if (auto b = Block::tryGetFromRegistry(*ser)) base = b.as_ptr();
+    }
+    if (!base) {
+        auto variant = static_cast<uint>(entity.mEntityData->getInt(static_cast<ushort>(ActorDataIDs::Variant)));
+        if (auto b = Block::tryGetFromRegistry(variant)) base = b.as_ptr();
+    }
+    if (!state().loggedSeen) {
+        state().loggedSeen = true;
+        log().info("actors client: display entity shows {}", base ? base->getTypeName() : std::string("?"));
+    }
     if (!base || !isAnimated(base->getTypeName())) return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
     double angle = advance(entity, base->getTypeName());
+    if (!state().loggedTrack) {
+        state().loggedTrack = true;
+        auto const* probe   = animated(*base, 1);
+        log().info("actors client: tracking {} (step 1 block {})", base->getTypeName(), probe == base ? "unchanged" : "found");
+    }
     int    step  = static_cast<int>(std::floor(angle / 22.5)) & 3;
     auto const* shown = animated(*base, step);
-    if (!shown || shown == base.as_ptr()) return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
+    if (!shown || shown == base) return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
     auto& s = state();
     if (!s.loggedAnim) {
         s.loggedAnim = true;
         log().info("actors client: animating {}", base->getTypeName());
     }
-    auto& falling = static_cast<FallingBlockActor&>(entity);
     falling.setFallingBlock(*shown, false);
     origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
     falling.setFallingBlock(*base, false);

@@ -17,7 +17,8 @@ Invoke-Chat '/gamemode creative'
 Invoke-Chat '/time set noon'
 Invoke-Chat '/clear @s'
 # look along +x at a row of blocks 5 blocks ahead
-Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~-1 ~'
+# a fixed spot (the test anchor takes absolute coordinates)
+Invoke-Chat '/tp @s 0 -60 0 facing 10 -61 0'
 Start-Sleep -Milliseconds 600
 Invoke-Chat '/fill ~3 ~ ~-4 ~9 ~4 ~4 air'
 Invoke-Chat '/setblock ~5 ~ ~-3 levitate:mechanical_harvester ["levitate:facing"=4]'
@@ -39,11 +40,14 @@ Invoke-Chat '/setblock ~7 ~1 ~1 levitate:mechanical_harvester ["levitate:facing"
 Invoke-Chat '/setblock ~8 ~1 ~-1 slime'
 Start-Sleep -Milliseconds 800
 $mark = Get-LogMark
-Invoke-Chat '/create contraption assemble ~8 ~1 ~'
+Invoke-Chat '/create contraption assemble 8 -59 0'
 $line = Wait-LogLine 'contraption #(\d+) assembled: (\d+) blocks' 30 -Since $mark
 $id = [regex]::Match($line, 'contraption #(\d+) assembled').Groups[1].Value
 Invoke-Chat "/create contraption move $id -3 0 0 120"
-if (-not $vanilla) { Wait-LogLine 'actors client: animating levitate:mechanical_' 30 -Since $mark | Out-Null }
+$animError = $null
+if (-not $vanilla) {
+    try { Wait-LogLine 'actors client: animating levitate:mechanical_' 30 -Since $mark | Out-Null } catch { $animError = $_ }
+}
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'moving-a' | Out-Null
 Start-Sleep -Milliseconds 300
@@ -57,8 +61,8 @@ Save-Screenshot 'placed' | Out-Null
 Invoke-Chat '/fill ~3 ~ ~-4 ~9 ~4 ~4 air'
 
 # sit down: right-click a seat right in front
-Invoke-Chat '/setblock ~2 ~ ~ levitate:yellow_seat'
-Invoke-Chat '/tp @s ~ ~ ~ facing ~2 ~0.2 ~'
+Invoke-Chat '/setblock 2 -60 0 levitate:yellow_seat'
+Invoke-Chat '/tp @s 0 -60 0.5 facing 2.5 -59.8 0.5'
 Start-Sleep -Milliseconds 800
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
@@ -67,5 +71,6 @@ Start-Sleep -Seconds 1
 Save-Screenshot 'seated' | Out-Null
 Press-Key 'SHIFT' 400
 Start-Sleep -Milliseconds 800
-Invoke-Chat '/setblock ~2 ~ ~ air'
+Invoke-Chat '/setblock 2 -60 0 air'
 Assert-NoErrors
+if ($animError) { throw $animError }
