@@ -716,8 +716,41 @@ command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kin
   each dimension change; the first batch resets the client's copy), then once per tick the changed
   speeds. Vanilla clients get nothing. Client units read the speeds with
   `client/kinetics/KineticsClient.h` (`syncedSpeed`, `onSync`).
-- **Not yet**: Create's ambient cog/kinetic sound scapes and the coloured rotation-indicator
-  particles need original sound / particle assets: U8 (goggles, overlays) or a later U2 PR.
+- **Kinetic feedback** (U37, `src/feature/kinetics/Feedback.cpp`, rules in
+  `core/kinetics/Feedback.h`). Sent by the server to every client: the particle
+  (`levitate:rotation_indicator`) and the sounds (`levitate.kinetics.*`) are in Levitate's resource
+  pack, so vanilla clients and the client mod see / hear the same thing (one path, never doubled).
+  - *Rotation indicators* (Create's GeneratingKineticBlockEntity.updateGeneratedRotation,
+    KineticEffectHandler, RotationIndicatorParticle): a generator **without a source** whose speed
+    level (none / slow / medium / fast, `speedLevelOf`) changes queues them (placing, starting,
+    stopping, a value box / sail / boiler change; a direction change alone doesn't); 2 ticks later
+    (`queueRotationIndicators` countdown) the block, if it still turns (effective speed ≠ 0, so not
+    while overstressed), sends one burst of 20 particles from its centre to every player within 32
+    blocks **wearing Engineer's Goggles** (`goggles::isWearingGoggles`; Create's particle is
+    invisible to everyone else). The particles circle the rotation axis: colour of the speed level
+    (slow `#22FF22`, medium `#0084FF`, fast `#FF55FF`), angular speed 10 / 20 / 30° per tick signed
+    by the direction, angle `(time·speed) mod 360 − speed/2·age²/lifetime` (+180° for a negative
+    speed on the Y axis), radius from `.75` easing to `.65` (large cogs `1` → `1.125`) by 10 % of the
+    gap per tick, life 10 + 0..21 ticks, fading out (alpha `1 − (age − life/2)/life`) and towards the
+    colour mixed half with white over the second half of their life; an 8-frame glint texture
+    (`tools/textures/gaps.ps1`). One log line per burst that reached a player:
+    `kinetics: rotation indicators at <x y z> (<rpm> RPM) for <n> players`.
+  - *Ambient soundscapes* (Create's KineticBlockEntity.tickAudio, SoundScapes, SoundScape;
+    `config/gaps.json` `enableAmbientSounds`): every rotating block (effective speed ≠ 0) within 16
+    blocks of a player (block positions, squared distance < 256) adds itself to the *kinetic* group,
+    cogwheels / large cogwheels / encased cogs (spec `cog`) and gearboxes also to the *cog* group,
+    at pitch `clamp(|speed|/256 + .45, .85, 1)`. Sources are grouped per player by (group, pitch
+    group: < .7, < .9, < 1.1, < 1.3, above); a group plays at the pitch of its first source (kept
+    while the group has sources) from the mean of its block centres, with volume
+    `clamp(count / 150, .025, ambientVolumeCap .1) · lerp(distance / 16, 2, 0)` times the group's
+    relative volume (kinetic .025, cogs 1.5). Create keeps a looping sound per group and regroups
+    every 5 ticks; the server can't hold a looping sound on a client, so Levitate regroups and
+    restarts its 0.5 s samples every 10 ticks (`levitate.kinetics.cogs`: wooden gear teeth,
+    `levitate.kinetics.rumble`: a low hum; both synthesised by `tools/sounds/gaps.ps1`, seamless
+    when repeated), played one block from the player towards the mean position (inside the sounds'
+    2-block min distance, so the game adds no falloff of its own). Create's milling / crushing
+    soundscapes are not part of this (§8).
+  - Overstress keeps Create's smoke / cloud puffs above; Create plays no sound for it.
 ### 3.2 Block data, capabilities, filters, value boxes (U3)
 
 Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested).
@@ -2876,6 +2909,9 @@ filter slots keep their plain clicks, U3):
 **Engineer's goggles** (`levitate:goggles`): worn in the head slot (Bedrock's wearable equips it
 on use and from dispensers). `isWearingGoggles` = goggles in the head slot or any predicate added
 with `addWearingPredicate` (Create's GogglesItem.addIsWearingPredicate).
+Players wearing them also see the rotation indicator particles of generators changing their
+speed level (Create's RotationIndicatorParticle; §3.1 Kinetic feedback, U37); the wrench alone
+doesn't show them, as in Create.
 
 **Goggle overlay** (Create's GoggleOverlayRenderer), built on the server for the block the player
 looks at (`overlayFor(player, pos)`):
@@ -3531,6 +3567,9 @@ generators' own behaviour (U7, U18, U21), not a config value.
 (14), `trainAcceleration` (3), `poweredTrainTopSpeed` (40), `poweredTrainTurningTopSpeed` (20),
 `poweredTrainAcceleration` (3). (`maxTrackPlacementLength` is in `config/tracks.json`, U5.)
 
+`config/gaps.json` (U37): Create's CClient `enableAmbientSounds` (true) and `ambientVolumeCap` (0.1),
+applied by the server for everyone; `rotationIndicators` (true, Levitate switch for the goggles
+particles). See §3.1 Kinetic feedback.
 `config/generators.json` (U7): `crankHungerMultiplier` (0.01, exhaustion per hand crank use per RPM).
 
 `config/ponder.json` (U30, client mod): `comfyReading` (false, Create's client option),
@@ -3637,7 +3676,7 @@ matches Create's official Chinese translation wording).
 | Fan processing state kept on the item entity (U13) | Bedrock item entities can't change their item for clients and carry no free data | a processed item entity is replaced by a new one with the same motion; the processing state lives in the server's memory (restarts after a reload) |
 | Haunted horses keep their data (U13) | no generic entity NBT copy between types | a skeleton horse is spawned in place; saddle, armour and taming are not carried over |
 | Placing a crushing wheel or nozzle where Create refuses it (U13) | the placement can't be vetoed per position for custom blocks | the block pops off right after placement |
-| Millstone / crusher ambient sounds, air current wind sound (U13) | Create's soundscapes are client-side sound assets | not played (U2's note on kinetic soundscapes) |
+| Millstone / crusher ambient sounds, air current wind sound (U13) | Create's milling / crushing soundscapes and the fan's wind are client-side sound assets of their own | not played; the kinetic hum and cog soundscapes of these blocks play (§3.1 Kinetic feedback, U37) |
 | Pulling nozzle explosion with more than 256 entities (U13) | rare edge case | not ported |
 | Air currents through blocks made of several boxes (U13) | the server only gets one collision box per block | a partial block stops the current by its bounding box (stairs, walls and hoppers block it like a full block); fan-transparent blocks pass as in Create |
 | Comparator output of fluid tanks (U18) | Bedrock comparators only read vanilla containers; a custom block's comparator signal can't be supplied without hooking the shared (folded) `hasComparatorSignal` of every block | `steam::comparatorLevel(pos)` gives Create's level for units that read it (threshold switch, display links); vanilla comparators read nothing |

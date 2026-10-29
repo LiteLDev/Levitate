@@ -1,0 +1,78 @@
+{
+  "format_version": "1.10.0",
+  "particle_effect": {
+    "description": {
+      "identifier": "levitate:rotation_indicator",
+      "basic_render_parameters": {
+        "material": "particles_blend",
+        "texture": "textures/particle/levitate_rotation_indicator"
+      }
+    },
+    "components": {
+      "minecraft:emitter_rate_instant": {
+        "num_particles": "variable.count"
+      },
+      "minecraft:emitter_lifetime_once": {
+        "active_time": 0
+      },
+      "minecraft:emitter_shape_point": {
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "minecraft:particle_lifetime_expression": {
+        "max_lifetime": "(variable.life + math.floor(variable.particle_random_1 * (32 - variable.life))) / 20"
+      },
+      "minecraft:particle_initialization": {
+        "per_render_expression": "variable.t = variable.particle_age * 20; variable.l = variable.particle_lifetime * 20; variable.ang = variable.base + variable.spd * variable.t - variable.spd / 2 * variable.t * variable.t / variable.l + ((variable.spd < 0 && variable.ax == 1) ? 180 : 0); variable.rad = variable.r2 + (variable.r1 - variable.r2) * math.pow(0.9, variable.t); variable.fade = math.clamp((variable.t - variable.l / 2) / variable.l, 0, 1); variable.mix = variable.t > variable.l / 2 ? 1 - math.pow(0.8, variable.t - variable.l / 2) : 0;",
+        "per_update_expression": "variable.t = variable.particle_age * 20; variable.l = variable.particle_lifetime * 20; variable.ang = variable.base + variable.spd * variable.t - variable.spd / 2 * variable.t * variable.t / variable.l + ((variable.spd < 0 && variable.ax == 1) ? 180 : 0); variable.rad = variable.r2 + (variable.r1 - variable.r2) * math.pow(0.9, variable.t); variable.fade = math.clamp((variable.t - variable.l / 2) / variable.l, 0, 1); variable.mix = variable.t > variable.l / 2 ? 1 - math.pow(0.8, variable.t - variable.l / 2) : 0;"
+      },
+      "minecraft:particle_motion_parametric": {
+        "relative_position": [
+          "variable.ax == 0 ? 0 : (variable.ax == 1 ? variable.rad * math.cos(variable.ang) : -variable.rad * math.sin(variable.ang))",
+          "variable.ax == 1 ? 0 : variable.rad * math.cos(variable.ang)",
+          "variable.ax == 0 ? variable.rad * math.sin(variable.ang) : (variable.ax == 1 ? -variable.rad * math.sin(variable.ang) : 0)"
+        ]
+      },
+      "minecraft:particle_appearance_billboard": {
+        "size": [
+          "0.075 * (0.5 + 0.5 * variable.particle_random_2)",
+          "0.075 * (0.5 + 0.5 * variable.particle_random_2)"
+        ],
+        "facing_camera_mode": "rotate_xyz",
+        "uv": {
+          "texture_width": 64,
+          "texture_height": 8,
+          "flipbook": {
+            "base_UV": [
+              0,
+              0
+            ],
+            "size_UV": [
+              8,
+              8
+            ],
+            "step_UV": [
+              8,
+              0
+            ],
+            "frames_per_second": 8,
+            "max_frame": 8,
+            "stretch_to_lifetime": true,
+            "loop": false
+          }
+        }
+      },
+      "minecraft:particle_appearance_tinting": {
+        "color": [
+          "variable.cr + (variable.fr - variable.cr) * variable.mix",
+          "variable.cg + (variable.fg - variable.cg) * variable.mix",
+          "variable.cb + (variable.fb - variable.cb) * variable.mix",
+          "1 - variable.fade"
+        ]
+      }
+    }
+  }
+}
