@@ -1,0 +1,197 @@
+// Native screens of the display unit (SPEC §4): the Display Link configuration (source, target
+// line, the source's options) and the Clipboard (pages of checklist entries). Both talk to the
+// server through "screen.action"; text is edited in the server form ("edit" buttons), since the
+// native framework has no text field.
+
+#ifdef LV_CLIENT
+
+#include <algorithm>
+
+#include "client/Client.h"
+#include "client/screen/Screen.h"
+#include "mod/Log.h"
+#include "mod/Module.h"
+
+namespace lv::client::display {
+
+namespace {
+using namespace lv::client::screen;
+
+// ---- display link -----------------------------------------------------------------------------
+
+class LinkScreen : public Screen {
+public:
+    LinkScreen(Json const& data, SendFn send)
+    : Screen(ctr("create.display_link.title", "Display Link"), 220, 150),
+      mSend(std::move(send)),
+      mData(data) {}
+
+    void init() override { build(); }
+
+    void onData(Json const& data) override {
+        mData = data;
+        widgets.clear();
+        build();
+    }
+
+private:
+    void build() {
+        float y = 18;
+        add<Label>(Rect{8, y, 204, 10}, ctr("create.display_link.reading_from", "Read from:") + " " + mData.value("sourceName", std::string{}));
+        y += 11;
+        add<Label>(Rect{8, y, 204, 10}, ctr("create.display_link.writing_to", "Send to:") + " " + mData.value("targetName", std::string{}));
+        y += 14;
+        auto const& sources  = mData["sources"];
+        auto        selected = mData.value("selected", std::string{});
+        int         current  = 0;
+        Json const* active   = nullptr;
+        std::vector<std::string> names{ctr("lv.display.link.none", "(none)")};
+        for (std::size_t i = 0; i < sources.size(); ++i) {
+            names.push_back(sources[i].value("name", std::string{}));
+            if (sources[i].value("id", std::string{}) == selected) {
+                current = static_cast<int>(i) + 1;
+                active  = &sources[i];
+            }
+        }
+        if (sources.empty()) {
+            add<Label>(Rect{8, y, 204, 10}, ctr("create.display_link.no_source", "Not a Display Source"), color::kButtonOff);
+        } else {
+            auto& src   = add<ScrollInput>(Rect{8, y, 204, 16}, "", 0, static_cast<int>(names.size()) - 1, current, [this, sources](int v) {
+                mSend({{"op", "source"}, {"id", v == 0 ? std::string{} : sources[static_cast<std::size_t>(v - 1)].value("id", std::string{})}});
+            });
+            src.options = names;
+            src.tooltip = {ctr("create.display_link.information_type", "Type of Information")};
+        }
+        y += 19;
+        auto lines = mData.value("lines", Json::array());
+        if (lines.empty()) {
+            add<Label>(Rect{8, y, 204, 10}, ctr("create.display_link.no_target", "Not a Display Target"), color::kButtonOff);
+        } else {
+            bool multi = active && active->value("multi", false);
+            auto label = multi ? ctr("create.display_link.display_on_multiline", "Start writing at:") : ctr("create.display_link.display_on", "Write data to:");
+            std::vector<std::string> opts;
+            for (auto const& l : lines) opts.push_back(l.get<std::string>());
+            auto& line = add<ScrollInput>(Rect{8, y, 204, 16}, label, 0, static_cast<int>(opts.size()) - 1,
+                                          std::clamp(mData.value("line", 0), 0, static_cast<int>(opts.size()) - 1),
+                                          [this](int v) { mSend({{"op", "line"}, {"value", v}}); });
+            line.options = opts;
+        }
+        y += 19;
+        bool hasText = false;
+        if (active) {
+            for (auto const& o : (*active)["options"]) {
+                if (o.value("text", false)) {
+                    hasText = true;
+                    continue;
+                }
+                auto choices = o["choices"].get<std::vector<std::string>>();
+                if (choices.empty()) continue;
+                int  v   = o["value"].is_number_integer() ? o["value"].get<int>() : 0;
+                auto key = o.value("key", std::string{});
+                auto& in = add<ScrollInput>(Rect{8, y, 204, 16}, o.value("label", std::string{}), 0, static_cast<int>(choices.size()) - 1,
+                                            std::clamp(v, 0, static_cast<int>(choices.size()) - 1),
+                                            [this, key](int value) { mSend({{"op", "option"}, {"key", key}, {"value", value}}); });
+                in.options = choices;
+                y += 19;
+            }
+        }
+        if (hasText) {
+            auto& edit   = add<IconButton>(Rect{8, y, 18, 18}, "T", [this] { mSend({{"op", "form"}}); });
+            edit.tooltip = {ctr("lv.display.link.option_text", "Edit text options")};
+            y += 20;
+        }
+        height = std::max(110.f, y + 8);
+    }
+
+    SendFn mSend;
+    Json   mData;
+};
+
+// ---- clipboard ------------------------------------------------------------------------------
+
+class ClipboardScreen : public Screen {
+public:
+    ClipboardScreen(Json const& data, SendFn send)
+    : Screen(ctr("lv.display.clipboard.title", "Clipboard"), 200, 236),
+      mSend(std::move(send)),
+      mData(data) {
+        mPage = data.value("page", 0);
+    }
+
+    void init() override { build(); }
+
+    void onData(Json const& data) override {
+        mData = data;
+        widgets.clear();
+        build();
+    }
+
+private:
+    void go(int page) {
+        int pages = static_cast<int>(mData.value("pages", Json::array()).size());
+        int max   = std::min(mData.value("maxPage", 50), pages); // one empty page after the last
+        page      = std::clamp(page, 0, max);
+        if (page == mPage) return;
+        mPage = page;
+        mSend({{"op", "page"}, {"page", page}});
+        widgets.clear();
+        build();
+    }
+
+    void build() {
+        auto pages = mData.value("pages", Json::array());
+        int  count = static_cast<int>(pages.size());
+        mPage      = std::clamp(mPage, 0, std::max(0, std::min(count, mData.value("maxPage", 50))));
+        add<Label>(Rect{8, 18, 184, 10}, ctr("create.display_target.page", "Page {}", mPage + 1) + " / " + std::to_string(std::max(count, mPage + 1)),
+                   color::kTextDark, Align::Right);
+        Json entries = mPage < count ? pages[static_cast<std::size_t>(mPage)] : Json::array();
+        float y      = 32;
+        if (entries.empty()) add<Label>(Rect{30, y, 160, 10}, ctr("lv.display.clipboard.empty", "(empty page)"), color::kTextGray);
+        for (std::size_t i = 0; i < entries.size(); ++i) {
+            auto const& e       = entries[i];
+            bool        checked = e.value("c", false);
+            auto        text    = e.value("t", std::string{});
+            bool        address = text.size() > 1 && text[0] == '#';
+            if (!address) {
+                auto& box   = add<IconButton>(Rect{8, y - 1, 11, 11}, checked ? "v" : "", [this, i] {
+                    mSend({{"op", "toggle"}, {"page", mPage}, {"entry", static_cast<int>(i)}});
+                });
+                box.toggled = checked;
+            }
+            add<Label>(Rect{24, y, 168, 10}, (address ? "> " : "") + text, checked ? color::kTextGray : color::kTextDark);
+            y += 12;
+        }
+        auto& prev = add<IconButton>(Rect{8, 212, 18, 18}, "<", [this] { go(mPage - 1); });
+        prev.enabled = mPage > 0;
+        auto& next = add<IconButton>(Rect{174, 212, 18, 18}, ">", [this] { go(mPage + 1); });
+        next.enabled = mPage < 50;
+        auto& erase   = add<IconButton>(Rect{30, 212, 18, 18}, "x", [this] { mSend({{"op", "erase_checked"}, {"page", mPage}}); });
+        erase.tooltip = {ctr("create.gui.clipboard.erase_checked", "Erase checked items")};
+        auto& edit    = add<IconButton>(Rect{52, 212, 18, 18}, "T", [this] { mSend({{"op", "edit"}, {"page", mPage}}); });
+        edit.tooltip  = {ctr("lv.display.clipboard.edit", "Edit page")};
+    }
+
+    SendFn mSend;
+    Json   mData;
+    int    mPage = 0;
+};
+
+class DisplayScreensModule {
+public:
+    void install() {
+        registerServerScreen("display.link", [](Json const& data, SendFn send) { return std::make_unique<LinkScreen>(data, std::move(send)); });
+        registerServerScreen("display.clipboard", [](Json const& data, SendFn send) {
+            log().info("clipboard screen opened (page {})", data.value("page", 0) + 1);
+            return std::make_unique<ClipboardScreen>(data, std::move(send));
+        });
+    }
+    void uninstall() {}
+};
+
+} // namespace
+
+} // namespace lv::client::display
+
+LV_REGISTER_MODULE(lv::client::display::DisplayScreensModule);
+
+#endif // LV_CLIENT

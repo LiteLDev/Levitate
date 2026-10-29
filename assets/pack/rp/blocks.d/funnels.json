@@ -1,0 +1,26 @@
+{
+  "levitate:andesite_funnel": {
+    "sound": "metal"
+  },
+  "levitate:brass_funnel": {
+    "sound": "metal"
+  },
+  "levitate:andesite_tunnel": {
+    "sound": "metal"
+  },
+  "levitate:brass_tunnel": {
+    "sound": "metal"
+  },
+  "levitate:chute": {
+    "sound": "metal"
+  },
+  "levitate:smart_chute": {
+    "sound": "metal"
+  },
+  "levitate:item_vault": {
+    "sound": "metal"
+  },
+  "levitate:creative_crate": {
+    "sound": "wood"
+  }
+}

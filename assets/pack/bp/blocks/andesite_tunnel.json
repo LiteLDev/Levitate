@@ -1,0 +1,133 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:andesite_tunnel",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:axis": [
+          0,
+          1,
+          2
+        ],
+        "levitate:shape": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.8
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#93988d",
+      "minecraft:loot": "loot_tables/blocks/andesite_tunnel.json",
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.tunnel",
+        "bone_visibility": {
+          "wall_s": "q.block_state('levitate:shape') <= 2 || q.block_state('levitate:shape') == 4",
+          "wall_n": "q.block_state('levitate:shape') <= 3",
+          "flap_s": "q.block_state('levitate:shape') == 3 || q.block_state('levitate:shape') == 5",
+          "flap_n": "q.block_state('levitate:shape') >= 4"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_andesite_tunnel_wall",
+          "render_method": "alpha_test"
+        },
+        "wall": {
+          "texture": "levitate_andesite_tunnel_wall",
+          "render_method": "alpha_test"
+        },
+        "top": {
+          "texture": "levitate_andesite_tunnel_top",
+          "render_method": "alpha_test"
+        },
+        "pillar": {
+          "texture": "levitate_andesite_tunnel_pillar",
+          "render_method": "alpha_test"
+        },
+        "flap": {
+          "texture": "levitate_andesite_tunnel_flap",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:axis') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_andesite_tunnel_wall",
+              "render_method": "alpha_test"
+            },
+            "wall": {
+              "texture": "levitate_andesite_tunnel_window",
+              "render_method": "alpha_test"
+            },
+            "top": {
+              "texture": "levitate_andesite_tunnel_top",
+              "render_method": "alpha_test"
+            },
+            "pillar": {
+              "texture": "levitate_andesite_tunnel_pillar",
+              "render_method": "alpha_test"
+            },
+            "flap": {
+              "texture": "levitate_andesite_tunnel_flap",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

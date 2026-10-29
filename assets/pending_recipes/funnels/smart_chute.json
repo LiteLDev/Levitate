@@ -1,0 +1,35 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:smart_chute"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "I",
+      "S",
+      "P"
+    ],
+    "key": {
+      "I": {
+        "item": "levitate:brass_sheet"
+      },
+      "S": {
+        "item": "levitate:chute"
+      },
+      "P": {
+        "item": "levitate:electron_tube"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:chute"
+      }
+    ],
+    "result": {
+      "item": "levitate:smart_chute"
+    }
+  }
+}
