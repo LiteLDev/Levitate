@@ -1,9 +1,6 @@
 {
-  "fluid_type.create.honey": "Honey",
-  "fluid_type.create.chocolate": "Chocolate",
-  "fluid_type.create.tea": "Builder's Tea",
-  "fluid_type.create.potion": "Potion",
-  "fluid_type.minecraft.water": "Water",
-  "fluid_type.minecraft.lava": "Lava",
-  "fluid_type.minecraft.milk": "Milk"
+  "fluid.create.honey": "Honey",
+  "fluid.create.chocolate": "Chocolate",
+  "fluid.create.tea": "Builder's Tea",
+  "fluid.create.potion": "Potion"
 }

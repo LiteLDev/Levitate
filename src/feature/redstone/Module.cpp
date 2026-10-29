@@ -226,7 +226,7 @@ Json hoverLines(Player& player, GP const& pos, int face, core::common::Vec const
     if (*kind == Kind::Link) {
         auto [a, b] = frequencies(pos);
         auto name   = [&](ItemStack const& s) {
-            return common::items::isEmpty(s) ? trFor(player, "lv.redstone.frequency_empty", "(empty)") : common::items::displayName(s);
+            return common::items::isEmpty(s) ? trFor(player, "lv.common.filter.empty", "(empty)") : common::items::displayName(s);
         };
         auto slot   = frequencySlotAt(block, hit);
         out["lines"].push_back(

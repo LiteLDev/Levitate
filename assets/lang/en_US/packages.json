@@ -31,7 +31,7 @@
   "lv.packages.package_filter": "Package Filter",
   "lv.packages.port.address": "Edit address",
   "lv.packages.port.inventory": "Packages",
-  "lv.packages.target_selected": "Target selected",
   "lv.packages.postbox": "Postbox",
-  "lv.packages.frogport": "Package Frogport"
+  "lv.packages.frogport": "Package Frogport",
+  "create.packager_link.set": "Target selected"
 }

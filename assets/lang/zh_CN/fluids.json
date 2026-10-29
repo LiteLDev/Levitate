@@ -1,9 +1,6 @@
 {
-  "fluid_type.create.honey": "蜂蜜",
-  "fluid_type.create.chocolate": "巧克力",
-  "fluid_type.create.tea": "建筑工茶",
-  "fluid_type.create.potion": "药水",
-  "fluid_type.minecraft.water": "水",
-  "fluid_type.minecraft.lava": "熔岩",
-  "fluid_type.minecraft.milk": "牛奶"
+  "fluid.create.honey": "蜂蜜",
+  "fluid.create.chocolate": "巧克力",
+  "fluid.create.tea": "建筑工茶饮",
+  "fluid.create.potion": "药水"
 }

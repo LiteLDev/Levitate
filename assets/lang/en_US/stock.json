@@ -146,8 +146,6 @@
   "lv.stock.screen.click_add": "Click: +1, Shift: +stack, right-click: -1",
   "lv.stock.screen.lock": "Lock",
   "lv.stock.screen.hide": "Hide / show this category",
-  "lv.stock.screen.category_up": "Move up",
-  "lv.stock.screen.category_down": "Move down",
   "create.display_source.gauge_status": "Factory gauge status",
   "lv.stock.screen.rename": "Rename",
   "lv.stock.screen.requester": "Redstone Requester",

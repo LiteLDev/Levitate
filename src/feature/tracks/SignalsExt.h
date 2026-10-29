@@ -1,7 +1,7 @@
 #pragma once
 
 // Train signals and track observers (U28): contract for trains (U27) and other units.
-// Implemented in src/feature/signals/. SPEC §3.6 "Signals and observers (U28)" documents it.
+// Implemented in src/feature/signals/. SPEC §3.6.28 documents it.
 //
 // Signals split the track graph into signal sections (Create's signal edge groups). Trains report
 // the track they cover; sections, signal states and observers follow. Before a train enters a
@@ -94,7 +94,7 @@ void removeTrain(std::string const& trainId);
 
 /// May the train go on? Checks the signals on `path` (edges after `front`'s edge, as
 /// core::tracks::PathResult::edges) within `lookahead` blocks, reserves the sections it may
-/// enter and tells where to stop otherwise (Create's entry / cross signal rules, SPEC §3.6).
+/// enter and tells where to stop otherwise (Create's entry / cross signal rules, SPEC §3.6.28).
 [[nodiscard]] Authority checkAhead(
     std::string const&                     trainId,
     core::tracks::GraphLocation const&     front,
@@ -132,7 +132,7 @@ using CargoProvider = std::function<bool(std::string const& trainId, ItemTest co
 /// Without a provider, observers with a filter never trigger (empty filters always do).
 void setCargoProvider(CargoProvider provider);
 /// The train's name (Create's Train.name), shown by display links on a track observer
-/// ("Observed Train Name"). Without a provider the source shows nothing.
+/// ("Detected Train Name"). Without a provider the source shows nothing.
 using NameProvider = std::function<std::string(std::string const& trainId)>;
 void setTrainNameProvider(NameProvider provider);
 /// The train a track observer currently sees ("" when none).

@@ -31,7 +31,7 @@
   "lv.packages.package_filter": "包裹过滤器",
   "lv.packages.port.address": "编辑地址",
   "lv.packages.port.inventory": "包裹",
-  "lv.packages.target_selected": "目标已选取",
   "lv.packages.postbox": "邮箱",
-  "lv.packages.frogport": "货物蛙港"
+  "lv.packages.frogport": "货物蛙港",
+  "create.packager_link.set": "目标已选取"
 }
