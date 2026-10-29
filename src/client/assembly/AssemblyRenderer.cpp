@@ -228,15 +228,12 @@ struct Drawer {
     }
 };
 
-/// A held item standing out of a hand / claw whose tip is at `tip` (pointing along its +Y):
-/// blocks stand on it, flat items stick out edge first (Create's deployer / arm item).
+/// A held item on a hand / claw whose tip is at `tip` (pointing along its +Y): blocks stand on
+/// it, flat items lie on it facing out (Create's deployer / arm item).
 void drawHeld(Drawer& d, ItemStack const& stack, glm::mat4 const& tip, float size) {
     if (feature::common::items::isEmpty(stack)) return;
-    if (render::isBlockItem(stack)) {
-        render::drawItem(d.ctx, stack, glm::scale(tip, glm::vec3{size * .75f}), render::Style::Lying);
-        return;
-    }
-    render::drawItem(d.ctx, stack, glm::scale(glm::translate(tip, glm::vec3{0.f, size * .4f, 0.f}), glm::vec3{size}), render::Style::Facing);
+    float scale = render::isBlockItem(stack) ? size * .75f : size;
+    render::drawItem(d.ctx, stack, glm::scale(glm::translate(tip, glm::vec3{0.f, 1 / 64.f, 0.f}), glm::vec3{scale}), render::Style::Lying);
 }
 
 void drawDeployer(Drawer& d, Tessellator& tess, BlockPos const& pos, Block const& block, DeployerAnim const* anim, double now) {

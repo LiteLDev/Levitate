@@ -47,11 +47,15 @@ $cmds = @(
 foreach ($c in $cmds) { Invoke-Chat $c; Start-Sleep -Milliseconds 200 }
 Start-Sleep -Seconds 2
 
+# `/tp ... facing` aims from the feet: look at a point from the eyes (1.62 above the feet)
+function Look-At([double]$x, [double]$z, [double]$tx, [double]$ty, [double]$tz) {
+    $ay = $ty - 1.62
+    Invoke-Chat "/tp @s $x -60 $z facing $tx $ay $tz"
+}
 function Use-On([string]$item, [double]$fx, [double]$fy, [double]$fz, [string]$logPattern) {
     Invoke-Chat '/clear @s'
     Invoke-Chat "/give @s $item 1"
-    $sx = [math]::Floor($fx) + 0.5
-    Invoke-Chat "/tp @s $sx -60 3.5 facing $fx $fy $fz"
+    Look-At ([math]::Floor($fx) + 0.5) 3.5 $fx $fy $fz
     Start-Sleep -Milliseconds 700
     $mark = Get-LogMark
     Click 0.5 0.5 -Relative -Right
@@ -70,45 +74,57 @@ Invoke-Chat '/replaceitem block 0 -58 6 slot.container 1 cobblestone 64'
 Invoke-Chat '/replaceitem block 15 -58 6 slot.container 0 cobblestone 1'
 Invoke-Chat '/replaceitem block 17 -58 6 slot.container 0 apple 3'
 Invoke-Chat '/replaceitem block 17 -58 6 slot.container 1 cobblestone 16'
-Invoke-Chat '/create kinetics 0 -60 5 speed -32'
+Invoke-Chat '/tp @s 0 -60 0'
+Invoke-Chat '/create kinetics ~ ~ ~5 speed -32'
+# item entities landing on the moving belt are taken onto it
+foreach ($t in 'blocks/andesite_casing', 'blocks/placard', 'blocks/depot') {
+    Invoke-Chat "/loot spawn 1.5 -59.2 6.5 loot `"$t`""
+    Start-Sleep -Milliseconds 700
+}
 if (-not $vanilla) {
     Wait-LogLine 'itemrender client: drawing \d+ display items' 30 | Out-Null
     if ($script:Mode -eq 'remote-mod') { Wait-LogLine 'itemrender: .* gets display items' 30 | Out-Null }
 }
-Invoke-Chat '/tp @s 8.5 -57 -1 facing 8.5 -60 6'
+Look-At 8.5 -1.5 8.5 -60 6
 Start-Sleep -Seconds 4
 Save-Screenshot 'overview' | Out-Null
 
-Invoke-Chat '/tp @s 2.5 -59 3.5 facing 2.5 -60.3 6.5'
-Start-Sleep -Seconds 1
+Look-At 3.5 4 3.5 -59.6 6.3
+Start-Sleep -Milliseconds 300
 Save-Screenshot 'belt-a' | Out-Null
 Start-Sleep -Milliseconds 250
 Save-Screenshot 'belt-b' | Out-Null
 
-Invoke-Chat '/tp @s 8 -59.5 3.8 facing 8 -59.6 6'
+Look-At 8 4 8 -59.6 6
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'filters' | Out-Null
-Invoke-Chat '/tp @s 11.5 -59.4 4.3 facing 11.5 -58.5 6.8'
+Look-At 11.5 4.6 11.5 -58.5 6.8
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'placard' | Out-Null
-Invoke-Chat '/tp @s 13.5 -59.4 3.6 facing 13.5 -58.5 5.5'
+Look-At 13.5 4 13.5 -58.5 5.6
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'deployer' | Out-Null
-Invoke-Chat '/tp @s 15.5 -59.6 4.2 facing 15.5 -59.5 6'
+Look-At 15.5 4.2 15.5 -59.5 6
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'crafter' | Out-Null
-Invoke-Chat '/tp @s 17.5 -58.2 4.6 facing 17.5 -59.8 6.5'
+# the basin got its items: take the chute away to see in from above
+if (-not $vanilla) { Wait-LogLine 'basin client: drawing \d+ stacks in a basin' 30 | Out-Null }
+Invoke-Chat '/fill 17 -59 6 17 -58 6 air'
+# look in from above (standing on glass): the walls hide the inside from the floor
+Invoke-Chat '/setblock 17 -60 5 glass'
+Invoke-Chat '/tp @s 17.5 -59 5.2 facing 17.5 -61.27 6.5'
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'basin' | Out-Null
 
 # the test pattern (display items without a block): facing, lying + piles, spinning, sliding
 Invoke-Chat '/fill 0 -61 10 12 -61 18 smooth_stone'
 Invoke-Chat '/create itemrender demo 2 -60 10'
-Invoke-Chat '/tp @s 7.5 -58 7 facing 7.5 -60 14'
+Look-At 7.5 6.5 7.5 -60 13
 Start-Sleep -Seconds 2
 Save-Screenshot 'pattern-a' | Out-Null
 Start-Sleep -Milliseconds 400
 Save-Screenshot 'pattern-b' | Out-Null
 Invoke-Chat '/create itemrender clear'
-Invoke-Chat '/create kinetics 0 -60 5 speed 0'
+Invoke-Chat '/tp @s 0 -60 0'
+Invoke-Chat '/create kinetics ~ ~ ~5 speed 0'
 Assert-NoErrors

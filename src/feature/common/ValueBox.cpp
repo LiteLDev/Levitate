@@ -294,12 +294,17 @@ void displayItems(GlobalPos const& pos, Block const& block, std::vector<std::pai
             auto c = spec.centre(block, face);
             if (!c) continue;
             static constexpr int kNormal[6][3]{{0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}};
+            // a slot less than a pixel under the face is drawn on the face (the model covers it)
+            std::array<double, 3> at = *c;
+            int                   axis = face / 2;
+            double                plane = kNormal[face][axis] > 0 ? 1.0 : 0.0;
+            if (std::abs(at[axis] - plane) < 1 / 16.0) at[axis] = plane;
             itemrender::DisplayItem d;
             d.stack    = stack;
             d.at       = itemrender::facingFace(face);
-            d.at.x     = pos.x + (*c)[0] + kNormal[face][0] * .01;
-            d.at.y     = pos.y + (*c)[1] + kNormal[face][1] * .01;
-            d.at.z     = pos.z + (*c)[2] + kNormal[face][2] * .01;
+            d.at.x     = pos.x + at[0] + kNormal[face][0] * .01;
+            d.at.y     = pos.y + at[1] + kNormal[face][1] * .01;
+            d.at.z     = pos.z + at[2] + kNormal[face][2] * .01;
             d.at.scale = static_cast<float>(spec.scale) * .5f;
             out.emplace_back(slotBase + face, std::move(d));
         }

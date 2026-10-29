@@ -126,6 +126,7 @@ struct State {
     int                                                          dim = 0;
     std::uint64_t                                                lastTick = 0;
     bool                                                         logged = false;
+    bool                                                         loggedItems = false;
 };
 
 State& state() {
@@ -438,6 +439,10 @@ void renderParts(BaseActorRenderContext& rc) {
                 d.draw(fluidMesh(d.tess, fluidTexture(m.fluids.back().first)), pos, glm::translate(glm::mat4{1.f}, glm::vec3{0.f, surface, 0.f}));
             }
             drawBasinItems(rc, pos, m, surface, time);
+            if (!m.items.empty() && !s.loggedItems) {
+                s.loggedItems = true;
+                log().info("basin client: drawing {} stacks in a basin", m.items.size());
+            }
             if (total >= 1 || !m.items.empty()) ++drawn;
         } else {
             stale.push_back(pos);

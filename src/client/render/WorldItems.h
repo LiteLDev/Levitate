@@ -17,8 +17,8 @@
 //       render::drawItem(ctx, stack, m, render::Style::Facing);
 //
 // The canonical item is one block big. `Style::Facing` (item frames, filter slots, placards): flat
-// items stand in the XY plane centred on the origin and read correctly from +Z; block items are an
-// upright cube standing in front of that plane (centre at +Z 0.5). `Style::Lying` (belts, depots):
+// items stand in the XY plane centred on the origin and read correctly from +Z; block items are a
+// half size upright cube standing in front of that plane (centre at +Z 0.25). `Style::Lying` (belts, depots):
 // flat items lie face up (+Y) centred on the origin; block items stand on it (centre at +Y 0.5).
 
 #ifdef LV_CLIENT

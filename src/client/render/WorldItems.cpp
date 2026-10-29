@@ -337,8 +337,9 @@ void drawItem(BaseActorRenderContext& ctx, ItemStack const& stack, glm::mat4 con
     if (!player) return;
     glm::mat4 m = transform;
     switch (kindOf(stack)) {
-    case Kind::Block: // stands on the origin plane (Lying: on top of it, Facing: in front of it)
-        m = glm::translate(m, style == Style::Lying ? glm::vec3{0, .5f, 0} : glm::vec3{0, 0, .5f});
+    case Kind::Block: // Lying: stands on the origin plane; Facing: a half size cube in front of it
+        if (style == Style::Lying) m = glm::translate(m, glm::vec3{0, .5f, 0});
+        else m = glm::scale(glm::translate(m, glm::vec3{0, 0, .25f}), glm::vec3{.5f});
         break;
     case Kind::Special:
     case Kind::Sprite:

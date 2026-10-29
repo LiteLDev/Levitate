@@ -26,7 +26,7 @@ using Json = nlohmann::json;
 /// How the canonical item is laid out before the transform (see WorldItems.h).
 enum class Style : std::uint8_t {
     /// The item faces the transform's +Z (an item frame / filter slot / placard): flat items stand
-    /// in the XY plane centred on `pos`, block items stand in front of that plane.
+    /// in the XY plane centred on `pos`, block items (half size cubes) stand in front of that plane.
     Facing = 0,
     /// The item lies on a surface whose normal is the transform's +Y (Create's belt / depot /
     /// chute look): flat items lie face up, block items stand on it; `pos` is where it rests.
