@@ -183,7 +183,7 @@ LV_REGISTER_SELFTEST("fluids.registry", [](Context& ctx) {
     ctx.check(requiredAmount(bucket, {"levitate:tea", 1000}, false) == -1, "builder's tea has no bucket");
     ctx.check(requiredAmount(item(ctx, "minecraft:dirt"), {"minecraft:water", 1000}, true) == 500, "dirt needs 500 mB water (filling recipe)");
     ctx.check(requiredAmount(item(ctx, "minecraft:bread"), {"minecraft:milk", 1000}, true) == 250, "bread + milk (sweet roll recipe)");
-    ctx.check(fluidName("levitate:honey") == "Honey", "fluid name");
+    ctx.check(common::fluidtypes::displayName("levitate:honey", "en_US") == "Honey", "fluid name");
 });
 
 // ---- spout -------------------------------------------------------------------------------------

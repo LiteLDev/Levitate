@@ -71,7 +71,7 @@ struct ItemRef {
 
 /// RGB colour used to draw a fluid (water, lava, honey, chocolate, tea, milk, potions).
 [[nodiscard]] std::uint32_t fluidColor(std::string_view fluid);
-/// Translation key of a fluid's name (Create's: "fluid.create.honey", vanilla "block.minecraft.water", ...).
+/// Translation key of a fluid's name (Create's "fluid.create.honey", vanilla NeoForge's "fluid_type.minecraft.water"), as in the fluid registry.
 [[nodiscard]] std::string fluidNameKey(std::string_view fluid);
 
 // ---- item drain ------------------------------------------------------------------------------
