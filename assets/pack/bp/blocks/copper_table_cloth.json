@@ -1,0 +1,53 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:copper_table_cloth",
+      "menu_category": {
+        "category": "construction"
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.8
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.8
+      },
+      "minecraft:map_color": "#d8d2c4",
+      "minecraft:loot": "loot_tables/blocks/copper_table_cloth.json",
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": "geometry.levitate.table_cloth",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_copper_table_cloth",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          1,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          1,
+          16
+        ]
+      }
+    }
+  }
+}

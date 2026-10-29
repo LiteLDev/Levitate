@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:dark_oak_window"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " # ",
+      "#X#"
+    ],
+    "key": {
+      "#": {
+        "item": "minecraft:dark_oak_planks"
+      },
+      "X": {
+        "item": "minecraft:glass"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:dark_oak_planks"
+      }
+    ],
+    "result": {
+      "item": "levitate:dark_oak_window",
+      "count": 2
+    }
+  }
+}

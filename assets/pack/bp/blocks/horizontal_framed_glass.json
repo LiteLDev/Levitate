@@ -1,0 +1,609 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:horizontal_framed_glass",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:c_north": [
+          0,
+          1
+        ],
+        "levitate:c_south": [
+          0,
+          1
+        ],
+        "levitate:c_west": [
+          0,
+          1
+        ],
+        "levitate:c_east": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.3
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.3
+      },
+      "minecraft:map_color": "#c8dbe0",
+      "minecraft:loot": "loot_tables/blocks/horizontal_framed_glass.json",
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_horizontal_framed_glass_0",
+          "render_method": "alpha_test"
+        }
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_0",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_8",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_2",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_horizontal_framed_glass_end",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_horizontal_framed_glass_10",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

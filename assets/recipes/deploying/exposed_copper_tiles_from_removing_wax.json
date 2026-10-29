@@ -1,0 +1,17 @@
+{
+  "type": "levitate:deploying",
+  "ingredients": [
+    {
+      "item": "levitate:waxed_exposed_copper_tiles"
+    },
+    {
+      "tag": "minecraft:axes"
+    }
+  ],
+  "results": [
+    {
+      "item": "levitate:exposed_copper_tiles"
+    }
+  ],
+  "keep_held_item": true
+}
