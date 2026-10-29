@@ -1,0 +1,756 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:content_observer",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:target": [
+          0,
+          1,
+          2
+        ],
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:powered": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 1.5
+      },
+      "minecraft:map_color": "#6b4b3a",
+      "minecraft:loot": "loot_tables/blocks/content_observer.json",
+      "minecraft:redstone_conductivity": {
+        "redstone_conductor": false,
+        "allows_wire_to_step_down": true
+      },
+      "minecraft:redstone_producer": {
+        "power": 0
+      },
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_content_observer_side",
+          "render_method": "opaque"
+        }
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "north": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_top",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_front",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_content_observer_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_content_observer_front_powered",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_content_observer_back",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "down",
+              "up",
+              "south",
+              "west",
+              "east"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "down",
+              "up",
+              "north",
+              "west",
+              "east"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "down",
+              "up",
+              "north",
+              "south",
+              "east"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "down",
+              "up",
+              "north",
+              "south",
+              "west"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "up",
+              "north",
+              "south",
+              "west",
+              "east"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "up",
+              "north",
+              "south",
+              "west",
+              "east"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "up",
+              "north",
+              "south",
+              "west",
+              "east"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "up",
+              "north",
+              "south",
+              "west",
+              "east"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "down",
+              "north",
+              "south",
+              "west",
+              "east"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "down",
+              "north",
+              "south",
+              "west",
+              "east"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "down",
+              "north",
+              "south",
+              "west",
+              "east"
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:target') == 2 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "down",
+              "north",
+              "south",
+              "west",
+              "east"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

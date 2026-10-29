@@ -1,0 +1,38 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:pulse_repeater"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "RCT",
+      "SSS"
+    ],
+    "key": {
+      "R": {
+        "item": "minecraft:redstone"
+      },
+      "C": {
+        "item": "levitate:brass_sheet"
+      },
+      "T": {
+        "item": "minecraft:redstone_torch"
+      },
+      "S": {
+        "item": "minecraft:stone"
+      }
+    },
+    "result": {
+      "item": "levitate:pulse_repeater",
+      "count": 1
+    },
+    "unlock": [
+      {
+        "item": "minecraft:redstone"
+      }
+    ]
+  }
+}
