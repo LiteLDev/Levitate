@@ -1,0 +1,77 @@
+{
+  "levitate_transmission_rotor": {
+    "textures": "textures/blocks/transmission_rotor"
+  },
+  "levitate_transmission_andesite_casing": {
+    "textures": "textures/blocks/transmission_andesite_casing"
+  },
+  "levitate_transmission_andesite_end": {
+    "textures": "textures/blocks/transmission_andesite_end"
+  },
+  "levitate_transmission_brass_casing": {
+    "textures": "textures/blocks/transmission_brass_casing"
+  },
+  "levitate_transmission_brass_end": {
+    "textures": "textures/blocks/transmission_brass_end"
+  },
+  "levitate_transmission_andesite_cog_side": {
+    "textures": "textures/blocks/transmission_andesite_cog_side"
+  },
+  "levitate_transmission_brass_cog_side": {
+    "textures": "textures/blocks/transmission_brass_cog_side"
+  },
+  "levitate_transmission_gearbox_top": {
+    "textures": "textures/blocks/transmission_gearbox_top"
+  },
+  "levitate_transmission_clutch_side": {
+    "textures": "textures/blocks/transmission_clutch_side"
+  },
+  "levitate_transmission_clutch_side_on": {
+    "textures": "textures/blocks/transmission_clutch_side_on"
+  },
+  "levitate_transmission_gearshift_side": {
+    "textures": "textures/blocks/transmission_gearshift_side"
+  },
+  "levitate_transmission_gearshift_side_on": {
+    "textures": "textures/blocks/transmission_gearshift_side_on"
+  },
+  "levitate_transmission_chain_side": {
+    "textures": "textures/blocks/transmission_chain_side"
+  },
+  "levitate_transmission_chain_gearshift_side": {
+    "textures": "textures/blocks/transmission_chain_gearshift_side"
+  },
+  "levitate_transmission_chain_gearshift_side_on": {
+    "textures": "textures/blocks/transmission_chain_gearshift_side_on"
+  },
+  "levitate_transmission_controller_side": {
+    "textures": "textures/blocks/transmission_controller_side"
+  },
+  "levitate_transmission_controller_top": {
+    "textures": "textures/blocks/transmission_controller_top"
+  },
+  "levitate_transmission_speedometer_head": {
+    "textures": "textures/blocks/transmission_speedometer_head"
+  },
+  "levitate_transmission_stressometer_head": {
+    "textures": "textures/blocks/transmission_stressometer_head"
+  },
+  "levitate_transmission_sequencer_side_0": {
+    "textures": "textures/blocks/transmission_sequencer_side_0"
+  },
+  "levitate_transmission_sequencer_side_1": {
+    "textures": "textures/blocks/transmission_sequencer_side_1"
+  },
+  "levitate_transmission_sequencer_side_2": {
+    "textures": "textures/blocks/transmission_sequencer_side_2"
+  },
+  "levitate_transmission_sequencer_side_3": {
+    "textures": "textures/blocks/transmission_sequencer_side_3"
+  },
+  "levitate_transmission_sequencer_side_4": {
+    "textures": "textures/blocks/transmission_sequencer_side_4"
+  },
+  "levitate_transmission_sequencer_side_5": {
+    "textures": "textures/blocks/transmission_sequencer_side_5"
+  }
+}

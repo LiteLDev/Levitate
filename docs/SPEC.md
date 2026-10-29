@@ -75,8 +75,31 @@ data files.
 `brass_encased_shaft`, `andesite_encased_cogwheel`, `brass_encased_cogwheel`,
 `andesite_encased_large_cogwheel`, `brass_encased_large_cogwheel`, `sequenced_gearshift`,
 `rotation_speed_controller`, `speedometer`, `stressometer`, `belt` connector item is U11.
-States: `axis` (x/y/z) for shafts and cogs, `facing` for gauges, `powered` for clutch/gearshift,
-`part` for chain drives, `encased` variants are separate ids (as Create).
+Encased variants are separate ids (as Create). Every block has `levitate:rotor` (0 full model,
+1 without the rotating parts for the client mod, §3.1). Block states (integers):
+
+| Block | States |
+|---|---|
+| shaft, cogwheel, large_cogwheel, encased shafts, gearbox | `levitate:axis` 0 x / 1 y / 2 z (gearbox: the axis *without* shafts) |
+| encased (large) cogwheels | `axis`, `levitate:top_shaft`, `levitate:bottom_shaft` (shaft end on the positive / negative axis face) |
+| clutch, gearshift | `axis`, `levitate:powered` |
+| encased_chain_drive | `axis`, `levitate:part` (0 none, 1 start, 2 middle, 3 end), `levitate:along_first` (Create's CONNECTED_ALONG_FIRST_COORDINATE) |
+| adjustable_chain_gearshift | the chain drive states + `levitate:signal` 0..15 (Create keeps the analog signal in the block entity; here it is a state so the network re-propagates when it changes) |
+| sequenced_gearshift | `axis` (Create's VERTICAL + HORIZONTAL_AXIS), `levitate:state` 0..5 (Create's STATE), `levitate:mod` (speed modifier of the running instruction: 0, 1, 2, −1, −2 as 0..4) |
+| rotation_speed_controller | `axis` 0 / 2 (HORIZONTAL_AXIS), `levitate:bracket` (large cog on top), `levitate:revision` (toggled to re-attach the network when the target speed changes) |
+| speedometer, stressometer | `levitate:facing` 0..5, `levitate:along_first`, `levitate:dial` 0..5 (static needle for vanilla clients, 22.5° steps) |
+
+Drops: encased shafts drop a shaft, encased cogwheels their cogwheel / large cogwheel (as Create);
+a gearbox with a horizontal axis drops a vertical gearbox. Recipes (Create 6.0.10, `crafting/kinetics`):
+shaft ×8 = andesite alloy / andesite alloy; cogwheel = shaft + planks; large cogwheel = shaft + 2 planks
+or cogwheel + planks; gearbox = cogwheel ×4 around an andesite casing (` C / CBC / C `); vertical
+gearbox = `C C / B / C C`; gearbox ↔ vertical gearbox and speedometer ↔ stressometer convert
+shapeless; clutch = andesite casing + shaft + redstone; gearshift = andesite casing + cogwheel +
+redstone; encased chain drive = andesite casing + 3 iron (or zinc) nuggets; adjustable chain
+gearshift = encased chain drive + electron tube; sequenced gearshift = brass casing + cogwheel +
+electron tube; rotation speed controller = precision mechanism / brass casing; speedometer = compass
+/ andesite casing. Deploying: shaft + planks → cogwheel, cogwheel + planks → large cogwheel. Recipes
+needing U9 / U10 items wait in `assets/pending_recipes/transmission/`.
 
 ### 2.2 Generators (U7)
 
@@ -1837,6 +1860,73 @@ the block-changed event: the position and its neighbours are re-evaluated at the
   dropping); a different material is refused while one is applied; the wrench resets it.
 - Selftests `building.*` (dx 1000..1099), e2e `tools/e2e/{server,client}/scenarios/building.ps1`.
 
+### 3.6.6 Transmission (U6)
+
+Checked against Create 6.0.10 (RotatedPillarKineticBlock, CogWheelBlock, CogwheelBlockItem,
+ShaftBlock, EncasedCogwheelBlock, GearboxBlock, VerticalGearboxItem, GearshiftBlock, ClutchBlock,
+ChainDriveBlock, ChainGearshiftBlockEntity, SequencedGearshiftBlock(Entity), Instruction,
+SpeedControllerBlock(Entity), GaugeBlock, Speed/StressGaugeBlockEntity). Pure rules in
+`src/core/transmission/` (gtest), game side in `src/feature/transmission/`, client in
+`src/client/transmission/`.
+
+- **Placement** (Create's getStateForPlacement; the state is computed from the world before the
+  block is placed and applied in the same call): shafts, encased shafts, clutch, gearshift take the
+  axis of the neighbours with a shaft end facing them (none or disagreeing: the nearest look axis;
+  sneaking with a preferred axis: the clicked face's axis). Cogwheels: sneaking → clicked face
+  axis; a large cog above a speed controller → across the controller's shaft; placed against a
+  small cog → its axis; else the preferred axis, else the clicked face axis. A cog is refused where
+  Create's `isValidCogwheelPosition` fails (a large cog beside it, or any cog beside a large one,
+  unless that neighbour's axis points at it). Encased cogwheels: pillar rule, the axis of a small
+  cog they are placed against. Gearbox: axis y; the vertical gearbox item: the axis across the
+  horizontal shaft neighbours (none / disagreeing: across the player's facing). Chain drives: the
+  preferred axis (sneaking: the look axis), then their part from the neighbours. Sequenced
+  gearshift: preferred axis unless sneaking, else the look axis. Speed controller: a large cog
+  above decides; else the horizontal shaft neighbours, else across the player's facing. Gauges:
+  placed on a shaft end → facing across it (Create's rule from the look direction), else facing =
+  clicked face with the shaft axis from the neighbours.
+- **Placement assist** (Create's placement helpers): a shaft used on a shaft extends its line along
+  the axis on the side nearer the hit (up to `placementAssistRange` 12); a cogwheel used on a cog
+  (not on its shaft) puts the new cog beside it (small on small: same axis, the side nearer the hit;
+  large on large: diagonal, perpendicular axis; mixed sizes: diagonal in the plane, same axis); a
+  large cogwheel used on a speed controller goes on top across its shaft. One log line per assisted
+  placement.
+- **Encasing**: right-clicking a shaft / cogwheel / large cogwheel with `andesite_casing` or
+  `brass_casing` (U10) turns it into the encased block without using the casing; encased cogwheels
+  get a shaft end on each axis side with a neighbouring shaft facing them.
+- **Kinetics** (specs in `Specs.cpp`): gearbox halves (Create's GearboxBlockEntity), clutch
+  (powered: far half disconnected) and gearshift (powered: far half reversed); chain drives pass
+  their speed ×1 along the connection axis (Create's areBlocksConnected), the adjustable chain
+  gearshift multiplies by `1 + (signal + 1) / 16` (1 unpowered, 2 at signal 15) as source and divides
+  as receiver; the sequenced gearshift's far half turns at the running instruction's modifier
+  (idle, delay, await, end: disconnected); the speed controller drives a large cog on top
+  (axis across its shaft) at its target speed with Create's getConveyedSpeed rules; gauges are
+  shafts along their rotation axis. Stress impact 0 for all.
+- **Redstone**: clutch, gearshift, adjustable chain gearshift (analog strength) and sequenced
+  gearshift read the strongest neighbour signal from the dimension's circuit system every tick
+  (redstone dust beside or above, producers, powered blocks, repeaters / comparators / observers
+  facing them, torches not standing on them).
+- **Sequenced gearshift**: right-click (any item but the wrench, and but a kinetic block on a shaft
+  face) opens the instruction screen (native for the client mod; a form with five rows otherwise).
+  Up to 5 instructions: Turn by angle (1..360°, Shift step 45, default 90), Turn to move
+  Piston/Pulley/Gantry (1..128 m, step 5, default 5), Timed Delay (1..600 ticks, step 20, default 10),
+  Await new Redstone Pulse, End; Turn instructions have a speed modifier (×2, ×1, ×−1, ×−2).
+  Default list: turn 90° forward, end. A rising redstone edge while idle starts instruction 1
+  (when it turns); durations: turn `ceil(angle / (speed·mod·0.3)) + 2` ticks, piston
+  `ceil(m / (speed·mod/512)) + 2`, delay as set; Await continues on the next rising edge; End or
+  the last instruction stop (the state stays until the power goes). A speed change re-times the
+  running instruction, a stop ends the sequence. Changing the instructions resets the sequence.
+  Comparator output = `levitate:state`. One log line per instruction step.
+- **Rotation speed controller**: value box (board ⟳ / ⟲, 1..`maxRotationSpeed`, milestones 32) on
+  the two side faces at 8 / 11 px; default 16 RPM; label "Targeted Speed in RPM". Changing it
+  re-attaches the network. `levitate:bracket` shows the cog bracket under a large cogwheel.
+- **Gauges**: speedometer dial = Create's getDialTarget (0..0.45 below `mediumSpeed`, ..0.75 below
+  `fastSpeed`, ..1.125 at `maxRotationSpeed`, from the effective speed); stressometer dial = stress /
+  capacity of the network (1.125 when overstressed, 0 when not turning). Comparator output
+  `ceil(clamp(dial · 14, 0, 15))`. The client mod draws the needle on each head face (Create's
+  shouldRenderHeadOnFace) easing 1/8 per tick towards the target (shaking past 1); vanilla clients
+  see the needle at the nearest 22.5° step. Goggle lines (U8's overlay) use the gauge strings
+  defined here (`create.gui.speedometer.title`, `create.gui.stressometer.*`, `create.gui.gauge.info_header`).
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -1845,7 +1935,7 @@ Each screen: native (client mod) + form fallback (vanilla). Owner unit in bracke
 |---|---|---|
 | Filter / attribute filter | right-click filter item | U3 |
 | Value box form (vanilla) | wrench right-click on a value box | U3 |
-| Sequenced gearshift instructions | right-click | U6 |
+| Sequenced gearshift instructions (native: 5 rows of instruction / value / speed, sent on close; form: 5 rows of dropdown / slider / dropdown) | right-click | U6 |
 | Toolbox | right-click / radial select (client mod) | U31 |
 | Linked controller binding | right-click | U31 |
 | Wand of symmetry / worldshaper | right-click | U31 |
@@ -2052,6 +2142,13 @@ matches Create's official Chinese translation wording).
 | Item on the placard, copycat material, brackets drawn on vanilla clients (U10) | a block model can't show another item / block | the data and every behaviour exist on both; vanilla clients see the placard frame, the copycat base and the plain shaft; drawing them is the client mod's job (not yet) |
 | Copycat material state cycling (U10) | Bedrock block items always place their default state | materials are applied in their default state; clicking again with the same block does nothing |
 | Placement helpers of girders / table cloths (U10) | — (not done yet) | girders and table cloths are placed like normal blocks |
+| Redstone neighbour updates of the clutch, gearshifts and sequenced gearshift (U6) | custom blocks get no redstone neighbour update | they read their neighbours' signal from the circuit system every tick (same reaction time as Create's scheduled tick); the sequenced gearshift reacts to power *changes* only, as Create's neighbour updates |
+| Comparator reading a gauge / sequenced gearshift (U6) | `getComparatorSignal` of custom blocks can't be overridden (a folded function) | a hook on the comparator's evaluation feeds it the block's output when its rear (directly or through a solid block) is one of ours |
+| Smooth gauge needle for **vanilla** clients (U6) | block models are static per state; cube rotations are limited to 22.5° steps | the needle state snaps to the nearest 22.5°; the client mod draws the eased needle |
+| Gauge dial particles (U6) | Create's coloured dust particles need a client particle with a colour parameter | not shown yet |
+| Sequenced gearshift stopping a bearing / piston exactly (U6) | Create passes a "sequence context" through the kinetic network to the driven machine; the wave-1 kinetics contract has no such channel | the instructions run for Create's durations (which overshoot by two ticks); exact stops need a kinetics contract extension |
+| Wrench on transmission blocks (encased cog shaft toggling, removing casings) (U6) | the wrench (U8) has no per-block hook in the wave-1 contracts | left to U8's wrench (rotate / pick up); the shaft ends of encased cogs are set when encasing |
+| Integrated-cog placement helpers (cogs placed against mixers / crafters) (U6) | those blocks are other units' | plain placement rules apply |
 
 Units add rows here in their PRs when they find something else impossible.
 

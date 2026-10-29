@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:stressometer_from_conversion"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:speedometer"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:speedometer"
+      }
+    ],
+    "result": {
+      "item": "levitate:stressometer",
+      "count": 1
+    }
+  }
+}
