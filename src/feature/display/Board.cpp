@@ -262,6 +262,8 @@ void forget(GlobalPos const& c) {
 }
 
 void refreshController(BlockSource& region, GlobalPos const& c) {
+    // rows placed or removed without a player (commands, structures, pistons) settle here
+    fixRow(region, c);
     auto s = structureOf(region, c);
     if (s && s->controller == c) {
         // a block of the rectangle went without a player breaking it: settle the rows again

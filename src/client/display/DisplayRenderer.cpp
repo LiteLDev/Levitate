@@ -232,9 +232,13 @@ void tubeQuads(std::vector<Quad>& out, Key const& key, Tube const& t) {
     for (int s = 0; s < 2; ++s) {
         std::string ch = s < static_cast<int>(g.size()) ? g[static_cast<std::size_t>(s)] : " ";
         if (ch == " ") continue;
-        V3 c  = s == 0 ? slot0 : slot1;
-        V3 tl = c - right * (2.5 * pw) - down * (3.5 * ph);
-        glyph(out, ch, tl, right, down, pw, ph, t.colour, 1.3f);
+        V3 c = s == 0 ? slot0 : slot1;
+        // in front of and behind the filament (the glyph plane goes through it)
+        V3 normal{right.z * down.y - right.y * down.z, right.x * down.z - right.z * down.x, right.y * down.x - right.x * down.y};
+        for (double side : {1.3, -1.3}) {
+            V3 tl = c + normal * (side * px) - right * (2.5 * pw) - down * (3.5 * ph);
+            glyph(out, ch, tl, right, down, pw, ph, t.colour, 1.3f);
+        }
     }
 }
 

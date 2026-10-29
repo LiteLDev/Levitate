@@ -56,6 +56,7 @@ LV_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
             auto text = p.text;
             std::replace(text.begin(), text.end(), '_', ' ');
             if (board::isBoard(id)) {
+                board::updateColumns(*region, pos); // boards set by commands were never connected
                 auto s = board::structureOf(*region, pos);
                 board::setLine(*region, s->controller, p.line, text, true);
             } else if (nixie::isNixie(id)) {

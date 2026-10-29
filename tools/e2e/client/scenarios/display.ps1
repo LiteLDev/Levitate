@@ -39,7 +39,7 @@ Start-Sleep -Milliseconds 500
 $mark = Get-LogMark
 Invoke-Chat '/create display bind -2 -59 3 1 -59 5 nixie_tube'
 Wait-LogLine 'display link at 0:-2:-59:3 bound to 1 -59 5 \(nixie_tube\), update sent' 20 -Since $mark | Out-Null
-Invoke-Chat '/tp @s -2 -60 1 facing -2 -58.7 3'
+Invoke-Chat '/tp @s -2 -60 1 0 12'
 Start-Sleep -Milliseconds 800
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
@@ -52,7 +52,8 @@ if ($vanilla) {
     Start-Sleep -Milliseconds 1200
     Save-Screenshot 'link-screen' | Out-Null
 }
-Close-Screen
+# the inventory key closes native screens (and forms do not mind a second key)
+if ($vanilla) { Close-Screen } else { Press-Key E; Start-Sleep -Milliseconds 800 }
 
 # the clipboard: right-click in the air opens it
 Invoke-Chat '/give @s levitate:clipboard 1'
@@ -70,7 +71,7 @@ if ($vanilla) {
     Start-Sleep -Milliseconds 1200
     Save-Screenshot 'clipboard-screen' | Out-Null
 }
-Close-Screen
+if ($vanilla) { Close-Screen } else { Press-Key E; Start-Sleep -Milliseconds 800 }
 
 if ($script:Mode -eq 'local') {
     $r = Invoke-SelfTest 'display.*'
