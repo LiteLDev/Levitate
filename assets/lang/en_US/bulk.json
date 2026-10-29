@@ -1,0 +1,16 @@
+{
+  "create.recipe.milling": "Milling",
+  "create.recipe.crushing": "Crushing",
+  "create.recipe.fan_washing": "Bulk Washing",
+  "create.recipe.fan_washing.fan": "Fan behind Flowing Water",
+  "create.recipe.fan_smoking": "Bulk Smoking",
+  "create.recipe.fan_smoking.fan": "Fan behind Fire",
+  "create.recipe.fan_blasting": "Bulk Blasting",
+  "create.recipe.fan_blasting.fan": "Fan behind Lava",
+  "create.recipe.fan_haunting": "Bulk Haunting",
+  "create.recipe.fan_haunting.fan": "Fan behind Soul Fire",
+  "block.create.nozzle.tooltip.summary": "Attach to the front of an _Encased Fan_ to distribute its effect on Entities in _all directions_.",
+  "death.attack.create.crush": "{0} was processed by Crushing Wheels",
+  "death.attack.create.fan_fire": "{0} got smoked by an Encased Fan",
+  "death.attack.create.fan_lava": "{0} was incinerated by an Encased Fan"
+}

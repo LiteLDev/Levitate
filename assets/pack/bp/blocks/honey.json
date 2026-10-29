@@ -1,0 +1,43 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:honey",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.levitate.fluid_source",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_honey_still",
+          "render_method": "blend",
+          "ambient_occlusion": false,
+          "face_dimming": false
+        }
+      },
+      "minecraft:collision_box": false,
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          14,
+          16
+        ]
+      },
+      "minecraft:destructible_by_mining": false,
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 100
+      },
+      "minecraft:light_dampening": 2,
+      "minecraft:map_color": "#eaae2f",
+      "minecraft:replaceable": {},
+      "minecraft:loot": "loot_tables/blocks/fluid_source.json"
+    }
+  }
+}
