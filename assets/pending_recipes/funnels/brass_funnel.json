@@ -1,0 +1,36 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:brass_funnel"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "E",
+      "A",
+      "K"
+    ],
+    "key": {
+      "E": {
+        "item": "levitate:electron_tube"
+      },
+      "A": {
+        "item": "levitate:brass_ingot"
+      },
+      "K": {
+        "item": "minecraft:dried_kelp"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:brass_ingot"
+      }
+    ],
+    "result": {
+      "item": "levitate:brass_funnel",
+      "count": 2
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "levitate:deploying",
+  "ingredients": [
+    {
+      "item": "levitate:weathered_copper_shingle_stairs"
+    },
+    {
+      "item": "minecraft:honeycomb_block"
+    }
+  ],
+  "results": [
+    {
+      "item": "levitate:waxed_weathered_copper_shingle_stairs"
+    }
+  ],
+  "keep_held_item": true
+}

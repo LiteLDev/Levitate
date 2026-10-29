@@ -1,0 +1,95 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:display_board",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "levitate:up": [
+          0,
+          1
+        ],
+        "levitate:down": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.levitate.display_board",
+      "minecraft:material_instances": {
+        "side": {
+          "texture": "levitate_display_board_side",
+          "render_method": "opaque"
+        },
+        "front": {
+          "texture": "levitate_display_board_front",
+          "render_method": "opaque"
+        },
+        "back": {
+          "texture": "levitate_display_board_back",
+          "render_method": "opaque"
+        },
+        "*": {
+          "texture": "levitate_display_board_side",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#4c4c4c",
+      "minecraft:loot": "loot_tables/blocks/display_board.json"
+    },
+    "permutations": [
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:facing') == 1"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:facing') == 2"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:facing') == 3"
+      }
+    ]
+  }
+}
