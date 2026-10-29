@@ -87,6 +87,8 @@ struct PackagerProvider {
     std::function<int(BlockSource&, BlockPos const&)> queuedPackages;
     /// Queue requests (they are boxed and sent in order).
     std::function<void(BlockSource&, BlockPos const&, std::vector<PackagingRequest> const&)> send;
+    /// Optional: Create's isTooBusyFor (used instead of `queuedPackages` when set).
+    std::function<bool(BlockSource&, BlockPos const&, RequestType)> tooBusy;
 };
 
 /// Plugs packagers in (a later registration replaces an earlier one; U25 calls it in install()).

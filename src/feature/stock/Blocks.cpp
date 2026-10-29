@@ -179,7 +179,7 @@ bool useOnBlock(Player& player, ItemStack const& held, GlobalPos const& p, int f
     }
     if (tid == kBlazeBurner) {
         // Create's BlazeBurnerBlock.useItemOn: a burner beside a stock ticker is its keeper
-        if (hid == "levitate:goggles") return false;
+        if (hid == "levitate:goggles" || stateOr(p, "levitate:blaze", 0) == 0) return false;
         auto ticker = tickerOfKeeper(p, true);
         if (!ticker) return false;
         if (hid == kShoppingList) checkout(player, *ticker, held);

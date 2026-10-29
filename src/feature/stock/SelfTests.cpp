@@ -394,7 +394,7 @@ LV_REGISTER_SELFTEST("stock.shop", [](Context& ctx) -> ll::coro::CoroTask<> {
     ctx.check(stock::stockLevelForTrade(cloth, nullptr) == 5, "10 bread allow 5 trades of 2");
     stock::useShop(p, cloth, 0.1, 0.1, 0.1);
     ctx.check(items::isEmpty(p.getSelectedItem()), "no keeper at the ticker: no shopping list");
-    ctx.setBlock(at(tickerPos, 1, 0, 0), "levitate:blaze_burner");
+    ctx.setBlock(at(tickerPos, 1, 0, 0), "levitate:blaze_burner", {{"levitate:blaze", 1}});
     {
         ItemStack list;
         if (stock::keeperPresent(tickerPos)) {
@@ -421,4 +421,28 @@ LV_REGISTER_SELFTEST("stock.shop", [](Context& ctx) -> ll::coro::CoroTask<> {
         stock::useTicker(p, tickerPos);
         ctx.check(stock::payments(tickerPos).empty(), "the owner collects the payments at the ticker");
     }
+});
+
+LV_REGISTER_SELFTEST("stock.packager", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // U25's packager: a chest below a packager facing up, a stock link on top of the packager
+    if (!lv::game::blockWith("levitate:packager")) {
+        ctx.info("levitate:packager is not registered (U25): skipped");
+        co_return;
+    }
+    auto chest = at(ctx.testPos(2690), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(chest), "test area loaded");
+    ctx.require(ctx.setBlock(chest, "minecraft:chest"), "place a chest");
+    auto packager = at(chest, 0, 1, 0);
+    ctx.require(ctx.setBlock(packager, "levitate:packager", {{"levitate:facing", 1}}), "place a packager facing up");
+    auto link = at(packager, 0, 1, 0);
+    ctx.require(ctx.setBlock(link, stock::kStockLink, {{"levitate:face", 0}, {"levitate:facing", 2}}), "place a stock link on it");
+    stock::onLinkPlaced(link, &ctx.player(), item(ctx, stock::kStockLink));
+    auto network = stock::networkAt(link);
+    fill(ctx, chest, "minecraft:iron_ingot", 20);
+    ctx.check(stock::summaryOf(network, true).countOf(item(ctx, "minecraft:iron_ingot")) == 20, "the packager's inventory is the network's stock");
+    ctx.check(stock::requestOrder(network, stock::RequestType::Player, {{item(ctx, "minecraft:iron_ingot"), 12}}, "Depot"), "the order goes to U25's packager");
+    co_await ctx.ticks(5);
+    ctx.check(stock::summaryOf(network, true).countOf(item(ctx, "minecraft:iron_ingot")) == 8, "the packager boxed the ordered items");
+    co_await ctx.ticks(30);
+    ctx.check(stock::stateOr(packager, "levitate:linked", 0) == 1, "the packager shows that it is linked");
 });

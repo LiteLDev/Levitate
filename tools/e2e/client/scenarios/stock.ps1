@@ -57,6 +57,6 @@ Invoke-Chat '/kill @e[type=boat]'
 
 if ($script:Mode -eq 'local') {
     $r = Invoke-SelfTest 'stock.*'
-    if ($r.Pass -lt 10) { throw "expected at least 10 stock selftests to pass, got $($r.Pass)" }
+    if ($r.Pass -lt 11) { throw "expected at least 11 stock selftests to pass, got $($r.Pass)" }
 }
 Assert-NoErrors

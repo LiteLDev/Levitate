@@ -496,7 +496,8 @@ bool keeperPresent(GlobalPos const& ticker) {
                 if (!a || a->isPlayer() || !a->getVehicle()) continue;
                 return true;
             }
-            if (y == 0 && idAt(seat) == kBlazeBurner) return true;
+            // Create: a blaze burner block entity, i.e. a burner with a blaze (heat above none)
+            if (y == 0 && idAt(seat) == kBlazeBurner && stateOr(seat, "levitate:blaze", 0) > 0) return true;
         }
     }
     return false;

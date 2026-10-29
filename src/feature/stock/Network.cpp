@@ -444,7 +444,9 @@ bool packagerAt(GlobalPos const& p) { return isPackagerAt(p); }
 
 bool packagerTooBusy(GlobalPos const& packager, RequestType type) {
     auto* region = regionOf(packager.dim);
-    if (!region || !provider() || !provider()->queuedPackages) return false;
+    if (!region || !provider()) return false;
+    if (provider()->tooBusy) return provider()->tooBusy(*region, game::blockPos(packager), type);
+    if (!provider()->queuedPackages) return false;
     return provider()->queuedPackages(*region, game::blockPos(packager)) >= cs::busyLimit(type);
 }
 

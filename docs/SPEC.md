@@ -2596,9 +2596,13 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   final-link flag and (first request only) the order context. A packager with too many queued
   packages refuses: player orders 50, redstone 20, restock 10. Items that newly appear in a
   linked packager's inventory fulfil the network's promises (oldest first).
-- **Packagers** (U25) plug in through `stock::registerPackagerProvider` (is-packager, available
-  items, inventory id, queued packages, send requests). Until U25 registers one, links find no
-  packager ("No Packagers Linked").
+- **Packagers** plug in through `stock::registerPackagerProvider` (is-packager, available items,
+  inventory id, busy check, send requests). The unit registers U25's packagers
+  (`feature/packages/Packages.h`): a link uses the packager it sits on (not a repackager), the
+  packager's target inventory (opposite its facing) is counted slot by slot, requests go to
+  `packages::attemptToSend` (up to 100 packages at once, Create's performPackageRequests), and
+  U25 asks the unit whether a packager has a stock link (linked packagers ignore redstone).
+  Without a packager a link contributes nothing ("No Packagers Linked").
 - **Stock ticker**: right-click the block hands out the payments its shops collected (27 slots);
   otherwise it opens the category editor if a keeper is present ("Seat a mob or blaze burner next
   to this block to use it"). Keepers: a mob riding something (a seat) beside the ticker at its

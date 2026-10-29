@@ -3,7 +3,7 @@
 # packagers), then the blocks placed from the console.
 $mark = Get-LogMark
 $r = Invoke-SelfTest 'stock.*'
-if ($r.Pass -lt 10) { throw "expected at least 10 stock selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 11) { throw "expected at least 11 stock selftests to pass, got $($r.Pass)" }
 Wait-LogLine 'stock: stock link placed at -?\d+ -?\d+ -?\d+ on network' 10 -Since $mark | Out-Null
 Wait-LogLine 'stock: order of \d+ item\(s\) in \d+ stack\(s\) sent to .Home.' 10 -Since $mark | Out-Null
 Wait-LogLine 'stock: redstone requester at -?\d+ -?\d+ -?\d+ sent its order to .Wall.' 10 -Since $mark | Out-Null
