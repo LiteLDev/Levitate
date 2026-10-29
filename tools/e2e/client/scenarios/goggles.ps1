@@ -16,8 +16,11 @@ Invoke-Chat '/clear @s'
 Invoke-Chat '/time set noon'
 Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.6 ~'
 Start-Sleep -Milliseconds 500
-Invoke-Chat '/setblock ~4 ~1 ~ levitate:kinetics_test_source ["levitate:axis"=0]'
-Invoke-Chat '/setblock ~3 ~1 ~ levitate:kinetics_test_consumer ["levitate:axis"=0]'
+# a column of two source/consumer pairs: the look ray hits one of them whatever the eye height
+foreach ($dy in 0, 1) {
+    Invoke-Chat "/setblock ~4 ~$dy ~ levitate:kinetics_test_source [`"levitate:axis`"=0]"
+    Invoke-Chat "/setblock ~3 ~$dy ~ levitate:kinetics_test_consumer [`"levitate:axis`"=0]"
+}
 $mark = Get-LogMark
 Invoke-Chat '/replaceitem entity @s slot.armor.head 0 levitate:goggles'
 Start-Sleep -Seconds 1
@@ -52,7 +55,7 @@ Invoke-Chat '/create overlay reset'
 Wait-LogLine 'goggles: overlay offset reset' 20 -Since $mark | Out-Null
 
 # the wrench turns a consumer along z clicked on its west face (about the x axis) to y
-Invoke-Chat '/setblock ~3 ~1 ~ levitate:kinetics_test_consumer ["levitate:axis"=2]'
+foreach ($dy in 0, 1) { Invoke-Chat "/setblock ~3 ~$dy ~ levitate:kinetics_test_consumer [`"levitate:axis`"=2]" }
 Invoke-Chat '/give @s levitate:wrench 1'
 Press-Key '1'
 Start-Sleep -Milliseconds 800

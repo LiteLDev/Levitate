@@ -92,12 +92,22 @@ Overlay& overlay() {
     return o;
 }
 
+/// Icon stacks per item id, for the current world only (each world has its own item registry).
+std::unordered_map<std::string, ItemStack>& iconCache() {
+    static auto* cache = new std::unordered_map<std::string, ItemStack>(); // never destroyed after the registry
+    return *cache;
+}
+
 ItemStack const& iconStack(std::string const& id) {
-    static std::unordered_map<std::string, ItemStack> cache;
-    auto it = cache.find(id);
+    auto& cache = iconCache();
+    auto  it    = cache.find(id);
     if (it == cache.end()) {
         ItemStack s;
         s.reinit(id, 1, 0);
+        if (s.isNull()) {
+            static ItemStack const empty;
+            return empty; // not registered (yet): try again next frame
+        }
         it = cache.emplace(id, std::move(s)).first;
     }
     return it->second;
@@ -401,10 +411,33 @@ std::vector<std::string> kineticStats(std::string const& id) {
     return out;
 }
 
+struct ExtraLines {
+    std::vector<std::string> insert, stats;
+};
+
+/// Built lines per (id, locale, Shift, Ctrl, goggles, tooltips on): the game asks for the hover
+/// text often while an item is hovered.
+std::unordered_map<std::string, ExtraLines>& hovertextCache() {
+    static auto* cache = new std::unordered_map<std::string, ExtraLines>();
+    return *cache;
+}
+
+ExtraLines const& extraLines(std::string const& id) {
+    auto key = id + "|" + clientLocale() + "|" + (input().shift ? "s" : "") + (input().ctrl ? "c" : "") + (wearingGoggles() ? "g" : "")
+             + (cfg().enableTooltips ? "t" : "");
+    auto& cache = hovertextCache();
+    if (auto it = cache.find(key); it != cache.end()) return it->second;
+    if (cache.size() > 512) cache.clear();
+    ExtraLines e;
+    if (cfg().enableTooltips) e.insert = descriptionLines(id);
+    e.stats = kineticStats(id);
+    return cache.emplace(key, std::move(e)).first->second;
+}
+
 void extendHovertext(std::string& text, std::string const& id) {
-    std::vector<std::string> insert;
-    if (cfg().enableTooltips) insert = descriptionLines(id);
-    auto stats = kineticStats(id);
+    auto const& extra  = extraLines(id);
+    auto const& insert = extra.insert;
+    auto const& stats  = extra.stats;
     if (insert.empty() && stats.empty()) return;
     auto        nl   = text.find('\n');
     std::string head = nl == std::string::npos ? text : text.substr(0, nl);
@@ -470,7 +503,11 @@ public:
         });
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) { pollTarget(); }));
-        mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) { overlay() = Overlay{}; }));
+        mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
+            overlay() = Overlay{};
+            iconCache().clear();
+            hovertextCache().clear();
+        }));
         mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>([](ll::event::KeyInputEvent& ev) {
             if (ev.keyCode() == kKeyShift) input().shift = ev.isDown();
             if (ev.keyCode() == kKeyCtrl) input().ctrl = ev.isDown();

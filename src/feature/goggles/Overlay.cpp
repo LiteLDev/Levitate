@@ -51,7 +51,7 @@ using Json    = nlohmann::json;
 namespace {
 
 constexpr char const* kGogglesId   = "levitate:goggles";
-constexpr double      kMaxQueryRange = 12.0;
+constexpr double      kMaxQueryRange = 8.0; // the value boxes' edit range (U3)
 
 /// Create's AllBlocks `BlockStressValues.setGeneratorSpeed` calls (blocks of U7, by id).
 std::unordered_map<std::string, GeneratorSpeed> presetGeneratorSpeeds() {
@@ -196,7 +196,7 @@ bool defaultGoggle(InfoContext const& ctx, Tooltip& t) {
     bool added = kineticGoggleTooltip(ctx, t);
     for (auto fn : {&fluidTooltip, &itemTooltip, &heatTooltip}) {
         Tooltip extra;
-        if (!fn(ctx, extra)) continue;
+        if (!fn(ctx, extra) || extra.empty()) continue;
         if (added) t.emplace_back();
         t.insert(t.end(), extra.begin(), extra.end());
         added = true;
@@ -437,19 +437,27 @@ Overlay overlayFor(Player& player, core::GlobalPos const& target) {
 
     Tooltip t;
     bool    goggleAdded = false, hoverAdded = false;
+    // a provider that reports it added nothing leaves no lines behind
+    auto run = [&](auto const& fn) {
+        auto before = t.size();
+        bool added  = fn(ctx, t);
+        if (!added) t.resize(before);
+        return added;
+    };
     if (hasGoggle && wearing) {
-        if (defaults) goggleAdded |= defaultGoggle(ctx, t);
+        if (defaults) goggleAdded |= run(defaultGoggle);
         if (providers)
             for (auto const& p : *providers)
-                if (p.goggle) goggleAdded |= p.goggle(ctx, t);
+                if (p.goggle) goggleAdded |= run(p.goggle);
     }
     if (hasHover) {
-        if (!t.empty()) t.emplace_back();
-        if (defaults && kinetic) hoverAdded |= kineticHoverTooltip(ctx, t);
+        bool blank = !t.empty();
+        if (blank) t.emplace_back();
+        if (defaults && kinetic) hoverAdded |= run(kineticHoverTooltip);
         if (providers)
             for (auto const& p : *providers)
-                if (p.hover) hoverAdded |= p.hover(ctx, t);
-        if (goggleAdded && !hoverAdded && !t.empty() && t.back().empty()) t.pop_back();
+                if (p.hover) hoverAdded |= run(p.hover);
+        if (blank && !hoverAdded) t.pop_back();
     }
     if ((hasGoggle && !goggleAdded) && (hasHover && !hoverAdded)) return out;
     if (t.empty()) return out;
@@ -466,6 +474,7 @@ public:
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([this](auto&) { tick(); }));
         mListeners.push_back(bus.emplaceListener<ll::event::PlayerDisconnectEvent>([this](ll::event::PlayerDisconnectEvent& ev) {
             mShown.erase(ev.self().getOrCreateUniqueID().rawID);
+            mLastQuery.erase(ev.self().getOrCreateUniqueID().rawID);
         }));
         net::on("goggles.query", [this](Player& player, Json const& msg) {
             auto pos = posFrom(msg.value("pos", Json()));
@@ -473,6 +482,10 @@ public:
                 net::send(player, "goggles.info", {{"pos", nullptr}, {"lines", Json::array()}});
                 return;
             }
+            // at most one answer per tick and player (a client asks every few ticks)
+            auto& last = mLastQuery[player.getOrCreateUniqueID().rawID];
+            if (last == mTick && mTick != 0) return;
+            last = mTick;
             auto const& p  = player.getPosition();
             double      dx = p.x - (pos->x + 0.5), dy = p.y - (pos->y + 0.5), dz = p.z - (pos->z + 0.5);
             Overlay     o;
@@ -487,6 +500,7 @@ public:
         mListeners.clear();
         net::off("goggles.query");
         mShown.clear();
+        mLastQuery.clear();
     }
 
 private:
@@ -531,7 +545,7 @@ private:
             o   = overlayFor(player, pos);
         }
         if (o.lines.empty()) {
-            if (!s.text.empty()) actionBar(player, " "); // clear the stale text
+            // the last text fades by itself; sending a blank one would erase other units' messages
             s.text.clear();
             s.pos.reset();
             return;
@@ -547,6 +561,7 @@ private:
 
     std::vector<ll::event::ListenerPtr>       mListeners;
     std::unordered_map<std::int64_t, Shown>   mShown;
+    std::unordered_map<std::int64_t, std::uint64_t> mLastQuery;
     std::uint64_t                             mTick = 0;
 };
 

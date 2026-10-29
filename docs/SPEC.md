@@ -680,15 +680,15 @@ looks at (`overlayFor(player, pos)`):
    decimals). The icon is `levitate:goggles` unless a provider's `icon` names another item.
 
 Client mod: every `overlayInterval` (config, 4) ticks and on every target change the client sends
-`goggles.query {pos}`; the server answers `goggles.info {pos, lines, icon}` (targets within 12
-blocks). The panel is drawn on the HUD (not while a screen is open, not for spectators, not while
+`goggles.query {pos}`; the server answers `goggles.info {pos, lines, icon}` (targets within 8
+blocks, at most one answer per tick and player). The panel is drawn on the HUD (not while a screen is open, not for spectators, not while
 looking at a value box or filter slot) at `centre + (overlayOffsetX, overlayOffsetY)` (defaults 20,
 0), kept 20 px inside the screen, as Minecraft's hovering text (12 px right / up of that point,
 background `0xF0100010` at 75 % alpha, border gradient `0x505000FF` → `0x5028007F`, or the custom
 colours with `customColorsOverlay`), the first line 2 px apart, the goggles icon at (+10, −16); it
 fades in over 24 frames sliding 8 px from the offset side. Vanilla clients: every `overlayInterval`
 ticks the server traces the player's look (5.5 blocks) and shows the same lines in the action bar
-(indentation trimmed), resent every second while unchanged and cleared when nothing is targeted
+(indentation trimmed), resent every second while unchanged (never blanked: it fades, so other units' action-bar messages stay)
 (config `vanillaOverlay`).
 
 `/create overlay` (anyone, client mod) opens Create's position screen: the sample tooltip

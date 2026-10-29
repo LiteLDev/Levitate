@@ -221,11 +221,13 @@ Result defaultOnWrenched(Context& ctx) {
 Result defaultOnSneakWrenched(Context& ctx) {
     auto bp = game::blockPos(ctx.pos);
     auto id = ctx.block.getTypeName();
-    if (!ctx.player.isCreative()) giveBack(ctx.player, itemOf(ctx.region, bp, ctx.block));
+    auto item = itemOf(ctx.region, bp, ctx.block); // before the block goes
     disassembleAnchoredAt(ctx.pos);
     bool removed = false;
     if (auto level = ll::service::getLevel()) removed = level->destroyBlock(ctx.region, bp, false, BlockChangeContext{});
-    if (!removed) game::clearBlock(ctx.region, bp);
+    if (!removed) removed = game::clearBlock(ctx.region, bp);
+    if (!removed || &ctx.region.getBlock(bp) == &ctx.block) return Result::Success; // protected: nothing given
+    if (!ctx.player.isCreative()) giveBack(ctx.player, item);
     playRemoveSound(ctx.pos);
     log().info("wrench: {} dismantled {} at {}", ctx.player.getRealName(), id, ctx.pos.key());
     return Result::Success;
