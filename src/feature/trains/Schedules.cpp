@@ -171,7 +171,7 @@ T resultOr(ll::form::CustomFormResult const& r, char const* key, T fallback) {
 
 void instructionForm(Player& p, int slot, int entry) {
     auto s = readSchedule(p, slot);
-    if (!s || entry >= int(s->entries.size())) return;
+    if (!s || entry < 0 || entry >= int(s->entries.size())) return;
     auto const& in = s->entries[entry].instruction;
     std::vector<std::string> names;
     size_t                   cur = 0;
@@ -188,7 +188,7 @@ void instructionForm(Player& p, int slot, int entry) {
     form.sendTo(p, [slot, entry](Player& pl, ll::form::CustomFormResult const& r, ll::form::FormCancelReason) {
         if (!r) return;
         auto s = readSchedule(pl, slot);
-        if (!s || entry >= int(s->entries.size())) return;
+        if (!s || entry < 0 || entry >= int(s->entries.size())) return;
         auto& e    = s->entries[entry];
         auto  type = std::min(resultOr<size_t>(r, "type", 0), ct::instructionIds().size() - 1);
         auto  id   = std::string(ct::instructionIds()[type]);
@@ -205,9 +205,9 @@ void instructionForm(Player& p, int slot, int entry) {
 
 void conditionForm(Player& p, int slot, int entry, int column, int index) {
     auto s = readSchedule(p, slot);
-    if (!s || entry >= int(s->entries.size())) return;
+    if (!s || entry < 0 || entry >= int(s->entries.size())) return;
     auto& cols = s->entries[entry].conditions;
-    if (column >= int(cols.size()) || index >= int(cols[column].size())) return;
+    if (column < 0 || index < 0 || column >= int(cols.size()) || index >= int(cols[column].size())) return;
     auto const& c = cols[column][index];
     auto const& d = c.data;
     std::vector<std::string> names;
@@ -265,9 +265,9 @@ void conditionForm(Player& p, int slot, int entry, int column, int index) {
     form.sendTo(p, [slot, entry, column, index](Player& pl, ll::form::CustomFormResult const& r, ll::form::FormCancelReason) {
         if (!r) return;
         auto s = readSchedule(pl, slot);
-        if (!s || entry >= int(s->entries.size())) return;
+        if (!s || entry < 0 || entry >= int(s->entries.size())) return;
         auto& cols = s->entries[entry].conditions;
-        if (column >= int(cols.size()) || index >= int(cols[column].size())) return;
+        if (column < 0 || index < 0 || column >= int(cols.size()) || index >= int(cols[column].size())) return;
         auto& c = cols[column][index];
         if (resultOr<int>(r, "remove", 0)) {
             cols[column].erase(cols[column].begin() + index);
@@ -307,7 +307,7 @@ void conditionForm(Player& p, int slot, int entry, int column, int index) {
 
 void entryForm(Player& p, int slot, int entry) {
     auto s = readSchedule(p, slot);
-    if (!s || entry >= int(s->entries.size())) return;
+    if (!s || entry < 0 || entry >= int(s->entries.size())) return;
     auto const& e = s->entries[entry];
     ll::form::SimpleForm form(std::to_string(entry + 1) + ". " + instructionName(p, e.instruction.id), instructionSummary(p, e.instruction));
     struct Btn {
@@ -332,7 +332,7 @@ void entryForm(Player& p, int slot, int entry) {
         }
         buttons.push_back({"+ " + trP(p, "create.gui.schedule.alternative_condition", "Alternative Condition"), [slot, entry](Player& pl) {
                                auto s = readSchedule(pl, slot);
-                               if (!s || entry >= int(s->entries.size())) return;
+                               if (!s || entry < 0 || entry >= int(s->entries.size())) return;
                                s->entries[entry].conditions.push_back({ct::defaultCondition(ids::kDelay)});
                                writeSchedule(pl, slot, *s);
                                entryForm(pl, slot, entry);

@@ -112,7 +112,9 @@ Json Train::toJson() const {
         {"fuel",     fuelTicks  },
         {"runtime",  runtime.toJson()},
         {"station",  currentStation},
-        {"idle",     idleTicks  }
+        {"idle",     idleTicks  },
+        {"lastFront", Json::array({lastFront.x, lastFront.y, lastFront.z})},
+        {"lastDir",   Json::array({lastDir.x, lastDir.y, lastDir.z})}
     };
     if (nav) {
         j["nav"] = {
@@ -158,6 +160,8 @@ Train Train::fromJson(Json const& j) {
     t.runtime        = ct::Runtime::fromJson(j.value("runtime", Json::object()));
     t.currentStation = j.value("station", std::string());
     t.idleTicks      = j.value("idle", 0);
+    if (auto lf = j.value("lastFront", Json::array()); lf.is_array() && lf.size() == 3) t.lastFront = {lf[0], lf[1], lf[2]};
+    if (auto ld = j.value("lastDir", Json::array()); ld.is_array() && ld.size() == 3) t.lastDir = {ld[0], ld[1], ld[2]};
     if (j.contains("nav")) {
         auto const& n = j["nav"];
         Navigation  nav;
@@ -221,7 +225,6 @@ void placeCarriages(Train& t) {
         cc::Vec3d target{p1->x, p1->y + t.lift, p1->z};
         tr.offset = target - tr.origin - tr.pivot;
         con->setTransform(tr);
-        c.wheelAngle = std::fmod(c.wheelAngle + t.speed * 180 / (3.14159265 * 6.5 / 16), 360.0);
     }
 }
 
@@ -313,7 +316,10 @@ double navigationPenalty(Train const& self, tk::Graph const& g, tk::Edge const& 
         auto* st = stationByKey(key);
         if (st && st->assembling) return 1e7; // can't pass through a station in assembly mode
         penalty += 50;                         // Create: passing any station
-        if (st && trainAt(*st) && trainAt(*st) != &self) penalty += 300;
+        if (st) {
+            auto* present = trainAt(*st);
+            if (present && present != &self) penalty += 300;
+        }
     }
     // other trains on this edge (Create: half their navigation penalty)
     for (auto const& [id, other] : state().trains) {
@@ -338,11 +344,9 @@ ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual, std
         if (!match || s.pos.dim != t.dim) continue;
         anyMatch = true;
         if (s.assembling) continue;
-        if (!onlyStation.empty() || true) {
-            if (key == t.currentStation && std::abs(t.speed) < 1e-6) {
-                if (!manual) return ct::StartResult::AlreadyThere;
-                continue;
-            }
+        if (key == t.currentStation && std::abs(t.speed) < 1e-6) {
+            if (!manual) return ct::StartResult::AlreadyThere;
+            continue;
         }
         auto p = s.point();
         if (!p) continue;
@@ -352,7 +356,7 @@ ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual, std
     if (!anyMatch) return ct::StartResult::NoMatch;
     bool paused     = t.runtime.paused || !t.controller.empty();
     bool canForward = manual || paused || hasConductor(t, true);
-    bool canBack    = t.doubleEnded && (manual || paused || hasConductor(t, false));
+    bool canBack    = t.doubleEnded && !(manual && !onlyStation.empty()) && (manual || paused || hasConductor(t, false));
     if (!canForward && !canBack) {
         statusMessage(t, "missing_driver", {}, false);
         return ct::StartResult::NoDriver;
@@ -399,7 +403,7 @@ void arriveAt(Train& t, Station& s) {
     t.idleTicks      = 0;
     if (wasNav) t.runtime.destinationReached();
     // auto-schedule of the station
-    if (!s.autoSchedule.is_null() && (!t.runtime.hasSchedule || t.runtime.isAutoSchedule)) {
+    if (!s.autoSchedule.is_null() && !t.runtime.hasSchedule) {
         if (auto sch = scheduleOf(common::items::fromJson(s.autoSchedule)); sch && !sch->entries.empty()) {
             t.runtime.setSchedule(*sch, true);
             playSound(s.pos.dim, {s.pos.x + .5, s.pos.y + .5, s.pos.z + .5}, "random.levelup", 0.5f, 1.2f);
@@ -559,8 +563,7 @@ double distanceToBlocker(Train& t, ct::TrackPos const& lead, ct::Chooser const& 
     auto const& check = ext().passCheck;
     if (!check || lookahead <= 0) return -1;
     double found = -1, walked = 0;
-    ct::Route scratch = t.body.route;
-    (void)ct::walk(rail(), lead, lookahead, choose, &scratch, [&](ct::EdgeSpan const& sp) {
+    (void)ct::walk(rail(), lead, lookahead, choose, nullptr, [&](ct::EdgeSpan const& sp) {
         if (found >= 0) return;
         for (auto const* p : rail().pointsOn(sp.from, sp.to)) {
             if (p->type == "levitate:station") continue;
@@ -737,8 +740,12 @@ void tickTrain(Train& t) {
     auto  stats = t.stats();
     auto& s     = state();
 
-    // the graph under the train
-    if (!ct::resolve(r, t.body.front)) {
+    // the graph under the train (and where it is, to find the track again if it changes)
+    if (ct::resolve(r, t.body.front)) {
+        if (auto p = ct::positionOf(r, t.body.front)) t.lastFront = *p;
+        Vec3d d = t.body.front.to.location() - t.body.front.from.location();
+        if (d.length() > 1e-6) t.lastDir = d.normalize();
+    } else {
         if (t.reattachCooldown-- <= 0) {
             if (reattach(t)) {
                 bool was   = t.derailed;
@@ -820,7 +827,7 @@ void tickTrain(Train& t) {
                                      : std::optional<ct::TrackPos>(t.body.front);
             double target  = nav.distance;
             double blocker = -1;
-            if (lead) {
+            if (lead && !nav.manual) {
                 ct::Path ahead = nav.path; // looking ahead must not advance the real path
                 blocker = distanceToBlocker(t, *lead, ahead.chooser(), std::min(nav.distance, ct::brakingDistance(t.speed, stats.acceleration) + 4));
                 // Create waits in front of the signal (no overshoot past it)
@@ -907,7 +914,7 @@ void tickTrain(Train& t) {
         return;
     }
     if (arrived && destStation) arriveAt(t, *destStation);
-    if (res.blocked) {
+    if (res.blocked && !arrived) {
         t.speed = 0;
         cancelNavigation(t);
         statusMessage(t, "end_of_track", {}, false);
@@ -1081,6 +1088,11 @@ bool tryControls(Player& player, double maxDistance) {
         }
     }
     if (!best) return false;
+    // Bedrock repeats a held use: toggle at most once per 10 ticks
+    static std::map<std::string, std::uint64_t> lastToggle;
+    auto& last = lastToggle[uuidOf(player)];
+    if (last != 0 && state().tick - last < 10) return true;
+    last = state().tick;
     if (best->controller == uuidOf(player)) stopControlling(*best);
     else startControlling(player, *best, bestCar, bestLocal, bestDir);
     return true;

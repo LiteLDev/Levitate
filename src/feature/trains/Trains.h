@@ -48,7 +48,6 @@ inline constexpr std::string_view kTrainDoor     = "levitate:train_door";     //
 // ---- block states -------------------------------------------------------------------------------
 inline constexpr char kAssemblingState[] = "levitate:assembling";        ///< station 0/1
 inline constexpr char kBogeyAxisState[]  = "levitate:bogey_axis";        ///< 0 x, 1 z
-inline constexpr char kCardinalState[]   = "minecraft:cardinal_direction"; ///< controls: driver's forward
 
 /// `config/trains.json`: Create's CTrains keys (the track ones are in config/tracks.json).
 struct Config {
@@ -100,7 +99,6 @@ struct Carriage {
     /// Train Controls: local position and +1 forward / -1 backward.
     std::vector<std::pair<cc::Pos, int>> controls;
     bool                 forward = false, backward = false;
-    double               wheelAngle = 0; ///< degrees (client mod)
 };
 
 struct Navigation {

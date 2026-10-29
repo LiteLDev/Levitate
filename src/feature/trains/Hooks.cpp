@@ -159,10 +159,7 @@ LL_TYPE_INSTANCE_HOOK(
     {
         auto   eye  = player.getHeadPos();
         double dist = std::sqrt(double((hit.x - eye.x) * (hit.x - eye.x) + (hit.y - eye.y) * (hit.y - eye.y) + (hit.z - eye.z) * (hit.z - eye.z)));
-        if (!sneak && held != kSchedule && tryControls(player, dist + 0.3)) {
-            if (debounced(player, isFirstEvent)) return handled();
-            return handled();
-        }
+        if (!sneak && held != kSchedule && tryControls(player, dist + 0.3)) return handled();
     }
     if (tid == kStation && !sneak) {
         if (debounced(player, isFirstEvent)) return handled();

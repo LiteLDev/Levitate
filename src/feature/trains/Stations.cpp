@@ -37,6 +37,19 @@ namespace {
 GlobalPos offsetOf(GlobalPos p, int dx, int dy, int dz) { return {p.dim, p.x + dx, p.y + dy, p.z + dz}; }
 
 Json posJson(GlobalPos const& p) { return Json::array({p.dim, p.x, p.y, p.z}); }
+
+/// The first `n` characters (code points) of UTF-8 text (Create limits names in characters).
+std::string utf8Prefix(std::string const& s, size_t n) {
+    size_t i = 0, count = 0;
+    while (i < s.size() && count < n) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        size_t        len = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : (c >> 3) == 30 ? 4 : 1;
+        if (i + len > s.size()) break;
+        i += len;
+        ++count;
+    }
+    return s.substr(0, i);
+}
 GlobalPos posOf(Json const& j) {
     if (!j.is_array() || j.size() < 4) return {};
     return {j[0].get<int>(), j[1].get<int>(), j[2].get<int>(), j[3].get<int>()};
@@ -587,7 +600,7 @@ void stationAction(Player& p, Json const& ctx, Json const& action) {
     GlobalPos   pos = s->pos;
     if (op == "rename") {
         if (action.contains("text")) {
-            std::string name = action.value("text", std::string()).substr(0, 25);
+            std::string name = utf8Prefix(action.value("text", std::string()), 25);
             if (!name.empty()) {
                 s->name = name;
                 addPoint(*s);
@@ -611,7 +624,7 @@ void stationAction(Player& p, Json const& ctx, Json const& action) {
     } else if (op == "train_name") {
         if (auto* t = trainAt(*s)) {
             if (action.contains("text")) {
-                std::string name = action.value("text", std::string()).substr(0, 35);
+                std::string name = utf8Prefix(action.value("text", std::string()), 35);
                 if (!name.empty()) {
                     log().info("trains: train #{} renamed to '{}'", t->id, name);
                     t->name = name;
