@@ -232,8 +232,8 @@ Json hoverLines(Player& player, GP const& pos, int face, core::common::Vec const
         out["lines"].push_back(
             state(block, sReceiver) ? trFor(player, "lv.redstone.receiver", "Receiver") : trFor(player, "lv.redstone.transmitter", "Transmitter")
         );
-        out["lines"].push_back(std::string(slot && *slot ? "§e" : "§7") + trFor(player, "create.logistics.firstFrequency", "Frequency #1") + ": " + name(a));
-        out["lines"].push_back(std::string(slot && !*slot ? "§e" : "§7") + trFor(player, "create.logistics.secondFrequency", "Frequency #2") + ": " + name(b));
+        out["lines"].push_back(std::string(slot && *slot ? "> " : "") + trFor(player, "create.logistics.firstFrequency", "Frequency #1") + ": " + name(a));
+        out["lines"].push_back(std::string(slot && !*slot ? "> " : "") + trFor(player, "create.logistics.secondFrequency", "Frequency #2") + ": " + name(b));
         out["items"].push_back(common::items::isEmpty(a) ? Json() : common::items::toJson(a));
         out["items"].push_back(common::items::isEmpty(b) ? Json() : common::items::toJson(b));
     } else if (*kind == Kind::Lever && wearsGoggles(player)) {

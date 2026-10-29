@@ -32,7 +32,10 @@ $mark = Get-LogMark
 Save-Screenshot 'blocks' | Out-Null
 
 # the threshold switch: right-click its back face away from the filter slot in the middle
-Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~1.88 ~0.38'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~2.5 ~-0.12 ~-0.3'
+# an item in hand: Create opens the screen with anything but the wrench, and the game only
+# sends a block use for an empty hand on blocks it knows to be interactive
+Invoke-Chat '/give @s stick'
 Start-Sleep -Milliseconds 800
 Click 0.5 0.5 -Relative -Right
 if ($vanilla) {
@@ -45,7 +48,7 @@ Save-Screenshot 'threshold-screen' | Out-Null
 Close-Screen
 
 # the receiver link: hover shows its frequencies (client mod)
-Invoke-Chat '/tp @s ~ ~ ~ facing ~6.5 ~0.1 ~-1.5'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~6 ~-1.5 ~-2'
 Start-Sleep -Seconds 2
 Save-Screenshot 'link-hover' | Out-Null
 Assert-NoErrors
