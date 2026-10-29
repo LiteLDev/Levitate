@@ -4,6 +4,20 @@
 #   remote-vanilla:     a client without the mod sees the blocks move as falling-block displays.
 # Screenshots: out/bearings/{built,turning-a,turning-b,rails,placed}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
+# Sets a test generator's speed and waits for the server to confirm it. The game sometimes loses
+# a typed command or resolves its position oddly: then the chat is pictured and the command sent
+# again, through /execute (the position taken from the player on the server).
+function Set-GeneratorSpeed([string]$rel, [int]$rpm, [string]$picture) {
+    $m = Get-LogMark
+    foreach ($try in 1..3) {
+        if ($try -eq 1) { Invoke-Chat "/create kinetics $rel speed $rpm" }
+        else { Invoke-Chat "/execute as @s at @s run create kinetics $rel speed $rpm" }
+        try { Wait-LogLine "Generator at -?\d+ -?\d+ -?\d+ now turns at $rpm " 10 -Since $m | Out-Null; return }
+        catch { Save-Screenshot "$picture-try$try" | Out-Null; Write-Step "speed $rpm not confirmed (try $try)" }
+    }
+    throw "the generator at $rel never turned at $rpm"
+}
+
 # Two pictures of a moving contraption must differ in a region of the screen (by default right of
 # the chat lines, above the hotbar): the structure moves on the client (U34).
 function Assert-ContraptionMoved([string]$a, [string]$b, [string]$what, [double]$x0 = 0.42, [double]$x1 = 0.85, [double]$y0 = 0.05, [double]$y1 = 0.85) {
@@ -45,7 +59,7 @@ Start-Sleep -Seconds 2
 Save-Screenshot 'built' | Out-Null
 
 $mark = Get-LogMark
-Invoke-Chat '/create kinetics ~9 ~2 ~ speed 32'
+Set-GeneratorSpeed '~9 ~2 ~' 32 'speed-32'
 if (-not $vanilla) { Wait-LogLine 'mechanical_bearing at .* assembled contraption #\d+ \(9 blocks\)' 30 -Since $mark | Out-Null }
 Start-Sleep -Milliseconds 1200
 $a = Save-Screenshot 'turning-a'
@@ -59,10 +73,7 @@ Save-Screenshot 'rails' | Out-Null
 Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.5 ~'
 
 $mark = Get-LogMark
-Invoke-Chat '/create kinetics ~9 ~2 ~ speed 0'
-# (the game sometimes drops a chat command typed right after a teleport: send it again then)
-try { Wait-LogLine 'Generator at -?\d+ -?\d+ -?\d+ now turns at 0 ' 10 -Since $mark | Out-Null }
-catch { Invoke-Chat '/create kinetics ~9 ~2 ~ speed 0' }
+Set-GeneratorSpeed '~9 ~2 ~' 0 'speed-0'
 if (-not $vanilla) { Wait-LogLine 'mechanical_bearing at .* disassembled' 30 -Since $mark | Out-Null }
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'placed' | Out-Null
@@ -82,15 +93,17 @@ Press-Key 1
 Invoke-Chat '/tp @s ~2 ~ ~-5'
 Invoke-Chat '/tp @s ~ ~ ~ -146 23' # at the controller rail (2 east, 3 north, below the eyes)
 Start-Sleep -Milliseconds 800
+# the plank on the assembler in front of the player, before and after the cart took it away: if
+# the structure didn't move on the client, the plank would still be drawn where it was
+$before = Save-Screenshot 'cart-placing'
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'minecart placed on levitate:controller_rail' 20 -Since $mark | Out-Null
-Invoke-Chat '/tp @s ~ ~1 ~ facing ~12 ~ ~-3'
-# pictures while it runs (taken at once: the log is read with some delay)
-$shots = foreach ($i in 1..3) { Save-Screenshot "cart-moving-$i"; Start-Sleep -Milliseconds 400 }
 Wait-LogLine 'cart assembler at .* assembled contraption #\d+ on minecart' 30 -Since $mark | Out-Null
-Assert-ContraptionMoved $shots[0] $shots[2] 'the minecart contraption'
-Invoke-Chat '/tp @s ~-2 ~-1 ~5'
+Start-Sleep -Milliseconds 1500
+$after = Save-Screenshot 'cart-gone'
+Assert-ContraptionMoved $before $after 'the minecart contraption'
+Invoke-Chat '/tp @s ~-2 ~ ~5'
 Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.5 ~'
 
 if (-not $vanilla) {

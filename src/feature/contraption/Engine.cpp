@@ -295,6 +295,19 @@ public:
     };
     std::unordered_map<std::int64_t, Shown> shown;
     std::uint64_t                           tickCount = 0;
+    /// Displays replaced by a new one (vanilla steps, quarter turns), removed a few ticks later:
+    /// a client draws a new falling block only some frames after it appears, so the old one
+    /// stays until then (no gap in the structure). Still owned (in `displays`) until removed.
+    struct Retiring {
+        std::int64_t  display = 0;
+        std::uint64_t removeAt = 0;
+        Id            contraption = 0;
+        cc::Pos       local;
+        std::string   id;
+        int           quarter = 0; ///< the quarter turns its block shows
+    };
+    static constexpr int  kRetireTicks = 4;
+    std::vector<Retiring> retiring;
     std::set<int>                           vanillaDims; ///< dimensions with players without the client mod
     bool                                    forceVanilla = false; ///< selftests
 
@@ -312,6 +325,9 @@ public:
         json blocks = json::array();
         for (auto const& b : c.mBlocks)
             if (b.display) blocks.push_back(json::array({b.display, b.local.x, b.local.y, b.local.z, b.id}));
+        json old = json::array();
+        for (auto const& r : retiring)
+            if (r.contraption == c.mId) old.push_back(json::array({r.display, r.local.x, r.local.y, r.local.z, r.id, r.quarter}));
         json vis = json::array();
         for (auto const& [key, v] : visuals) {
             auto const& [id, x, y, z] = key;
@@ -324,6 +340,7 @@ public:
             {"quarter", c.mDisplayQuarter                         },
             {"transform", transformJson(c.mTransform)         },
             {"blocks",  std::move(blocks)                     },
+            {"retiring", std::move(old)                       },
             {"visuals", std::move(vis)                        },
         };
     }
@@ -398,6 +415,28 @@ public:
         for (auto& [id, c] : live)
             for (auto& b : c->mBlocks)
                 if (auto* a = fetchActor(b.display)) a->remove();
+        removeRetiring([](Retiring const&) { return true; });
+    }
+
+    /// Removes the retired displays `pred` selects; returns the contraptions concerned.
+    template <class Pred>
+    std::set<Id> removeRetiring(Pred pred) {
+        std::set<Id> touched;
+        std::erase_if(retiring, [&](Retiring const& r) {
+            if (!pred(r)) return false;
+            if (auto* a = fetchActor(r.display)) a->remove();
+            displays.erase(r.display);
+            touched.insert(r.contraption);
+            return true;
+        });
+        return touched;
+    }
+
+    /// Replaces the display of `b` (spawned again by the caller); the old one goes a little later.
+    void retireDisplay(Contraption const& c, CarriedBlock& b, int quarter) {
+        retiring.push_back({b.display, tickCount + kRetireTicks, c.mId, b.local, b.id, quarter});
+        shown.erase(b.display);
+        b.display = 0;
     }
 
     // -- persistence --
@@ -542,6 +581,7 @@ public:
         sentTransforms.clear();
         shown.clear();
         vanillaDims.clear();
+        retiring.clear();
     }
 
     // -- display entities --
@@ -620,6 +660,7 @@ public:
         // by any angle: without vanilla viewers the displays stay (no churn every 90 degrees).
         int  quarter = cc::quarterTurnsOf(c.mTransform.angle);
         bool requart = quarter != c.mDisplayQuarter && vanillaDims.contains(c.mDim);
+        int  shownQuarter = c.mDisplayQuarter;
         if (requart) c.mDisplayQuarter = quarter;
         quarter         = c.mDisplayQuarter;
         double residual = std::remainder(c.mTransform.angle - quarter * 90.0, 360.0);
@@ -628,7 +669,7 @@ public:
             cc::Vec3d feet   = center - cc::Vec3d{0, 0.5, 0};
             auto*     actor  = fetchActor(b.display);
             if (actor && (requart || needsRespawn(c, b, feet))) {
-                removeDisplay(b);
+                retireDisplay(c, b, shownQuarter);
                 actor = nullptr;
             }
             if (!actor) {
@@ -719,6 +760,9 @@ public:
     // -- tick --
     void tick() {
         ++tickCount;
+        if (!retiring.empty())
+            for (Id id : removeRetiring([&](Retiring const& r) { return r.removeAt <= tickCount; }))
+                if (live.contains(id)) displaysChanged.insert(id);
         if (live.empty()) return;
         vanillaDims.clear();
         if (auto level = ll::service::getLevel()) {
@@ -1013,6 +1057,7 @@ public:
 
         // remove the display entities first so they never show next to the placed blocks
         for (auto& b : c.mBlocks) removeDisplay(b);
+        removeRetiring([id = c.mId](Retiring const& r) { return r.contraption == id; });
 
         int placed = 0, dropped = 0;
         std::vector<cc::Pos> placedAt;
