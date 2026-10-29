@@ -1,0 +1,63 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:track_station",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:assembling": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:map_color": "#5a4a3c",
+      "minecraft:loot": "loot_tables/blocks/track_station.json",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_track_station_side",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "levitate_track_station_top",
+          "render_method": "opaque"
+        },
+        "down": {
+          "texture": "levitate_track_station_bottom",
+          "render_method": "opaque"
+        }
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:assembling') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_track_station_side_assembling",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_track_station_top",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_track_station_bottom",
+              "render_method": "opaque"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.lectern_controller",
+        "texture_width": 64,
+        "texture_height": 64,
+        "visible_bounds_width": 2,
+        "visible_bounds_height": 2.5,
+        "visible_bounds_offset": [
+          0,
+          0.75,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "lectern",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                0,
+                -8
+              ],
+              "size": [
+                16,
+                2,
+                16
+              ],
+              "uv": [
+                0,
+                0
+              ]
+            },
+            {
+              "origin": [
+                -4,
+                2,
+                -4
+              ],
+              "size": [
+                8,
+                10,
+                8
+              ],
+              "uv": [
+                0,
+                18
+              ]
+            }
+          ]
+        },
+        {
+          "name": "top",
+          "parent": "lectern",
+          "pivot": [
+            0,
+            13,
+            0
+          ],
+          "rotation": [
+            -22.5,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                12,
+                -6
+              ],
+              "size": [
+                16,
+                2,
+                12
+              ],
+              "uv": [
+                0,
+                38
+              ]
+            },
+            {
+              "origin": [
+                -4,
+                14,
+                -3
+              ],
+              "size": [
+                8,
+                2,
+                5
+              ],
+              "uv": [
+                32,
+                18
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

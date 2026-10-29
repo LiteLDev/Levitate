@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:tree_fertilizer_allium_fire_coral"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:allium",
+        "count": 2
+      },
+      {
+        "item": "minecraft:fire_coral"
+      },
+      {
+        "item": "minecraft:bone_meal"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:allium"
+      }
+    ],
+    "result": {
+      "item": "levitate:tree_fertilizer",
+      "count": 2
+    }
+  }
+}

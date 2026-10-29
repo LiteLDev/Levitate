@@ -1,0 +1,92 @@
+{
+  "levitate_white_toolbox_item": {
+    "textures": "textures/items/white_toolbox"
+  },
+  "levitate_orange_toolbox_item": {
+    "textures": "textures/items/orange_toolbox"
+  },
+  "levitate_magenta_toolbox_item": {
+    "textures": "textures/items/magenta_toolbox"
+  },
+  "levitate_light_blue_toolbox_item": {
+    "textures": "textures/items/light_blue_toolbox"
+  },
+  "levitate_yellow_toolbox_item": {
+    "textures": "textures/items/yellow_toolbox"
+  },
+  "levitate_lime_toolbox_item": {
+    "textures": "textures/items/lime_toolbox"
+  },
+  "levitate_pink_toolbox_item": {
+    "textures": "textures/items/pink_toolbox"
+  },
+  "levitate_gray_toolbox_item": {
+    "textures": "textures/items/gray_toolbox"
+  },
+  "levitate_light_gray_toolbox_item": {
+    "textures": "textures/items/light_gray_toolbox"
+  },
+  "levitate_cyan_toolbox_item": {
+    "textures": "textures/items/cyan_toolbox"
+  },
+  "levitate_purple_toolbox_item": {
+    "textures": "textures/items/purple_toolbox"
+  },
+  "levitate_blue_toolbox_item": {
+    "textures": "textures/items/blue_toolbox"
+  },
+  "levitate_brown_toolbox_item": {
+    "textures": "textures/items/brown_toolbox"
+  },
+  "levitate_green_toolbox_item": {
+    "textures": "textures/items/green_toolbox"
+  },
+  "levitate_red_toolbox_item": {
+    "textures": "textures/items/red_toolbox"
+  },
+  "levitate_black_toolbox_item": {
+    "textures": "textures/items/black_toolbox"
+  },
+  "levitate_copper_backtank_item": {
+    "textures": "textures/items/copper_backtank"
+  },
+  "levitate_netherite_backtank_item": {
+    "textures": "textures/items/netherite_backtank"
+  },
+  "levitate_copper_diving_helmet": {
+    "textures": "textures/items/copper_diving_helmet"
+  },
+  "levitate_copper_diving_boots": {
+    "textures": "textures/items/copper_diving_boots"
+  },
+  "levitate_netherite_diving_helmet": {
+    "textures": "textures/items/netherite_diving_helmet"
+  },
+  "levitate_netherite_diving_boots": {
+    "textures": "textures/items/netherite_diving_boots"
+  },
+  "levitate_extendo_grip": {
+    "textures": "textures/items/extendo_grip"
+  },
+  "levitate_potato_cannon": {
+    "textures": "textures/items/potato_cannon"
+  },
+  "levitate_wand_of_symmetry": {
+    "textures": "textures/items/wand_of_symmetry"
+  },
+  "levitate_handheld_worldshaper": {
+    "textures": "textures/items/handheld_worldshaper"
+  },
+  "levitate_linked_controller": {
+    "textures": "textures/items/linked_controller"
+  },
+  "levitate_sand_paper": {
+    "textures": "textures/items/sand_paper"
+  },
+  "levitate_red_sand_paper": {
+    "textures": "textures/items/red_sand_paper"
+  },
+  "levitate_tree_fertilizer": {
+    "textures": "textures/items/tree_fertilizer"
+  }
+}

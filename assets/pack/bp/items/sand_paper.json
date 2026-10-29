@@ -1,0 +1,26 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:sand_paper",
+      "menu_category": {
+        "category": "equipment"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_sand_paper",
+      "minecraft:max_stack_size": 1,
+      "minecraft:display_name": {
+        "value": "item.levitate:sand_paper.name"
+      },
+      "minecraft:durability": {
+        "max_durability": 8
+      },
+      "minecraft:use_modifiers": {
+        "use_duration": 1.6,
+        "movement_modifier": 0.35
+      },
+      "minecraft:use_animation": "eat"
+    }
+  }
+}

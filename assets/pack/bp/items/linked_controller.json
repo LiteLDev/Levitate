@@ -1,0 +1,18 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:linked_controller",
+      "menu_category": {
+        "category": "equipment"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_linked_controller",
+      "minecraft:max_stack_size": 1,
+      "minecraft:display_name": {
+        "value": "item.levitate:linked_controller.name"
+      }
+    }
+  }
+}

@@ -13,7 +13,8 @@
 --   assets/recipes/tags/*.json                -> recipes/tags/*.json (item / fluid tag fragments)
 -- Empty merges write nothing (an empty Lua table would be saved as a JSON array).
 -- Everything else under assets/pack/{bp,rp} is copied as is (directories ending in ".d" are skipped).
--- "${version}" in pack manifests is replaced by the mod version as a JSON array [major, minor, patch].
+-- "${version}" in pack manifests is replaced by the mod version as a JSON array [major, minor, patch]
+-- (untagged builds: [0, 0, <stamp of the pack sources>], so games never reuse a stale cached pack).
 
 import("core.base.json")
 
@@ -132,6 +133,71 @@ local function merge_texts(src, dst)
     json.savefile(path.join(dst, "texts", "languages.json"), locales)
 end
 
+-- Ponder scenes and index (U30): assets/ponder/** -> ponder/** (read by the client mod's Ponder and
+-- by `/create ponder` on the server); the previous copy is replaced.
+local function copy_ponder(projectdir, outdir)
+    local src = path.join(projectdir, "assets", "ponder")
+    local dst = path.join(outdir, "ponder")
+    os.tryrm(dst)
+    if not os.isdir(src) then return end
+    for _, file in ipairs(os.files(path.join(src, "**.json"))) do
+        local target = path.join(dst, path.relative(file, src))
+        os.mkdir(path.directory(target))
+        os.cp(file, target)
+    end
+end
+
+-- A positive number (2..30001) derived from the content and paths of every file under `dirs`.
+local function pack_stamp(dirs)
+    local parts = {}
+    for _, dir in ipairs(dirs) do
+        local files = os.files(path.join(dir, "**"))
+        table.sort(files)
+        for _, file in ipairs(files) do
+            table.insert(parts, path.relative(file, dir) .. "=" .. hash.md5(file))
+        end
+    end
+    local tmp = os.tmpfile() .. ".packstamp"
+    io.writefile(tmp, table.concat(parts, "\n"))
+    local digest = hash.md5(tmp)
+    os.tryrm(tmp)
+    -- small: the game rejects a pack whose version parts are too large (seen: 84063262 -> "not found")
+    return tonumber(digest:sub(1, 7), 16) % 30000 + 2
+end
+
+-- Bedrock reads a list-valued integer block state by the value's POSITION in the list, so a state
+-- declared [2,3,4,5] reads back 0..3. Every integer state list must be 0..n in order.
+-- Files that broke the rule before the check existed: reported as warnings until their unit fixes
+-- them (then remove the entry; a new violation anywhere else fails the build).
+local known_state_violations = {
+    ["chute.json"]       = "U12: levitate:facing and levitate:shape must be 0..n",
+    ["smart_chute.json"] = "U12: levitate:powered must be [0, 1]",
+}
+
+local function check_block_states(bpsrc)
+    for _, file in ipairs(os.files(path.join(bpsrc, "blocks", "**.json"))) do
+        local doc = json.loadfile(file)
+        local block = doc and doc["minecraft:block"]
+        local states = block and block.description and block.description.states
+        if type(states) == "table" then
+            for name, values in pairs(states) do
+                if type(values) == "table" and #values > 0 and type(values[1]) == "number" then
+                    for i, v in ipairs(values) do
+                        if type(v) ~= "number" or v ~= i - 1 then
+                            local msg = string.format("block state '%s' in %s must list the integers 0..%d in order (Bedrock reads integer states by position), got %s at index %d",
+                                name, file, #values - 1, tostring(v), i - 1)
+                            local known = known_state_violations[path.filename(file)]
+                            if not known then raise(msg) end
+                            cprint("${bright yellow}[assemble] warning (%s): ${reset}%s", known, msg)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- Processing recipes (Create's recipe types) for the U3 loader: copied as they are, the
 -- previous copy is replaced so deleted recipes disappear.
 local function copy_recipes(projectdir, outdir)
@@ -169,13 +235,20 @@ function main(target, target_type)
 
     merge_lang(projectdir, path.join(outdir, "lang"))
     copy_recipes(projectdir, outdir)
+    copy_ponder(projectdir, outdir)
 
-    local version = {major, minor, patch}
-    if major == 0 and minor == 0 and patch == 0 then version = {0, 0, 1} end -- packs reject 0.0.0
     local bpsrc = path.join(projectdir, "assets", "pack", "bp")
     local rpsrc = path.join(projectdir, "assets", "pack", "rp")
+    local version = {major, minor, patch}
+    if major == 0 and minor == 0 and patch == 0 then
+        -- Untagged (development) builds: games cache packs by uuid + version, so every distinct
+        -- pack content gets its own version (a stamp of the pack sources) instead of 0.0.1;
+        -- otherwise a game keeps showing a pack cached from another branch's build.
+        version = {0, 0, pack_stamp({bpsrc, rpsrc})}
+    end
     local bpdst = path.join(outdir, "behavior_packs", "Levitate_BP")
     local rpdst = path.join(outdir, "resource_packs", "Levitate_RP")
+    check_block_states(bpsrc)
     copy_pack(bpsrc, bpdst, version)
     copy_pack(rpsrc, rpdst, version)
     merge_atlas(rpsrc, rpdst, "item_texture.d", "item_texture.json", "atlas.items")

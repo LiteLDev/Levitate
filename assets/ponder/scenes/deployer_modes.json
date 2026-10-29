@@ -1,0 +1,32 @@
+{
+  "id": "deployer_modes",
+  "size": [5, 5],
+  "blocks": [
+    {"at": [1, 1, 2], "id": "levitate:deployer", "states": {"levitate:facing": 5, "levitate:axis_along_first": 0}},
+    {"at": [1, 1, 3], "id": "levitate:creative_motor", "states": {"levitate:facing": 2}},
+    {"at": [3, 1, 2], "id": "minecraft:stone"}
+  ],
+  "timeline": [
+    {"show": "base", "from": "up"},
+    {"idle": 15},
+    {"show": [1, 1, 2], "from": "down"},
+    {"idle": 5},
+    {"show": [1, 1, 3], "from": "north"},
+    {"idle": 5},
+    {"show": [3, 1, 2], "from": "down"},
+    {"idle": 10},
+    {"rotate": [[1, 1, 2], [1, 1, 3]], "rpm": 16},
+    {"input": [1.9, 1.5, 2.5], "action": "right", "item": "minecraft:stone_pickaxe", "ticks": 40},
+    {"idle": 10},
+    {"text": 1, "at": [1.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"input": [1.5, 1.5, 2.0], "action": "right", "item": "levitate:wrench", "ticks": 40, "keyframe": true},
+    {"idle": 20},
+    {"input": [1.9, 1.5, 2.5], "action": "left", "item": "minecraft:stone_pickaxe", "ticks": 40},
+    {"idle": 20},
+    {"destroy": [3, 1, 2]},
+    {"item": "minecraft:cobblestone", "at": [3.5, 1.3, 2.5], "ticks": 50},
+    {"text": 2, "at": [1.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80}
+  ]
+}

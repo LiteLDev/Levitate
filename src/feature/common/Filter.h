@@ -47,6 +47,12 @@ inline constexpr char const* kAttributeFilterId = "levitate:attribute_filter";
 /// A reusable predicate (pre-parses the filter's contents once).
 [[nodiscard]] items::ItemPredicate predicate(ItemStack const& filter, bool matchData = false);
 
+/// Filter items of other units (Create's FilterItem subclasses, e.g. U25's package filter):
+/// `matches` / `predicate` hand a filter of `itemId` to `fn(filter, stack, matchData)`, and
+/// `isFilterItem` counts it as a filter item. The unit registers itself (common never includes it).
+using Matcher = std::function<bool(ItemStack const& filter, ItemStack const& stack, bool matchData)>;
+void registerMatcher(std::string itemId, Matcher fn);
+
 // ---- list filter contents ----------------------------------------------------------------------
 
 struct ListFilter {

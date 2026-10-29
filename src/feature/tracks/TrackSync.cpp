@@ -1,28 +1,34 @@
-// Tracks unit: curve sync to clients.
+// Tracks unit: curve sync to clients over U3's companion protocol (src/feature/net/Net.h).
 //
-// Bedrock blocks can't show curves, so the client mod draws them (src/client/tracks). The server
-// sends the curves as script messages (id "levitate:tracks", JSON value):
-//   {"op":"reset"}                                  on join, before the full list
+// Bedrock blocks can't show curves, so the client mod draws them (src/client/tracks). Companions
+// (players whose client mod completed the handshake) get, on channel "tracks.curves":
+//   {"op":"reset"}                                  after the handshake, before the full list
 //   {"op":"add","dim":d,"curves":[<curve json>...]} new curves (primary orientation)
 //   {"op":"remove","dim":d,"curves":[[a],[b]]...}   curves removed, by their end blocks
-// Vanilla clients ignore script messages; they see the straight tracks and the fake track blocks
-// along the curve (SPEC §8).
+// The full list holds the curves of every dimension, so a dimension change needs no resync.
+// Vanilla clients get nothing; they see the straight tracks and the fake track blocks along the
+// curve (SPEC §8).
 
-#include "mc/network/packet/ScriptMessagePacket.h"
+#include "ll/api/service/Bedrock.h"
+
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/level/Level.h"
 
+#include "feature/net/Net.h"
 #include "feature/tracks/TracksInternal.h"
 
 namespace lv::feature::tracks {
 
 namespace {
-constexpr char const* kChannel  = "levitate:tracks";
-constexpr size_t      kBatch    = 24; ///< curves per message (keeps packets small)
+constexpr size_t kBatch = 24; ///< curves per message (keeps packets small)
 
-void send(nlohmann::json const& msg, Player* to) {
-    ScriptMessagePacket pkt(ScriptMessagePacketPayload(kChannel, msg.dump()));
-    if (to) pkt.sendTo(*to);
-    else pkt.sendToClients();
+void sendToCompanions(nlohmann::json const& msg) {
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    level->forEachPlayer([&](Player& p) {
+        net::send(p, kSyncChannel, msg); // no-op for vanilla clients
+        return true;
+    });
 }
 
 nlohmann::json keyOf(ct::Curve const& c) {
@@ -32,20 +38,21 @@ nlohmann::json keyOf(ct::Curve const& c) {
 } // namespace
 
 void syncCurveAdded(int dim, ct::Curve const& curve) {
-    send({{"op", "add"}, {"dim", dim}, {"curves", nlohmann::json::array({curve.toJson()})}}, nullptr);
+    sendToCompanions({{"op", "add"}, {"dim", dim}, {"curves", nlohmann::json::array({curve.toJson()})}});
 }
 
 void syncCurveRemoved(int dim, ct::Curve const& curve) {
-    send({{"op", "remove"}, {"dim", dim}, {"curves", nlohmann::json::array({keyOf(curve)})}}, nullptr);
+    sendToCompanions({{"op", "remove"}, {"dim", dim}, {"curves", nlohmann::json::array({keyOf(curve)})}});
 }
 
 void syncAllTo(Player& player) {
-    send({{"op", "reset"}}, &player);
+    if (!net::isCompanion(player)) return;
+    net::send(player, kSyncChannel, {{"op", "reset"}});
     std::map<int, nlohmann::json> batches;
     auto flush = [&](int dim) {
         auto& b = batches[dim];
         if (b.empty()) return;
-        send({{"op", "add"}, {"dim", dim}, {"curves", b}}, &player);
+        net::send(player, kSyncChannel, {{"op", "add"}, {"dim", dim}, {"curves", b}});
         b = nlohmann::json::array();
     };
     for (auto const& [dim, c] : state().curves.all()) {

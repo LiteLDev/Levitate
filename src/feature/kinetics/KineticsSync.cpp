@@ -1,36 +1,29 @@
-// Kinetic speed sync, server side: a minimal, self-contained channel to players with the client
-// mod, to be absorbed by the companion protocol of U3 (docs/SPEC.md §3.3) when it exists.
+// Kinetic speed sync, server side, over U3's companion protocol (src/feature/net/Net.h).
 //
-// Transport: Bedrock's ScriptMessagePacket (id + string value), which both the client and the
-// server deserialize and which vanilla clients ignore.
-//   client -> server  "levitate:kinetics/hello" <protocol>   (the client mod announces itself)
-//   server -> client  "levitate:kinetics/ack"   <protocol>   (the server runs Levitate)
-//   server -> client  "levitate:kinetics/sync"  <batch>      (core/kinetics/SyncCodec.h)
-// After the hello the player gets a full sync of its dimension (and again after each dimension
-// change); then, once per tick, the changed speeds grouped per chunk.
+//   server -> client  "kinetics.sync" {"batches": ["<batch>", ...]}   (core/kinetics/SyncCodec.h)
+//
+// Only companions (players whose client mod completed the handshake) get it. A companion gets a
+// full sync of its dimension right after the handshake and again after each dimension change
+// (the first batch of a full sync has the reset flag); then, once per tick, the changed speeds
+// grouped per chunk. Batches are bundled into messages of at most kMessageChars characters.
 
 #include <map>
-#include <tuple>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/player/PlayerDisconnectEvent.h"
-#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
-#include "mc/network/MinecraftPacketIds.h"
-#include "mc/network/MinecraftPackets.h"
-#include "mc/network/ServerNetworkHandler.h"
-#include "mc/network/packet/ScriptMessagePacket.h"
-#include "mc/platform/UUID.h"
-#include "mc/server/ServerPlayer.h"
+#include "mc/legacy/ActorUniqueID.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/level/Level.h"
 
 #include "core/kinetics/SyncCodec.h"
 #include "feature/kinetics/KineticsConfig.h"
 #include "feature/kinetics/KineticsInternal.h"
+#include "feature/net/Net.h"
 #include "mod/Config.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
@@ -42,28 +35,18 @@ namespace ks = core::kinetics::sync;
 
 namespace {
 
-struct Companion {
-    int protocol = 0;
-    int dim      = -1; ///< dimension of the last full sync (-1: none yet)
-};
+/// Characters of batch text per message (well below the protocol's 1 MiB limit).
+constexpr std::size_t kMessageChars = 48 * 1024;
 
 struct SyncState {
-    std::map<std::string, Companion>                       companions; ///< by player UUID
-    std::map<int, std::vector<ks::Entry>>                  deltas; ///< per dimension
+    std::map<std::int64_t, int>           companions; ///< unique id -> dimension of the last full sync (-1: none)
+    std::map<int, std::vector<ks::Entry>> deltas;     ///< per dimension
+    bool                                  registered = false;
 };
 
 SyncState& state() {
     static SyncState s;
     return s;
-}
-
-void send(Player& player, std::string_view id, std::string value) {
-    auto pkt = MinecraftPackets::createPacket(MinecraftPacketIds::ScriptMessagePacket);
-    if (!pkt) return;
-    auto& msg         = static_cast<ScriptMessagePacket&>(*pkt);
-    *msg.mMessageId    = std::string(id);
-    *msg.mMessageValue = std::move(value);
-    msg.sendTo(player);
 }
 
 int sourceFaceOf(GlobalPos const& pos, std::optional<GlobalPos> const& source) {
@@ -81,52 +64,37 @@ std::vector<ks::Entry> entriesOf(int dim) {
     return out;
 }
 
-void fullSync(Player& player, int dim) {
-    for (auto const& b : ks::byChunk(dim, entriesOf(dim), true)) send(player, ks::kSyncId, ks::encode(b));
+/// Bundles encoded batches into messages.
+std::vector<nlohmann::json> bundle(std::vector<std::string> const& batches) {
+    std::vector<nlohmann::json> out;
+    nlohmann::json              current = nlohmann::json::array();
+    std::size_t                 chars   = 0;
+    for (auto const& b : batches) {
+        if (!current.empty() && chars + b.size() > kMessageChars) {
+            out.push_back({{"batches", std::move(current)}});
+            current = nlohmann::json::array();
+            chars   = 0;
+        }
+        chars += b.size();
+        current.push_back(b);
+    }
+    if (!current.empty()) out.push_back({{"batches", std::move(current)}});
+    return out;
 }
 
-Player* findPlayer(std::string const& uuid) {
+void sendAll(Player& player, std::vector<nlohmann::json> const& messages) {
+    for (auto const& m : messages) net::send(player, detail::kSyncChannel, m);
+}
+
+Player* findPlayer(std::int64_t uid) {
     auto level = ll::service::getLevel();
     if (!level) return nullptr;
-    return level->getPlayer(mce::UUID::fromString(uuid));
-}
-
-void onHello(ServerPlayer& player, std::string const& value) {
-    int protocol = 0;
-    try {
-        protocol = std::stoi(value);
-    } catch (...) {
-        return;
-    }
-    auto  uuid  = player.getUuid().asString();
-    auto& comps = state().companions;
-    bool  known = comps.contains(uuid);
-    auto& c     = comps[uuid];
-    c.protocol  = protocol;
-    c.dim       = -1; // full sync on the next tick
-    send(player, ks::kAckId, std::to_string(ks::kProtocolVersion));
-    if (!known) log().info("kinetics: {} has the client mod (protocol {})", player.getRealName(), protocol);
+    ActorUniqueID id;
+    id.rawID = uid;
+    return level->getPlayer(id);
 }
 
 } // namespace
-
-LL_TYPE_INSTANCE_HOOK(
-    KineticsHelloHook,
-    ll::memory::HookPriority::Normal,
-    ServerNetworkHandler,
-    &ServerNetworkHandler::$handle,
-    void,
-    NetworkIdentifier const&   source,
-    ScriptMessagePacket const& packet
-) {
-    if (*packet.mMessageId == ks::kHelloId) {
-        if (auto* player = thisFor<NetEventCallback>()->_getServerPlayer(source, packet.mSenderSubId)) {
-            onHello(*player, *packet.mMessageValue);
-        }
-        return; // ours: not a script event
-    }
-    origin(source, packet);
-}
 
 namespace detail {
 
@@ -148,30 +116,32 @@ void syncTick() {
     }
     bool enabled = config::get<KineticsConfig>().syncToClients;
     // one batch per chunk per dimension, built once for every receiver
-    std::map<int, std::vector<std::string>> payloads;
+    std::map<int, std::vector<nlohmann::json>> messages;
     for (auto& [dim, entries] : s.deltas) {
         // keep the last change of each position
         std::map<std::tuple<int, int, int>, ks::Entry> last;
         for (auto const& e : entries) last[{e.x, e.y, e.z}] = e;
         std::vector<ks::Entry> merged;
         for (auto const& [p, e] : last) merged.push_back(e);
-        for (auto const& b : ks::byChunk(dim, std::move(merged), false)) payloads[dim].push_back(ks::encode(b));
+        std::vector<std::string> texts;
+        for (auto const& b : ks::byChunk(dim, std::move(merged), false)) texts.push_back(ks::encode(b));
+        messages[dim] = bundle(texts);
     }
     s.deltas.clear();
 
     for (auto it = s.companions.begin(); it != s.companions.end();) {
         auto* player = findPlayer(it->first);
-        if (!player) {
+        if (!player || !net::isCompanion(*player)) {
             it = s.companions.erase(it);
             continue;
         }
         if (enabled) {
             int dim = static_cast<int>(player->getDimensionId());
-            if (it->second.dim != dim) {
-                it->second.dim = dim;
-                fullSync(*player, dim);
-            } else if (auto p = payloads.find(dim); p != payloads.end()) {
-                for (auto const& text : p->second) send(*player, ks::kSyncId, text);
+            if (it->second != dim) {
+                it->second = dim;
+                sendAll(*player, bundle(fullSyncPayloads(dim)));
+            } else if (auto m = messages.find(dim); m != messages.end()) {
+                sendAll(*player, m->second);
             }
         }
         ++it;
@@ -181,7 +151,7 @@ void syncTick() {
 void syncReset() {
     auto& s = state();
     s.deltas.clear();
-    for (auto& [uuid, c] : s.companions) c.dim = -1; // the new world gets a full sync
+    for (auto& [uid, dim] : s.companions) dim = -1; // the new world gets a full sync
 }
 
 std::vector<std::string> fullSyncPayloads(int dim) {
@@ -197,13 +167,19 @@ int companionCount() { return static_cast<int>(state().companions.size()); }
 class KineticsSyncModule {
 public:
     void install() {
-        KineticsHelloHook::hook();
+        auto& s = state();
+        if (!s.registered) { // the protocol has no removal of join listeners
+            s.registered = true;
+            net::onCompanionJoined([](Player& player) {
+                state().companions[player.getOrCreateUniqueID().rawID] = -1; // full sync on the next tick
+                log().info("kinetics: syncing speeds to {}", player.getRealName());
+            });
+        }
         mDisconnect = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerDisconnectEvent>(
-            [](ll::event::PlayerDisconnectEvent& ev) { state().companions.erase(ev.self().getUuid().asString()); }
+            [](ll::event::PlayerDisconnectEvent& ev) { state().companions.erase(ev.self().getOrCreateUniqueID().rawID); }
         );
     }
     void uninstall() {
-        KineticsHelloHook::unhook();
         ll::event::EventBus::getInstance().removeListener(mDisconnect);
         state().companions.clear();
         state().deltas.clear();

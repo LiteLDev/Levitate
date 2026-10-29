@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:track_observer_from_jungle_pressure_plate"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:railway_casing"
+      },
+      {
+        "item": "minecraft:jungle_pressure_plate"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:railway_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:track_observer",
+      "count": 2
+    }
+  }
+}

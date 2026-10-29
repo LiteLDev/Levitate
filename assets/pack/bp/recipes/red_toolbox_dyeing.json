@@ -1,0 +1,27 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:red_toolbox_dyeing"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "tag": "levitate:toolbox"
+      },
+      {
+        "item": "minecraft:red_dye"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:red_dye"
+      }
+    ],
+    "result": {
+      "item": "levitate:red_toolbox"
+    }
+  }
+}

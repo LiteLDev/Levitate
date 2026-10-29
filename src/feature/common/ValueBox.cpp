@@ -4,7 +4,6 @@
 #include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
-#include "ll/api/event/player/PlayerInteractBlockEvent.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
 #include "ll/api/form/CustomForm.h"
 #include "ll/api/service/Bedrock.h"
@@ -19,6 +18,7 @@
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Filter.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/itemrender/DisplayItems.h"
 #include "feature/net/Net.h"
@@ -32,7 +32,6 @@ namespace lv::feature::common {
 using Json = nlohmann::json;
 
 namespace {
-constexpr char const* kWrenchId     = "levitate:wrench";
 constexpr double      kMaxEditRange = 8.0;
 
 Json posJson(core::GlobalPos const& p) { return Json::array({p.dim, p.x, p.y, p.z}); }
@@ -53,16 +52,6 @@ Block const* reachableBlock(Player& player, core::GlobalPos const& pos) {
     auto& region = player.getDimensionBlockSource();
     if (!region.hasChunksAt(game::blockPos(pos), 0, false)) return nullptr;
     return &region.getBlock(game::blockPos(pos));
-}
-
-/// Block-local hit position from the event's click position (relative or absolute).
-core::common::Vec localHit(BlockPos const& pos, Vec3 const& click) {
-    auto inside = [](double a, double b, double c) {
-        auto in = [](double v) { return v >= -0.01 && v <= 1.01; };
-        return in(a) && in(b) && in(c);
-    };
-    if (inside(click.x, click.y, click.z)) return {click.x, click.y, click.z};
-    return {click.x - pos.x, click.y - pos.y, click.z - pos.z};
 }
 
 /// Deferred actions (inventory edits after the interaction event finished).
@@ -379,55 +368,7 @@ class ValueBoxModule {
 public:
     void install() {
         auto& bus = ll::event::EventBus::getInstance();
-        mListeners.push_back(bus.emplaceListener<ll::event::PlayerInteractBlockEvent>([this](ll::event::PlayerInteractBlockEvent& ev) {
-            auto block = ev.block();
-            if (!block) return;
-            auto& player = ev.self();
-            // as Create's canInteract: sneaking players place / use normally, spectators and
-            // players who may not build don't edit machines
-            if (player.isSneaking() || player.isSpectator() || !player.canUseAbility(AbilitiesIndex::Build)) return;
-            auto  face   = static_cast<int>(ev.face());
-            auto  hit    = localHit(ev.blockPos(), ev.clickPos());
-            auto  pos    = game::globalPos(player.getDimensionBlockSource(), ev.blockPos());
-            auto  key    = player.getOrCreateUniqueID().rawID;
-
-            if (auto const* slot = filterslot::slotAt(*block, face, hit)) {
-                ev.cancel();
-                if (debounced(key, pos)) return;
-                auto slotId = slot->id;
-                auto blockId = block->getTypeName();
-                pending().push_back([key, pos, slotId, blockId] {
-                    auto level = ll::service::getLevel();
-                    if (!level) return;
-                    ActorUniqueID id;
-                    id.rawID  = key;
-                    auto* p   = level->getPlayer(id);
-                    auto  it  = filterslot::registry().find(blockId);
-                    if (!p || it == filterslot::registry().end()) return;
-                    // the block may have changed since the click
-                    auto& region = p->getDimensionBlockSource();
-                    if (static_cast<int>(p->getDimensionId()) != pos.dim || lv::game::blockIdAt(region, lv::game::blockPos(pos)) != blockId) return;
-                    for (auto const& s : it->second)
-                        if (s.id == slotId) filterslot::interact(*p, pos, s);
-                });
-                return;
-            }
-            auto const& held = ev.item();
-            bool        tool = items::isEmpty(held) || items::idOf(held) == kWrenchId;
-            if (!tool) return;
-            if (auto const* box = valuebox::boxAt(*block, face, hit)) {
-                ev.cancel();
-                if (debounced(key, pos)) return;
-                auto boxId = box->id;
-                pending().push_back([key, pos, boxId] {
-                    auto level = ll::service::getLevel();
-                    if (!level) return;
-                    ActorUniqueID id;
-                    id.rawID = key;
-                    if (auto* p = level->getPlayer(id)) valuebox::openEditor(*p, pos, boxId);
-                });
-            }
-        }));
+        mHandler = interactions::onUseOn({}, [this](interactions::UseOnContext const& c) { return onClick(c); }, interactions::priority::Highest);
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([this](auto&) {
             ++mTick;
             if (pending().empty()) return;
@@ -456,11 +397,56 @@ public:
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
+        interactions::remove(mHandler);
         net::off("valuebox.set");
         net::off("common.hover");
     }
 
 private:
+    /// A right-click on a block: filter slots and value boxes (Create's canInteract: sneaking
+    /// players place / use normally, spectators and players who may not build don't edit machines).
+    interactions::Result onClick(interactions::UseOnContext const& c) {
+        using interactions::Result;
+        auto& player = c.player;
+        if (c.sneaking || player.isSpectator() || !player.canUseAbility(AbilitiesIndex::Build)) return Result::Pass;
+        auto key = player.getOrCreateUniqueID().rawID;
+        auto pos = c.pos;
+        if (auto const* slot = filterslot::slotAt(c.block, c.face, c.hit)) {
+            if (debounced(key, pos)) return Result::Consume;
+            auto slotId  = slot->id;
+            auto blockId = c.blockId;
+            pending().push_back([key, pos, slotId, blockId] {
+                auto level = ll::service::getLevel();
+                if (!level) return;
+                ActorUniqueID id;
+                id.rawID = key;
+                auto* p  = level->getPlayer(id);
+                auto  it = filterslot::registry().find(blockId);
+                if (!p || it == filterslot::registry().end()) return;
+                // the block may have changed since the click
+                auto& region = p->getDimensionBlockSource();
+                if (static_cast<int>(p->getDimensionId()) != pos.dim || lv::game::blockIdAt(region, lv::game::blockPos(pos)) != blockId) return;
+                for (auto const& s : it->second)
+                    if (s.id == slotId) filterslot::interact(*p, pos, s);
+            });
+            return Result::Consume;
+        }
+        bool wrench = c.itemId == interactions::kWrenchId;
+        if (!wrench && !items::isEmpty(c.item)) return Result::Pass;
+        auto const* box = valuebox::boxAt(c.block, c.face, c.hit);
+        if (!box || (box->requiresWrench && !wrench)) return Result::Pass;
+        if (debounced(key, pos)) return Result::Consume;
+        auto boxId = box->id;
+        pending().push_back([key, pos, boxId] {
+            auto level = ll::service::getLevel();
+            if (!level) return;
+            ActorUniqueID id;
+            id.rawID = key;
+            if (auto* p = level->getPlayer(id)) valuebox::openEditor(*p, pos, boxId);
+        });
+        return Result::Consume;
+    }
+
     /// Bedrock repeats use-on packets while the button is held: one action per click.
     bool debounced(std::int64_t player, core::GlobalPos const& pos) {
         auto& last = mLast[player];
@@ -469,6 +455,7 @@ private:
         return skip;
     }
     std::vector<ll::event::ListenerPtr>                                       mListeners;
+    interactions::HandlerId                                                   mHandler = 0;
     std::unordered_map<std::int64_t, std::pair<core::GlobalPos, std::uint64_t>> mLast;
     std::uint64_t                                                             mTick = 0;
 };

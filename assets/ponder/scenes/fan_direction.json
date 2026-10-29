@@ -1,0 +1,30 @@
+{
+  "id": "fan_direction",
+  "size": [5, 5],
+  "blocks": [
+    {"at": [4, 1, 2], "id": "levitate:creative_motor", "states": {"levitate:facing": 4}},
+    {"at": [3, 1, 2], "id": "levitate:encased_fan", "states": {"levitate:facing": 4}}
+  ],
+  "timeline": [
+    {"show": "base", "from": "up"},
+    {"idle": 15},
+    {"show": [4, 1, 2], "from": "down"},
+    {"idle": 8},
+    {"show": [3, 1, 2], "from": "down"},
+    {"idle": 15},
+    {"rotate": [[3, 1, 2], [4, 1, 2]], "rpm": 16},
+    {"idle": 10},
+    {"outline": [[0, 1, 2], [2, 1, 2]], "color": "white", "ticks": 70},
+    {"item": "minecraft:feather", "at": [2.5, 1.5, 2.5], "to": [0.3, 1.5, 2.5], "ticks": 30},
+    {"text": 1, "at": [3.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"rotate": [[3, 1, 2], [4, 1, 2]], "rpm": -16},
+    {"idle": 10},
+    {"item": "minecraft:feather", "at": [0.5, 1.5, 2.5], "to": [2.6, 1.5, 2.5], "ticks": 30},
+    {"text": 2, "at": [3.5, 1.5, 2.5], "ticks": 90, "keyframe": true},
+    {"idle": 100},
+    {"rotate": [[3, 1, 2], [4, 1, 2]], "rpm": 64},
+    {"outline": [[0, 1, 2], [2, 1, 2]], "color": "fast", "ticks": 60},
+    {"idle": 60}
+  ]
+}

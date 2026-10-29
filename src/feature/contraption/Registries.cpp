@@ -1,5 +1,6 @@
 #include "feature/contraption/Registries.h"
 
+#include <algorithm>
 #include <unordered_map>
 
 namespace lv::feature::contraption {
@@ -31,6 +32,9 @@ void registerDataCarrier(DataCarrier carrier) {
         }
     }
     v.push_back(std::move(carrier));
+    // the generic BlockData carrier (CarriedData.cpp) runs last: units' own carriers capture what
+    // they claim first (their mounted storage reads it under their name), it takes the rest
+    std::stable_partition(v.begin(), v.end(), [](DataCarrier const& c) { return c.name != "common:blockdata"; });
 }
 void registerRotationHandler(std::string blockId, RotationHandler handler) {
     table<RotationHandler>()[std::move(blockId)] = std::move(handler);

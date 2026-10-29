@@ -1,0 +1,14 @@
+{
+  "create.track_target.set": "已选中目标轨道",
+  "create.track_target.success": "已成功绑定至目标轨道",
+  "create.track_target.clear": "已清除轨道选择",
+  "create.track_target.missing": "请先右击目标列车轨道",
+  "create.track_target.too_far": "目标轨道离这里太远了",
+  "create.track_target.no_junctions": "目标轨道不能是交叉口",
+  "create.track_target.occupied": "目标轨道已被占用",
+  "create.track_target.invalid": "无法选中此处的轨道",
+  "create.track_signal.cannot_change_mode": "无法切换此信号机的模式",
+  "create.track_signal.mode_change.entry_signal": "-> 区段未被占用时允许通行",
+  "create.track_signal.mode_change.cross_signal": "-> 区段可完全通过时允许通行",
+  "create.display_source.observed_train_name": "观察到的列车名称"
+}

@@ -1,0 +1,80 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:small_bogey",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "levitate:bogey_axis": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:geometry": "geometry.levitate.small_bogey",
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          8,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          8,
+          16
+        ]
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#4a4a4a",
+      "minecraft:loot": "loot_tables/blocks/small_bogey.json",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_bogey",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:transformation": {
+        "rotation": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:bogey_axis') == 1",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

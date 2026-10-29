@@ -1,6 +1,6 @@
 // Client: draws curved tracks (Bedrock blocks can't be curved).
 //
-// The server sends every curve as a script message on the "levitate:tracks" channel (see
+// The server sends every curve over the companion protocol (channel "tracks.curves", see
 // src/feature/tracks/TrackSync.cpp); this file keeps them per dimension and draws ties and rails
 // along each curve every frame, after the block entities of the opaque pass.
 
@@ -18,7 +18,6 @@
 #include "ll/api/memory/Hook.h"
 
 #include "mc/client/gui/screens/ScreenContext.h"
-#include "mc/client/network/ClientNetworkHandler.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
 #include "mc/client/renderer/RenderMaterialGroup.h"
@@ -29,11 +28,11 @@
 #include "mc/deps/core/string/HashedString.h"
 #include "mc/deps/minecraft_renderer/renderer/MaterialPtr.h"
 #include "mc/deps/minecraft_renderer/resources/OffscreenCaptureDescription.h"
-#include "mc/network/packet/ScriptMessagePacket.h"
 
 #include "client/Client.h"
 #include "client/tracks/TrackRenderer.h"
 #include "core/tracks/Curve.h"
+#include "feature/net/Net.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
 
@@ -42,8 +41,6 @@ namespace lv::client::tracks {
 namespace ct = core::tracks;
 
 namespace {
-
-constexpr std::string_view kChannel = "levitate:tracks";
 
 struct Quad {
     std::array<ct::Vec3d, 4> v;
@@ -134,9 +131,8 @@ RenderCurve build(ct::Curve const& curve) {
 
 ct::BlockPos3 posOf(nlohmann::json const& j) { return {j.at(0).get<int>(), j.at(1).get<int>(), j.at(2).get<int>()}; }
 
-void onMessage(std::string const& value) {
-    auto msg = nlohmann::json::parse(value, nullptr, false);
-    if (msg.is_discarded()) return;
+void onMessage(nlohmann::json const& msg) {
+    if (!msg.is_object()) return;
     std::string op  = msg.value("op", "");
     int         dim = msg.value("dim", 0);
     std::lock_guard lock(gMutex);
@@ -206,23 +202,6 @@ void renderCurves(BaseActorRenderContext& ctx) {
 } // namespace
 
 LL_TYPE_INSTANCE_HOOK(
-    TracksScriptMessageHook,
-    ll::memory::HookPriority::Normal,
-    ClientNetworkHandler,
-    &ClientNetworkHandler::$handle,
-    void,
-    NetworkIdentifier const&   source,
-    ScriptMessagePacket const& packet
-) {
-    std::string const& id = packet.mMessageId;
-    if (id == kChannel) {
-        onMessage(packet.mMessageValue);
-        return;
-    }
-    origin(source, packet);
-}
-
-LL_TYPE_INSTANCE_HOOK(
     TracksRenderHook,
     ll::memory::HookPriority::Normal,
     LevelRendererCamera,
@@ -242,7 +221,7 @@ LL_TYPE_INSTANCE_HOOK(
 class TrackRendererModule {
 public:
     void install() {
-        TracksScriptMessageHook::hook();
+        feature::net::client::on("tracks.curves", [](nlohmann::json const& msg) { onMessage(msg); });
         TracksRenderHook::hook();
         // the next world (or server) sends its own curves
         mExit = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
@@ -254,7 +233,6 @@ public:
     void uninstall() {
         ll::event::EventBus::getInstance().removeListener(mExit);
         TracksRenderHook::unhook();
-        TracksScriptMessageHook::unhook();
         std::lock_guard lock(gMutex);
         gCurves.clear();
     }

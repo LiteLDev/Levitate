@@ -186,6 +186,19 @@ public:
     /// Seats `actorUniqueId` on the seat at `local` (false if no free seat there).
     bool seat(cc::Pos const& local, std::int64_t actorUniqueId);
     void unseat(std::int64_t actorUniqueId);
+    /// Writable carried data (carrier name -> data) of the block at `local`, persisted with the
+    /// contraption (e.g. contraption controls toggling actors); nullptr when no block is there.
+    [[nodiscard]] nlohmann::json* blockData(cc::Pos const& local) {
+        for (auto& b : mBlocks)
+            if (b.local == local) return &b.data;
+        return nullptr;
+    }
+    /// Writable actor data (MovementContext::data) of the block at `local`; nullptr when none.
+    [[nodiscard]] nlohmann::json* actorData(cc::Pos const& local) {
+        for (auto& b : mBlocks)
+            if (b.local == local) return &b.actorData;
+        return nullptr;
+    }
 
 private:
     friend class Engine;
@@ -235,6 +248,12 @@ AssembleResult assemble(AssembleOptions const& options);
 bool disassemble(Id id);
 /// All live contraptions (ids).
 [[nodiscard]] std::vector<Id> all();
+
+/// Client mod: the animation state of an actor block (Create's actor visuals: speed, progress,
+/// ...), sent to the companions in the contraption's dimension (and again to ones that join);
+/// the client reads it with client/contraption/ContraptionClient.h. Call it when it changes, not
+/// every tick. Null clears it.
+void setActorVisual(Id id, cc::Pos const& local, nlohmann::json visual);
 
 // ---- super glue -------------------------------------------------------------------------------
 

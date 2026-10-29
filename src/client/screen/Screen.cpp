@@ -3,9 +3,13 @@
 #include "client/screen/Screen.h"
 
 #include <algorithm>
+#include <atomic>
+#include <mutex>
+#include <string_view>
 #include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
+#include "ll/api/memory/Hook.h"
 #include "ll/api/event/client/ClientExitLevelEvent.h"
 #include "ll/api/event/input/KeyInputEvent.h"
 #include "ll/api/event/input/MouseInputEvent.h"
@@ -32,6 +36,7 @@
 #include "mc/world/item/ItemStack.h"
 
 #include "client/Client.h"
+#include "feature/common/Items.h"
 #include "feature/net/Net.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
@@ -61,8 +66,29 @@ constexpr int   kKeyShift      = 16;
 constexpr int   kKeyEscape     = 27;
 constexpr int   kKeyInventory  = 69; ///< E
 
+/// A click / wheel notch from the input thread, handled on the client thread.
+struct PendingInput {
+    float  x = 0, y = 0; ///< GUI pixels at the time of the event
+    Button button = Button::Left;
+    int    scroll = 0; ///< 0: a click
+    bool   shift  = false;
+    // text input for the focused field (kind != Mouse)
+    enum class Kind { Mouse, Key, Char, Paste } kind = Kind::Mouse;
+    int         key  = 0;
+    bool        ctrl = false;
+    char32_t    ch   = 0;
+    std::string paste;
+};
+
 struct State {
     std::unique_ptr<Screen> screen;
+    std::mutex                inputMutex;
+    std::vector<PendingInput> pendingInput;
+    std::atomic<bool>         pendingClose{false}; ///< Esc / inventory key (input thread)
+    TextField*                focused = nullptr;    ///< the focused text field (client thread)
+    std::atomic<bool>         textFocus{false};     ///< a field is focused (read by the input thread)
+    bool                      ctrl = false;
+    char16_t                  highSurrogate = 0;    ///< window thread: first half of a WM_CHAR pair
     std::string             baseScene; ///< top scene before the host was pushed
     std::string             hostScene; ///< the pushed host scene ("" until it appeared)
     int                     framesWaiting = 0;
@@ -141,10 +167,22 @@ void drawInventory(Canvas& c, Rect const& inv, float mx, float my, std::vector<s
     }
 }
 
-void closeNow(bool popHost) {
+/// `notify`: the player closed it (Esc, inventory key, the host scene went): a server screen tells
+/// the server. Closes the server asked for, replacements and leaving the level don't.
+void closeNow(bool popHost, bool notify = true) {
     auto& s = state();
     if (!s.screen) return;
+    s.focused      = nullptr;
+    s.textFocus    = false;
+    s.pendingClose = false;
+    {
+        std::lock_guard lock(s.inputMutex);
+        s.pendingInput.clear();
+    }
     auto screen = std::move(s.screen);
+    if (notify && !s.serverType.empty()) {
+        lv::feature::net::client::send("screen.closed", {{"type", s.serverType}, {"context", s.serverContext}});
+    }
     if (popHost && !s.hostScene.empty() && topScene() == s.hostScene) {
         if (auto* stack = sceneStack()) stack->schedulePopScreen(1);
     }
@@ -153,6 +191,269 @@ void closeNow(bool popHost) {
     screen->onClose();
 }
 } // namespace
+
+// ---- text input ----------------------------------------------------------------------------------
+
+namespace {
+constexpr int kKeyControl = 17;
+
+std::u32string decodeUtf8(std::string_view in) {
+    std::u32string out;
+    for (std::size_t i = 0; i < in.size();) {
+        auto     c = static_cast<unsigned char>(in[i]);
+        char32_t cp;
+        int      n;
+        if (c < 0x80) cp = c, n = 1;
+        else if ((c >> 5) == 6) cp = c & 0x1F, n = 2;
+        else if ((c >> 4) == 14) cp = c & 0x0F, n = 3;
+        else if ((c >> 3) == 30) cp = c & 0x07, n = 4;
+        else {
+            ++i;
+            continue;
+        }
+        if (i + n > in.size()) break;
+        for (int k = 1; k < n; ++k) cp = (cp << 6) | (static_cast<unsigned char>(in[i + k]) & 0x3F);
+        out.push_back(cp);
+        i += n;
+    }
+    return out;
+}
+
+std::string encodeUtf8(std::u32string_view in) {
+    std::string out;
+    for (char32_t cp : in) {
+        if (cp < 0x80) out.push_back(static_cast<char>(cp));
+        else if (cp < 0x800) {
+            out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp < 0x10000) {
+            out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+            out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        }
+    }
+    return out;
+}
+
+/// The clipboard's text as UTF-8 (window thread).
+std::string clipboardText() {
+    std::string out;
+    if (!OpenClipboard(nullptr)) return out;
+    if (HANDLE h = GetClipboardData(CF_UNICODETEXT)) {
+        if (auto const* w = static_cast<wchar_t const*>(GlobalLock(h))) {
+            std::u32string u;
+            for (auto const* p = w; *p; ++p) {
+                char32_t c = static_cast<char32_t>(*p);
+                if (c >= 0xD800 && c <= 0xDBFF && p[1] >= 0xDC00 && p[1] <= 0xDFFF) {
+                    c = 0x10000 + ((c - 0xD800) << 10) + (static_cast<char32_t>(p[1]) - 0xDC00);
+                    ++p;
+                }
+                if (c == U'\r' || c == U'\n' || c == U'\t') c = U' ';
+                if (c < 32 || c == 127 || (c >= 0xD800 && c <= 0xDFFF)) continue; // controls, lone surrogates
+                u.push_back(c);
+            }
+            GlobalUnlock(h);
+            out = encodeUtf8(u);
+        }
+    }
+    CloseClipboard();
+    return out;
+}
+
+HWND gameWindow();
+
+/// The game's own window procedure (the window class's), detoured: every character message
+/// reaches it, whether it comes from the system, from a subclass in front of it or straight from
+/// a tool that calls it directly (LeviHeadlessInput's injected text).
+WNDPROC gGameWndProc = nullptr;
+
+/// A character for the focused text field (window thread); false when no field is focused.
+bool takeChar(WPARAM w) {
+    auto& s = state();
+    if (!s.textFocus) return false;
+    auto     unit = static_cast<char16_t>(w);
+    char32_t ch   = unit;
+    if (unit >= 0xD800 && unit <= 0xDBFF) { // first half of a surrogate pair
+        s.highSurrogate = unit;
+        return true;
+    }
+    if (unit >= 0xDC00 && unit <= 0xDFFF) {
+        if (!s.highSurrogate) return true;
+        ch              = 0x10000 + ((static_cast<char32_t>(s.highSurrogate) - 0xD800) << 10) + (unit - 0xDC00);
+        s.highSurrogate = 0;
+    }
+    if (ch >= 32 && ch != 127) {
+        PendingInput in;
+        in.kind = PendingInput::Kind::Char;
+        in.ch   = ch;
+        std::lock_guard lock(s.inputMutex);
+        s.pendingInput.push_back(std::move(in));
+    }
+    return true;
+}
+
+LRESULT CALLBACK textInputWndProc(HWND h, UINT msg, WPARAM w, LPARAM l) {
+    if (msg == WM_CHAR && takeChar(w)) return 0; // the field takes it, the game doesn't see it
+    return gGameWndProc(h, msg, w, l);
+}
+
+std::atomic<bool> gTextInputInstalled{false};
+bool              textInputInstalled() { return gTextInputInstalled; }
+
+/// Detours the game window's class procedure once (any thread; called from the input events).
+void installTextInput() {
+    static std::mutex m;
+    if (gTextInputInstalled) return;
+    std::lock_guard lock(m);
+    if (gTextInputInstalled) return;
+    HWND w = gameWindow();
+    if (!w || GetWindowThreadProcessId(w, nullptr) != GetCurrentThreadId()) return; // the window thread only
+    auto proc = reinterpret_cast<WNDPROC>(GetClassLongPtrW(w, GCLP_WNDPROC));
+    if (!proc) return;
+    void* original = nullptr;
+    if (ll::memory::hook(
+            reinterpret_cast<ll::memory::FuncPtr>(proc),
+            reinterpret_cast<ll::memory::FuncPtr>(&textInputWndProc),
+            reinterpret_cast<ll::memory::FuncPtr*>(&original),
+            ll::memory::HookPriority::Normal,
+            false // no thread pause (it can deadlock a running game); only this (window) thread runs the procedure
+        )
+        != 0) {
+        log().warn("text fields: could not hook the game's window procedure; typing uses key presses");
+        gTextInputInstalled = false;
+        return;
+    }
+    gGameWndProc        = reinterpret_cast<WNDPROC>(original);
+    gTextInputInstalled = true;
+}
+} // namespace
+
+TextField::TextField(Rect r, std::string t, std::function<void(std::string const&)> submit)
+: Widget(r),
+  text(std::move(t)),
+  onSubmit(std::move(submit)) {
+    caret = static_cast<int>(decodeUtf8(text).size());
+}
+
+TextField::~TextField() {
+    auto& s = state();
+    if (s.focused == this) {
+        s.focused   = nullptr;
+        s.textFocus = false;
+    }
+}
+
+bool TextField::focused() const { return state().focused == this; }
+
+void TextField::focus() {
+    auto& s = state();
+    if (s.focused == this) return;
+    auto* previous = s.focused;
+    s.focused      = this;
+    s.textFocus    = true;
+    mBefore        = text;
+    caret          = static_cast<int>(decodeUtf8(text).size());
+    // the previous field submits last: its onSubmit may rebuild the screen (then this field's
+    // destructor drops the focus again)
+    if (previous && previous->onSubmit) previous->onSubmit(previous->text);
+}
+
+void TextField::blur(bool submit) {
+    auto& s = state();
+    if (s.focused != this) return;
+    s.focused   = nullptr;
+    s.textFocus = false;
+    if (submit) {
+        if (onSubmit) onSubmit(text);
+    } else {
+        bool changed = text != mBefore;
+        text         = mBefore;
+        caret        = static_cast<int>(decodeUtf8(text).size());
+        if (changed && onChange) onChange(text);
+        if (onCancel) onCancel();
+    }
+}
+
+void TextField::typeChar(char32_t ch) {
+    if (ch < 32 || ch == 127 || (ch >= 0xD800 && ch <= 0xDFFF) || ch > 0x10FFFF) return;
+    if (filter && !filter(ch)) return;
+    auto u = decodeUtf8(text);
+    if (static_cast<int>(u.size()) >= maxLength) return;
+    caret = std::clamp(caret, 0, static_cast<int>(u.size()));
+    u.insert(u.begin() + caret, ch);
+    ++caret;
+    text = encodeUtf8(u);
+    if (onChange) onChange(text);
+}
+
+void TextField::typeText(std::string const& utf8) {
+    for (char32_t ch : decodeUtf8(utf8)) typeChar(ch);
+}
+
+bool TextField::key(int vk, bool ctrl) {
+    auto u = decodeUtf8(text);
+    caret  = std::clamp(caret, 0, static_cast<int>(u.size()));
+    switch (vk) {
+    case VK_RETURN: blur(true); return true;
+    case VK_ESCAPE: blur(false); return true;
+    case VK_LEFT: caret = std::max(0, caret - 1); return true;
+    case VK_RIGHT: caret = std::min(static_cast<int>(u.size()), caret + 1); return true;
+    case VK_HOME: caret = 0; return true;
+    case VK_END: caret = static_cast<int>(u.size()); return true;
+    case VK_BACK:
+        if (caret == 0) return true;
+        u.erase(u.begin() + caret - 1);
+        --caret;
+        break;
+    case VK_DELETE:
+        if (caret >= static_cast<int>(u.size())) return true;
+        u.erase(u.begin() + caret);
+        break;
+    default:
+        if (ctrl && vk == 'A') caret = static_cast<int>(u.size());
+        return ctrl; // printable keys arrive as characters (WM_CHAR)
+    }
+    text = encodeUtf8(u);
+    if (onChange) onChange(text);
+    return true;
+}
+
+bool TextField::click(float mx, float my, Button b, bool) {
+    if (!enabled || !hovered(mx, my) || b != Button::Left) return false;
+    focus();
+    return true;
+}
+
+void TextField::render(Canvas& c, float, float) {
+    bool on = focused();
+    c.bevel(rect, color::kSlotDark, on ? color::kTextGold : color::kSlotDark, color::kSlotLight, true);
+    float pad = 3, inner = rect.w - 2 * pad, ty = rect.y + (rect.h - kFontHeight) / 2;
+    if (text.empty() && !on) {
+        c.text(rect.x + pad, ty, placeholder, color::kTextGray);
+        return;
+    }
+    auto u = decodeUtf8(text);
+    int  cp = std::clamp(caret, 0, static_cast<int>(u.size()));
+    // scroll so the caret stays visible: drop characters from the left
+    std::size_t start = 0;
+    while (start < static_cast<std::size_t>(cp) && c.textWidth(encodeUtf8(std::u32string_view(u).substr(start, cp - start))) > inner) ++start;
+    auto shown = std::u32string_view(u).substr(start);
+    std::string visible;
+    for (std::size_t n = shown.size(); n > 0; --n) {
+        visible = encodeUtf8(shown.substr(0, n));
+        if (c.textWidth(visible) <= inner) break;
+    }
+    c.text(rect.x + pad, ty, visible, color::kText);
+    if (on && (GetTickCount64() / 500) % 2 == 0) {
+        float x = rect.x + pad + c.textWidth(encodeUtf8(std::u32string_view(u).substr(start, cp - start)));
+        c.fill({x, ty - 1, 1, kFontHeight + 1}, color::kText);
+    }
+}
 
 // ---- canvas ------------------------------------------------------------------------------------
 
@@ -321,10 +622,14 @@ std::pair<float, float> guiSize() {
 
 void open(std::unique_ptr<Screen> screen) {
     auto& s    = state();
-    auto  host = s.hostScene;
-    if (s.screen) closeNow(false); // keep the host for the new screen
-    s.hostScene   = host;
-    bool needHost = s.hostScene.empty();
+    auto  host      = s.hostScene;
+    bool  hadScreen = s.screen != nullptr;
+    if (hadScreen) closeNow(false, false); // keep the host for the new screen
+    s.pendingClose = false;
+    s.hostScene    = host;
+    // one host scene per screen: a screen replaced before its first frame (e.g. opened twice)
+    // keeps the host already pushed for it, which is still being learned
+    bool needHost = !hadScreen && s.hostScene.empty();
     s.screen      = std::move(screen);
     s.screen->init();
     s.closing = false;
@@ -379,7 +684,7 @@ void renderScreen(MinecraftUIRenderContext& ctx) {
         if (w->hovered(px, py) && !w->tooltip.empty()) tip = w->tooltip;
     }
     s.screen->renderExtra(c, px, py);
-    if (s.screen->cursor && !s.screen->cursor->isNull()) {
+    if (s.screen->cursor && !s.screen->cursor->isNull()) { // render-only icon of cursorItem
         c.setOrigin(0, 0);
         c.item(*s.screen->cursor, mx - 8, my - 8);
     }
@@ -389,11 +694,28 @@ void renderScreen(MinecraftUIRenderContext& ctx) {
     }
 }
 
+} // namespace
+
+void Screen::setCursorItem(Json item) {
+    cursorItem = std::move(item);
+    cursor.reset();
+    if (cursorItem.is_null()) return;
+    // a fresh stack built from data on the client thread (never a copy of a game-owned stack)
+    auto icon = std::make_shared<ItemStack>();
+    *icon     = lv::feature::common::items::fromJson(cursorItem);
+    if (!icon->isNull()) cursor = std::move(icon);
+}
+
+namespace {
+
 void handleClick(Button b) {
     auto& s = state();
     if (!s.screen) return;
     auto  layout = layoutOf(*s.screen);
     float px = s.mouseX - layout.panel.x, py = s.mouseY - layout.panel.y;
+    // a click outside the focused text field leaves it (keeping the text, as Create)
+    if (s.focused && !s.focused->rect.contains(px, py)) s.focused->blur(true);
+    if (!s.screen) return;
     for (auto it = s.screen->widgets.rbegin(); it != s.screen->widgets.rend(); ++it) {
         auto& w = **it;
         if (w.visible && w.click(px, py, b, s.shift)) return;
@@ -409,7 +731,7 @@ void handleClick(Button b) {
     }
     if (s.screen->clickBackground(px, py, b, s.shift)) return;
     // clicking outside everything drops the ghost cursor (as dropping a ghost item)
-    if (s.screen->cursor) s.screen->cursor.reset();
+    if (s.screen->cursor || !s.screen->cursorItem.is_null()) s.screen->setCursorItem(nullptr);
 }
 
 void handleScroll(int delta) {
@@ -493,6 +815,37 @@ public:
                 return;
             }
             if (!s.hostScene.empty() && name == s.hostScene) {
+                // clicks queued by the input thread run here, on the client thread: screens read
+                // the inventory and items, which the game only allows on this thread
+                std::vector<PendingInput> inputs;
+                {
+                    std::lock_guard lock(s.inputMutex);
+                    inputs.swap(s.pendingInput);
+                }
+                for (auto const& in : inputs) {
+                    if (!state().screen) break;
+                    s.mouseX = in.x, s.mouseY = in.y;
+                    bool shift = s.shift;
+                    s.shift    = in.shift;
+                    using K = PendingInput::Kind;
+                    if (in.kind == K::Key) {
+                        if (s.focused) s.focused->key(in.key, in.ctrl);
+                    } else if (in.kind == K::Char) {
+                        if (s.focused) s.focused->typeChar(in.ch);
+                    } else if (in.kind == K::Paste) {
+                        if (s.focused) s.focused->typeText(in.paste);
+                    } else if (in.scroll) {
+                        handleScroll(in.scroll);
+                    } else {
+                        handleClick(in.button);
+                    }
+                    s.shift = shift;
+                }
+                if (s.pendingClose) {
+                    s.pendingClose = false;
+                    closeNow(true);
+                }
+                if (!state().screen) return;
                 std::tie(s.mouseX, s.mouseY) = pointerGui();
                 renderScreen(ev.uiRenderContext());
                 ev.cancel(); // the host scene itself stays invisible
@@ -501,22 +854,65 @@ public:
         mListeners.push_back(bus.emplaceListener<ll::event::MouseInputEvent>([](ll::event::MouseInputEvent& ev) {
             auto& s = state();
             if (!s.screen || s.hostScene.empty()) return;
+            installTextInput();
             auto [gx, gy] = pointerGui();
-            s.mouseX = gx, s.mouseY = gy;
             char id   = ev.actionButtonId();
             auto data = ev.buttonData();
-            if (id == 1 && data == 1) handleClick(Button::Left);
-            else if (id == 2 && data == 1) handleClick(Button::Right);
-            else if (id == 3 && data == 1) handleClick(Button::Middle);
-            else if (id == 4 && data != 0) handleScroll(data > 0 ? 1 : -1);
+            PendingInput in{gx, gy, Button::Left, 0, s.shift};
+            bool         any = true;
+            if (id == 1 && data == 1) in.button = Button::Left;
+            else if (id == 2 && data == 1) in.button = Button::Right;
+            else if (id == 3 && data == 1) in.button = Button::Middle;
+            else if (id == 4 && data != 0) in.scroll = data > 0 ? 1 : -1;
+            else any = false;
+            if (any) { // handled on the client thread (the render listener)
+                std::lock_guard lock(s.inputMutex);
+                s.pendingInput.push_back(in);
+            }
             ev.cancel();
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>([](ll::event::KeyInputEvent& ev) {
             auto& s = state();
             if (ev.keyCode() == kKeyShift) s.shift = ev.isDown();
+            s.ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0 || (ev.keyCode() == kKeyControl && ev.isDown());
+            installTextInput(); // the window thread: subclass the game window once (WM_CHAR)
             if (!s.screen) return;
-            if (ev.keyCode() == kKeyEscape) return; // the host scene closes, we follow
-            if (ev.keyCode() == kKeyInventory && ev.isDown()) close();
+            if (s.textFocus) { // every key goes to the focused field
+                if (ev.isDown() && ev.keyCode() != kKeyShift && ev.keyCode() != kKeyControl) {
+                    PendingInput in;
+                    in.kind = PendingInput::Kind::Key;
+                    in.key  = ev.keyCode();
+                    in.ctrl = s.ctrl;
+                    if (s.ctrl && ev.keyCode() == 'V') {
+                        in.kind  = PendingInput::Kind::Paste;
+                        in.paste = clipboardText();
+                    }
+                    std::lock_guard lock(s.inputMutex);
+                    s.pendingInput.push_back(std::move(in));
+                    // no window subclass (this thread doesn't own the window): characters from the key
+                    if (!textInputInstalled() && !s.ctrl) {
+                        BYTE    keys[256]{};
+                        wchar_t buf[8]{};
+                        GetKeyboardState(keys);
+                        int n = ToUnicode(static_cast<UINT>(ev.keyCode()), MapVirtualKeyW(static_cast<UINT>(ev.keyCode()), MAPVK_VK_TO_VSC), keys, buf, 8, 0);
+                        for (int i = 0; i < n; ++i) {
+                            if (buf[i] < 32 || buf[i] == 127 || (buf[i] >= 0xD800 && buf[i] <= 0xDFFF)) continue;
+                            PendingInput c;
+                            c.kind = PendingInput::Kind::Char;
+                            c.ch   = buf[i];
+                            s.pendingInput.push_back(std::move(c));
+                        }
+                    }
+                }
+                if (ev.keyCode() != kKeyShift) ev.cancel();
+                return;
+            }
+            if (ev.keyCode() == kKeyEscape) { // as Create: Esc closes the screen (and its host scene)
+                if (ev.isDown()) s.pendingClose = true; // closed on the client thread (render listener)
+                ev.cancel();
+                return;
+            }
+            if (ev.keyCode() == kKeyInventory && ev.isDown()) s.pendingClose = true;
             if (ev.keyCode() != kKeyShift) ev.cancel();
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
@@ -551,7 +947,7 @@ public:
         });
         net::client::on("screen.close", [](Json const& msg) {
             auto& s = state();
-            if (s.screen && msg.value("type", std::string{}) == s.serverType) close();
+            if (s.screen && msg.value("type", std::string{}) == s.serverType) closeNow(true, false); // the server knows
         });
     }
     void uninstall() {

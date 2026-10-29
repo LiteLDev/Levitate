@@ -23,6 +23,8 @@
 
 #include <functional>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "nlohmann/json.hpp"
 
@@ -64,5 +66,29 @@ void onErase(EraseListener fn);
 
 /// Writes dirty chunks now (also done on every world save).
 void flush();
+
+/// Owners that keep their part of a document cached elsewhere (e.g. the kinetic network keeps
+/// `data["kinetics"]` in its solver) write it back here: `fn(nullptr)` runs before every save /
+/// `flush()`, `fn(&pos)` before `take(pos)` (so a contraption carries the current data).
+using WriteBackFn = std::function<void(GlobalPos const* pos)>;
+void onWriteBack(WriteBackFn fn);
+/// Listener run after `put()` stored a moved document (contraption disassembly): owners with a
+/// cache adopt the data at its new position.
+using PutListener = std::function<void(GlobalPos const& pos, Json const& doc)>;
+void onPut(PutListener fn);
+/// Direction-dependent data (per-face settings, ...) of top-level key `key` is turned with the
+/// block when a contraption puts it back rotated by `quarterTurns` about `axis` (0 x, 1 y, 2 z;
+/// right-hand rule, as core/contraption).
+using RotateFn = std::function<void(Json& value, int axis, int quarterTurns)>;
+void onRotate(std::string key, RotateFn fn);
+/// Applies the registered rotations to a whole document (the contraption carrier calls it).
+void rotate(Json& doc, int axis, int quarterTurns);
+/// Contraptions carry every document automatically (the generic "common:blockdata" carrier): new units
+/// need no carrier of their own. A unit that still moves top-level key `key` with its own
+/// `contraption::registerDataCarrier` declares it here so the generic carrier leaves that key to
+/// it (no double carrying, whichever carrier runs first).
+void ownCarrier(std::string key);
+/// Keys declared with `ownCarrier`.
+[[nodiscard]] std::vector<std::string> ownCarriedKeys();
 
 } // namespace lv::feature::common::blockdata

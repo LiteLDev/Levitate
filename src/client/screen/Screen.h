@@ -158,6 +158,47 @@ public:
     bool                                click(float mx, float my, Button b, bool shift) override;
 };
 
+/// A single-line text input (Create's address / name / search boxes), edited in place:
+/// - click it to focus (a click elsewhere, Enter or Esc leaves it); typed text comes from the
+///   game window's character messages (WM_CHAR), so keyboard layouts, dead keys and IME-composed
+///   text arrive as the player sees them, and LeviHeadlessInput's `Send-HeadlessText` works;
+/// - Backspace / Delete, Left / Right / Home / End move and edit at the caret; Ctrl+V pastes
+///   the clipboard's text (line breaks become spaces), Ctrl+A selects nothing but moves to the end;
+/// - Enter submits (`onSubmit(text)`), Esc cancels (restores the text from before focusing,
+///   `onCancel`); `onChange(text)` runs after every edit; at most `maxLength` characters (code
+///   points), `filter` may refuse a character.
+/// While a field is focused every key goes to it (the inventory key doesn't close the screen,
+/// Esc only leaves the field). All callbacks run on the client thread.
+class TextField : public Widget {
+public:
+    TextField(Rect r, std::string text = {}, std::function<void(std::string const&)> onSubmit = {});
+    ~TextField() override;
+    std::string                             text;        ///< UTF-8
+    std::string                             placeholder; ///< shown (gray) while empty and unfocused
+    int                                     maxLength = 50;
+    std::function<void(std::string const&)> onSubmit;
+    std::function<void(std::string const&)> onChange;
+    std::function<void()>                   onCancel;
+    std::function<bool(char32_t)>           filter; ///< false: the character is not accepted
+    [[nodiscard]] bool focused() const;
+    void               focus();
+    /// Leaves the field; `submit`: as Enter, else as Esc.
+    void               blur(bool submit);
+    /// Caret position in characters (code points).
+    int                caret = 0;
+
+    void render(Canvas& c, float mx, float my) override;
+    bool click(float mx, float my, Button b, bool shift) override;
+    /// Input for the focused field (the framework calls them).
+    void typeChar(char32_t ch);
+    void typeText(std::string const& utf8);
+    /// A key press (Windows virtual key); returns true when used.
+    bool key(int vk, bool ctrl);
+
+private:
+    std::string mBefore; ///< the text when focused (Esc restores it)
+};
+
 class Screen {
 public:
     Screen(std::string title, float width, float height) : title(std::move(title)), width(width), height(height) {}
@@ -179,7 +220,9 @@ public:
     virtual void onClose() {}
     /// Whether the player's inventory is drawn below the panel (and clickable).
     bool showInventory = false;
-    /// Called when an inventory slot is clicked (`slot` in the player's inventory).
+    /// Called when an inventory slot is clicked (`slot` in the player's inventory). `stack` is the
+    /// game's own stack: read it (`items::toJsonWithCount`), never copy it. Clicks are handled on
+    /// the client (render) thread.
     virtual void clickInventory(int /*slot*/, ItemStack const& /*stack*/, Button /*b*/, bool /*shift*/) {}
 
     template <class W, class... Args>
@@ -192,7 +235,13 @@ public:
 
     std::vector<std::unique_ptr<Widget>> widgets;
     /// The item held on the cursor (ghost: picking from the inventory copies, never moves).
+    /// Render-only icon of `cursorItem`; set both with `setCursorItem`.
     std::shared_ptr<ItemStack> cursor;
+    /// The ghost item on the cursor as item JSON (`items::toJson` format; null: none). Screens
+    /// send this to the server; never copy a game-owned ItemStack on the client.
+    Json cursorItem;
+    /// Sets (or with null clears) the cursor item and builds its icon.
+    void setCursorItem(Json item);
 };
 
 /// Opens a screen (replaces the current one).

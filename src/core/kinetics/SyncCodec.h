@@ -2,9 +2,9 @@
 
 // Text codec of the kinetic speed sync (server -> client mod), pure C++.
 //
-// The sync channel is a minimal stand-in for the companion protocol of U3 (see
-// src/feature/kinetics/KineticsSync.cpp): the payload is the value string of a Bedrock
-// ScriptMessagePacket. One message carries the speeds of the kinetic blocks of one chunk:
+// The batches travel over U3's companion protocol (channel "kinetics.sync", see
+// src/feature/kinetics/KineticsSync.cpp): {"batches": ["<batch>", ...]}. One batch carries the
+// speeds of the kinetic blocks of one chunk:
 //
 //   "<dim>;<R|D>;<cx>;<cz>|<x>,<y>,<z>,<speed>,<sourceFace>;..."
 //
@@ -22,9 +22,12 @@ namespace lv::core::kinetics::sync {
 
 inline constexpr int kProtocolVersion = 1;
 
-inline constexpr std::string_view kHelloId = "levitate:kinetics/hello"; ///< client -> server, value: protocol
-inline constexpr std::string_view kAckId   = "levitate:kinetics/ack";   ///< server -> client, value: protocol
-inline constexpr std::string_view kSyncId  = "levitate:kinetics/sync";  ///< server -> client, value: a batch
+// Deprecated: the wave-1 ScriptMessagePacket ids. Nothing sends them any more (the sync moved to
+// the companion protocol); kept so code that still names them compiles. Client code reads the
+// speeds through client/kinetics/KineticsClient.h.
+inline constexpr std::string_view kHelloId = "levitate:kinetics/hello";
+inline constexpr std::string_view kAckId   = "levitate:kinetics/ack";
+inline constexpr std::string_view kSyncId  = "levitate:kinetics/sync";
 
 struct Entry {
     int   x = 0, y = 0, z = 0;

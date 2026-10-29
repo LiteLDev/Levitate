@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:red_sand_paper"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:paper"
+      },
+      {
+        "item": "minecraft:red_sand"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:paper"
+      }
+    ],
+    "result": {
+      "item": "levitate:red_sand_paper",
+      "count": 1
+    }
+  }
+}
