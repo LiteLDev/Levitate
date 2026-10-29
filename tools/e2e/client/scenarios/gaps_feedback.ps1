@@ -26,7 +26,13 @@ function Show-Indicator([string]$command, [string]$rpm, [string]$shot) {
     Save-Screenshot $shot | Out-Null
     Start-Sleep -Milliseconds 250
     Save-Screenshot "$shot-later" | Out-Null
-    Wait-LogLine "kinetics: rotation indicators at 3 -59 3 \($rpm RPM\) for 1 players" 20 -Since $mark | Out-Null
+    $line = "kinetics: rotation indicators at 3 -59 3 \($rpm RPM\) for 1 players"
+    try { Wait-LogLine $line 10 -Since $mark | Out-Null } catch {
+        # a chat line typed while the game was busy can get lost: send it once more
+        Write-Step "no indicators after '$command', sending it again"
+        Invoke-Chat $command
+        Wait-LogLine $line 20 -Since $mark | Out-Null
+    }
     Start-Sleep -Milliseconds 1500
 }
 

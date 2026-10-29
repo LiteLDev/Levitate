@@ -5,6 +5,7 @@
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/server/SimulatedPlayer.h"
+#include "mc/server/sim/LookDuration.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -273,7 +274,16 @@ LV_REGISTER_SELFTEST("gaps.train_channel_input", [](Context& ctx) -> ll::coro::C
     co_await ctx.ticks(2);
     auto* t = tn::findTrain(*id);
     ctx.require(t && !t->carriages.empty() && !t->carriages[0].controls.empty(), "the train has controls");
-    tn::startControlling(player, *t, 0, t->carriages[0].controls[0].first, 1);
+    // an empty-hand right-click into the air at the controls (the client mod's "trains.interact" {})
+    if (auto* con = cn::find(t->carriages[0].contraption)) {
+        auto w = con->toWorld(core::contraption::Vec3d::center(t->carriages[0].controls[0].first));
+        static_cast<SimulatedPlayer&>(player).simulateLookAt(Vec3{float(w.x), float(w.y), float(w.z)}, sim::LookDuration::Instant);
+    }
+    co_await ctx.ticks(2);
+    net::injectFromClient(player, "trains.interact", Json::object());
+    t = tn::findTrain(*id);
+    ctx.check(t && t->controller == tn::uuidOf(player), "a right-click at the controls starts controlling");
+    if (t && t->controller != tn::uuidOf(player)) tn::startControlling(player, *t, 0, t->carriages[0].controls[0].first, 1);
     ctx.check(hasMessage(net::takeTestMessages(player), "trains.controls", true), "the client mod is told to capture the keys");
 
     double startX = core::trains::positionOf(tr::railways(), t->body.front)->x;

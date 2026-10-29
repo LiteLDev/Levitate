@@ -1160,7 +1160,7 @@ void setInput(Player& player, int throttle, int steer, bool jump, bool sneak) {
 }
 
 bool tryControls(Player& player, double maxDistance) {
-    auto  eye  = player.getHeadPos();
+    auto  eye  = player.getPosition(); // eye height (getHeadPos drifts with the body yaw of real players)
     auto  look = player.getViewVector();
     Vec3d o{eye.x, eye.y, eye.z}, d{look.x, look.y, look.z};
     d              = d.normalize();

@@ -157,7 +157,7 @@ LL_TYPE_INSTANCE_HOOK(
 
     // a train's controls in front of the clicked block
     {
-        auto   eye  = player.getHeadPos();
+        auto   eye  = player.getPosition(); // eye height (getHeadPos drifts with the body yaw of real players)
         double dist = std::sqrt(double((hit.x - eye.x) * (hit.x - eye.x) + (hit.y - eye.y) * (hit.y - eye.y) + (hit.z - eye.z) * (hit.z - eye.z)));
         if (!sneak && held != kSchedule && tryControls(player, dist + 0.3)) return handled();
     }

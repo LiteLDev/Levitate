@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 
 #include "ll/api/event/EventBus.h"
@@ -17,7 +18,6 @@
 #include "ll/api/event/input/KeyInputEvent.h"
 #include "ll/api/event/input/MouseInputEvent.h"
 #include "ll/api/event/render/UIRenderEvent.h"
-#include "ll/api/event/world/ClientLevelTickEvent.h"
 
 #include "mc/client/gui/screens/ScreenView.h"
 #include "mc/client/player/LocalPlayer.h"
@@ -106,7 +106,10 @@ void tick() {
     auto& c  = controls();
     if (in.rightClick.exchange(false)) {
         auto* player = currentPlayer();
-        if (player && player->getSelectedItem().isNull()) net::client::send("trains.interact", Json::object());
+        if (player && player->getSelectedItem().isNull()) {
+            net::client::send("trains.interact", Json::object());
+            log().info("trains client: empty-hand right-click sent");
+        }
     }
     if (!in.active) return;
     if (in.esc.exchange(false)) {
@@ -162,7 +165,7 @@ void drawHud(MinecraftUIRenderContext& ctx) {
     double top      = std::max(1e-6, c.hud.value("top", 1.4));
     double speed    = std::abs(c.hud.value("speed", 0.0));
     double throttle = std::clamp(c.throttleDirty ? c.throttle : c.hud.value("throttle", c.throttle), 0.0, 1.0);
-    float  w = 120, h = 8, x = sw / 2 - w / 2, y = sh - 52;
+    float  w = 120, h = 8, x = sw / 2 - w / 2, y = sh - 39; // just above the hotbar, below the action bar
     cv.bevel({x - 2, y - 2, w + 4, h + 4}, 0xC0303030, 0xFF6E5F4C, 0xFF1A140F, true);
     cv.fill({x, y, static_cast<float>(w * std::clamp(speed / top, 0.0, 1.0)), h}, 0xFF7FB8E0);
     float mx = x + static_cast<float>(w * throttle);
@@ -235,19 +238,22 @@ public:
             },
             ll::event::EventPriority::High
         ));
-        mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) {
-            auto& in      = input();
-            in.screenOpen = current() != nullptr;
-            if (in.screenOpen) {
-                // a screen takes the keys: their releases never reach us
-                for (auto& p : in.pressed) p = false;
-                in.sprint = false;
-            }
-            if (!net::client::connected()) return;
-            tick();
-        }));
         mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) { release(); }));
         mListeners.push_back(bus.emplaceListener<ll::event::AfterUIRenderEvent>([](ll::event::AfterUIRenderEvent& ev) {
+            // client thread, every frame: the controls run at game tick rate (50 ms)
+            static auto last = std::chrono::steady_clock::now();
+            auto        now  = std::chrono::steady_clock::now();
+            if (now - last >= std::chrono::milliseconds(50) && inLevel()) {
+                last          = now;
+                auto& in      = input();
+                in.screenOpen = current() != nullptr;
+                if (in.screenOpen) {
+                    // a screen takes the keys: their releases never reach us
+                    for (auto& p : in.pressed) p = false;
+                    in.sprint = false;
+                }
+                if (net::client::connected()) tick();
+            }
             if (!input().active || current() || ev.screenView().getScreenName() != "hud_screen") return;
             drawHud(ev.uiRenderContext());
         }));

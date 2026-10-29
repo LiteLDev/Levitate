@@ -8,7 +8,6 @@
 
 #include "mc/world/actor/player/Player.h"
 
-#include "core/tracks/Shape.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/tracks/Tracks.h"
 #include "game/Blocks.h"
@@ -73,18 +72,15 @@ LV_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
         t->runtime.setSchedule(s, false);
         output.success("Train #" + std::to_string(*id) + " heading to Demo B");
     });
-    // Levitate demo (e2e, U37): a straight line east of the player (x + 2 .. x + 60), station
-    // "Demo Manual" at x + 8 with a one-carriage train (controls and a steam whistle glued on its
-    // bogey at x + 7) and no schedule, to be driven by hand.
+    // Levitate demo (e2e, U37): on a straight line laid east of the player (x + 2 .. x + 20 at
+    // least), station "Demo Manual" at x + 8 with a one-carriage train (controls and a steam whistle
+    // glued on its bogey at x + 7) and no schedule, to be driven by hand.
     cmd.overload().text("trains").text("demo_manual").execute([](Origin& origin, CommandOutput& output) {
         if (!commands::isAdmin(origin)) return output.error(tr("lv.trains.need_op", "You need operator permission."));
         auto* player = commands::playerOf(origin);
         if (!player) return output.error("players only");
         int  dim   = int(player->getDimensionId());
         auto feet  = game::blockPosOf(player->getFeetPos());
-        int  shape = int(core::tracks::Shape::XO);
-        for (int x = 2; x <= 60; ++x)
-            setBlockAt({dim, feet.x + x, feet.y, feet.z}, tracks::kTrackId, {{tracks::kShapeState, shape % 16}, {tracks::kShapeHiState, shape / 16}, {tracks::kTurnState, 0}});
         GlobalPos track{dim, feet.x + 8, feet.y, feet.z}, block{dim, feet.x + 8, feet.y, feet.z + 1};
         setBlockAt(block, kStation);
         std::string err;
@@ -100,6 +96,14 @@ LV_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
         contraption::addGlue(dim, {{bogey.x, bogey.y, bogey.z}, {bogey.x, bogey.y + 2, bogey.z}});
         auto id = assemble(st, player);
         if (!id) return output.error("assembly: " + st.lastError.dump());
+        // where the controls are now (the scenario aims at them)
+        auto* t = findTrain(*id);
+        if (t && !t->carriages.empty() && !t->carriages[0].controls.empty()) {
+            if (auto* con = contraption::find(t->carriages[0].contraption)) {
+                auto w = con->toWorld(cc::Vec3d::center(t->carriages[0].controls[0].first));
+                log().info("trains: demo train #{} has its controls at {:.2f} {:.2f} {:.2f}", *id, w.x, w.y, w.z);
+            }
+        }
         output.success("Train #" + std::to_string(*id) + " stands at Demo Manual");
     });
     cmd.overload().text("trains").text("screen").execute([](Origin& origin, CommandOutput& output) {
