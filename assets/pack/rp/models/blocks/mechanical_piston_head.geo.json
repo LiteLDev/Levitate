@@ -1,0 +1,201 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.mechanical_piston_head",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "plate",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8.0,
+                12.0,
+                -8.0
+              ],
+              "size": [
+                16.0,
+                4.0,
+                16.0
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    16.0,
+                    4.0
+                  ],
+                  "material_instance": "head_side"
+                },
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    16.0,
+                    4.0
+                  ],
+                  "material_instance": "head_side"
+                },
+                "east": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    16.0,
+                    4.0
+                  ],
+                  "material_instance": "head_side"
+                },
+                "west": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    16.0,
+                    4.0
+                  ],
+                  "material_instance": "head_side"
+                },
+                "up": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    16.0,
+                    16.0
+                  ],
+                  "material_instance": "front"
+                },
+                "down": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    16.0,
+                    16.0
+                  ],
+                  "material_instance": "inner"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "rod",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -2.0,
+                0.0,
+                -2.0
+              ],
+              "size": [
+                4.0,
+                12.0,
+                4.0
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    6,
+                    4
+                  ],
+                  "uv_size": [
+                    4.0,
+                    12.0
+                  ],
+                  "material_instance": "pole"
+                },
+                "south": {
+                  "uv": [
+                    6,
+                    4
+                  ],
+                  "uv_size": [
+                    4.0,
+                    12.0
+                  ],
+                  "material_instance": "pole"
+                },
+                "east": {
+                  "uv": [
+                    6,
+                    4
+                  ],
+                  "uv_size": [
+                    4.0,
+                    12.0
+                  ],
+                  "material_instance": "pole"
+                },
+                "west": {
+                  "uv": [
+                    6,
+                    4
+                  ],
+                  "uv_size": [
+                    4.0,
+                    12.0
+                  ],
+                  "material_instance": "pole"
+                },
+                "up": {
+                  "uv": [
+                    6,
+                    6
+                  ],
+                  "uv_size": [
+                    4.0,
+                    4.0
+                  ],
+                  "material_instance": "pole"
+                },
+                "down": {
+                  "uv": [
+                    6,
+                    6
+                  ],
+                  "uv_size": [
+                    4.0,
+                    4.0
+                  ],
+                  "material_instance": "pole_end"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
