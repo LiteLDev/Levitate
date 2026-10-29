@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:warped_window"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " # ",
+      "#X#"
+    ],
+    "key": {
+      "#": {
+        "item": "minecraft:warped_planks"
+      },
+      "X": {
+        "item": "minecraft:glass"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:warped_planks"
+      }
+    ],
+    "result": {
+      "item": "levitate:warped_window",
+      "count": 2
+    }
+  }
+}

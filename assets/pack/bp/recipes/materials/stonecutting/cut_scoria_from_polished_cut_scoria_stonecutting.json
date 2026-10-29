@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:cut_scoria_from_polished_cut_scoria_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:polished_cut_scoria"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:polished_cut_scoria"
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_scoria",
+      "count": 1
+    }
+  }
+}

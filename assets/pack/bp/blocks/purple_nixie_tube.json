@@ -1,0 +1,226 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:purple_nixie_tube",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "levitate:face": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.levitate.nixie_tube",
+      "minecraft:material_instances": {
+        "glass": {
+          "texture": "levitate_nixie_tube_glass",
+          "render_method": "blend"
+        },
+        "base": {
+          "texture": "levitate_nixie_tube",
+          "render_method": "blend"
+        },
+        "filament": {
+          "texture": "levitate_nixie_tube_filament_purple",
+          "render_method": "blend"
+        },
+        "*": {
+          "texture": "levitate_nixie_tube",
+          "render_method": "blend"
+        }
+      },
+      "minecraft:light_emission": 5,
+      "minecraft:light_dampening": 0,
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#8932b8",
+      "minecraft:loot": "loot_tables/blocks/purple_nixie_tube.json"
+    },
+    "permutations": [
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 1"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 0 && q.block_state('levitate:facing') == 3"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              180,
+              0,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 0"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              180,
+              -90,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 1"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              180,
+              0,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 2"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              180,
+              90,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 1 && q.block_state('levitate:facing') == 3"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 0"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              -90,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 1"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              180,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 2"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              90,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 2 && q.block_state('levitate:facing') == 3"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              -90,
+              0,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 3 && q.block_state('levitate:facing') == 0"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              -90,
+              -90,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 3 && q.block_state('levitate:facing') == 1"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              -90,
+              180,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 3 && q.block_state('levitate:facing') == 2"
+      },
+      {
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              -90,
+              90,
+              0
+            ]
+          }
+        },
+        "condition": "q.block_state('levitate:face') == 3 && q.block_state('levitate:facing') == 3"
+      }
+    ]
+  }
+}

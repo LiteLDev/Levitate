@@ -1,0 +1,453 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:brass_encased_cogwheel",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:axis": [
+          0,
+          1,
+          2
+        ],
+        "levitate:top_shaft": [
+          0,
+          1
+        ],
+        "levitate:bottom_shaft": [
+          0,
+          1
+        ],
+        "levitate:rotor": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.transmission_encased_cogwheel",
+        "bone_visibility": {
+          "rotor": "q.block_state('levitate:rotor') != 1",
+          "half_pos": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:top_shaft') == 1",
+          "half_neg": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:bottom_shaft') == 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_transmission_rotor",
+          "render_method": "alpha_test"
+        },
+        "side": {
+          "texture": "levitate_transmission_brass_cog_side",
+          "render_method": "alpha_test"
+        },
+        "end": {
+          "texture": "levitate_transmission_brass_end",
+          "render_method": "alpha_test"
+        },
+        "end_top": {
+          "texture": "levitate_transmission_brass_casing",
+          "render_method": "alpha_test"
+        },
+        "end_bottom": {
+          "texture": "levitate_transmission_brass_casing",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/brass_encased_cogwheel.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:top_shaft') == 0 && q.block_state('levitate:bottom_shaft') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              -90
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:top_shaft') == 0 && q.block_state('levitate:bottom_shaft') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              -90
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:top_shaft') == 1 && q.block_state('levitate:bottom_shaft') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              -90
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:top_shaft') == 1 && q.block_state('levitate:bottom_shaft') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              -90
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:top_shaft') == 0 && q.block_state('levitate:bottom_shaft') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:top_shaft') == 0 && q.block_state('levitate:bottom_shaft') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:top_shaft') == 1 && q.block_state('levitate:bottom_shaft') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:top_shaft') == 1 && q.block_state('levitate:bottom_shaft') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:top_shaft') == 0 && q.block_state('levitate:bottom_shaft') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:top_shaft') == 0 && q.block_state('levitate:bottom_shaft') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:top_shaft') == 1 && q.block_state('levitate:bottom_shaft') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_casing",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:top_shaft') == 1 && q.block_state('levitate:bottom_shaft') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_brass_cog_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_top": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            },
+            "end_bottom": {
+              "texture": "levitate_transmission_brass_end",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

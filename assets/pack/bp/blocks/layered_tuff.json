@@ -1,0 +1,36 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:layered_tuff",
+      "menu_category": {
+        "category": "construction"
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6.0
+      },
+      "minecraft:map_color": "#392923",
+      "minecraft:loot": "loot_tables/blocks/layered_tuff.json",
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "down": {
+          "texture": "levitate_tuff_cap",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "levitate_tuff_cap",
+          "render_method": "opaque"
+        },
+        "*": {
+          "texture": "levitate_tuff_layered",
+          "render_method": "opaque"
+        }
+      }
+    }
+  }
+}

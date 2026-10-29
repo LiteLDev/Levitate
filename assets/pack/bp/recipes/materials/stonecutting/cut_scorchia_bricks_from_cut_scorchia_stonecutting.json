@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:cut_scorchia_bricks_from_cut_scorchia_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:cut_scorchia"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:cut_scorchia"
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_scorchia_bricks",
+      "count": 1
+    }
+  }
+}

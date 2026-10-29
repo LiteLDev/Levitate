@@ -1,0 +1,99 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:birch_window_pane",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:north": [
+          0,
+          1
+        ],
+        "levitate:south": [
+          0,
+          1
+        ],
+        "levitate:west": [
+          0,
+          1
+        ],
+        "levitate:east": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.3
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.3
+      },
+      "minecraft:map_color": "#a9c3cf",
+      "minecraft:loot": "loot_tables/blocks/birch_window_pane.json",
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.pane",
+        "bone_visibility": {
+          "post": true,
+          "n": "q.block_state('levitate:north') == 1",
+          "s": "q.block_state('levitate:south') == 1",
+          "w": "q.block_state('levitate:west') == 1",
+          "e": "q.block_state('levitate:east') == 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_birch_window_pane",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -1,
+          0,
+          -1
+        ],
+        "size": [
+          2,
+          16,
+          2
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -1,
+          0,
+          -1
+        ],
+        "size": [
+          2,
+          16,
+          2
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1",
+        "components": {
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

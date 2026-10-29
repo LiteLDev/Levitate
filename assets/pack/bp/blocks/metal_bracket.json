@@ -1,0 +1,55 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:metal_bracket",
+      "menu_category": {
+        "category": "construction"
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 3.0
+      },
+      "minecraft:map_color": "#7b6a4c",
+      "minecraft:loot": "loot_tables/blocks/metal_bracket.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "tag:minecraft:is_axe_item_destructible": {},
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": "geometry.levitate.bracket",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_metal_bracket",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -5,
+          0,
+          -5
+        ],
+        "size": [
+          10,
+          12,
+          10
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -5,
+          0,
+          -5
+        ],
+        "size": [
+          10,
+          12,
+          10
+        ]
+      }
+    }
+  }
+}

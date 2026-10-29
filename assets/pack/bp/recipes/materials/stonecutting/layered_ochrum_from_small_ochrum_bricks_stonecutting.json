@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:layered_ochrum_from_small_ochrum_bricks_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:small_ochrum_bricks"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:small_ochrum_bricks"
+      }
+    ],
+    "result": {
+      "item": "levitate:layered_ochrum",
+      "count": 1
+    }
+  }
+}

@@ -1,0 +1,398 @@
+{
+  "levitate:andesite_casing": {
+    "sound": "wood"
+  },
+  "levitate:brass_casing": {
+    "sound": "wood"
+  },
+  "levitate:copper_casing": {
+    "sound": "copper"
+  },
+  "levitate:shadow_steel_casing": {
+    "sound": "stone"
+  },
+  "levitate:refined_radiance_casing": {
+    "sound": "stone"
+  },
+  "levitate:railway_casing": {
+    "sound": "netherite"
+  },
+  "levitate:framed_glass": {
+    "sound": "glass"
+  },
+  "levitate:horizontal_framed_glass": {
+    "sound": "glass"
+  },
+  "levitate:vertical_framed_glass": {
+    "sound": "glass"
+  },
+  "levitate:tiled_glass": {
+    "sound": "glass"
+  },
+  "levitate:oak_window": {
+    "sound": "glass"
+  },
+  "levitate:spruce_window": {
+    "sound": "glass"
+  },
+  "levitate:birch_window": {
+    "sound": "glass"
+  },
+  "levitate:jungle_window": {
+    "sound": "glass"
+  },
+  "levitate:acacia_window": {
+    "sound": "glass"
+  },
+  "levitate:dark_oak_window": {
+    "sound": "glass"
+  },
+  "levitate:mangrove_window": {
+    "sound": "glass"
+  },
+  "levitate:crimson_window": {
+    "sound": "glass"
+  },
+  "levitate:warped_window": {
+    "sound": "glass"
+  },
+  "levitate:cherry_window": {
+    "sound": "glass"
+  },
+  "levitate:bamboo_window": {
+    "sound": "glass"
+  },
+  "levitate:ornate_iron_window": {
+    "sound": "glass"
+  },
+  "levitate:industrial_iron_window": {
+    "sound": "glass"
+  },
+  "levitate:weathered_iron_window": {
+    "sound": "glass"
+  },
+  "levitate:framed_glass_pane": {
+    "sound": "glass"
+  },
+  "levitate:horizontal_framed_glass_pane": {
+    "sound": "glass"
+  },
+  "levitate:vertical_framed_glass_pane": {
+    "sound": "glass"
+  },
+  "levitate:tiled_glass_pane": {
+    "sound": "glass"
+  },
+  "levitate:oak_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:spruce_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:birch_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:jungle_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:acacia_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:dark_oak_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:mangrove_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:crimson_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:warped_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:cherry_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:bamboo_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:ornate_iron_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:industrial_iron_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:weathered_iron_window_pane": {
+    "sound": "glass"
+  },
+  "levitate:andesite_bars": {
+    "sound": "metal"
+  },
+  "levitate:brass_bars": {
+    "sound": "metal"
+  },
+  "levitate:copper_bars": {
+    "sound": "metal"
+  },
+  "levitate:copper_shingles": {
+    "sound": "copper"
+  },
+  "levitate:copper_shingle_stairs": {
+    "sound": "copper"
+  },
+  "levitate:copper_shingle_slab": {
+    "sound": "copper"
+  },
+  "levitate:exposed_copper_shingles": {
+    "sound": "copper"
+  },
+  "levitate:exposed_copper_shingle_stairs": {
+    "sound": "copper"
+  },
+  "levitate:exposed_copper_shingle_slab": {
+    "sound": "copper"
+  },
+  "levitate:weathered_copper_shingles": {
+    "sound": "copper"
+  },
+  "levitate:weathered_copper_shingle_stairs": {
+    "sound": "copper"
+  },
+  "levitate:weathered_copper_shingle_slab": {
+    "sound": "copper"
+  },
+  "levitate:oxidized_copper_shingles": {
+    "sound": "copper"
+  },
+  "levitate:oxidized_copper_shingle_stairs": {
+    "sound": "copper"
+  },
+  "levitate:oxidized_copper_shingle_slab": {
+    "sound": "copper"
+  },
+  "levitate:waxed_copper_shingles": {
+    "sound": "copper"
+  },
+  "levitate:waxed_copper_shingle_stairs": {
+    "sound": "copper"
+  },
+  "levitate:waxed_copper_shingle_slab": {
+    "sound": "copper"
+  },
+  "levitate:waxed_exposed_copper_shingles": {
+    "sound": "copper"
+  },
+  "levitate:waxed_exposed_copper_shingle_stairs": {
+    "sound": "copper"
+  },
+  "levitate:waxed_exposed_copper_shingle_slab": {
+    "sound": "copper"
+  },
+  "levitate:waxed_weathered_copper_shingles": {
+    "sound": "copper"
+  },
+  "levitate:waxed_weathered_copper_shingle_stairs": {
+    "sound": "copper"
+  },
+  "levitate:waxed_weathered_copper_shingle_slab": {
+    "sound": "copper"
+  },
+  "levitate:waxed_oxidized_copper_shingles": {
+    "sound": "copper"
+  },
+  "levitate:waxed_oxidized_copper_shingle_stairs": {
+    "sound": "copper"
+  },
+  "levitate:waxed_oxidized_copper_shingle_slab": {
+    "sound": "copper"
+  },
+  "levitate:copper_tiles": {
+    "sound": "copper"
+  },
+  "levitate:copper_tile_stairs": {
+    "sound": "copper"
+  },
+  "levitate:copper_tile_slab": {
+    "sound": "copper"
+  },
+  "levitate:exposed_copper_tiles": {
+    "sound": "copper"
+  },
+  "levitate:exposed_copper_tile_stairs": {
+    "sound": "copper"
+  },
+  "levitate:exposed_copper_tile_slab": {
+    "sound": "copper"
+  },
+  "levitate:weathered_copper_tiles": {
+    "sound": "copper"
+  },
+  "levitate:weathered_copper_tile_stairs": {
+    "sound": "copper"
+  },
+  "levitate:weathered_copper_tile_slab": {
+    "sound": "copper"
+  },
+  "levitate:oxidized_copper_tiles": {
+    "sound": "copper"
+  },
+  "levitate:oxidized_copper_tile_stairs": {
+    "sound": "copper"
+  },
+  "levitate:oxidized_copper_tile_slab": {
+    "sound": "copper"
+  },
+  "levitate:waxed_copper_tiles": {
+    "sound": "copper"
+  },
+  "levitate:waxed_copper_tile_stairs": {
+    "sound": "copper"
+  },
+  "levitate:waxed_copper_tile_slab": {
+    "sound": "copper"
+  },
+  "levitate:waxed_exposed_copper_tiles": {
+    "sound": "copper"
+  },
+  "levitate:waxed_exposed_copper_tile_stairs": {
+    "sound": "copper"
+  },
+  "levitate:waxed_exposed_copper_tile_slab": {
+    "sound": "copper"
+  },
+  "levitate:waxed_weathered_copper_tiles": {
+    "sound": "copper"
+  },
+  "levitate:waxed_weathered_copper_tile_stairs": {
+    "sound": "copper"
+  },
+  "levitate:waxed_weathered_copper_tile_slab": {
+    "sound": "copper"
+  },
+  "levitate:waxed_oxidized_copper_tiles": {
+    "sound": "copper"
+  },
+  "levitate:waxed_oxidized_copper_tile_stairs": {
+    "sound": "copper"
+  },
+  "levitate:waxed_oxidized_copper_tile_slab": {
+    "sound": "copper"
+  },
+  "levitate:andesite_scaffolding": {
+    "sound": "scaffolding"
+  },
+  "levitate:brass_scaffolding": {
+    "sound": "scaffolding"
+  },
+  "levitate:copper_scaffolding": {
+    "sound": "scaffolding"
+  },
+  "levitate:andesite_ladder": {
+    "sound": "metal"
+  },
+  "levitate:brass_ladder": {
+    "sound": "metal"
+  },
+  "levitate:copper_ladder": {
+    "sound": "metal"
+  },
+  "levitate:andesite_door": {
+    "sound": "stone"
+  },
+  "levitate:brass_door": {
+    "sound": "stone"
+  },
+  "levitate:copper_door": {
+    "sound": "stone"
+  },
+  "levitate:train_door": {
+    "sound": "netherite"
+  },
+  "levitate:framed_glass_door": {
+    "sound": "glass"
+  },
+  "levitate:train_trapdoor": {
+    "sound": "netherite"
+  },
+  "levitate:framed_glass_trapdoor": {
+    "sound": "glass"
+  },
+  "levitate:metal_girder": {
+    "sound": "netherite"
+  },
+  "levitate:metal_girder_encased_shaft": {
+    "sound": "netherite"
+  },
+  "levitate:metal_bracket": {
+    "sound": "netherite"
+  },
+  "levitate:wooden_bracket": {
+    "sound": "scaffolding"
+  },
+  "levitate:white_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:orange_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:magenta_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:light_blue_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:yellow_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:lime_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:pink_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:gray_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:light_gray_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:cyan_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:purple_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:blue_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:brown_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:green_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:red_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:black_table_cloth": {
+    "sound": "cloth"
+  },
+  "levitate:andesite_table_cloth": {
+    "sound": "metal"
+  },
+  "levitate:brass_table_cloth": {
+    "sound": "metal"
+  },
+  "levitate:copper_table_cloth": {
+    "sound": "metal"
+  },
+  "levitate:placard": {
+    "sound": "copper"
+  },
+  "levitate:copycat_panel": {
+    "sound": "metal"
+  },
+  "levitate:copycat_step": {
+    "sound": "metal"
+  }
+}

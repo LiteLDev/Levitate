@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:cardboard_block"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "CC",
+      "CC"
+    ],
+    "key": {
+      "C": {
+        "item": "levitate:cardboard"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:cardboard"
+      }
+    ],
+    "result": {
+      "item": "levitate:cardboard_block",
+      "count": 1
+    }
+  }
+}

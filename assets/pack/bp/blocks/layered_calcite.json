@@ -1,0 +1,36 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:layered_calcite",
+      "menu_category": {
+        "category": "construction"
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.75
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.75
+      },
+      "minecraft:map_color": "#d1b1a1",
+      "minecraft:loot": "loot_tables/blocks/layered_calcite.json",
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "down": {
+          "texture": "levitate_calcite_cap",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "levitate_calcite_cap",
+          "render_method": "opaque"
+        },
+        "*": {
+          "texture": "levitate_calcite_layered",
+          "render_method": "opaque"
+        }
+      }
+    }
+  }
+}

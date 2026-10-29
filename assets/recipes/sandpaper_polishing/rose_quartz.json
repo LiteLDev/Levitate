@@ -1,0 +1,13 @@
+{
+  "type": "levitate:sandpaper_polishing",
+  "ingredients": [
+    {
+      "item": "levitate:rose_quartz"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:polished_rose_quartz"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:cut_granite_slab"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "XXX"
+    ],
+    "key": {
+      "X": {
+        "item": "levitate:cut_granite"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:cut_granite"
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_granite_slab",
+      "count": 6
+    }
+  }
+}

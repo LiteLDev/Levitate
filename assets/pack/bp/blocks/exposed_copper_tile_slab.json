@@ -1,0 +1,130 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:exposed_copper_tile_slab",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:top": [
+          0,
+          1
+        ],
+        "levitate:double": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 3.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6.0
+      },
+      "minecraft:map_color": "#a8806a",
+      "minecraft:loot": "loot_tables/blocks/exposed_copper_tile_slab.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.slab",
+        "bone_visibility": {
+          "bottom": "q.block_state('levitate:top') == 0 || q.block_state('levitate:double') == 1",
+          "top": "q.block_state('levitate:top') == 1 || q.block_state('levitate:double') == 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_copper_tiles_exposed",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          8,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          8,
+          16
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:top') == 1 && q.block_state('levitate:double') == 0",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              8,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              8,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:double') == 1",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          },
+          "minecraft:loot": "loot_tables/blocks/exposed_copper_tile_slab_double.json"
+        }
+      }
+    ]
+  }
+}

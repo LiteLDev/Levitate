@@ -1,0 +1,59 @@
+{
+  "type": "levitate:sequenced_assembly",
+  "ingredient": {
+    "tag": "c:dusts/obsidian"
+  },
+  "results": [
+    {
+      "id": "levitate:sturdy_sheet"
+    }
+  ],
+  "sequence": [
+    {
+      "type": "levitate:filling",
+      "ingredients": [
+        {
+          "item": "levitate:unprocessed_obsidian_sheet"
+        },
+        {
+          "fluid": "minecraft:lava",
+          "amount": 500
+        }
+      ],
+      "results": [
+        {
+          "id": "levitate:unprocessed_obsidian_sheet"
+        }
+      ]
+    },
+    {
+      "type": "levitate:pressing",
+      "ingredients": [
+        {
+          "item": "levitate:unprocessed_obsidian_sheet"
+        }
+      ],
+      "results": [
+        {
+          "id": "levitate:unprocessed_obsidian_sheet"
+        }
+      ]
+    },
+    {
+      "type": "levitate:pressing",
+      "ingredients": [
+        {
+          "item": "levitate:unprocessed_obsidian_sheet"
+        }
+      ],
+      "results": [
+        {
+          "id": "levitate:unprocessed_obsidian_sheet"
+        }
+      ]
+    }
+  ],
+  "transitional_item": {
+    "id": "levitate:unprocessed_obsidian_sheet"
+  }
+}
