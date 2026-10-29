@@ -265,10 +265,19 @@ using screen::Button;
 using screen::Rect;
 namespace color = screen::color;
 
+/// A render-only icon built from item JSON on the client thread (never a copy of a game-owned
+/// stack, as Screen::setCursorItem).
 std::shared_ptr<ItemStack> stackOf(Json const& j) {
-    auto s = items::fromJson(j);
-    if (items::isEmpty(s)) return nullptr;
-    return std::make_shared<ItemStack>(s);
+    if (!j.is_object()) return nullptr;
+    auto icon = std::make_shared<ItemStack>();
+    *icon     = items::fromJson(j);
+    if (icon->isNull()) return nullptr;
+    return icon;
+}
+
+std::vector<std::string> addressTips() {
+    return {ctr("create.gui.package_port.catch_packages_wildcard", "Use * as a text wildcard"),
+            ctr("create.gui.package_port.catch_packages_empty", "Leave empty to match non-addressed")};
 }
 
 class PortScreen : public screen::Screen {
@@ -282,10 +291,16 @@ public:
 
     void init() override {
         add<screen::Label>(Rect{7, 18, 162, 9}, ctr("create.gui.package_port.catch_packages", "Catch packages addressed to..."), color::kTextDark);
-        mAddress = &add<screen::Label>(Rect{7, 30, 120, 9}, "", color::kTextGold, screen::Align::Left, true);
-        auto& edit = add<screen::IconButton>(Rect{151, 26, 18, 18}, "A", [this] { mSend({{"op", "address"}}); });
-        edit.tooltip = {ctr("lv.packages.port.address", "Edit address"), ctr("create.gui.package_port.catch_packages_wildcard", "Use * as a text wildcard"),
-                        ctr("create.gui.package_port.catch_packages_empty", "Leave empty to match non-addressed")};
+        // Create's address box: typed in place, sent with Enter or when the box is left
+        mAddress = &add<screen::TextField>(Rect{7, 28, 162, 14}, mData.value("address", std::string{}), [this](std::string const& text) {
+            if (text == mData.value("address", std::string{})) return;
+            mData["address"] = text;
+            mSend({{"op", "address"}, {"text", text}});
+            log().info("package port address typed: '{}'", text);
+        });
+        mAddress->maxLength   = 50;
+        mAddress->placeholder = ctr("create.gui.package_port.catch_packages_empty", "Leave empty to match non-addressed");
+        mAddress->tooltip     = addressTips();
         for (int i = 0; i < 18; ++i) {
             auto r = core::common::gridCell(7, 46, 9, 18, i);
             mSlots.push_back(&add<screen::Slot>(r, [this, i](Button, bool) { mSend({{"op", "take"}, {"index", i}}); }));
@@ -300,8 +315,7 @@ public:
 
     void onData(Json const& data) override {
         mData = data;
-        auto address = data.value("address", std::string{});
-        mAddress->text = address.empty() ? "-" : address;
+        if (!mAddress->focused()) mAddress->text = data.value("address", std::string{});
         auto inv       = data.value("inventory", Json::array());
         for (std::size_t i = 0; i < mSlots.size(); ++i) {
             mSlots[i]->stack   = i < inv.size() ? stackOf(inv[i]) : nullptr;
@@ -323,10 +337,36 @@ public:
 private:
     screen::SendFn             mSend;
     Json                       mData;
-    screen::Label*             mAddress{};
+    screen::TextField*         mAddress{};
     screen::Label*             mMode{};
     screen::IconButton *       mSendRecv{}, *mSendOnly{};
     std::vector<screen::Slot*> mSlots;
+};
+
+/// Create's PackageFilterScreen: the address the filter matches, typed in one box.
+class PackageFilterScreen : public screen::Screen {
+public:
+    PackageFilterScreen(Json const& data, screen::SendFn send)
+    : Screen(ctr("lv.packages.package_filter", "Package Filter"), 176, 52),
+      mSend(std::move(send)),
+      mAddress(data.value("address", std::string{})) {}
+
+    void init() override {
+        add<screen::Label>(Rect{7, 18, 162, 9}, ctr("create.gui.package_port.catch_packages_wildcard", "Use * as a text wildcard"), color::kTextDark);
+        auto& field = add<screen::TextField>(Rect{7, 30, 162, 14}, mAddress, [this](std::string const& text) {
+            if (text == mAddress) return;
+            mAddress = text;
+            mSend({{"op", "address"}, {"text", text}});
+            log().info("package filter address typed: '{}'", text);
+        });
+        field.maxLength = 50;
+        field.tooltip   = addressTips();
+        field.focus(); // Create focuses the address box when the screen opens
+    }
+
+private:
+    screen::SendFn mSend;
+    std::string    mAddress;
 };
 
 } // namespace
@@ -366,6 +406,9 @@ public:
         feature::net::client::on("packages.packager", onTray);
         screen::registerServerScreen("packages.port", [](Json const& data, screen::SendFn send) {
             return std::make_unique<PortScreen>(data, std::move(send));
+        });
+        screen::registerServerScreen("packages.package_filter", [](Json const& data, screen::SendFn send) {
+            return std::make_unique<PackageFilterScreen>(data, std::move(send));
         });
         mExit = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             std::lock_guard lock(gMutex);

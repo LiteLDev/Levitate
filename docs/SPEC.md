@@ -1482,12 +1482,14 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   station with the postbox, then place it within 5 blocks, below is allowed). `levitate:flag` is up
   while it holds packages, `levitate:open` while its screen is open (barrel sounds). U27's trains use
   `postboxesForStation` / `insertIntoPort` / `extractFromPort`.
-- **Package filter**: right-click sets its address (a form); in filter slots it lets packages whose
+- **Package filter**: right-click sets its address (native screen `packages.package_filter` with one
+  address box for companions, a form for vanilla players); in filter slots it lets packages whose
   address matches through (an empty one behaves like a plain item). Lore `-> address`.
 - **Screens**: the port screen (address, send-and-receive / send-only, the 18 package slots: click
-  one to take it, click a package in the inventory to put it in) is native for companions with the
-  address typed in a form; vanilla clients get one form (address, mode, take a package, put my
-  packages in). The package filter's address is a form for everyone (§8).
+  one to take it, click a package in the inventory to put it in) is native for companions; the
+  address is typed into the screen's address box (native text field, at most 50 characters, sent
+  with Enter or when the box is left: action `{op: "address", text}`); vanilla clients get one form
+  (address, mode, take a package, put my packages in).
 - **Client mod**: draws both strands of every chain, the boxes hanging on chains (interpolated
   between the 4-tick updates), the frogport's tongue with the box it catches or sends, and the
   packager's tray sliding in and out; the wheel turns as a kinetic rotor.
@@ -1903,6 +1905,7 @@ placement transforms, print order, replace modes, checklist, blueprint layout; g
   sprinting) the corner is the block `range` (10, Ctrl-scroll 1..100) blocks along the view. With
   both corners: Ctrl-scroll pushes/pulls the face looked at (inverted from inside, never below one
   block; size shown in the action bar), right-click opens the name prompt (title "Schematic Name:",
+  a native text field taking any text but file name separators `\ / : * ? " < > |`, Enter saves;
   Save / "Save and Upload Immediately" / abort; empty name = "My Schematic"). Sneak-right-click
   discards ("Removed selection."). Saving writes `<name>.mcstructure` (a free `<name>_2...` unless
   converting), clears the selection, sends the file to the client mod's local folder; the oldest
@@ -1926,8 +1929,8 @@ placement transforms, print order, replace modes, checklist, blueprint layout; g
   Position until deployed), Ctrl+scroll uses it (distance / push along the look axis / up-down /
   90° turns and mirroring about the footprint's centre), right-click with Position deploys with the
   target block as the bottom centre (Ctrl: at the fixed distance), Print places it instantly
-  (creative, `creativePrintIncludesAir`). Sneak-right-click: coordinates screen (x, y, z, rotation,
-  mirror). Vanilla: right-click a block deploys there, sneak-right-click opens the same values as a
+  (creative, `creativePrintIncludesAir`). Sneak-right-click: coordinates screen (x, y, z as native number fields
+  taking digits and `-`, Enter confirms; rotation, mirror). Vanilla: right-click a block deploys there, sneak-right-click opens the same values as a
   form (with Print for creative players), particle outline of the bounds.
 - **Schematicannon.** Slots: schematic, used schematics out, book (book / book and quill /
   clipboard), checklist out, gunpowder (hoppers, funnels and arms insert into the matching slot and
@@ -2466,6 +2469,13 @@ filter item is taken from the inventory ⚠); right-click another clipboard merg
 `levitate:display_text` (one per board / tube; the client mod hides them); forms for the link
 (source, line, options; a second form for a newly chosen source's options) and the clipboard (one
 page per form: inputs, check toggles, page selector, erase checked).
+
+**Client mod**: the clipboard screen edits the page in place: one native text field per entry plus a
+blank one that adds an entry (512 characters each), check boxes, page buttons and Erase checked; a
+field's text is sent with Enter or when it is left (`{op: "set", page, entries}`; blank entries are
+dropped). Text options of the display link's source (e.g. a label) are text fields too
+(`{op: "option", key, value}`, 100 characters). The screens wait with rebuilding on new data while
+the player types.
 
 **Commands** (op, Levitate debug): `/create display text <x y z> <line> <text>` (`_` = space) writes
 a board line or a nixie row; `/create display bind <x y z> <tx ty tz> <source>` binds a link and
@@ -3080,7 +3090,11 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   payments and the order is sent to the shop's address ("ka-ching"). Sneak-use discards a list.
   A broken shop drops its programmed cloth.
 - **Client mod**: native screens (request, category editor, requester, gauge, gauge item picker);
-  text (addresses, search, category names) is typed in a form opened from the screen. Looking at a
+  text is typed into native text fields: the request screen's search box filters as the player
+  types (`{op: "search", text}`), its address box keeps the ticker's last used address
+  (`{op: "address", text}`, 50 characters); category names are edited in place in the category
+  editor (`{op: "rename", index, name}`); the requester's and the gauge's address boxes send
+  `{op: "set", address}`. Vanilla players get the same values as forms. Looking at a
   gauge panel shows its label and "in storage / target" (Create's value box text); looking at a
   ticker with payments shows them (owner).
 - **Log lines**: `stock: stock link placed at x y z on network …`, `stock: order of N item(s) in M
@@ -3384,7 +3398,8 @@ carriages with their contraption ids, speed, runtime, navigation); carriages per
 `/create killtrain <name|id>` (Create 6.0.10's `/create train remove`; the carriages are placed back
 as blocks where they are, see §8).
 
-**Screens.** Station (native for companions, forms for vanilla): idle (create new train / why not),
+**Screens.** Station (native for companions, forms for vanilla; the station name is the native
+screen's title text field, 25 characters, the present train's name a text field, 35): idle (create new train / why not),
 assembly (bogey count, how-to, errors, assemble / cancel), train present (name, disassemble or
 "Cannot disassemble, not all carriages aligned", retrieve schedule / discard auto-schedule), door
 control (Open All / North / East / South / West / None), arriving trains with Create's ETA texts
@@ -3592,7 +3607,6 @@ matches Create's official Chinese translation wording).
 | Saw / drill damage source names (U16) | Bedrock has no custom damage causes | contact damage (death message of a cactus-like cause) |
 | Comparator output of packagers (0 / 15), frogports and postboxes (U25) | custom blocks without a block entity can't give comparators a signal | none; read the port / packager state with other means (display links, U24) |
 | Packages as physical entities (thrown, put down, on the ground) (U25) | Create's PackageEntity is a custom entity with its own model and physics | thrown / put-down packages are item entities (same velocity); breaking or opening is done with the item |
-| Typing an address into a native screen (frogport, postbox, package filter) (U25) | the native screen framework has no text field | the address is typed into a form (all clients); the rest of the port screen is native |
 | Chains, hanging packages, frogport tongue and packager tray for **vanilla** clients (U25) | no client-side rendering without the client mod | the client mod draws them; vanilla clients see the static conveyor, frogport and packager models and the postbox flag / lid states |
 | The chain conveyor wheel's size (U25) | Bedrock block geometry is limited to 30 px per axis | the wheel is 28 px across instead of Create's 2.5 blocks; the chains still start 1.25 blocks from the centre |
 | Riding chains is client-side in Create (U25) | the server can't move a vanilla client smoothly | the server moves the rider every tick (teleport towards the chain point, as Create's 0.25 pull) |
@@ -3663,7 +3677,6 @@ matches Create's official Chinese translation wording).
 | Ghost preview of exact block models (U29) | drawing every block model translucently needs the chunk tessellator | the client mod draws each block as a textured cube with its own face textures |
 | Animated schematicannon barrel (U29) | the barrel is part of the block model | static barrel; the client mod draws the launched blocks flying to their target, everyone sees smoke and placement particles |
 | Material checklist on a clipboard (U29) | the clipboard is U24's | a clipboard in the paper slot also gives a written book |
-| Text input in native screens (U29) | the screen framework sees key codes, not text | the quill prompt and the coordinates screen take letters, digits, space, `-`, `_`, `.`; other characters through the form fallback |
 
 | Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer, for **vanilla** clients (U11) | Bedrock has no item renderer for vanilla clients | the client mod draws each stack (display items, U33: lying, half size, a pile for bigger stacks, interpolated between ticks) and does not draw the fallback; vanilla players see each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick); with `displayItems` off they see nothing |
 | Sloped belt collision shape (U11) | a custom block has one collision box | slopes collide as a half slab; entities are carried up / down by the belt code |
@@ -3680,7 +3693,6 @@ matches Create's official Chinese translation wording).
 | Display board text for **vanilla** clients (U24) | no client-side text rendering on blocks without the client mod | the lines as a name tag in front of a turning board (invisible entity, colours as § codes, no flap animation); the client mod draws the split flaps |
 | Nixie tube glyphs for **vanilla** clients (U24) | same | the two characters as a coloured name tag above each tube |
 | Display link / nixie tube redstone input (U24) | custom blocks get no redstone neighbour updates | polled every 2 ticks from the neighbours' states (wire, torches, levers, buttons, plates, repeaters, comparators, observers, redstone blocks); strong power through solid blocks is not seen |
-| Clipboard text editing in the native screen (U24) | the client mod's screen framework has no text field | the native screen shows pages, checkboxes, erase and page buttons; its edit button opens the server form for the text |
 | "Clipboard Actions" hover tip and block outline while holding a clipboard (U24) | per-frame client logic for every block's settings | the action bar tells what was copied / pasted |
 | Deaths statistic of the respawn anchor source (U24) | Bedrock has no deaths statistic | Levitate counts player deaths per world (`lv:display:deaths`) |
 | Display link placement by a SimulatedPlayer (U24 selftests) | `simulateUseItemInSlotOnBlock` does not place this block item | the selftest places the block itself after the item logic; the client e2e places it for real |
@@ -3692,7 +3704,7 @@ matches Create's official Chinese translation wording).
 | Train map colours / map markers (U27) | no map mods on Bedrock | none |
 | Removing a train without placing its blocks (`/create train remove`, U27) | the contraption API only disassembles | `/create killtrain` places the carriages back as blocks where they stand |
 | Wrench relocation of derailed trains (U27) | needs U8's wrench and Create's client-side placement preview | derailed trains re-attach when the track under their front returns; otherwise disassemble them with `/create killtrain` |
-| Text fields in the native station / schedule screens (U27) | the native screen framework has no text input | the name / filter buttons open the server's form for that field |
+| Text fields in the native schedule editor (U27) | Create's instruction / condition editors are whole sub-screens of the schedule screen | their edit buttons open the server's form for that entry; station and train names are native text fields in the station screen |
 Units add rows here in their PRs when they find something else impossible.
 
 | Items drawn inside chutes by a block entity renderer, for **vanilla** clients (U12) | custom blocks have no block entity renderers | the client mod draws the moving stack (display item, U33, interpolated); vanilla clients get client-only item entities (packets only, never a server entity, so nobody can pick them up) that follow each moving stack |
@@ -3751,7 +3763,6 @@ Units add rows here in their PRs when they find something else impossible.
 | Factory gauge item icons, counts and connection arrows drawn on the panel (U26) | no world-space item / text renderer | the client mod shows the panel's label and "in storage / target" next to the crosshair; the bulb is the block model |
 | "Click and hold" on a gauge panel / price tag for the amount board (U26) | the server only sees discrete clicks | Sneak + empty-hand click opens the board |
 | Gauge mechanical crafting arrangement ("Use Mechanical Crafting") and JEI recipe sync (U26) | no recipe viewer; Bedrock crafting recipes are not readable as patterns from a mod | panels send their inputs as plain orders |
-| Text fields in the stock screens (U26) | the native screen framework has no text field | the address / search / category name buttons open a form |
 Units add rows here in their PRs when they find something else impossible.
 
 ## 9. Work plan
