@@ -5,8 +5,17 @@
 
 #include <cmath>
 
+#include "ll/api/service/Bedrock.h"
+
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/legacy/ActorUniqueID.h"
+#include "mc/world/actor/Actor.h"
+#include "mc/world/level/Level.h"
+#include "mc/scripting/modules/minecraft/ScriptFacing.h"
+#include "mc/server/SimulatedPlayer.h"
+#include "mc/server/sim/LookDuration.h"
 #include "mc/world/actor/player/Inventory.h"
+#include "mc/world/level/dimension/DimensionType.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -123,6 +132,23 @@ std::optional<std::uint64_t> assembleTrain(Context& ctx, Line const& l, bool dou
     return id;
 }
 
+/// Every carried block's display entity stands at the block's world position.
+bool displaysFollow(cn::Contraption const& con) {
+    auto level = ll::service::getLevel();
+    if (!level) return false;
+    for (auto const& b : con.blocks()) {
+        ActorUniqueID uid;
+        uid.rawID = b.display;
+        auto* a   = level->fetchEntity(uid, false);
+        if (!a) return false;
+        auto   w = con.toWorld(lv::core::contraption::Vec3d::center(b.local));
+        auto   f = a->getPosition();
+        double d = std::abs(f.x - w.x) + std::abs(f.z - w.z);
+        if (d > 1.0) return false;
+    }
+    return true;
+}
+
 ct::Schedule twoStops(std::string const& suffix, int waitTicks) {
     ct::Schedule sch;
     for (auto const* name : {"U27 Station B", "U27 Station A"}) {
@@ -212,6 +238,9 @@ LV_REGISTER_SELFTEST("trains.schedule_round_trip", [](Context& ctx) -> ll::coro:
             ctx.info("arrived at B after " + std::to_string(i) + " ticks");
             auto* con = cn::find(t->carriages[0].contraption);
             ctx.check(con && std::abs(con->transform().offset.x - startX - 40) < 0.6, "the carriage moved 40 blocks east");
+            co_await ctx.ticks(2);
+            con = cn::find(t->carriages[0].contraption);
+            if (con) ctx.check(displaysFollow(*con), "the carriage's display entities are at its blocks");
         }
         if (atB && t->currentStation == l.stationA.key()) backAtA = true;
     }
@@ -392,5 +421,100 @@ LV_REGISTER_SELFTEST("trains.ext_and_commands", [](Context& ctx) -> ll::coro::Co
     co_await ctx.ticks(2);
     ctx.check(!tn::findTrain(*id), "removing a train (killtrain) works");
     teardown(l);
+    co_await ctx.ticks(2);
+});
+
+LV_REGISTER_SELFTEST("trains.curve", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // a line east, a 90° curve (made with the track item, as a player) and a line north
+    GlobalPos base = ctx.testPos(2740, 12);
+    ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    ctx.require(co_await ctx.ensureLoaded(at(base, 29, 0, -30)), "test area loaded (north)");
+    clearBox(at(base, -1, 0, -32), at(base, 32, 4, 2));
+    co_await ctx.ticks(2);
+    auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
+    auto tracksItem = lv::feature::common::items::make(tr::kTrackId, 64);
+    ctx.require(tracksItem.has_value(), "track item");
+    ctx.give(sp, *tracksItem, 0);
+    GlobalPos a = at(base, 20), b = at(base, 29, 0, -9);
+    ctx.setBlock(a, std::string(tr::kTrackId), xo());
+    auto zo = xo();
+    zo[0].second = int(lv::core::tracks::Shape::ZO);
+    ctx.setBlock(b, std::string(tr::kTrackId), zo);
+    auto look = [&](GlobalPos const& p) {
+        sp.simulateLookAt(Vec3{p.x + .5f, p.y + .5f, p.z + .5f}, sim::LookDuration::Continuous);
+    };
+    auto use = [&](GlobalPos const& p) {
+        return sp.simulateUseItemInSlotOnBlock(0, BlockPos{p.x, p.y, p.z}, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{0.5f, 1.0f, 0.5f});
+    };
+    sp.teleport(Vec3{a.x - 1.5f, float(a.y), a.z + .5f}, DimensionType(base.dim));
+    co_await ctx.ticks(2);
+    look(at(a, 6));
+    co_await ctx.ticks(2);
+    use(a);
+    co_await ctx.ticks(6);
+    sp.teleport(Vec3{b.x + .5f, float(b.y), b.z + 3.5f}, DimensionType(base.dim));
+    co_await ctx.ticks(2);
+    look(b);
+    co_await ctx.ticks(2);
+    use(b);
+    co_await ctx.ticks(4);
+    for (int x = 0; x < 20; ++x) ctx.setBlock(at(base, x), std::string(tr::kTrackId), xo());
+    for (int z = -10; z >= -30; --z) ctx.setBlock(at(base, 29, 0, z), std::string(tr::kTrackId), zo);
+    co_await ctx.ticks(4);
+
+    Line l;
+    l.base     = base;
+    l.trackA   = at(base, 8);
+    l.stationA = at(base, 8, 0, 1);
+    l.trackB   = at(base, 29, 0, -24);
+    l.stationB = at(base, 30, 0, -24);
+    ctx.setBlock(l.stationA, std::string(tn::kStation));
+    ctx.setBlock(l.stationB, std::string(tn::kStation));
+    co_await ctx.ticks(2);
+    std::string err;
+    ctx.require(tn::createStation(l.stationA, l.trackA, 1, 0, &err), "station A: " + err);
+    ctx.require(tn::createStation(l.stationB, l.trackB, 0, -1, &err), "station B: " + err);
+    tn::stationAt(l.stationA)->name = "U27 Curve A";
+    tn::stationAt(l.stationB)->name = "U27 Curve B";
+    tn::refreshStationPoints();
+    auto id = assembleTrain(ctx, l, false);
+    ctx.require(id.has_value(), "the train assembles");
+    auto* t = tn::findTrain(*id);
+    t->testConductor = true;
+    ct::Schedule sch;
+    auto         e = ct::Entry::makeDefault();
+    e.instruction.data["Text"] = "U27 Curve B";
+    sch.entries.push_back(e);
+    sch.cyclic = false;
+    t->runtime.setSchedule(sch, false);
+    bool   arrived = false, sawTurn = false, followed = true;
+    double maxAngle = 0;
+    for (int i = 0; i < 1200 && !arrived; ++i) {
+        co_await ctx.ticks(1);
+        t = tn::findTrain(*id);
+        if (!t) break;
+        auto* con = cn::find(t->carriages[0].contraption);
+        if (!con) break;
+        double angle = std::abs(con->transform().angle);
+        maxAngle     = std::max(maxAngle, angle);
+        if (angle > 20 && angle < 70) {
+            sawTurn = true;
+            if (i % 5 == 0) followed = followed && displaysFollow(*con);
+        }
+        arrived = t->currentStation == l.stationB.key();
+    }
+    ctx.check(sawTurn, "the carriage turned through the curve");
+    ctx.check(followed, "display entities follow the carriage through the curve");
+    ctx.check(arrived, "the train arrived at B on the north branch");
+    ctx.check(std::abs(maxAngle - 90) < 3, "the carriage ends up turned 90° (" + std::to_string(maxAngle) + ")");
+    co_await ctx.ticks(3);
+    if (t) {
+        if (auto* con = cn::find(t->carriages[0].contraption)) ctx.check(displaysFollow(*con), "display entities stand at the carriage at B");
+    }
+    removeTrainsNear(base);
+    tn::removeTrain(*id);
+    tn::removeStation(l.stationA);
+    tn::removeStation(l.stationB);
+    clearBox(at(base, -1, 0, -32), at(base, 32, 4, 2));
     co_await ctx.ticks(2);
 });

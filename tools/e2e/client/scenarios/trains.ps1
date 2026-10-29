@@ -65,4 +65,4 @@ Save-Screenshot 'schedule-screen' | Out-Null
 if ($script:Mode -eq 'remote-vanilla') { Close-Screen } else { Press-Key E; Start-Sleep -Milliseconds 800 }
 
 $r = Invoke-SelfTest 'trains.*' -TimeoutSeconds 900
-if ($r.Pass -lt 6) { throw "expected at least 6 trains selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 7) { throw "expected at least 7 trains selftests to pass, got $($r.Pass)" }

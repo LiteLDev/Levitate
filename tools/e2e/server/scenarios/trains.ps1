@@ -3,7 +3,7 @@
 # collisions, derailment, the TrainsExt hooks for signals and disassembly at a station.
 $mark = Get-LogMark
 $r = Invoke-SelfTest 'trains.*' -TimeoutSeconds 900
-if ($r.Pass -lt 6) { throw "expected at least 6 trains selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 7) { throw "expected at least 7 trains selftests to pass, got $($r.Pass)" }
 Wait-LogLine 'trains: station placed at' 10 -Since $mark | Out-Null
 Wait-LogLine 'trains: bogey created at' 10 -Since $mark | Out-Null
 Wait-LogLine "trains: assembled train #\d+ '.*' with 1 carriages" 10 -Since $mark | Out-Null
