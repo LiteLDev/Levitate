@@ -27,7 +27,7 @@ std::set<GlobalPos>& dirty() {
 bool isPaneLike(Block const& b) {
     if (auto const* i = infoOf(b)) return i->kind == Kind::Pane || i->kind == Kind::Bars;
     std::string const& id = b.getTypeName();
-    return id == "minecraft:iron_bars" || id.find("glass_pane") != std::string::npos;
+    return id.ends_with("_bars") || id.find("glass_pane") != std::string::npos;
 }
 
 bool isWall(Block const& b) {
@@ -118,7 +118,7 @@ bool verticalAttach(GlobalPos const& p, int dir) {
     if (isGirderLike(*n)) return true;
     std::string const& id = n->getTypeName();
     if (isWall(*n)) return true;
-    if (id == "minecraft:chain") return stateOf(*n, "pillar_axis", 0) == 0; // (string state: kept if present)
+    if (id == "minecraft:chain" || id.ends_with("_chain")) return stateOf(*n, "pillar_axis", 0) == 0; // (string state: kept if present)
     if (id == "minecraft:lantern" || id == "minecraft:soul_lantern") return (dir == Down) == (stateOf(*n, "hanging") == 1);
     if (id == kPlacardId) return stateOf(*n, "levitate:facing") == dir;
     return false;
@@ -208,6 +208,7 @@ bool updateConnections(GlobalPos const& p) {
     case Kind::Ladder: {
         // MetalLadderBlock.canSurvive: a sturdy wall behind, or the same ladder above
         int  facing = hfacingOf(*block);
+        if (!blockAt(offset(p, opposite(facing)))) return false; // wall not loaded
         auto above  = blockAt(offset(p, Up));
         bool held   = sturdy(offset(p, opposite(facing)), facing)
                  || (above && above->getTypeName() == info->id && hfacingOf(*above) == facing);
@@ -215,9 +216,10 @@ bool updateConnections(GlobalPos const& p) {
         return false;
     }
     case Kind::Placard: {
-        int facing = stateOf(*block, "levitate:facing", Up);
-        auto const* support = blockAt(offset(p, opposite(facing)));
-        if (support && support->isAir()) scheduleBreak(p, info->id, true);
+        int  facing  = stateOf(*block, "levitate:facing", Up);
+        auto support = offset(p, opposite(facing));
+        if (blockAt(support) && !canHang(support)) scheduleBreak(p, info->id, true);
+        if (stateOf(*block, "levitate:powered")) ensurePlacardPulse(p);
         return false;
     }
     default: return false;

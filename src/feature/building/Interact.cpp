@@ -45,8 +45,9 @@ std::uint64_t& now() {
     return t;
 }
 /// Bedrock repeats a use while the button is held: toggles happen once per 5 ticks.
-bool toggleCooldown(Player& player) {
-    auto& last = lastToggle()[player.getOrCreateUniqueID().rawID];
+bool toggleCooldown(Player& player, GlobalPos const& pos) {
+    auto key   = player.getOrCreateUniqueID().rawID * 31 + std::hash<std::string>{}(pos.key());
+    auto& last = lastToggle()[key];
     if (now() - last < 5 && last != 0) return true;
     last = now();
     return false;
@@ -156,7 +157,13 @@ bool girderShaft(Player& player, GlobalPos const& pos, int face) {
 } // namespace
 
 bool onUse(Player& player, ItemStack const& item, GlobalPos const& pos, int face, Vec3 const& hit, bool firstEvent) {
-    (void)firstEvent; // SimulatedPlayers never send a first event: repeats are limited by a cooldown
+    // a held button repeats the use: only the first event acts (SimulatedPlayers never send a first
+    // event, a short per-block cooldown limits their repeats instead)
+    if (!firstEvent && !player.isSimulated()) {
+        auto k = kindAt(pos);
+        if (k == Kind::Door || k == Kind::Trapdoor || k == Kind::Placard) return true;
+    }
+    bool build = mayBuild(player);
     bool  sneak  = player.isSneaking();
     bool  empty  = item.isNull();
     auto  kind   = kindAt(pos);
@@ -167,40 +174,41 @@ bool onUse(Player& player, ItemStack const& item, GlobalPos const& pos, int face
     case Kind::Door:
     case Kind::Trapdoor:
         if (sneak && !empty) break;
-        if (toggleCooldown(player)) return true;
+        if (toggleCooldown(player, pos)) return true;
         return kind == Kind::Door ? useDoor(&player, pos) : useTrapdoor(&player, pos);
     case Kind::Placard:
         if (sneak) break;
-        if (toggleCooldown(player)) return true;
+        if (toggleCooldown(player, pos)) return true;
         return usePlacard(player, item, pos);
     case Kind::CopycatPanel:
     case Kind::CopycatStep:
-        if (sneak) break;
+        if (sneak || !build) break;
         if (useCopycat(player, item, pos)) return true;
         break;
     case Kind::Girder:
-        if (heldId == kShaftId) return girderShaft(player, pos, face);
+        if (heldId == kShaftId && build) return girderShaft(player, pos, face);
         break;
     case Kind::CopperBlock:
     case Kind::CopperStairs:
     case Kind::CopperSlab:
-        if (!item.isNull() && (heldId == "minecraft:honeycomb" || heldId.ends_with("_axe"))) {
-            if (toggleCooldown(player)) return true;
+        if (build && (heldId == "minecraft:honeycomb" || heldId.ends_with("_axe"))) {
+            if (toggleCooldown(player, pos)) return true;
             if (tryWaxOrScrape(player, item, pos)) return true;
         }
-        if (kind == Kind::CopperSlab && held && held->id == idAt(pos)) {
+        if (kind == Kind::CopperSlab && build && held && held->id == idAt(pos)) {
             auto const* b = blockAt(pos);
             if (b && slabAccepts(*b, face, hit.y)) return mergeSlab(player, pos);
         }
         break;
     case Kind::Scaffold:
-        if (held && held->kind == Kind::Scaffold && held->id == idAt(pos) && !sneak) return scaffoldHelper(player, *held, pos, face);
+        if (build && held && held->kind == Kind::Scaffold && held->id == idAt(pos) && !sneak) return scaffoldHelper(player, *held, pos, face);
         break;
     case Kind::Ladder:
-        if (held && held->kind == Kind::Ladder && !sneak && ladderHelper(player, *held, pos)) return true;
+        if (build && held && held->kind == Kind::Ladder && !sneak && ladderHelper(player, *held, pos)) return true;
         break;
     default: break;
     }
+    if (!build) return false;
     if (useBracket(player, item, pos, face)) return true;
     // a slab placed into the cell of a single slab of the same kind (Java: always merges)
     if (held && held->kind == Kind::CopperSlab && !replaceableAt(pos)) {
@@ -260,8 +268,7 @@ void onPlaced(Player& player, GlobalPos const& pos, int face, Vec3 const& hit) {
         // FaceAttachedHorizontalDirectionalBlock: the first look direction it can hang on
         for (int d : nearestLooking(player)) {
             int facing = opposite(d);
-            auto const* support = blockAt(offset(pos, d));
-            if (!support || support->isAir()) continue;
+            if (!canHang(offset(pos, d))) continue;
             set(pos, *withStates(*block, {{"levitate:facing", facing}, {"levitate:powered", 0}}));
             return;
         }
@@ -339,8 +346,10 @@ LL_TYPE_INSTANCE_HOOK(
     auto before = idAt(target);
     auto result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
     if (before != held->id && idAt(target) == held->id) {
+        // Java measures the click from the placed block
+        Vec3 placedHit{at.x + rel.x - target.x, at.y + rel.y - target.y, at.z + rel.z - target.z};
         try {
-            onPlaced(player, target, face, rel);
+            onPlaced(player, target, face, placedHit);
         } catch (std::exception const& e) {
             log().error("building: placing {} failed: {}", held->id, e.what());
         }

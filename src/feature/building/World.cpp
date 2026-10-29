@@ -11,6 +11,7 @@
 #include "mc/network/MinecraftPacketIds.h"
 #include "mc/network/MinecraftPackets.h"
 #include "mc/network/packet/PlaySoundPacket.h"
+#include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -77,6 +78,17 @@ bool solidAt(GlobalPos const& p) {
     return b && !b->isAir() && b->mCachedComponentData->mIsSolid;
 }
 
+bool canHang(GlobalPos const& p) {
+    auto const* b = blockAt(p);
+    if (!b || b->isAir()) return false;
+    if (b->mCachedComponentData->mIsSolid) return true;
+    for (int f = 0; f < 6; ++f)
+        if (b->canProvideSupport(static_cast<uchar>(f), BlockSupportType::Any)) return true;
+    return infoOf(*b) != nullptr && infoOf(*b)->kind != Kind::Placard;
+}
+
+bool mayBuild(Player const& player) { return player.canUseAbility(AbilitiesIndex::Build); }
+
 namespace {
 
 /// The neighbour block powers its neighbours (Java's getSignal > 0 for the usual sources).
@@ -99,7 +111,7 @@ bool stronglyPowered(GlobalPos const& p) {
         if (!n || n->isAir()) continue;
         std::string const& id = n->getTypeName();
         if (id == "minecraft:lever" && game::intState(*n, "open_bit").value_or(0) != 0) return true;
-        if (game::intState(*n, "button_pressed_bit").value_or(0) != 0) return true;
+        if (game::intState(*n, "button_pressed_bit").value_or(0) != 0 && game::intState(*n, "facing_direction").value_or(d) == d) return true;
         if (id == kPlacardId && game::intState(*n, "levitate:powered").value_or(0) != 0
             && game::intState(*n, "levitate:facing").value_or(1) == d) {
             return true; // the placard faces away from the block it hangs on

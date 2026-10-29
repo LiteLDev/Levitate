@@ -129,6 +129,10 @@ bool clear(GlobalPos const& p);
 /// The face `face` of the block at `p` can hold a ladder / torch (Create's isFaceSturdy).
 [[nodiscard]] bool sturdy(GlobalPos const& p, int face);
 [[nodiscard]] bool solidAt(GlobalPos const& p);
+/// Create's PlacardBlock.canAttachLenient: the block at `p` has a collision shape.
+[[nodiscard]] bool canHang(GlobalPos const& p);
+/// The player may change the world (Java mayBuild).
+[[nodiscard]] bool mayBuild(Player const& player);
 /// The block at `p` receives redstone power from a neighbour (Java hasNeighborSignal).
 [[nodiscard]] bool hasNeighborSignal(GlobalPos const& p);
 void playSound(GlobalPos const& p, std::string const& sound, float volume = 1.f, float pitch = 1.f);
@@ -190,6 +194,8 @@ void redstoneTick();
 bool usePlacard(Player& player, ItemStack const& item, GlobalPos const& pos);
 bool attackPlacard(Player& player, GlobalPos const& pos);
 void placardTick();
+/// A powered placard without a running pulse (saved mid-pulse) gets a fresh one.
+void ensurePlacardPulse(GlobalPos const& pos);
 [[nodiscard]] std::optional<std::string> placardItem(GlobalPos const& pos);
 
 // copycats and brackets

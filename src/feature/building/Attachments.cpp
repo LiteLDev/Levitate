@@ -92,7 +92,10 @@ bool usePlacard(Player& player, ItemStack const& inHand, GlobalPos const& pos) {
     ItemStack inBlock = heldItemOf(pos, "item");
     if (!player.canUseAbility(AbilitiesIndex::Build) || inHand.isNull() || !inBlock.isNull()) {
         if (inBlock.isNull() || inHand.isNull()) return true; // FAIL: nothing happens
-        if (stateOf(*block, "levitate:powered")) return true;
+        if (stateOf(*block, "levitate:powered")) {
+            ensurePlacardPulse(pos); // powered when the world was saved: finish the pulse
+            return true;
+        }
         bool test = common::filter::isFilterItem(inBlock) ? common::filter::matches(inBlock, inHand) : items::sameItemSameData(inHand, inBlock);
         if (!test) {
             playSound(pos, "note.bass", 1.f, 0.6f); // Create's DENY
@@ -123,6 +126,8 @@ bool attackPlacard(Player& player, GlobalPos const& pos) {
     log().info("building: placard at {} {} {} emptied by {}", pos.x, pos.y, pos.z, player.getRealName());
     return true;
 }
+
+void ensurePlacardPulse(GlobalPos const& pos) { pulses().try_emplace(pos, 19); }
 
 void placardTick() {
     auto& p = pulses();
