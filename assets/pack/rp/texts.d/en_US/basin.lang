@@ -1,0 +1,6 @@
+tile.levitate:basin.name=Basin
+tile.levitate:mechanical_press.name=Mechanical Press
+tile.levitate:mechanical_mixer.name=Mechanical Mixer
+tile.levitate:blaze_burner.name=Blaze Burner
+tile.levitate:empty_blaze_burner.name=Empty Blaze Burner
+tile.levitate:lit_blaze_burner.name=Lit Blaze Burner

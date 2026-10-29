@@ -1,0 +1,14 @@
+{
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "item",
+          "name": "levitate:polished_cut_ochrum_wall",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

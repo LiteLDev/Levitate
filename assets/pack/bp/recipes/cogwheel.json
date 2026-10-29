@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:cogwheel"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:shaft"
+      },
+      {
+        "tag": "minecraft:planks"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:shaft"
+      }
+    ],
+    "result": {
+      "item": "levitate:cogwheel",
+      "count": 1
+    }
+  }
+}

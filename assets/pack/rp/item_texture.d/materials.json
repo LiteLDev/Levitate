@@ -1,0 +1,164 @@
+{
+  "levitate_raw_zinc": {
+    "textures": "textures/items/raw_zinc"
+  },
+  "levitate_zinc_ingot": {
+    "textures": "textures/items/zinc_ingot"
+  },
+  "levitate_zinc_nugget": {
+    "textures": "textures/items/zinc_nugget"
+  },
+  "levitate_brass_ingot": {
+    "textures": "textures/items/brass_ingot"
+  },
+  "levitate_brass_nugget": {
+    "textures": "textures/items/brass_nugget"
+  },
+  "levitate_brass_sheet": {
+    "textures": "textures/items/brass_sheet"
+  },
+  "levitate_copper_sheet": {
+    "textures": "textures/items/copper_sheet"
+  },
+  "levitate_iron_sheet": {
+    "textures": "textures/items/iron_sheet"
+  },
+  "levitate_golden_sheet": {
+    "textures": "textures/items/golden_sheet"
+  },
+  "levitate_copper_nugget": {
+    "textures": "textures/items/copper_nugget"
+  },
+  "levitate_andesite_alloy": {
+    "textures": "textures/items/andesite_alloy"
+  },
+  "levitate_crushed_raw_iron": {
+    "textures": "textures/items/crushed_raw_iron"
+  },
+  "levitate_crushed_raw_gold": {
+    "textures": "textures/items/crushed_raw_gold"
+  },
+  "levitate_crushed_raw_copper": {
+    "textures": "textures/items/crushed_raw_copper"
+  },
+  "levitate_crushed_raw_zinc": {
+    "textures": "textures/items/crushed_raw_zinc"
+  },
+  "levitate_powdered_obsidian": {
+    "textures": "textures/items/powdered_obsidian"
+  },
+  "levitate_cinder_flour": {
+    "textures": "textures/items/cinder_flour"
+  },
+  "levitate_wheat_flour": {
+    "textures": "textures/items/wheat_flour"
+  },
+  "levitate_dough": {
+    "textures": "textures/items/dough"
+  },
+  "levitate_rose_quartz": {
+    "textures": "textures/items/rose_quartz"
+  },
+  "levitate_polished_rose_quartz": {
+    "textures": "textures/items/polished_rose_quartz"
+  },
+  "levitate_electron_tube": {
+    "textures": "textures/items/electron_tube"
+  },
+  "levitate_precision_mechanism": {
+    "textures": "textures/items/precision_mechanism"
+  },
+  "levitate_propeller": {
+    "textures": "textures/items/propeller"
+  },
+  "levitate_whisk": {
+    "textures": "textures/items/whisk"
+  },
+  "levitate_brass_hand": {
+    "textures": "textures/items/brass_hand"
+  },
+  "levitate_crafter_slot_cover": {
+    "textures": "textures/items/crafter_slot_cover"
+  },
+  "levitate_sturdy_sheet": {
+    "textures": "textures/items/sturdy_sheet"
+  },
+  "levitate_transmitter": {
+    "textures": "textures/items/transmitter"
+  },
+  "levitate_pulp": {
+    "textures": "textures/items/pulp"
+  },
+  "levitate_blaze_cake_base": {
+    "textures": "textures/items/blaze_cake_base"
+  },
+  "levitate_crushed_raw_osmium": {
+    "textures": "textures/items/crushed_raw_osmium"
+  },
+  "levitate_crushed_raw_platinum": {
+    "textures": "textures/items/crushed_raw_platinum"
+  },
+  "levitate_crushed_raw_silver": {
+    "textures": "textures/items/crushed_raw_silver"
+  },
+  "levitate_crushed_raw_tin": {
+    "textures": "textures/items/crushed_raw_tin"
+  },
+  "levitate_crushed_raw_lead": {
+    "textures": "textures/items/crushed_raw_lead"
+  },
+  "levitate_crushed_raw_quicksilver": {
+    "textures": "textures/items/crushed_raw_quicksilver"
+  },
+  "levitate_crushed_raw_aluminum": {
+    "textures": "textures/items/crushed_raw_aluminum"
+  },
+  "levitate_crushed_raw_uranium": {
+    "textures": "textures/items/crushed_raw_uranium"
+  },
+  "levitate_crushed_raw_nickel": {
+    "textures": "textures/items/crushed_raw_nickel"
+  },
+  "levitate_incomplete_precision_mechanism": {
+    "textures": "textures/items/incomplete_precision_mechanism"
+  },
+  "levitate_unprocessed_obsidian_sheet": {
+    "textures": "textures/items/unprocessed_obsidian_sheet"
+  },
+  "levitate_cardboard": {
+    "textures": "textures/items/cardboard"
+  },
+  "levitate_experience_nugget": {
+    "textures": "textures/items/experience_nugget"
+  },
+  "levitate_refined_radiance": {
+    "textures": "textures/items/refined_radiance"
+  },
+  "levitate_shadow_steel": {
+    "textures": "textures/items/shadow_steel"
+  },
+  "levitate_chromatic_compound": {
+    "textures": "textures/items/chromatic_compound"
+  },
+  "levitate_blaze_cake": {
+    "textures": "textures/items/blaze_cake"
+  },
+  "levitate_creative_blaze_cake": {
+    "textures": "textures/items/creative_blaze_cake"
+  },
+  "levitate_bar_of_chocolate": {
+    "textures": "textures/items/bar_of_chocolate"
+  },
+  "levitate_sweet_roll": {
+    "textures": "textures/items/sweet_roll"
+  },
+  "levitate_chocolate_glazed_berries": {
+    "textures": "textures/items/chocolate_glazed_berries"
+  },
+  "levitate_honeyed_apple": {
+    "textures": "textures/items/honeyed_apple"
+  },
+  "levitate_builders_tea": {
+    "textures": "textures/items/builders_tea"
+  }
+}

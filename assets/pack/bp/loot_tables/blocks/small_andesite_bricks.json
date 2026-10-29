@@ -1,0 +1,14 @@
+{
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "item",
+          "name": "levitate:small_andesite_bricks",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

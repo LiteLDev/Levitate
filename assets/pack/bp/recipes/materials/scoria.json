@@ -1,0 +1,13 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_furnace": {
+    "description": {
+      "identifier": "levitate:scoria"
+    },
+    "tags": [
+      "furnace"
+    ],
+    "input": "minecraft:soul_sand",
+    "output": "levitate:scoria"
+  }
+}

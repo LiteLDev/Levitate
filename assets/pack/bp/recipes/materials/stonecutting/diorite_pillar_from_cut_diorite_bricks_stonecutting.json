@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:diorite_pillar_from_cut_diorite_bricks_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:cut_diorite_bricks"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:cut_diorite_bricks"
+      }
+    ],
+    "result": {
+      "item": "levitate:diorite_pillar",
+      "count": 1
+    }
+  }
+}

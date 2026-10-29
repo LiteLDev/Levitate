@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:yellow_postbox_from_purple_postbox"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:yellow_dye"
+      },
+      {
+        "item": "levitate:purple_postbox"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:purple_postbox"
+      }
+    ],
+    "result": {
+      "item": "levitate:yellow_postbox",
+      "count": 1
+    }
+  }
+}

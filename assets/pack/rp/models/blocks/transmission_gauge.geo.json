@@ -1,0 +1,2731 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.transmission_gauge_side_x",
+        "texture_width": 64,
+        "texture_height": 64,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "casing",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                0,
+                -8
+              ],
+              "size": [
+                16,
+                16,
+                16
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "head"
+                },
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "side"
+                },
+                "west": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "end"
+                },
+                "east": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "end"
+                },
+                "up": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "side"
+                },
+                "down": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "side"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "rotor",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                6,
+                -2
+              ],
+              "size": [
+                16,
+                4,
+                4
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    4,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    4,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "dial_0",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "dial_1",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                22.5
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_2",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                45.0
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_3",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                67.5
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_4",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                90.0
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_5",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                112.5
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": {
+        "identifier": "geometry.levitate.transmission_gauge_side_y",
+        "texture_width": 64,
+        "texture_height": 64,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "casing",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                0,
+                -8
+              ],
+              "size": [
+                16,
+                16,
+                16
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "head"
+                },
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "side"
+                },
+                "west": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "side"
+                },
+                "east": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "side"
+                },
+                "up": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "end"
+                },
+                "down": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "end"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "rotor",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -2,
+                0,
+                -2
+              ],
+              "size": [
+                4,
+                16,
+                4
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    4,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    4,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "dial_0",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "dial_1",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                22.5
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_2",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                45.0
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_3",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                67.5
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_4",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                90.0
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_5",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                112.5
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": {
+        "identifier": "geometry.levitate.transmission_gauge_vert",
+        "texture_width": 64,
+        "texture_height": 64,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "casing",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                0,
+                -8
+              ],
+              "size": [
+                16,
+                16,
+                16
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "head"
+                },
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "head"
+                },
+                "west": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "end"
+                },
+                "east": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "end"
+                },
+                "up": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "side"
+                },
+                "down": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    64,
+                    64
+                  ],
+                  "material_instance": "side"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "rotor",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                6,
+                -2
+              ],
+              "size": [
+                16,
+                4,
+                4
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    4,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    4,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "dial_0",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              }
+            },
+            {
+              "origin": [
+                0,
+                6.5,
+                8.2
+              ],
+              "size": [
+                6,
+                1.0,
+                0.40000000000000213
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "dial_1",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                22.5
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            },
+            {
+              "origin": [
+                0,
+                6.5,
+                8.2
+              ],
+              "size": [
+                6,
+                1.0,
+                0.40000000000000213
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                -22.5
+              ],
+              "pivot": [
+                0,
+                7,
+                8.399999999999999
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_2",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                45.0
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            },
+            {
+              "origin": [
+                0,
+                6.5,
+                8.2
+              ],
+              "size": [
+                6,
+                1.0,
+                0.40000000000000213
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                -45.0
+              ],
+              "pivot": [
+                0,
+                7,
+                8.399999999999999
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_3",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                67.5
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            },
+            {
+              "origin": [
+                0,
+                6.5,
+                8.2
+              ],
+              "size": [
+                6,
+                1.0,
+                0.40000000000000213
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                -67.5
+              ],
+              "pivot": [
+                0,
+                7,
+                8.399999999999999
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_4",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                90.0
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            },
+            {
+              "origin": [
+                0,
+                6.5,
+                8.2
+              ],
+              "size": [
+                6,
+                1.0,
+                0.40000000000000213
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                -90.0
+              ],
+              "pivot": [
+                0,
+                7,
+                8.399999999999999
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dial_5",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6.5,
+                -8.6
+              ],
+              "size": [
+                6,
+                1.0,
+                0.39999999999999997
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                112.5
+              ],
+              "pivot": [
+                0,
+                7,
+                -8.4
+              ]
+            },
+            {
+              "origin": [
+                0,
+                6.5,
+                8.2
+              ],
+              "size": [
+                6,
+                1.0,
+                0.40000000000000213
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    48,
+                    0
+                  ],
+                  "uv_size": [
+                    4,
+                    8
+                  ]
+                }
+              },
+              "rotation": [
+                0,
+                0,
+                -112.5
+              ],
+              "pivot": [
+                0,
+                7,
+                8.399999999999999
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

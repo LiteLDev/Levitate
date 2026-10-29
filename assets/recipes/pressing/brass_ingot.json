@@ -1,0 +1,13 @@
+{
+  "type": "levitate:pressing",
+  "ingredients": [
+    {
+      "tag": "c:ingots/brass"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:brass_sheet"
+    }
+  ]
+}

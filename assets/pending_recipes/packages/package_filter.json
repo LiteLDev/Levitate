@@ -1,0 +1,26 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:package_filter"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "ASA"
+    ],
+    "key": {
+      "A": {
+        "item": "levitate:zinc_nugget"
+      },
+      "S": {
+        "tag": "minecraft:wool"
+      }
+    },
+    "result": {
+      "item": "levitate:package_filter",
+      "count": 1
+    }
+  }
+}

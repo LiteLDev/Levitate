@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:purple_postbox_from_pink_postbox"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:purple_dye"
+      },
+      {
+        "item": "levitate:pink_postbox"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:pink_postbox"
+      }
+    ],
+    "result": {
+      "item": "levitate:purple_postbox",
+      "count": 1
+    }
+  }
+}

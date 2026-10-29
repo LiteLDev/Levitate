@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:brass_ingot_from_decompacting"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:brass_block"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:brass_block"
+      }
+    ],
+    "result": {
+      "item": "levitate:brass_ingot",
+      "count": 9
+    }
+  }
+}

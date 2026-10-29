@@ -1,0 +1,18 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:zinc_nugget",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_zinc_nugget",
+      "minecraft:display_name": {
+        "value": "item.levitate:zinc_nugget.name"
+      },
+      "minecraft:max_stack_size": 64
+    }
+  }
+}

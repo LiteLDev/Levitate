@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:calcite_pillar_from_small_calcite_bricks_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:small_calcite_bricks"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:small_calcite_bricks"
+      }
+    ],
+    "result": {
+      "item": "levitate:calcite_pillar",
+      "count": 1
+    }
+  }
+}

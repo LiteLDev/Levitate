@@ -1,0 +1,16 @@
+{
+  "create.contraption.controls.actor_toggle.on": "On",
+  "create.contraption.controls.actor_toggle.off": "Off",
+  "create.contraption.controls.all_actor_toggle": "All Actors: {0}",
+  "create.contraption.controls.specific_actor_toggle": "{0} Actors: {1}",
+  "create.contraption.controls.floor_unreachable": "Unreachable",
+  "create.contraptions.contoller.target": "Targeted Component",
+  "create.contraptions.mechanical_roller.pave_material": "Paving Material",
+  "create.contraptions.roller_mode": "Roller Mode",
+  "create.contraptions.roller_mode.tunnel_pave": "Clear Blocks and Pave",
+  "create.contraptions.roller_mode.straight_fill": "Straight Fill Below",
+  "create.contraptions.roller_mode.wide_fill": "Sloped Fill Below",
+  "block.create.seat.tooltip.summary": "Sit yourself down and enjoy the ride! Will anchor a player onto a moving _contraption_. Great for static furniture too! Comes in a variety of colours.",
+  "block.create.seat.tooltip.condition1": "Right click on Seat",
+  "block.create.seat.tooltip.behaviour1": "Sits the player on the _Seat_. Press L-shift to leave the _Seat_."
+}

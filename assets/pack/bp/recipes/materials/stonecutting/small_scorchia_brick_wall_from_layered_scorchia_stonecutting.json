@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:small_scorchia_brick_wall_from_layered_scorchia_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:layered_scorchia"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:layered_scorchia"
+      }
+    ],
+    "result": {
+      "item": "levitate:small_scorchia_brick_wall",
+      "count": 1
+    }
+  }
+}

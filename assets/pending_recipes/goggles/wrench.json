@@ -1,0 +1,17 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:wrench"
+    },
+    "tags": ["crafting_table"],
+    "pattern": ["GG", "GP", " S"],
+    "key": {
+      "G": { "item": "levitate:golden_sheet" },
+      "P": { "item": "levitate:cogwheel" },
+      "S": { "item": "minecraft:stick" }
+    },
+    "unlock": [{ "item": "levitate:golden_sheet" }],
+    "result": { "item": "levitate:wrench" }
+  }
+}
