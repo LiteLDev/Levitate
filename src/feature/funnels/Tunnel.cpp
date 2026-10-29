@@ -22,6 +22,7 @@
 #include "feature/common/ValueBox.h"
 #include "feature/funnels/FunnelsInternal.h"
 #include "game/Blocks.h"
+#include "game/WorldDb.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
 
@@ -45,6 +46,13 @@ std::unordered_map<std::string, Runtime>& runtimes() {
     static std::unordered_map<std::string, Runtime> m;
     return m;
 }
+
+/// A new world (the client loads several in one process) starts without cached state.
+struct Lifecycle {
+    Lifecycle() {
+        game::db::onWorldClosed([] { runtimes().clear(); });
+    }
+} const gLifecycle;
 
 Runtime& rt(GlobalPos const& pos) {
     auto& r = runtimes()[pos.key()];

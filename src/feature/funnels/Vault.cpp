@@ -47,6 +47,8 @@ struct VaultState {
     std::unordered_map<std::string, std::vector<ItemStack>>  inventories;
     /// comparator overrides: (circuit system, comparator position) -> signal
     std::map<std::pair<void const*, std::tuple<int, int, int>>, int> comparators;
+    /// comparators that read a vault until now: their analog input is released once
+    std::set<std::pair<void const*, std::tuple<int, int, int>>> released;
 };
 VaultState& vs() {
     static VaultState s;
@@ -127,7 +129,13 @@ std::shared_ptr<cf::VaultStructure> structureAt(BlockSource& region, GlobalPos c
     if (auto it = vs().structures.find(pos); it != vs().structures.end() && !vs().dirty.contains(pos)) return it->second;
     formAround(region, pos.dim, toBlockPos(pos));
     auto it = vs().structures.find(pos);
-    return it == vs().structures.end() ? nullptr : it->second;
+    if (it == vs().structures.end()) return nullptr;
+    // formed now: no need to form it again before the next tick
+    for (int i = 0; i < it->second->size(); ++i) {
+        auto c = it->second->cell(i);
+        vs().dirty.erase({pos.dim, c.x, c.y, c.z});
+    }
+    return it->second;
 }
 
 /// Slot `i` of the structure -> (block, slot in block).
@@ -298,6 +306,7 @@ void tickVaults(std::uint64_t tick) {
     // comparators reading vaults (Bedrock asks the block behind a comparator for an analog
     // signal only for containers: the signal is given to the comparator's circuit component)
     if (tick % 2 != 0) return;
+    auto previous = std::move(vs().comparators);
     vs().comparators.clear();
     std::set<cf::VaultStructure const*> done;
     std::map<cf::VaultStructure const*, int> signals;
@@ -315,6 +324,8 @@ void tickVaults(std::uint64_t tick) {
             if (auto const* circuit = circuitOf(pos.dim)) vs().comparators[{circuit, {cp.x, cp.y, cp.z}}] = sit->second;
         }
     }
+    for (auto const& [key, value] : previous)
+        if (!vs().comparators.contains(key)) vs().released.insert(key);
 }
 
 bool wrenchVault(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block, int face) {
@@ -347,6 +358,9 @@ std::optional<int> comparatorOverride(void const* circuit, BlockPos const& pos) 
     return it->second;
 }
 
+/// The comparator no longer reads a vault: forget the analog input we gave it (once).
+bool comparatorReleased(void const* circuit, BlockPos const& pos) { return vs().released.erase({circuit, {pos.x, pos.y, pos.z}}) > 0; }
+
 void installVaults() { common::items::registerBlock(kItemVault, capability()); }
 
 } // namespace lv::feature::funnels::detail
@@ -365,6 +379,9 @@ LL_TYPE_INSTANCE_HOOK(
     if (auto v = detail::comparatorOverride(&system, pos)) {
         mRearAnalogStrength = *v;
         mHasAnalogBeenSet   = true;
+    } else if (detail::comparatorReleased(&system, pos)) {
+        mRearAnalogStrength = 0;
+        mHasAnalogBeenSet   = false;
     }
     return origin(system, pos);
 }

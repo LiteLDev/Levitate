@@ -24,6 +24,7 @@
 #include "feature/common/ValueBox.h"
 #include "feature/funnels/FunnelsInternal.h"
 #include "game/Blocks.h"
+#include "game/WorldDb.h"
 #include "mod/Log.h"
 
 namespace lv::feature::funnels::detail {
@@ -42,6 +43,12 @@ std::unordered_map<std::string, Runtime>& runtimes() {
     return m;
 }
 Runtime& runtime(GlobalPos const& pos) { return runtimes()[pos.key()]; }
+/// A new world (the client loads several in one process) starts without cached state.
+struct Lifecycle {
+    Lifecycle() {
+        game::db::onWorldClosed([] { runtimes().clear(); });
+    }
+} const gLifecycle;
 
 bool isBrass(Block const& block) { return block.getTypeName() == kBrassFunnel; }
 

@@ -323,10 +323,15 @@ LV_REGISTER_SELFTEST("funnels.chute_fans", [](Context& ctx) -> ll::coro::CoroTas
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& r   = region(ctx);
     auto  fan = base, chute = at(base, 0, 1, 0), top = at(base, 0, 2, 0);
-    // a test fan (U13 registers the encased fan): lodestone blowing up at 64 RPM
-    common::airflow::registerFan("minecraft:lodestone", [](BlockSource&, BlockPos const&, Block const&) {
-        return std::optional<common::airflow::Fan>(common::airflow::Fan{cf::kUp, 64.f});
-    });
+    // a test fan (U13 registers the encased fan): lodestone blowing up at 64 RPM, removed on exit
+    struct TestFan {
+        TestFan() {
+            common::airflow::registerFan("minecraft:lodestone", [](BlockSource&, BlockPos const&, Block const&) {
+                return std::optional<common::airflow::Fan>(common::airflow::Fan{cf::kUp, 64.f});
+            });
+        }
+        ~TestFan() { common::airflow::unregisterFan("minecraft:lodestone"); }
+    } fanGuard;
     ctx.require(ctx.setBlock(fan, "minecraft:lodestone"), "fan");
     ctx.require(ctx.setBlock(chute, fu::kChute), "chute");
     ctx.require(ctx.setBlock(top, "minecraft:chest"), "chest above");
@@ -335,7 +340,6 @@ LV_REGISTER_SELFTEST("funnels.chute_fans", [](Context& ctx) -> ll::coro::CoroTas
     ctx.check(items::isEmpty(rest), "chute takes the stack");
     co_await ctx.ticks(40);
     ctx.check(countIn(r, top, "minecraft:cobblestone") == 9, "a fan below pushes items up into the inventory above");
-    common::airflow::unregisterFan("minecraft:lodestone");
 });
 
 LV_REGISTER_SELFTEST("funnels.vault", [](Context& ctx) -> ll::coro::CoroTask<> {

@@ -177,6 +177,8 @@ void installCrate();
 void        showItem(GlobalPos const& owner, ItemStack const& stack, Vec3 const& pos);
 void        hideItem(GlobalPos const& owner);
 std::size_t shownItems();
+/// Sends the display items to the players around them (once per tick).
+void flushDisplays();
 
 /// Contents a broken block leaves behind (drops them at the position next tick).
 void dropLater(GlobalPos const& pos, std::vector<ItemStack> stacks);

@@ -86,7 +86,7 @@ struct DistributionPlan {
 /// Plans handing `stackCount` items to `targets` outputs (Create's BrassTunnelBlockEntity.distribute):
 /// - split: even shares (the first `count % outputs` outputs one more), full outputs skipped and
 ///   their share spread over the others (a second round takes the leftovers);
-/// - forced split: every output must take its whole share, else nothing moves;
+/// - forced split: never skips an output: while one takes none of its share nothing moves;
 /// - round robin: the whole stack to the output at `start` (nothing when it is full: the next
 ///   distribution moves on to the next output);
 /// - forced round robin: like round robin, but waits while that output can't take the whole stack;

@@ -325,7 +325,7 @@ ItemStack extractCounted(
     if (!exact) return items::extract(region, pos, face, filter, amount, simulate);
     // Create's EXACTLY mode: only a kind with at least `amount` items (capped to its stack size)
     std::vector<ItemStack> tooFew;
-    for (int attempt = 0; attempt < 8; ++attempt) {
+    for (int attempt = 0; attempt < 256; ++attempt) {
         auto pred = [&](ItemStack const& s) {
             if (!filter(s)) return false;
             for (auto const& k : tooFew)
@@ -571,6 +571,11 @@ private:
             // explicit erase: only care about our own documents
             if (!doc.contains("funnels")) return;
         }
+        // the contents are dropped: forget the cached copies too (an explicit erase keeps the block)
+        forgetFunnel(pos);
+        forgetChute(pos);
+        forgetTunnel(pos);
+        if (doc.contains("funnels") && doc["funnels"].contains("items")) vaultChanged(pos);
         std::vector<ItemStack> drops;
         if (auto it = doc.find("funnels"); it != doc.end() && it->is_object()) {
             if (it->contains("item")) drops.push_back(items::fromJson((*it)["item"]));
@@ -712,6 +717,7 @@ private:
             }
         }
         tickVaults(s.tick);
+        flushDisplays();
     }
 
     std::vector<ll::event::ListenerPtr> mListeners;

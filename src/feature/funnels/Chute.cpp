@@ -23,6 +23,7 @@
 #include "feature/common/ValueBox.h"
 #include "feature/funnels/FunnelsInternal.h"
 #include "game/Blocks.h"
+#include "game/WorldDb.h"
 #include "mod/Log.h"
 
 namespace lv::feature::funnels::detail {
@@ -52,6 +53,13 @@ Air& air() {
     static Air a;
     return a;
 }
+
+/// A new world (the client loads several in one process) starts without cached state.
+struct Lifecycle {
+    Lifecycle() {
+        game::db::onWorldClosed([] { runtimes().clear(); });
+    }
+} const gLifecycle;
 
 Runtime& rt(GlobalPos const& pos) {
     auto& r = runtimes()[pos.key()];
