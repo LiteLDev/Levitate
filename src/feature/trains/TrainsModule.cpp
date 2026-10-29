@@ -10,6 +10,7 @@
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/platform/UUID.h"
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
@@ -19,6 +20,7 @@
 #include "core/tracks/Shape.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/contraption/PistonsExt.h"
+#include "feature/tracks/SignalsExt.h"
 #include "feature/tracks/Tracks.h"
 #include "feature/trains/Trains.h"
 #include "game/Blocks.h"
@@ -255,6 +257,25 @@ public:
         contraption::registerRotationHandler(std::string(kSmallBogey), axisHandler);
         contraption::registerRotationHandler(std::string(kLargeBogey), axisHandler);
 
+        // track observers (U28): the train's cargo for their filter, its name for display links
+        tracks::signals::setCargoProvider([](std::string const& trainId, tracks::signals::ItemTest const& item, tracks::signals::FluidTest const& fluid) {
+            auto* t = findTrain(std::strtoull(trainId.c_str(), nullptr, 10));
+            if (!t) return false;
+            for (auto const& c : t->carriages) {
+                auto* con = contraption::find(c.contraption);
+                if (!con) continue;
+                auto& st = con->storage();
+                for (int i = 0; i < st.slotCount(); ++i)
+                    if (!st.slot(i).isNull() && item && item(st.slot(i))) return true;
+                auto f = st.drain("", 1 << 30, true);
+                if (f.second > 0 && fluid && fluid({f.first, f.second})) return true;
+            }
+            return false;
+        });
+        tracks::signals::setTrainNameProvider([](std::string const& trainId) -> std::string {
+            auto* t = findTrain(std::strtoull(trainId.c_str(), nullptr, 10));
+            return t ? t->name : std::string();
+        });
         auto& bus = ll::event::EventBus::getInstance();
         if (game::db::available()) loadAll();
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { runTick(); }));

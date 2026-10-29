@@ -25,6 +25,7 @@
 #include "core/tracks/Shape.h"
 #include "feature/common/Items.h"
 #include "feature/contraption/Contraption.h"
+#include "feature/tracks/SignalsExt.h"
 #include "feature/tracks/Tracks.h"
 #include "feature/tracks/TrainsExt.h"
 #include "feature/trains/Trains.h"
@@ -39,6 +40,7 @@ namespace tn = lv::feature::trains;
 namespace tr = lv::feature::tracks;
 namespace cn = lv::feature::contraption;
 namespace ct = lv::core::trains;
+namespace sg = lv::feature::tracks::signals;
 
 GlobalPos at(GlobalPos b, int dx, int dy = 0, int dz = 0) { return {b.dim, b.x + dx, b.y + dy, b.z + dz}; }
 
@@ -374,29 +376,24 @@ LV_REGISTER_SELFTEST("trains.ext_and_commands", [](Context& ctx) -> ll::coro::Co
     bool listed = false;
     for (auto const& s : tr::trains::stations()) listed = listed || (s.name == "U27 Station A ext" && !s.presentTrain.empty());
     ctx.check(listed, "TrainsExt lists station A with its train");
-    // a pass check holding the train at an edge point
+    // an edge point ahead: the train entering it is reported (TrainsExt.h)
+    auto pt = *tn::stationAt(l.stationA)->point();
     lv::core::tracks::EdgePoint p;
-    auto* g    = tr::railways().graphAt(tn::stationAt(l.stationA)->point()->from);
-    ctx.require(g != nullptr, "graph");
-    auto pt    = *tn::stationAt(l.stationA)->point();
-    p.id       = "u27test:hold";
+    p.id       = "u27test:point";
     p.type     = "levitate:u27test";
     p.node1    = pt.from;
     p.node2    = pt.to;
-    p.position = pt.pos + 10;
-    if (p.position > ct::edgeLength(tr::railways(), pt)) p.position = ct::edgeLength(tr::railways(), pt) - 1;
+    p.position = std::min(pt.pos + 4, ct::edgeLength(tr::railways(), pt) - 1);
     ctx.require(tr::railways().addPoint(p), "the test edge point is on the graph");
-    ctx.info("hold point at " + std::to_string(p.position) + " of " + std::to_string(ct::edgeLength(tr::railways(), pt)) + ", station at " + std::to_string(pt.pos));
     static int  entered    = 0;
     static bool registered = false;
     entered                = 0;
     if (!registered) {
         registered = true;
         tr::trains::onPointEntered([](std::uint64_t, lv::core::tracks::EdgePoint const& e) {
-            if (e.id == "u27test:hold") ++entered;
+            if (e.id == "u27test:point") ++entered;
         });
     }
-    tr::trains::setPassCheck([](std::uint64_t, lv::core::tracks::EdgePoint const& e) { return e.id != "u27test:hold"; });
     auto* t = tn::findTrain(*id);
     t->testConductor = true;
     ct::Schedule s;
@@ -404,22 +401,79 @@ LV_REGISTER_SELFTEST("trains.ext_and_commands", [](Context& ctx) -> ll::coro::Co
     e.instruction.data["Text"] = "U27 Station B ext";
     s.entries.push_back(e);
     t->runtime.setSchedule(s, false);
-    for (int i = 0; i < 400; ++i) co_await ctx.ticks(1);
-    t = tn::findTrain(*id);
-    if (t) ctx.info("after 400 ticks: speed " + std::to_string(t->speed) + " at x " + std::to_string(ct::positionOf(tr::railways(), t->body.front)->x) + ", point exists: " + std::to_string(tr::railways().point("u27test:hold") != nullptr));
-    ctx.check(t && t->currentStation.empty() && t->nav.has_value(), "the train is held before the point");
-    ctx.check(entered == 0, "it never passed the held point");
-    tr::trains::setPassCheck({});
-    for (int i = 0; i < 600 && t && t->currentStation.empty(); ++i) {
+    for (int i = 0; i < 900 && t && t->currentStation != l.stationB.key(); ++i) {
         co_await ctx.ticks(1);
         t = tn::findTrain(*id);
     }
-    ctx.check(entered >= 1, "released, it enters the point");
-    ctx.check(t && t->currentStation == l.stationB.key(), "and arrives at B");
-    tr::railways().removePoint("u27test:hold");
+    ctx.check(entered >= 1, "the train entering the edge point is reported");
+    ctx.check(t && t->currentStation == l.stationB.key(), "the train arrives at B");
+    tr::railways().removePoint("u27test:point");
     tn::removeTrain(*id);
     co_await ctx.ticks(2);
     ctx.check(!tn::findTrain(*id), "removing a train (killtrain) works");
+    teardown(l);
+    co_await ctx.ticks(2);
+});
+
+LV_REGISTER_SELFTEST("trains.signal", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // two trains on one line split by a signal (U28): the second waits at red until the first
+    // leaves the section
+    Line l;
+    ctx.require(co_await buildLine(ctx, l, 2700, " signal"), "line and stations built");
+    auto& sp   = static_cast<SimulatedPlayer&>(ctx.player());
+    auto  item = lv::feature::common::items::make(sg::kSignalId, 4);
+    ctx.require(item.has_value(), "the signal item exists");
+    ctx.give(sp, *item, 0);
+    auto look = [&](GlobalPos const& p) { sp.simulateLookAt(Vec3{p.x + .5f, p.y + .5f, p.z + .5f}, sim::LookDuration::Continuous); };
+    auto use  = [&](GlobalPos const& p) {
+        return sp.simulateUseItemInSlotOnBlock(0, BlockPos{p.x, p.y, p.z}, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{0.5f, 1.0f, 0.5f});
+    };
+    GlobalPos track = at(l.base, 40), signal = at(l.base, 40, 0, 2);
+    sp.teleport(Vec3{track.x - 2.5f, float(track.y), track.z + 2.5f}, DimensionType(l.base.dim));
+    co_await ctx.ticks(2);
+    look(at(l.base, 46));
+    co_await ctx.ticks(10);
+    use(track);
+    co_await ctx.ticks(10);
+    ctx.cleanupBlock(signal);
+    use(at(signal, 0, -1));
+    co_await ctx.ticks(5);
+    ctx.require(tn::idAt(signal) == sg::kSignalId, "the signal is placed next to the line");
+
+    auto first = assembleTrain(ctx, l, false);
+    ctx.require(first.has_value(), "the first train assembles");
+    auto* t1 = tn::findTrain(*first);
+    // park it past the signal, inside the next section
+    t1->body.move(tr::railways(), 26, {});
+    t1->currentStation.clear();
+    tn::placeCarriages(*t1);
+    co_await ctx.ticks(4);
+    ctx.check(sg::signalState(signal) == lv::core::signals::SignalState::Red, "the occupied section shows red");
+
+    auto second = assembleTrain(ctx, l, false);
+    ctx.require(second.has_value(), "the second train assembles");
+    auto* t2 = tn::findTrain(*second);
+    t2->testConductor = true;
+    ct::Schedule s;
+    auto         e = ct::Entry::makeDefault();
+    e.instruction.data["Text"] = "U27 Station B signal";
+    s.entries.push_back(e);
+    t2->runtime.setSchedule(s, false);
+    for (int i = 0; i < 400; ++i) co_await ctx.ticks(1);
+    t2 = tn::findTrain(*second);
+    ctx.require(t2 != nullptr, "the second train exists");
+    double x2 = ct::positionOf(tr::railways(), t2->body.front)->x;
+    ctx.info("second train waits at x " + std::to_string(x2 - l.base.x) + " speed " + std::to_string(t2->speed));
+    ctx.check(t2->nav.has_value() && std::abs(t2->speed) < 1e-6, "the second train waits");
+    ctx.check(x2 < track.x + 0.5 && x2 > track.x - 3, "in front of the red signal");
+    // the first train leaves: green, the second goes on to B
+    tn::removeTrain(*first);
+    for (int i = 0; i < 900 && t2 && t2->currentStation != l.stationB.key(); ++i) {
+        co_await ctx.ticks(1);
+        t2 = tn::findTrain(*second);
+    }
+    ctx.check(t2 && t2->currentStation == l.stationB.key(), "after the first train left, the second arrives at B");
+    tn::removeTrain(*second);
     teardown(l);
     co_await ctx.ticks(2);
 });

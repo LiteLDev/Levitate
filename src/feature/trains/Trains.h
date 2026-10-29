@@ -140,6 +140,7 @@ struct Train {
     cc::Pos     controlLocal;
     std::string lastStatus;      ///< last status key sent (Create prints a failure once)
     bool        trackMissingSent = false;
+    bool        spansDirty = true; ///< report the covered track to signals (U28)
     ct::Vec3d   lastFront, lastDir{1, 0, 0}; ///< world position / direction of the front point
     std::size_t cargoHash = 0;
     bool        testConductor = false; ///< selftests: a conductor in both directions

@@ -33,6 +33,7 @@
 #include "feature/display/Display.h"
 #include "feature/packages/Packages.h"
 #include "feature/redstone/RedstoneLink.h"
+#include "feature/tracks/SignalsExt.h"
 #include "feature/tracks/Tracks.h"
 #include "feature/tracks/TrainsExt.h"
 #include "feature/trains/Trains.h"
@@ -42,8 +43,12 @@
 
 namespace lv::feature::trains {
 
-namespace tk = core::tracks;
+namespace tk  = core::tracks;
+namespace sig = tracks::signals;
 using ct::Vec3d;
+
+/// The train's id towards U28's signals.
+std::string signalId(Train const& t) { return std::to_string(t.id); }
 
 namespace {
 
@@ -69,7 +74,6 @@ double normAngle(double a) {
 /// Edge point listeners and the pass check (TrainsExt.h).
 struct ExtState {
     std::vector<std::function<void(std::uint64_t, tk::EdgePoint const&)>> entered, left;
-    std::function<bool(std::uint64_t, tk::EdgePoint const&)>              passCheck;
 };
 ExtState& ext() {
     static ExtState e;
@@ -194,6 +198,7 @@ Train* trainOfContraption(std::uint64_t contraptionId) {
 // ---- carriages ----------------------------------------------------------------------------------
 
 void placeCarriages(Train& t) {
+    t.spansDirty = true;
     auto& r   = rail();
     auto  pts = t.body.points(r);
     if (pts.size() != t.body.offsets.size()) return;
@@ -300,6 +305,7 @@ bool hasConductor(Train const& t, bool forward) {
 
 void cancelNavigation(Train& t) {
     if (!t.nav) return;
+    sig::releaseReservations(signalId(t));
     t.nav.reset();
     t.targetSpeed = 0;
     t.runtime.transitInterrupted();
@@ -312,6 +318,7 @@ double navigationPenalty(Train const& self, tk::Graph const& g, tk::Edge const& 
     auto const* n1      = g.node(e.node1);
     auto const* n2      = g.node(e.node2);
     if (!n1 || !n2) return 0;
+    penalty += sig::pathPenalty(signalId(self), g, e); // red signals (U28)
     for (auto const* p : rail().pointsOn(n1->location, n2->location)) {
         if (p->type != "levitate:station") continue;
         auto key = p->data.contains("pos") ? GlobalPos{p->data["pos"][0], p->data["pos"][1], p->data["pos"][2], p->data["pos"][3]}.key()
@@ -404,6 +411,7 @@ void arriveAt(Train& t, Station& s) {
     t.targetSpeed = 0;
     bool wasNav   = t.nav.has_value();
     t.nav.reset();
+    sig::releaseReservations(signalId(t));
     t.currentStation = s.pos.key();
     t.idleTicks      = 0;
     if (wasNav) t.runtime.destinationReached();
@@ -600,39 +608,38 @@ ct::Chooser steering(int steer) {
     };
 }
 
-/// Distance to the first edge point ahead the pass check denies (U28's red signals).
-double distanceToBlocker(Train& t, ct::TrackPos const& lead, ct::Chooser const& choose, double lookahead) {
-    auto const& check = ext().passCheck;
-    if (!check || lookahead <= 0) return -1;
-    double found = -1, walked = 0;
-    (void)ct::walk(rail(), lead, lookahead, choose, nullptr, [&](ct::EdgeSpan const& sp) {
-        if (found >= 0) return;
-        for (auto const* p : rail().pointsOn(sp.from, sp.to)) {
-            if (p->type == "levitate:station") continue;
-            bool   same = p->node1 == sp.from;
-            double pos  = same ? p->position : ct::edgeLength(rail(), {sp.from, sp.to, 0}) - p->position;
-            bool   facesUs = same ? p->facingNode2 : !p->facingNode2;
-            if (!facesUs || pos < sp.start - 1e-9 || pos > sp.end + 1e-9) continue;
-            if (!check(t.id, *p)) {
-                found = walked + (pos - sp.start);
-                return;
-            }
-        }
-        walked += sp.end - sp.start;
-    });
-    return found;
+/// Create's signal scan (U28's SignalsExt.h): the distance to the signal the train must wait
+/// at, or -1 when the way within `lookahead` is clear.
+double distanceToBlocker(Train& t, ct::TrackPos const& lead, ct::Path const& path, double lookahead) {
+    auto loc = ct::resolve(rail(), lead);
+    if (!loc || lookahead <= 0) return -1;
+    auto* g = rail().graph(loc->graph);
+    if (!g) return -1;
+    std::vector<tk::PathStep> steps;
+    for (size_t i = path.next; i < path.edges.size(); ++i) {
+        auto const* a = g->locateNode(path.edges[i].first);
+        auto const* b = g->locateNode(path.edges[i].second);
+        if (!a || !b) break;
+        steps.push_back({a->id, b->id});
+    }
+    auto way = sig::checkAhead(signalId(t), *loc, steps, lookahead);
+    if (way.clear) return -1;
+    return std::max(0.0, way.stopDistance);
 }
 
 /// Edge points between the train's ends (for TrainsExt enter / leave callbacks).
 std::vector<std::string> occupiedPoints(Train const& t) {
     std::vector<std::string> out;
+    std::vector<sig::Span>   spans;
     (void)ct::walk(rail(), ct::reverse(rail(), t.body.front), t.body.length(), ct::follow(t.body.route), nullptr, [&](ct::EdgeSpan const& sp) {
+        spans.push_back({sp.from, sp.to, sp.start, sp.end});
         double len = ct::edgeLength(rail(), {sp.from, sp.to, 0});
         for (auto const* p : rail().pointsOn(sp.from, sp.to)) {
             double pos = p->node1 == sp.from ? p->position : len - p->position;
             if (pos >= sp.start - 1e-9 && pos <= sp.end + 1e-9) out.push_back(p->id);
         }
     });
+    sig::setTrainSpans(signalId(t), spans); // the sections the train occupies (U28)
     std::sort(out.begin(), out.end());
     out.erase(std::unique(out.begin(), out.end()), out.end());
     return out;
@@ -852,6 +859,11 @@ void tickTrain(Train& t) {
         }
     }
 
+    if (t.spansDirty) {
+        t.spansDirty = false;
+        t.occupied   = occupiedPoints(t);
+    }
+
     // manual control input times out (Create: 30 ticks without a key packet)
     if (!t.controller.empty()) {
         auto* p = playerByUuid(t.controller);
@@ -913,9 +925,8 @@ void tickTrain(Train& t) {
                                      : std::optional<ct::TrackPos>(t.body.front);
             double target  = nav.distance;
             double blocker = -1;
-            if (lead && !nav.manual) {
-                ct::Path ahead = nav.path; // looking ahead must not advance the real path
-                blocker = distanceToBlocker(t, *lead, ahead.chooser(), std::min(nav.distance, ct::brakingDistance(t.speed, stats.acceleration) + 4));
+            if (lead) {
+                blocker = distanceToBlocker(t, *lead, nav.path, std::min(nav.distance, ct::brakingDistance(t.speed, stats.acceleration) + 4));
                 // Create waits in front of the signal (no overshoot past it)
                 if (blocker >= 0) target = std::min(target, std::max(0.0, blocker - 0.75));
             }
@@ -1016,7 +1027,8 @@ void tickTrain(Train& t) {
     placeCarriages(t);
 
     // what the train passes: edge point listeners (U28)
-    auto occ = occupiedPoints(t);
+    auto occ     = occupiedPoints(t);
+    t.spansDirty = false;
     if (occ != t.occupied) {
         for (auto const& id : occ)
             if (!std::binary_search(t.occupied.begin(), t.occupied.end(), id))
@@ -1078,6 +1090,7 @@ void removeTrain(std::uint64_t id) {
     for (auto const& pid : t.occupied)
         if (auto const* p = rail().point(pid))
             for (auto const& fn : ext().left) fn(t.id, *p);
+    sig::removeTrain(signalId(t));
     t.invalid = true;
 }
 
@@ -1229,6 +1242,5 @@ std::vector<StationInfo> stations() {
 
 void onPointEntered(std::function<void(std::uint64_t, core::tracks::EdgePoint const&)> fn) { ft::ext().entered.push_back(std::move(fn)); }
 void onPointLeft(std::function<void(std::uint64_t, core::tracks::EdgePoint const&)> fn) { ft::ext().left.push_back(std::move(fn)); }
-void setPassCheck(std::function<bool(std::uint64_t, core::tracks::EdgePoint const&)> fn) { ft::ext().passCheck = std::move(fn); }
 
 } // namespace lv::feature::tracks::trains

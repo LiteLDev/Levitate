@@ -6,13 +6,10 @@
 //
 //   tracks::trains::onPointEntered([](uint64_t train, EdgePoint const& p) { ... });  // a train reaches an edge point
 //   tracks::trains::onPointLeft(...);                                              // its last carriage passed it
-//   tracks::trains::setPassCheck([](uint64_t train, EdgePoint const& p) { return !red(p); });
 //
 // An edge point is "occupied" by a train while it lies between the train's front and back
-// points. The pass check is asked for points ahead of a moving train that face it (the point's
-// `facingNode2` side): `false` makes the train brake and wait in front of the point (Create's
-// navigation waiting for a signal; as in Create, manually driven trains are not held). Stations
-// are never asked.
+// points. Signals don't use this header: trains report to and ask U28's SignalsExt.h (train
+// ids there are the decimal train ids of TrainInfo::id).
 //
 // Server thread only. Implemented in src/feature/trains/.
 
@@ -54,7 +51,5 @@ struct StationInfo {
 
 void onPointEntered(std::function<void(std::uint64_t train, core::tracks::EdgePoint const& point)> fn);
 void onPointLeft(std::function<void(std::uint64_t train, core::tracks::EdgePoint const& point)> fn);
-/// One check (the last registration wins). Without it every point may be passed.
-void setPassCheck(std::function<bool(std::uint64_t train, core::tracks::EdgePoint const& point)> fn);
 
 } // namespace lv::feature::tracks::trains

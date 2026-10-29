@@ -2874,10 +2874,18 @@ faster than 0.35 b/t relative to them take `⌊16 · relative speed⌋` damage (
 knocked away (motion clamped to 3), once per 10 ticks; `trainsCauseDamage` turns it off; creative /
 spectator players are never hit.
 
-**TrainsExt.h** (for U28 signals / observers, U24 displays): `all()` trains (name, speed, graph,
-occupied edge points, station, destination, schedule title), `stations()` (name, present train,
-predicted arrivals in ticks), `onPointEntered` / `onPointLeft` (an edge point lies between a train's
-ends), `setPassCheck` (a navigating train brakes and waits in front of points the check denies).
+**Signals (U28's SignalsExt.h).** Trains report the track they cover (`setTrainSpans`, ids = decimal
+train ids) whenever they move or are placed, `removeTrain` when they are gone; while navigating they
+ask `checkAhead` (look-ahead = braking distance + 4, along their path) every tick and brake to stop at
+the returned distance, waiting in front of the signal (0.75 block before it); cancelled navigation and
+arrival release their reservations; path costs add `pathPenalty`. Trains provide their cargo
+(`setCargoProvider`: carriage inventories and tanks) and names (`setTrainNameProvider`) to observers.
+
+**TrainsExt.h** (for U24 displays and others): `all()` trains (name, speed, graph, occupied edge
+points, station, destination, schedule title), `stations()` (name, present train, predicted arrivals
+in ticks), `onPointEntered` / `onPointLeft` (an edge point lies between a train's ends). Display
+sources on the station (U24): "Train Station Summary" (filter = station name glob; ETA, train,
+schedule title, platform) and "Train Schedule Status" ("Departs in …").
 
 **Persistence.** `lv:trains:stations` (stations), `lv:trains:trains` (trains: points, route,
 carriages with their contraption ids, speed, runtime, navigation); carriages persist with U4.
