@@ -278,7 +278,28 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
 ### 2.12 Fluid transport (U17)
 
-`fluid_pipe`, `glass_fluid_pipe`, `encased_fluid_pipe`, `mechanical_pump`, `fluid_valve`, `smart_fluid_pipe`.
+`fluid_pipe`, `glass_fluid_pipe`, `encased_fluid_pipe`, `mechanical_pump`, `fluid_valve`, `smart_fluid_pipe`
+(details in §3.6.1).
+
+- `fluid_pipe`: states `levitate:down|up|north|south|west|east` (open faces), `levitate:rim_a` /
+  `levitate:rim_b` (3 bits each: the faces drawing a rim, down/up/north and south/west/east),
+  `levitate:bracket` (0 none, 1 wooden, 2 metal). Hardness 0.5 ⚠ (Create: copper-like, instant-ish).
+- `glass_fluid_pipe` (no item; drops `fluid_pipe`): `levitate:axis` 0..2, `levitate:fluid` (0 empty,
+  1 water, 2 lava, 3 honey, 4 chocolate, 5 milk, 6 potion / other, 7 tea: what flows inside),
+  `levitate:bracket`.
+- `encased_fluid_pipe` (no item; drops `fluid_pipe`, as Create's loot): the six face states.
+- `mechanical_pump`: `levitate:facing` 0..5 (Bedrock FacingID: down, up, north, south, west, east; the
+  arrow), `levitate:rotor` (kinetic model state).
+- `fluid_valve`: `levitate:facing`, `levitate:along_first` (Create's AXIS_ALONG_FIRST_COORDINATE),
+  `levitate:enabled` (open), `levitate:rotor`.
+- `smart_fluid_pipe`: `levitate:face` (0 floor, 1 ceiling, 2 wall), `levitate:facing` (0 north,
+  1 south, 2 west, 3 east).
+- Recipes (Create 6.0.10, in `assets/pending_recipes/pipes/` until U6/U9 land their ingredients):
+  fluid pipe ×4 = copper sheet, copper ingot, copper sheet (row); mechanical pump = cogwheel + fluid
+  pipe (shapeless); fluid valve = iron sheet + fluid pipe (shapeless); smart fluid pipe = brass sheet /
+  fluid pipe / electron tube (column).
+- `pipes_test_tank` (Levitate test block, not in the menu): an 8-bucket fluid handler used by the
+  selftests in place of U18's tanks.
 
 ### 2.13 Tanks and steam (U18)
 
@@ -939,6 +960,91 @@ them, whatever placed them).
   backwards; drops go to the contraption's storage first.
 - Client mod: the blade and the drill head turn with the kinetic renderer (`rotor` bones; the
   drill uses a mirrored bone for negative facings). Vanilla clients see the static blade / head.
+#### 3.6.1 Fluid transport (U17)
+
+Checked against Create 6.0.10 (FluidPipeBlock, AxisPipeBlock, GlassFluidPipeBlock, EncasedPipeBlock,
+PumpBlock / PumpBlockEntity, FluidValveBlock / FluidValveBlockEntity, SmartFluidPipeBlock /
+SmartFluidPipeBlockEntity, FluidPropagator, FluidTransportBehaviour, PipeConnection, FlowSource,
+FluidNetwork, OpenEndedPipe, FluidReactions, the open pipe effect handlers, CFluids). Pure model in
+`src/core/pipes/` (gtest), world adapter in `src/feature/pipes/`. Fluids are ids (`fluids::FluidStack`):
+`minecraft:water|lava|milk|powder_snow`, `levitate:honey|chocolate|tea` (U19), potions
+`potion:<Bedrock potion name>`. The **fluid registry** contract (`feature/common/FluidRegistry.h`,
+added by this unit) gives each id its name, world source block, colour / render slot, lava interaction
+and open-pipe effect; U19 registers its fluids there.
+
+**Connections** (Create's `canConnectTo`, `updateBlockState`): a fluid pipe connects to a neighbour
+with a fluid capability on the facing side, a beehive / bee nest or cauldron (Create's vanilla fluid
+targets), another fluid pipe (a bracketed one only along its straight axis) or any pipe-like block
+open towards it (pump axis, valve / glass / smart pipe axis, open encased face). Placing: every
+connectable face opens; a single connection extends straight through; none opens along the look
+direction. A neighbour change re-evaluates every face but the one opposite the change; with no
+connection left a straight pipe stays, a pipe with brackets never changes. Rims are drawn on open faces
+whose neighbour is not a connected fluid pipe; T and cross junctions draw the casing.
+
+**Wrench** (non-sneaking; sneak + wrench is U8's dismantle): on a bracketed pipe removes the bracket
+(given back / dropped); on a fluid pipe turns it into a glass pipe along its straight axis (a corner:
+the axis nearest the click, not the clicked face's) unless the clicked face lies on that axis; on a glass
+pipe makes a regular pipe again (both ends open, then the connection rule); on an encased pipe removes
+the casing (the copper casing is not returned: encasing doesn't use it up, as Create); on a pump flips its
+facing; on a valve cycles `along_first` when the clicked face lies on its facing axis, else turns its
+facing a quarter around the clicked axis keeping the shaft axis when possible ⚠ (Create's default
+IWrenchable rotation); on a smart pipe turns it clockwise when the top / bottom is clicked.
+**Copper casing** (`levitate:copper_casing`, U10) on a fluid or glass pipe makes an encased pipe with the
+same open faces; encased pipes never react to neighbours. **Brackets** (`levitate:metal_bracket`,
+`levitate:wooden_bracket`, U10) attach to straight fluid pipes and glass pipes (one is used up in survival,
+a replaced bracket comes back), lock the pipe's shape and drop when the pipe is broken.
+
+**Pumps**: a kinetic small cog on its facing axis (no shaft ends; impact 4 su/RPM). Placement:
+facing the player (away when sneaking), towards a neighbouring shaft end when one faces it, and towards
+a connectable pipe perpendicular to the look when there is one (not when sneaking). The direction of
+flow is the arrow (`facing`) and does **not** depend on the rotation direction; the wrench reverses it.
+On a speed change of its magnitude the pump wipes the pipes in front and behind and redistributes:
+it searches the pipes on each side (breadth first, up to `mechanicalPumpRange` = 16 blocks, the range
+end counting as an endpoint), keeps the paths that end at an endpoint (a fluid capability, an open end,
+an opposing pump) and adds |RPM| of pressure to every face on them, divided by (faces at that distance
+− 1) at branches; behind the pump it is inbound (pull), in front outbound (push). The pump's own faces
+get |RPM| in / out every tick. Several pumps add their pressure.
+
+**Flow** (PipeConnection / FluidTransportBehaviour): after a pressure change a pipe waits one tick for
+the pumps, flips flows whose pressure reversed on the next and then each face starts a flow where it has
+pressure: inbound with what its source offers (open end, fluid handler, the complete outbound flow of the
+next pipe), outbound with the fluid that entered the pipe through another face. A flow advances
+`1/32 + min(pressure / 128, 1) · 31/32` of the face per tick. Two different fluids entering one pipe
+break it (with drops); water + lava leave cobblestone, lava + a fluid with a lava interaction leave that
+block (honey → limestone, chocolate → scoria, U9's blocks). Closed valves and smart pipe filters refuse
+to pull. **Transfer** (FluidNetwork): an inbound flow from an endpoint searches (16 steps per tick, after
+a 2-tick pause on every reset) the complete flows from its face to the endpoints they reach and moves
+`max(1, ⌊inbound pressure / 2⌋)` mB per tick from the source to them, split evenly (remainders to the
+first), simulated first so nothing is lost. 64 RPM: 32 mB/t; 256 RPM: 128 mB/t.
+
+**Open ends** (OpenEndedPipe, 1000 mB buffer): an open end is a face towards air / a replaceable block /
+a cauldron or beehive (not towards a pipe, a pump on that axis, a sturdy face or a fluid handler).
+Pulling drains a source block (1000 mB; water keeps its source when two neighbouring water sources
+and a solid block or source below would refill it — Java's `waterSourceConversion`, config; lava only
+with `lavaSourceConversion`), a full cauldron (1000 mB) or a full beehive (250 mB of honey). Pushing
+fills the buffer and places the fluid's source block once it holds 1000 mB (not on a source, not when
+`pipesPlaceFluidSourceBlocks` is off; water evaporates in the Nether with the fizz sound); fluids
+without a world block (milk, potions, tea, and honey / chocolate until U19 gives them blocks) are used
+up 1 mB per transfer while their effect applies. Pouring into another fluid reacts (water on a lava
+source: obsidian, on flowing lava: cobblestone; lava on a water source: stone, on flowing water:
+cobblestone). Effects on the block in front and one below (two when the pipe faces down): water every
+5 ticks puts out burning entities, fire, campfires and candles; lava every 5 ticks sets non-immune
+entities on fire for 3 s; milk every 5 ticks clears the effects of living entities; tea every 5 ticks
+gives Haste I for 21 ticks (hidden); potions apply the potion's effects on every transfer.
+
+**Valves**: a kinetic shaft on the axis that is neither its facing nor its pipe axis. Positive speed
+moves the pointer towards open, zero or negative towards closed, at `min(|RPM| / 320, 1)` per tick; it
+opens on reaching 1 and closes on reaching 0 (and stays where it is at 0 RPM). Pipes connect to both
+ends whether open or closed. **Smart pipes**: pipe along the facing (floor / ceiling) or vertical (wall);
+the filter slot (U3's filter slot, Create's position, scale 0.5) takes any item holding a fluid and a
+smart pipe only pulls matching fluids (an empty slot passes everything); a filter change wipes and
+redistributes the network.
+
+**Persistence**: pressures, flows and open end buffers in `lv:pipes:model` (Create saves them in the
+pipe block entities; the phase restarts after a load), valve pointers alongside, brackets in BlockData
+`data["pipes"]["bracket"]`. **Client**: glass pipes show the fluid inside through `levitate:fluid`
+(every client, mod or not); pumps' cogs and valves' shafts rotate through the kinetic renderer (U2).
+**Command** `/create pipes <pos>` (op): pressures, flows and transfers of a pipe.
 ### 3.6.1 Generators (U7)
 
 Checked against Create 6.0.10 (HandCrankBlock(Entity), ValveHandleBlock(Entity), WaterWheelBlock(Entity),
@@ -2118,6 +2224,9 @@ keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlock
 `customColorsOverlay` (false), `customBackgroundOverlay` (0xf0100010), `customBorderTopOverlay`
 (0x505000ff), `customBorderBotOverlay` (0x5028007f) — read by the client mod — and Levitate's
 `vanillaOverlay` (true: action-bar overlay for vanilla clients) and `overlayInterval` (4 ticks).
+`config/pipes.json` (U17): `mechanicalPumpRange` (16), `pipesPlaceFluidSourceBlocks` (true) (Create's
+CFluids keys and defaults), `waterSourceConversion` (true) and `lavaSourceConversion` (false) (Java's game
+rules of the same names, which decide whether a drained source refills).
 `config/belts.json` (U11): `maxBeltLength` 20, `maxEjectorDistance` 32 (Create's CKinetics keys and
 defaults), `displayItems` true (show items on belts / depots / in flight as item entities, §8).
 `config/fluids.json` (U19, Create's CFluids and CLogistics defaults): `hosePulleyBlockThreshold`
@@ -2156,6 +2265,7 @@ generators' own behaviour (U7, U18, U21), not a config value.
 | `/create ponder <id>` (client mod) | anyone | U30 |
 | `/create highlight <pos>` | op | U3 |
 | `/create overlay` (overlay position screen, client mod) / `/create overlay reset` | anyone | U8 |
+| `/create pipes <pos>` (pressures, flows and transfers of a pipe) | op | U17 |
 | `/create steam <pos>` (tank / boiler goggle lines) / `steam <pos> fill <fluid> <mB>` (Levitate debug: fills, or drains when negative, through the fluid capability) | op | U18 |
 | `/create display text <x y z> <line> <text>` / `bind <x y z> <tx ty tz> <source>` (Levitate debug) | op | U24 |
 
@@ -2236,6 +2346,10 @@ matches Create's official Chinese translation wording).
 | Drops of sneak-wrenched blocks from their loot tables (U8) | the server has no loot roll for a block that isn't broken by a tool | the block's pick item (its own item; redstone for wire, the repeater for a repeater, ...), which is what Create's `#wrench_pickup` blocks and Levitate's blocks drop |
 | Any glass (`#c:glass_blocks`) in the goggles recipe (U8) | a Bedrock recipe key is one item or an item tag, and there is no glass tag | plain glass |
 
+| Fluid moving through glass pipes drawn by a block entity renderer, with the flow front advancing (U17) | custom blocks have no block entity renderer on Bedrock | the glass pipe's `levitate:fluid` state shows the fluid filling the pipe as soon as a flow starts (all clients, with or without the mod); the front's progress is not drawn |
+| Waterlogged pipes, pumps and valves (U17) | Bedrock custom blocks have no waterlogged state the server can set | open ends don't drain or fill waterlogged blocks; pipes in water are not waterlogged |
+| Pipe particles (drips at rims, splashes, the pouring stream of open ends) (U17) | Create's fluid particles need fluid-tinted particle types | not shown yet |
+| Instant potion effects from open ends at half strength (U17) | Bedrock applies instantaneous effects through `addEffect` at full strength | instant potion effects apply at full strength |
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
 | Climbable ropes and magnets (U20) | data-driven blocks can't be climbable | they are thin solid blocks |

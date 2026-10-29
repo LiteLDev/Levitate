@@ -1,0 +1,241 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:glass_fluid_pipe",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "levitate:axis": [
+          0,
+          1,
+          2
+        ],
+        "levitate:fluid": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "levitate:bracket": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.glass_fluid_pipe",
+        "bone_visibility": {
+          "body_0": "q.block_state('levitate:axis') == 0",
+          "ends_0": "q.block_state('levitate:axis') == 0",
+          "fluid_0_1": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:fluid') == 1",
+          "fluid_0_2": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:fluid') == 2",
+          "fluid_0_3": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:fluid') == 3",
+          "fluid_0_4": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:fluid') == 4",
+          "fluid_0_5": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:fluid') == 5",
+          "fluid_0_6": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:fluid') == 6",
+          "fluid_0_7": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:fluid') == 7",
+          "body_1": "q.block_state('levitate:axis') == 1",
+          "ends_1": "q.block_state('levitate:axis') == 1",
+          "fluid_1_1": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:fluid') == 1",
+          "fluid_1_2": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:fluid') == 2",
+          "fluid_1_3": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:fluid') == 3",
+          "fluid_1_4": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:fluid') == 4",
+          "fluid_1_5": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:fluid') == 5",
+          "fluid_1_6": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:fluid') == 6",
+          "fluid_1_7": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:fluid') == 7",
+          "body_2": "q.block_state('levitate:axis') == 2",
+          "ends_2": "q.block_state('levitate:axis') == 2",
+          "fluid_2_1": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:fluid') == 1",
+          "fluid_2_2": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:fluid') == 2",
+          "fluid_2_3": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:fluid') == 3",
+          "fluid_2_4": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:fluid') == 4",
+          "fluid_2_5": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:fluid') == 5",
+          "fluid_2_6": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:fluid') == 6",
+          "fluid_2_7": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:fluid') == 7",
+          "bracket_0_wood": "q.block_state('levitate:bracket') == 1 && (q.block_state('levitate:axis') == 0)",
+          "bracket_0_metal": "q.block_state('levitate:bracket') == 2 && (q.block_state('levitate:axis') == 0)",
+          "bracket_1_wood": "q.block_state('levitate:bracket') == 1 && (q.block_state('levitate:axis') == 1)",
+          "bracket_1_metal": "q.block_state('levitate:bracket') == 2 && (q.block_state('levitate:axis') == 1)",
+          "bracket_2_wood": "q.block_state('levitate:bracket') == 1 && (q.block_state('levitate:axis') == 2)",
+          "bracket_2_metal": "q.block_state('levitate:bracket') == 2 && (q.block_state('levitate:axis') == 2)"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_glass_fluid_pipe",
+          "render_method": "blend"
+        },
+        "copper": {
+          "texture": "levitate_fluid_pipe",
+          "render_method": "blend"
+        },
+        "bracket_wood": {
+          "texture": "levitate_pipe_bracket_wood",
+          "render_method": "blend"
+        },
+        "bracket_metal": {
+          "texture": "levitate_pipe_bracket_metal",
+          "render_method": "blend"
+        },
+        "fluid_water": {
+          "texture": "levitate_pipe_fluid_water",
+          "render_method": "blend"
+        },
+        "fluid_lava": {
+          "texture": "levitate_pipe_fluid_lava",
+          "render_method": "blend"
+        },
+        "fluid_honey": {
+          "texture": "levitate_pipe_fluid_honey",
+          "render_method": "blend"
+        },
+        "fluid_chocolate": {
+          "texture": "levitate_pipe_fluid_chocolate",
+          "render_method": "blend"
+        },
+        "fluid_milk": {
+          "texture": "levitate_pipe_fluid_milk",
+          "render_method": "blend"
+        },
+        "fluid_potion": {
+          "texture": "levitate_pipe_fluid_potion",
+          "render_method": "blend"
+        },
+        "fluid_tea": {
+          "texture": "levitate_pipe_fluid_tea",
+          "render_method": "blend"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -4.0,
+          0.0,
+          -4.0
+        ],
+        "size": [
+          8.0,
+          16.0,
+          8.0
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -4.0,
+          0.0,
+          -4.0
+        ],
+        "size": [
+          8.0,
+          16.0,
+          8.0
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#c56d43",
+      "minecraft:loot": "loot_tables/blocks/glass_fluid_pipe.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:axis') == 0",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8.0,
+              4.0,
+              -4.0
+            ],
+            "size": [
+              16.0,
+              8.0,
+              8.0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8.0,
+              4.0,
+              -4.0
+            ],
+            "size": [
+              16.0,
+              8.0,
+              8.0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -4.0,
+              0.0,
+              -4.0
+            ],
+            "size": [
+              8.0,
+              16.0,
+              8.0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -4.0,
+              0.0,
+              -4.0
+            ],
+            "size": [
+              8.0,
+              16.0,
+              8.0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -4.0,
+              4.0,
+              -8.0
+            ],
+            "size": [
+              8.0,
+              8.0,
+              16.0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -4.0,
+              4.0,
+              -8.0
+            ],
+            "size": [
+              8.0,
+              8.0,
+              16.0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
