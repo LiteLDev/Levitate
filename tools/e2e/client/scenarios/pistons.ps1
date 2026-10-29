@@ -59,6 +59,9 @@ $mark = Get-LogMark
 Invoke-Chat '/setblock ~6 ~1 ~-2 levitate:kinetics_test_source ["levitate:axis"=2]'
 Start-Sleep -Seconds 1
 Invoke-Chat '/create kinetics ~6 ~1 ~-2 speed -128'
+# (the game sometimes drops a chat command: send it again then)
+try { Wait-LogLine 'Generator at -?\d+ -?\d+ -?\d+ now turns at -128 ' 10 -Since $mark | Out-Null }
+catch { Invoke-Chat '/create kinetics ~6 ~1 ~-2 speed -128' }
 Wait-LogLine 'piston at -?\d+ -?\d+ -?\d+ disassembled at offset 2' 90 -Since $mark | Out-Null
 Start-Sleep -Seconds 1
 Save-Screenshot 'piston-extended' | Out-Null
