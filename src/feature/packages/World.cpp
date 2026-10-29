@@ -219,6 +219,7 @@ void particle(int dim, cp::V3 at, std::string const& effect) {
 }
 
 void actionBar(Player& player, std::string const& text) {
+    if (text.empty()) return; // an empty tip makes clients drop the connection
     auto                           pkt = TextPacket{};
     TextPacketPayload::MessageOnly message;
     message.mType = TextPacketType::Tip;

@@ -597,7 +597,6 @@ bool useConveyorWithChain(Player& player, GlobalPos const& pos) {
         takeItems(player, chainItemIds(), cost, false);
     }
     connectConveyors(&player, first, pos);
-    actionBar(player, "");
     playSound(pos.dim, centre(pos), "place.chain", 1.f, 0.8f);
     return true;
 }
