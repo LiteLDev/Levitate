@@ -121,7 +121,11 @@ engine is U18.
 
 ### 2.3 Tools and info (U8)
 
-`wrench`, `goggles` (engineer's goggles, head slot).
+`wrench`, `goggles` (engineer's goggles, head slot). Both stack to 1. Recipes (Create 6.0.10,
+`assets/pending_recipes/goggles/` until U9's sheets and U6's cogwheel exist): wrench `GG / GP / ␣S`
+(G golden sheet, P cogwheel, S stick); goggles `␣S␣ / GPG` (S string, G glass, P golden sheet).
+The goggles are a wearable (`slot.armor.head`, no protection) with an attachable model (a strap
+and two brass lenses on the head; a small copy in the hand). Mechanics in §3.6 (U8).
 
 ### 2.4 Materials, food, world (U9)
 
@@ -1926,6 +1930,121 @@ SpeedControllerBlock(Entity), GaugeBlock, Speed/StressGaugeBlockEntity). Pure ru
   shouldRenderHeadOnFace) easing 1/8 per tick towards the target (shaking past 1); vanilla clients
   see the needle at the nearest 22.5° step. Goggle lines (U8's overlay) use the gauge strings
   defined here (`create.gui.speedometer.title`, `create.gui.stressometer.*`, `create.gui.gauge.info_header`).
+### 3.6.8 Wrench, goggles and the goggle overlay (U8 `goggles`)
+
+Checked against Create 6.0.10 (WrenchItem, IWrenchable, GogglesItem, GoggleOverlayRenderer,
+KineticBlockEntity / GeneratingKineticBlockEntity tooltips, IHaveGoggleInformation, KineticStats,
+ItemDescription, TooltipHelper, OverlayConfigCommand, GoggleConfigScreen, CClient). Code:
+`src/core/goggles/` (rotation, text helpers; gtest), `src/feature/goggles/` (wrench, overlay,
+selftests), `src/client/goggles/` (overlay panel, position screen, item tooltips).
+
+**Wrench** (`levitate:wrench`). Right-click on a block (players who may build; value boxes and
+filter slots keep their plain clicks, U3):
+- a *wrenchable* block runs its `onWrenched`; default (Create's IWrenchable): the state turned by
+  `getRotatedBlockState` about the clicked face, set in the world (the kinetic network re-attaches
+  it), the rotate sound (`levitate.wrench_rotate`: wooden trapdoor close, volume .25 × 1, pitch
+  1.25 × (0.5..1.5)) when it changed. Rotation (Levitate state conventions, `core/goggles/Rotation.h`):
+  on the top/bottom face `levitate:horizontal_axis` (0 x / 2 z) or `levitate:horizontal_facing`
+  (0 S, 1 W, 2 N, 3 E) turn a quarter clockwise; else `levitate:axis` (0..2) becomes the axis of
+  its positive direction turned clockwise about the clicked axis (unchanged when it is that axis);
+  else `levitate:facing` / `minecraft:facing_direction` (0..5, Create's Direction order) turns
+  clockwise about the clicked axis (unchanged when along it), `levitate:axis_along_first` toggles
+  when the facing is along the clicked axis or the click was on top/bottom (Create's
+  DirectionalAxisKineticBlock).
+- Sneak + right-click runs `onSneakWrenched`; default: survival players get the block's item
+  (inventory, the rest dropped at their feet; creative: nothing), a contraption anchored at the block
+  is disassembled first, the block is destroyed without drops (break particles), remove sound
+  (`levitate.wrench_remove` pop .25/.75 + `levitate.wrench_remove_hit` netherite step 1/.75, pitch
+  × (0.5..1)).
+- Not wrenchable but in Create's `#create:wrench_pickup` (rails, redstone wire, redstone torches,
+  repeaters, comparators, levers, buttons, pressure plates, observers, pistons, tripwire, tripwire
+  hooks, daylight detectors, targets, hoppers): sneak + right-click picks it up the same way.
+- One action per click: repeated use packets on the same block within 4 ticks are ignored
+  (Java's item use delay).
+- Every kinetic block is wrenchable (Create's IRotate extends IWrenchable); U8 also opts in the
+  wave-1 blocks Create makes wrenchable: chassis (3), sticker (defaults), track (right-click does
+  nothing; sneak in survival gives the curves' tracks / girders with `tracks::dismantleCurves`
+  before the pick-up, as Create's TrackBlock).
+- Attacking a minecart (any `*minecart`) with the wrench in survival breaks it in one hit (Create's
+  `wrenchInstaKillsMinecarts`, 100 damage).
+- **Contract** `src/feature/goggles/Wrenchable.h`: `LV_REGISTER_WRENCHABLE(id[, Handler{onWrenched,
+  onSneakWrenched, rotate}])`, `defaultOnWrenched` / `defaultOnSneakWrenched` / `rotatedBlock` for
+  "super" calls (e.g. U21's bearings disassemble after the default rotation, U20's pistons return
+  `Pass` unless retracted), `registerEntityHandler` for right-clicks on entities with the wrench
+  (U20/U27: minecart contraption pickup, train relocation — Create's "When used on Contraptions").
+
+**Engineer's goggles** (`levitate:goggles`): worn in the head slot (Bedrock's wearable equips it
+on use and from dispensers). `isWearingGoggles` = goggles in the head slot or any predicate added
+with `addWearingPredicate` (Create's GogglesItem.addIsWearingPredicate).
+
+**Goggle overlay** (Create's GoggleOverlayRenderer), built on the server for the block the player
+looks at (`overlayFor(player, pos)`):
+1. A provider's `proxy` may redirect to another position (IProxyHoveringInformation).
+2. With goggles: the *goggle* lines. Levitate blocks get the defaults unless a provider sets
+   `replaceDefaults`: kinetic stats (only when the impact is not 0: "Kinetic Stats:", gray "Kinetic
+   Stress Impact:", aqua `impact × |theoretical speed|` + "su", dark gray "at current speed" — indent 1),
+   generator stats (capacity not 0: "Generator Stats:", gray "Kinetic Stress Capacity:", aqua
+   `|capacity × speed|`, corrected by generated/actual speed when driven faster), then — each
+   separated by a blank line — the fluid capability (Create's containedFluidTooltip: "Fluid Container
+   Info:", per non-empty tank gray name and gold "amount mB" gray " / " dark gray "capacity mB"; a
+   single empty tank shows gray "Capacity: " gold "N mB"; fluid names from `fluid.<id>` keys), the
+   item capability (Levitate: "Contents:", gray name green " xN", at most 8 kinds + "...and N more")
+   and the heat capability (Levitate: "Heat: <level>"). Then every provider's `goggle`.
+3. The *hover* lines (with or without goggles), after a blank line when there are goggle lines:
+   kinetic blocks in an overstressed network show gold "Overstressed" and the wrapped hint
+   `create.gui.contraptions.network_overstressed` (gray, _highlights_ white, 200 px per line; client
+   config `enableOverstressedTooltip`); a block turning slower than its `setSpeedRequirement` level
+   (slow 1, medium `mediumSpeed`, fast `fastSpeed`) shows gold "Speed Requirement:" and
+   `not_fast_enough` with the block's name; then every provider's `hover`. The blank line goes when
+   the goggles added lines and the hover added none.
+4. Nothing when both kinds exist and neither added lines, or when there are no lines. Every line is
+   indented by 4 + indent spaces (Create's forGoggles); numbers use Create's format (grouping, ≤ 2
+   decimals). The icon is `levitate:goggles` unless a provider's `icon` names another item.
+
+Client mod: every `overlayInterval` (config, 4) ticks and on every target change the client sends
+`goggles.query {pos}`; the server answers `goggles.info {pos, lines, icon}` (targets within 8
+blocks, at most one answer per tick and player). The panel is drawn on the HUD (not while a screen is open, not for spectators, not while
+looking at a value box or filter slot) at `centre + (overlayOffsetX, overlayOffsetY)` (defaults 20,
+0), kept 20 px inside the screen, as Minecraft's hovering text (12 px right / up of that point,
+background `0xF0100010` at 75 % alpha, border gradient `0x505000FF` → `0x5028007F`, or the custom
+colours with `customColorsOverlay`), the first line 2 px apart, the goggles icon at (+10, −16); it
+fades in over 24 frames sliding 8 px from the offset side. Vanilla clients: every `overlayInterval`
+ticks the server traces the player's look (5.5 blocks) and shows the same lines in the action bar
+(indentation trimmed), resent every second while unchanged (never blanked: it fades, so other units' action-bar messages stay)
+(config `vanillaOverlay`).
+
+`/create overlay` (anyone, client mod) opens Create's position screen: the sample tooltip
+(`create.gui.config.overlay1..8`) follows clicks / drags (clamped as Create), Esc saves the offset
+to `config/goggles.json`. `/create overlay reset` sets both offsets to 0 (Create does the same) and
+answers "Create Goggle Overlay has been reset to default position".
+
+**Overlay contract** `src/feature/goggles/GoggleInfo.h` (wave-2 blocks add lines without knowing
+U8's code): `LV_REGISTER_GOGGLE_INFO(id, InfoProvider{goggle, hover, icon, proxy,
+replaceDefaults})` — `goggle` / `hover` get an `InfoContext {player, region, pos, block, sneaking,
+wearingGoggles, tr(...)}` and append lines; helpers `line(text, indent)`, `number`, `addHint`,
+`formattedSpeed` / `formattedStress` (Create's IRotate texts for U6's gauges), `kineticGoggleTooltip`,
+`kineticHoverTooltip`, `fluidTooltip` (for providers replacing the defaults); kinetic block
+properties `setSpeedRequirement` (IRotate.getMinimumRequiredSpeedLevel), `setHideStressImpact`,
+`setGeneratorSpeed(id, rpm, mayGenerateLess)` (BlockStressValues; preset: hand crank and valve
+handles 32, water wheel 8, large water wheel 4, creative motor up to 256).
+
+**Item tooltips** (client mod, appended to the game's hover text of `levitate:` items):
+- Create's ItemDescription: when `item.create.<path>.tooltip.summary` (or `block.create...`)
+  exists: dark gray "Hold [Shift] for Summary" (key gray, white while held) and, with Ctrl
+  actions, "Hold [Ctrl] for Controls"; Shift shows the summary (wrapped at 200 px, Create's palette:
+  material gold with yellow highlights), a blank line and every condition (gray) with its behaviour
+  (indented); Ctrl the controls with their actions. Keys: `<key>.summary`, `.condition<i>`,
+  `.behaviour<i>`, `.control<i>`, `.action<i>`; each unit adds them for its items. Config
+  `enableTooltips`.
+- Create's KineticStats for kinetic blocks: a blank line, gray "Kinetic Stress Impact:" and a
+  3-segment bar (low < `mediumStressImpact` ≤ medium < `highStressImpact` ≤ high; yellow / gold /
+  red) with "Low / Moderate / High" — with goggles on "Nx RPM" instead; gray "Kinetic Stress
+  Capacity:" (thresholds `mediumCapacity` / `highCapacity`, colours reversed) with "Small / Medium /
+  Large" or "Nx RPM" and dark gray " -> N su" ("Up to N su") from the generator speed.
+- Logged actions: `wrench: <player> rotated <id> at <pos> (face f)`, `wrench: <player> dismantled
+  <id> at <pos>`, `wrench: <player> broke a <minecart>`, `goggles: overlay for <player> at <pos>
+  (<n> lines, client mod|action bar)` (once per new target), `goggles: overlay screen opened for`,
+  `goggles: overlay reset for`, client `goggles: overlay offset set to x, y` / `reset`.
 
 ## 4. Screens
 
@@ -1994,6 +2113,11 @@ keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlock
 `config/crafter.json` (U16, Create's CRecipes / CKinetics keys and defaults):
 `allowRegularCraftingInCrafter` (true), `maxFireworkIngredientsInCrafter` (9),
 `allowStonecuttingOnSaw` (true), `bulkCutting` (false), `moveItemsToStorage` (true).
+`config/goggles.json` (U8): Create's CClient keys `enableTooltips` (true),
+`enableOverstressedTooltip` (true), `overlayOffsetX` (20), `overlayOffsetY` (0),
+`customColorsOverlay` (false), `customBackgroundOverlay` (0xf0100010), `customBorderTopOverlay`
+(0x505000ff), `customBorderBotOverlay` (0x5028007f) — read by the client mod — and Levitate's
+`vanillaOverlay` (true: action-bar overlay for vanilla clients) and `overlayInterval` (4 ticks).
 `config/belts.json` (U11): `maxBeltLength` 20, `maxEjectorDistance` 32 (Create's CKinetics keys and
 defaults), `displayItems` true (show items on belts / depots / in flight as item entities, §8).
 `config/fluids.json` (U19, Create's CFluids and CLogistics defaults): `hosePulleyBlockThreshold`
@@ -2031,9 +2155,9 @@ generators' own behaviour (U7, U18, U21), not a config value.
 | `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
 | `/create ponder <id>` (client mod) | anyone | U30 |
 | `/create highlight <pos>` | op | U3 |
+| `/create overlay` (overlay position screen, client mod) / `/create overlay reset` | anyone | U8 |
 | `/create steam <pos>` (tank / boiler goggle lines) / `steam <pos> fill <fluid> <mB>` (Levitate debug: fills, or drains when negative, through the fluid capability) | op | U18 |
 | `/create display text <x y z> <line> <text>` / `bind <x y z> <tx ty tz> <source>` (Levitate debug) | op | U24 |
-| `/create overlay reset` | anyone | U8 |
 
 ## 7. Strings
 
@@ -2104,6 +2228,13 @@ matches Create's official Chinese translation wording).
 | Transitional item progress bar and tooltip (U15) | item bars come only from durability and tooltips are client-side | the tooltip lines are the item's lore (server language); no bar |
 | Deployer kills dropping no experience (U15) | Bedrock has no hook between a kill and its orbs | orbs drop as for a player kill; item drops go into the deployer |
 | Deployer "fist bump" easter egg (U15) | cosmetic advancement only | not reproduced |
+
+| Goggle overlay next to the crosshair for **vanilla** clients (U8) | no client-side drawing without a client mod | the same lines in the action bar (indentation trimmed), refreshed every `overlayInterval` ticks |
+| Kinetic stats and "Hold [Shift] for Summary" in item tooltips for **vanilla** clients (U8) | Bedrock builds item hover text on the client from the item alone | the client mod appends them to the hover text; vanilla clients see the plain name. On a server the client mod reads its own `config/kinetics.json` stress table (Create syncs the server's) |
+| The wrench's animated cog in the hand (U8) | Bedrock items have no custom item renderer | a static item sprite |
+| Strikethrough in Create's speed text of an overstressed network (U8) | Bedrock text has no strikethrough format | the text is only dark gray |
+| Drops of sneak-wrenched blocks from their loot tables (U8) | the server has no loot roll for a block that isn't broken by a tool | the block's pick item (its own item; redstone for wire, the repeater for a repeater, ...), which is what Create's `#wrench_pickup` blocks and Levitate's blocks drop |
+| Any glass (`#c:glass_blocks`) in the goggles recipe (U8) | a Bedrock recipe key is one item or an item tag, and there is no glass tag | plain glass |
 
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
