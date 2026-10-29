@@ -8,7 +8,7 @@
       "furnace",
       "blast_furnace"
     ],
-    "input": "",
+    "input": "levitate:deepslate_zinc_ore",
     "output": "levitate:zinc_ingot"
   }
 }

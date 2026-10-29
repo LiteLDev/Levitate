@@ -9,12 +9,12 @@
     ],
     "ingredients": [
       {
-        "item": ""
+        "item": "levitate:cut_limestone_stairs"
       }
     ],
     "unlock": [
       {
-        "item": ""
+        "item": "levitate:cut_limestone_stairs"
       }
     ],
     "result": {

@@ -1,13 +1,13 @@
 {
-  "type": "levitate:splashing",
+  "type": "create:splashing",
   "ingredients": [
     {
-      "item": "levitate:crushed_raw_copper"
+      "item": "create:crushed_raw_copper"
     }
   ],
   "results": [
     {
-      "id": "levitate:copper_nugget",
+      "id": "create:copper_nugget",
       "count": 9
     },
     {

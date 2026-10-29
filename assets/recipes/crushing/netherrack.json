@@ -1,18 +1,18 @@
 {
-  "type": "levitate:crushing",
+  "type": "create:crushing",
   "ingredients": [
     {
       "item": "minecraft:netherrack"
     }
   ],
+  "processing_time": 250,
   "results": [
     {
-      "id": "levitate:cinder_flour"
+      "id": "create:cinder_flour"
     },
     {
-      "id": "levitate:cinder_flour",
+      "id": "create:cinder_flour",
       "chance": 0.5
     }
-  ],
-  "processing_time": 250
+  ]
 }

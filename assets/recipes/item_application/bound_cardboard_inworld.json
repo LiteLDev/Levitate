@@ -1,8 +1,8 @@
 {
-  "type": "levitate:item_application",
+  "type": "create:item_application",
   "ingredients": [
     {
-      "item": "levitate:cardboard_block"
+      "item": "create:cardboard_block"
     },
     {
       "tag": "c:strings"
@@ -10,7 +10,7 @@
   ],
   "results": [
     {
-      "id": "levitate:bound_cardboard_block"
+      "id": "create:bound_cardboard_block"
     }
   ]
 }

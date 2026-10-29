@@ -1,18 +1,18 @@
 {
-  "type": "levitate:crushing",
+  "type": "create:crushing",
   "ingredients": [
     {
-      "item": "minecraft:raw_copper"
+      "tag": "c:raw_materials/copper"
     }
   ],
+  "processing_time": 400,
   "results": [
     {
-      "id": "levitate:crushed_raw_copper"
+      "id": "create:crushed_raw_copper"
     },
     {
-      "id": "levitate:experience_nugget",
+      "id": "create:experience_nugget",
       "chance": 0.75
     }
-  ],
-  "processing_time": 400
+  ]
 }

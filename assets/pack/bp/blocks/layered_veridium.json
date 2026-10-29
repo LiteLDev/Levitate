@@ -18,16 +18,16 @@
       "minecraft:loot": "loot_tables/blocks/layered_veridium.json",
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
-        "*": {
-          "texture": "levitate_veridium_layered",
-          "render_method": "opaque"
-        },
         "down": {
           "texture": "levitate_veridium_cap",
           "render_method": "opaque"
         },
         "up": {
           "texture": "levitate_veridium_cap",
+          "render_method": "opaque"
+        },
+        "*": {
+          "texture": "levitate_veridium_layered",
           "render_method": "opaque"
         }
       }

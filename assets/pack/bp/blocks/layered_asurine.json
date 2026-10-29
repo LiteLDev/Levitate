@@ -18,16 +18,16 @@
       "minecraft:loot": "loot_tables/blocks/layered_asurine.json",
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
-        "*": {
-          "texture": "levitate_asurine_layered",
-          "render_method": "opaque"
-        },
         "down": {
           "texture": "levitate_asurine_cap",
           "render_method": "opaque"
         },
         "up": {
           "texture": "levitate_asurine_cap",
+          "render_method": "opaque"
+        },
+        "*": {
+          "texture": "levitate_asurine_layered",
           "render_method": "opaque"
         }
       }

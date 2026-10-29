@@ -1,14 +1,13 @@
 {
-  "type": "levitate:filling",
+  "type": "create:filling",
   "ingredients": [
     {
-      "item": "levitate:cinder_flour"
+      "item": "create:cinder_flour"
     },
     {
-      "fluid": "levitate:potion",
-      "amount": 25,
-      "potion": "minecraft:harming",
-      "bottle": "regular"
+      "type": "fluid_stack",
+      "fluid": "levitate:potion/regular/harming",
+      "amount": 25
     }
   ],
   "results": [

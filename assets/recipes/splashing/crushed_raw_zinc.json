@@ -1,13 +1,13 @@
 {
-  "type": "levitate:splashing",
+  "type": "create:splashing",
   "ingredients": [
     {
-      "item": "levitate:crushed_raw_zinc"
+      "item": "create:crushed_raw_zinc"
     }
   ],
   "results": [
     {
-      "id": "levitate:zinc_nugget",
+      "id": "create:zinc_nugget",
       "count": 9
     },
     {

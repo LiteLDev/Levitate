@@ -1,18 +1,18 @@
 {
-  "type": "levitate:crushing",
+  "type": "create:crushing",
   "ingredients": [
     {
       "item": "minecraft:obsidian"
     }
   ],
+  "processing_time": 500,
   "results": [
     {
-      "id": "levitate:powdered_obsidian"
+      "id": "create:powdered_obsidian"
     },
     {
       "id": "minecraft:obsidian",
       "chance": 0.75
     }
-  ],
-  "processing_time": 500
+  ]
 }

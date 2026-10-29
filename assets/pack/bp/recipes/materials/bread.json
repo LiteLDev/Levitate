@@ -10,7 +10,7 @@
       "campfire",
       "soul_campfire"
     ],
-    "input": "",
+    "input": "levitate:dough",
     "output": "minecraft:bread"
   }
 }

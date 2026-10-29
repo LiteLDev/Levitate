@@ -1,18 +1,18 @@
 {
-  "type": "levitate:crushing",
+  "type": "create:crushing",
   "ingredients": [
     {
-      "item": "levitate:raw_zinc"
+      "tag": "c:raw_materials/zinc"
     }
   ],
+  "processing_time": 400,
   "results": [
     {
-      "id": "levitate:crushed_raw_zinc"
+      "id": "create:crushed_raw_zinc"
     },
     {
-      "id": "levitate:experience_nugget",
+      "id": "create:experience_nugget",
       "chance": 0.75
     }
-  ],
-  "processing_time": 400
+  ]
 }

@@ -1,17 +1,18 @@
 {
-  "type": "levitate:filling",
+  "type": "create:filling",
   "ingredients": [
     {
       "item": "minecraft:bread"
     },
     {
+      "type": "fluid_tag",
       "fluid_tag": "c:milk",
       "amount": 250
     }
   ],
   "results": [
     {
-      "id": "levitate:sweet_roll"
+      "id": "create:sweet_roll"
     }
   ]
 }

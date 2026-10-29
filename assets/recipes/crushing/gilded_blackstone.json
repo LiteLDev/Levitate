@@ -1,23 +1,23 @@
 {
-  "type": "levitate:crushing",
+  "type": "create:crushing",
   "ingredients": [
     {
       "item": "minecraft:gilded_blackstone"
     }
   ],
+  "processing_time": 400,
   "results": [
     {
       "id": "minecraft:gold_nugget",
       "count": 18
     },
     {
-      "id": "levitate:experience_nugget",
+      "id": "create:experience_nugget",
       "chance": 0.75
     },
     {
       "id": "minecraft:blackstone",
       "chance": 0.125
     }
-  ],
-  "processing_time": 400
+  ]
 }

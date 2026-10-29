@@ -9,12 +9,12 @@
     ],
     "ingredients": [
       {
-        "item": ""
+        "item": "levitate:dripstone_pillar"
       }
     ],
     "unlock": [
       {
-        "item": ""
+        "item": "levitate:dripstone_pillar"
       }
     ],
     "result": {

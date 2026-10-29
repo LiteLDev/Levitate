@@ -1,0 +1,74 @@
+{
+  "levitate_mechanical_bearing_model": {
+    "textures": "textures/blocks/mechanical_bearing_model"
+  },
+  "levitate_windmill_bearing_model": {
+    "textures": "textures/blocks/windmill_bearing_model"
+  },
+  "levitate_clockwork_bearing_model": {
+    "textures": "textures/blocks/clockwork_bearing_model"
+  },
+  "levitate_turntable_model": {
+    "textures": "textures/blocks/turntable_model"
+  },
+  "levitate_sail_frame": {
+    "textures": "textures/blocks/sail_frame"
+  },
+  "levitate_white_sail": {
+    "textures": "textures/blocks/white_sail"
+  },
+  "levitate_orange_sail": {
+    "textures": "textures/blocks/orange_sail"
+  },
+  "levitate_magenta_sail": {
+    "textures": "textures/blocks/magenta_sail"
+  },
+  "levitate_light_blue_sail": {
+    "textures": "textures/blocks/light_blue_sail"
+  },
+  "levitate_yellow_sail": {
+    "textures": "textures/blocks/yellow_sail"
+  },
+  "levitate_lime_sail": {
+    "textures": "textures/blocks/lime_sail"
+  },
+  "levitate_pink_sail": {
+    "textures": "textures/blocks/pink_sail"
+  },
+  "levitate_gray_sail": {
+    "textures": "textures/blocks/gray_sail"
+  },
+  "levitate_light_gray_sail": {
+    "textures": "textures/blocks/light_gray_sail"
+  },
+  "levitate_cyan_sail": {
+    "textures": "textures/blocks/cyan_sail"
+  },
+  "levitate_purple_sail": {
+    "textures": "textures/blocks/purple_sail"
+  },
+  "levitate_blue_sail": {
+    "textures": "textures/blocks/blue_sail"
+  },
+  "levitate_brown_sail": {
+    "textures": "textures/blocks/brown_sail"
+  },
+  "levitate_green_sail": {
+    "textures": "textures/blocks/green_sail"
+  },
+  "levitate_red_sail": {
+    "textures": "textures/blocks/red_sail"
+  },
+  "levitate_black_sail": {
+    "textures": "textures/blocks/black_sail"
+  },
+  "levitate_cart_assembler_model": {
+    "textures": "textures/blocks/cart_assembler_model"
+  },
+  "levitate_controller_rail": {
+    "textures": "textures/blocks/controller_rail"
+  },
+  "levitate_controller_rail_on": {
+    "textures": "textures/blocks/controller_rail_on"
+  }
+}

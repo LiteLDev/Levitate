@@ -1,0 +1,17 @@
+{
+  "levitate:millstone": {
+    "sound": "stone"
+  },
+  "levitate:crushing_wheel": {
+    "sound": "stone"
+  },
+  "levitate:crushing_wheel_controller": {
+    "sound": "stone"
+  },
+  "levitate:encased_fan": {
+    "sound": "wood"
+  },
+  "levitate:nozzle": {
+    "sound": "cloth"
+  }
+}

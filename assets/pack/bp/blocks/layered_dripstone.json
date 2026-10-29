@@ -18,16 +18,16 @@
       "minecraft:loot": "loot_tables/blocks/layered_dripstone.json",
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
-        "*": {
-          "texture": "levitate_dripstone_layered",
-          "render_method": "opaque"
-        },
         "down": {
           "texture": "levitate_dripstone_cap",
           "render_method": "opaque"
         },
         "up": {
           "texture": "levitate_dripstone_cap",
+          "render_method": "opaque"
+        },
+        "*": {
+          "texture": "levitate_dripstone_layered",
           "render_method": "opaque"
         }
       }

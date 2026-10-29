@@ -1,19 +1,19 @@
 {
-  "type": "levitate:crushing",
+  "type": "create:crushing",
   "ingredients": [
     {
-      "item": "levitate:veridium"
+      "item": "create:veridium"
     }
   ],
+  "processing_time": 250,
   "results": [
     {
-      "id": "levitate:crushed_raw_copper",
+      "id": "create:crushed_raw_copper",
       "chance": 0.8
     },
     {
-      "id": "levitate:copper_nugget",
+      "id": "create:copper_nugget",
       "chance": 0.8
     }
-  ],
-  "processing_time": 250
+  ]
 }

@@ -1,0 +1,41 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:turntable",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:rotor": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.turntable",
+        "bone_visibility": {
+          "casing": "q.block_state('levitate:rotor') != 2",
+          "rotor": "q.block_state('levitate:rotor') != 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_turntable_model",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 3
+      },
+      "minecraft:map_color": "#9c7a4a",
+      "minecraft:loot": "loot_tables/blocks/turntable.json"
+    }
+  }
+}

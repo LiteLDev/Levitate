@@ -1,17 +1,18 @@
 {
-  "type": "levitate:filling",
+  "type": "create:filling",
   "ingredients": [
     {
       "item": "minecraft:sweet_berries"
     },
     {
-      "fluid": "levitate:chocolate",
+      "type": "fluid_stack",
+      "fluid": "create:chocolate",
       "amount": 250
     }
   ],
   "results": [
     {
-      "id": "levitate:chocolate_glazed_berries"
+      "id": "create:chocolate_glazed_berries"
     }
   ]
 }

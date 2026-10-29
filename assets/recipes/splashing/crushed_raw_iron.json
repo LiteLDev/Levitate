@@ -1,8 +1,8 @@
 {
-  "type": "levitate:splashing",
+  "type": "create:splashing",
   "ingredients": [
     {
-      "item": "levitate:crushed_raw_iron"
+      "item": "create:crushed_raw_iron"
     }
   ],
   "results": [

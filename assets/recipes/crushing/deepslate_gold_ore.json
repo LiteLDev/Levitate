@@ -1,21 +1,22 @@
 {
-  "type": "levitate:crushing",
+  "type": "create:crushing",
   "ingredients": [
     {
       "item": "minecraft:deepslate_gold_ore"
     }
   ],
+  "processing_time": 350,
   "results": [
     {
-      "id": "levitate:crushed_raw_gold",
+      "id": "create:crushed_raw_gold",
       "count": 2
     },
     {
-      "id": "levitate:crushed_raw_gold",
+      "id": "create:crushed_raw_gold",
       "chance": 0.25
     },
     {
-      "id": "levitate:experience_nugget",
+      "id": "create:experience_nugget",
       "count": 2,
       "chance": 0.75
     },
@@ -23,6 +24,5 @@
       "id": "minecraft:cobbled_deepslate",
       "chance": 0.125
     }
-  ],
-  "processing_time": 350
+  ]
 }

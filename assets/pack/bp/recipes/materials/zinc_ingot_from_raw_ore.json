@@ -8,7 +8,7 @@
       "furnace",
       "blast_furnace"
     ],
-    "input": "",
+    "input": "levitate:raw_zinc",
     "output": "levitate:zinc_ingot"
   }
 }

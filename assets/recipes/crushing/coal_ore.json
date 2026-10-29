@@ -1,10 +1,11 @@
 {
-  "type": "levitate:crushing",
+  "type": "create:crushing",
   "ingredients": [
     {
       "item": "minecraft:coal_ore"
     }
   ],
+  "processing_time": 150,
   "results": [
     {
       "id": "minecraft:coal"
@@ -14,13 +15,12 @@
       "chance": 0.75
     },
     {
-      "id": "levitate:experience_nugget",
+      "id": "create:experience_nugget",
       "chance": 0.75
     },
     {
       "id": "minecraft:cobblestone",
       "chance": 0.125
     }
-  ],
-  "processing_time": 150
+  ]
 }

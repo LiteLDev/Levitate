@@ -1,5 +1,5 @@
 {
-  "type": "levitate:splashing",
+  "type": "create:splashing",
   "ingredients": [
     {
       "tag": "c:flours/wheat"
@@ -7,7 +7,7 @@
   ],
   "results": [
     {
-      "id": "levitate:dough"
+      "id": "create:dough"
     }
   ]
 }

@@ -1,8 +1,8 @@
 {
-  "type": "levitate:splashing",
+  "type": "create:splashing",
   "ingredients": [
     {
-      "item": "levitate:crushed_raw_gold"
+      "item": "create:crushed_raw_gold"
     }
   ],
   "results": [

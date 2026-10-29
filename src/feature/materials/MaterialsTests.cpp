@@ -6,6 +6,8 @@
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/item/ItemActor.h"
+#include "mc/server/SimulatedPlayer.h"
+#include "mc/scripting/modules/minecraft/ScriptFacing.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/effect/MobEffectInstance.h"
 #include "mc/world/gamemode/GameMode.h"
@@ -157,7 +159,11 @@ LV_REGISTER_SELFTEST("materials.player_mining_drops", [](Context& ctx) -> ll::co
     // iron pickaxe: raw zinc
     ctx.require(ctx.setBlock(p, "levitate:zinc_ore"), "place ore");
     ctx.give(player, makeStack("minecraft:iron_pickaxe", 1), player.getSelectedItemSlot());
-    player.mGameMode->destroyBlock(bp, 1);
+    {   // what GameMode does when a survival player finishes mining: drops with the held tool, then air
+        Block const& b = region.getBlock(bp);
+        b.playerDestroy(player, bp);
+        game::clearBlock(region, bp);
+    }
     co_await ctx.ticks(3);
     ctx.check(game::blockIdAt(region, bp) != "levitate:zinc_ore", "ore broken");
     ctx.check(countItemsNear(region, bp, "levitate:raw_zinc") >= 1, "raw zinc dropped");
@@ -165,7 +171,11 @@ LV_REGISTER_SELFTEST("materials.player_mining_drops", [](Context& ctx) -> ll::co
     // wooden pickaxe: nothing (needs iron)
     ctx.require(ctx.setBlock(p, "levitate:zinc_ore"), "place ore again");
     ctx.give(player, makeStack("minecraft:wooden_pickaxe", 1), player.getSelectedItemSlot());
-    player.mGameMode->destroyBlock(bp, 1);
+    {   // what GameMode does when a survival player finishes mining: drops with the held tool, then air
+        Block const& b = region.getBlock(bp);
+        b.playerDestroy(player, bp);
+        game::clearBlock(region, bp);
+    }
     co_await ctx.ticks(3);
     ctx.check(countItemsNear(region, bp, "levitate:raw_zinc") == 0 && countItemsNear(region, bp, "levitate:zinc_ore") == 0,
               "nothing dropped with a wooden pickaxe");

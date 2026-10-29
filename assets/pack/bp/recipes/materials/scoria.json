@@ -7,7 +7,7 @@
     "tags": [
       "furnace"
     ],
-    "input": "",
+    "input": "minecraft:soul_sand",
     "output": "levitate:scoria"
   }
 }

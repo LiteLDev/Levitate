@@ -18,16 +18,16 @@
       "minecraft:loot": "loot_tables/blocks/layered_andesite.json",
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
-        "*": {
-          "texture": "levitate_andesite_layered",
-          "render_method": "opaque"
-        },
         "down": {
           "texture": "levitate_andesite_cap",
           "render_method": "opaque"
         },
         "up": {
           "texture": "levitate_andesite_cap",
+          "render_method": "opaque"
+        },
+        "*": {
+          "texture": "levitate_andesite_layered",
           "render_method": "opaque"
         }
       }

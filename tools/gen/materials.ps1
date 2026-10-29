@@ -294,7 +294,9 @@ function Wall-Block($b, [string]$tex) {
         $perms += O condition $cond components (O 'minecraft:geometry' (O identifier 'geometry.levitate.materials_wall' bone_visibility $pv) 'minecraft:collision_box' $boxes 'minecraft:selection_box' (Box $x0 0 $z0 ($x1 - $x0) 16 ($z1 - $z0)))
     }
     $traits = O 'minecraft:connection' (O enabled_states @('minecraft:cardinal_connections'))
-    Save-Json "assets/pack/bp/blocks/$($b.id).json" (Block-Doc $b $c $null $traits $perms)
+    $doc = Block-Doc $b $c $null $traits $perms
+    $doc.format_version = '1.26.0' # the minecraft:connection trait needs 1.26.0
+    Save-Json "assets/pack/bp/blocks/$($b.id).json" $doc
     Save-Loot $b.id "levitate:$($b.id)"
     Register-Block $b 'wall'
 }
@@ -412,13 +414,13 @@ function Shapeless([string]$name, [string[]]$ingredients, [string]$result, [int]
     $ings = @($ingredients | ForEach-Object { Ing $_ })
     Save-Json "assets/pack/bp/recipes/materials/$name.json" (O format_version '1.20.10' 'minecraft:recipe_shapeless' (O description (O identifier "levitate:$name") tags @('crafting_table') ingredients $ings unlock @((O item $ings[0].item)) result (O item $result count $count)))
 }
-function Cutting([string]$name, [string]$input, [string]$result, [int]$count = 1) {
-    Save-Json "assets/pack/bp/recipes/materials/stonecutting/$name.json" (O format_version '1.20.10' 'minecraft:recipe_shapeless' (O description (O identifier "levitate:$name") tags @('stonecutter') ingredients @((O item $input)) unlock @((O item $input)) result (O item $result count $count)))
+function Cutting([string]$name, [string]$source, [string]$result, [int]$count = 1) {
+    Save-Json "assets/pack/bp/recipes/materials/stonecutting/$name.json" (O format_version '1.20.10' 'minecraft:recipe_shapeless' (O description (O identifier "levitate:$name") tags @('stonecutter') ingredients @((O item $source)) unlock @((O item $source)) result (O item $result count $count)))
 }
 # Bedrock furnaces cook in 10 s (furnace), 5 s (blast furnace, smoker), 30 s (campfire): Create's
 # 200 / 100 / 100 / 600 ticks.
-function Furnace([string]$name, [string]$input, [string]$output, [string[]]$tags) {
-    Save-Json "assets/pack/bp/recipes/materials/$name.json" (O format_version '1.20.10' 'minecraft:recipe_furnace' (O description (O identifier "levitate:$name") tags @($tags) input $input output $output))
+function Furnace([string]$name, [string]$source, [string]$output, [string[]]$tags) {
+    Save-Json "assets/pack/bp/recipes/materials/$name.json" (O format_version '1.20.10' 'minecraft:recipe_furnace' (O description (O identifier "levitate:$name") tags @($tags) input $source output $output))
 }
 
 # crafting/materials, crafting/kinetics (ingredients), crafting/appliances
@@ -454,11 +456,14 @@ Shaped 'crafter_slot_cover' @('AAA') @{ A = '#c:nuggets/brass' } 'levitate:craft
 Shaped 'propeller' @(' S ', 'SCS', ' S ') @{ C = 'levitate:andesite_alloy'; S = '#c:plates/iron' } 'levitate:propeller'
 Shaped 'whisk' @(' C ', 'SCS', 'SSS') @{ C = 'levitate:andesite_alloy'; S = '#c:plates/iron' } 'levitate:whisk'
 Shapeless 'book' @('levitate:cardboard', 'minecraft:paper', 'minecraft:paper', 'minecraft:paper') 'minecraft:book'
-Shaped 'item_frame' @('SSS', 'SPS', 'SSS') @{ P = 'levitate:cardboard'; S = '#c:rods/wooden' } 'minecraft:item_frame'
+Shaped 'item_frame' @('SSS', 'SPS', 'SSS') @{ P = 'levitate:cardboard'; S = '#c:rods/wooden' } 'minecraft:frame'
 Shapeless 'name_tag' @('#c:dyes/black', '#c:strings', 'levitate:cardboard') 'minecraft:name_tag'
 Shapeless 'slime_ball' @('levitate:dough', '#c:dyes/lime') 'minecraft:slime_ball'
 Shapeless 'dough' @('#c:flours/wheat', 'minecraft:water_bucket') 'levitate:dough'
 Shaped 'scorchia' @('###', '#D#', '###') @{ '#' = 'levitate:scoria'; D = '#c:dyes/black' } 'levitate:scorchia' 8
+
+# U3's attribute filter waited for brass_nugget (SPEC §2.26): brass nugget, wool, brass nugget.
+Save-Json 'assets/pack/bp/recipes/materials/attribute_filter.json' (O format_version '1.20.10' 'minecraft:recipe_shaped' (O description (O identifier 'levitate:attribute_filter') tags @('crafting_table') pattern @('NWN') key (O N (O item 'levitate:brass_nugget') W (O tag 'minecraft:wool')) unlock @((O item 'levitate:brass_nugget')) result (O item 'levitate:attribute_filter')))
 
 # stonecutting (non-palette)
 foreach ($id in 'industrial_iron_block', 'weathered_iron_block') { Cutting "${id}_from_ingots_iron_stonecutting" 'minecraft:iron_ingot' "levitate:$id" 2 }
@@ -518,7 +523,11 @@ function PRes([string]$s) {
     if ($null -ne $chance) { $r['chance'] = $chance }
     $r
 }
+# Recipes the processing units already ship with Create's data (U13 bulk: crushing / milling /
+# splashing, U19 fluids: filling / emptying): theirs, not generated here.
+$ownedElsewhere = [System.Collections.Generic.HashSet[string]]@('crushing/asurine', 'crushing/asurine_recycling', 'crushing/coal_ore', 'crushing/copper_ore', 'crushing/crimsite', 'crushing/crimsite_recycling', 'crushing/deepslate_coal_ore', 'crushing/deepslate_copper_ore', 'crushing/deepslate_diamond_ore', 'crushing/deepslate_emerald_ore', 'crushing/deepslate_gold_ore', 'crushing/deepslate_iron_ore', 'crushing/deepslate_lapis_ore', 'crushing/deepslate_redstone_ore', 'crushing/deepslate_zinc_ore', 'crushing/diamond_ore', 'crushing/emerald_ore', 'crushing/gilded_blackstone', 'crushing/gold_ore', 'crushing/iron_ore', 'crushing/lapis_ore', 'crushing/nether_gold_ore', 'crushing/nether_quartz_ore', 'crushing/netherrack', 'crushing/obsidian', 'crushing/ochrum', 'crushing/ochrum_recycling', 'crushing/raw_copper', 'crushing/raw_copper_block', 'crushing/raw_gold', 'crushing/raw_gold_block', 'crushing/raw_iron', 'crushing/raw_iron_block', 'crushing/raw_zinc', 'crushing/raw_zinc_block', 'crushing/redstone_ore', 'crushing/tuff', 'crushing/tuff_recycling', 'crushing/veridium', 'crushing/veridium_recycling', 'crushing/zinc_ore', 'emptying/builders_tea', 'filling/blaze_cake', 'filling/builders_tea', 'filling/chocolate_glazed_berries', 'filling/glowstone', 'filling/gunpowder', 'filling/honeyed_apple', 'filling/redstone', 'filling/sweet_roll', 'milling/wheat', 'splashing/crushed_raw_copper', 'splashing/crushed_raw_gold', 'splashing/crushed_raw_iron', 'splashing/crushed_raw_zinc', 'splashing/industrial_iron_block', 'splashing/wheat_flour')
 function P([string]$type, [string]$name, [string[]]$ingredients, [string[]]$results, $extra = @{}) {
+    if ($ownedElsewhere.Contains("$type/$name")) { return }
     $doc = O type "levitate:$type" ingredients @($ingredients | ForEach-Object { , (PIng $_) }) results @($results | ForEach-Object { PRes $_ })
     foreach ($k in ($extra.Keys | Sort-Object)) { $doc[$k] = $extra[$k] }
     Save-Json "assets/recipes/$type/$name.json" $doc
@@ -596,10 +605,10 @@ P filling sweet_roll @('minecraft:bread', 'FT:c:milk*250') @('levitate:sweet_rol
 # Potion fluid fillings of cinder flour (night vision -> glowstone, harming -> gunpowder, strength -> redstone)
 foreach ($pf in @(@('glowstone', 'minecraft:night_vision', 'minecraft:glowstone_dust'), @('gunpowder', 'minecraft:harming', 'minecraft:gunpowder'), @('redstone', 'minecraft:strength', 'minecraft:redstone'))) {
     $doc = O type 'levitate:filling' ingredients @((O item 'levitate:cinder_flour'), (O fluid 'levitate:potion' amount 25 potion $pf[1] bottle 'regular')) results @((O id $pf[2]))
-    Save-Json "assets/recipes/filling/$($pf[0]).json" $doc
+    if (-not $ownedElsewhere.Contains("filling/$($pf[0])")) { Save-Json "assets/recipes/filling/$($pf[0]).json" $doc }
 }
 P emptying builders_tea @('levitate:builders_tea') @('minecraft:glass_bottle', 'F:levitate:tea*250')
-P item_application bound_cardboard_inworld @('levitate:cardboard_block', '#c:strings') @('levitate:bound_cardboard_block')
+# item_application/bound_cardboard_inworld ships with U15 (assembly), which owns Create's manual application recipes.
 
 # sequenced assembly: precision mechanism (5 loops) and sturdy sheet
 $deploy = { param($with) O type 'levitate:deploying' ingredients @((O item 'levitate:incomplete_precision_mechanism'), (PIng $with)) results @((O id 'levitate:incomplete_precision_mechanism')) }

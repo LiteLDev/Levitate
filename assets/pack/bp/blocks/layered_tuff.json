@@ -18,16 +18,16 @@
       "minecraft:loot": "loot_tables/blocks/layered_tuff.json",
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
-        "*": {
-          "texture": "levitate_tuff_layered",
-          "render_method": "opaque"
-        },
         "down": {
           "texture": "levitate_tuff_cap",
           "render_method": "opaque"
         },
         "up": {
           "texture": "levitate_tuff_cap",
+          "render_method": "opaque"
+        },
+        "*": {
+          "texture": "levitate_tuff_layered",
           "render_method": "opaque"
         }
       }
