@@ -1,0 +1,14 @@
+{
+  "levitate.kinetics.cogs": {
+    "category": "block",
+    "min_distance": 2.0,
+    "max_distance": 16.0,
+    "sounds": [{ "name": "sounds/levitate/kinetics_cogs", "volume": 1.0 }]
+  },
+  "levitate.kinetics.rumble": {
+    "category": "block",
+    "min_distance": 2.0,
+    "max_distance": 16.0,
+    "sounds": [{ "name": "sounds/levitate/kinetics_rumble", "volume": 1.0 }]
+  }
+}

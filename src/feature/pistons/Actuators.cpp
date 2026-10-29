@@ -143,13 +143,38 @@ void setRunningState(Ctx& c, bool running) {
 
 // ---- movement --------------------------------------------------------------------------------
 
+/// Create's sequencedOffsetLimit (blocks left to move; -1: none).
+double sequenceLimit(Ctx const& c) { return c.d.value("seq", -1.0); }
+
+/// Reads the limit of a sequenced gearshift's "turn to move" instruction reaching the actuator
+/// (Create's LinearActuatorBlockEntity.onSpeedChanged); also when a new instruction arrives at an
+/// unchanged speed (two equal steps in a row).
+void readSequenceLimit(Ctx& c, bool speedChanged) {
+    if (c.kind == Kind::ElevatorPulley) return;
+    auto context = kinetics::sequenceContextAt(c.p);
+    // an instruction is read once: its speed change may be reported after the tick that read it
+    if (context && context->serial == c.d.value("seqId", std::uint64_t{0})) return;
+    if (!speedChanged && !context) return;
+    c.d["seq"]   = -1.0;
+    c.d["seqId"] = context ? context->serial : 0;
+    if (c.parent()) return; // Create: passive (mirrored) pulleys keep no limit
+    if (context && context->kind == kinetics::SequenceContext::Kind::MoveDistance) c.d["seq"] = context->value;
+}
+
+/// Create's getMovementSpeed: the sequence limit clamps the step.
+float clampToSequence(Ctx const& c, float v) {
+    double limit = sequenceLimit(c);
+    if (limit < 0) return v;
+    return static_cast<float>(std::clamp<double>(v, -limit, limit));
+}
+
 float movementSpeed(Ctx& c) {
     float rpm = rpmAt(c.p);
     switch (c.kind) {
     case Kind::Piston:
-        return cp::pistonMovementSpeed(rpm, c.facing(), c.offset(), rangeOf(c.p, c.kind, c.d));
+        return clampToSequence(c, cp::pistonMovementSpeed(rpm, c.facing(), c.offset(), rangeOf(c.p, c.kind, c.d)));
     case Kind::RopePulley:
-        return cp::actuatorSpeed(rpm);
+        return clampToSequence(c, cp::actuatorSpeed(rpm));
     default:
         break;
     }
@@ -847,7 +872,9 @@ void tickOne(Ctx& c, std::uint64_t tick) {
     bool present = c.contraption() != nullptr;
     if (c.d.value("needs", true) && !present) return;
 
+    readSequenceLimit(c, false);
     float v         = movementSpeed(c);
+    if (double limit = sequenceLimit(c); limit > 0) c.d["seq"] = std::max(0.0, limit - std::abs(v));
     float offset    = c.offset();
     float newOffset = offset + v;
     if (static_cast<int>(newOffset) != static_cast<int>(offset)) {
@@ -954,7 +981,11 @@ void elevatorClicked(GlobalPos const& p) {
 void onActuatorSpeed(GlobalPos const& p, float prevSpeed, float speed) {
     auto c = load(p);
     if (!c || c->kind == Kind::ElevatorPulley) return;
-    if (c->parent()) return;
+    readSequenceLimit(*c, true);
+    if (c->parent()) {
+        writeBack(*c);
+        return;
+    }
     c->d["assemble"] = true;
     c->d["waiting"]  = false;
     if (c->contraption() && prevSpeed != 0 && (prevSpeed > 0) != (speed > 0)) {

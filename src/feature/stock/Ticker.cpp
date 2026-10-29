@@ -17,6 +17,7 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/phys/AABB.h"
 
+#include "core/common/Utf8.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
@@ -32,6 +33,8 @@ namespace items   = common::items;
 namespace screens = common::screens;
 
 namespace {
+
+using core::utf8Prefix;
 constexpr char kRequestScreen[]  = "stock.request";
 constexpr char kCategoryScreen[] = "stock.categories";
 constexpr int  kPaymentSlots     = 27;
@@ -300,7 +303,10 @@ void requestAction(Player& player, Json const& ctx, Json const& action) {
         if (it == list.end()) list.push_back(index);
         else list.erase(it);
     } else if (op == "search") {
-        searches()[uuidOf(player)] = action.value("text", std::string{}).substr(0, 50);
+        searches()[uuidOf(player)] = utf8Prefix(action.value("text", std::string{}), 50);
+    } else if (op == "address") {
+        // the native screen's address box (Create keeps the last used address on the ticker)
+        editData(*ticker)["prevAddress"] = utf8Prefix(action.value("text", std::string{}), 50);
     } else if (op == "search_form") {
         ll::form::CustomForm form(trFor(player, "create.gui.stock_keeper.search_items", "Search Items"));
         form.appendInput("text", trFor(player, "create.gui.stock_keeper.search_items", "Search Items"), "", searches()[uuidOf(player)]);

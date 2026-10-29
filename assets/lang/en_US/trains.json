@@ -216,5 +216,7 @@
   "lv.trains.loop_off": "Off",
   "lv.trains.edit": "Edit",
   "lv.trains.arrivals": "Arriving trains",
-  "lv.trains.frequency_from_hands": "Use the items in your off hand and main hand as the frequency"
+  "lv.trains.frequency_from_hands": "Use the items in your off hand and main hand as the frequency",
+  "lv.trains.hud.throttle": "Throttle: {0}%",
+  "lv.trains.hud.approaching": "Approaching station..."
 }

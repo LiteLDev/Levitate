@@ -482,7 +482,7 @@ ia::Result packagesUse(ia::UseContext const& c) {
             return ia::Result::Pass;
         }
         if (isPackageFilter(item)) {
-            if (!debounced(player, GlobalPos{-2, 0, 0, 0})) openPackageFilterForm(player);
+            if (!debounced(player, GlobalPos{-2, 0, 0, 0})) openPackageFilterScreen(player);
             return ia::Result::Consume;
         }
     } catch (std::exception const& e) {

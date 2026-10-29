@@ -11,7 +11,6 @@
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/client/ClientExitLevelEvent.h"
-#include "ll/api/event/input/KeyInputEvent.h"
 #include "ll/api/event/render/UIRenderEvent.h"
 
 #include "mc/client/player/LocalPlayer.h"
@@ -121,61 +120,12 @@ void onDownload(Json const& msg) {
 
 // ---- text fields -------------------------------------------------------------------------------------
 
-class TextField;
-TextField* gFocus = nullptr;
-bool       gShift = false;
-
-class TextField : public Widget {
-public:
-    TextField(Rect r, std::string value, std::size_t maxLength, bool numeric)
-    : Widget(r),
-      text(std::move(value)),
-      max(maxLength),
-      numeric(numeric) {}
-    ~TextField() override {
-        if (gFocus == this) gFocus = nullptr;
-    }
-    std::string           text;
-    std::size_t           max;
-    bool                  numeric;
-    std::function<void()> onEnter;
-
-    void render(Canvas& c, float, float) override {
-        c.bevel(rect, color::kSlotDark, color::kSlotDark, color::kSlotLight, true);
-        bool caret = gFocus == this && (std::chrono::steady_clock::now().time_since_epoch() / std::chrono::milliseconds(400)) % 2 == 0;
-        c.text(rect.x + 4, rect.y + (rect.h - 9) / 2 + 1, text + (caret ? "_" : ""), color::kText);
-    }
-    bool click(float, float, Button, bool) override {
-        gFocus = this;
-        return true;
-    }
-    void key(int vk) {
-        if (vk == 8) {
-            if (!text.empty()) text.pop_back();
-            return;
-        }
-        if (vk == 13) {
-            if (onEnter) onEnter();
-            return;
-        }
-        char ch = 0;
-        if (vk >= '0' && vk <= '9' && !(gShift && !numeric)) ch = static_cast<char>(vk);
-        else if (vk >= 96 && vk <= 105) ch = static_cast<char>('0' + vk - 96);
-        else if (vk == 189 || vk == 109) ch = gShift && !numeric ? '_' : '-';
-        else if (!numeric && vk >= 'A' && vk <= 'Z') ch = static_cast<char>(gShift ? vk : vk - 'A' + 'a');
-        else if (!numeric && vk == 32) ch = ' ';
-        else if (!numeric && vk == 190) ch = '.';
-        if (ch && text.size() < max) text.push_back(ch);
-    }
-};
+/// Characters a schematic file name can't hold (Create strips them when saving).
+bool fileNameChar(char32_t c) { return std::u32string_view(U"\\/:*?\"<>|").find(c) == std::u32string_view::npos; }
+bool numberChar(char32_t c) { return (c >= U'0' && c <= U'9') || c == U'-'; }
 
 // ---- schematic table ---------------------------------------------------------------------------------
 
-std::shared_ptr<ItemStack> stackOf(Json const& j) {
-    auto s = items::fromJson(j);
-    if (items::isEmpty(s)) return nullptr;
-    return std::make_shared<ItemStack>(s);
-}
 
 class TableScreen : public Screen {
 public:
@@ -207,8 +157,8 @@ public:
     }
     void onData(Json const& data) override {
         mData       = data;
-        mIn->stack  = stackOf(data.value("input", Json()));
-        mOut->stack = stackOf(data.value("output", Json()));
+        mIn->stack  = iconOf(data.value("input", Json()));
+        mOut->stack = iconOf(data.value("output", Json()));
         mUpload->enabled = mIn->stack && data.value("uploading", std::string{}).empty() && uploadState().first.empty();
     }
     void renderExtra(Canvas& c, float, float) override {
@@ -305,7 +255,7 @@ public:
     void onData(Json const& data) override {
         mData   = data;
         auto inv = data.value("inv", Json::array());
-        for (std::size_t i = 0; i < 5; ++i) mSlots[i]->stack = i < inv.size() ? stackOf(inv[i]) : nullptr;
+        for (std::size_t i = 0; i < 5; ++i) mSlots[i]->stack = i < inv.size() ? iconOf(inv[i]) : nullptr;
         auto state       = data.value("state", std::string("STOPPED"));
         mPlay->toggled   = state == "RUNNING";
         mPause->toggled  = state == "PAUSED";
@@ -362,9 +312,11 @@ class NameScreen : public Screen {
 public:
     NameScreen(Json const& data, SendFn send) : Screen(ctr("create.schematicAndQuill.title", "Schematic Name:"), 200, 76), mSend(std::move(send)), mData(data) {}
     void init() override {
-        mField          = &add<TextField>(Rect{8, 20, 184, 18}, std::string{}, 64, false);
-        mField->onEnter = [this] { save(false); };
-        gFocus          = mField;
+        // Enter saves; leaving the field by clicking a button lets the button decide (tick())
+        mField            = &add<TextField>(Rect{8, 20, 184, 18}, std::string{}, [this](std::string const&) { mEnter = true; });
+        mField->maxLength = 64;
+        mField->filter    = fileNameChar;
+        mField->focus();
         auto size       = mData.value("size", Json::array({0, 0, 0}));
         add<Label>(Rect{8, 42, 184, 9}, ctr("create.schematicAndQuill.dimensions", "Schematic Size: {0}x{1}x{2}", size[0].get<int>(), size[1].get<int>(), size[2].get<int>()));
         auto& ok = add<IconButton>(Rect{134, 54, 18, 18}, "v", [this] { save(false); });
@@ -379,14 +331,27 @@ public:
         no.litColour = color::kButtonOff;
     }
 
+    void tick() override {
+        if (!mEnter) return;
+        mEnter = false;
+        if (!mField->focused()) save(false);
+    }
+    bool clickBackground(float, float, Button, bool) override {
+        mEnter = false; // a click on the panel leaves the field without saving
+        return false;
+    }
+
 private:
     void save(bool convert) {
+        mEnter = false;
+        log().info("schematic name typed: '{}'", mField->text);
         mSend({{"op", "save"}, {"name", mField->text}, {"convert", convert}});
         close();
     }
     SendFn     mSend;
     Json       mData;
     TextField* mField{};
+    bool       mEnter = false;
 };
 
 // ---- schematic coordinates (Create's SchematicEditScreen) -----------------------------------------------
@@ -398,21 +363,35 @@ public:
         auto a = mData.value("anchor", Json::array({0, 0, 0}));
         add<Label>(Rect{8, 18, 100, 9}, ctr("create.schematic.position", "Position"));
         for (int i = 0; i < 3; ++i) {
-            mPos[static_cast<std::size_t>(i)] = &add<TextField>(Rect{8.0f + 62.0f * static_cast<float>(i), 30, 58, 16}, std::to_string(a[static_cast<std::size_t>(i)].get<int>()), 9, true);
+            auto& f = add<TextField>(Rect{8.0f + 62.0f * static_cast<float>(i), 30, 58, 16}, std::to_string(a[static_cast<std::size_t>(i)].get<int>()),
+                                     [this](std::string const&) { mEnter = true; });
+            f.maxLength = 9;
+            f.filter    = numberChar;
+            mPos[static_cast<std::size_t>(i)] = &f;
         }
-        gFocus = mPos[0];
-        mRot   = &add<ScrollInput>(Rect{8, 52, 120, 16}, ctr("create.schematic.rotation", "Rotation"), 0, 3, mData.value("rotation", 0), [](int) {});
+        mPos[0]->focus();
+        mRot   = &add<ScrollInput>(Rect{8, 52, 120, 16}, ctr("create.schematic.rotation", "Rotation"), 0, 3, mData.value("rotation", 0), [this](int) { mEnter = false; });
         mRot->options = {ctr("create.schematic.rotation.none", "None"), ctr("create.schematic.rotation.cw90", "Clockwise 90"),
                          ctr("create.schematic.rotation.cw180", "Clockwise 180"), ctr("create.schematic.rotation.cw270", "Clockwise 270")};
-        mMir = &add<ScrollInput>(Rect{8, 72, 120, 16}, ctr("create.schematic.mirror", "Mirror"), 0, 2, mData.value("mirror", 0), [](int) {});
+        mMir = &add<ScrollInput>(Rect{8, 72, 120, 16}, ctr("create.schematic.mirror", "Mirror"), 0, 2, mData.value("mirror", 0), [this](int) { mEnter = false; });
         mMir->options = {ctr("create.schematic.mirror.none", "None"), ctr("create.schematic.mirror.leftRight", "Left-Right"), ctr("create.schematic.mirror.frontBack", "Front-Back")};
         auto& ok = add<IconButton>(Rect{174, 70, 18, 18}, "v", [this] { confirm(); });
         ok.tooltip = {ctr("create.action.confirm", "Confirm")};
-        for (auto* f : mPos) f->onEnter = [this] { confirm(); };
+    }
+    /// Enter in a field confirms (not when the focus moved to another field or a button was used).
+    void tick() override {
+        if (!mEnter) return;
+        mEnter = false;
+        if (std::none_of(mPos.begin(), mPos.end(), [](TextField const* f) { return f->focused(); })) confirm();
+    }
+    bool clickBackground(float, float, Button, bool) override {
+        mEnter = false;
+        return false;
     }
 
 private:
     void confirm() {
+        mEnter = false;
         Json a = Json::array();
         auto anchor = mData.value("anchor", Json::array({0, 0, 0}));
         for (int i = 0; i < 3; ++i) {
@@ -430,6 +409,7 @@ private:
     Json                      mData;
     std::array<TextField*, 3> mPos{};
     ScrollInput *             mRot{}, *mMir{};
+    bool                      mEnter = false;
 };
 
 // ---- crafting blueprint --------------------------------------------------------------------------------
@@ -454,7 +434,7 @@ public:
     void onData(Json const& data) override {
         mData   = data;
         auto it = data.value("items", Json::array());
-        for (std::size_t i = 0; i < 11; ++i) mSlots[i]->stack = i < it.size() ? stackOf(it[i]) : nullptr;
+        for (std::size_t i = 0; i < 11; ++i) mSlots[i]->stack = i < it.size() ? iconOf(it[i]) : nullptr;
         bool inferred       = data.value("inferred", false);
         mSlots[9]->tooltip = {ctr("create.crafting_blueprint.display_slot", "Display Slot"),
                               inferred ? ctr("create.crafting_blueprint.inferred", "Inferred from recipe") : ctr("create.crafting_blueprint.manually_assigned", "Manually assigned")};
@@ -462,24 +442,25 @@ public:
     void renderExtra(Canvas& c, float, float) override { c.text(104, 41, "->", color::kTextDark, Align::Centre, false); }
     void clickInventory(int, ItemStack const& stack, Button b, bool shift) override {
         if (items::isEmpty(stack)) {
-            cursor.reset();
+            setCursorItem(nullptr);
             return;
         }
         if (shift) {
             for (int i = 0; i < 9; ++i) {
                 if (!mSlots[static_cast<std::size_t>(i)]->stack) {
-                    mSend({{"op", "set"}, {"index", i}, {"item", items::toJson(items::withCount(stack, 1))}});
+                    mSend({{"op", "set"}, {"index", i}, {"item", items::toJsonWithCount(stack, 1)}});
                     return;
                 }
             }
             return;
         }
-        if (b == Button::Left) cursor = std::make_shared<ItemStack>(items::withCount(stack, 1));
+        // the game's stack is only read: the cursor holds item JSON and its own icon
+        if (b == Button::Left) setCursorItem(items::toJsonWithCount(stack, 1));
     }
 
 private:
     void clickSlot(int i, Button b) {
-        if (b == Button::Left && cursor && !cursor->isNull()) mSend({{"op", "set"}, {"index", i}, {"item", items::toJson(*cursor)}});
+        if (b == Button::Left && cursorItem.is_object()) mSend({{"op", "set"}, {"index", i}, {"item", cursorItem}});
         else if (mSlots[static_cast<std::size_t>(i)]->stack) mSend({{"op", "clear"}, {"index", i}});
     }
     SendFn                 mSend;
@@ -551,24 +532,11 @@ public:
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::BeforeUIRenderEvent>([](ll::event::BeforeUIRenderEvent&) {
             pumpUpload();
-            if (!current()) gFocus = nullptr;
         }));
-        mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>(
-            [](ll::event::KeyInputEvent& ev) {
-                if (ev.keyCode() == 16) gShift = ev.isDown();
-                if (!gFocus || !current() || ev.keyCode() == 27 || ev.keyCode() == 16) return;
-                if (ev.isDown()) gFocus->key(ev.keyCode());
-                // swallow the key so the screen framework doesn't act on it (E closes screens)
-                ev.keyCode() = 0;
-                ev.cancel();
-            },
-            ll::event::EventPriority::Highest
-        ));
         mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             std::lock_guard lock(gUploadMutex);
             gUpload = {};
             gDownloads.clear();
-            gFocus = nullptr;
         }));
     }
     void uninstall() {

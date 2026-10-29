@@ -698,14 +698,18 @@ void renderScreen(MinecraftUIRenderContext& ctx) {
 
 } // namespace
 
-void Screen::setCursorItem(Json item) {
-    cursorItem = std::move(item);
-    cursor.reset();
-    if (cursorItem.is_null()) return;
+std::shared_ptr<ItemStack> iconOf(Json const& item) {
+    if (!item.is_object()) return nullptr;
     // a fresh stack built from data on the client thread (never a copy of a game-owned stack)
     auto icon = std::make_shared<ItemStack>();
-    *icon     = lv::feature::common::items::fromJson(cursorItem);
-    if (!icon->isNull()) cursor = std::move(icon);
+    *icon     = lv::feature::common::items::fromJson(item);
+    if (icon->isNull()) return nullptr;
+    return icon;
+}
+
+void Screen::setCursorItem(Json item) {
+    cursorItem = std::move(item);
+    cursor     = iconOf(cursorItem);
 }
 
 namespace {

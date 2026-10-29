@@ -1128,6 +1128,7 @@ void startControlling(Player& player, Train& t, int carriage, cc::Pos local, int
     t.lastInput      = int(state().tick);
     actionBar(player, trFor(player, "create.contraption.controls.start_controlling", "Now controlling: {0}", t.name));
     log().info("trains: {} is controlling train #{} '{}'", player.getRealName(), t.id, t.name);
+    controlsChanged(t, &player, true);
 }
 
 void stopControlling(Train& t, bool message) {
@@ -1139,6 +1140,7 @@ void stopControlling(Train& t, bool message) {
     t.keys = t.steer = 0;
     t.jump = false;
     if (t.nav && t.nav->manual) cancelNavigation(t);
+    controlsChanged(t, p, false);
 }
 
 void setInput(Player& player, int throttle, int steer, bool jump, bool sneak) {
@@ -1158,7 +1160,7 @@ void setInput(Player& player, int throttle, int steer, bool jump, bool sneak) {
 }
 
 bool tryControls(Player& player, double maxDistance) {
-    auto  eye  = player.getHeadPos();
+    auto  eye  = player.getPosition(); // eye height (getHeadPos drifts with the body yaw of real players)
     auto  look = player.getViewVector();
     Vec3d o{eye.x, eye.y, eye.z}, d{look.x, look.y, look.z};
     d              = d.normalize();

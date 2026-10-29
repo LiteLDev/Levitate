@@ -244,6 +244,11 @@ public:
     void setCursorItem(Json item);
 };
 
+/// A render-only icon built from item JSON (`items::toJson` format) on the client thread, as
+/// `Screen::setCursorItem` does; nullptr for null / empty items. Never copy a game-owned stack
+/// instead. Added by U37.
+[[nodiscard]] std::shared_ptr<ItemStack> iconOf(Json const& item);
+
 /// Opens a screen (replaces the current one).
 void open(std::unique_ptr<Screen> screen);
 /// Closes the current screen (and its host scene).

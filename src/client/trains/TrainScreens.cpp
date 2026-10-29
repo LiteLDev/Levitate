@@ -1,7 +1,7 @@
 // Native trains screens (client mod, SPEC §4): the train station screen (idle / assembly /
 // train present, door control, arriving trains) and the schedule editor. Both are opened by the
-// server (screens::open) and send "screen.action" messages; text fields (names, station
-// filters) are edited in the server's form, which the server opens for the action (SPEC §8).
+// server (screens::open) and send "screen.action" messages. Station and train names are typed into
+// native text fields; the schedule's instruction / condition editors open the server's form.
 
 #ifdef LV_CLIENT
 
@@ -9,6 +9,7 @@
 
 #include "client/Client.h"
 #include "client/screen/Screen.h"
+#include "mod/Log.h"
 #include "mod/Module.h"
 
 namespace lv::client::trains {
@@ -19,17 +20,43 @@ namespace {
 
 class StationScreen : public Screen {
 public:
-    StationScreen(Json const& data, SendFn send) : Screen(data.value("name", std::string("Track Station")), 220, 168), mSend(std::move(send)), mData(data) {}
+    // the station's name is the editable title (Create's station screen)
+    StationScreen(Json const& data, SendFn send) : Screen("", 220, 168), mSend(std::move(send)), mData(data) {}
 
     void init() override { build(); }
     void onData(Json const& data) override {
         mData = data;
-        title = data.value("name", title);
-        widgets.clear();
-        build();
+        // the screen is rebuilt with new data, but not while a name is being typed
+        if (typing()) {
+            mDirty = true;
+            return;
+        }
+        rebuild();
+    }
+    void tick() override {
+        if (mDirty && !typing()) rebuild();
     }
 
 private:
+    bool typing() const { return std::any_of(mFields.begin(), mFields.end(), [](TextField const* f) { return f->focused(); }); }
+    void rebuild() {
+        mDirty = false;
+        mFields.clear();
+        widgets.clear();
+        build();
+    }
+    TextField& nameField(Rect r, std::string const& text, int maxLength, char const* op, std::string const& tip) {
+        auto& f = add<TextField>(r, text, [this, text, op](std::string const& typed) {
+            if (typed == text || typed.empty()) return;
+            mSend({{"op", op}, {"text", typed}});
+            log().info("trains: {} typed: '{}'", op, typed);
+        });
+        f.maxLength = maxLength;
+        f.tooltip   = {tip};
+        mFields.push_back(&f);
+        return f;
+    }
+
     void line(float& y, std::string const& text, unsigned colour = color::kTextDark) {
         add<Label>(Rect{8, y, 204, 10}, text, colour);
         y += 11;
@@ -42,8 +69,7 @@ private:
 
     void build() {
         float y = 20;
-        auto& rename = add<IconButton>(Rect{196, 4, 18, 14}, "N", [this] { mSend({{"op", "rename"}}); });
-        rename.tooltip = {ctr("lv.trains.station_name", "Station Name")};
+        nameField(Rect{8, 3, 204, 14}, mData.value("name", std::string("Track Station")), 25, "rename", ctr("lv.trains.station_name", "Station Name"));
         if (mData.value("assembling", false)) {
             line(y, ctr("create.station.assembly_title", "Train Assembly"), color::kTextGold);
             size_t n = mData.value("bogeys", size_t{0});
@@ -63,9 +89,8 @@ private:
         }
         if (mData.contains("train")) {
             auto const& t = mData["train"];
-            line(y, t.value("name", std::string()), color::kTextGold);
-            auto& rn   = add<IconButton>(Rect{196, y - 12, 18, 12}, "N", [this] { mSend({{"op", "train_name"}}); });
-            rn.tooltip = {ctr("lv.trains.train_name", "Train Name")};
+            nameField(Rect{8, y - 1, 204, 13}, t.value("name", std::string()), 35, "train_name", ctr("lv.trains.train_name", "Train Name"));
+            y += 15;
             bool can = t.value("canDisassemble", false);
             button(8, y, 120, ctr("create.station.disassemble_train", "Disassemble Train"), {{"op", "disassemble"}},
                    can ? std::vector<std::string>{} : std::vector<std::string>{ctr("create.station.train_not_aligned", "Cannot disassemble,"), ctr("create.station.train_not_aligned_1", "not all carriages aligned")},
@@ -101,8 +126,10 @@ private:
         for (size_t i = 0; i < arr.size() && i < 4; ++i) line(y, arr[i].value("eta", std::string()) + "  " + arr[i].value("name", std::string()));
     }
 
-    SendFn mSend;
-    Json   mData;
+    SendFn                  mSend;
+    Json                    mData;
+    std::vector<TextField*> mFields;
+    bool                    mDirty = false;
 };
 
 class ScheduleScreen : public Screen {

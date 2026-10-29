@@ -698,6 +698,12 @@ command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kin
   speed turns half the angle). Machines read it when their speed changes and stop after turning (bearings,
   turntables: degrees) or moving (pistons, pulleys, gantries: blocks) that far, as Create's
   `sequencedAngleLimit` / `sequencedOffsetLimit`. Not persisted (the gearshift sets it again).
+  Every instruction carries a `serial` (U37; stamped by `setSequenceContext` when 0, starting at
+  the wall clock so numbers never repeat across restarts): a machine also takes a new instruction
+  that arrives at an unchanged speed (two equal steps in a row), and reads each one once (a speed
+  change reported after it already read the instruction doesn't restart the limit). The gearshift
+  saves the serial with its run and declares the same one again after a load, so machines keep the
+  limit they had counted down (saved with them).
 - **Command**: `/create kinetics <pos>` dumps the block and its network; `/create kinetics <pos>
   speed <rpm>` (Levitate debug) sets a generator's speed.
 - **Client** (client mod only): a kinetic block with a `rotorState` (int state, e.g.
@@ -713,8 +719,41 @@ command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kin
   each dimension change; the first batch resets the client's copy), then once per tick the changed
   speeds. Vanilla clients get nothing. Client units read the speeds with
   `client/kinetics/KineticsClient.h` (`syncedSpeed`, `onSync`).
-- **Not yet**: Create's ambient cog/kinetic sound scapes and the coloured rotation-indicator
-  particles need original sound / particle assets: U8 (goggles, overlays) or a later U2 PR.
+- **Kinetic feedback** (U37, `src/feature/kinetics/Feedback.cpp`, rules in
+  `core/kinetics/Feedback.h`). Sent by the server to every client: the particle
+  (`levitate:rotation_indicator`) and the sounds (`levitate.kinetics.*`) are in Levitate's resource
+  pack, so vanilla clients and the client mod see / hear the same thing (one path, never doubled).
+  - *Rotation indicators* (Create's GeneratingKineticBlockEntity.updateGeneratedRotation,
+    KineticEffectHandler, RotationIndicatorParticle): a generator **without a source** whose speed
+    level (none / slow / medium / fast, `speedLevelOf`) changes queues them (placing, starting,
+    stopping, a value box / sail / boiler change; a direction change alone doesn't); 2 ticks later
+    (`queueRotationIndicators` countdown) the block, if it still turns (effective speed ≠ 0, so not
+    while overstressed), sends one burst of 20 particles from its centre to every player within 32
+    blocks **wearing Engineer's Goggles** (`goggles::isWearingGoggles`; Create's particle is
+    invisible to everyone else). The particles circle the rotation axis: colour of the speed level
+    (slow `#22FF22`, medium `#0084FF`, fast `#FF55FF`), angular speed 10 / 20 / 30° per tick signed
+    by the direction, angle `(time·speed) mod 360 − speed/2·age²/lifetime` (+180° for a negative
+    speed on the Y axis), radius from `.75` easing to `.65` (large cogs `1` → `1.125`) by 10 % of the
+    gap per tick, life 10 + 0..21 ticks, fading out (alpha `1 − (age − life/2)/life`) and towards the
+    colour mixed half with white over the second half of their life; an 8-frame glint texture
+    (`tools/textures/gaps.ps1`). One log line per burst that reached a player:
+    `kinetics: rotation indicators at <x y z> (<rpm> RPM) for <n> players`.
+  - *Ambient soundscapes* (Create's KineticBlockEntity.tickAudio, SoundScapes, SoundScape;
+    `config/gaps.json` `enableAmbientSounds`): every rotating block (effective speed ≠ 0) within 16
+    blocks of a player (block positions, squared distance < 256) adds itself to the *kinetic* group,
+    cogwheels / large cogwheels / encased cogs (spec `cog`) and gearboxes also to the *cog* group,
+    at pitch `clamp(|speed|/256 + .45, .85, 1)`. Sources are grouped per player by (group, pitch
+    group: < .7, < .9, < 1.1, < 1.3, above); a group plays at the pitch of its first source (kept
+    while the group has sources) from the mean of its block centres, with volume
+    `clamp(count / 150, .025, ambientVolumeCap .1) · lerp(distance / 16, 2, 0)` times the group's
+    relative volume (kinetic .025, cogs 1.5). Create keeps a looping sound per group and regroups
+    every 5 ticks; the server can't hold a looping sound on a client, so Levitate regroups and
+    restarts its 0.5 s samples every 10 ticks (`levitate.kinetics.cogs`: wooden gear teeth,
+    `levitate.kinetics.rumble`: a low hum; both synthesised by `tools/sounds/gaps.ps1`, seamless
+    when repeated), played one block from the player towards the mean position (inside the sounds'
+    2-block min distance, so the game adds no falloff of its own). Create's milling / crushing
+    soundscapes are not part of this (§8).
+  - Overstress keeps Create's smoke / cloud puffs above; Create plays no sound for it.
 ### 3.2 Block data, capabilities, filters, value boxes (U3)
 
 Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested).
@@ -1136,6 +1175,13 @@ SpeedControllerBlock(Entity), GaugeBlock, Speed/StressGaugeBlockEntity). Pure ru
   `ceil(m / (speed·mod/512)) + 2`, delay as set; Await continues on the next rising edge; End or
   the last instruction stop (the state stays until the power goes). A speed change re-times the
   running instruction, a stop ends the sequence. Changing the instructions resets the sequence.
+  While a turn instruction runs, the gearshift declares Create's `SequenceContext`
+  (`SequenceContext.fromGearshift`): Turn by angle → `TurnAngle`, Turn to move → `MoveDistance`,
+  the value divided by |modifier| (kinetics scales by the speed ratio to the gearshift's *input*,
+  Create's relative value is `value / (speed · modifier)`); delays, awaits and the end clear it.
+  The network is re-read in the same tick, so the driven machines see the new speed and the
+  instruction together. The machines stop exactly at the value (bearings, pistons, pulleys,
+  gantries below) while the instruction's time (2 ticks longer) runs out.
   Comparator output = `levitate:state`. One log line per instruction step.
 - **Rotation speed controller**: value box (board ⟳ / ⟲, 1..`maxRotationSpeed`, milestones 32) on
   the two side faces at 8 / 11 px; default 16 RPM; label "Targeted Speed in RPM". Changing it
@@ -1184,7 +1230,9 @@ its angle (value box "Rotation when used", `create.kinetics.valve_handle.rotated
 180 with milestones every 45, rows ⟳ (negative) / ⟲, min 1°, default 45° ⟲): it generates
 ±32 RPM for `ceil(angle / 9.6) + 2` ticks, clockwise when the angle is negative, reversed when
 sneaking; it does nothing while its network already turns (theoretical speed ≠ 0), while turning,
-or for 4 ticks after a turn. A dye of another colour dyes the handle (the block becomes
+or for 4 ticks after a turn. While it turns it declares a `TurnAngle` sequence context of |angle|
+(Create's ValveHandleBlockEntity): bearings it drives stop after exactly that angle (scaled by the
+speed ratio). A dye of another colour dyes the handle (the block becomes
 `<colour>_valve_handle`, facing kept, the dye is not used; Create's ValveHandleBlock.clicked); its
 angle resets to 45° as Create's new block entity. Players who may not build (adventure) can't use
 it. The value box sits on the handle's front (4.5 px out from the mounting face); a click with an
@@ -1275,6 +1323,9 @@ filter slots keep their plain clicks, U3):
 **Engineer's goggles** (`levitate:goggles`): worn in the head slot (Bedrock's wearable equips it
 on use and from dispensers). `isWearingGoggles` = goggles in the head slot or any predicate added
 with `addWearingPredicate` (Create's GogglesItem.addIsWearingPredicate).
+Players wearing them also see the rotation indicator particles of generators changing their
+speed level (Create's RotationIndicatorParticle; §3.1 Kinetic feedback, U37); the wrench alone
+doesn't show them, as in Create.
 
 **Goggle overlay** (Create's GoggleOverlayRenderer), built on the server for the block the player
 looks at (`overlayFor(player, pos)`):
@@ -2312,6 +2363,10 @@ Per-block state lives in BlockData `data["pistons"]` (and travels with contrapti
   *assemble next tick*: running + speed 0 → stop (movement mode decides), running + speed → continue,
   stopped + speed → assemble. A reversal while moving snaps the offset like Create
   (`Math.round(offset * 16) / 16`, integer division).
+- Sequenced gearshift (U6) `MoveDistance` context: pistons and rope pulleys (not mirrored pulleys,
+  not elevators) take its value as `sequencedOffsetLimit` on a speed change or a new instruction;
+  each step is clamped to what is left and the limit counts down, so the structure stops at exactly
+  that distance and waits until the speed changes (Create's getMovementSpeed / tick).
 - Each tick: the structure moves by the speed; the leading blocks are tested one step ahead against
   the world (solid, non-replaceable blocks, unloaded chunks; block-breaking actors registered with
   `ext::registerTerrainPassThrough` pass) and against other piston / pulley structures. A collision
@@ -2381,7 +2436,10 @@ without a shaft behind it). A carriage assembles its structure (the shaft is anc
 shaft turns and allows it (unpowered; start: speed > 0, end: speed < 0, middle: any; single: never):
 pinion speed `clamp(-rpm/512, ±0.49)` along the shaft's facing. It moves until the shaft under it is
 gone, powered or stopped, or until it passes the centre of a shaft that wouldn't let it assemble, or
-hits the world; then it is placed (grid aligned). A powered shaft drives the carriage as a gear instead
+hits the world; then it is placed (grid aligned). A `MoveDistance` sequence context reaching the
+shaft when the carriage assembles limits the gantry to that distance (Create's limitMovement): it
+then holds until its shaft stops; a new instruction reaching the shaft at an unchanged speed sets a
+new limit (Create places and re-assembles the gantry between two steps). A powered shaft drives the carriage as a gear instead
 (Create's pinion ratio). Nested gantries work through the world (an inner carriage starts when its
 shaft turns after the outer one stops). Stress impact 0 (Create: setNoImpact; the kinetics table in
 `config/kinetics.json` still lists `gantry_shaft` 4 and must become 0).
@@ -2406,7 +2464,10 @@ the bearing's state (running, angle, contraption ids, mode) lives in its BlockDa
   still. Assembly errors (`create.gui.assembly.exception.*`) are shown to the clicking player and
   kept in the BlockData (goggles, U8). It turns about the facing axis by `speed · 0.3`° per tick
   (right-hand rule, the same sense as its shaft; 0 while overstressed; held while an actor stalls
-  it). When the speed changes sign the angle is rounded to a whole degree. When the speed drops to 0
+  it). A sequenced gearshift's / valve handle's `TurnAngle` context reaching the bearing (read on a
+  speed change or a new instruction; windmills never) limits the turn: each tick's step is clamped
+  to the degrees left (`sequencedAngleLimit`, saved in the BlockData), so it stops at exactly the
+  angle. When the speed changes sign the angle is rounded to a whole degree. When the speed drops to 0
   the structure is placed depending on the **Movement Mode** value box (side faces, 2 px towards the
   back): Always Place when Stopped / Only Place near Initial Angle (|angle| < 45° or > 315°) / Only
   Place when Anchor Destroyed. A right-click while running places it at once (rounded to the
@@ -2730,6 +2791,13 @@ filter item is taken from the inventory ⚠); right-click another clipboard merg
 (source, line, options; a second form for a newly chosen source's options) and the clipboard (one
 page per form: inputs, check toggles, page selector, erase checked).
 
+**Client mod**: the clipboard screen edits the page in place: one native text field per entry plus a
+blank one that adds an entry (512 characters each), check boxes, page buttons and Erase checked; a
+field's text is sent with Enter or when it is left (`{op: "set", page, entries}`; blank entries are
+dropped). Text options of the display link's source (e.g. a label) are text fields too
+(`{op: "option", key, value}`, 100 characters). The screens wait with rebuilding on new data while
+the player types.
+
 **Commands** (op, Levitate debug): `/create display text <x y z> <line> <text>` (`_` = space) writes
 a board line or a nixie row; `/create display bind <x y z> <tx ty tz> <source>` binds a link and
 sends.
@@ -2814,12 +2882,14 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   station with the postbox, then place it within 5 blocks, below is allowed). `levitate:flag` is up
   while it holds packages, `levitate:open` while its screen is open (barrel sounds). U27's trains use
   `postboxesForStation` / `insertIntoPort` / `extractFromPort`.
-- **Package filter**: right-click sets its address (a form); in filter slots it lets packages whose
+- **Package filter**: right-click sets its address (native screen `packages.package_filter` with one
+  address box for companions, a form for vanilla players); in filter slots it lets packages whose
   address matches through (an empty one behaves like a plain item). Lore `-> address`.
 - **Screens**: the port screen (address, send-and-receive / send-only, the 18 package slots: click
-  one to take it, click a package in the inventory to put it in) is native for companions with the
-  address typed in a form; vanilla clients get one form (address, mode, take a package, put my
-  packages in). The package filter's address is a form for everyone (§8).
+  one to take it, click a package in the inventory to put it in) is native for companions; the
+  address is typed into the screen's address box (native text field, at most 50 characters, sent
+  with Enter or when the box is left: action `{op: "address", text}`); vanilla clients get one form
+  (address, mode, take a package, put my packages in).
 - **Client mod**: draws both strands of every chain, the boxes hanging on chains (interpolated
   between the 4-tick updates), the frogport's tongue with the box it catches or sends, and the
   packager's tray sliding in and out; the wheel turns as a kinetic rotor.
@@ -2909,7 +2979,11 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   payments and the order is sent to the shop's address ("ka-ching"). Sneak-use discards a list.
   A broken shop drops its programmed cloth.
 - **Client mod**: native screens (request, category editor, requester, gauge, gauge item picker);
-  text (addresses, search, category names) is typed in a form opened from the screen. Looking at a
+  text is typed into native text fields: the request screen's search box filters as the player
+  types (`{op: "search", text}`), its address box keeps the ticker's last used address
+  (`{op: "address", text}`, 50 characters); category names are edited in place in the category
+  editor (`{op: "rename", index, name}`); the requester's and the gauge's address boxes send
+  `{op: "set", address}`. Vanilla players get the same values as forms. Looking at a
   gauge panel shows its label and "in storage / target" (Create's value box text); looking at a
   ticker with payments shows them (owner).
 - **Log lines**: `stock: stock link placed at x y z on network …`, `stock: order of N item(s) in M
@@ -3002,14 +3076,34 @@ back (`removed_from_train`, auto-schedules are discarded); empty schedule: `no_s
 **Manual driving.** Right-click a train's controls (also through any block behind them, or in the
 air holding an item) starts controlling ("Now controlling: <train>", the schedule pauses:
 `paused_for_manual`); again, sneaking, leaving 8 blocks or the dimension stops ("Stopped controlling
-contraption"). Movement keys from the player's input (every client sends them in
-PlayerAuthInputPacket; held keys time out after 30 ticks): W / S throttle (target `top ·
+contraption"). Movement keys from the player's input (vanilla clients: PlayerAuthInputPacket; the client mod:
+Create's controls packets, below; held keys time out after 30 ticks): W / S throttle (target `top ·
 manualTrainSpeedModifier 0.75 · throttle`, the turning speed on curves, a quarter backwards on single
 ended trains; braking against the motion at 2a), A / D pick the left / right branch at junctions,
 Space at a station shows "Arrived at <station>", elsewhere approaches the nearest station between
 0.75 and max(32, 1.5) braking distances ahead (releasing Space cancels). Leaving a station:
 "Departing from <station>". Fuel: any burnable item from the carriages' chests / barrels (lava buckets
 leave the bucket) while driving.
+
+**Client mod controls** (Create's ControlsHandler / TrainHUD, U37). Starting / stopping to control
+sends the companion `trains.controls` {active, throttle, name}. While active, the client mod takes
+W / S / A / D / Space / Shift from the player (they don't move the player, as Create sets the keys
+up) and sends `trains.interact` {pressed: [forward, back, left, right, jump, sneak]} on every change
+and every 5 ticks while one is held; Esc sends {stop: true}. The mouse wheel changes the throttle by
+1/18 (1/18 .. 1, Create's editedThrottle) and sends `trains.throttle` {throttle} at most every
+5 ticks (one log line per change on the server). The sprint key (Ctrl) is the horn: {honk: true}
+every 5 ticks while held, {honk: false} when released; the server follows Create's HonkPacket
+(`honkTicks` = 20 for a new honk, 13 while held, 6 or 0 on release) and, while it counts down,
+plays the steam whistle tone (U18; the large whistle's low tone) at the train's first whistle with
+its pitch (2^(−semitones / 12)), restarted every 10 ticks; trains without a whistle have no horn
+(Create's lowHonk null). An empty-hand right-click into the air sends `trains.interact` {} (vanilla
+clients send nothing for it): it toggles the controls looked at, as the item-use path. Once a
+companion's client mod sent key input, its PlayerAuthInputPacket is ignored for driving until it
+stops controlling. Keys are only taken while no screen (ours, chat, inventory, pause) is over the
+HUD, and a key's release is only taken when its press was. The server sends the controlling companion
+`trains.hud` {speed, target, top, throttle, name, approach} every 5 ticks; the HUD draws a bar above
+the hotbar filled to speed / top speed with a gold marker at the throttle and, beside it, "Throttle: n%" (or
+"Approaching station..." while holding Space towards a station).
 
 **Arrival / departure.** A train arrives when its leading point passes the station marker in the
 station's direction (reversing double-ended trains: their back point, against it); speed 0, the
@@ -3048,7 +3142,8 @@ carriages with their contraption ids, speed, runtime, navigation); carriages per
 `/create killtrain <name|id>` (Create 6.0.10's `/create train remove`; the carriages are placed back
 as blocks where they are, see §8).
 
-**Screens.** Station (native for companions, forms for vanilla): idle (create new train / why not),
+**Screens.** Station (native for companions, forms for vanilla; the station name is the native
+screen's title text field, 25 characters, the present train's name a text field, 35): idle (create new train / why not),
 assembly (bogey count, how-to, errors, assemble / cancel), train present (name, disassemble or
 "Cannot disassemble, not all carriages aligned", retrieve schedule / discard auto-schedule), door
 control (Open All / North / East / South / West / None), arriving trains with Create's ETA texts
@@ -3177,6 +3272,7 @@ placement transforms, print order, replace modes, checklist, blueprint layout; g
   sprinting) the corner is the block `range` (10, Ctrl-scroll 1..100) blocks along the view. With
   both corners: Ctrl-scroll pushes/pulls the face looked at (inverted from inside, never below one
   block; size shown in the action bar), right-click opens the name prompt (title "Schematic Name:",
+  a native text field taking any text but file name separators `\ / : * ? " < > |`, Enter saves;
   Save / "Save and Upload Immediately" / abort; empty name = "My Schematic"). Sneak-right-click
   discards ("Removed selection."). Saving writes `<name>.mcstructure` (a free `<name>_2...` unless
   converting), clears the selection, sends the file to the client mod's local folder; the oldest
@@ -3200,8 +3296,8 @@ placement transforms, print order, replace modes, checklist, blueprint layout; g
   Position until deployed), Ctrl+scroll uses it (distance / push along the look axis / up-down /
   90° turns and mirroring about the footprint's centre), right-click with Position deploys with the
   target block as the bottom centre (Ctrl: at the fixed distance), Print places it instantly
-  (creative, `creativePrintIncludesAir`). Sneak-right-click: coordinates screen (x, y, z, rotation,
-  mirror). Vanilla: right-click a block deploys there, sneak-right-click opens the same values as a
+  (creative, `creativePrintIncludesAir`). Sneak-right-click: coordinates screen (x, y, z as native number fields
+  taking digits and `-`, Enter confirms; rotation, mirror). Vanilla: right-click a block deploys there, sneak-right-click opens the same values as a
   form (with Print for creative players), particle outline of the bounds.
 - **Schematicannon.** Slots: schematic, used schematics out, book (book / book and quill /
   clipboard), checklist out, gunpowder (hoppers, funnels and arms insert into the matching slot and
@@ -3557,6 +3653,9 @@ generators' own behaviour (U7, U18, U21), not a config value.
 (14), `trainAcceleration` (3), `poweredTrainTopSpeed` (40), `poweredTrainTurningTopSpeed` (20),
 `poweredTrainAcceleration` (3). (`maxTrackPlacementLength` is in `config/tracks.json`, U5.)
 
+`config/gaps.json` (U37): Create's CClient `enableAmbientSounds` (true) and `ambientVolumeCap` (0.1),
+applied by the server for everyone; `rotationIndicators` (true, Levitate switch for the goggles
+particles). See §3.1 Kinetic feedback.
 `config/generators.json` (U7): `crankHungerMultiplier` (0.01, exhaustion per hand crank use per RPM).
 
 `config/ponder.json` (U30, client mod): `comfyReading` (false, Create's client option),
@@ -3617,10 +3716,9 @@ matches Create's official Chinese translation wording).
 | Comparator reading a gauge / sequenced gearshift (U6) | `getComparatorSignal` of custom blocks can't be overridden (a folded function) | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
 | Smooth gauge needle for **vanilla** clients (U6) | block models are static per state; cube rotations are limited to 22.5° steps | the needle state snaps to the nearest 22.5°; the client mod draws the eased needle |
 | Gauge dial particles (U6) | Create's coloured dust particles need a client particle with a colour parameter | not shown yet |
-| Sequenced gearshift stopping a bearing / piston exactly (U6) | Create passes a "sequence context" through the kinetic network to the driven machine; the wave-1 kinetics contract has no such channel | the instructions run for Create's durations (which overshoot by two ticks); exact stops need a kinetics contract extension |
 | Wrench on transmission blocks (encased cog shaft toggling, removing casings) (U6) | the wrench (U8) has no per-block hook in the wave-1 contracts | left to U8's wrench (rotate / pick up); the shaft ends of encased cogs are set when encasing |
 | Integrated-cog placement helpers (cogs placed against mixers / crafters) (U6) | those blocks are other units' | plain placement rules apply |
-| Valve handle turning its network by an exact angle (Create's sequenced `TURN_ANGLE` context makes bearings / pistons stop after exactly that angle) (U7) | the kinetics contract has no sequence context yet | the valve generates 32 RPM for `ceil(angle / 9.6) + 2` ticks as in Create; receivers move for that time |
+
 | Valve handle: short click turns, holding opens the angle board (U7) | the server only sees discrete clicks (U3's value box row) | a click turns the handle; the wrench on the handle's front opens the board (form for vanilla players) |
 | Re-dyeing a dyed valve handle in the crafting grid (Create's `#create:valve_handles` + dye) (U7) | custom block items have no item tags for recipe ingredients | copper valve handle + dye in the crafting grid; any handle is re-dyed in the world by right-clicking it with a dye (as Create) |
 | Large water wheel as one 3×3 model for **vanilla** clients (U7) | a Bedrock block model may be at most 30 px wide | the wheel and its 8 structure blocks each show their own cell of the wheel; the client mod spins the whole wheel |
@@ -3665,7 +3763,7 @@ matches Create's official Chinese translation wording).
 | Fan processing state kept on the item entity (U13) | Bedrock item entities can't change their item for clients and carry no free data | a processed item entity is replaced by a new one with the same motion; the processing state lives in the server's memory (restarts after a reload) |
 | Haunted horses keep their data (U13) | no generic entity NBT copy between types | a skeleton horse is spawned in place; saddle, armour and taming are not carried over |
 | Placing a crushing wheel or nozzle where Create refuses it (U13) | the placement can't be vetoed per position for custom blocks | the block pops off right after placement |
-| Millstone / crusher ambient sounds, air current wind sound (U13) | Create's soundscapes are client-side sound assets | not played (U2's note on kinetic soundscapes) |
+| Millstone / crusher ambient sounds, air current wind sound (U13) | Create's milling / crushing soundscapes and the fan's wind are client-side sound assets of their own | not played; the kinetic hum and cog soundscapes of these blocks play (§3.1 Kinetic feedback, U37) |
 | Pulling nozzle explosion with more than 256 entities (U13) | rare edge case | not ported |
 | Air currents through blocks made of several boxes (U13) | the server only gets one collision box per block | a partial block stops the current by its bounding box (stairs, walls and hoppers block it like a full block); fan-transparent blocks pass as in Create |
 | Items floating in the basin for **vanilla** clients (U14) | no item rendering hooks for vanilla clients | the client mod draws the stacks inside (Create's ring around the centre, tilted, slowly turning, bobbing on the fluid, one more copy per 8 items) with the world item renderer (U33) and the fluid surface; vanilla clients see the basin; the items are taken out with an empty hand or seen by funnels |
@@ -3703,14 +3801,12 @@ matches Create's official Chinese translation wording).
 | Climbable ropes and magnets (U20) | data-driven blocks can't be climbable | they are thin solid blocks |
 | Native elevator contact screen (U20) | the native screen framework (U3) has no text field | the contact's form (floor identifier, description, door control) is used for every player |
 | Elevator door control acting on doors (U20) | the sliding / train doors are U10's | the mode is stored per contact (`data["pistons"]["door"]`) for U10 to apply |
-| Sequenced gearshift distance limits on pistons / gantries (U20) | Create passes the sequence context through its kinetic block entities; the U2 contract has no such channel | pistons and gantries run until their end / collision |
 | Cart assembler and controller rail as real rails (U21) | Bedrock minecarts only ride vanilla rail blocks; a data-driven block can't be a rail | they are rail-shaped blocks without collision; a minecart on one is guided by the server: held on the rail line at rail height and moved along it at the speed the rail gives it (no off-rail friction), then the next vanilla rail takes it over. A minecart item used on them places a cart there |
 | Redstone input of the cart assembler / controller rail (U21) | custom blocks get no neighbour updates and the game's signal levels aren't exposed | power polled every 4 ticks from the neighbours' states (wire level, redstone block, torches, levers, buttons, repeaters / comparators, observers, `redstone_signal`, solid blocks on a lit torch) |
 | "Pause actors while rotating" (U21) | the contraption engine has no API to pause a contraption's actors | the mode is kept and turns the structure like "Always face toward motion" |
 | Furnace minecart contraptions and the chest minecart contraption item (U21) | Bedrock has no furnace minecart; a chest minecart's own inventory can't travel in the item | contraptions ride rideable and chest minecarts; only rideable carts are picked up (`minecart_contraption`) |
 | Picking up a minecart contraption (U21) | the engine has no "discard" | the structure is placed and its blocks removed again silently (refused when something is in the way: `lv.bearings.pickup_blocked`); the item carries the engine's own record of the structure |
 | Coupling chains drawn between carts (U21) | no client-side line rendering for entities | couplings work but aren't drawn |
-| Sequenced gearshift angle limits on bearings (U21) | the kinetic contract has no sequence context | bearings turn at their speed; the gearshift's own timing still applies |
 | Actors dropping off when the block behind them goes (U22) | data-driven blocks get no neighbour updates and placement filters can't follow a facing state | they stay; they still move with the block behind them |
 | Seats halving fall damage, mobs bouncing on seats (U22) | no fall-damage or bounce hook for data-driven blocks | normal landing; mobs that land on a free seat sit down |
 | Right-clicking contraption blocks with an empty hand into the air on **vanilla** clients (U22) | a vanilla client sends nothing for an empty-hand click into the air, and display entities can't be clicked | with an item in hand, or with a world block behind, the server casts the look itself; the client mod sends the click |
@@ -3723,12 +3819,11 @@ matches Create's official Chinese translation wording).
 | Display board text for **vanilla** clients (U24) | no client-side text rendering on blocks without the client mod | the lines as a name tag in front of a turning board (invisible entity, colours as § codes, no flap animation); the client mod draws the split flaps |
 | Nixie tube glyphs for **vanilla** clients (U24) | same | the two characters as a coloured name tag above each tube |
 | Display link / nixie tube redstone input (U24) | custom blocks get no redstone neighbour updates | polled every 2 ticks from the neighbours' states (wire, torches, levers, buttons, plates, repeaters, comparators, observers, redstone blocks); read with `Redstone.h` `signalFrom` (U36), so strong power through solid blocks counts |
-| Clipboard text editing in the native screen (U24) | the client mod's screen framework has no text field | the native screen shows pages, checkboxes, erase and page buttons; its edit button opens the server form for the text |
+
 | "Clipboard Actions" hover tip and block outline while holding a clipboard (U24) | per-frame client logic for every block's settings | the action bar tells what was copied / pasted |
 | Deaths statistic of the respawn anchor source (U24) | Bedrock has no deaths statistic | Levitate counts player deaths per world (`lv:display:deaths`) |
 | Display link placement by a SimulatedPlayer (U24 selftests) | `simulateUseItemInSlotOnBlock` does not place this block item | the selftest places the block itself after the item logic; the client e2e places it for real |
 | Packages as physical entities (thrown, put down, on the ground) (U25) | Create's PackageEntity is a custom entity with its own model and physics | thrown / put-down packages are item entities (same velocity); breaking or opening is done with the item |
-| Typing an address into a native screen (frogport, postbox, package filter) (U25) | the native screen framework has no text field | the address is typed into a form (all clients); the rest of the port screen is native |
 | Chains, hanging packages, frogport tongue and packager tray for **vanilla** clients (U25) | no client-side rendering without the client mod | the client mod draws them; vanilla clients see the static conveyor, frogport and packager models and the postbox flag / lid states |
 | The chain conveyor wheel's size (U25) | Bedrock block geometry is limited to 30 px per axis | the wheel is 28 px across instead of Create's 2.5 blocks; the chains still start 1.25 blocks from the centre |
 | Riding chains is client-side in Create (U25) | the server can't move a vanilla client smoothly | the server moves the rider every tick (teleport towards the chain point, as Create's 0.25 pull) |
@@ -3740,15 +3835,15 @@ matches Create's official Chinese translation wording).
 | Factory gauge item icons, counts and connection arrows drawn on the panel (U26) | no world-space item / text renderer | the client mod shows the panel's label and "in storage / target" next to the crosshair; the bulb is the block model |
 | "Click and hold" on a gauge panel / price tag for the amount board (U26) | the server only sees discrete clicks | Sneak + empty-hand click opens the board |
 | Gauge mechanical crafting arrangement ("Use Mechanical Crafting") and JEI recipe sync (U26) | no recipe viewer; Bedrock crafting recipes are not readable as patterns from a mod | panels send their inputs as plain orders |
-| Text fields in the stock screens (U26) | the native screen framework has no text field | the address / search / category name buttons open a form |
+
 | Train carriages tilting on slopes (U27) | the contraption transform turns about one axis; a carriage turns about Y on curves | carriages stay level on slopes (height from their first bogey) |
 | Wheels turning on bogeys (U27) | carriage blocks are display entities showing a block model; the client framework has no per-part animation for them yet | bogeys are drawn still (client mod and vanilla) |
 | Opening train doors at stations (U27) | the contraption API can't change a carried block's state | the station's door control setting is stored and shown; doors stay as assembled |
 | Station flag animation (U27) | the flag is a block state | the station's texture shows assembly mode |
-| Train HUD (speed bar, throttle by mouse wheel) and the horn (U27) | needs a client HUD renderer | action-bar prompts; throttle from schedules (and `trains.throttle` from the client mod) |
+| Train HUD, mouse-wheel throttle and horn for **vanilla** clients (U27) | the server can't see the mouse wheel or the sprint key, nor draw a HUD | action-bar prompts; throttle from schedules; the client mod has Create's HUD, throttle and horn (§3.6.27) |
 | Train map colours / map markers (U27) | no map mods on Bedrock | none |
 | Wrench relocation of derailed trains (U27) | needs U8's wrench and Create's client-side placement preview | derailed trains re-attach when the track under their front returns; otherwise disassemble them with `/create killtrain` |
-| Text fields in the native station / schedule screens (U27) | the native screen framework has no text input | the name / filter buttons open the server's form for that field |
+| Text fields in the native schedule editor (U27) | Create's instruction / condition editors are whole sub-screens of the schedule screen | their edit buttons open the server's form for that entry; station and train names are native text fields in the station screen |
 | Signal / observer track selection stored on the item (U28) | changing the held item's data from the server re-sends the slot and breaks the click flow; the glint isn't controllable | the selection is kept per player and per item id on the server (lost on relog); no glint, no outline of the selected track |
 | Signal lamp rendered toward the track, track overlay for vanilla clients (U28) | Bedrock block models are fixed per state and can't face an edge point | the lamp shows on all four sides of the signal head (block state); the client mod draws Create's arrows / squares on the track |
 | Redstone input of signals (U28) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker; diodes count only when facing the signal) |
@@ -3762,7 +3857,6 @@ matches Create's official Chinese translation wording).
 | Ghost preview of exact block models (U29) | drawing every block model translucently needs the chunk tessellator | the client mod draws each block as a textured cube with its own face textures |
 | Animated schematicannon barrel (U29) | the barrel is part of the block model | static barrel; the client mod draws the launched blocks flying to their target, everyone sees smoke and placement particles |
 | Material checklist on a clipboard (U29) | the clipboard is U24's | a clipboard in the paper slot also gives a written book |
-| Text input in native screens (U29) | the screen framework sees key codes, not text | the quill prompt and the coordinates screen take letters, digits, space, `-`, `_`, `.`; other characters through the form fallback |
 | Ponder for **vanilla** clients (U30) | a scene player needs client-side 3D rendering of a private scene; forms can't draw blocks | Ponder is client mod only; `/create ponder` tells vanilla players it needs the client mod |
 | Ponder scenes as Create's scene code and NBT schematics (U30) | Create's scenes are Java code over its own schematics (and copying them is not allowed) | our own scene scripts as data (`assets/ponder/scenes/*.json`) teaching the same steps; titles keep Create's wording, the texts are our own |
 | Entities, flowing fluids and particles inside Ponder scenes (U30) | the scene is drawn from blocks only (no private level with entities / fluid renderers) | items float as item icons, mobs / minecarts are shown as their item, water and lava blocks as tinted still-fluid cubes, fluid flow in pipes / tanks with coloured outlines, redstone with red sparks |

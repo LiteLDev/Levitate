@@ -21,6 +21,7 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 
+#include "core/common/Utf8.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
@@ -50,6 +51,8 @@ namespace items     = common::items;
 namespace screens   = common::screens;
 
 namespace {
+
+using core::utf8Prefix;
 constexpr char kDbLinks[]  = "lv:display:links";
 constexpr char kDataKey[]  = "display_link";
 constexpr char kItemKey[]  = "display_link";
@@ -515,7 +518,9 @@ void applyAction(Player& player, GlobalPos const& link, Json const& action) {
         if (!d) return;
         auto key = action.value("key", std::string{});
         if (key.empty() || key.starts_with("lv:")) return;
-        d->config[key] = action.value("value", Json());
+        auto value = action.value("value", Json());
+        if (value.is_string()) value = utf8Prefix(value.get<std::string>(), 100); // the native text box's limit
+        d->config[key] = std::move(value);
         write(link, *d);
         log().info("display link at {} option {} set by {}", link.key(), key, player.getRealName());
     } else {

@@ -147,7 +147,7 @@ ia::Result trainsUseOn(ia::UseOnContext const& c) {
 
     // a train's controls in front of the clicked block
     {
-        auto   eye = player.getHeadPos();
+        auto   eye = player.getPosition(); // eye height (getHeadPos drifts with the body yaw of real players)
         double hx = at.x + c.hit[0], hy = at.y + c.hit[1], hz = at.z + c.hit[2];
         double dist = std::sqrt((hx - eye.x) * (hx - eye.x) + (hy - eye.y) * (hy - eye.y) + (hz - eye.z) * (hz - eye.z));
         if (!sneak && held != kSchedule && tryControls(player, dist + 0.3)) return ia::Result::Consume;
@@ -293,6 +293,9 @@ LL_TYPE_INSTANCE_HOOK(
     origin(source, packet);
     auto* player = thisFor<NetEventCallback>()->_getServerPlayer(source, packet.mSenderSubId);
     if (!player) return;
+    // the client mod sends Create's controls input on "trains.interact" (its key capture keeps the
+    // movement keys out of this packet); until its first key message the packet still drives
+    if (net::isCompanion(*player) && drivesByChannel(*player)) return;
     auto uuid = uuidOf(*player);
     bool controlling = false;
     for (auto const& [id, t] : state().trains) controlling = controlling || t.controller == uuid;
@@ -319,12 +322,18 @@ void installHooks() {
     gHandlers.push_back(ia::onUse({}, trainsUse));
     gHandlers.push_back(ia::onInteract({}, trainsInteract));
     TrainsAuthInputHook::hook();
-    // companion clients: right-click in the air at train controls, HUD throttle
-    net::on("trains.interact", [](Player& p, net::Json const&) { tryControls(p); });
+    // companion clients (Create's controls packets):
+    // "trains.interact" {} right-click with an empty hand in the air (toggles the controls looked
+    // at), {pressed: [6 bools]} the held keys while controlling, {stop: true} Esc;
+    // "trains.throttle" {throttle} the HUD's mouse wheel, {honk} the sprint key (horn)
+    net::on("trains.interact", [](Player& p, net::Json const& msg) {
+        if (msg.contains("pressed")) controlsInput(p, msg["pressed"]);
+        else if (msg.value("stop", false)) controlsStop(p);
+        else tryControls(p);
+    });
     net::on("trains.throttle", [](Player& p, net::Json const& msg) {
-        double v = std::clamp(msg.value("throttle", 1.0), 1 / 18.0, 1.0);
-        for (auto& [id, t] : state().trains)
-            if (t.controller == uuidOf(p)) t.throttle = v;
+        if (msg.contains("throttle") && msg["throttle"].is_number()) setThrottle(p, msg["throttle"].get<double>());
+        if (msg.contains("honk") && msg["honk"].is_boolean()) setHonk(p, msg["honk"].get<bool>());
     });
 }
 
