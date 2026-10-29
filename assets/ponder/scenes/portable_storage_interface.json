@@ -5,8 +5,8 @@
     {"at": [0, 3, 2], "id": "levitate:mechanical_piston", "states": {"levitate:facing": 5, "levitate:state": 0}},
     {"at": [1, 3, 2], "id": "levitate:mechanical_piston_head", "states": {"levitate:facing": 5}},
     {"at": [2, 3, 2], "id": "minecraft:chest"},
-    {"at": [3, 3, 2], "id": "levitate:portable_storage_interface", "states": {"levitate:facing": 0, "levitate:powered": 0}},
-    {"at": [6, 1, 2], "id": "levitate:portable_storage_interface", "states": {"levitate:facing": 1, "levitate:powered": 0}},
+    {"at": [3, 3, 2], "id": "levitate:portable_storage_interface", "states": {"levitate:facing": 0, "levitate:extended": 0}},
+    {"at": [6, 1, 2], "id": "levitate:portable_storage_interface", "states": {"levitate:facing": 1, "levitate:extended": 0}},
     {"at": [5, 1, 2], "id": "levitate:andesite_funnel", "states": {"levitate:facing": 4, "levitate:extracting": 0}}
   ],
   "timeline": [
@@ -30,6 +30,7 @@
     {"move": "c", "by": [3, 0, 0], "ticks": 60},
     {"idle": 60},
     {"rotate": [0, 3, 2], "rpm": 0},
+    {"modify": {"union": [[3, 3, 2], [6, 1, 2]]}, "states": {"levitate:extended": 1}},
     {"idle": 10},
     {"outline": [[6, 1, 2], [6, 3, 2]], "color": "green", "ticks": 60},
     {"text": 4, "at": [6.5, 2.5, 2.5], "ticks": 70, "keyframe": true},
@@ -54,6 +55,7 @@
     {"idle": 20},
     {"text": 8, "at": [5.5, 3.5, 2.5], "ticks": 80, "keyframe": true},
     {"idle": 20},
+    {"modify": {"union": [[3, 3, 2], [6, 1, 2]]}, "states": {"levitate:extended": 0}},
     {"rotate": [0, 3, 2], "rpm": -16},
     {"move": "c", "by": [-3, 0, 0], "ticks": 60},
     {"idle": 60},

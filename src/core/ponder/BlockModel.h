@@ -25,7 +25,7 @@ using V2 = std::array<float, 2>;
 // ---- Molang (the subset block files use) -------------------------------------------------------
 
 /// Evaluates a block-file Molang expression: numbers, `true` / `false`, `q.block_state('name')` /
-/// `query.block_state(...)`, `!`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, parentheses and
+/// `query.block_state(...)`, `!`, unary `-`, `+ - * /`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, parentheses and
 /// string literals. Unknown states read as 0; string states compare by `strings`. Returns nullopt
 /// on a syntax error.
 [[nodiscard]] std::optional<float> evalMolang(

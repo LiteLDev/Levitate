@@ -6,7 +6,7 @@
     {"area": [[0, 1, 2], [8, 1, 2]], "id": "levitate:track", "states": {"levitate:shape": 2}},
     {"at": [4, 1, 1], "id": "levitate:track_signal", "states": {"levitate:facing": 4}},
     {"at": [4, 1, 3], "id": "levitate:track_signal", "states": {"levitate:facing": 5}},
-    {"at": [4, 2, 1], "id": "levitate:nixie_tube", "states": {"levitate:facing": 3}},
+    {"at": [4, 2, 1], "id": "levitate:nixie_tube", "states": {"levitate:facing": 0, "levitate:face": 0}},
     {"at": [6, 2, 2], "id": "levitate:small_bogey", "states": {"levitate:axis": 0}},
     {"at": [8, 2, 2], "id": "levitate:small_bogey", "states": {"levitate:axis": 0}},
     {"area": [[6, 3, 2], [8, 3, 2]], "id": "levitate:railway_casing"}

@@ -5,7 +5,7 @@
   "blocks": [
     {"area": [[0, 1, 1], [8, 1, 1]], "id": "levitate:track", "states": {"levitate:shape": 2}},
     {"at": [5, 1, 2], "id": "levitate:track_station", "states": {"levitate:facing": 5}},
-    {"at": [4, 1, 3], "id": "levitate:white_postbox", "states": {"levitate:facing": 3}},
+    {"at": [4, 1, 3], "id": "levitate:white_postbox", "states": {"levitate:direction": 0}},
     {"at": [4, 1, 4], "id": "levitate:andesite_funnel", "states": {"levitate:facing": 3, "levitate:extracting": 1}},
     {"at": [4, 1, 5], "id": "levitate:depot"},
     {"at": [1, 2, 1], "id": "levitate:small_bogey", "states": {"levitate:axis": 0}},

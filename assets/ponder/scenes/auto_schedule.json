@@ -11,7 +11,7 @@
     {"at": [3, 2, 3], "id": "levitate:small_bogey", "states": {"levitate:axis": 0}},
     {"area": [[0, 3, 3], [3, 3, 3]], "id": "levitate:railway_casing"},
     {"at": [3, 4, 3], "id": "levitate:controls", "states": {"levitate:facing": 5}},
-    {"at": [2, 4, 3], "id": "levitate:blaze_burner"}
+    {"at": [2, 4, 3], "id": "levitate:blaze_burner", "states": {"levitate:blaze": 1, "levitate:facing": 5}}
   ],
   "timeline": [
     {"show": "base", "from": "up"},

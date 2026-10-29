@@ -19,6 +19,8 @@ TEST(PonderModel, Molang) {
     EXPECT_EQ(is("(q.block_state('levitate:facing') == 1 || q.block_state('levitate:facing') == 2) && !(q.block_state('levitate:rotor') == 1)"), 1.f);
     EXPECT_EQ(is("q.block_state('levitate:facing') >= 3"), 0.f);
     EXPECT_EQ(is("q.block_state('levitate:facing') <= 3 || 0 == 1"), 1.f);
+    EXPECT_EQ(is("q.block_state('levitate:facing') + q.block_state('levitate:rotor') * 2 == 2"), 1.f);
+    EXPECT_EQ(is("-1 + 3 == 2 && 4 / 2 - 1 == 1"), 1.f);
     EXPECT_EQ(is("True"), 1.f);
     EXPECT_EQ(is("false"), 0.f);
     EXPECT_EQ(is("q.block_state('missing') == 0"), 1.f);
@@ -104,7 +106,8 @@ TEST(PonderModel, ShippedBlocksResolve) {
     }
     ASSERT_FALSE(root.empty()) << "run the tests inside the repository";
     std::map<std::string, Geometry> geos;
-    for (auto const& e : fs::directory_iterator(root / "rp" / "models" / "blocks")) {
+    for (auto const& e : fs::recursive_directory_iterator(root / "rp" / "models" / "blocks")) {
+        if (e.path().extension() != ".json") continue;
         std::ifstream in(e.path());
         auto          j = Json::parse(in, nullptr, false, true);
         geos.merge(parseGeometries(j));

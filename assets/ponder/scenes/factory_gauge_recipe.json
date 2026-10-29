@@ -11,7 +11,7 @@
     {"at": [8, 1, 5], "id": "minecraft:chest"},
     {"at": [7, 1, 5], "id": "levitate:packager", "states": {"levitate:facing": 4}},
     {"at": [7, 2, 5], "id": "levitate:stock_link", "states": {"levitate:facing": 1}},
-    {"at": [2, 1, 5], "id": "levitate:basin"},
+    {"at": [2, 1, 5], "id": "levitate:basin", "states": {"levitate:facing": 0}},
     {"at": [2, 3, 5], "id": "levitate:mechanical_mixer"},
     {"at": [1, 1, 5], "id": "levitate:packager", "states": {"levitate:facing": 4}}
   ],

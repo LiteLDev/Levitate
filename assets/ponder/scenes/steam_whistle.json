@@ -2,10 +2,10 @@
   "id": "steam_whistle",
   "size": [5, 5],
   "blocks": [
-    {"at": [2, 1, 2], "id": "levitate:blaze_burner", "states": {"levitate:blaze": 1}},
+    {"at": [2, 1, 2], "id": "levitate:blaze_burner", "states": {"levitate:blaze": 1, "levitate:facing": 3}},
     {"at": [2, 2, 2], "id": "levitate:fluid_tank", "states": {"levitate:above": 1}},
     {"at": [2, 3, 2], "id": "levitate:fluid_tank", "states": {"levitate:below": 1}},
-    {"at": [1, 2, 2], "id": "levitate:fluid_pipe", "states": {"levitate:axis": 0}},
+    {"at": [1, 2, 2], "id": "levitate:fluid_pipe", "states": {"levitate:west": 1, "levitate:east": 1}},
     {"at": [0, 2, 2], "id": "levitate:mechanical_pump", "states": {"levitate:facing": 5}},
     {"at": [3, 1, 2], "id": "minecraft:lever"}
   ],
@@ -22,7 +22,7 @@
     {"idle": 5},
     {"input": [3.0, 2.5, 2.5], "action": "right", "item": "levitate:steam_whistle", "ticks": 30},
     {"idle": 10},
-    {"set": [3, 2, 2], "id": "levitate:steam_whistle", "states": {"levitate:size": 0, "levitate:powered": 0}},
+    {"set": [3, 2, 2], "id": "levitate:steam_whistle", "states": {"levitate:size": 0, "levitate:powered": 0, "minecraft:block_face": "east"}},
     {"idle": 10},
     {"text": 1, "at": [3.5, 2.5, 2.5], "ticks": 70, "keyframe": true},
     {"idle": 80},

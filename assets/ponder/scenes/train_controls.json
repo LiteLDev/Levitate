@@ -8,7 +8,7 @@
     {"at": [3, 2, 2], "id": "levitate:small_bogey", "states": {"levitate:axis": 0}},
     {"area": [[0, 3, 2], [4, 3, 2]], "id": "levitate:railway_casing"},
     {"at": [4, 4, 2], "id": "levitate:controls", "states": {"levitate:facing": 5}},
-    {"at": [1, 4, 2], "id": "levitate:steam_whistle", "states": {"levitate:size": 0, "levitate:powered": 0}},
+    {"at": [1, 4, 2], "id": "levitate:steam_whistle", "states": {"levitate:size": 0, "levitate:powered": 0, "minecraft:block_face": "up", "minecraft:cardinal_direction": "south"}},
     {"at": [7, 1, 1], "id": "levitate:track_station", "states": {"levitate:facing": 5}}
   ],
   "timeline": [

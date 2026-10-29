@@ -2,7 +2,9 @@
   "id": "mechanical_crafter_connect",
   "size": [5, 5],
   "blocks": [
-    {"area": [[1, 1, 2], [2, 2, 2]], "id": "levitate:mechanical_crafter", "states": {"levitate:facing": 2}},
+    {"area": [[1, 2, 2], [2, 2, 2]], "id": "levitate:mechanical_crafter", "states": {"levitate:facing": 2, "levitate:pointing": 2, "levitate:covered": 0}},
+    {"at": [2, 1, 2], "id": "levitate:mechanical_crafter", "states": {"levitate:facing": 2, "levitate:pointing": 3, "levitate:covered": 0}},
+    {"at": [1, 1, 2], "id": "levitate:mechanical_crafter", "states": {"levitate:facing": 2, "levitate:pointing": 2, "levitate:covered": 0}},
     {"at": [3, 1, 2], "id": "levitate:shaft", "states": {"levitate:axis": 0}},
     {"at": [4, 1, 2], "id": "levitate:creative_motor", "states": {"levitate:facing": 4}},
     {"at": [1, 1, 3], "id": "levitate:andesite_funnel", "states": {"levitate:facing": 3, "levitate:extracting": 0}},

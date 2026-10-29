@@ -2,7 +2,8 @@
   "id": "mechanical_crafter",
   "size": [5, 5],
   "blocks": [
-    {"area": [[1, 1, 2], [3, 3, 2]], "id": "levitate:mechanical_crafter", "states": {"levitate:facing": 3}},
+    {"area": [[1, 2, 2], [3, 3, 2]], "id": "levitate:mechanical_crafter", "states": {"levitate:facing": 3, "levitate:pointing": 2, "levitate:covered": 0}},
+    {"area": [[1, 1, 2], [3, 1, 2]], "id": "levitate:mechanical_crafter", "states": {"levitate:facing": 3, "levitate:pointing": 3, "levitate:covered": 0}},
     {"at": [4, 1, 2], "id": "levitate:depot"},
     {"at": [2, 2, 3], "id": "levitate:shaft", "states": {"levitate:axis": 2}},
     {"at": [2, 2, 4], "id": "levitate:creative_motor", "states": {"levitate:facing": 2}},

@@ -145,7 +145,8 @@ Models const& models() {
         for (auto const& e : std::filesystem::directory_iterator(mod / "behavior_packs" / "Levitate_BP" / "blocks", ec)) {
             if (auto f = cp::parseBlockFile(read(e.path()))) out.blocks[f->id] = std::move(*f);
         }
-        for (auto const& e : std::filesystem::directory_iterator(mod / "resource_packs" / "Levitate_RP" / "models" / "blocks", ec)) {
+        for (auto const& e : std::filesystem::recursive_directory_iterator(mod / "resource_packs" / "Levitate_RP" / "models" / "blocks", ec)) {
+            if (e.path().extension() != ".json") continue;
             out.geometries.merge(cp::parseGeometries(read(e.path())));
         }
         log().info("ponder: {} block models, {} geometries", out.blocks.size(), out.geometries.size());
@@ -223,7 +224,7 @@ std::map<std::string, k::RotorModel> const& rotorModels() {
         std::map<std::string, k::RotorModel> out;
         auto dir = lv::Mod::getInstance().getSelf().getModDir() / "resource_packs" / "Levitate_RP" / "models" / "blocks";
         std::error_code ec;
-        for (auto const& entry : std::filesystem::directory_iterator(dir, ec)) {
+        for (auto const& entry : std::filesystem::recursive_directory_iterator(dir, ec)) {
             if (entry.path().extension() != ".json") continue;
             std::ifstream in(entry.path());
             auto          j = nlohmann::json::parse(in, nullptr, false, true);

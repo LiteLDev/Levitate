@@ -4,7 +4,7 @@
   "blocks": [
     {"at": [4, 1, 2], "id": "levitate:creative_motor", "states": {"levitate:facing": 4}},
     {"at": [3, 1, 2], "id": "levitate:shaft", "states": {"levitate:axis": 0}},
-    {"at": [2, 1, 2], "id": "levitate:rotation_speed_controller", "states": {"levitate:axis": 0}},
+    {"at": [2, 1, 2], "id": "levitate:rotation_speed_controller", "states": {"levitate:axis": 0, "levitate:bracket": 1}},
     {"at": [2, 2, 2], "id": "levitate:large_cogwheel", "states": {"levitate:axis": 1}},
     {"at": [1, 3, 1], "id": "levitate:cogwheel", "states": {"levitate:axis": 1}},
     {"at": [1, 4, 1], "id": "levitate:shaft", "states": {"levitate:axis": 1}},

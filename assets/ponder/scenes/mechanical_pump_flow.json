@@ -6,8 +6,8 @@
     {"at": [0, 2, 2], "id": "levitate:fluid_tank", "states": {"levitate:above": 0, "levitate:below": 1, "levitate:shape": 0}},
     {"at": [4, 1, 2], "id": "levitate:fluid_tank", "states": {"levitate:above": 1, "levitate:below": 0, "levitate:shape": 0}},
     {"at": [4, 2, 2], "id": "levitate:fluid_tank", "states": {"levitate:above": 0, "levitate:below": 1, "levitate:shape": 0}},
-    {"at": [1, 1, 2], "id": "levitate:fluid_pipe", "states": {"levitate:axis": 0}},
-    {"at": [3, 1, 2], "id": "levitate:fluid_pipe", "states": {"levitate:axis": 0}},
+    {"at": [1, 1, 2], "id": "levitate:fluid_pipe", "states": {"levitate:down": 0, "levitate:up": 0, "levitate:north": 0, "levitate:south": 0, "levitate:west": 1, "levitate:east": 1, "levitate:rim_a": 0, "levitate:rim_b": 6}},
+    {"at": [3, 1, 2], "id": "levitate:fluid_pipe", "states": {"levitate:down": 0, "levitate:up": 0, "levitate:north": 0, "levitate:south": 0, "levitate:west": 1, "levitate:east": 1, "levitate:rim_a": 0, "levitate:rim_b": 6}},
     {"at": [2, 1, 2], "id": "levitate:mechanical_pump", "states": {"levitate:facing": 5}},
     {"at": [2, 1, 1], "id": "levitate:cogwheel", "states": {"levitate:axis": 0}},
     {"at": [1, 1, 1], "id": "levitate:creative_motor", "states": {"levitate:facing": 5}}

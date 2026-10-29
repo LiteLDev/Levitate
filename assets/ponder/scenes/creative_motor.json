@@ -4,7 +4,7 @@
   "blocks": [
     {"at": [3, 1, 2], "id": "levitate:creative_motor", "states": {"levitate:facing": 4}},
     {"area": [[1, 1, 2], [2, 1, 2]], "id": "levitate:shaft", "states": {"levitate:axis": 0}},
-    {"at": [0, 1, 2], "id": "levitate:speedometer", "states": {"levitate:axis": 0, "levitate:facing": 1}}
+    {"at": [0, 1, 2], "id": "levitate:speedometer", "states": {"levitate:facing": 1, "levitate:along_first": 1}}
   ],
   "timeline": [
     {"show": "base", "from": "up"},

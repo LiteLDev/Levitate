@@ -9,8 +9,8 @@
     {"at": [1, 1, 2], "id": "levitate:mechanical_pump", "states": {"levitate:facing": 5}},
     {"at": [1, 1, 1], "id": "levitate:cogwheel", "states": {"levitate:axis": 0}},
     {"at": [0, 1, 1], "id": "levitate:creative_motor", "states": {"levitate:facing": 5}},
-    {"at": [2, 1, 2], "id": "levitate:fluid_pipe", "states": {"levitate:axis": 0}},
-    {"at": [3, 1, 2], "id": "levitate:fluid_valve", "states": {"levitate:facing": 5}},
+    {"at": [2, 1, 2], "id": "levitate:fluid_pipe", "states": {"levitate:down": 0, "levitate:up": 0, "levitate:north": 0, "levitate:south": 0, "levitate:west": 1, "levitate:east": 1, "levitate:rim_a": 0, "levitate:rim_b": 6}},
+    {"at": [3, 1, 2], "id": "levitate:fluid_valve", "states": {"levitate:facing": 5, "levitate:along_first": 1, "levitate:enabled": 0}},
     {"at": [3, 2, 2], "id": "levitate:copper_valve_handle", "states": {"levitate:facing": 1}}
   ],
   "timeline": [
@@ -41,6 +41,7 @@
     {"rotate": [[3, 1, 2], [3, 2, 2]], "rpm": 32},
     {"idle": 25},
     {"rotate": [[3, 1, 2], [3, 2, 2]], "rpm": 0},
+    {"modify": [3, 1, 2], "states": {"levitate:enabled": 1}},
     {"idle": 5},
     {"outline": [[0, 1, 2], [4, 2, 2]], "color": "green", "ticks": 80},
     {"text": 3, "at": [3.5, 1.5, 2.5], "ticks": 80, "color": "green", "keyframe": true},
@@ -50,6 +51,7 @@
     {"rotate": [[3, 1, 2], [3, 2, 2]], "rpm": -32},
     {"idle": 25},
     {"rotate": [[3, 1, 2], [3, 2, 2]], "rpm": 0},
+    {"modify": [3, 1, 2], "states": {"levitate:enabled": 0}},
     {"idle": 5},
     {"outline": [[3, 1, 2], [4, 2, 2]], "color": "red", "ticks": 70},
     {"text": 4, "at": [3.5, 1.5, 2.5], "ticks": 70, "color": "red", "keyframe": true},

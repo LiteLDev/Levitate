@@ -4,7 +4,7 @@
   "blocks": [
     {"at": [0, 1, 2], "id": "minecraft:lever", "states": {"open_bit": false}},
     {"at": [1, 1, 2], "id": "minecraft:redstone_wire", "states": {"redstone_signal": 0}},
-    {"at": [2, 1, 2], "id": "levitate:pulse_timer", "states": {"levitate:facing": 5, "levitate:powered": 0, "levitate:powering": 0, "inverted": 0}},
+    {"at": [2, 1, 2], "id": "levitate:pulse_timer", "states": {"levitate:facing": 4, "levitate:powered": 0, "levitate:powering": 0, "levitate:inverted": 0}},
     {"at": [3, 1, 2], "id": "minecraft:redstone_wire", "states": {"redstone_signal": 0}},
     {"at": [4, 1, 2], "id": "minecraft:redstone_lamp"}
   ],

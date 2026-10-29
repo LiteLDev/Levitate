@@ -14,7 +14,7 @@
     {"at": [5, 2, 2], "id": "minecraft:chest"},
     {"at": [5, 2, 1], "id": "levitate:brass_funnel", "states": {"levitate:facing": 2}},
     {"at": [4, 1, 5], "id": "levitate:stock_ticker", "states": {"levitate:facing": 3}},
-    {"at": [4, 1, 6], "id": "levitate:blaze_burner"}
+    {"at": [4, 1, 6], "id": "levitate:blaze_burner", "states": {"levitate:blaze": 1, "levitate:facing": 2}}
   ],
   "timeline": [
     {"show": "base", "from": "up"},

@@ -9,7 +9,7 @@
     {"at": [2, 1, 1], "id": "levitate:display_board", "states": {"levitate:facing": 0, "levitate:up": 1, "levitate:down": 0}},
     {"at": [2, 2, 1], "id": "levitate:display_board", "states": {"levitate:facing": 0, "levitate:up": 0, "levitate:down": 1}},
     {"at": [4, 1, 2], "id": "minecraft:chest"},
-    {"at": [4, 2, 2], "id": "levitate:display_link", "states": {"levitate:powered": 0}}
+    {"at": [4, 2, 2], "id": "levitate:display_link", "states": {"minecraft:block_face": "up", "levitate:powered": 0}}
   ],
   "timeline": [
     {"show": "base", "from": "up"},

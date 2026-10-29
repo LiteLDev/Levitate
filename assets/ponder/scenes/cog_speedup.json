@@ -7,10 +7,10 @@
     {"at": [1, 2, 3], "id": "levitate:shaft", "states": {"levitate:axis": 2}},
     {"at": [1, 2, 2], "id": "levitate:large_cogwheel", "states": {"levitate:axis": 2}},
     {"at": [1, 2, 1], "id": "levitate:shaft", "states": {"levitate:axis": 2}},
-    {"at": [1, 2, 0], "id": "levitate:speedometer", "states": {"levitate:axis": 2, "levitate:facing": 1}},
+    {"at": [1, 2, 0], "id": "levitate:speedometer", "states": {"levitate:facing": 1, "levitate:along_first": 0}},
     {"at": [2, 3, 2], "id": "levitate:cogwheel", "states": {"levitate:axis": 2}},
     {"at": [2, 3, 1], "id": "levitate:shaft", "states": {"levitate:axis": 2}},
-    {"at": [2, 3, 0], "id": "levitate:speedometer", "states": {"levitate:axis": 2, "levitate:facing": 1}},
+    {"at": [2, 3, 0], "id": "levitate:speedometer", "states": {"levitate:facing": 1, "levitate:along_first": 0}},
     {"area": [[2, 1, 4], [2, 2, 4]], "id": "minecraft:polished_andesite"},
     {"at": [2, 3, 4], "id": "levitate:creative_motor", "states": {"levitate:facing": 2}},
     {"at": [2, 3, 3], "id": "levitate:shaft", "states": {"levitate:axis": 2}}

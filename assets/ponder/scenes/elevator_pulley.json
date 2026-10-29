@@ -1,1205 +1,161 @@
 {
   "id": "elevator_pulley",
-  "size": [
-    5,
-    5
-  ],
+  "size": [5, 5],
   "height": 10,
   "scale": 0.7,
   "blocks": [
-    {
-      "at": [
-        2,
-        9,
-        2
-      ],
-      "id": "levitate:elevator_pulley",
-      "states": {
-        "levitate:facing": 3,
-        "levitate:running": 0,
-        "levitate:rotor": 0
-      }
-    },
-    {
-      "at": [
-        2,
-        9,
-        3
-      ],
-      "id": "levitate:creative_motor",
-      "states": {
-        "levitate:facing": 2
-      }
-    },
-    {
-      "area": [
-        [
-          1,
-          1,
-          1
-        ],
-        [
-          3,
-          1,
-          3
-        ]
-      ],
-      "id": "minecraft:oak_planks"
-    },
-    {
-      "area": [
-        [
-          1,
-          2,
-          1
-        ],
-        [
-          1,
-          3,
-          1
-        ]
-      ],
-      "id": "minecraft:oak_fence"
-    },
-    {
-      "area": [
-        [
-          3,
-          2,
-          1
-        ],
-        [
-          3,
-          3,
-          1
-        ]
-      ],
-      "id": "minecraft:oak_fence"
-    },
-    {
-      "area": [
-        [
-          1,
-          2,
-          3
-        ],
-        [
-          1,
-          3,
-          3
-        ]
-      ],
-      "id": "minecraft:oak_fence"
-    },
-    {
-      "area": [
-        [
-          3,
-          2,
-          3
-        ],
-        [
-          3,
-          3,
-          3
-        ]
-      ],
-      "id": "minecraft:oak_fence"
-    },
-    {
-      "area": [
-        [
-          1,
-          4,
-          1
-        ],
-        [
-          3,
-          4,
-          3
-        ]
-      ],
-      "id": "minecraft:oak_planks"
-    },
-    {
-      "at": [
-        3,
-        2,
-        2
-      ],
-      "id": "levitate:redstone_contact",
-      "states": {
-        "levitate:facing": 5
-      }
-    },
-    {
-      "at": [
-        1,
-        2,
-        2
-      ],
-      "id": "levitate:contraption_controls",
-      "states": {
-        "levitate:facing": 5
-      }
-    },
-    {
-      "at": [
-        2,
-        2,
-        3
-      ],
-      "id": "levitate:andesite_door"
-    },
-    {
-      "at": [
-        2,
-        3,
-        3
-      ],
-      "id": "levitate:andesite_door"
-    },
-    {
-      "at": [
-        4,
-        1,
-        2
-      ],
-      "id": "minecraft:stone_bricks"
-    },
-    {
-      "area": [
-        [
-          4,
-          3,
-          2
-        ],
-        [
-          4,
-          5,
-          2
-        ]
-      ],
-      "id": "minecraft:stone_bricks"
-    },
-    {
-      "area": [
-        [
-          4,
-          7,
-          2
-        ],
-        [
-          4,
-          8,
-          2
-        ]
-      ],
-      "id": "minecraft:stone_bricks"
-    },
-    {
-      "at": [
-        4,
-        2,
-        2
-      ],
-      "id": "levitate:redstone_contact",
-      "states": {
-        "levitate:facing": 4
-      }
-    },
-    {
-      "at": [
-        4,
-        6,
-        2
-      ],
-      "id": "levitate:redstone_contact",
-      "states": {
-        "levitate:facing": 4
-      }
-    },
-    {
-      "at": [
-        4,
-        2,
-        1
-      ],
-      "id": "levitate:display_link"
-    }
+    {"at": [2, 9, 2], "id": "levitate:elevator_pulley", "states": {"levitate:facing": 3, "levitate:running": 0, "levitate:rotor": 0}},
+    {"at": [2, 9, 3], "id": "levitate:creative_motor", "states": {"levitate:facing": 2}},
+    {"area": [[1, 1, 1], [3, 1, 3]], "id": "minecraft:oak_planks"},
+    {"area": [[1, 2, 1], [1, 3, 1]], "id": "minecraft:oak_fence"},
+    {"area": [[3, 2, 1], [3, 3, 1]], "id": "minecraft:oak_fence"},
+    {"area": [[1, 2, 3], [1, 3, 3]], "id": "minecraft:oak_fence"},
+    {"area": [[3, 2, 3], [3, 3, 3]], "id": "minecraft:oak_fence"},
+    {"area": [[1, 4, 1], [3, 4, 3]], "id": "minecraft:oak_planks"},
+    {"at": [3, 2, 2], "id": "levitate:redstone_contact", "states": {"levitate:facing": 5, "levitate:powered": 0}},
+    {"at": [1, 2, 2], "id": "levitate:contraption_controls", "states": {"levitate:facing": 5, "levitate:disabled": 0}},
+    {"at": [2, 2, 3], "id": "levitate:andesite_door", "states": {"levitate:facing": 2, "levitate:upper": 0, "levitate:hinge": 0, "levitate:open": 0, "levitate:powered": 0}},
+    {"at": [2, 3, 3], "id": "levitate:andesite_door", "states": {"levitate:facing": 2, "levitate:upper": 1, "levitate:hinge": 0, "levitate:open": 0, "levitate:powered": 0}},
+    {"at": [4, 1, 2], "id": "minecraft:stone_bricks"},
+    {"area": [[4, 3, 2], [4, 5, 2]], "id": "minecraft:stone_bricks"},
+    {"area": [[4, 7, 2], [4, 8, 2]], "id": "minecraft:stone_bricks"},
+    {"at": [4, 2, 2], "id": "levitate:redstone_contact", "states": {"levitate:facing": 4, "levitate:powered": 0}},
+    {"at": [4, 6, 2], "id": "levitate:redstone_contact", "states": {"levitate:facing": 4, "levitate:powered": 0}},
+    {"at": [4, 2, 1], "id": "levitate:display_link", "states": {"minecraft:block_face": "north", "levitate:powered": 0}}
   ],
   "timeline": [
-    {
-      "show": "base",
-      "from": "up"
-    },
-    {
-      "idle": 15
-    },
-    {
-      "show": [
-        [
-          4,
-          1,
-          2
-        ],
-        [
-          4,
-          1,
-          2
-        ]
-      ],
-      "from": "down"
-    },
-    {
-      "show": [
-        [
-          4,
-          3,
-          2
-        ],
-        [
-          4,
-          5,
-          2
-        ]
-      ],
-      "from": "down"
-    },
-    {
-      "show": [
-        [
-          4,
-          7,
-          2
-        ],
-        [
-          4,
-          8,
-          2
-        ]
-      ],
-      "from": "down"
-    },
-    {
-      "idle": 10
-    },
-    {
-      "show": [
-        2,
-        9,
-        2
-      ],
-      "from": "down"
-    },
-    {
-      "idle": 15
-    },
-    {
-      "text": 1,
-      "at": [
-        2.5,
-        9.5,
-        2.5
-      ],
-      "ticks": 80,
-      "keyframe": true
-    },
-    {
-      "idle": 90
-    },
-    {
-      "show": [
-        4,
-        18,
-        4
-      ],
-      "from": "none",
-      "as": "cab"
-    },
-    {
-      "show": [
-        [
-          1,
-          1,
-          1
-        ],
-        [
-          3,
-          1,
-          3
-        ]
-      ],
-      "from": "down",
-      "as": "cab"
-    },
-    {
-      "idle": 10
-    },
-    {
-      "show": [
-        [
-          1,
-          2,
-          1
-        ],
-        [
-          1,
-          3,
-          1
-        ]
-      ],
-      "from": "down",
-      "as": "cab"
-    },
-    {
-      "idle": 4
-    },
-    {
-      "show": [
-        [
-          3,
-          2,
-          1
-        ],
-        [
-          3,
-          3,
-          1
-        ]
-      ],
-      "from": "down",
-      "as": "cab"
-    },
-    {
-      "idle": 4
-    },
-    {
-      "show": [
-        [
-          1,
-          2,
-          3
-        ],
-        [
-          1,
-          3,
-          3
-        ]
-      ],
-      "from": "down",
-      "as": "cab"
-    },
-    {
-      "idle": 4
-    },
-    {
-      "show": [
-        [
-          3,
-          2,
-          3
-        ],
-        [
-          3,
-          3,
-          3
-        ]
-      ],
-      "from": "down",
-      "as": "cab"
-    },
-    {
-      "idle": 4
-    },
-    {
-      "show": [
-        [
-          1,
-          4,
-          1
-        ],
-        [
-          3,
-          4,
-          3
-        ]
-      ],
-      "from": "down",
-      "as": "cab"
-    },
-    {
-      "idle": 15
-    },
-    {
-      "text": 2,
-      "at": [
-        1.5,
-        4.5,
-        3.5
-      ],
-      "ticks": 60,
-      "keyframe": true
-    },
-    {
-      "idle": 70
-    },
-    {
-      "show": [
-        4,
-        2,
-        2
-      ],
-      "from": "west"
-    },
-    {
-      "idle": 10
-    },
-    {
-      "show": [
-        3,
-        2,
-        2
-      ],
-      "from": "east",
-      "as": "cab"
-    },
-    {
-      "idle": 15
-    },
-    {
-      "outline": {
-        "union": [
-          [
-            3,
-            2,
-            2
-          ],
-          [
-            4,
-            2,
-            2
-          ]
-        ]
-      },
-      "color": "green",
-      "ticks": 70
-    },
-    {
-      "text": 3,
-      "at": [
-        4.0,
-        2.5,
-        2.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "input": [
-        3.5,
-        2.5,
-        2.5
-      ],
-      "action": "right",
-      "item": "levitate:super_glue",
-      "ticks": 40
-    },
-    {
-      "idle": 10
-    },
-    {
-      "outline": [
-        [
-          1,
-          1,
-          1
-        ],
-        [
-          3,
-          4,
-          3
-        ]
-      ],
-      "color": "green",
-      "ticks": 70
-    },
-    {
-      "text": 4,
-      "at": [
-        3.5,
-        2.5,
-        2.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "show": [
-        1,
-        2,
-        2
-      ],
-      "from": "east",
-      "as": "cab"
-    },
-    {
-      "idle": 15
-    },
-    {
-      "text": 5,
-      "at": [
-        1.5,
-        2.5,
-        2.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "show": [
-        2,
-        9,
-        3
-      ],
-      "from": "north"
-    },
-    {
-      "idle": 15
-    },
-    {
-      "rotate": {
-        "union": [
-          [
-            2,
-            9,
-            2
-          ],
-          [
-            2,
-            9,
-            3
-          ]
-        ]
-      },
-      "rpm": 32
-    },
-    {
-      "text": 6,
-      "at": [
-        2.5,
-        9.5,
-        3.5
-      ],
-      "ticks": 60,
-      "keyframe": true
-    },
-    {
-      "idle": 70
-    },
-    {
-      "input": [
-        2.5,
-        9.5,
-        2.5
-      ],
-      "action": "right",
-      "ticks": 40
-    },
-    {
-      "idle": 10
-    },
-    {
-      "modify": [
-        2,
-        9,
-        2
-      ],
-      "states": {
-        "levitate:running": 1
-      }
-    },
-    {
-      "set": [
-        [
-          2,
-          5,
-          2
-        ],
-        [
-          2,
-          8,
-          2
-        ]
-      ],
-      "id": "levitate:rope"
-    },
-    {
-      "text": 7,
-      "at": [
-        2.5,
-        9.5,
-        2.5
-      ],
-      "ticks": 60,
-      "keyframe": true
-    },
-    {
-      "idle": 70
-    },
-    {
-      "set": [
-        4,
-        2,
-        2
-      ],
-      "id": "levitate:elevator_contact",
-      "states": {
-        "levitate:facing": 4,
-        "levitate:calling": 0,
-        "levitate:powering": 1,
-        "levitate:powered": 0
-      }
-    },
-    {
-      "outline": [
-        4,
-        2,
-        2
-      ],
-      "color": "green",
-      "ticks": 70
-    },
-    {
-      "text": 8,
-      "at": [
-        4.5,
-        2.5,
-        2.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "input": [
-        4.5,
-        2.5,
-        2.0
-      ],
-      "action": "right",
-      "ticks": 40
-    },
-    {
-      "idle": 10
-    },
-    {
-      "text": 9,
-      "at": [
-        4.5,
-        2.5,
-        2.0
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "show": [
-        4,
-        6,
-        2
-      ],
-      "from": "west"
-    },
-    {
-      "idle": 15
-    },
-    {
-      "set": [
-        4,
-        6,
-        2
-      ],
-      "id": "levitate:elevator_contact",
-      "states": {
-        "levitate:facing": 4,
-        "levitate:calling": 0,
-        "levitate:powering": 0,
-        "levitate:powered": 0
-      }
-    },
-    {
-      "outline": [
-        4,
-        6,
-        2
-      ],
-      "color": "green",
-      "ticks": 70
-    },
-    {
-      "text": 10,
-      "at": [
-        4.5,
-        6.5,
-        2.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "redstone": [
-        4,
-        6,
-        2
-      ],
-      "ticks": 30
-    },
-    {
-      "modify": [
-        4,
-        6,
-        2
-      ],
-      "states": {
-        "levitate:calling": 1
-      }
-    },
-    {
-      "modify": [
-        4,
-        2,
-        2
-      ],
-      "states": {
-        "levitate:powering": 0
-      }
-    },
-    {
-      "text": 11,
-      "at": [
-        4.5,
-        6.5,
-        2.5
-      ],
-      "ticks": 60,
-      "keyframe": true
-    },
-    {
-      "idle": 10
-    },
-    {
-      "destroy": [
-        2,
-        5,
-        2
-      ]
-    },
-    {
-      "move": "cab",
-      "by": [
-        0,
-        1,
-        0
-      ],
-      "ticks": 12
-    },
-    {
-      "idle": 12
-    },
-    {
-      "destroy": [
-        2,
-        6,
-        2
-      ]
-    },
-    {
-      "move": "cab",
-      "by": [
-        0,
-        1,
-        0
-      ],
-      "ticks": 12
-    },
-    {
-      "idle": 12
-    },
-    {
-      "destroy": [
-        2,
-        7,
-        2
-      ]
-    },
-    {
-      "move": "cab",
-      "by": [
-        0,
-        1,
-        0
-      ],
-      "ticks": 12
-    },
-    {
-      "idle": 12
-    },
-    {
-      "destroy": [
-        2,
-        8,
-        2
-      ]
-    },
-    {
-      "move": "cab",
-      "by": [
-        0,
-        1,
-        0
-      ],
-      "ticks": 12
-    },
-    {
-      "idle": 12
-    },
-    {
-      "modify": [
-        4,
-        6,
-        2
-      ],
-      "states": {
-        "levitate:calling": 0,
-        "levitate:powering": 1
-      }
-    },
-    {
-      "idle": 10
-    },
-    {
-      "text": 12,
-      "at": [
-        2.5,
-        9.5,
-        2.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "input": [
-        1.5,
-        6.5,
-        2.5
-      ],
-      "action": "scroll",
-      "ticks": 30
-    },
-    {
-      "idle": 30
-    },
-    {
-      "input": [
-        1.5,
-        6.5,
-        2.5
-      ],
-      "action": "right",
-      "ticks": 30
-    },
-    {
-      "idle": 10
-    },
-    {
-      "modify": [
-        4,
-        6,
-        2
-      ],
-      "states": {
-        "levitate:powering": 0
-      }
-    },
-    {
-      "text": 13,
-      "at": [
-        1.5,
-        6.5,
-        2.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 10
-    },
-    {
-      "move": "cab",
-      "by": [
-        0,
-        -1,
-        0
-      ],
-      "ticks": 12
-    },
-    {
-      "idle": 12
-    },
-    {
-      "set": [
-        2,
-        8,
-        2
-      ],
-      "id": "levitate:rope"
-    },
-    {
-      "move": "cab",
-      "by": [
-        0,
-        -1,
-        0
-      ],
-      "ticks": 12
-    },
-    {
-      "idle": 12
-    },
-    {
-      "set": [
-        2,
-        7,
-        2
-      ],
-      "id": "levitate:rope"
-    },
-    {
-      "move": "cab",
-      "by": [
-        0,
-        -1,
-        0
-      ],
-      "ticks": 12
-    },
-    {
-      "idle": 12
-    },
-    {
-      "set": [
-        2,
-        6,
-        2
-      ],
-      "id": "levitate:rope"
-    },
-    {
-      "move": "cab",
-      "by": [
-        0,
-        -1,
-        0
-      ],
-      "ticks": 12
-    },
-    {
-      "idle": 12
-    },
-    {
-      "set": [
-        2,
-        5,
-        2
-      ],
-      "id": "levitate:rope"
-    },
-    {
-      "modify": [
-        4,
-        2,
-        2
-      ],
-      "states": {
-        "levitate:powering": 1
-      }
-    },
-    {
-      "idle": 60
-    },
-    {
-      "input": [
-        2.5,
-        9.5,
-        2.5
-      ],
-      "action": "right",
-      "ticks": 40
-    },
-    {
-      "idle": 10
-    },
-    {
-      "modify": [
-        2,
-        9,
-        2
-      ],
-      "states": {
-        "levitate:running": 0
-      }
-    },
-    {
-      "rotate": {
-        "union": [
-          [
-            2,
-            9,
-            2
-          ],
-          [
-            2,
-            9,
-            3
-          ]
-        ]
-      },
-      "rpm": 0
-    },
-    {
-      "text": 14,
-      "at": [
-        2.5,
-        9.5,
-        2.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "show": [
-        [
-          2,
-          2,
-          3
-        ],
-        [
-          2,
-          3,
-          3
-        ]
-      ],
-      "from": "north",
-      "as": "cab"
-    },
-    {
-      "idle": 15
-    },
-    {
-      "text": 15,
-      "at": [
-        2.5,
-        2.5,
-        3.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "redstone": [
-        4,
-        2,
-        2
-      ],
-      "ticks": 60
-    },
-    {
-      "text": 16,
-      "at": [
-        4.5,
-        2.5,
-        2.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "set": [
-        4,
-        3,
-        2
-      ],
-      "id": "minecraft:lit_redstone_lamp"
-    },
-    {
-      "text": 17,
-      "at": [
-        4.5,
-        3.5,
-        2.5
-      ],
-      "ticks": 70,
-      "keyframe": true
-    },
-    {
-      "idle": 80
-    },
-    {
-      "show": [
-        4,
-        2,
-        1
-      ],
-      "from": "south"
-    },
-    {
-      "idle": 15
-    },
-    {
-      "text": 18,
-      "at": [
-        4.5,
-        2.5,
-        1.5
-      ],
-      "ticks": 80,
-      "keyframe": true
-    },
-    {
-      "idle": 90
-    },
-    {
-      "idle": 10
-    }
+    {"show": "base", "from": "up"},
+    {"idle": 15},
+    {"show": [[4, 1, 2], [4, 1, 2]], "from": "down"},
+    {"show": [[4, 3, 2], [4, 5, 2]], "from": "down"},
+    {"show": [[4, 7, 2], [4, 8, 2]], "from": "down"},
+    {"idle": 10},
+    {"show": [2, 9, 2], "from": "down"},
+    {"idle": 15},
+    {"text": 1, "at": [2.5, 9.5, 2.5], "ticks": 80, "keyframe": true},
+    {"idle": 90},
+    {"show": [4, 18, 4], "from": "none", "as": "cab"},
+    {"show": [[1, 1, 1], [3, 1, 3]], "from": "down", "as": "cab"},
+    {"idle": 10},
+    {"show": [[1, 2, 1], [1, 3, 1]], "from": "down", "as": "cab"},
+    {"idle": 4},
+    {"show": [[3, 2, 1], [3, 3, 1]], "from": "down", "as": "cab"},
+    {"idle": 4},
+    {"show": [[1, 2, 3], [1, 3, 3]], "from": "down", "as": "cab"},
+    {"idle": 4},
+    {"show": [[3, 2, 3], [3, 3, 3]], "from": "down", "as": "cab"},
+    {"idle": 4},
+    {"show": [[1, 4, 1], [3, 4, 3]], "from": "down", "as": "cab"},
+    {"idle": 15},
+    {"text": 2, "at": [1.5, 4.5, 3.5], "ticks": 60, "keyframe": true},
+    {"idle": 70},
+    {"show": [4, 2, 2], "from": "west"},
+    {"idle": 10},
+    {"show": [3, 2, 2], "from": "east", "as": "cab"},
+    {"idle": 5},
+    {"modify": {"union": [[3, 2, 2], [4, 2, 2]]}, "states": {"levitate:powered": 1}},
+    {"idle": 10},
+    {"outline": {"union": [[3, 2, 2], [4, 2, 2]]}, "color": "green", "ticks": 70},
+    {"text": 3, "at": [4.0, 2.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"input": [3.5, 2.5, 2.5], "action": "right", "item": "levitate:super_glue", "ticks": 40},
+    {"idle": 10},
+    {"outline": [[1, 1, 1], [3, 4, 3]], "color": "green", "ticks": 70},
+    {"text": 4, "at": [3.5, 2.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"show": [1, 2, 2], "from": "east", "as": "cab"},
+    {"idle": 15},
+    {"text": 5, "at": [1.5, 2.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"show": [2, 9, 3], "from": "north"},
+    {"idle": 15},
+    {"rotate": {"union": [[2, 9, 2], [2, 9, 3]]}, "rpm": 32},
+    {"text": 6, "at": [2.5, 9.5, 3.5], "ticks": 60, "keyframe": true},
+    {"idle": 70},
+    {"input": [2.5, 9.5, 2.5], "action": "right", "ticks": 40},
+    {"idle": 10},
+    {"modify": [2, 9, 2], "states": {"levitate:running": 1}},
+    {"set": [[2, 5, 2], [2, 8, 2]], "id": "levitate:rope"},
+    {"text": 7, "at": [2.5, 9.5, 2.5], "ticks": 60, "keyframe": true},
+    {"idle": 70},
+    {"set": [4, 2, 2], "id": "levitate:elevator_contact", "states": {"levitate:facing": 4, "levitate:calling": 0, "levitate:powering": 1, "levitate:powered": 0}},
+    {"outline": [4, 2, 2], "color": "green", "ticks": 70},
+    {"text": 8, "at": [4.5, 2.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"input": [4.5, 2.5, 2.0], "action": "right", "ticks": 40},
+    {"idle": 10},
+    {"text": 9, "at": [4.5, 2.5, 2.0], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"show": [4, 6, 2], "from": "west"},
+    {"idle": 15},
+    {"set": [4, 6, 2], "id": "levitate:elevator_contact", "states": {"levitate:facing": 4, "levitate:calling": 0, "levitate:powering": 0, "levitate:powered": 0}},
+    {"outline": [4, 6, 2], "color": "green", "ticks": 70},
+    {"text": 10, "at": [4.5, 6.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"redstone": [4, 6, 2], "ticks": 30},
+    {"modify": [4, 6, 2], "states": {"levitate:calling": 1}},
+    {"modify": [4, 2, 2], "states": {"levitate:powering": 0}},
+    {"text": 11, "at": [4.5, 6.5, 2.5], "ticks": 60, "keyframe": true},
+    {"idle": 10},
+    {"destroy": [2, 5, 2]},
+    {"move": "cab", "by": [0, 1, 0], "ticks": 12},
+    {"idle": 12},
+    {"destroy": [2, 6, 2]},
+    {"move": "cab", "by": [0, 1, 0], "ticks": 12},
+    {"idle": 12},
+    {"destroy": [2, 7, 2]},
+    {"move": "cab", "by": [0, 1, 0], "ticks": 12},
+    {"idle": 12},
+    {"destroy": [2, 8, 2]},
+    {"move": "cab", "by": [0, 1, 0], "ticks": 12},
+    {"idle": 12},
+    {"modify": [4, 6, 2], "states": {"levitate:calling": 0, "levitate:powering": 1}},
+    {"idle": 10},
+    {"text": 12, "at": [2.5, 9.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"input": [1.5, 6.5, 2.5], "action": "scroll", "ticks": 30},
+    {"idle": 30},
+    {"input": [1.5, 6.5, 2.5], "action": "right", "ticks": 30},
+    {"idle": 10},
+    {"modify": [4, 6, 2], "states": {"levitate:powering": 0}},
+    {"text": 13, "at": [1.5, 6.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 10},
+    {"move": "cab", "by": [0, -1, 0], "ticks": 12},
+    {"idle": 12},
+    {"set": [2, 8, 2], "id": "levitate:rope"},
+    {"move": "cab", "by": [0, -1, 0], "ticks": 12},
+    {"idle": 12},
+    {"set": [2, 7, 2], "id": "levitate:rope"},
+    {"move": "cab", "by": [0, -1, 0], "ticks": 12},
+    {"idle": 12},
+    {"set": [2, 6, 2], "id": "levitate:rope"},
+    {"move": "cab", "by": [0, -1, 0], "ticks": 12},
+    {"idle": 12},
+    {"set": [2, 5, 2], "id": "levitate:rope"},
+    {"modify": [4, 2, 2], "states": {"levitate:powering": 1}},
+    {"idle": 60},
+    {"input": [2.5, 9.5, 2.5], "action": "right", "ticks": 40},
+    {"idle": 10},
+    {"modify": [2, 9, 2], "states": {"levitate:running": 0}},
+    {"rotate": {"union": [[2, 9, 2], [2, 9, 3]]}, "rpm": 0},
+    {"text": 14, "at": [2.5, 9.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"show": [[2, 2, 3], [2, 3, 3]], "from": "north", "as": "cab"},
+    {"idle": 15},
+    {"modify": [[2, 2, 3], [2, 3, 3]], "states": {"levitate:open": 1}},
+    {"text": 15, "at": [2.5, 2.5, 3.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"modify": [[2, 2, 3], [2, 3, 3]], "states": {"levitate:open": 0}},
+    {"redstone": [4, 2, 2], "ticks": 60},
+    {"text": 16, "at": [4.5, 2.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"set": [4, 3, 2], "id": "minecraft:lit_redstone_lamp"},
+    {"text": 17, "at": [4.5, 3.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"show": [4, 2, 1], "from": "south"},
+    {"idle": 15},
+    {"text": 18, "at": [4.5, 2.5, 1.5], "ticks": 80, "keyframe": true},
+    {"idle": 90},
+    {"idle": 10}
   ]
 }

@@ -51,11 +51,33 @@ struct MolangParser {
         }
         return l;
     }
-    Value cmpExpr() {
+    Value addExpr() {
+        Value l = mulExpr();
+        while (ok) {
+            ws();
+            if (i >= s.size() || (s[i] != '+' && s[i] != '-')) break;
+            char op = s[i++];
+            Value r = mulExpr();
+            l       = op == '+' ? num(l) + num(r) : num(l) - num(r);
+        }
+        return l;
+    }
+    Value mulExpr() {
         Value l = unary();
+        while (ok) {
+            ws();
+            if (i >= s.size() || (s[i] != '*' && s[i] != '/')) break;
+            char  op = s[i++];
+            float r  = num(unary());
+            l        = op == '*' ? num(l) * r : (r != 0.f ? num(l) / r : 0.f);
+        }
+        return l;
+    }
+    Value cmpExpr() {
+        Value l = addExpr();
         for (auto op : {"==", "!=", "<=", ">=", "<", ">"}) {
             if (!eat(op)) continue;
-            Value r = unary();
+            Value r = addExpr();
             std::string o(op);
             if (std::holds_alternative<std::string>(l) || std::holds_alternative<std::string>(r)) {
                 bool eq = l == r;
@@ -76,6 +98,7 @@ struct MolangParser {
     Value unary() {
         ws();
         if (eat("!")) return truthy(unary()) ? 0.f : 1.f;
+        if (eat("-")) return -num(unary());
         if (eat("(")) {
             Value v = orExpr();
             if (!eat(")")) ok = false;
@@ -107,7 +130,7 @@ struct MolangParser {
         }
         char c = s[i];
         if (c == '\'' || c == '"') return str();
-        if (std::isdigit(static_cast<unsigned char>(c)) || c == '-' || c == '.') {
+        if (std::isdigit(static_cast<unsigned char>(c)) || c == '.') {
             std::size_t start = i++;
             while (i < s.size() && (std::isdigit(static_cast<unsigned char>(s[i])) || s[i] == '.')) ++i;
             try {
