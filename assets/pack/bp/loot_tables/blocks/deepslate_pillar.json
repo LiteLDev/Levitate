@@ -1,0 +1,14 @@
+{
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "item",
+          "name": "levitate:deepslate_pillar",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

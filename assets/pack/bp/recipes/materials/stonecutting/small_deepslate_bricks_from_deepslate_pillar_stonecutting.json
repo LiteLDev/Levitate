@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:small_deepslate_bricks_from_deepslate_pillar_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:deepslate_pillar"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:deepslate_pillar"
+      }
+    ],
+    "result": {
+      "item": "levitate:small_deepslate_bricks",
+      "count": 1
+    }
+  }
+}

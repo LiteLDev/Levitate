@@ -1,0 +1,36 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:transmitter"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " N ",
+      "LLL",
+      " R "
+    ],
+    "key": {
+      "L": {
+        "item": "levitate:copper_sheet"
+      },
+      "N": {
+        "item": "minecraft:lightning_rod"
+      },
+      "R": {
+        "item": "minecraft:redstone"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:copper_sheet"
+      }
+    ],
+    "result": {
+      "item": "levitate:transmitter",
+      "count": 1
+    }
+  }
+}

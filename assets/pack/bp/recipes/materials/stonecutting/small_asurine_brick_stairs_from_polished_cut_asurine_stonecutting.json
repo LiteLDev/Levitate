@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:small_asurine_brick_stairs_from_polished_cut_asurine_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:polished_cut_asurine"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:polished_cut_asurine"
+      }
+    ],
+    "result": {
+      "item": "levitate:small_asurine_brick_stairs",
+      "count": 1
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:dripstone_block_from_dripstone_pillar_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:dripstone_pillar"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:dripstone_pillar"
+      }
+    ],
+    "result": {
+      "item": "minecraft:dripstone_block",
+      "count": 1
+    }
+  }
+}

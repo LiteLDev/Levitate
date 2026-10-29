@@ -141,8 +141,10 @@ Create: osmium, platinum, silver, tin, lead, quicksilver, aluminum, uranium, nic
 `bound_cardboard_block`, `experience_nugget`, `experience_block`, `refined_radiance`, `shadow_steel`,
 `chromatic_compound`, `bar_of_chocolate`, `sweet_roll`, `chocolate_glazed_berries`, `honeyed_apple`,
 `builders_tea`, `blaze_cake_base`, `blaze_cake`, `creative_blaze_cake`, `dough`, `tree_fertilizer` is U31.
-World generation: zinc ore veins (overworld, y −63..70 ⚠ Create 6 vein config), striated stone layers
-(asurine, crimsite, ochrum, veridium, limestone, scorchia, scoria in their biomes/depths ⚠).
+World generation (Create 6.0.10's worldgen data, details in §3.6.9): zinc ore veins (every overworld
+biome, ore size 12, 8 per chunk, uniform y −63..70), striated stone layers (overworld: 1 in 18 chunks,
+y −30..70, size 32, six patterns around asurine, crimsite, ochrum, veridium, limestone, scoria;
+nether: 1 in 18 chunks, y 40..90, scoria and scorchia patterns).
 
 Decorative stone (U9): for each of `granite, diorite, andesite, calcite, dripstone, deepslate, tuff,
 asurine, crimsite, limestone, ochrum, scoria, scorchia, veridium`: the raw stone (for Create's own
@@ -2152,6 +2154,68 @@ handles 32, water wheel 8, large water wheel 4, creative motor up to 256).
   (<n> lines, client mod|action bar)` (once per new target), `goggles: overlay screen opened for`,
   `goggles: overlay reset for`, client `goggles: overlay offset set to x, y` / `reset`.
 
+### 3.6.9 Materials, foods, world generation, decorative stone (U9)
+
+Data: `tools/gen/materials.ps1` generates every pack / recipe file of the unit (and
+`src/feature/materials/MaterialsBlocks.inc`, the block table the C++ side reads) from its tables;
+names come from `tools/gen/materials.names.tsv` (Create's en_US / zh_CN wording); textures from
+`tools/textures/materials.ps1`. Rerun both after a change and commit the output.
+
+- **Blocks** (properties copied from the vanilla block Create starts from; hardness / blast
+  resistance): zinc ore 3 / 3, deepslate zinc ore 4.5 / 3 (both need an **iron** pickaxe; drop
+  raw zinc with Fortune's ore bonus `count·(max(0, rand(fortune+2)−1)+1)`, silk touch: the ore),
+  raw zinc / zinc / brass blocks 5 / 6 (iron pickaxe), andesite alloy block 1.5 / 6, industrial and
+  weathered iron 3 / 6 (column), rose quartz block (pillar) 1.5 / 1.5, rose quartz tiles / small tiles
+  3 / 6, block of experience 3 / 6 (light 15), cardboard / bound cardboard 0.2 (horizontal axis of
+  the player's facing, axe; bound: silk touch itself, else cardboard block + string). Every other
+  block needs a pickaxe to drop (Create's requiresCorrectToolForDrops); the rule is applied when a
+  player mines (`BlockType::spawnResources` hook), explosions use the loot tables.
+- **Decorative stone**: per stone the raw stone (Create's 7; asurine, crimsite, ochrum, veridium
+  with 4 random natural texture variants), cut / polished cut / cut bricks / small bricks (each +
+  stairs, slab, wall), layered (column, cap top), pillar (axis from the clicked face). Create's
+  stones: hardness 1.25 (scoria / scorchia 1.5); stairs / slabs / walls have their pattern's
+  properties. Stairs: `minecraft:corner_and_cardinal_direction` + `minecraft:vertical_half`
+  (Bedrock computes Create's inner / outer corners, corners with any of the unit's stairs), world
+  aligned quarter boxes for model and collision. Slabs: `minecraft:vertical_half` + `levitate:double`;
+  using a slab on the empty half of the same single slab (clicked face, or the slab beside the
+  clicked face by click height) makes it double (one item used, 2 drops); the polished slab's sides
+  use Create's slab texture. Walls: `minecraft:connection` (format 1.26.0), post unless exactly
+  straight, low sides.
+- **Recipes**: every Create 6.0.10 crafting / smelting / blasting / smoking / campfire /
+  stonecutting recipe producing these items (c: tags resolved to their single Bedrock item);
+  stonecutting accepts every member of Create's `stone_types/<stone>` tag (full blocks, stairs,
+  walls, layered, pillar, raw stone) into every palette block (slabs ×2). Processing recipes
+  (Create's format, `assets/recipes/<type>/`): mixing (andesite alloy ×2, brass ingot heated, pulp,
+  dough, chocolate melting), compacting (blaze cake base, chocolate bar), pressing (sheets,
+  cardboard), sandpaper polishing (rose quartz), sequenced
+  assembly (precision mechanism: golden sheet, 5 loops of cogwheel / large cogwheel / iron nugget,
+  weighted results 120 / 8 / 8 / 5 / 3 / 2 / 2 / 1 / 1; sturdy sheet: powdered obsidian, lava 500 mB,
+  press, press), filling of the potion fluid into cinder flour; the other crushing / milling /
+  splashing / filling / emptying / item application recipes of these items ship with U13 / U15 /
+  U19. Tags: `assets/recipes/tags/materials.json` (c: metal tags, `levitate:stone_types/*`,
+  `levitate:pulpifiable`, ...). U3's attribute filter recipe (brass nugget, wool, brass nugget) is in.
+- **Foods** (nutrition, saturation modifier): bar of chocolate 6 / 0.3, sweet roll 6 / 0.8,
+  chocolate glazed berries 7 / 0.8, honeyed apple 8 / 0.8, builder's tea 1 / 0.6 (always edible,
+  drink, 42 ticks, stacks to 16, gives the bottle back, Haste I for 3 min without particles / icon).
+  Blaze cake burns 320 s in a furnace, cardboard 50 s, creative blaze cake forever.
+- **Experience nugget**: use = the whole stack (one when sneaking) turns into 3 xp per nugget, in
+  one orb (one nugget) or up to 5 orbs of `1 + total/5`. Log `<player> used N experience nugget(s)`.
+- **Chromatic compound** (dropped, Create's legacy item; config §5): falling into the void
+  (y < min, falling > 10 blocks per tick) turns the stack into shadow steel (thrown up by
+  `(fall distance + 3)/50`); half of the ticks it picks a random block within 3: a light source in
+  line of sight (not unbreakable, not a beacon) is removed and one compound gains a charge (item data
+  `lv:chromatic_compound.light`); at `lightSourceCountForRefinedRadiance` (10) charges it becomes refined
+  radiance (+0.25 up); over an active beacon the whole stack becomes refined radiance. Shadow steel
+  and refined radiance float (gravity cancelled) and shed end rod particles.
+- **World generation** (`src/core/materials/WorldGen.*`, gtest): run natively when a chunk is
+  decorated (overworld multinoise and nether generators): zinc = vanilla OreFeature (size 12,
+  stone → zinc ore, deepslate / tuff → deepslate zinc ore, origin must be below the ocean floor
+  height of the area), striated = Create's LayeredOreFeature (pattern picked at random, layers
+  rolled by weight never repeating, thickness min..max, ramp along a random direction biased to
+  horizontal, simplex displacement 1.75/size at 0.125, radial threshold 0.5..1 × noise 0.75..1,
+  targets `stone_ore_replaceables` / `deepslate_ore_replaceables` / `base_stone_nether`). Features
+  write into the 8 neighbour chunks when present. Flat worlds get nothing (as Java). Log once per
+  world: `materials: world generation active ...`.
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -2252,6 +2316,9 @@ A block without a table entry uses its spec's `impact` / `capacity`. The generat
 generators' own behaviour (U7, U18, U21), not a config value.
 
 `config/generators.json` (U7): `crankHungerMultiplier` (0.01, exhaustion per hand crank use per RPM).
+
+`config/materials.json` (U9): `disableWorldGen` (false, CWorldGen), `lightSourceCountForRefinedRadiance`
+(10), `enableRefinedRadianceRecipe` (true), `enableShadowSteelRecipe` (true) (CRecipes).
 
 ## 6. Commands
 
@@ -2394,6 +2461,15 @@ matches Create's official Chinese translation wording).
 | Sequenced gearshift stopping a bearing / piston exactly (U6) | Create passes a "sequence context" through the kinetic network to the driven machine; the wave-1 kinetics contract has no such channel | the instructions run for Create's durations (which overshoot by two ticks); exact stops need a kinetics contract extension |
 | Wrench on transmission blocks (encased cog shaft toggling, removing casings) (U6) | the wrench (U8) has no per-block hook in the wave-1 contracts | left to U8's wrench (rotate / pick up); the shaft ends of encased cogs are set when encasing |
 | Integrated-cog placement helpers (cogs placed against mixers / crafters) (U6) | those blocks are other units' | plain placement rules apply |
+
+
+| Create's data-driven ore / layered ore features (U9) | Bedrock feature JSON has no layered-ore feature and no config filter | both run natively in the chunk decoration hook with Create's numbers and patterns (own RNG, so positions differ from Java for the same seed) |
+| Connected textures of layered stone and pillars (U9) | no connected textures on Bedrock | the plain layered / pillar / cap textures |
+| Tall wall sides and the post forced by a block above (U9) | the connection trait only gives the four connections | low sides, post unless straight; wall collision is 1 block high (Bedrock's limit), Java's 1.5 |
+| Mining speed per tool tier on custom blocks (U9) | not data-driven in this format | Create's hardness as destroy time; the drop rules (pickaxe / iron tier) are exact |
+| Chromatic compound charge bar, stack size 1 when charged, absorbing light from belts / depots (U9) | durability bars and per-stack max sizes aren't data-driven; belts are another unit with no transported-item contract | the charge is kept in the item data (stacks of equal charge merge up to 16); placed light sources only |
+| Furnace cook times and xp of the unit's smelting recipes (U9) | Bedrock furnace recipes have fixed times / xp | Bedrock's 10 s / 5 s / 30 s, which equal Create's 200 / 100 / 600 ticks |
+| End rod particles of the block of experience (U9) | no data-driven block particles | none |
 
 Units add rows here in their PRs when they find something else impossible.
 
