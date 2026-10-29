@@ -84,6 +84,18 @@ States: `axis` (x/y/z) for shafts and cogs, `facing` for gauges, `powered` for c
 (+ structural `water_wheel_structure`), `creative_motor`. Windmill bearing and sails are U21; steam
 engine is U18.
 
+- States: `levitate:facing` 0..5 (down, up, north, south, west, east) for the crank, valve handles,
+  water wheel and motor; `levitate:axis` 0..2 + `levitate:extension` for the large wheel;
+  `levitate:wood` 0..11 (oak, spruce, birch, jungle, acacia, dark oak, mangrove, cherry, bamboo,
+  crimson, warped, pale oak; default spruce as Create) for both wheels and the structure;
+  `levitate:segment` 0..7 + `levitate:axis` for the structure; `levitate:rotor` (kinetics renderer).
+- Drops: itself; the large wheel drops itself, the structure drops nothing (§3.6.1).
+- Recipes (Create 6.0.10): hand crank = 3 planks / andesite alloy (right); copper valve handle =
+  3 copper sheets / andesite alloy (middle); `<colour>_valve_handle` = copper valve handle + dye
+  (shapeless); water wheel = 8 wooden slabs around a shaft; large water wheel = 8 planks around a
+  water wheel; creative motor: none (creative only). The first three need U9 / U6 items and wait in
+  `assets/pending_recipes/generators/`.
+
 ### 2.3 Tools and info (U8)
 
 `wrench`, `goggles` (engineer's goggles, head slot).
@@ -620,6 +632,86 @@ the details and numbers it implemented. Short reminders of the less obvious ones
 - **Ponder (U30)**: hold W over an item to open Ponder (client mod only), index of all scenes,
   animated scenes built from our blocks.
 
+### 3.6.1 Generators (U7)
+
+Checked against Create 6.0.10 (HandCrankBlock(Entity), ValveHandleBlock(Entity), WaterWheelBlock(Entity),
+LargeWaterWheelBlock(Item), WaterWheelStructuralBlock, CreativeMotorBlock(Entity)). Pure rules in
+`src/core/generators/` (gtest), game side in `src/feature/generators/`, handle animation and the
+large wheel's cells in `src/client/generators/`. Speeds are along the positive axis; a facing
+converts them as Create's `convertToDirection` (negative facings negate). Capacities (SU per RPM)
+come from the stress table (§5): hand crank / valve handles 8, water wheel 32, large water wheel
+128, creative motor 16384.
+
+**Placement** (getStateForPlacement). *Preferred side*: the neighbours with a shaft end towards the
+new block; sides on two axes cancel out, on one axis the last in Direction order wins.
+- Hand crank / valve handles: facing = the clicked face (the handle points away from the block it
+  is put on), or away from the preferred side unless sneaking.
+- Water wheel (DirectionalKineticBlock): facing = opposite the player's nearest look direction
+  (sneaking: the look direction), or away from the preferred side unless sneaking.
+- Creative motor: as the water wheel, but with a preferred side (not sneaking) its shaft faces it.
+- Large water wheel (RotatedPillarKineticBlock): axis = the preferred axis, else the nearest look
+  axis (sneaking with a preferred axis: the clicked face's axis). The wheel and the 8 cells around
+  it in its plane must be replaceable; if not and the clicked face is not along the axis, it tries
+  one block further along the clicked face; otherwise nothing is placed and the player sees
+  `create.large_water_wheel.not_enough_space` ("Remove Blocks for Placement") in the action bar.
+
+**Hand crank.** Right-click (any item; sneaking with an item uses the item instead) turns it for
+10 ticks at 32 RPM (`inUse = 10`, refreshed by every click; Bedrock repeats the click while the
+button is held, so holding keeps it turning); sneaking turns it backwards (clockwise). Each click
+costs `32 · crankHungerMultiplier` (0.01) exhaustion unless the player holds the extendo grip
+(`levitate:extendo_grip`, U31) or is in creative. Sound every 10 ticks while in use: Create's
+`cranking` (wood place at volume .075·inUse/2.5, wooden button click-off at .025·inUse/2.5, pitch
+.5·(.65 + (10 − inUse)/10)). A crank that was turning when the world was saved is stopped on load.
+
+**Valve handles.** Right-click with anything (sneak + wrench is the wrench's) turns the handle by
+its angle (value box "Rotation when used", `create.kinetics.valve_handle.rotated_angle`, board
+180 with milestones every 45, rows ⟳ (negative) / ⟲, min 1°, default 45° ⟲): it generates
+±32 RPM for `ceil(angle / 9.6) + 2` ticks, clockwise when the angle is negative, reversed when
+sneaking; it does nothing while its network already turns (theoretical speed ≠ 0), while turning,
+or for 4 ticks after a turn. A dye of another colour dyes the handle (the block becomes
+`<colour>_valve_handle`, facing kept, the dye is not used; Create's ValveHandleBlock.clicked); its
+angle resets to 45° as Create's new block entity. Players who may not build (adventure) can't use
+it. The value box sits on the handle's front (4.5 px out from the mounting face); a click with an
+empty hand turns the handle, the wrench there opens the board (U3). The handle model turns from
+0 to ±90° (angle ≤ 135) or ±180° over the turn's ticks (client mod; vanilla: static model).
+Valve handles make no sound (Create's crank sound is only for the hand crank).
+
+**Water wheels.** A wheel samples the fluid flow in the cells around it in its plane: the 4
+neighbours of the water wheel, the 12 cells two blocks out from the large wheel's centre (Create's
+SMALL_OFFSETS / LARGE_OFFSETS). The flow is the fluid's flow vector (flowing water or lava,
+falling liquid points down; also a liquid in the block's second layer) or ±1 along y in a
+bubble column (up from soul sand, down over magma); rain does nothing. Each cell whose flow,
+projected onto the wheel's plane and normalised, has |dot| > .5 with the wheel's positive tangent
+(its offset rotated 90° about the axis) adds the dot's sign. Speed = clamp(score, −1, 1) · 8 / size
+(water wheel ±8 RPM, large ±4 RPM). Re-checked when a block in a sampled cell changes and every 60
+ticks (Create's lazy tick); one log line when the speed changes. Right-click with planks of another
+wood (any `minecraft:*_planks`, sneaking with an item excluded) changes the wheel's wood (both the
+static model and the spinning one), with the planks' break particles and sound (level event 2001);
+the planks are not used.
+
+**Large water wheel structure** (WaterWheelStructuralBlock). When a large wheel appears (placed,
+`/setblock`, contraption), the 8 cells of its plane become `water_wheel_structure` blocks (segment
+and axis states, the wheel's wood) on the next tick; a cell taken by a non-replaceable block breaks
+the wheel without a drop (Create's LargeWaterWheelBlock.tick). Breaking a structure block breaks
+the wheel (it drops a large water wheel unless a creative player broke it); a removed wheel takes
+its structure blocks with it. Planks on a structure block change the whole wheel. `extension` is
+set when the block behind the wheel (negative axis side) is another large wheel.
+
+**Creative motor.** Generates its value box speed (default 16 RPM, "Generated Speed in RPM",
+`create.kinetics.creative_motor.rotation_speed`, board 256 with milestones every 32, rows ⟳
+(negative) / ⟲, labels "64⟲"), along its facing. Boxes on the four sides around the shaft (not the
+bottom of a horizontal motor), 3.5 px inside the face and 1 px back from the shaft (Create's
+MotorValueBox). Turning the motor (wrench, contraption) re-applies the speed.
+
+**Client mod.** The kinetics renderer spins the wheels (bones per wood on one stacked texture),
+the motor's and the handles' shafts; the handles themselves are drawn by `client/generators`:
+the hand crank's handle chases `speed · 10/3` (a quarter of the gap per tick, angle in radians =
+sum / 360, so it visibly turns faster than the shaft as in Create); the valve handle animates the
+turn (the server sends `generators.valve` {pos, target, ticks, backwards, facing} to companions in
+the dimension) and follows its network when another source drives it. The structure blocks'
+cells are hidden for the client mod, which spins the whole large wheel instead.
+
+Config `config/generators.json`: `crankHungerMultiplier` (0.01, Create's CKinetics key).
 ### 3.6.20 Linear contraptions (U20)
 
 Checked against Create 6.0.10 (LinearActuatorBlockEntity, MechanicalPiston*, PistonContraption,
@@ -788,6 +880,8 @@ keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlock
 A block without a table entry uses its spec's `impact` / `capacity`. The generated RPM column is the
 generators' own behaviour (U7, U18, U21), not a config value.
 
+`config/generators.json` (U7): `crankHungerMultiplier` (0.01, exhaustion per hand crank use per RPM).
+
 ## 6. Commands
 
 | Command | Who | Owner |
@@ -827,6 +921,13 @@ matches Create's official Chinese translation wording).
 | Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
 | Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
+| Valve handle turning its network by an exact angle (Create's sequenced `TURN_ANGLE` context makes bearings / pistons stop after exactly that angle) (U7) | the kinetics contract has no sequence context yet | the valve generates 32 RPM for `ceil(angle / 9.6) + 2` ticks as in Create; receivers move for that time |
+| Valve handle: short click turns, holding opens the angle board (U7) | the server only sees discrete clicks (U3's value box row) | a click turns the handle; the wrench on the handle's front opens the board (form for vanilla players) |
+| Re-dyeing a dyed valve handle in the crafting grid (Create's `#create:valve_handles` + dye) (U7) | custom block items have no item tags for recipe ingredients | copper valve handle + dye in the crafting grid; any handle is re-dyed in the world by right-clicking it with a dye (as Create) |
+| Large water wheel as one 3×3 model for **vanilla** clients (U7) | a Bedrock block model may be at most 30 px wide | the wheel and its 8 structure blocks each show their own cell of the wheel; the client mod spins the whole wheel |
+| Red outline of the missing room when a large water wheel can't be placed (U7) | client-side outline rendering | the action bar message only |
+| Waterlogged hand cranks / valve handles (Create's ProperWaterloggedBlock) (U7) | data-driven Bedrock blocks are not waterloggable | they replace water like other custom blocks |
+| Hand crank / water wheel / lava wheel advancements (U7) | Bedrock has no custom advancements | none |
 
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
