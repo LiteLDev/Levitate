@@ -46,6 +46,15 @@ namespace {
 
 /// The seat entity sits at the seat's top surface; its rider sits on it.
 constexpr double kSeatEntityY = 0.3;
+/// Bedrock seats a riding player about 2.3 blocks below its vehicle: the players' seat entity
+/// floats above the seat so the player ends up on the cushion.
+constexpr double kPlayerSeatEntityY = 2.6;
+/// The seat block a seat entity belongs to (players' seat entities float above it).
+BlockPos seatBlockOf(Actor const& seatEntity) {
+    auto bp = seatEntity.getFeetBlockPos();
+    if (seatEntity.getTypeName() == kPlayerSeatEntity) bp.y -= 2;
+    return bp;
+}
 /// Height of carried riders above a seat block on a contraption.
 constexpr double kCarriedHeight = 0.5;
 
@@ -59,16 +68,16 @@ std::string dyeColourOf(std::string const& itemId) {
 /// The seat entities at a seat block.
 std::vector<Actor*> seatEntitiesAt(BlockSource& region, GlobalPos const& pos) {
     std::vector<Actor*> out;
-    AABB box{Vec3{float(pos.x), float(pos.y), float(pos.z)}, Vec3{float(pos.x + 1), float(pos.y + 1), float(pos.z + 1)}};
+    AABB box{Vec3{float(pos.x), float(pos.y), float(pos.z)}, Vec3{float(pos.x + 1), float(pos.y + 3), float(pos.z + 1)}};
     for (auto* a : region.getEntities(box, 0.1f))
-        if (a && isSeatEntity(*a) && !a->isDead()) out.push_back(a);
+        if (a && isSeatEntity(*a) && !a->isDead() && seatBlockOf(*a) == BlockPos{pos.x, pos.y, pos.z}) out.push_back(a);
     return out;
 }
 
 Actor* spawnSeatEntity(BlockSource& region, GlobalPos const& pos, bool forPlayer) {
     auto level = ll::service::getLevel();
     if (!level) return nullptr;
-    Vec3 at{float(pos.x + .5), float(pos.y + kSeatEntityY), float(pos.z + .5)};
+    Vec3 at{float(pos.x + .5), float(pos.y + (forPlayer ? kPlayerSeatEntityY : kSeatEntityY)), float(pos.z + .5)};
     auto owner = level->getActorFactory().createSpawnedActor(ActorDefinitionIdentifier(std::string(forPlayer ? kPlayerSeatEntity : kSeatEntity)), nullptr, at, Vec2{0, 0});
     if (!owner) return nullptr;
     return level->addEntity(region, std::move(owner));
@@ -177,7 +186,7 @@ void seatsTick(std::uint64_t tick) {
         auto& region = a->getDimensionBlockSource();
         if (isSeatEntity(*a)) {
             // Create's SeatEntity.tick: gone without a rider or without its seat block
-            auto bp = a->getFeetBlockPos();
+            auto bp = seatBlockOf(*a);
             if (!a->hasPassenger() || !region.hasChunksAt(bp, 0, false) || !isSeat(region.getBlock(bp).getTypeName())) {
                 if (auto* p = a->getFirstPassenger()) {
                     p->stopRiding(true, false, false, false);
