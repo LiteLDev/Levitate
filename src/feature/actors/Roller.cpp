@@ -317,7 +317,7 @@ void share(GlobalPos const& pos) {
         for (int i = 1; i <= 99; ++i) {
             GlobalPos q{pos.dim, pos.x + step.x * i * sign, pos.y, pos.z + step.z * i * sign};
             auto      bp = toBlockPos(q);
-            if (!region->hasChunksAt(bp, 0, false) || region->getBlock(bp).getTypeName() != kRoller) break;
+            if (!region->hasChunksAt(bp, 0, false) || region->getBlock(bp).getTypeName() != kRoller || facingAt(*region, bp) != facing) break;
             copySettings(pos, q);
         }
     }
@@ -376,10 +376,11 @@ void rollerPlaced(GlobalPos const& pos) {
     // Create's searchForSharedValues: take the settings of a neighbouring roller in the row
     auto* region = regionOf(pos.dim);
     if (!region) return;
-    auto step = rowStep(facingAt(*region, toBlockPos(pos)));
+    auto facing = facingAt(*region, toBlockPos(pos));
+    auto step   = rowStep(facing);
     for (int sign : {1, -1}) {
         GlobalPos q{pos.dim, pos.x + step.x * sign, pos.y, pos.z + step.z * sign};
-        if (region->getBlock(toBlockPos(q)).getTypeName() != kRoller) continue;
+        if (region->getBlock(toBlockPos(q)).getTypeName() != kRoller || facingAt(*region, toBlockPos(q)) != facing) continue;
         copySettings(q, pos);
         return;
     }

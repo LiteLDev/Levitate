@@ -125,16 +125,29 @@ InteractionResult handled() {
     return r;
 }
 
+/// The click position in world coordinates (the game may give it relative to the block).
+cc::Vec3d worldHit(BlockPos const& at, Vec3 const& hit) {
+    auto in = [](float v) { return v >= -0.01f && v <= 1.01f; };
+    if (in(hit.x) && in(hit.y) && in(hit.z)) return {at.x + double(hit.x), at.y + double(hit.y), at.z + double(hit.z)};
+    return ccVec(hit);
+}
+
 /// Right-click on one of our stationary blocks. True when handled.
 bool useOnBlock(Player& player, ItemStack const& item, BlockPos const& at, uchar face, Vec3 const& hit) {
     auto&       region = player.getDimensionBlockSource();
     auto const& block  = region.getBlock(at);
     std::string id     = block.getTypeName();
     GlobalPos   gp{static_cast<int>(player.getDimensionId()), at.x, at.y, at.z};
-    if (isSeat(id)) return seatUse(player, gp, item);
+    auto        uid    = player.getOrCreateUniqueID().rawID;
+    if (isSeat(id)) {
+        if (player.isSneaking()) return false;
+        return recentlyUsed(uid) || seatUse(player, gp, item);
+    }
     if (id == kControls && !player.isSneaking() && (item.isNull() || item.mCount == 0)) {
-        core::common::Vec local{hit.x - at.x, hit.y - at.y, hit.z - at.z};
+        auto w = worldHit(at, hit);
+        core::common::Vec local{w.x - at.x, w.y - at.y, w.z - at.z};
         if (fs::slotAt(block, face, local)) return false; // the filter slot (U3)
+        if (recentlyUsed(uid)) return true;
         controlsClickStationary(player, gp);
         return true;
     }
@@ -170,24 +183,25 @@ std::optional<ContraptionHit> raycastContraption(Player& player, double reach) {
 
 bool useOnContraption(Player& player) {
     auto hit = raycastContraption(player, kReach);
-    if (!hit) return false;
-    auto* c = con::find(hit->id);
+    return hit && useOnContraption(player, *hit);
+}
+
+bool useOnContraption(Player& player, ContraptionHit const& target) {
+    auto const* hit = &target;
+    auto*       c   = con::find(hit->id);
     if (!c) return false;
+    if (player.isSneaking() && isSeat(hit->block)) return false;
+    if (recentlyUsed(player.getOrCreateUniqueID().rawID)) return true;
     if (hit->block == kControls) {
         controlsClickOnContraption(player, *c, hit->local);
         return true;
     }
     if (isSeat(hit->block)) {
-        if (player.isSneaking()) return false;
         // Create: a seated player stays; another rider is ejected for the clicking player
         cc::Vec3d seatPoint = c->toWorld(cc::Vec3d::of(hit->local) + cc::Vec3d{.5, .5, .5});
         auto*     region    = regionOf(c->dimension());
         if (region) {
-            AABB box{
-                Vec3{float(seatPoint.x - .4), float(seatPoint.y - .4), float(seatPoint.z - .4)},
-                Vec3{float(seatPoint.x + .4), float(seatPoint.y + .4), float(seatPoint.z + .4)}
-            };
-            for (auto* a : region->getEntities(box, 0.f)) {
+            for (auto* a : entitiesIn(*region, seatPoint - cc::Vec3d{.4, .4, .4}, seatPoint + cc::Vec3d{.4, .4, .4})) {
                 if (!a || a == &player || a->getEntityTypeId() == ActorType::FallingBlock || a->getEntityTypeId() == ActorType::ItemEntity) continue;
                 if (a->isPlayer()) return true;
                 c->unseat(a->getOrCreateUniqueID().rawID);
@@ -223,7 +237,7 @@ LL_TYPE_INSTANCE_HOOK(
         // a contraption block in front of the clicked world block
         if (auto c = raycastContraption(player, kReach)) {
             cc::Vec3d eye = ccVec(player.getEyePos());
-            if (c->distance < (ccVec(hit) - eye).length() && useOnContraption(player)) {
+            if (c->distance < (worldHit(at, hit) - eye).length() && useOnContraption(player, *c)) {
                 player.sendInventory(false);
                 return handled();
             }

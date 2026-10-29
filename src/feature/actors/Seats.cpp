@@ -208,8 +208,7 @@ Actor* riderOf(con::Contraption const& c, cc::Pos const& local) {
     auto* region = regionOf(c.dimension());
     if (!region) return nullptr;
     cc::Vec3d p = c.toWorld(cc::Vec3d::of(local) + cc::Vec3d{.5, kCarriedHeight, .5});
-    AABB      box{Vec3{float(p.x - .3), float(p.y - .3), float(p.z - .3)}, Vec3{float(p.x + .3), float(p.y + .3), float(p.z + .3)}};
-    for (auto* a : region->getEntities(box, 0.f)) {
+    for (auto* a : entitiesIn(*region, p - cc::Vec3d{.3, .3, .3}, p + cc::Vec3d{.3, .3, .3})) {
         if (!a || a->getEntityTypeId() == ActorType::FallingBlock || isSeatEntity(*a) || a->getEntityTypeId() == ActorType::ItemEntity) continue;
         auto f = a->getFeetPos();
         if (std::abs(f.x - p.x) < .25 && std::abs(f.y - p.y) < .25 && std::abs(f.z - p.z) < .25) return a;
@@ -288,8 +287,8 @@ struct Registrar {
                 if (!data.value("seat", false)) return;
                 // Create's addPassengersToWorld: the riders sit on the placed seat
                 cc::Vec3d p{pos.x + .5, pos.y + kCarriedHeight, pos.z + .5};
-                AABB      box{Vec3{float(pos.x), float(pos.y), float(pos.z)}, Vec3{float(pos.x + 1), float(pos.y + 1.5), float(pos.z + 1)}};
-                for (auto* a : region.getEntities(box, 0.f)) {
+                cc::Vec3d lo{double(pos.x), double(pos.y), double(pos.z)};
+                for (auto* a : entitiesIn(region, lo, lo + cc::Vec3d{1, 1.5, 1})) {
                     if (!a || a->getVehicle() || isSeatEntity(*a) || a->getEntityTypeId() == ActorType::FallingBlock
                         || a->getEntityTypeId() == ActorType::ItemEntity) {
                         continue;

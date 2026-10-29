@@ -26,6 +26,7 @@
 
 #include "feature/actors/Actors.h"
 #include "feature/common/Capabilities.h"
+#include "feature/common/Items.h"
 #include "feature/contraption/ActorsExt.h"
 #include "game/Blocks.h"
 #include "mod/Config.h"
@@ -184,10 +185,12 @@ void hoppers(GlobalPos const& pos, PsiState& s) {
                 ItemStack one = item;
                 one.mCount    = 1;
                 if (!container->hasRoomForItem(one)) continue;
-                std::string id  = item.getTypeName();
-                auto        got = c->storage().extractItem([&](ItemStack const& x) { return x.getTypeName() == id; }, 1, false);
+                auto got = c->storage().extractItem([&](ItemStack const& x) { return common::items::sameItemSameData(x, one); }, 1, false);
                 if (got.isNull() || got.mCount == 0) continue;
-                container->addItem(got);
+                if (!container->addItem(got)) {
+                    c->storage().insertItem(got, false); // no room after all: put it back
+                    continue;
+                }
                 onContentTransferred(s);
                 break;
             }

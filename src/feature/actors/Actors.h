@@ -71,6 +71,12 @@ struct Config {
 [[nodiscard]] BlockPos toBlockPos(GlobalPos const& p);
 [[nodiscard]] cc::Pos  toPos(BlockPos const& p);
 [[nodiscard]] BlockSource* regionOf(int dim);
+/// Entities (players included: the region's entity query leaves them out) whose box meets
+/// the box `lo`..`hi`.
+[[nodiscard]] std::vector<Actor*> entitiesIn(BlockSource& region, cc::Vec3d const& lo, cc::Vec3d const& hi);
+/// Debounce of repeated use packets while the button is held: true when `key` acted within
+/// the last 250 ms (and remembers this use otherwise).
+[[nodiscard]] bool recentlyUsed(std::int64_t key);
 /// Sets one integer state of the block at `pos` (keeps the others).
 bool setIntState(BlockSource& region, BlockPos const& pos, std::string const& state, int value);
 
@@ -187,6 +193,7 @@ struct ContraptionHit {
 [[nodiscard]] std::optional<ContraptionHit> raycastContraption(Player& player, double reach);
 /// Handles a use on a contraption block (controls, seats). Returns true if handled.
 bool useOnContraption(Player& player);
+bool useOnContraption(Player& player, ContraptionHit const& hit);
 
 // ---- stats --------------------------------------------------------------------------------------
 

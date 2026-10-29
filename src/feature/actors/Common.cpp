@@ -2,7 +2,9 @@
 // parts the actors reuse), config, and game adapters.
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <unordered_map>
 
 #include "ll/api/service/Bedrock.h"
 
@@ -81,6 +83,32 @@ BlockSource* regionOf(int dim) {
     auto dimension = level->getDimension(DimensionType(dim)).lock();
     if (!dimension) return nullptr;
     return &dimension->getBlockSourceFromMainChunkSource();
+}
+
+std::vector<Actor*> entitiesIn(BlockSource& region, cc::Vec3d const& lo, cc::Vec3d const& hi) {
+    AABB                box{Vec3{float(lo.x), float(lo.y), float(lo.z)}, Vec3{float(hi.x), float(hi.y), float(hi.z)}};
+    std::vector<Actor*> out;
+    for (auto* a : region.getEntities(box, 0.0f))
+        if (a && !a->isPlayer()) out.push_back(a);
+    if (auto level = ll::service::getLevel()) {
+        int dim = static_cast<int>(region.getDimensionId());
+        level->forEachPlayer([&](Player& p) {
+            if (static_cast<int>(p.getDimensionId()) != dim) return true;
+            auto const& b = p.getAABB();
+            if (b.max.x > lo.x && b.min.x < hi.x && b.max.y > lo.y && b.min.y < hi.y && b.max.z > lo.z && b.min.z < hi.z) out.push_back(&p);
+            return true;
+        });
+    }
+    return out;
+}
+
+bool recentlyUsed(std::int64_t key) {
+    static std::unordered_map<std::int64_t, std::chrono::steady_clock::time_point> last;
+    auto now = std::chrono::steady_clock::now();
+    auto it  = last.find(key);
+    if (it != last.end() && now - it->second < std::chrono::milliseconds(250)) return true;
+    last[key] = now;
+    return false;
 }
 
 bool setIntState(BlockSource& region, BlockPos const& pos, std::string const& state, int value) {
@@ -204,9 +232,9 @@ void damageEntities(con::MovementContext& ctx, GlobalPos const& pos, bool hurt, 
     // Create: a redstone conductor (a full solid block) in that space protects what is inside
     auto const& here = region->getBlock(bp);
     if (!here.isAir() && here._isSolid() && hasCollision(*region, bp)) return;
-    AABB box{Vec3{float(pos.x), float(pos.y), float(pos.z)}, Vec3{float(pos.x + 1), float(pos.y + 1), float(pos.z + 1)}};
     double speed = relativeMotion(ctx).length();
-    for (auto* a : region->getEntities(box, 0.0f)) {
+    cc::Vec3d lo = cc::Vec3d::of(cc::Pos{pos.x, pos.y, pos.z});
+    for (auto* a : entitiesIn(*region, lo, lo + cc::Vec3d{1, 1, 1})) {
         if (!a || !a->isAlive() || isContraptionDisplay(*a) || a->getEntityTypeId() == ActorType::ItemEntity) continue;
         if (a->getTypeName() == kSeatEntity) continue;
         if (hurt) {
@@ -278,6 +306,12 @@ void tickBreaking(con::MovementContext& ctx, Breaker const& b) {
     if (!ctx.data.contains("BreakingPos")) return;
     auto const& j = ctx.data["BreakingPos"];
     GlobalPos   pos{ctx.contraption.dimension(), j[0].get<int>(), j[1].get<int>(), j[2].get<int>()};
+    // a break left over from before the actor was disabled / turned around: the block is no
+    // longer in its reach
+    if ((cc::Vec3d::center(cc::Pos{pos.x, pos.y, pos.z}) - ctx.position).length() > 3.5) {
+        cancelBreaking(ctx);
+        return;
+    }
     auto*       region = regionOf(pos.dim);
     if (!region) return;
     auto        bp    = toBlockPos(pos);

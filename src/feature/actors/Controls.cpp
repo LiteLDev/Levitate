@@ -118,6 +118,8 @@ void click(int dim, cc::Vec3d const& at, bool enable) {
 /// Create's isDisabledInitially: controls assembled while disabled disable their target.
 void scanNew(con::Contraption const& c) {
     if (!seen().insert(c.id()).second) return;
+    dirty() = true; // remembered: a reload must not apply the assembly state again
+    dirty() = true; // remembered: a reload must not apply the assembly state again
     bool any = false;
     for (auto const& b : c.blocks()) {
         if (b.id != kControls) continue;
@@ -131,6 +133,24 @@ void scanNew(con::Contraption const& c) {
         dirty() = true;
     }
     if (any) wrapActorsOf(c);
+}
+
+/// Create's stopMoving: the carried controls remember whether their target is disabled (also
+/// right after a toggle, so a contraption disassembled while standing still keeps it).
+void rememberDisabled(con::Contraption const& c) {
+    for (auto const& b : c.blocks()) {
+        if (b.id != kControls) continue;
+        // the engine owns the carried blocks; their carried data is ours to update
+        auto& data = const_cast<con::CarriedBlock&>(b).data;
+        auto& doc  = data[ext::kBlockDataCarrier];
+        if (!doc.is_object()) doc = Json::object();
+        if (!doc["actors"].is_object()) doc["actors"] = Json::object();
+        std::string f   = filterIdOf(&doc);
+        bool        off = typeDisabled(c.id(), f) || typeDisabled(c.id(), "");
+        doc["actors"]["disabled"] = off;
+        // its indicator: set on the placed block at disassembly (the "actors" carrier, Seats.cpp)
+        if (data.contains("actors") && data["actors"].is_object()) data["actors"]["disabled"] = off;
+    }
 }
 
 } // namespace
@@ -182,6 +202,7 @@ void controlsClickOnContraption(Player& player, con::Contraption& c, cc::Pos con
     if (filter.empty()) list.clear();
     if (disable) list.push_back(filter);
     dirty() = true;
+    rememberDisabled(c);
     sendStatus(player, filter, !disable);
     click(c.dimension(), c.toWorld(cc::Vec3d::center(local)), !disable);
     logAction(
@@ -256,19 +277,7 @@ void controlsTick(std::uint64_t tick) {
     }
 }
 
-/// Create's stopMoving: the carried block remembers whether its target is disabled.
-void controlsStopMoving(con::MovementContext& ctx) {
-    auto const* b = ext::carriedAt(ctx.contraption, ctx.localPos);
-    if (!b) return;
-    auto& data = const_cast<con::CarriedBlock*>(b)->data;
-    auto& doc  = data[ext::kBlockDataCarrier];
-    if (!doc.is_object()) doc = Json::object();
-    std::string f = filterIdOf(&doc);
-    doc["actors"]["disabled"] = typeDisabled(ctx.contraption.id(), f) || typeDisabled(ctx.contraption.id(), "");
-    // its indicator: set on the placed block at disassembly (the "actors" carrier, Seats.cpp)
-    bool off = doc["actors"]["disabled"].get<bool>();
-    if (data.contains("actors") && data["actors"].is_object()) data["actors"]["disabled"] = off;
-}
+void controlsStopMoving(con::MovementContext& ctx) { rememberDisabled(ctx.contraption); }
 
 void trackStationaryControls(GlobalPos const& pos) {
     stationaryControls().insert(pos);
@@ -280,7 +289,8 @@ void controlsLoad() {
     seen().clear();
     stationaryControls().clear();
     if (auto j = game::db::load(kDbKey); j && j->is_object()) {
-        for (auto const& [k, v] : j->items()) {
+        for (auto const& id : j->value("scanned", Json::array())) seen().insert(id.get<con::Id>());
+        for (auto const& [k, v] : j->value("disabled", Json::object()).items()) {
             auto& list = disabled()[std::stoull(k)];
             for (auto const& f : v) list.push_back(f.get<std::string>());
         }
@@ -293,9 +303,10 @@ void controlsLoad() {
 
 void controlsSave() {
     if (!dirty()) return;
-    Json j = Json::object();
+    Json j = {{"disabled", Json::object()}, {"scanned", Json::array()}};
     for (auto const& [id, list] : disabled())
-        if (!list.empty()) j[std::to_string(id)] = list;
+        if (!list.empty()) j["disabled"][std::to_string(id)] = list;
+    for (auto id : seen()) j["scanned"].push_back(id);
     game::db::save(kDbKey, j);
     Json p = Json::array();
     for (auto const& g : stationaryControls()) p.push_back(Json::array({g.dim, g.x, g.y, g.z}));
