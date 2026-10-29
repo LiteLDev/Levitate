@@ -5,23 +5,18 @@
 #      demo_manual` builds a station with a one-carriage train (controls + steam whistle); an empty-hand right-click
 #      at the controls starts controlling (trains.interact), W drives it out of the station, the
 #      mouse wheel lowers the throttle, Ctrl honks, S brakes, Esc stops.
-#   remote-vanilla: 1 and 2 only (forms; the vanilla train path is covered by trains.* selftests).
-# Screenshots: out/gaps/{port-address,...,indicator-*,train-controlling,train-driving}.png
+#   Before 3, every mode checks side-on that the demo carriage sits on its bogey (gaps_seat).
+#   remote-vanilla: 1, 2 and the carriage check (forms; the vanilla train path is covered by
+#   trains.* selftests).
+# Screenshots: out/gaps/{port-address,...,indicator-*,train-side,train-controlling,train-driving}.png
 . (Join-Path $PSScriptRoot 'gaps_text.ps1')
 . (Join-Path $PSScriptRoot 'gaps_feedback.ps1')
+. (Join-Path $PSScriptRoot 'gaps_seat.ps1')
+
+# the demo train, seen side-on: its carriage sits on the bogey (every mode)
+$mark = Assert-TrainSeated
 
 if ($script:Mode -ne 'remote-vanilla') {
-    $mark = Get-LogMark
-    Invoke-Chat '/gamemode creative'
-    Invoke-Chat '/clear @s'
-    Invoke-Chat '/time set noon'
-    Invoke-Chat '/tp @s 0.5 -60 20.5'
-    Start-Sleep -Milliseconds 600
-    Invoke-Chat '/fill -2 -60 17 64 -54 23 air'
-    Invoke-Chat '/fill 2 -60 20 60 -60 20 levitate:track ["levitate:shape"=2]'
-    Start-Sleep -Milliseconds 800
-    Invoke-Chat '/create trains demo_manual'
-    Wait-LogLine "trains: assembled train #\d+ '.*' with 1 carriages" 20 -Since $mark | Out-Null
     $at = Wait-LogLine 'trains: demo train #\d+ has its controls at' 20 -Since $mark
     if ($at -notmatch 'controls at (-?[\d.]+) (-?[\d.]+) (-?[\d.]+)') { throw "no controls position in '$at'" }
     $inv = [cultureinfo]::InvariantCulture

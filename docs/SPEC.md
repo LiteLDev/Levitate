@@ -569,7 +569,10 @@ watch (Create's track targeting items). Recipes: `track_signal` ×4 = railway ca
   drops itself. Recipe (Create 6.0.10): shapeless railway casing + compass → 2.
 - `small_bogey` / `large_bogey`: state `levitate:bogey_axis` 0 x / 1 z (along the track); no item,
   created with train casing on an assembly track (§3.6.27), drop train casing. Wheel radius 6.5 / 12.5
-  px, wheel points ±1 block from the bogey (both sizes). Wrench: swaps small ↔ large (Create has one
+  px, wheel points ±1 block from the bogey (both sizes). The bogey stands in the block above the
+  track: its model reaches from the rails (wheels down to 12 px below the block) to the block's top
+  (a full-width top plate; collision and selection a full block), so the carriage block above sits
+  directly on it (the model's wheels are 13 / 14 px across: Bedrock models are at most 30 px per axis). Wrench: swaps small ↔ large (Create has one
   bogey style), sneak-wrench dismantles (gives the casing).
 - `controls` ("Train Controls"): state `levitate:facing` 0..5 (horizontal values used; Create's
   FACING points from the controls towards the driver: placed facing the player, sneaking reversed).
