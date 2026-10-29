@@ -1,0 +1,39 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:copper_backtank"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "AGA",
+      "PBP",
+      " P "
+    ],
+    "key": {
+      "A": {
+        "item": "levitate:andesite_alloy"
+      },
+      "G": {
+        "item": "levitate:shaft"
+      },
+      "P": {
+        "item": "minecraft:copper_ingot"
+      },
+      "B": {
+        "item": "minecraft:copper_block"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_alloy"
+      }
+    ],
+    "result": {
+      "item": "levitate:copper_backtank",
+      "count": 1
+    }
+  }
+}

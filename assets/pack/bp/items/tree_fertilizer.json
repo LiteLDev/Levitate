@@ -1,0 +1,18 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:tree_fertilizer",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_tree_fertilizer",
+      "minecraft:max_stack_size": 64,
+      "minecraft:display_name": {
+        "value": "item.levitate:tree_fertilizer.name"
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:brown_toolbox"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " C ",
+      "SWS",
+      " L "
+    ],
+    "key": {
+      "C": {
+        "item": "levitate:cogwheel"
+      },
+      "S": {
+        "item": "levitate:golden_sheet"
+      },
+      "W": {
+        "item": "minecraft:chest"
+      },
+      "L": {
+        "item": "minecraft:leather"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:cogwheel"
+      }
+    ],
+    "result": {
+      "item": "levitate:brown_toolbox",
+      "count": 1
+    }
+  }
+}

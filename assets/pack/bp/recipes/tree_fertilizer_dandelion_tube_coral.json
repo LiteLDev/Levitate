@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:tree_fertilizer_dandelion_tube_coral"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:dandelion",
+        "count": 2
+      },
+      {
+        "item": "minecraft:tube_coral"
+      },
+      {
+        "item": "minecraft:bone_meal"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:dandelion"
+      }
+    ],
+    "result": {
+      "item": "levitate:tree_fertilizer",
+      "count": 2
+    }
+  }
+}

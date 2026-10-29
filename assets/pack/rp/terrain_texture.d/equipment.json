@@ -1,0 +1,59 @@
+{
+  "levitate_white_toolbox": {
+    "textures": "textures/blocks/white_toolbox"
+  },
+  "levitate_orange_toolbox": {
+    "textures": "textures/blocks/orange_toolbox"
+  },
+  "levitate_magenta_toolbox": {
+    "textures": "textures/blocks/magenta_toolbox"
+  },
+  "levitate_light_blue_toolbox": {
+    "textures": "textures/blocks/light_blue_toolbox"
+  },
+  "levitate_yellow_toolbox": {
+    "textures": "textures/blocks/yellow_toolbox"
+  },
+  "levitate_lime_toolbox": {
+    "textures": "textures/blocks/lime_toolbox"
+  },
+  "levitate_pink_toolbox": {
+    "textures": "textures/blocks/pink_toolbox"
+  },
+  "levitate_gray_toolbox": {
+    "textures": "textures/blocks/gray_toolbox"
+  },
+  "levitate_light_gray_toolbox": {
+    "textures": "textures/blocks/light_gray_toolbox"
+  },
+  "levitate_cyan_toolbox": {
+    "textures": "textures/blocks/cyan_toolbox"
+  },
+  "levitate_purple_toolbox": {
+    "textures": "textures/blocks/purple_toolbox"
+  },
+  "levitate_blue_toolbox": {
+    "textures": "textures/blocks/blue_toolbox"
+  },
+  "levitate_brown_toolbox": {
+    "textures": "textures/blocks/brown_toolbox"
+  },
+  "levitate_green_toolbox": {
+    "textures": "textures/blocks/green_toolbox"
+  },
+  "levitate_red_toolbox": {
+    "textures": "textures/blocks/red_toolbox"
+  },
+  "levitate_black_toolbox": {
+    "textures": "textures/blocks/black_toolbox"
+  },
+  "levitate_copper_backtank": {
+    "textures": "textures/blocks/copper_backtank"
+  },
+  "levitate_netherite_backtank": {
+    "textures": "textures/blocks/netherite_backtank"
+  },
+  "levitate_lectern_controller": {
+    "textures": "textures/blocks/lectern_controller"
+  }
+}
