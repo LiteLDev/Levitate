@@ -122,6 +122,8 @@ void   tickAll(std::uint64_t tick);
 void   track(GlobalPos const& pos);
 /// Create's useItemOn on the front face; returns true if handled.
 bool   use(Player& player, GlobalPos const& pos, int face, double hx, double hy, double hz);
+/// Same with the used stack (the hand's stack in GameMode::useItemOn; changed in place).
+bool   use(Player& player, GlobalPos const& pos, int face, double hx, double hy, double hz, ItemStack& held);
 /// Orientation of a freshly placed crafter (Create's getStateForPlacement).
 void   orientPlaced(GlobalPos const& pos, Face clickedFace, GlobalPos const& clickedPos, Face lookFacing, bool sneaking);
 /// Toggles the connected input with the neighbour (Create's ConnectedInputHandler.toggleConnection).

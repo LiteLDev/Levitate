@@ -151,7 +151,7 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
 `mechanical_crafter`, `mechanical_saw`, `mechanical_drill` (behaviour in §3.6 "Crafting tools").
 
-- `mechanical_crafter`: states `levitate:facing` 2..5 (the front, horizontal), `levitate:pointing`
+- `mechanical_crafter`: states `levitate:facing` 0..5 (the front; only the horizontal values 2..5 are used — Bedrock reads integer states as indices into their value list, so the list starts at 0), `levitate:pointing`
   0..3 (Create's Pointing in its order: up, left, down, right; the arrow on the front),
   `levitate:covered` (a slot cover is on). Full block, brass casing look, the arrow is drawn on
   the front's frame. Kinetic: a small cog turning about the facing axis with shaft ends on the

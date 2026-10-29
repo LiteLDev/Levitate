@@ -84,8 +84,7 @@ InteractionResult handled(Player& player) {
 
 /// The crafter's own interactions: wrench edges (connect inputs), the front face (insert / take /
 /// cover / eject), wrench on the front (cycle the arrow). Returns true if handled.
-bool crafterUse(Player& player, GlobalPos const& pos, int face, std::array<double, 3> hit) {
-    auto const& held   = player.getSelectedItem();
+bool crafterUse(Player& player, GlobalPos const& pos, int face, std::array<double, 3> hit, ItemStack& held) {
     std::string heldId = ci::idOf(held);
     if (player.isSneaking() && !ci::isEmpty(held)) return false;
     Face clicked = static_cast<Face>(std::clamp(face, 0, 5));
@@ -109,7 +108,7 @@ bool crafterUse(Player& player, GlobalPos const& pos, int face, std::array<doubl
     int facing = world::intState(*block, kFacing, 2);
     if (face != facing) return false;
     if (debounced(player, pos)) return true;
-    if (crafterlogic::use(player, pos, face, hit[0], hit[1], hit[2])) return true;
+    if (crafterlogic::use(player, pos, face, hit[0], hit[1], hit[2], held)) return true;
     if (heldId == kWrench) {
         // onWrenched on the front: cycle the arrow
         int next = static_cast<int>(cr::cycle(static_cast<cr::Pointing>(std::clamp(world::intState(*block, kPointing, 0), 0, 3))));
@@ -146,7 +145,9 @@ LL_TYPE_INSTANCE_HOOK(
     Block const* clicked = targetBlock ? targetBlock : &region.getBlock(at);
     auto         pos     = game::globalPos(region, at);
     try {
-        if (clicked && clicked->getTypeName() == kCrafter && crafterUse(player, pos, face, localHit(at, hit))) return handled(player);
+        if (clicked && clicked->getTypeName() == kCrafter) {
+            if (crafterUse(player, pos, face, localHit(at, hit), item)) return handled(player);
+        }
     } catch (std::exception const& e) {
         log().error("crafter use failed: {}", e.what());
     }

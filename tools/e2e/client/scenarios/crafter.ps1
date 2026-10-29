@@ -39,7 +39,7 @@ if (-not $vanilla) {
     Click 0.5 0.5 -Relative -Right
     Wait-LogLine 'crafter at .* inserted minecraft:oak_planks' 15 -Since $mark | Out-Null
     $mark = Get-LogMark
-    Invoke-Chat '/tp @s ~ ~ ~ facing ~5 ~2.5 ~0.5'
+    Invoke-Chat '/tp @s ~ ~ ~ facing ~5 ~0.6 ~0.5'
     Start-Sleep -Milliseconds 600
     Click 0.5 0.5 -Relative -Right
     Wait-LogLine 'crafter at .* inserted minecraft:oak_planks' 15 -Since $mark | Out-Null

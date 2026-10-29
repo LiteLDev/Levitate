@@ -579,11 +579,20 @@ ItemStack insert(GlobalPos const& pos, ItemStack const& stack, bool simulate) {
 
 // ---- interaction ----------------------------------------------------------------------------------
 
-bool use(Player& player, GlobalPos const& pos, int face, double, double, double) {
+bool use(Player& player, GlobalPos const& pos, int face, double hx, double hy, double hz) {
+    ItemStack held = player.getSelectedItem();
+    bool      ok   = use(player, pos, face, hx, hy, hz, held);
+    if (ci::countOf(held) != ci::countOf(player.getSelectedItem()) || ci::idOf(held) != ci::idOf(player.getSelectedItem())) {
+        player.setSelectedItem(held);
+        player.sendInventory(false);
+    }
+    return ok;
+}
+
+bool use(Player& player, GlobalPos const& pos, int face, double, double, double, ItemStack& held) {
     auto info = infoAt(pos);
     auto* s   = at(pos);
     if (!info || !s) return false;
-    auto const& held    = player.getSelectedItem();
     std::string heldId  = ci::idOf(held);
     if (heldId == kArm) return false;
     bool isHand  = ci::isEmpty(held);
@@ -602,17 +611,18 @@ bool use(Player& player, GlobalPos const& pos, int face, double, double, double)
             world::setStates(pos, {{kCovered, 1}});
             sendData(pos);
             if (!player.isCreative()) {
-                player.setSelectedItem(ci::withCount(held, ci::countOf(held) - 1));
+                held = ci::withCount(held, ci::countOf(held) - 1);
                 player.sendInventory(false);
             }
             log().info("crafter at {}: slot covered by {}", pos.key(), player.getRealName());
             return true;
         }
-        auto remainder = insert(pos, held, false);
+        auto insertedId = heldId;
+        auto remainder  = insert(pos, held, false);
         if (ci::countOf(remainder) != ci::countOf(held)) {
-            player.setSelectedItem(remainder);
+            held = remainder;
             player.sendInventory(false);
-            log().info("crafter at {}: {} inserted {}", pos.key(), player.getRealName(), heldId);
+            log().info("crafter at {}: {} inserted {}", pos.key(), player.getRealName(), insertedId);
         }
         return true;
     }
