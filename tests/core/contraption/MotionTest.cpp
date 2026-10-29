@@ -63,16 +63,17 @@ TEST(ContraptionMotion, BufferOnePerTick) {
     EXPECT_NEAR(b.at(1).toWorld({0, 0, 0}).x, 11, 1e-9);
 }
 
-TEST(ContraptionMotion, BufferSkipsOldTransformsAfterALagSpike) {
+TEST(ContraptionMotion, BufferCatchesUpAfterALagSpike) {
     MotionBuffer b;
     b.reset(at(0, 0));
     for (int i = 1; i <= 5; ++i) b.push(at(i, 0));
     EXPECT_EQ(b.queued(), MotionBuffer::kMaxQueued);
-    b.step();
-    EXPECT_NEAR(b.current().offset.x, 4, 1e-9);
-    b.step();
+    b.step(); // one step to the newest: no lasting delay
+    EXPECT_NEAR(b.previous().offset.x, 0, 1e-9);
     EXPECT_NEAR(b.current().offset.x, 5, 1e-9);
     EXPECT_EQ(b.queued(), 0u);
+    b.step();
+    EXPECT_NEAR(b.previous().offset.x, 5, 1e-9);
     b.reset(at(9, 0));
     EXPECT_NEAR(b.previous().offset.x, 9, 1e-9);
     EXPECT_EQ(b.queued(), 0u);

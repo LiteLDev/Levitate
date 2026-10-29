@@ -602,7 +602,7 @@ public:
     /// time, and once more where it comes to rest. Clients with the mod move the displays
     /// themselves (client/contraption/ContraptionClient.cpp).
     static constexpr double kStepDistance = 0.5;
-    static constexpr int    kStepTicks    = 2;  ///< at most every 2 ticks per block
+    static constexpr int    kStepTicks    = 4;  ///< at most every 4 ticks per block
     static constexpr int    kSettleTicks  = 10; ///< smaller offsets are caught up after this
     bool needsRespawn(Contraption const& c, CarriedBlock const& b, cc::Vec3d const& feet) const {
         if (!vanillaDims.contains(c.mDim)) return false;

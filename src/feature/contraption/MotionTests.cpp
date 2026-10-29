@@ -53,13 +53,25 @@ std::optional<Id> assemblePair(Context& ctx, GP const& p) {
     return level->fetchEntity(uid, false);
 }
 
+/// A player without the client mod (not a simulated one) is online in `dim`.
+bool vanillaPlayerIn(int dim) {
+    bool found = false;
+    if (auto level = ll::service::getLevel()) {
+        level->forEachPlayer([&](Player& p) {
+            if (!p.isSimulatedPlayer() && !net::isCompanion(p) && static_cast<int>(p.getDimensionId()) == dim) found = true;
+            return !found;
+        });
+    }
+    return found;
+}
+
 struct Cleanup {
     std::optional<Id> id;
     GP                glueAt;
-    Player*           companion = nullptr;
+    Context*          companionOf = nullptr; ///< its player was made a test companion
     ~Cleanup() {
         detail::forceVanillaViewers(false);
-        if (companion) net::setTestCompanion(*companion, false);
+        if (companionOf) net::setTestCompanion(companionOf->player(), false);
         if (id && find(*id)) disassemble(*id);
         clearGlue(glueAt.dim, ccp(glueAt), 6);
     }
@@ -76,7 +88,7 @@ LV_REGISTER_SELFTEST("contraptionmotion.sync", [](Context& ctx) -> ll::coro::Cor
     Cleanup guard;
     guard.glueAt = p;
     net::setTestCompanion(player, true);
-    guard.companion = &player;
+    guard.companionOf = &ctx;
     co_await ctx.ticks(2);
     (void)net::takeTestMessages(player);
 
@@ -135,7 +147,7 @@ LV_REGISTER_SELFTEST("contraptionmotion.spawn_height", [](Context& ctx) -> ll::c
 });
 
 // With a vanilla viewer, moving displays are spawned again as they go (half a block at a
-// time, at most every other tick), and end exactly where the structure stops.
+// time, at most every 4 ticks), and end exactly where the structure stops.
 LV_REGISTER_SELFTEST("contraptionmotion.vanilla_steps", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto p = ctx.testPos(3420);
     p.y += 1;
@@ -155,7 +167,7 @@ LV_REGISTER_SELFTEST("contraptionmotion.vanilla_steps", [](Context& ctx) -> ll::
     co_await ctx.ticks(23);
     std::set<std::int64_t> after;
     for (auto const& b : find(*guard.id)->blocks()) after.insert(b.display);
-    ctx.check(after == first, "companions only: the same display entities");
+    if (!vanillaPlayerIn(p.dim)) ctx.check(after == first, "no vanilla player: the same display entities");
 
     detail::forceVanillaViewers(true);
     std::set<std::int64_t> seen = after;

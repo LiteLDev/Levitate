@@ -5,6 +5,24 @@
 #   local / remote-mod: native screens (client mod); remote-vanilla: the server forms
 # Screenshots: out/trains/{assembled,moving-1..5,arrived,station-screen,schedule-screen}.png
 $mark = Get-LogMark
+# Two pictures of a moving contraption must differ around the screen centre (below the chat
+# lines): the structure moves on the client (U34).
+function Assert-ContraptionMoved([string]$a, [string]$b, [string]$what) {
+    Add-Type -AssemblyName System.Drawing
+    $ia = [System.Drawing.Bitmap]::new($a); $ib = [System.Drawing.Bitmap]::new($b)
+    try {
+        $changed = 0; $total = 0
+        for ($x = [int]($ia.Width * 0.3); $x -lt [int]($ia.Width * 0.7); $x += 8) {
+            for ($y = [int]($ia.Height * 0.32); $y -lt [int]($ia.Height * 0.85); $y += 8) {
+                $p = $ia.GetPixel($x, $y); $q = $ib.GetPixel($x, $y); $total++
+                if ([Math]::Abs($p.R - $q.R) + [Math]::Abs($p.G - $q.G) + [Math]::Abs($p.B - $q.B) -gt 60) { $changed++ }
+            }
+        }
+    } finally { $ia.Dispose(); $ib.Dispose() }
+    Write-Step "${what}: $changed of $total sampled pixels changed between the two pictures"
+    if ($changed -lt [Math]::Max(10, $total * 0.01)) { throw "$what did not move on the client ($changed of $total pixels changed)" }
+}
+
 
 Invoke-Chat '/gamemode creative'
 Invoke-Chat '/time set noon'
@@ -38,10 +56,11 @@ Start-Sleep -Milliseconds 600
 Save-Screenshot 'assembled' | Out-Null
 Wait-LogLine "trains: train #\d+ '.*' heading to station 'Demo B'" 20 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 1800
-foreach ($i in 1..5) {
-    Save-Screenshot "moving-$i" | Out-Null
+$moving = foreach ($i in 1..5) {
+    Save-Screenshot "moving-$i"
     Start-Sleep -Milliseconds 700
 }
+Assert-ContraptionMoved $moving[0] $moving[2] 'the train'
 Wait-LogLine "trains: train #\d+ '.*' arrived at station 'Demo B'" 60 -Since $mark | Out-Null
 Invoke-Chat '/tp @s ~9 ~2 ~-22 -135 30'
 Start-Sleep -Milliseconds 1200

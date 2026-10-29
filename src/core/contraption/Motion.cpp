@@ -30,8 +30,8 @@ void MotionBuffer::push(Transform const& t) {
 void MotionBuffer::step() {
     mPrev = mCur;
     if (mQueue.empty()) return;
-    mCur = mQueue.front();
-    mQueue.pop_front();
+    mCur = mQueue.back();
+    mQueue.clear();
 }
 
 } // namespace lv::core::contraption

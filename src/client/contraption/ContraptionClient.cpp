@@ -4,10 +4,11 @@
 // Bedrock clients never apply the movement the server sends for a falling block that isn't
 // falling (the position stays where the entity was spawned), so the display entities can't
 // follow the server on their own. The server sends each contraption's transform instead
-// ("contraption.motion", every tick it changes); here it is consumed one per client tick and
-// every display entity is put at its block's place, the previous place kept as the entity's old
-// position, so the game draws it in between at each frame (Create's clients interpolate the
-// contraption entity in the same way). The block's turn is drawn by Render.cpp (displayTurn).
+// ("contraption.motion", every tick it changes); here the newest one is taken each client tick
+// and every display entity is put at its block's place, with the previous place as the entity's
+// old position, so the game draws it in between at each frame. Render.cpp moves it from that
+// straight line onto the contraption's arc and turns the block (displayPose), as Create's clients
+// draw a contraption entity at its interpolated motion.
 
 #ifdef LV_CLIENT
 
@@ -16,6 +17,7 @@
 
 #include <cmath>
 #include <map>
+#include <optional>
 #include <tuple>
 #include <unordered_map>
 
@@ -55,17 +57,21 @@ struct Known {
     int                                       dim = 0, axis = 1, quarter = 0;
     std::vector<Block>                        blocks;
     std::map<std::tuple<int, int, int>, Json> visuals;
-    cc::MotionBuffer                          motion;
+    cc::MotionBuffer                          motion; ///< not ready: a server without motion sync
     bool                                      moved = false; ///< logged once
+};
+struct DisplayOf {
+    std::uint64_t contraption = 0;
+    cc::Pos       local;
 };
 
 std::map<std::uint64_t, Known>& known() {
     static std::map<std::uint64_t, Known> k;
     return k;
 }
-/// display entity (ActorUniqueID) -> contraption
-std::unordered_map<std::int64_t, std::uint64_t>& displays() {
-    static std::unordered_map<std::int64_t, std::uint64_t> d;
+/// display entity (ActorUniqueID) -> its contraption block
+std::unordered_map<std::int64_t, DisplayOf>& displays() {
+    static std::unordered_map<std::int64_t, DisplayOf> d;
     return d;
 }
 
@@ -87,10 +93,53 @@ std::optional<cc::Transform> transformOf(Json const& j, std::size_t at) {
     return t;
 }
 
+Level* clientLevel() {
+    auto* ci = currentClient();
+    return ci ? reinterpret_cast<Level*>(ci->getLevel()) : nullptr;
+}
+
+std::optional<int> playerDim() {
+    auto* player = currentPlayer();
+    if (!player) return std::nullopt;
+    return static_cast<int>(player->getDimensionId());
+}
+
+::Actor* displayActor(Level& level, std::int64_t display) {
+    ActorUniqueID uid;
+    uid.rawID = display;
+    return level.fetchEntity(uid, false);
+}
+
+cc::Vec3d feetOf(cc::Transform const& t, cc::Pos const& local) {
+    return t.toWorld(cc::Vec3d::center(local)) - cc::Vec3d{0, 0.5, 0};
+}
+Vec3      mcVec(cc::Vec3d const& v) { return Vec3{float(v.x), float(v.y), float(v.z)}; }
+cc::Vec3d ccVec(Vec3 const& v) { return {v.x, v.y, v.z}; }
+
+/// Puts a display entity at its block's place of this client tick, the previous place being its
+/// old position (the game draws it in between).
+void placeDisplay(Level& level, Known const& k, Block const& b) {
+    auto* actor = displayActor(level, b.display);
+    if (!actor) return;
+    // moveTo takes the feet (and keeps the bounding box with the entity, so it isn't culled);
+    // the entity's position is its feet + the falling block's height offset
+    Vec3 feet = mcVec(feetOf(k.motion.current(), b.local));
+    actor->moveTo(feet, actor->getRotation());
+    auto& sv    = *actor->mBuiltInComponents->mStateVectorComponent;
+    sv.mPosPrev = mcVec(feetOf(k.motion.previous(), b.local)) + (actor->getPosition() - feet);
+}
+
+void placeAll(Known const& k) {
+    auto* level = clientLevel();
+    auto  dim   = playerDim();
+    if (!level || !dim || k.dim != *dim || !k.motion.ready()) return;
+    for (auto const& b : k.blocks) placeDisplay(*level, k, b);
+}
+
 void forget(std::uint64_t id, Known const& k) {
     for (auto const& b : k.blocks) {
         auto it = displays().find(b.display);
-        if (it != displays().end() && it->second == id) displays().erase(it);
+        if (it != displays().end() && it->second.contraption == id) displays().erase(it);
     }
 }
 
@@ -105,7 +154,7 @@ void onBlocks(Json const& msg) {
     for (auto const& b : msg.value("blocks", Json::array())) {
         if (!b.is_array() || b.size() != 5) continue;
         k.blocks.push_back({b[0].get<std::int64_t>(), posOf(b, 1), b[4].get<std::string>()});
-        displays()[k.blocks.back().display] = id;
+        displays()[k.blocks.back().display] = {id, k.blocks.back().local};
     }
     k.visuals.clear();
     for (auto const& v : msg.value("visuals", Json::array())) {
@@ -113,8 +162,11 @@ void onBlocks(Json const& msg) {
         k.visuals[{v[0].get<int>(), v[1].get<int>(), v[2].get<int>()}] = v[3];
     }
     // the transform when the displays were spawned (motion messages carry the changes; a
-    // contraption known already keeps interpolating from them)
+    // contraption known already keeps its motion)
     if (auto t = transformOf(msg.value("transform", Json()), 0); t && !k.motion.ready()) k.motion.reset(*t);
+    // displays spawned again (quarter turns, vanilla steps) appear where the server is now: put
+    // them where this client draws the structure at once
+    placeAll(k);
 }
 
 void onMotion(Json const& msg) {
@@ -122,11 +174,12 @@ void onMotion(Json const& msg) {
         if (!m.is_array() || m.empty() || !m[0].is_number_unsigned()) continue;
         auto t = transformOf(m, 1);
         if (!t) continue;
-        auto  id = m[0].get<std::uint64_t>();
-        auto& k  = known()[id];
-        k.motion.push(*t);
-        if (!k.moved && k.motion.queued() > 0) {
-            k.moved = true;
+        auto id = m[0].get<std::uint64_t>();
+        auto it = known().find(id); // its blocks come first (and carry the transform)
+        if (it == known().end()) continue;
+        it->second.motion.push(*t);
+        if (!it->second.moved) {
+            it->second.moved = true;
             log().info("contraption client: contraption #{} moves", id);
         }
     }
@@ -154,84 +207,62 @@ void clearAll() {
     displays().clear();
 }
 
-Level* clientLevel() {
-    auto* ci = currentClient();
-    return ci ? reinterpret_cast<Level*>(ci->getLevel()) : nullptr;
-}
-
-::Actor* displayActor(Level& level, std::int64_t display) {
-    ActorUniqueID uid;
-    uid.rawID = display;
-    return level.fetchEntity(uid, false);
-}
-
-cc::Vec3d feetOf(cc::Transform const& t, cc::Pos const& local) {
-    return t.toWorld(cc::Vec3d::center(local)) - cc::Vec3d{0, 0.5, 0};
-}
-Vec3 mcVec(cc::Vec3d const& v) { return Vec3{float(v.x), float(v.y), float(v.z)}; }
-
-/// One client tick: every contraption takes its next transform and its displays move there.
+/// One client tick: every contraption takes the newest transform and its displays move there.
 void tick() {
-    auto* level  = clientLevel();
-    auto* player = currentPlayer();
-    if (!level || !player || known().empty()) return;
-    int dim = static_cast<int>(player->getDimensionId());
+    if (known().empty() || !clientLevel() || !playerDim()) return;
     for (auto& [id, k] : known()) {
         if (!k.motion.ready()) continue;
         k.motion.step();
-        if (k.dim != dim) continue;
-        auto const& prev = k.motion.previous();
-        auto const& cur  = k.motion.current();
-        for (auto const& b : k.blocks) {
-            auto* actor = displayActor(*level, b.display);
-            if (!actor) continue;
-            // moveTo takes the feet (and keeps the bounding box with the entity, so it isn't
-            // culled); the entity's position is its feet + the falling block's height offset
-            Vec3 feet = mcVec(feetOf(cur, b.local));
-            actor->moveTo(feet, actor->getRotation());
-            auto& sv    = *actor->mBuiltInComponents->mStateVectorComponent;
-            sv.mPosPrev = mcVec(feetOf(prev, b.local)) + (actor->getPosition() - feet);
-        }
+        placeAll(k);
     }
-}
-
-double turnOf(Known const& k, float partialTick) {
-    return k.motion.at(partialTick).angle - k.quarter * 90.0;
 }
 
 } // namespace
 
-bool displayTurn(Actor const& actor, float partialTick, int& axis, float& degrees) {
+bool displayPose(Actor const& actor, float partialTick, DisplayPose& out) {
     if (displays().empty()) return false;
     auto d = displays().find(actor.getOrCreateUniqueID().rawID);
     if (d == displays().end()) return false;
-    auto k = known().find(d->second);
-    if (k == known().end() || !k->second.motion.ready()) return false;
-    axis    = static_cast<int>(k->second.motion.current().axis);
-    degrees = static_cast<float>(std::remainder(turnOf(k->second, partialTick), 360.0));
+    auto it = known().find(d->second.contraption);
+    if (it == known().end() || !it->second.motion.ready()) return false;
+    auto const& k     = it->second;
+    auto const& local = d->second.local;
+    auto        t     = k.motion.at(partialTick);
+    auto        from = feetOf(k.motion.previous(), local), to = feetOf(k.motion.current(), local);
+    out.axis    = static_cast<int>(t.axis);
+    out.degrees = static_cast<float>(std::remainder(t.angle - k.quarter * 90.0, 360.0));
+    out.shift   = feetOf(t, local) - (from + (to - from) * partialTick);
     return true;
 }
 
 void forEachBlock(std::string const& blockId, float partialTicks, std::function<void(BlockView const&)> const& fn) {
-    auto* level  = clientLevel();
-    auto* player = currentPlayer();
-    if (!level || !player || known().empty()) return;
-    int dim = static_cast<int>(player->getDimensionId());
+    auto* level = clientLevel();
+    auto  dim   = playerDim();
+    if (!level || !dim || known().empty()) return;
     for (auto const& [id, k] : known()) {
-        if (k.dim != dim || !k.motion.ready()) continue;
-        auto t = k.motion.at(partialTicks);
+        if (k.dim != *dim) continue;
+        std::optional<cc::Transform> t;
+        if (k.motion.ready()) t = k.motion.at(partialTicks);
         for (auto const& b : k.blocks) {
             if (!blockId.empty() && b.id != blockId) continue;
-            if (!displayActor(*level, b.display)) continue;
+            auto* actor = displayActor(*level, b.display);
+            if (!actor) continue;
             BlockView v;
             v.contraption = id;
             v.local       = b.local;
             v.blockId     = b.id;
-            v.center      = t.toWorld(cc::Vec3d::center(b.local));
-            v.axis        = static_cast<int>(t.axis);
-            v.angle       = t.angle;
-            auto vis      = k.visuals.find({b.local.x, b.local.y, b.local.z});
-            v.visual      = vis == k.visuals.end() ? nullptr : &vis->second;
+            if (t) {
+                v.center = t->toWorld(cc::Vec3d::center(b.local));
+                v.axis   = static_cast<int>(t->axis);
+                v.angle  = t->angle;
+            } else {
+                // a server without motion sync: the display entity's place and encoded turn
+                v.center = ccVec(actor->getInterpolatedPosition(partialTicks)) + cc::Vec3d{0, 0.5, 0};
+                v.axis   = k.axis;
+                v.angle  = k.quarter * 90.0 + actor->getRotation().y;
+            }
+            auto vis = k.visuals.find({b.local.x, b.local.y, b.local.z});
+            v.visual = vis == k.visuals.end() ? nullptr : &vis->second;
             fn(v);
         }
     }
