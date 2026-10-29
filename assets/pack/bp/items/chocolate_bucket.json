@@ -9,7 +9,10 @@
     },
     "components": {
       "minecraft:icon": "levitate_chocolate_bucket",
-      "minecraft:max_stack_size": 1
+      "minecraft:max_stack_size": 1,
+      "minecraft:display_name": {
+        "value": "item.levitate:chocolate_bucket.name"
+      }
     }
   }
 }
