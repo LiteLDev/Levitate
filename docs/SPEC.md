@@ -363,6 +363,21 @@ U5: `track`, curved track (no separate id: stored in BlockData + graph), `track_
 U27: `track_station`, `small_bogey`, `large_bogey`, `controls`, `schedule` (item), `railway_casing` is
 U10, `train_door` is U10. U28: `track_signal`, `track_observer`.
 
+- `track_station` ("Train Station"): state `levitate:assembling` 0/1 (the flag shows assembly mode),
+  drops itself. Recipe (Create 6.0.10): shapeless railway casing + compass → 2.
+- `small_bogey` / `large_bogey`: state `levitate:bogey_axis` 0 x / 1 z (along the track); no item,
+  created with train casing on an assembly track (§3.6.27), drop train casing. Wheel radius 6.5 / 12.5
+  px, wheel points ±1 block from the bogey (both sizes). Wrench: swaps small ↔ large (Create has one
+  bogey style), sneak-wrench dismantles (gives the casing).
+- `controls` ("Train Controls"): state `levitate:facing` 0..5 (horizontal values used; Create's
+  FACING points from the controls towards the driver: placed facing the player, sneaking reversed).
+  Recipe: lever / railway casing / precision mechanism (shaped column).
+- `schedule` ("Train Schedule", stack 16): its schedule lives in the item's user data
+  (`lv:schedule`, Create's NBT layout: `Entries` [{`Instruction` {Id, Data}, `Conditions` [[{Id,
+  Data}]]}], `Cyclic`, `Progress`). Recipe: sturdy sheet (Create's `c:plates/obsidian`) + paper → 4.
+- The three crafting recipes need U10's railway casing and U9's precision mechanism / sturdy sheet:
+  they wait in `assets/pending_recipes/trains/`.
+
 ### 2.24 Schematics (U29)
 
 `schematic_table`, `schematicannon`, `empty_schematic`, `schematic`, `schematic_and_quill`,
@@ -1425,6 +1440,134 @@ the item unless creative or `keep_held_item`. Shipped: andesite / copper / brass
 stripped logs and wood, railway casing, bound cardboard; deploying: cogwheel, large cogwheel,
 waxing Create's copper shingles / tiles.
 
+### 3.6.27 Trains (U27)
+
+Checked against Create 6.0.10 (`Train`, `Carriage`, `Navigation`, `ScheduleRuntime`, the schedule
+instructions / conditions, `StationBlockEntity`, `ControlsHandler`, `ContraptionCollider`, `CTrains`).
+Pure logic in `src/core/trains/` (gtest: physics, schedules, assembly rules, graph motion), game side
+in `src/feature/trains/`, native screens in `src/client/trains/`. Other units integrate through
+`src/feature/tracks/TrainsExt.h` (U27's addition to the track contract).
+
+**Units.** Config speeds are blocks per second (acceleration blocks/s²); a train works per tick:
+top speed `trainTopSpeed / 20` (28 → 1.4 b/t), turning `trainTurningTopSpeed / 20` (14 → 0.7), acceleration
+`trainAcceleration / 400` (3 → 0.0075 b/t²). A train with fuel burning ("powered") uses the
+`poweredTrain*` values (40 / 20 / 3).
+
+**Stations.** Placing: right-click a track with the station item selects it ("Targeted track
+selected"; junctions refused: `create.track_target.no_junctions`); the direction the player looks
+along the track is the station's direction (trains arrive facing it; the assembly area lies behind).
+Sneak-use in the air clears the selection. The station block must be placed within 16 blocks of the
+track (`too_far`); without a selection: `missing`; bound: `success`. A station is an edge point
+(`levitate:station`, id `station:<dim>:<x>:<y>:<z>`) at the track block's centre; it is re-added when
+the graph is rebuilt. Breaking the block removes it (trains heading there re-route). Right-click:
+with a schedule → the station keeps it as its *auto-schedule* (applied to every train arriving
+without a schedule of its own); with an auto-schedule held → it is given back; otherwise the station
+screen. Default name "Track Station" (max 25 chars); train names max 35.
+
+**Assembly** (station screen "Create new Train" on straight orthogonal track → assembly mode; the
+station's flag rises, no train may pass or approach it). The assembly track starts one block past
+the station's track, against the station's direction, and runs while the same straight track
+continues (up to `maxAssemblyLength` 128). Train casing on a track of the area creates a small bogey
+on top (consumed unless creative; at index 0 or ≥ 3 and not within 2 of another bogey; the block
+above breaks unless unbreakable): "Bogey created. Click again to cycle type"; clicking at / within 2
+of a bogey cycles small ↔ large; without casing (empty hand): `requires_casing`. "Assemble Train"
+checks, with Create's messages: at least one bogey (`no_bogeys`), the first at the station marker
+(`frontmost_bogey_at_station`), consecutive bogeys ≥ 3 apart (`bogeys_too_close`), at most
+`maxBogeyCount` 20; every carriage starts at its first bogey and takes what the contraption rules
+attach (super glue, chassis, attached blocks; the block on top of a bogey always joins, a bogey joins
+the block above it): more than one block (`nothing_attached`), at most two bogeys (`too_many_bogeys`),
+the second one the next on the track (`not_connected_in_order`), no tracks or stations
+(`unmovableBlock`), Train Controls only along the track (`sideways_controls`) and at least one
+forward-facing (`no_controls`, "forward" = Create's FACING equal to the assembly direction).
+Each carriage becomes one contraption (kind `train`, pivot = bottom centre of its first bogey).
+The train takes the name the station remembers from its last disassembled train ("Unnamed Train"
+otherwise), is *double ended* when backward controls exist, and waits at the station. Errors stay on
+the screen ("Assembly Failed", "Carriage N:", message, "Resolve this and retry").
+
+**Trains on the graph.** A train is a list of points on directed edges (the front point at the
+station marker, each bogey centre 1 block behind the previous index and its wheel points ±1); the
+points follow the junction choices of the leading point (both directions), so carriages keep their
+spacing exactly along the track. Each carriage's contraption is placed every tick: first bogey at its
+point (+1 block up), yaw from the first to the last bogey (one-bogey carriages: from its wheel
+points). Entities standing on carriages are carried, players collide with them (U4).
+
+**Speed** (per tick): navigation (Create's Navigation.tick): final approach snaps onto the target
+when `target + 0.25 − |speed| < 1/32`; within 10 blocks the speed is pulled towards `top · d / 10`;
+otherwise the target speed is top · throttle while the remaining distance exceeds the braking
+distance `v² / 2a`, else 0; a curve ahead (within braking + 20) limits it to the turning speed once
+`d > braking − turn² / 2a` no longer holds; speed approaches the target by `a` per tick. Unguided
+trains coast to a stop at `a`; derailed trains lose 2/3 of their speed per tick.
+
+**Schedules** (Create's ScheduleRuntime): entries run in order; instructions: *Travel to Station*
+(name filter, `*` = any text, everything else literal, whole name; the lowest A* cost wins: distance +
+penalties: passing a station 50, a station with another train 300, other trains on an edge half their
+penalty (manual 200, idle 700, scheduled 25); stations in assembly mode can't be passed), *Update
+Schedule Title*, *Limit Max Speed* (5..100 % in 5 % steps), *Deliver / Retrieve Package* (need U25:
+report `no_package_target`). Conditions (columns OR, conditions of a column AND, in order): Scheduled
+Delay (`Value` 0..120, unit ticks / seconds / minutes, default 5 s), Time of Day (hour, minute,
+rotation every day … every 0:15; met within 40 ticks after the time), Item / Fluid Cargo (more / less /
+exactly, threshold, items or stacks, filter = item or bucket), Redstone Link (needs U23: never
+powered until then), Players Seated (exactly / or above, 0..20), Cargo Inactivity (no cargo change
+for the duration, checked every 20 ticks), Chunk Unloaded, Station Powered. A failed instruction
+waits 40 ticks; status messages go to the train's owner (`create.train.status.*`, each failure once
+until it changes); non-cyclic schedules pause when done. New entries: travel + wait 5 s.
+
+**Conductors.** A scheduled train needs a conductor facing its travel direction: a non-player mob
+standing in the seat block behind a Train Controls block (`missing_driver` / `opposite_driver`), or a
+blaze burner there (`levitate:blaze_burner`, U14). Right-click a conductor with a schedule: applied
+("Train is now following this Schedule", item used); with a schedule already running:
+`remove_with_empty_hand`; empty hand: resumes a paused schedule (`continued`) or takes the schedule
+back (`removed_from_train`, auto-schedules are discarded); empty schedule: `no_stops`.
+
+**Manual driving.** Right-click a train's controls (also through any block behind them, or in the
+air holding an item) starts controlling ("Now controlling: <train>", the schedule pauses:
+`paused_for_manual`); again, sneaking, leaving 8 blocks or the dimension stops ("Stopped controlling
+contraption"). Movement keys from the player's input (every client sends them in
+PlayerAuthInputPacket; held keys time out after 30 ticks): W / S throttle (target `top ·
+manualTrainSpeedModifier 0.75 · throttle`, the turning speed on curves, a quarter backwards on single
+ended trains; braking against the motion at 2a), A / D pick the left / right branch at junctions,
+Space at a station shows "Arrived at <station>", elsewhere approaches the nearest station between
+0.75 and max(32, 1.5) braking distances ahead (releasing Space cancels). Leaving a station:
+"Departing from <station>". Fuel: any burnable item from the carriages' chests / barrels (lava buckets
+leave the bucket) while driving.
+
+**Arrival / departure.** A train arrives when its leading point passes the station marker in the
+station's direction (reversing double-ended trains: their back point, against it); speed 0, the
+runtime's conditions start, an auto-schedule is taken. Disassembly ("Disassemble Train", station
+screen) needs the train standing at the station with its front at the marker and every carriage
+yaw a multiple of 90°: the carriages are aligned to the marker and placed back as blocks; the station
+remembers the train's name; a schedule goes back to the player.
+
+**Derailment and collisions.** Track removed under a train: it detaches (`track_missing`, derailed)
+and tries to re-attach to the track at its last position every 40 ticks (`back_on_track`). A dead end
+stops it (`end_of_track`). The leading point of a moving train touching another train's segments
+(within 0.5 block, height within 3): both trains bounce back (speed `−clamp(v, −0.5, 0.5)`) and derail
+(`collision`, "In <dim> near [x,y,z]"); combined speed > 0.2 b/t makes an explosion of power
+`min(3 · combined, 5)` that breaks no blocks. Entities in the way (not on top) of a carriage moving
+faster than 0.35 b/t relative to them take `⌊16 · relative speed⌋` damage (×2 for monsters) and are
+knocked away (motion clamped to 3), once per 10 ticks; `trainsCauseDamage` turns it off; creative /
+spectator players are never hit.
+
+**TrainsExt.h** (for U28 signals / observers, U24 displays): `all()` trains (name, speed, graph,
+occupied edge points, station, destination, schedule title), `stations()` (name, present train,
+predicted arrivals in ticks), `onPointEntered` / `onPointLeft` (an edge point lies between a train's
+ends), `setPassCheck` (a navigating train brakes and waits in front of points the check denies).
+
+**Persistence.** `lv:trains:stations` (stations), `lv:trains:trains` (trains: points, route,
+carriages with their contraption ids, speed, runtime, navigation); carriages persist with U4.
+
+**Commands.** `/create trains` (train summary: networks, stations, every train's status line),
+`/create killtrain <name|id>` (Create 6.0.10's `/create train remove`; the carriages are placed back
+as blocks where they are, see §8).
+
+**Screens.** Station (native for companions, forms for vanilla): idle (create new train / why not),
+assembly (bogey count, how-to, errors, assemble / cancel), train present (name, disassemble or
+"Cannot disassemble, not all carriages aligned", retrieve schedule / discard auto-schedule), door
+control (Open All / North / East / South / West / None), arriving trains with Create's ETA texts
+(now, `N min`, `Ns`). Schedule editor: entries with their summaries, edit / type / move / remove,
+conditions with edit / remove, add condition (AND) / alternative condition (OR), add action, Loop
+Forever, Reset Progress, Skip current Stop; the vanilla forms edit everything field by field.
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -1510,6 +1653,11 @@ true, `psiTimeout` 60.
 A block without a table entry uses its spec's `impact` / `capacity`. The generated RPM column is the
 generators' own behaviour (U7, U18, U21), not a config value.
 
+`config/trains.json` (U27, Create's CTrains): `trainsCauseDamage` (true), `maxAssemblyLength` (128),
+`maxBogeyCount` (20), `manualTrainSpeedModifier` (0.75), `trainTopSpeed` (28), `trainTurningTopSpeed`
+(14), `trainAcceleration` (3), `poweredTrainTopSpeed` (40), `poweredTrainTurningTopSpeed` (20),
+`poweredTrainAcceleration` (3). (`maxTrackPlacementLength` is in `config/tracks.json`, U5.)
+
 `config/generators.json` (U7): `crankHungerMultiplier` (0.01, exhaustion per hand crank use per RPM).
 
 ## 6. Commands
@@ -1518,7 +1666,7 @@ generators' own behaviour (U7, U18, U21), not a config value.
 |---|---|---|
 | `/create reload`, `/create selftest ["glob"]` | op | foundation |
 | `/create kinetics <pos>` (dump network: speed, stress, sources) | op | U2 |
-| `/create killtrain <name>`, `/create trains` | op | U27 |
+| `/create killtrain <name\|id>` (Create's `/create train remove`), `/create trains` (train summary) | op | U27 |
 | `/create glue clear [radius]` (Create's `/create clearglue`; default 16, around the sender) | op | U4 |
 | `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
 | `/create ponder <id>` (client mod) | anyone | U30 |
@@ -1604,6 +1752,16 @@ matches Create's official Chinese translation wording).
 | Comparator output of depots / ejectors (U11) | custom blocks can't give a comparator signal | none |
 | Redstone input of the ejector (U11) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker) |
 | Belt connector selection preview line (U11) | Create draws it client-side every frame | server particles along the planned belt every 5 ticks while the connector is held |
+| Train carriages tilting on slopes (U27) | the contraption transform turns about one axis; a carriage turns about Y on curves | carriages stay level on slopes (height from their first bogey) |
+| Wheels turning on bogeys (U27) | carriage blocks are display entities showing a block model; the client framework has no per-part animation for them yet | bogeys are drawn still (client mod and vanilla) |
+| Opening train doors at stations (U27) | the contraption API can't change a carried block's state | the station's door control setting is stored and shown; doors stay as assembled |
+| Station comparator output and flag animation (U27) | custom blocks can't give a comparator signal; the flag is a block state | the station's texture shows assembly mode; no comparator output |
+| Train HUD (speed bar, throttle by mouse wheel) and the horn (U27) | needs a client HUD renderer | action-bar prompts; throttle from schedules (and `trains.throttle` from the client mod) |
+| Train map colours / map markers (U27) | no map mods on Bedrock | none |
+| Removing a train without placing its blocks (`/create train remove`, U27) | the contraption API only disassembles | `/create killtrain` places the carriages back as blocks where they stand |
+| Wrench relocation of derailed trains (U27) | needs U8's wrench and Create's client-side placement preview | derailed trains re-attach when the track under their front returns; otherwise disassemble them with `/create killtrain` |
+| Text fields in the native station / schedule screens (U27) | the native screen framework has no text input | the name / filter buttons open the server's form for that field |
+| Package delivery / retrieval instructions and redstone link conditions (U27) | U25 / U23 aren't available yet | the instructions report `no_package_target`; links count as unpowered |
 Units add rows here in their PRs when they find something else impossible.
 
 ## 9. Work plan
