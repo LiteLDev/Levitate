@@ -24,7 +24,6 @@ function Click-Gui($l, [double]$x, [double]$y) {
 function Hotbar-Gui($l, [int]$slot) { return @(($l.ix + 8 + 18 * $slot + 9), ($l.iy + 8 + 3 * 18 + 4 + 9)) }
 # our native screens close with the inventory key (Esc closes the host scene, which headless input may not reach)
 function Close-Native { Press-Key E; Start-Sleep -Milliseconds 800 }
-function Type-Keys([string]$text) { foreach ($c in $text.ToUpper().ToCharArray()) { if ($c -eq '_') { continue }; Press-Key ([string]$c) 40 } }
 
 Invoke-Chat '/clear @s'
 Invoke-Chat '/gamemode creative'
@@ -60,7 +59,7 @@ if ($vanilla) {
     Close-Screen
 } else {
     Wait-LogLine 'screen opened: .* panel=' 20 -Since $mark | Out-Null
-    Type-Keys 'e2ehouse'
+    Type-Text 'e2ehouse'               # the name field is a native text field (typed characters)
     Start-Sleep -Milliseconds 500
     Save-Screenshot 'quill-name' | Out-Null
     Press-Key ENTER

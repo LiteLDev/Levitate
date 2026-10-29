@@ -58,6 +58,8 @@ Invoke-Chat '/setblock 5 -60 -3 air'
 Invoke-Chat '/tp @s 0 -60 0 facing 3 -59 0'
 Start-Sleep -Milliseconds 500
 Invoke-Chat '/setblock ~3 ~ ~ levitate:stock_ticker ["levitate:facing"=1]'
+Invoke-Chat '/kill @e[type=pig]'                 # only our keeper (no stray mob for c=1 below)
+Invoke-Chat '/kill @e[type=boat]'
 Invoke-Chat '/summon boat ~3 ~ ~1'
 Invoke-Chat '/summon pig ~3 ~ ~1'
 Start-Sleep -Milliseconds 500
@@ -65,9 +67,13 @@ Invoke-Chat '/ride @e[type=pig,c=1] start_riding @e[type=boat,c=1] teleport_ride
 Start-Sleep -Milliseconds 800
 Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~-0.9 ~1'
 Start-Sleep -Milliseconds 600
-$mark = Get-LogMark
-Click 0.5 0.5 -Relative -Right
-Wait-LogLine "screen stock\.request opened for .* \($kind\)" 20 -Since $mark | Out-Null
+$mark   = Get-LogMark
+$opened = $false
+for ($try = 0; $try -lt 3 -and -not $opened; $try++) {
+    Click 0.5 0.5 -Relative -Right
+    try { Wait-LogLine "screen stock\.request opened for .* \($kind\)" 10 -Since $mark | Out-Null; $opened = $true } catch { Save-Screenshot "keeper-aim-$try" | Out-Null }
+}
+if (-not $opened) { throw 'the stock keeper screen did not open' }
 Start-Sleep -Milliseconds 1000
 if ($vanilla) {
     Save-Screenshot 'keeper-form' | Out-Null
