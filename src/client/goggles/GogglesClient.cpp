@@ -61,6 +61,12 @@ using Json = nlohmann::json;
 constexpr char const* kGogglesId = "levitate:goggles";
 constexpr int         kKeyShift  = 16;
 constexpr int         kKeyCtrl   = 17;
+constexpr int         kKeyEscape = 27;
+
+bool& configScreenOpen() {
+    static bool open = false;
+    return open;
+}
 
 GogglesConfig& cfg() { return config::mut<GogglesConfig>(); }
 
@@ -123,7 +129,15 @@ bool lookingAtValueBox(LocalPlayer& player, HitResult const& hit) {
     return c::valuebox::boxAt(block, hit.mFacing, local) || c::filterslot::slotAt(block, hit.mFacing, local);
 }
 
+int& pendingScreen() {
+    static int ticks = 0;
+    return ticks;
+}
+
+void openConfigScreen();
+
 void pollTarget() {
+    if (pendingScreen() > 0 && --pendingScreen() == 0) openConfigScreen();
     auto& o      = overlay();
     auto* player = currentPlayer();
     if (o.cooldown > 0) --o.cooldown;
@@ -180,12 +194,74 @@ Colors overlayColors() {
     return {scaleAlpha(0xF0100010u, .75f), 0x505000FFu, 0x5028007Fu};
 }
 
+/// Bedrock's formatting colours (§0..§f and the material codes).
+std::optional<unsigned> formatColor(char code) {
+    switch (code) {
+    case '0': return 0xFF000000u;
+    case '1': return 0xFF0000AAu;
+    case '2': return 0xFF00AA00u;
+    case '3': return 0xFF00AAAAu;
+    case '4': return 0xFFAA0000u;
+    case '5': return 0xFFAA00AAu;
+    case '6': return 0xFFFFAA00u;
+    case '7': return 0xFFAAAAAAu;
+    case '8': return 0xFF555555u;
+    case '9': return 0xFF5555FFu;
+    case 'a': return 0xFF55FF55u;
+    case 'b': return 0xFF55FFFFu;
+    case 'c': return 0xFFFF5555u;
+    case 'd': return 0xFFFF55FFu;
+    case 'e': return 0xFFFFFF55u;
+    case 'f': return 0xFFFFFFFFu;
+    case 'g': return 0xFFDDD605u;
+    case 'h': return 0xFFE3D4D1u;
+    case 'i': return 0xFFCECACAu;
+    case 'j': return 0xFF443A3Bu;
+    case 'm': return 0xFF971607u;
+    case 'n': return 0xFFB4684Du;
+    case 'p': return 0xFFDEB12Du;
+    case 'q': return 0xFF47A036u;
+    case 's': return 0xFF2CBAA8u;
+    case 't': return 0xFF21497Bu;
+    case 'u': return 0xFF9A5CC6u;
+    case 'v': return 0xFFEB7114u;
+    default: return std::nullopt;
+    }
+}
+
+/// Draws text with formatting codes ("§7gray §fwhite"): the UI text call prints codes literally.
+void formattedText(Canvas& c, float x, float y, std::string const& text, unsigned base, float alpha) {
+    static std::string const kSection = "§";
+    unsigned                 color    = base;
+    std::string              segment;
+    auto flush = [&] {
+        if (segment.empty()) return;
+        c.text(x, y, segment, scaleAlpha(color, alpha));
+        x += c.textWidth(segment);
+        segment.clear();
+    };
+    for (std::size_t i = 0; i < text.size();) {
+        if (text.compare(i, kSection.size(), kSection) == 0 && i + kSection.size() < text.size()) {
+            flush();
+            char code = text[i + kSection.size()];
+            if (code == 'r') color = base;
+            else if (auto col = formatColor(code)) color = *col;
+            i += kSection.size() + 1;
+            continue;
+        }
+        segment += text[i++];
+    }
+    flush();
+}
+
+float lineWidth(Canvas& c, std::string const& line) { return c.textWidth(core::goggles::stripFormatting(line)); }
+
 float tooltipHeight(std::size_t lines) { return lines > 1 ? 8.f + 2.f + static_cast<float>(lines - 1) * 10.f : 8.f; }
 
-void drawHoveringText(Canvas& c, std::vector<std::string> const& lines, float posX, float posY, Colors col) {
+void drawHoveringText(Canvas& c, std::vector<std::string> const& lines, float posX, float posY, Colors col, float alpha = 1) {
     auto [sw, sh] = screen::guiSize();
     float w       = 0;
-    for (auto const& l : lines) w = std::max(w, c.textWidth(l));
+    for (auto const& l : lines) w = std::max(w, lineWidth(c, l));
     float x = posX + 12;
     if (x + w + 4 > sw) x = posX - 16 - w;
     float h = tooltipHeight(lines.size());
@@ -205,7 +281,7 @@ void drawHoveringText(Canvas& c, std::vector<std::string> const& lines, float po
 
     float ty = y;
     for (std::size_t i = 0; i < lines.size(); ++i) {
-        if (!lines[i].empty()) c.text(x, ty - 1, lines[i], 0xFFFFFFFFu);
+        if (!lines[i].empty()) formattedText(c, x, ty - 1, lines[i], 0xFFFFFFFFu, alpha);
         if (i == 0) ty += 2;
         ty += 10;
     }
@@ -221,7 +297,7 @@ void renderOverlay(MinecraftUIRenderContext& ctx) {
     auto [sw, sh] = screen::guiSize();
     Canvas c(ctx);
     float  textW = 0;
-    for (auto const& l : o.lines) textW = std::max(textW, c.textWidth(l));
+    for (auto const& l : o.lines) textW = std::max(textW, lineWidth(c, l));
     float posX = sw / 2 + static_cast<float>(cfg().overlayOffsetX);
     float posY = sh / 2 + static_cast<float>(cfg().overlayOffsetY);
     posX       = std::min(posX, sw - textW - 20);
@@ -236,7 +312,7 @@ void renderOverlay(MinecraftUIRenderContext& ctx) {
         col.borderTop    = scaleAlpha(col.borderTop, fade);
         col.borderBottom = scaleAlpha(col.borderBottom, fade);
     }
-    drawHoveringText(c, o.lines, posX, posY, col);
+    drawHoveringText(c, o.lines, posX, posY, col, std::max(fade, 0.05f));
     c.item(iconStack(o.icon), posX + 10, posY - 16);
 }
 
@@ -261,6 +337,7 @@ public:
         };
         mOffsetX = cfg().overlayOffsetX;
         mOffsetY = cfg().overlayOffsetY;
+        configScreenOpen() = true;
     }
 
     // the panel has no size: its origin is the screen centre, so panel coordinates are offsets
@@ -282,6 +359,7 @@ public:
     void tick() override {}
 
     void onClose() override {
+        configScreenOpen() = false;
         cfg().overlayOffsetX = mOffsetX;
         cfg().overlayOffsetY = mOffsetY;
         saveConfig();
@@ -292,7 +370,7 @@ private:
     void updateOffset(Canvas& c, float mx, float my) {
         auto [sw, sh] = screen::guiSize();
         float w       = 0;
-        for (auto const& l : mTooltip) w = std::max(w, c.textWidth(l));
+        for (auto const& l : mTooltip) w = std::max(w, lineWidth(c, l));
         float h  = 8 + static_cast<float>(mTooltip.size() - 1) * 10 + 2;
         mOffsetX = static_cast<int>(std::clamp(mx, -(sw / 2) - 5, std::max(-(sw / 2) - 5, (sw / 2) - w - 20)));
         mOffsetY = static_cast<int>(std::clamp(my, -(sh / 2) + 17, std::max(-(sh / 2) + 17, (sh / 2) - h + 5)));
@@ -498,7 +576,9 @@ public:
                 saveConfig();
                 log().info("goggles: overlay offset reset");
             } else if (action == "screen") {
-                openConfigScreen();
+                // after the chat screen that ran the command has closed (the screen framework hosts
+                // its screen above the scene that is on top when it opens)
+                pendingScreen() = 10;
             }
         });
         auto& bus = ll::event::EventBus::getInstance();
@@ -511,6 +591,8 @@ public:
         mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>([](ll::event::KeyInputEvent& ev) {
             if (ev.keyCode() == kKeyShift) input().shift = ev.isDown();
             if (ev.keyCode() == kKeyCtrl) input().ctrl = ev.isDown();
+            // Esc saves and closes the position screen (Create's GoggleConfigScreen.removed)
+            if (ev.keyCode() == kKeyEscape && ev.isDown() && configScreenOpen() && screen::current()) screen::close();
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::MouseInputEvent>([](ll::event::MouseInputEvent& ev) {
             if (ev.actionButtonId() == 1) input().leftDown = ev.buttonData() == 1;

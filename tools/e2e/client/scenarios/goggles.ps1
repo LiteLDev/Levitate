@@ -14,14 +14,16 @@ if (-not $vanilla) {
 Invoke-Chat '/gamemode creative'
 Invoke-Chat '/clear @s'
 Invoke-Chat '/time set noon'
-Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.6 ~'
+# absolute positions on the flat test world (ground at y -61): a column of three source/consumer
+# pairs along x, looked at from 3 blocks away
+Invoke-Chat '/tp @s 0.5 -60 0.5'
 Start-Sleep -Milliseconds 500
-# a column of two source/consumer pairs: the look ray hits one of them whatever the eye height
-foreach ($dy in 0, 1) {
-    Invoke-Chat "/setblock ~4 ~$dy ~ levitate:kinetics_test_source [`"levitate:axis`"=0]"
-    Invoke-Chat "/setblock ~3 ~$dy ~ levitate:kinetics_test_consumer [`"levitate:axis`"=0]"
+foreach ($y in -60, -59, -58) {
+    Invoke-Chat "/setblock 4 $y 0 levitate:kinetics_test_source [`"levitate:axis`"=0]"
+    Invoke-Chat "/setblock 3 $y 0 levitate:kinetics_test_consumer [`"levitate:axis`"=0]"
 }
 $mark = Get-LogMark
+Invoke-Chat '/tp @s 0.5 -60 0.5 facing 3.5 -58.5 0.5'   # the top consumer (the camera sits higher than the feet + 1.62)
 Invoke-Chat '/replaceitem entity @s slot.armor.head 0 levitate:goggles'
 Start-Sleep -Seconds 1
 
@@ -55,7 +57,7 @@ Invoke-Chat '/create overlay reset'
 Wait-LogLine 'goggles: overlay offset reset' 20 -Since $mark | Out-Null
 
 # the wrench turns a consumer along z clicked on its west face (about the x axis) to y
-foreach ($dy in 0, 1) { Invoke-Chat "/setblock ~3 ~$dy ~ levitate:kinetics_test_consumer [`"levitate:axis`"=2]" }
+foreach ($y in -60, -59, -58) { Invoke-Chat "/setblock 3 $y 0 levitate:kinetics_test_consumer [`"levitate:axis`"=2]" }
 Invoke-Chat '/give @s levitate:wrench 1'
 Press-Key '1'
 Start-Sleep -Milliseconds 800
@@ -69,7 +71,7 @@ Save-Screenshot 'wrenched' | Out-Null
 Invoke-Chat '/gamemode survival'
 Start-Sleep -Milliseconds 500
 Open-Inventory
-Move-Mouse 0.385 0.69 -Relative
+Move-Mouse 0.506 0.73 -Relative   # hotbar slot 1 of the survival inventory (1280x720 layout)
 Start-Sleep -Milliseconds 1200
 Save-Screenshot 'tooltip' | Out-Null
 Close-Screen
