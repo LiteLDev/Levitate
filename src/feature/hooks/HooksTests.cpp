@@ -2,6 +2,7 @@
 // order of the use-on handlers (a unit's own wrench handling before U8's generic wrench) and
 // comparators reading Create blocks through the shared analog registry (tank, vault, depot).
 
+#include <memory>
 #include <string>
 
 #include "mc/deps/core/string/HashedString.h"
@@ -85,6 +86,12 @@ ComparatorRig rigEast(Context& ctx, GP block, int solid = 0) {
     return rig;
 }
 
+/// Removes a handler when the test ends (also when it stops early).
+struct HandlerGuard {
+    ia::HandlerId id;
+    ~HandlerGuard() { ia::remove(id); }
+};
+
 void floorUnder(Context& ctx, GP p, int len) {
     for (int i = -1; i <= len; ++i) ctx.setBlock(at(p, i, -1), "minecraft:stone");
 }
@@ -113,11 +120,12 @@ LV_REGISTER_SELFTEST("hooks.wrench_order", [](Context& ctx) -> ll::coro::CoroTas
     ctx.require(belts::segmentAt(at(s, 1)).has_value(), "belt segment");
 
     // a probe between the units' handlers (Normal) and U8's generic wrench (Fallback)
-    int  probed = 0;
-    auto probe  = ia::onWrench("", [&](ia::UseOnContext const&) {
-        ++probed;
+    // (shared state and an RAII removal: the handler outlives a test that stops early)
+    auto       probed = std::make_shared<int>(0);
+    HandlerGuard probe{ia::onWrench("", [probed](ia::UseOnContext const&) {
+        ++*probed;
         return ia::Result::Pass;
-    }, ia::priority::Low);
+    }, ia::priority::Low)};
 
     auto        wrench = stackOf(ctx, ia::kWrenchId);
     std::string wrenchId = ia::kWrenchId;
@@ -129,7 +137,7 @@ LV_REGISTER_SELFTEST("hooks.wrench_order", [](Context& ctx) -> ll::coro::CoroTas
         ia::UseOnContext c{player, player.getSelectedItem(), wrenchId, block, blockId, seg, 1, {.5, 1.0, .5}, false, true};
         auto r = ia::dispatchUseOn(c);
         ctx.check(r == ia::Result::Consume, "the wrench click on a belt is taken");
-        ctx.check(probed == 0, "by the belt's own handler, before the generic wrench");
+        ctx.check(*probed == 0, "by the belt's own handler, before the generic wrench");
     }
     co_await ctx.ticks(6); // past the click debounces
 
@@ -141,11 +149,10 @@ LV_REGISTER_SELFTEST("hooks.wrench_order", [](Context& ctx) -> ll::coro::CoroTas
         std::string  blockId = block.getTypeName();
         ia::UseOnContext c{player, player.getSelectedItem(), wrenchId, block, blockId, shaft, 5, {1.0, .5, .5}, false, true};
         auto r = ia::dispatchUseOn(c);
-        ctx.check(probed == 1, "the click passes the units' handlers");
+        ctx.check(*probed == 1, "the click passes the units' handlers");
         ctx.check(r == ia::Result::Consume, "and the generic wrench takes it");
         ctx.check(game::intState(region.getBlock(game::blockPos(shaft)), kAxis).value_or(1) != 1, "the shaft was turned");
     }
-    ia::remove(probe);
     player.setSelectedItem(ItemStack());
 });
 
@@ -164,11 +171,11 @@ LV_REGISTER_SELFTEST("hooks.place_and_next_tick", [](Context& ctx) -> ll::coro::
     ia::dispatchPlace(other);
     ia::remove(id);
     ctx.check(seen.size() == 1 && seen[0] == "minecraft:stone@" + p.key(), "place handlers see the matching block only");
-    bool ran = false;
-    ia::nextTick([&ran] { ran = true; });
-    ctx.check(!ran, "nextTick does not run inside the call");
+    auto ran = std::make_shared<bool>(false);
+    ia::nextTick([ran] { *ran = true; });
+    ctx.check(!*ran, "nextTick does not run inside the call");
     co_await ctx.ticks(2);
-    ctx.check(ran, "nextTick runs on a later tick");
+    ctx.check(*ran, "nextTick runs on a later tick");
 });
 
 // ---- comparator output ---------------------------------------------------------------------------

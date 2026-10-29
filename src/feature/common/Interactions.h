@@ -96,6 +96,7 @@ struct UseOnContext {
     Vec                hit;  ///< block-local click position (0..1)
     bool               sneaking;
     bool               firstEvent; ///< false for the repeats while the button is held
+    bool               offhand = false; ///< (U36) the off-hand's use-on (`item` is the off-hand stack)
 };
 
 /// Using an item (GameMode::baseUseItem): a right-click in the air, or on a block that did not
@@ -108,7 +109,8 @@ struct UseContext {
     bool               onBlock = false; ///< (U36) called from a use-on that no block took
 };
 
-/// A player breaks a block (GameMode::destroyBlock). `Consume` / `Deny` keep the block.
+/// A player breaks a block (GameMode::destroyBlock). `Consume` / `Deny`: vanilla does not break it
+/// (a handler may have removed it itself; `onDestroyed` handlers are told whether it is gone).
 struct DestroyContext {
     Player&            player;
     ItemStack const&   item;
@@ -158,7 +160,7 @@ using HandlerId      = int;
 inline ItemStack& mutableItem(ItemStack const& contextItem) { return const_cast<ItemStack&>(contextItem); }
 
 HandlerId onUseOn(Match match, UseOnHandler fn, int priority = priority::Normal);
-/// `itemId` "" = any item (an empty hand never uses an item in the air).
+/// `itemId` "" = any item, an empty hand included (when the game reports an empty-hand use).
 HandlerId onUse(std::string itemId, UseHandler fn, int priority = priority::Normal);
 HandlerId onDestroy(Match match, DestroyHandler fn, int priority = priority::Normal);
 /// Wrench right-click on `blockId` ("" = any block).

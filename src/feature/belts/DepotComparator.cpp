@@ -29,8 +29,8 @@ std::optional<int> depotSignal(BlockSource& region, BlockPos const& pos, Block c
     }
     for (auto const& o : d->outputs) present += common::items::countOf(o);
     int   max = d->ejector && d->stackSize > 0 ? d->stackSize : 64;
-    float f   = static_cast<float>(present) / static_cast<float>(max);
-    return std::clamp(static_cast<int>(std::floor(f * 14.f)) + (f > 0 ? 1 : 0), 0, 15);
+    // Create: clamp(floor(f * 14) + (f > 0 ? 1 : 0), 0, 15) = ComparatorUtil.fractionToRedstoneLevel
+    return rs::fractionToRedstoneLevel(static_cast<double>(present) / static_cast<double>(max));
 }
 } // namespace
 

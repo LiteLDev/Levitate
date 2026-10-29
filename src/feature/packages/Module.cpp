@@ -16,7 +16,6 @@
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -507,6 +506,11 @@ void installInteractions() {
         if (c.player.isCreative()) S().creativeBroken.insert(c.pos);
         return ia::Result::Pass;
     }));
+    static bool registered = false;
+    if (!registered) {
+        registered = true;
+        game::db::onWorldClosed([] { pendingFacing().clear(); }); // the client loads many worlds
+    }
 }
 
 void uninstallInteractions() {

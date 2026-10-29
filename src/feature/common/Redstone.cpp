@@ -247,28 +247,29 @@ std::set<std::pair<void const*, std::tuple<int, int, int>>>& fedComparators() {
     return s;
 }
 
-std::unordered_map<CircuitSystem const*, int>& circuitDims() {
-    static std::unordered_map<CircuitSystem const*, int> m;
+/// The dimension's main BlockSource per circuit system (cleared when the world closes; both
+/// live as long as their dimension).
+std::unordered_map<CircuitSystem const*, BlockSource*>& circuitDims() {
+    static std::unordered_map<CircuitSystem const*, BlockSource*> m;
     return m;
 }
 
 BlockSource* regionOfCircuit(CircuitSystem const& system) {
+    auto& cache = circuitDims();
+    if (auto it = cache.find(&system); it != cache.end()) return it->second;
     auto level = ll::service::getLevel();
     if (!level) return nullptr;
-    auto& cache = circuitDims();
-    auto  it    = cache.find(&system);
-    if (it == cache.end()) {
-        for (int d = 0; d < 3; ++d) {
-            auto dim = level->getDimension(d).lock();
-            if (dim && dim->mCircuitSystem.get() == &system) {
-                it = cache.emplace(&system, d).first;
-                break;
-            }
-        }
-        if (it == cache.end()) return nullptr;
+    for (int d = 0; d < 3; ++d) {
+        auto dim = level->getDimension(d).lock();
+        if (dim && dim->mCircuitSystem.get() == &system) return cache[&system] = &dim->getBlockSourceFromMainChunkSource();
     }
-    auto dim = level->getDimension(it->second).lock();
-    return dim ? &dim->getBlockSourceFromMainChunkSource() : nullptr;
+    return nullptr;
+}
+
+/// Rear side per comparator block permutation (blocks are immutable registry entries).
+std::unordered_map<Block const*, int>& rearCache() {
+    static std::unordered_map<Block const*, int> m;
+    return m;
 }
 
 /// Java's isRedstoneConductor, near enough: a solid, full block.
@@ -298,6 +299,7 @@ std::optional<int> analogOutput(BlockSource& region, BlockPos const& pos) {
 }
 
 std::optional<int> comparatorRear(Block const& b) {
+    if (auto it = rearCache().find(&b); it != rearCache().end()) return it->second;
     auto const& id = b.getTypeName();
     if (id != "minecraft:unpowered_comparator" && id != "minecraft:powered_comparator") return std::nullopt;
     // Bedrock's cardinal direction of a comparator points from its output to its input (rear)
@@ -306,6 +308,7 @@ std::optional<int> comparatorRear(Block const& b) {
         static constexpr int byDirection[] = {3, 4, 2, 5}; // legacy "direction": south, west, north, east
         f = byDirection[std::clamp(game::intState(b, "direction").value_or(0), 0, 3)];
     }
+    rearCache().emplace(&b, f);
     return f;
 }
 

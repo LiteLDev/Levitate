@@ -16,6 +16,7 @@
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/gamemode/GameMode.h"
 #include "mc/world/gamemode/InteractionResult.h"
+#include "mc/world/item/HandSlot.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -76,11 +77,17 @@ bool matches(Match const& m, std::string const& blockId, std::string const& item
 
 template <class Fn, class Ctx>
 Result run(std::vector<Entry<Fn>> const& list, std::string const& blockId, std::string const& itemId, Ctx const& ctx, char const* what) {
-    auto snapshot = list; // handlers may register or remove handlers
-    for (auto const& e : snapshot) {
-        if (!matches(e.match, blockId, itemId)) continue;
+    // only the matching handlers are copied (handlers may register or remove handlers)
+    std::vector<Fn const*> hits;
+    for (auto const& e : list)
+        if (matches(e.match, blockId, itemId)) hits.push_back(&e.fn);
+    if (hits.empty()) return Result::Pass;
+    std::vector<Fn> snapshot;
+    snapshot.reserve(hits.size());
+    for (auto const* fn : hits) snapshot.push_back(*fn);
+    for (auto const& fn : snapshot) {
         try {
-            auto r = e.fn(ctx);
+            auto r = fn(ctx);
             if (r != Result::Pass) return r;
         } catch (std::exception const& ex) {
             log().error("interactions: {} handler failed: {}", what, ex.what());
@@ -92,12 +99,12 @@ Result run(std::vector<Entry<Fn>> const& list, std::string const& blockId, std::
 /// Calls every matching after-handler (no result).
 template <class Fn, class Ctx>
 void notify(std::vector<Entry<Fn>> const& list, std::string const& blockId, std::string const& itemId, Ctx const& ctx, bool outcome, char const* what) {
-    if (list.empty()) return;
-    auto snapshot = list;
-    for (auto const& e : snapshot) {
-        if (!matches(e.match, blockId, itemId)) continue;
+    std::vector<Fn> snapshot;
+    for (auto const& e : list)
+        if (matches(e.match, blockId, itemId)) snapshot.push_back(e.fn);
+    for (auto const& fn : snapshot) {
         try {
-            e.fn(ctx, outcome);
+            fn(ctx, outcome);
         } catch (std::exception const& ex) {
             log().error("interactions: {} handler failed: {}", what, ex.what());
         }
@@ -265,6 +272,7 @@ LL_TYPE_INSTANCE_HOOK(
         localHit(at, hit),
         player.isSneaking(),
         isFirstEvent,
+        handSlot == HandSlot::Offhand,
     };
     auto r = registry().useOn.empty() ? Result::Pass : dispatchUseOn(ctx);
     if (r == Result::Pass) {
@@ -345,7 +353,13 @@ LL_TYPE_INSTANCE_HOOK(
     auto const&  item    = player.getSelectedItem();
     std::string  itemId  = idOf(item);
     DestroyContext ctx{player, item, itemId, block, blockId, game::globalPos(region, pos), static_cast<int>(face), player.isSneaking()};
-    if (!registry().destroy.empty() && dispatchDestroy(ctx) != Result::Pass) return false;
+    if (!registry().destroy.empty() && dispatchDestroy(ctx) != Result::Pass) {
+        // a handler took the break: vanilla does not run, but the "after" handlers still hear about
+        // it (earlier handlers may have noted something), with whether the block is gone now
+        bool gone = region.getBlock(pos).getTypeName() != blockId;
+        notify(registry().destroyed, blockId, itemId, ctx, gone, "destroyed");
+        return false;
+    }
     bool ok = origin(pos, face);
     notify(registry().destroyed, blockId, itemId, ctx, ok, "destroyed");
     return ok;

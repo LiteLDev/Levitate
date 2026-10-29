@@ -120,6 +120,5 @@ void refresh();
 bool onTargetingItemUse(Player& player, std::string const& item, BlockPos const& clicked, int face);
 void installHooks();
 void uninstallHooks();
-/// Comparator overrides (SignalsHooks.cpp reads them).
 
 } // namespace lv::feature::signals

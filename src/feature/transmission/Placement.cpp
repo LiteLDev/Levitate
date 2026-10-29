@@ -421,7 +421,7 @@ std::vector<ia::HandlerId> gHandlers;
 
 // U36: the unit's clicks come from the shared interaction dispatch.
 ia::Result transmissionUseOn(ia::UseOnContext const& c) {
-    if (c.face > 5) return ia::Result::Pass;
+    if (c.face > 5 || c.offhand) return ia::Result::Pass; // Create: main hand only
     Player&            player  = c.player;
     auto&              region  = player.getDimensionBlockSource();
     GlobalPos          clicked = c.pos;

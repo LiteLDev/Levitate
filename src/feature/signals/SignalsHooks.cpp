@@ -5,13 +5,10 @@
 #include <cmath>
 #include <vector>
 
-#include "ll/api/memory/Hook.h"
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/platform/UUID.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
