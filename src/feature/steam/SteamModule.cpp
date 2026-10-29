@@ -141,7 +141,6 @@ void loadTankIndex() {
 } // namespace
 
 void markTankForSync(GlobalPos const& controller) { syncDirty().insert(controller); }
-void markTankRemovedForSync(GlobalPos const& controller) { syncDirty().insert(controller); }
 
 void flushSync() {
     if (currentTick() % 100 == 0)
@@ -284,17 +283,19 @@ LL_TYPE_INSTANCE_HOOK(
             if (!heldId.empty() && !sneak) {
                 if (isTankId(heldId) && tryMultiPlace(player, pos, face, item)) return handled();
                 if (!isTankId(heldId) && heldId != kEngine && heldId != kWhistle) {
-                    bool used = false;
-                    if (!busy(player)) used = useItemOnTank(player, pos, item);
-                    else used = !common::fluids::fluidInItem(item).empty() || heldId == "minecraft:bucket" || heldId == "minecraft:glass_bottle";
-                    if (used) {
+                    bool container = !common::fluids::fluidInItem(item).empty() || heldId == "minecraft:bucket" || heldId == "minecraft:glass_bottle";
+                    if (container && (busy(player) || useItemOnTank(player, pos, item))) {
                         player.sendInventory(false);
                         return handled();
                     }
                 }
             }
         }
-        if ((id == kWhistle || id == kExtension) && (heldId == kWhistle || heldId == kWrench) && !(heldId == kWhistle && sneak)) {
+        // whistle item: grow the column; wrench: next size; sneaking wrench on an extension: shorten
+        // (a sneaking wrench on the whistle itself is the wrench's dismantle, U8)
+        bool whistleUse = (id == kWhistle || id == kExtension)
+                       && ((heldId == kWhistle && !sneak) || (heldId == kWrench && (!sneak || id == kExtension)));
+        if (whistleUse) {
             if (busy(player)) return handled();
             if (useOnWhistle(player, pos, item, sneak)) {
                 player.sendInventory(false);
@@ -364,6 +365,7 @@ public:
             });
             game::db::onWorldClosed([] {
                 resetRuntime();
+                resetPendingChanges();
                 lastSent().clear();
                 syncDirty().clear();
                 lastEngines() = Json();
@@ -412,6 +414,7 @@ public:
 private:
     static void worldReady() {
         resetRuntime();
+        resetPendingChanges();
         loadIndex();
         loadTankIndex();
     }

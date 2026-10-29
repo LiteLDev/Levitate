@@ -173,11 +173,12 @@ void shaftRemove(GlobalPos const& shaftPos, GlobalPos const& enginePos) {
 }
 
 /// Create's PoweredShaftBlock.stillValid: an engine two blocks away points at the shaft.
+/// Unloaded neighbourhoods count as valid (the engine may be in a chunk that isn't loaded yet).
 bool shaftStillValid(BlockSource& region, GlobalPos const& shaft, int axis) {
-    static constexpr cs::Dir dirs[]{cs::Dir::Down, cs::Dir::Up, cs::Dir::North, cs::Dir::South, cs::Dir::West, cs::Dir::East};
-    for (auto d : dirs) {
+    for (auto d : kDirs) {
         if (static_cast<int>(cs::axisOf(d)) == axis) continue;
         GlobalPos engine = offset(shaft, d, 2);
+        if (!loaded(region, engine)) return true;
         if (idAt(region, engine) != kEngine) continue;
         auto shape = engineShape(region.getBlock(game::blockPos(engine)));
         if (!(offset(engine, shape.facing, 2) == shaft)) continue;
@@ -214,14 +215,13 @@ void evaluate(GlobalPos const& ctrl, BoilerRuntime& rt) {
         rt.boiler.setAttachments(0, 0);
         return;
     }
-    static constexpr cs::Dir dirs[]{cs::Dir::Down, cs::Dir::Up, cs::Dir::North, cs::Dir::South, cs::Dir::West, cs::Dir::East};
     int engines = 0, whistles = 0;
     for (int y = 0; y < info->height; ++y) {
         for (int x = 0; x < info->width; ++x) {
             for (int z = 0; z < info->width; ++z) {
                 GlobalPos p{ctrl.dim, ctrl.x + x, ctrl.y + y, ctrl.z + z};
                 if (!isTankId(idAt(*region, p))) continue;
-                for (auto d : dirs) {
+                for (auto d : kDirs) {
                     GlobalPos n  = offset(p, d);
                     auto      id = idAt(*region, n);
                     if (id == kEngine) {
@@ -434,8 +434,7 @@ void onEngineRemoved(GlobalPos const& pos) {
     // its shaft stops (the shaft may lie in either direction: the block is gone)
     for (auto& [shaftPos, ss] : shaftStates())
         if (ss.engine && *ss.engine == pos) shaftRemove(shaftPos, pos);
-    static constexpr cs::Dir dirs[]{cs::Dir::Down, cs::Dir::Up, cs::Dir::North, cs::Dir::South, cs::Dir::West, cs::Dir::East};
-    for (auto d : dirs)
+    for (auto d : kDirs)
         if (auto info = tankAt(offset(pos, d))) markBoilerDirty(info->controller);
     log().info("steam: steam engine at {} removed", at(pos));
 }
@@ -468,8 +467,7 @@ void onWhistleRemoved(GlobalPos const& pos) {
             removeBlock(*region, p);
         }
     }
-    static constexpr cs::Dir dirs[]{cs::Dir::Down, cs::Dir::Up, cs::Dir::North, cs::Dir::South, cs::Dir::West, cs::Dir::East};
-    for (auto d : dirs)
+    for (auto d : kDirs)
         if (auto info = tankAt(offset(pos, d))) markBoilerDirty(info->controller);
     log().info("steam: steam whistle at {} removed", at(pos));
 }
@@ -525,8 +523,7 @@ bool whistleSounding(GlobalPos const& pos) {
 void dropAttachmentsOf(GlobalPos const& removedTank) {
     auto* region = regionOf(removedTank.dim);
     if (!region) return;
-    static constexpr cs::Dir dirs[]{cs::Dir::Down, cs::Dir::Up, cs::Dir::North, cs::Dir::South, cs::Dir::West, cs::Dir::East};
-    for (auto d : dirs) {
+    for (auto d : kDirs) {
         GlobalPos n  = offset(removedTank, d);
         auto      id = idAt(*region, n);
         if (id == kEngine) {
@@ -617,7 +614,6 @@ bool useOnWhistle(Player& player, GlobalPos const& pos, ItemStack const& held, b
 
 void tickSteam() {
     ++gTick;
-    double const engineCapacity = kinetics::stressCapacityOf(kEngine);
 
     // powered shafts: count down, revert when no engine points at them any more
     for (auto pos : std::vector<GlobalPos>(index().shafts.begin(), index().shafts.end())) {
@@ -661,9 +657,9 @@ void tickSteam() {
         if (rt->boiler.tick(static_cast<int>(std::min<std::int64_t>(info->capacity, INT32_MAX)), info->creative)) markTankForSync(ctrl);
         int size  = info->width * info->width * info->height;
         int level = rt->boiler.display(size).passive ? -1 : rt->boiler.actualHeat(size);
-        auto& last = loggedLevels()[ctrl];
-        if (!loggedLevels().contains(ctrl) || last != level) {
-            last = level;
+        auto [last, fresh] = loggedLevels().try_emplace(ctrl, level);
+        if (fresh || last->second != level) {
+            last->second = level;
             log().info("steam: boiler at {} level {} (size {}, water {} mB/t, heat {}{})", at(ctrl), level < 0 ? std::string("passive") : std::to_string(level),
                        rt->boiler.maxHeatForSize(size), number(rt->boiler.waterSupply), rt->boiler.activeHeat, rt->boiler.passiveHeat ? ", passive" : "");
         }
@@ -734,7 +730,6 @@ void tickSteam() {
             particle(pos.dim, f.x + .5, f.y + .5, f.z + .5, "minecraft:water_evaporation_bucket_emitter");
         }
     }
-    (void)engineCapacity;
 
     // steam whistles
     for (auto pos : std::vector<GlobalPos>(index().whistles.begin(), index().whistles.end())) {
@@ -753,13 +748,15 @@ void tickSteam() {
                 powered = now;
             }
         }
-        auto tank     = tankAt(offset(pos, whistleAttached(block)));
-        bool steam    = tank && boilerOf(tank->controller)->boiler.hasSteam();
-        bool sounding = powered && steam;
-        auto& ws      = whistleStates()[pos];
-        auto  size    = whistleSize(region->getBlock(game::blockPos(pos)));
-        int   pitch   = whistlePitchAt(pos);
-        float f       = cs::whistleSoundPitch(pitch);
+        bool sounding = false;
+        if (powered) {
+            auto tank = tankAt(offset(pos, whistleAttached(block)));
+            sounding  = tank && boilerOf(tank->controller)->boiler.hasSteam();
+        }
+        auto& ws    = whistleStates()[pos];
+        auto  size  = whistleSize(block);
+        int   pitch = sounding ? whistlePitchAt(pos) : 0;
+        float f     = cs::whistleSoundPitch(pitch);
         static constexpr char const* sizeNames[]{"small", "medium", "large"};
         static constexpr char const* toneSounds[]{"levitate.steam.whistle_high", "levitate.steam.whistle_medium", "levitate.steam.whistle_low"};
         if (sounding && (!ws.sounding || ws.lastPitch != cs::pitchId(pitch, size))) {

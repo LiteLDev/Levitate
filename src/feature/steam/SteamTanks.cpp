@@ -294,6 +294,11 @@ void queueChange(GlobalPos const& pos, std::string prevId, std::string newId) {
     pending().push_back({pos, std::move(prevId), std::move(newId)});
 }
 
+void resetPendingChanges() {
+    pending().clear();
+    erased().clear();
+}
+
 void stashErasedDoc(GlobalPos const& pos, Json const& doc) {
     if (doc.is_object() && doc.contains(kDataKey)) erased()[pos] = doc[kDataKey];
 }
@@ -350,12 +355,13 @@ void processChanges() {
         }
         GlobalPos oldCtrl = globalOf(r.pos.dim, part->controller);
         boilers().erase(oldCtrl);
-        markTankRemovedForSync(oldCtrl);
-        auto changed = cs::removePart(world, self, *part, std::nullopt, params);
+        markTankForSync(oldCtrl);
+        auto changed = cs::removePart(world, self, *part, params);
         for (auto const& p : changed) {
             auto now = world.get(p);
             if (now) touchedControllers.insert(globalOf(r.pos.dim, now->controller));
             boilers().erase(globalOf(r.pos.dim, p));
+            markTankForSync(globalOf(r.pos.dim, p)); // a former controller is dropped on clients
         }
         log().info("steam: {} at {} {} {} removed", r.prevId, r.pos.x, r.pos.y, r.pos.z);
     }
@@ -386,6 +392,7 @@ void processChanges() {
         auto       changed = cs::formMulti(world, frontier, tankParams(isCreativeTankId(key.second)));
         for (auto const& p : changed) {
             boilers().erase(globalOf(key.first, p));
+            markTankForSync(globalOf(key.first, p));
             if (auto now = world.get(p)) touchedControllers.insert(globalOf(key.first, now->controller));
         }
         for (auto const& p : frontier)

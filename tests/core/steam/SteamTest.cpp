@@ -125,7 +125,7 @@ TEST(SteamTank, BreakingSharesTheFluidBottomUp) {
     // break the middle part: controller keeps 8000, the top gets 8000, 4000 are lost
     TankPart gone = w.at(0, 1, 0);
     w.parts.erase({0, 1, 0});
-    removePart(w, {0, 1, 0}, gone, std::nullopt, params());
+    removePart(w, {0, 1, 0}, gone, params());
     EXPECT_EQ(w.at(0, 0, 0).amount, 8000);
     EXPECT_EQ(w.at(0, 0, 0).height, 1);
     EXPECT_EQ(w.at(0, 2, 0).amount, 8000);
@@ -140,7 +140,7 @@ TEST(SteamTank, BreakingTheControllerMovesFluidUp) {
     w.at(0, 0, 0).amount = 10000;
     TankPart gone             = w.at(0, 0, 0);
     w.parts.erase({0, 0, 0});
-    removePart(w, {0, 0, 0}, gone, std::nullopt, params());
+    removePart(w, {0, 0, 0}, gone, params());
     // the two remaining parts re-form a 1x2 tank holding everything
     EXPECT_EQ(w.at(0, 1, 0).controller, (Pos3{0, 1, 0}));
     EXPECT_EQ(w.at(0, 1, 0).height, 2);

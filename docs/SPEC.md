@@ -175,7 +175,9 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
   1 small, 2 large), `levitate:powered`. `steam_whistle_extension` (no item, drops nothing): `levitate:size`,
   `levitate:shape` (0 single = half, 1 double, 2 double_connected).
 - `powered_shaft`: what a shaft (U6's `levitate:shaft`, `levitate:axis`) becomes two blocks in front of
-  an engine; states `levitate:axis`, `levitate:rotor` (kinetic rotor model); drops a shaft.
+  an engine; states `levitate:axis`, `levitate:rotor` (kinetic rotor model); drops a shaft (given by
+  the code to survival players who break it: its loot table can't name U6's item before U6 is in the
+  pack, so explosions drop nothing).
 - `steam_test_heater` (Levitate test block, no item): `levitate:heat` = Create's heat level 0..4,
   used by selftests and e2e until U14's blaze burners exist.
 - Recipes (Create 6.0.10, added with U9's sheets / alloy, `assets/pending_recipes/steam/`): fluid

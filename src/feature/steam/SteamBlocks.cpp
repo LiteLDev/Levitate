@@ -14,9 +14,6 @@
 #include "mc/network/MinecraftPacketIds.h"
 #include "mc/network/MinecraftPackets.h"
 #include "mc/network/packet/PlaySoundPacket.h"
-#include "mc/network/packet/TextPacket.h"
-#include "mc/network/packet/TextPacketPayload.h"
-#include "mc/network/packet/TextPacketType.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -131,8 +128,7 @@ void removeBlock(BlockSource& region, GlobalPos const& pos) {
 }
 
 bool redstonePowered(BlockSource& region, GlobalPos const& pos) {
-    static constexpr cs::Dir dirs[]{cs::Dir::Down, cs::Dir::Up, cs::Dir::North, cs::Dir::South, cs::Dir::West, cs::Dir::East};
-    for (auto d : dirs) {
+    for (auto d : kDirs) {
         GlobalPos n = offset(pos, d);
         if (!loaded(region, n)) continue;
         auto const& block = region.getBlock(game::blockPos(n));
@@ -217,15 +213,6 @@ void giveOrDrop(Player& player, ItemStack const& stack) {
     ItemStack copy = stack;
     if (!player.add(copy)) player.drop(copy, false);
     player.sendInventory(false);
-}
-
-void actionBar(Player& player, std::string const& text) {
-    auto                           pkt = TextPacket{};
-    TextPacketPayload::MessageOnly message;
-    message.mType = TextPacketType::Tip;
-    message.mMessage->assign(text);
-    pkt.mBody = message;
-    pkt.sendTo(player);
 }
 
 cs::Pos3 pos3(GlobalPos const& p) { return {p.x, p.y, p.z}; }

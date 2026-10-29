@@ -64,7 +64,7 @@ std::set<Pos3> formMulti(TankAccess& world, std::vector<Pos3> frontier, TankPara
 /// structure `removedPart`: the remaining parts become 1×1 tanks, the fluid is shared out in
 /// y, x, z order (each up to one block's capacity; the rest is lost), then they re-form.
 /// Returns the positions whose part changed.
-std::set<Pos3> removePart(TankAccess& world, Pos3 const& removed, TankPart const& removedPart, std::optional<TankPart> const& controllerPart,
+std::set<Pos3> removePart(TankAccess& world, Pos3 const& removed, TankPart const& removedPart,
                           TankParams const& params);
 
 /// Capacity of a structure in mB.

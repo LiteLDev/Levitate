@@ -23,7 +23,8 @@
       },
       "minecraft:destructible_by_explosion": {
         "explosion_resistance": 6
-      }
+      },
+      "minecraft:loot": "loot_tables/blocks/steam_test_heater.json"
     },
     "permutations": [
       {

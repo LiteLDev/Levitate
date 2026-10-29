@@ -74,6 +74,8 @@ void removeBlock(BlockSource& region, GlobalPos const& pos);
 /// Whether a neighbour powers the block with redstone (polled; SPEC §8).
 [[nodiscard]] bool redstonePowered(BlockSource& region, GlobalPos const& pos);
 
+/// The six directions in Create's order.
+inline constexpr cs::Dir kDirs[]{cs::Dir::Down, cs::Dir::Up, cs::Dir::North, cs::Dir::South, cs::Dir::West, cs::Dir::East};
 [[nodiscard]] cs::Dir    dirFromName(std::string_view name, cs::Dir fallback);
 [[nodiscard]] char const* dirName(cs::Dir d);
 [[nodiscard]] GlobalPos   offset(GlobalPos p, cs::Dir d, int n = 1);
@@ -81,7 +83,6 @@ void removeBlock(BlockSource& region, GlobalPos const& pos);
 void playSound(int dim, double x, double y, double z, std::string const& sound, float volume, float pitch);
 void particle(int dim, double x, double y, double z, std::string const& effect);
 void giveOrDrop(Player& player, ItemStack const& stack);
-void actionBar(Player& player, std::string const& text);
 
 // ---- tanks -----------------------------------------------------------------------------------------
 [[nodiscard]] cs::TankPart parsePart(Json const* doc, cs::Pos3 const& self);
@@ -114,6 +115,8 @@ void refreshStructure(GlobalPos const& controller);
 /// Queued world changes of the unit's blocks (BlockChangedEvent), applied once per tick.
 void queueChange(GlobalPos const& pos, std::string prevId, std::string newId);
 void processChanges();
+/// Drops queued changes (the world closed).
+void resetPendingChanges();
 /// A tank document erased together with its block (BlockData erase listener).
 void stashErasedDoc(GlobalPos const& pos, Json const& doc);
 
@@ -130,7 +133,6 @@ struct BoilerRuntime {
     cs::Boiler boiler;
     bool       evaluated   = false;
     int        sinceEval   = 0;
-    bool       notified    = false; ///< logged as active
 };
 [[nodiscard]] std::map<GlobalPos, BoilerRuntime>& boilers();
 /// The boiler of the structure controlled at `controller` (evaluated when needed).
@@ -187,7 +189,6 @@ void                 resetRuntime();
 
 // ---- client sync (companion players) ----------------------------------------------------------------
 void markTankForSync(GlobalPos const& controller);
-void markTankRemovedForSync(GlobalPos const& controller);
 void flushSync();
 void sendFullSync(Player& player);
 

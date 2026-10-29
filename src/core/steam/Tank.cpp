@@ -301,7 +301,7 @@ std::set<Pos3> formMulti(TankAccess& world, std::vector<Pos3> frontier, TankPara
     return formMultiImpl(world, std::move(frontier), params, 0);
 }
 
-std::set<Pos3> removePart(TankAccess& world, Pos3 const& removed, TankPart const& removedPart, std::optional<TankPart> const&,
+std::set<Pos3> removePart(TankAccess& world, Pos3 const& removed, TankPart const& removedPart,
                           TankParams const& params) {
     Ctx c{world, params, {}, {}};
     if (removedPart.width == 1 && removedPart.height == 1) return {};
