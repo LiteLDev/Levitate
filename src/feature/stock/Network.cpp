@@ -434,9 +434,13 @@ std::optional<Stock> packagerStock(GlobalPos const& packager) {
 
 std::string packagerInventory(GlobalPos const& packager) {
     auto* region = regionOf(packager.dim);
-    if (!region || !provider() || !provider()->inventoryId) return {};
-    return provider()->inventoryId(*region, game::blockPos(packager));
+    std::string id;
+    if (region && provider() && provider()->inventoryId) id = provider()->inventoryId(*region, game::blockPos(packager));
+    // without an identity the packager itself is the inventory (two links on it count once)
+    return id.empty() ? "packager:" + packager.key() : id;
 }
+
+bool packagerAt(GlobalPos const& p) { return isPackagerAt(p); }
 
 bool packagerTooBusy(GlobalPos const& packager, RequestType type) {
     auto* region = regionOf(packager.dim);

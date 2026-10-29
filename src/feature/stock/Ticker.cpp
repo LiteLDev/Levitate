@@ -480,6 +480,8 @@ void categoryForm(Player& player, Json const& ctx) {
 }
 } // namespace
 
+void resetTickerRuntime() { searches().clear(); }
+
 // ---- keepers -------------------------------------------------------------------------------------
 
 bool keeperPresent(GlobalPos const& ticker) {
@@ -577,8 +579,6 @@ bool placeOrder(Player& player, GlobalPos const& ticker, std::vector<BigStack> c
     if (ok) {
         playSound(ticker, "levitate.stock.request", 1.0f, 1.0f);
         statusKey(player, "create.gui.stock_keeper.request_sent", "Request Sent!", "§a");
-    } else {
-        statusKey(player, "create.gui.stock_keeper.not_in_stock", "Required items are not in Stock", "§c");
     }
     log().info("stock: {} ordered {} stack(s) to '{}' at the stock ticker at {} {} {}: {}", player.getRealName(), order.size(), address, ticker.x, ticker.y, ticker.z, ok ? "sent" : "refused");
     return ok;

@@ -95,10 +95,7 @@ std::map<std::string, std::pair<GlobalPos, int>>& connecting() {
 
 std::optional<GlobalPos> restockedPackager(GlobalPos const& gauge) {
     auto support = supportOf(gauge);
-    auto pkg     = currentPackagerProvider();
-    auto* region = regionOf(support.dim);
-    if (!pkg || !pkg->isPackager || !region || !blockAt(support)) return std::nullopt;
-    if (!pkg->isPackager(*region, game::blockPos(support))) return std::nullopt;
+    if (!packagerAt(support)) return std::nullopt;
     return support;
 }
 bool isRestocker(GlobalPos const& gauge) { return restockedPackager(gauge).has_value(); }
@@ -280,7 +277,9 @@ void tickRequests(GlobalPos const& p, int slot, Json& panel) {
         orders.emplace_back(network, std::move(order));
     }
     if (failed) return;
-    for (auto const& [network, order] : orders) requestOrder(network, RequestType::Restock, order, address);
+    // Create checks every packager before sending anything; a busy one cancels the request
+    for (auto const& [network, order] : orders)
+        if (!requestOrder(network, RequestType::Restock, order, address)) return;
     // keep the output promise
     if (auto* net = networkInfo(panel.value("freq", std::string{}))) {
         auto filter = stackFromJson(panel.value("filter", Json()));
@@ -478,6 +477,11 @@ bool setPanelItem(Player& player, GlobalPos const& p, int slot, ItemStack const&
 } // namespace
 
 // ---- public ------------------------------------------------------------------------------------
+
+void resetGaugeRuntime() {
+    runtime().clear();
+    connecting().clear();
+}
 
 int targetedSlotAt(GlobalPos const& p, double lx, double ly, double lz) {
     return static_cast<int>(cs::targetedSlot(faceOf(p), facingOf(p), {lx, ly, lz}));

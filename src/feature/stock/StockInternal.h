@@ -122,6 +122,11 @@ void                                  invalidateSummaries();
 /// Create's PackagerBlockEntity.submitNewArrivals).
 [[nodiscard]] std::optional<Stock> packagerStock(GlobalPos const& packager);
 [[nodiscard]] std::string          packagerInventory(GlobalPos const& packager);
+/// A packager (per the provider) stands at `p`.
+[[nodiscard]] bool                 packagerAt(GlobalPos const& p);
+/// Drops per-world runtime state (gauge timers, pending connections, searches).
+void resetGaugeRuntime();
+void resetTickerRuntime();
 [[nodiscard]] bool                 packagerTooBusy(GlobalPos const& packager, RequestType type);
 void                               loadNetworks();
 void                               saveNetworks();

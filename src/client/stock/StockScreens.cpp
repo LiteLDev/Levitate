@@ -112,6 +112,9 @@ public:
         mLock->tooltip      = {data.value("locked", false) ? ctr("create.gui.stock_keeper.network_locked", "Network is locked") : ctr("create.gui.stock_keeper.network_open", "Network is open"),
                                ctr("create.gui.stock_keeper.network_lock_tip", "Locking prevents other Players"), ctr("create.gui.stock_keeper.network_lock_tip_1", "from ordering items directly"),
                                ctr("create.gui.stock_keeper.network_lock_tip_2", "Click to toggle")};
+        // the screen is rebuilt after an address / search form: the order being put together survives
+        auto& stash = orderStash();
+        if (mOrderList.empty() && stash.first == data.value("pos", Json())) mOrderList = stash.second;
         // keep the order within the new stock
         for (auto& o : mOrderList) o.second = std::min(o.second, available(o.first));
         std::erase_if(mOrderList, [](auto const& o) { return o.second <= 0; });
@@ -179,7 +182,14 @@ private:
         }
     }
 
+    using OrderList = std::vector<std::pair<std::shared_ptr<ItemStack>, int>>;
+    static std::pair<Json, OrderList>& orderStash() {
+        static std::pair<Json, OrderList> s;
+        return s;
+    }
+
     void refreshOrder() {
+        orderStash() = {mData.value("pos", Json()), mOrderList};
         for (int i = 0; i < 9; ++i) {
             auto& slot = *mOrder[static_cast<std::size_t>(i)];
             if (i < static_cast<int>(mOrderList.size())) {

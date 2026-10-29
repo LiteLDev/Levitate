@@ -1480,7 +1480,7 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   (remembered per ticker), "Send" (sound, "Request Sent!") or, holding a redstone requester or a
   table cloth, "Program Requester" (the order, address and ticker position go into the held item;
   a requester item is tuned to the network).
-- **Redstone requester**: a rising redstone edge (polled every 4 ticks) sends its order: with
+- **Redstone requester**: a rising redstone edge (polled every tick) sends its order: with
   "Must send all items" every entry must be in stock (else deny sound, nothing sent); with
   "Allow partial orders" it sends what is there. Placed from a programmed item: "Connected to
   Stock keeper successfully" if the ticker is within 128 blocks in the same dimension, else
@@ -1703,7 +1703,7 @@ matches Create's official Chinese translation wording).
 | Comparator output of depots / ejectors (U11) | custom blocks can't give a comparator signal | none |
 | Redstone input of the ejector (U11) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker) |
 | Belt connector selection preview line (U11) | Create draws it client-side every frame | server particles along the planned belt every 5 ticks while the connector is held |
-| Stock link / gauge redstone input (U26) | custom blocks get no redstone neighbour update | polled every 4 ticks; analog power comes from redstone wire, other sources count as 15 |
+| Stock link and redstone requester redstone input (U26) | custom blocks get no redstone neighbour update | polled (links every 4 ticks, requesters every tick so short pulses count); analog power comes from redstone wire, other sources count as 15 |
 | Redstone requester comparator output (U26) | custom blocks can't give a comparator signal | none (the last result is kept in the requester's data) |
 | Factory gauge item icons, counts and connection arrows drawn on the panel (U26) | no world-space item / text renderer | the client mod shows the panel's label and "in storage / target" next to the crosshair; the bulb is the block model |
 | "Click and hold" on a gauge panel / price tag for the amount board (U26) | the server only sees discrete clicks | Sneak + empty-hand click opens the board |

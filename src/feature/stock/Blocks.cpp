@@ -123,6 +123,7 @@ void orientAttached(GlobalPos const& p, int face, Player const& player) {
 
 std::uint64_t gLastUseTick = 0;
 std::int64_t  gLastUser    = 0;
+GlobalPos     gLastUsePos;
 std::uint64_t gLastPlaceTick = 0;
 std::int64_t  gLastPlacer    = 0;
 
@@ -307,8 +308,10 @@ LL_TYPE_INSTANCE_HOOK(
 
     bool candidate = ourBlock(tid) || tid == kBlazeBurner || isTableCloth(tid);
     if (candidate && !player.isSpectator()) {
+        // Bedrock repeats the use while the button is held (and clients may send it twice):
+        // one action per click and block
         auto uid = player.getOrCreateUniqueID().rawID;
-        if (uid == gLastUser && currentTick() - gLastUseTick < 4 && !isFirstEvent) {
+        if (uid == gLastUser && clicked == gLastUsePos && currentTick() - gLastUseTick < 5) {
             InteractionResult r{};
             r.mSuccess = true;
             return r;
@@ -317,6 +320,7 @@ LL_TYPE_INSTANCE_HOOK(
             if (useOnBlock(player, item, clicked, face, localHit(at, hit), tid)) {
                 gLastUser    = uid;
                 gLastUseTick = currentTick();
+                gLastUsePos  = clicked;
                 InteractionResult r{};
                 r.mSuccess = true;
                 r.mSwing   = true;
@@ -366,7 +370,9 @@ LL_TYPE_INSTANCE_HOOK(
     Player& player = mPlayer;
     if (player.isClientSide() || item.isNull()) return origin(item, handSlot);
     std::string hid = item.getTypeName();
-    bool        justPlaced = gLastPlacer == player.getOrCreateUniqueID().rawID && currentTick() - gLastPlaceTick < 2;
+    // the use of a click that already placed / tuned on a block is not a click in the air
+    auto        uid        = player.getOrCreateUniqueID().rawID;
+    bool        justPlaced = (gLastPlacer == uid && currentTick() - gLastPlaceTick < 2) || (gLastUser == uid && currentTick() - gLastUseTick < 2);
     if (isLinkedItem(hid) && !networkOfItem(item).empty() && !justPlaced) {
         // Create's LogisticallyLinkedBlockItem.use: right-click in the air clears the tuning
         clearTuning(item);
@@ -504,6 +510,8 @@ public:
             game::db::onWorldSave([] { saveNetworks(); });
             game::db::onWorldClosed([] {
                 resetNetworks();
+                resetGaugeRuntime();
+                resetTickerRuntime();
                 registry() = {};
             });
             common::blockdata::onErase([](GlobalPos const& p, Json const& doc, std::string const& prev) {
@@ -561,10 +569,9 @@ private:
     static void tick() {
         try {
             tickNetworks();
-            if (currentTick() % 4 == 0) {
-                pollLinks();
-                for (auto const& p : std::vector<GlobalPos>(registry().requesters.begin(), registry().requesters.end())) pollRequester(p);
-            }
+            if (currentTick() % 4 == 0) pollLinks();
+            // requesters every tick: short pulses (observers) must not be missed
+            for (auto const& p : std::vector<GlobalPos>(registry().requesters.begin(), registry().requesters.end())) pollRequester(p);
             tickGauges();
         } catch (std::exception const& e) {
             log().error("stock: tick failed: {}", e.what());
