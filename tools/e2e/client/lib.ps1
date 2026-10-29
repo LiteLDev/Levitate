@@ -688,7 +688,7 @@ function Enter-TestWorld([int]$LoadSeconds = 10, [int]$Attempts = 3) {
     for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         Focus-Game
         $mark = Get-LogMark
-        Enter-PlayScreen
+        Enter-PlayScreen | Out-Null
         Start-Sleep -Seconds 4
         Click 0.173 0.43 -Relative      # first world thumbnail (LV-Test: LastPlayed = now)
         Start-Sleep -Seconds $LoadSeconds
@@ -771,7 +771,7 @@ function Enter-RemoteServer([int]$Attempts = 3) {
     for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         Focus-Game
         $mark = Get-LogMark
-        Enter-PlayScreen
+        Enter-PlayScreen | Out-Null
         Start-Sleep -Seconds 4
         Save-Screenshot "join-1-play-$attempt" | Out-Null
         Click $script:ServersTab[0] $script:ServersTab[1] -Relative

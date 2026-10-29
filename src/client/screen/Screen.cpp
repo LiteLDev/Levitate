@@ -168,14 +168,20 @@ void drawInventory(Canvas& c, Rect const& inv, float mx, float my, std::vector<s
     }
 }
 
-void closeNow(bool popHost) {
+/// `notify`: the player closed it (Esc, inventory key, the host scene went): a server screen tells
+/// the server. Closes the server asked for, replacements and leaving the level don't.
+void closeNow(bool popHost, bool notify = true) {
     auto& s = state();
     if (!s.screen) return;
-    s.focused = nullptr;
-    s.textFocus = false;
+    s.focused      = nullptr;
+    s.textFocus    = false;
+    s.pendingClose = false;
+    {
+        std::lock_guard lock(s.inputMutex);
+        s.pendingInput.clear();
+    }
     auto screen = std::move(s.screen);
-    // a server screen: tell the server (it may release what the screen held)
-    if (!s.serverType.empty()) {
+    if (notify && !s.serverType.empty()) {
         lv::feature::net::client::send("screen.closed", {{"type", s.serverType}, {"context", s.serverContext}});
     }
     if (popHost && !s.hostScene.empty() && topScene() == s.hostScene) {
@@ -248,7 +254,9 @@ std::string clipboardText() {
                     c = 0x10000 + ((c - 0xD800) << 10) + (static_cast<char32_t>(p[1]) - 0xDC00);
                     ++p;
                 }
-                u.push_back(c == U'\r' || c == U'\n' || c == U'\t' ? U' ' : c);
+                if (c == U'\r' || c == U'\n' || c == U'\t') c = U' ';
+                if (c < 32 || c == 127 || (c >= 0xD800 && c <= 0xDFFF)) continue; // controls, lone surrogates
+                u.push_back(c);
             }
             GlobalUnlock(h);
             out = encodeUtf8(u);
@@ -287,9 +295,12 @@ LRESULT CALLBACK textInputProc(HWND h, UINT msg, WPARAM w, LPARAM l, UINT_PTR, D
     return DefSubclassProc(h, msg, w, l);
 }
 
+std::atomic<bool> gTextInputInstalled{false};
+bool              textInputInstalled() { return gTextInputInstalled; }
+
 /// Subclasses the game window once; must run on the window's thread (the input events do).
 void installTextInput() {
-    static std::atomic<bool> installed{false};
+    auto& installed = gTextInputInstalled;
     if (installed) return;
     HWND w = gameWindow();
     if (!w || GetWindowThreadProcessId(w, nullptr) != GetCurrentThreadId()) return;
@@ -317,11 +328,14 @@ bool TextField::focused() const { return state().focused == this; }
 void TextField::focus() {
     auto& s = state();
     if (s.focused == this) return;
-    if (s.focused) s.focused->blur(true);
-    s.focused   = this;
-    s.textFocus = true;
-    mBefore     = text;
-    caret       = static_cast<int>(decodeUtf8(text).size());
+    auto* previous = s.focused;
+    s.focused      = this;
+    s.textFocus    = true;
+    mBefore        = text;
+    caret          = static_cast<int>(decodeUtf8(text).size());
+    // the previous field submits last: its onSubmit may rebuild the screen (then this field's
+    // destructor drops the focus again)
+    if (previous && previous->onSubmit) previous->onSubmit(previous->text);
 }
 
 void TextField::blur(bool submit) {
@@ -341,6 +355,7 @@ void TextField::blur(bool submit) {
 }
 
 void TextField::typeChar(char32_t ch) {
+    if (ch < 32 || ch == 127 || (ch >= 0xD800 && ch <= 0xDFFF) || ch > 0x10FFFF) return;
     if (filter && !filter(ch)) return;
     auto u = decodeUtf8(text);
     if (static_cast<int>(u.size()) >= maxLength) return;
@@ -583,7 +598,8 @@ std::pair<float, float> guiSize() {
 void open(std::unique_ptr<Screen> screen) {
     auto& s    = state();
     auto  host = s.hostScene;
-    if (s.screen) closeNow(false); // keep the host for the new screen
+    if (s.screen) closeNow(false, false); // keep the host for the new screen
+    s.pendingClose = false;
     s.hostScene   = host;
     bool needHost = s.hostScene.empty();
     s.screen      = std::move(screen);
@@ -810,6 +826,7 @@ public:
         mListeners.push_back(bus.emplaceListener<ll::event::MouseInputEvent>([](ll::event::MouseInputEvent& ev) {
             auto& s = state();
             if (!s.screen || s.hostScene.empty()) return;
+            installTextInput();
             auto [gx, gy] = pointerGui();
             char id   = ev.actionButtonId();
             auto data = ev.buttonData();
@@ -829,7 +846,7 @@ public:
         mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>([](ll::event::KeyInputEvent& ev) {
             auto& s = state();
             if (ev.keyCode() == kKeyShift) s.shift = ev.isDown();
-            if (ev.keyCode() == kKeyControl) s.ctrl = ev.isDown();
+            s.ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0 || (ev.keyCode() == kKeyControl && ev.isDown());
             installTextInput(); // the window thread: subclass the game window once (WM_CHAR)
             if (!s.screen) return;
             if (s.textFocus) { // every key goes to the focused field
@@ -844,6 +861,20 @@ public:
                     }
                     std::lock_guard lock(s.inputMutex);
                     s.pendingInput.push_back(std::move(in));
+                    // no window subclass (this thread doesn't own the window): characters from the key
+                    if (!textInputInstalled() && !s.ctrl) {
+                        BYTE    keys[256]{};
+                        wchar_t buf[8]{};
+                        GetKeyboardState(keys);
+                        int n = ToUnicode(static_cast<UINT>(ev.keyCode()), MapVirtualKeyW(static_cast<UINT>(ev.keyCode()), MAPVK_VK_TO_VSC), keys, buf, 8, 0);
+                        for (int i = 0; i < n; ++i) {
+                            if (buf[i] < 32 || buf[i] == 127 || (buf[i] >= 0xD800 && buf[i] <= 0xDFFF)) continue;
+                            PendingInput c;
+                            c.kind = PendingInput::Kind::Char;
+                            c.ch   = buf[i];
+                            s.pendingInput.push_back(std::move(c));
+                        }
+                    }
                 }
                 if (ev.keyCode() != kKeyShift) ev.cancel();
                 return;
@@ -888,7 +919,7 @@ public:
         });
         net::client::on("screen.close", [](Json const& msg) {
             auto& s = state();
-            if (s.screen && msg.value("type", std::string{}) == s.serverType) close();
+            if (s.screen && msg.value("type", std::string{}) == s.serverType) closeNow(true, false); // the server knows
         });
     }
     void uninstall() {
