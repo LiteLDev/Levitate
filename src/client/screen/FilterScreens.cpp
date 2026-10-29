@@ -2,6 +2,9 @@
 // ignore data, reset) and the attribute filter (reference item, attribute selector, add /
 // add inverted, three modes, reset). Both edit the filter in the player's hand through
 // "screen.action" messages; the server answers with fresh data.
+//
+// Items: the inventory's stacks belong to the game and are only read (items::toJsonWithCount);
+// the ghost cursor is item JSON (Screen::cursorItem) with a render-only icon.
 
 #ifdef LV_CLIENT
 
@@ -84,26 +87,26 @@ public:
 
     void clickInventory(int, ItemStack const& stack, Button b, bool shift) override {
         if (items::isEmpty(stack)) {
-            cursor.reset();
+            setCursorItem(nullptr);
             return;
         }
         if (shift) {
             // straight into the first free ghost slot
             for (int i = 0; i < kListFilterSlots; ++i) {
                 if (!mSlots[static_cast<std::size_t>(i)]->stack) {
-                    mSend({{"op", "set"}, {"index", i}, {"item", items::toJson(items::withCount(stack, 1))}});
+                    mSend({{"op", "set"}, {"index", i}, {"item", items::toJsonWithCount(stack, 1)}});
                     return;
                 }
             }
             return;
         }
-        if (b == Button::Left) cursor = std::make_shared<ItemStack>(items::withCount(stack, 1));
+        if (b == Button::Left) setCursorItem(items::toJsonWithCount(stack, 1));
     }
 
 private:
     void clickSlot(int i, Button b) {
-        if (b == Button::Left && cursor && !cursor->isNull()) {
-            mSend({{"op", "set"}, {"index", i}, {"item", items::toJson(*cursor)}});
+        if (b == Button::Left && !cursorItem.is_null()) {
+            mSend({{"op", "set"}, {"index", i}, {"item", cursorItem}});
         } else if (mSlots[static_cast<std::size_t>(i)]->stack) {
             mSend({{"op", "clear"}, {"index", i}});
         }
@@ -129,7 +132,7 @@ public:
 
     void init() override {
         mRef = &add<Slot>(Rect{8, 20, 18, 18}, [this](Button b, bool) {
-            if (b == Button::Left && cursor && !cursor->isNull()) mSend({{"op", "reference"}, {"item", items::toJson(*cursor)}});
+            if (b == Button::Left && !cursorItem.is_null()) mSend({{"op", "reference"}, {"item", cursorItem}});
             else mSend({{"op", "reference"}, {"item", nullptr}});
         });
         mRef->tooltip = {ctr("create.gui.attribute_filter.add_reference_item", "Add Reference Item")};
@@ -195,11 +198,11 @@ public:
 
     void clickInventory(int, ItemStack const& stack, Button b, bool shift) override {
         if (items::isEmpty(stack)) {
-            cursor.reset();
+            setCursorItem(nullptr);
             return;
         }
-        if (shift) mSend({{"op", "reference"}, {"item", items::toJson(items::withCount(stack, 1))}});
-        else if (b == Button::Left) cursor = std::make_shared<ItemStack>(items::withCount(stack, 1));
+        if (shift) mSend({{"op", "reference"}, {"item", items::toJsonWithCount(stack, 1)}});
+        else if (b == Button::Left) setCursorItem(items::toJsonWithCount(stack, 1));
     }
 
 private:
@@ -217,6 +220,24 @@ private:
     std::vector<Json>        mOptions;
     std::vector<std::string> mLines;
 };
+// ---- text field test (/create screentest) --------------------------------------------------------
+
+class TextTestScreen : public Screen {
+public:
+    TextTestScreen(SendFn send) : Screen(ctr("lv.common.screentest.title", "Text Field Test"), 176, 46), mSend(std::move(send)) {}
+
+    void init() override {
+        auto& field = add<TextField>(Rect{8, 20, 160, 16}, "", [this](std::string const& text) {
+            mSend({{"op", "submit"}, {"text", text}});
+        });
+        field.placeholder = ctr("lv.common.screentest.label", "Text");
+        field.maxLength   = 32;
+    }
+
+private:
+    SendFn mSend;
+};
+
 } // namespace
 
 class FilterScreensModule {
@@ -228,6 +249,7 @@ public:
         registerServerScreen("common.attribute_filter", [](Json const& data, SendFn send) {
             return std::make_unique<AttributeFilterScreen>(data, std::move(send));
         });
+        registerServerScreen("common.text_test", [](Json const&, SendFn send) { return std::make_unique<TextTestScreen>(std::move(send)); });
     }
     void uninstall() {}
 };

@@ -204,6 +204,12 @@ std::vector<Envelope> takeTestMessages(Player const& player) {
     return std::exchange(it->second, {});
 }
 
+void joinTestCompanion(Player& player) {
+    setTestCompanion(player, true);
+    auto joined = server().joined; // listeners may register more
+    for (auto const& fn : joined) fn(player);
+}
+
 void injectFromClient(Player& player, std::string_view channel, Json const& payload) {
     if (!isCompanion(player)) return;
     dispatchServer(player, std::string(channel), payload);

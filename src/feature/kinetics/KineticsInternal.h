@@ -36,7 +36,11 @@ void flush();
 void saveNow();
 void reloadFromDb();
 
-/// Sync channel (KineticsSync.cpp): queue changes for players with the client mod.
+/// Companion protocol channel of the speed sync (server -> client mod), payload
+/// {"batches": [<core/kinetics/SyncCodec.h batch text>, ...]}.
+inline constexpr char const* kSyncChannel = "kinetics.sync";
+
+/// Sync (KineticsSync.cpp): queue changes for players with the client mod.
 void syncChanges(std::vector<core::kinetics::Change> const& changes);
 void syncTick();
 void syncReset();

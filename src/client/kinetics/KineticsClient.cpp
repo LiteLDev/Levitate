@@ -2,8 +2,9 @@
 
 // Client side of the kinetic network: rotating parts drawn spinning at their network speed.
 //
-// - Speeds come from the server over the kinetic sync channel (src/feature/kinetics/
-//   KineticsSync.cpp): the client mod says hello, the server acks and streams speeds per chunk.
+// - Speeds come from the server over the companion protocol (channel "kinetics.sync", see
+//   src/feature/kinetics/KineticsSync.cpp): after the handshake the server streams them per chunk.
+//   Other client units read them through client/kinetics/KineticsClient.h.
 // - Chunk meshes: a kinetic block with a rotor state (`KineticSpec::rotorState`) is tessellated
 //   with `rotor = 1` (its static parts only); its position is remembered.
 // - Every frame (block entity pass) each remembered block's rotating parts (`rotor = 2..`) are
@@ -60,9 +61,6 @@
 #include "mc/deps/minecraft_renderer/resources/ServerTexture.h"
 #include "mc/deps/renderer/Camera.h"
 #include "mc/deps/renderer/MatrixStack.h"
-#include "mc/network/MinecraftPacketIds.h"
-#include "mc/network/MinecraftPackets.h"
-#include "mc/network/packet/ScriptMessagePacket.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
@@ -72,10 +70,12 @@
 #include "mc/world/level/block/actor/BlockActorRendererId.h"
 
 #include "client/Client.h"
+#include "client/kinetics/KineticsClient.h"
 #include "core/kinetics/RotorModel.h"
 #include "core/kinetics/Solver.h"
 #include "core/kinetics/SyncCodec.h"
 #include "feature/kinetics/KineticsInternal.h"
+#include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
 #include "mod/Main.h"
@@ -122,16 +122,12 @@ struct State {
     std::unordered_map<Block const*, RotorInfo> infos;
 
     // client thread only
-    void const*                           level      = nullptr;
-    bool                                  acked      = false;
-    int                                   hellos     = 0;
-    int                                   dim        = -1;
-    std::chrono::steady_clock::time_point lastHello{};
-    bool                                  loggedDraw = false;
+    void const*               level      = nullptr;
+    bool                      synced     = false; ///< got the first sync of this level
+    int                       dim        = -1;
+    bool                      loggedDraw = false;
+    std::vector<SyncListener> listeners;
 };
-
-/// Hellos sent to a server before giving up (it does not run the kinetic sync).
-constexpr int kMaxHellos = 30;
 
 State& state() {
     static State s;
@@ -210,30 +206,25 @@ mce::Mesh* rotorMesh(Tessellator& tess, KineticSpec const& spec, std::string con
     );
     return slot.get();
 }
-void resetLevelState(bool dropTracked) {
+/// `leftLevel`: the client left the level (speeds and tracked blocks go); otherwise a new level
+/// object was seen while rendering: the speeds stay (the server may have synced them before the
+/// first frame of the level), block-state caches go.
+void resetLevelState(bool leftLevel) {
+    bool dropTracked = leftLevel;
     auto&           s = state();
     std::lock_guard lock(s.mutex);
-    s.acked      = false;
-    s.hellos     = 0;
     s.dim        = -1;
-    s.lastHello  = {};
     s.loggedDraw = false;
-    s.speeds.clear();
+    if (leftLevel) {
+        s.synced = false;
+        s.speeds.clear();
+    }
     s.infos.clear();
     if (dropTracked) s.tracked.clear();
     meshCache().clear();
 }
 
-void sendHello() {
-    auto pkt = MinecraftPackets::createPacket(MinecraftPacketIds::ScriptMessagePacket);
-    if (!pkt) return;
-    auto& msg          = static_cast<ScriptMessagePacket&>(*pkt);
-    *msg.mMessageId    = std::string(ks::kHelloId);
-    *msg.mMessageValue = std::to_string(ks::kProtocolVersion);
-    msg.sendToServer();
-}
-
-/// Per frame on the client thread: notices a new level and says hello until acked.
+/// Per frame on the client thread: notices a new level.
 void frameUpdate(ClientInstance& ci) {
     auto& s      = state();
     auto* level  = ci.getLevel();
@@ -245,26 +236,43 @@ void frameUpdate(ClientInstance& ci) {
         s.level = level;
     }
     if (!level || !player) return;
-    s.dim    = static_cast<int>(player->getDimensionId());
-    auto now = std::chrono::steady_clock::now();
-    if (!s.acked && s.hellos < kMaxHellos && now - s.lastHello > std::chrono::seconds(2)) {
-        s.lastHello = now;
-        ++s.hellos;
-        sendHello();
-    }
+    s.dim = static_cast<int>(player->getDimensionId());
 }
 
-void onSync(std::string const& text) {
-    auto batch = ks::decode(text);
-    if (!batch) return;
+void applyBatch(ks::Batch const& batch) {
     auto&           s = state();
     std::lock_guard lock(s.mutex);
-    auto&           m = s.speeds[batch->dim];
-    if (batch->reset) m.clear();
-    for (auto const& e : batch->entries) {
+    auto&           m = s.speeds[batch.dim];
+    if (batch.reset) m.clear();
+    for (auto const& e : batch.entries) {
         BlockPos p{e.x, e.y, e.z};
         if (e.removed) m.erase(p);
         else m[p] = Synced{e.speed, e.sourceFace};
+    }
+}
+
+/// "kinetics.sync" from the server (client thread).
+void onSyncMessage(nlohmann::json const& msg) {
+    auto& s       = state();
+    auto  batches = msg.value("batches", nlohmann::json::array());
+    if (!batches.is_array()) return;
+    if (!s.synced) {
+        s.synced = true;
+        log().info("kinetics client: server has the kinetic sync (protocol {})", core::common::kProtocolVersion);
+    }
+    auto listeners = s.listeners; // listeners may register more
+    for (auto const& text : batches) {
+        if (!text.is_string()) continue;
+        auto batch = ks::decode(text.get<std::string>());
+        if (!batch) continue;
+        applyBatch(*batch);
+        for (auto const& fn : listeners) {
+            try {
+                fn(*batch);
+            } catch (std::exception const& e) {
+                log().error("kinetics client: sync listener failed: {}", e.what());
+            }
+        }
     }
 }
 
@@ -439,36 +447,24 @@ LL_TYPE_INSTANCE_HOOK(
     }
 }
 
-// Sync channel: ack and speed batches from the server.
-LL_TYPE_INSTANCE_HOOK(
-    KineticsClientPacketHook,
-    ll::memory::HookPriority::Normal,
-    ClientNetworkHandler,
-    &ClientNetworkHandler::$handle,
-    void,
-    NetworkIdentifier const&   source,
-    ScriptMessagePacket const& packet
-) {
-    auto const& id = *packet.mMessageId;
-    if (id == ks::kSyncId) {
-        onSync(*packet.mMessageValue);
-        return;
-    }
-    if (id == ks::kAckId) {
-        auto& s = state();
-        if (!s.acked) log().info("kinetics client: server has the kinetic sync (protocol {})", *packet.mMessageValue);
-        s.acked = true;
-        return;
-    }
-    origin(source, packet);
+std::optional<SyncedSpeed> syncedSpeed(int dim, int x, int y, int z) {
+    auto&           s = state();
+    std::lock_guard lock(s.mutex);
+    auto            d = s.speeds.find(dim);
+    if (d == s.speeds.end()) return std::nullopt;
+    auto it = d->second.find(BlockPos{x, y, z});
+    if (it == d->second.end()) return std::nullopt;
+    return SyncedSpeed{it->second.speed, it->second.sourceFace};
 }
+
+void onSync(SyncListener fn) { state().listeners.push_back(std::move(fn)); }
 
 class KineticsClientModule {
 public:
     void install() {
         KineticsExtractHook::hook();
         KineticsRenderHook::hook();
-        KineticsClientPacketHook::hook();
+        feature::net::client::on(feature::kinetics::detail::kSyncChannel, [](nlohmann::json const& msg) { onSyncMessage(msg); });
         mExit = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             resetLevelState(true);
             state().level = nullptr;
@@ -477,7 +473,6 @@ public:
     void uninstall() {
         KineticsExtractHook::unhook();
         KineticsRenderHook::unhook();
-        KineticsClientPacketHook::unhook();
         ll::event::EventBus::getInstance().removeListener(mExit);
     }
 

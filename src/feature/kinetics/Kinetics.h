@@ -86,6 +86,24 @@ void setStressCapacity(GlobalPos const& pos, std::optional<double> suPerRpm);
 /// Re-reads the block at `pos` from the world now (normally automatic within the tick).
 void refresh(GlobalPos const& pos);
 
+// ---- angle-limited rotation (Create's SequenceContext) ---------------------------------------------------------
+/// What a sequenced gearshift instruction asks of the machines it drives: turn by an angle
+/// (bearings, turntables: degrees) or move by a distance (pistons, pulleys, gantries: blocks).
+struct SequenceContext {
+    enum class Kind { TurnAngle, MoveDistance };
+    Kind   kind  = Kind::TurnAngle;
+    double value = 0; ///< degrees / blocks, as given at the block that set it
+};
+/// A block (the sequenced gearshift) declares the instruction it is running for everything it
+/// drives; nullopt clears it. Not persisted: the owner sets it again after a load.
+void setSequenceContext(GlobalPos const& pos, std::optional<SequenceContext> context);
+/// The instruction reaching `pos` from the nearest block upstream (its source chain, `pos`
+/// included) that set one, with `value` scaled by the speed ratio between that block and `pos`
+/// (Create's SequenceContext#getEffectiveValue: a bearing driven at half the speed turns half the
+/// angle). nullopt: no limit. Consumers read it when their speed changes and stop after turning /
+/// moving that far (Create: `sequencedAngleLimit`, `sequencedOffsetLimit`).
+[[nodiscard]] std::optional<SequenceContext> sequenceContextAt(GlobalPos const& pos);
+
 // ---- listeners --------------------------------------------------------------------------------------------------
 struct SpeedChange {
     GlobalPos                pos;

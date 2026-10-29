@@ -228,6 +228,10 @@ function Invoke-ModBuild([ValidateSet('server', 'client')] [string]$Target) {
 # Matches both the server console format "12:00:00.000 ERR [Name] ..." and the client log
 # file format "[2026-01-01 12:00:00.000 ERR][Name] ...".
 $script:ErrorLineRegex = '\b(ERR|FTL)\]?\s?\[(Levitate|LeviLamina|CrashLogger)\]'
+# Bedrock's own content errors (pack loading: "ERR [Server] [Recipes] ...", "[Components]",
+# "[Blocks]", "[Geometry]", "[Texture]", "[JSON]", ...) fail runs too, so units catch pack mistakes.
+# The transport banner ("TRANSPORT TYPE ERROR", NetherNet lines) has no [Category] and stays out.
+$script:ContentErrorRegex = '\b(ERR|FTL)\]?\s?\[Server\]\s*(<[^>]*>\s*)?\[[A-Za-z][A-Za-z ]*\]'
 
 # ---------------------------------------------------------------------------------------
 # Shared scenario helpers. They rely on functions each platform's lib.ps1 defines:
@@ -254,7 +258,9 @@ function Invoke-SelfTest([string]$Glob = '', [int]$TimeoutSeconds = 600, [switch
 }
 
 # Lines of this run that make it fail (ERR/FTL from the mod, LeviLamina or CrashLogger).
-function Get-ErrorLines { @(Get-ServerLog | Where-Object { $_ -match $script:ErrorLineRegex }) }
+function Get-ErrorLines {
+    @(Get-ServerLog | Where-Object { $_ -match $script:ErrorLineRegex -or $_ -match $script:ContentErrorRegex })
+}
 
 # Config files written into the deployed mod before every run (`$Scenario` of run.ps1 is in
 # scope). Use it to turn off features that would disturb the scenarios, e.g. world generation.

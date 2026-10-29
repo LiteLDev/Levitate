@@ -56,6 +56,9 @@ void setTestCompanion(Player const& player, bool companion);
 [[nodiscard]] std::vector<core::common::Envelope> takeTestMessages(Player const& player);
 /// Delivers a message as if `player` had sent it (selftests).
 void injectFromClient(Player& player, std::string_view channel, Json const& payload);
+/// Testing seam: `setTestCompanion(player, true)` followed by the `onCompanionJoined` listeners,
+/// as if the player had completed the handshake (selftests of units that sync on join).
+void joinTestCompanion(Player& player);
 
 #ifdef LV_CLIENT
 namespace client {

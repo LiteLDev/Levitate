@@ -10,7 +10,7 @@
 // - Large water wheel: the structure blocks around the wheel show their cell of the wheel to
 //   vanilla clients; the client mod hides them (as the kinetics renderer hides the wheel's own
 //   cell) and the kinetics renderer spins the whole wheel instead.
-// Speeds come from the kinetic sync channel (read here as well, the kinetics renderer keeps its
+// Speeds come from the kinetic sync (client/kinetics/KineticsClient.h onSync; this file keeps its
 // own copy).
 
 #include <chrono>
@@ -60,7 +60,6 @@
 #include "mc/deps/minecraft_renderer/resources/ServerTexture.h"
 #include "mc/deps/renderer/Camera.h"
 #include "mc/deps/renderer/MatrixStack.h"
-#include "mc/network/packet/ScriptMessagePacket.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
@@ -71,6 +70,7 @@
 #include "mc/world/level/block/actor/BlockActorRendererId.h"
 
 #include "client/Client.h"
+#include "client/kinetics/KineticsClient.h"
 #include "core/generators/Generators.h"
 #include "core/kinetics/RotorModel.h"
 #include "core/kinetics/Solver.h"
@@ -374,9 +374,7 @@ void renderHandles(BaseActorRenderContext& ctx) {
     }
 }
 
-void onSync(std::string const& text) {
-    auto batch = ks::decode(text);
-    if (!batch) return;
+void onSync(ks::Batch const* batch) {
     auto&           s = state();
     std::lock_guard lock(s.mutex);
     auto&           m = s.speeds[batch->dim];
@@ -439,26 +437,17 @@ LL_TYPE_INSTANCE_HOOK(
     }
 }
 
-// The kinetic speed sync: keep a copy of the speeds (the kinetics renderer consumes the packet).
-LL_TYPE_INSTANCE_HOOK(
-    GeneratorsSyncHook,
-    ll::memory::HookPriority::High,
-    ClientNetworkHandler,
-    &ClientNetworkHandler::$handle,
-    void,
-    NetworkIdentifier const&   source,
-    ScriptMessagePacket const& packet
-) {
-    if (*packet.mMessageId == ks::kSyncId) onSync(*packet.mMessageValue);
-    origin(source, packet);
-}
-
 class GeneratorsClientModule {
 public:
     void install() {
         GeneratorsExtractHook::hook();
         GeneratorsRenderHook::hook();
-        GeneratorsSyncHook::hook();
+        // the kinetic speed sync (companion protocol), as the kinetics renderer receives it
+        static bool syncRegistered = false;
+        if (!syncRegistered) {
+            syncRegistered = true;
+            kinetics::onSync([](ks::Batch const& batch) { onSync(&batch); });
+        }
         feature::net::client::on("generators.valve", [](nlohmann::json const& msg) {
             auto pos = msg.value("pos", nlohmann::json::array());
             if (!pos.is_array() || pos.size() != 4) return;
@@ -484,7 +473,6 @@ public:
     void uninstall() {
         GeneratorsExtractHook::unhook();
         GeneratorsRenderHook::unhook();
-        GeneratorsSyncHook::unhook();
         ll::event::EventBus::getInstance().removeListener(mExit);
     }
 

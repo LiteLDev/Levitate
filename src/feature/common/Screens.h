@@ -40,6 +40,8 @@ struct ScreenType {
     std::function<void(Player&, Json const& context, Json const& action)> action;
     /// The vanilla fallback (server forms).
     std::function<void(Player&, Json const& context)> form;
+    /// The player closed the native screen (Esc, the inventory key; "screen.closed"). Optional.
+    std::function<void(Player&, Json const& context)> closed;
 };
 
 void registerType(ScreenType type);

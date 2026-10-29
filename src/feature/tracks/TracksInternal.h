@@ -133,7 +133,10 @@ void loadWorld();
 void saveWorld();
 void syncCurveAdded(int dim, ct::Curve const& curve);
 void syncCurveRemoved(int dim, ct::Curve const& curve);
+/// Sends every curve to a companion (no-op for other players).
 void syncAllTo(Player& player);
+/// Companion protocol channel of the curve sync (server -> client mod).
+inline constexpr char const* kSyncChannel = "tracks.curves";
 void fireGraphChanged();
 
 } // namespace lv::feature::tracks

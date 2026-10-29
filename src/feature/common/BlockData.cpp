@@ -1,5 +1,6 @@
 #include "feature/common/BlockData.h"
 
+#include <algorithm>
 #include <map>
 #include <set>
 #include <tuple>
@@ -34,7 +35,10 @@ struct Store {
     std::set<ChunkId>          index; ///< chunks that have a document in the DB or in memory
     std::map<ChunkId, Chunk>   loaded;
     std::vector<EraseListener> listeners;
-    bool                       indexed = false;
+    std::vector<WriteBackFn>   writeBacks;
+    std::vector<PutListener>   putListeners;
+    bool                       indexed   = false;
+    bool                       writingBack = false;
 };
 Store& store() {
     static Store s;
@@ -107,7 +111,22 @@ bool eraseImpl(GlobalPos const& pos, std::string const& prev, bool notify) {
     return true;
 }
 
+void writeBack(GlobalPos const* pos) {
+    auto& s = store();
+    if (s.writingBack) return; // an owner's write-back touched BlockData again
+    s.writingBack = true;
+    for (auto const& fn : s.writeBacks) {
+        try {
+            fn(pos);
+        } catch (std::exception const& e) {
+            log().error("block data write-back failed: {}", e.what());
+        }
+    }
+    s.writingBack = false;
+}
+
 void saveDirty() {
+    writeBack(nullptr);
     auto& s = store();
     for (auto& [id, c] : s.loaded) {
         if (!c.dirty) continue;
@@ -165,6 +184,7 @@ bool erase(GlobalPos const& pos) { return eraseImpl(pos, {}, true); }
 bool has(GlobalPos const& pos) { return get(pos) != nullptr; }
 
 std::optional<Json> take(GlobalPos const& pos) {
+    writeBack(&pos);
     auto id = chunkIdOf(pos);
     auto* c = chunkIfAny(id);
     if (!c) return std::nullopt;
@@ -176,7 +196,21 @@ std::optional<Json> take(GlobalPos const& pos) {
     return doc;
 }
 
-void put(GlobalPos const& pos, Json value) { set(pos, std::move(value)); }
+void put(GlobalPos const& pos, Json value) {
+    if (value.is_null()) return;
+    set(pos, std::move(value));
+    auto const* doc = get(pos);
+    if (!doc) return;
+    Json copy      = *doc; // listeners may edit
+    auto listeners = store().putListeners;
+    for (auto const& fn : listeners) {
+        try {
+            fn(pos, copy);
+        } catch (std::exception const& e) {
+            log().error("block data put listener failed at {}: {}", pos.key(), e.what());
+        }
+    }
+}
 
 void forEachInChunk(int dim, int cx, int cz, std::function<void(GlobalPos const&, Json const&)> const& fn) {
     auto* c = chunkIfAny({dim, cx, cz});
@@ -194,6 +228,46 @@ void forEach(std::function<void(GlobalPos const&, Json const&)> const& fn) {
 void onErase(EraseListener fn) { store().listeners.push_back(std::move(fn)); }
 
 void flush() { saveDirty(); }
+
+void onWriteBack(WriteBackFn fn) { store().writeBacks.push_back(std::move(fn)); }
+
+void onPut(PutListener fn) { store().putListeners.push_back(std::move(fn)); }
+
+namespace {
+std::map<std::string, RotateFn>& rotations() {
+    static std::map<std::string, RotateFn> r;
+    return r;
+}
+} // namespace
+
+void onRotate(std::string key, RotateFn fn) { rotations()[std::move(key)] = std::move(fn); }
+
+namespace {
+std::vector<std::string>& ownedKeys() {
+    static std::vector<std::string> k;
+    return k;
+}
+} // namespace
+
+void ownCarrier(std::string key) {
+    auto& k = ownedKeys();
+    if (std::find(k.begin(), k.end(), key) == k.end()) k.push_back(std::move(key));
+}
+
+std::vector<std::string> ownCarriedKeys() { return ownedKeys(); }
+
+void rotate(Json& doc, int axis, int quarterTurns) {
+    if (!doc.is_object() || ((quarterTurns % 4) + 4) % 4 == 0) return;
+    for (auto const& [key, fn] : rotations()) {
+        auto it = doc.find(key);
+        if (it == doc.end()) continue;
+        try {
+            fn(*it, axis, quarterTurns);
+        } catch (std::exception const& e) {
+            log().error("block data rotation of '{}' failed: {}", key, e.what());
+        }
+    }
+}
 
 class BlockDataModule {
 public:

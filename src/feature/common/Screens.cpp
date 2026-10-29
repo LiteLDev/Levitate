@@ -16,6 +16,13 @@ std::unordered_map<std::string, ScreenType>& types() {
     return m;
 }
 
+/// The native server screen each companion has open (type, context): `screen.closed` is checked
+/// against it.
+std::unordered_map<std::int64_t, std::pair<std::string, Json>>& openScreens() {
+    static std::unordered_map<std::int64_t, std::pair<std::string, Json>> m;
+    return m;
+}
+
 ScreenType const* typeOf(std::string const& id) {
     auto it = types().find(id);
     return it == types().end() ? nullptr : &it->second;
@@ -46,6 +53,7 @@ bool open(Player& player, std::string const& type, Json const& context) {
     auto data = t->data ? t->data(player, context) : std::optional<Json>(Json::object());
     if (!data) return false;
     net::send(player, "screen.open", {{"type", type}, {"context", context}, {"data", *data}});
+    openScreens()[player.getOrCreateUniqueID().rawID] = {type, context};
     log().info("screen {} opened for {} (native)", type, player.getRealName());
     return true;
 }
@@ -63,7 +71,11 @@ void refresh(Player& player, std::string const& type, Json const& context) {
     if (auto const* t = typeOf(type); t && net::isCompanion(player)) sendData(player, *t, context, "screen.update");
 }
 
-void close(Player& player, std::string const& type) { net::send(player, "screen.close", {{"type", type}}); }
+void close(Player& player, std::string const& type) {
+    auto it = openScreens().find(player.getOrCreateUniqueID().rawID);
+    if (it != openScreens().end() && it->second.first == type) openScreens().erase(it);
+    net::send(player, "screen.close", {{"type", type}});
+}
 
 class ScreensModule {
 public:
@@ -79,8 +91,22 @@ public:
             if (t->action) t->action(player, context, msg.value("action", Json::object()));
             sendData(player, *t, context, "screen.update");
         });
+        net::on("screen.closed", [](Player& player, Json const& msg) {
+            // only the screen the server opened for this player, with its own context
+            auto it = openScreens().find(player.getOrCreateUniqueID().rawID);
+            if (it == openScreens().end() || it->second.first != msg.value("type", std::string{})) return;
+            auto [type, context] = std::move(it->second);
+            openScreens().erase(it);
+            auto const* t = typeOf(type);
+            if (!t) return;
+            log().info("screen {} closed by {}", t->id, player.getRealName());
+            if (t->closed) t->closed(player, context);
+        });
     }
-    void uninstall() { net::off("screen.action"); }
+    void uninstall() {
+        net::off("screen.action");
+        net::off("screen.closed");
+    }
 };
 
 } // namespace lv::feature::common::screens

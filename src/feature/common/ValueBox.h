@@ -14,6 +14,9 @@
 //         .format   = [](Block const&, core::common::ValueSettings s) { return std::to_string(...) + " RPM"; },
 //     });
 //
+// Clicks reach boxes and slots through the shared interaction dispatch (Interactions.h, priority
+// Highest), so they win over the wrench's rotate and other units' block handlers.
+//
 // - Client mod: right-click the box with the wrench or an empty hand opens the board (native
 //   screen: move the pointer along the row to pick a value, scroll for single steps, Shift+scroll
 //   for milestones, click to confirm); looking at a box shows its label and value.
@@ -56,6 +59,8 @@ struct BoxSpec {
     std::function<void(GlobalPos const&, ValueSettings, Player& editor)> set;
     /// Text of a value ("64 RPM", an option name, ...); default: the number.
     std::function<std::string(Block const&, ValueSettings)> format;
+    /// Only the wrench opens it, not an empty hand (Create's `requiresWrench()`, e.g. chassis).
+    bool requiresWrench = false;
 };
 
 void registerBox(std::string const& blockId, BoxSpec spec);

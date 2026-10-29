@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
+#include <tuple>
 #include <unordered_set>
 
 #include "ll/api/event/EventBus.h"
@@ -45,6 +47,7 @@
 
 #include "core/contraption/Collision.h"
 #include "feature/contraption/Internal.h"
+#include "feature/net/Net.h"
 #include "feature/contraption/Registries.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -278,8 +281,57 @@ public:
     std::map<Id, std::unique_ptr<Contraption>> live;
     std::unordered_set<std::int64_t>           displays;
     Id                                         nextId = 1;
+    /// Client mod sync: contraptions whose display entities changed this tick, actor visuals.
+    std::set<Id>                                                  displaysChanged;
+    std::map<std::tuple<Id, int, int, int>, json>                 visuals;
+
+    // -- client mod sync (channel "contraption.*", see client/contraption/ContraptionClient.h) --
+    json blocksMessage(Contraption const& c) const {
+        json blocks = json::array();
+        for (auto const& b : c.mBlocks)
+            if (b.display) blocks.push_back(json::array({b.display, b.local.x, b.local.y, b.local.z, b.id}));
+        json vis = json::array();
+        for (auto const& [key, v] : visuals) {
+            auto const& [id, x, y, z] = key;
+            if (id == c.mId) vis.push_back(json::array({x, y, z, v}));
+        }
+        return {
+            {"id",      c.mId                                 },
+            {"dim",     c.mDim                                },
+            {"axis",    int(c.mTransform.axis)                },
+            {"quarter", cc::quarterTurnsOf(c.mTransform.angle)},
+            {"blocks",  std::move(blocks)                     },
+            {"visuals", std::move(vis)                        },
+        };
+    }
+    static void sendToDim(int dim, std::string_view channel, json const& msg) {
+        auto level = ll::service::getLevel();
+        if (!level) return;
+        level->forEachPlayer([&](Player& p) {
+            if (static_cast<int>(p.getDimensionId()) == dim) net::send(p, channel, msg);
+            return true;
+        });
+    }
+    void syncClients() {
+        if (displaysChanged.empty()) return;
+        auto changed = std::move(displaysChanged);
+        displaysChanged.clear();
+        for (Id id : changed)
+            if (auto it = live.find(id); it != live.end()) sendToDim(it->second->mDim, "contraption.blocks", blocksMessage(*it->second));
+    }
+    void syncAllTo(Player& player) {
+        if (!net::isCompanion(player)) return;
+        net::send(player, "contraption.reset", json::object());
+        for (auto const& [id, c] : live)
+            if (c->mDim == static_cast<int>(player.getDimensionId())) net::send(player, "contraption.blocks", blocksMessage(*c));
+    }
 
     void install() {
+        static bool joinRegistered = false; // the protocol has no removal of join listeners
+        if (!joinRegistered) {
+            joinRegistered = true;
+            net::onCompanionJoined([this](Player& p) { syncAllTo(p); });
+        }
         game::db::onWorldReady([this] { loadAll(); });
         game::db::onWorldSave([this] { saveAll(); });
         game::db::onWorldClosed([this] {
@@ -444,6 +496,8 @@ public:
     void clear() {
         live.clear();
         displays.clear();
+        displaysChanged.clear();
+        visuals.clear();
     }
 
     // -- display entities --
@@ -513,6 +567,7 @@ public:
                 if (!region.hasChunksAt(game::blockPosOf(mcVec(center)), 0, false)) continue;
                 if (auto const* block = displayBlock(c, b, quarter)) {
                     b.display = spawnDisplay(region, *block, feet, c.mTransform.axis, residual);
+                    if (b.display) displaysChanged.insert(c.mId);
                 }
                 continue;
             }
@@ -602,6 +657,7 @@ public:
                 log().error("contraption #{} tick failed: {}", id, e.what());
             }
         }
+        syncClients();
     }
 
     void tickOne(Contraption& c) {
@@ -937,6 +993,9 @@ public:
         }
         log().info("contraption #{} disassembled: {} placed, {} dropped", c.mId, placed, dropped);
         game::db::erase(kDbPrefix + std::to_string(c.mId));
+        sendToDim(c.mDim, "contraption.remove", {{"id", c.mId}});
+        std::erase_if(visuals, [id = c.mId](auto const& e) { return std::get<0>(e.first) == id; });
+        displaysChanged.erase(c.mId);
         live.erase(it);
         return true;
     }
@@ -1009,6 +1068,20 @@ Contraption* find(Id id) {
 
 bool disassemble(Id id) { return Engine::get().disassemble(id); }
 
+void setActorVisual(Id id, cc::Pos const& local, nlohmann::json visual) {
+    auto& e  = Engine::get();
+    auto  it = e.live.find(id);
+    if (it == e.live.end()) return;
+    auto key = std::tuple<Id, int, int, int>{id, local.x, local.y, local.z};
+    if (visual.is_null()) e.visuals.erase(key);
+    else e.visuals[key] = visual;
+    Engine::sendToDim(
+        it->second->dimension(),
+        "contraption.visual",
+        {{"id", id}, {"local", json::array({local.x, local.y, local.z})}, {"visual", std::move(visual)}}
+    );
+}
+
 std::vector<Id> all() {
     std::vector<Id> out;
     for (auto const& [id, c] : Engine::get().live) out.push_back(id);
@@ -1080,9 +1153,26 @@ LL_TYPE_STATIC_HOOK(
     origin(entity, owner, onLand);
 }
 
+// Crash safety: display entities are never written to the world. Contraptions are saved in our
+// own DB and their displays are spawned again after a load, so a world saved while blocks were
+// moving (autosave, or the last save before a crash) holds no falling blocks that could land in a
+// world opened without Levitate. (Displays in a chunk that unloads simply vanish with it.)
+LL_TYPE_INSTANCE_HOOK(
+    DisplaySaveHook,
+    ll::memory::HookPriority::Normal,
+    ::Actor,
+    &::Actor::save,
+    bool,
+    CompoundTag& entityTag
+) {
+    if (!isClientSide() && getEntityTypeId() == ActorType::FallingBlock && detail::isDisplayActor(*this)) return false;
+    return origin(entityTag);
+}
+
 class EngineModule {
 public:
     void install() {
+        DisplaySaveHook::hook();
         DisplayTickHook::hook();
         DisplaySystemHook::hook();
         DisplayActorTickHook::hook();
@@ -1093,6 +1183,7 @@ public:
         DisplayActorTickHook::unhook();
         DisplaySystemHook::unhook();
         DisplayTickHook::unhook();
+        DisplaySaveHook::unhook();
     }
 };
 

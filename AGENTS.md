@@ -79,6 +79,33 @@ Registrations live in .cpp files linked directly into the DLL, so they are never
   `co_await ctx.ticks(n)`, `co_await ctx.ensureLoaded(pos)`, `ctx.check/require/fail/info`.
   `/create selftest` (no glob) and the server scenario `full` run every unit's tests together:
   keep them passing there.
+- **Interactions** (`feature/common/Interactions.h`): never hook `GameMode::$useItemOn / $useItem / baseUseItem /
+  $destroyBlock` (or use the LeviLamina interact / use / destroy events) for gameplay: with separate
+  hooks the first one wins. Register `interactions::onUseOn({block, item}, fn, priority)`, `onUse(item,
+  fn)`, `onDestroy({block, item}, fn)` and, for the wrench, `onWrench(blockId, fn)` (Create's
+  `onWrenched` / `onSneakWrenched` = `ctx.sneaking`). Handlers return `Pass` / `Consume` / `Deny`;
+  the first non-`Pass` by priority wins (value boxes and filter slots run at `priority::Highest`, the
+  generic wrench rotate / pick up of U8 at `priority::Fallback` for block `""`). Handlers may edit the
+  world directly (no rollback); use `ctx.firstEvent` to act once per click.
+- **Client sync** (`feature/net/Net.h`): server → client-mod data goes over the companion protocol
+  only (`net::send`, `net::onCompanionJoined` for the full state, `net::client::on`), never over
+  private `ScriptMessagePacket`s. A channel has one client handler: other units read kinetic speeds
+  with `client/kinetics/KineticsClient.h` (`syncedSpeed`, `onSync`), not channel `kinetics.sync`.
+- **Redstone input** (`feature/common/Redstone.h`): custom blocks get no neighbour updates. Read the
+  power reaching a block with `redstone::power(region, pos)` (0..15, from the game's circuit graph:
+  conducting blocks, wire, torches, repeaters/comparators facing it, levers, buttons, ...) and get
+  told about changes with `redstone::watch(pos, fn)` (polled centrally every 2 ticks) instead of
+  polling neighbours in your unit. Output (comparator signals) is U12's ComparatorCapacitor hook.
+- **Block data** (`feature/common/BlockData.h`): per-block state lives in BlockData under your unit's
+  key; contraptions carry the whole document automatically: new units register no
+  `contraption::registerDataCarrier` for it (existing unit carriers run before the generic one and
+  keep what they take; one that only copies a key declares `blockdata::ownCarrier(key)`, so it is
+  not carried twice). Direction-dependent values turn with
+  the block through `blockdata::onRotate(key, fn)`. If you cache your part elsewhere, write it back
+  in `blockdata::onWriteBack` and adopt moved data in `onPut`. On a moving contraption, write a
+  block's carried data with `Contraption::blockData(local)` / `actorData(local)` (never
+  `const_cast` `blocks()`), and send actor animation state to the client mod with
+  `contraption::setActorVisual`; client units draw actors with `client/contraption/ContraptionClient.h`.
 
 ## Build, test, run
 
@@ -127,6 +154,8 @@ Deploying by hand: copy `bin/server/Levitate` to `<BDS>/plugins/`, or `bin/clien
 - Behavior packs in `mods/<name>/behavior_packs/` are added to every world by LeviLamina; resource
   packs are added to the client's global stack. On BDS `PackDeployer` adds the RP to the world.
 - Custom blocks cannot have block entities: keep per-block state in block states + the world DB.
+- Bedrock reads a list-valued integer block state by the value's position: declare integer states
+  as `[0, 1, ..., n]` (the build fails otherwise, `tools/xmake/assemble.lua`).
 - A cancelled `PlayerInteractBlockEvent` rolls back block changes made during it: defer world edits
   to the next tick (`ll::coro` / `ServerLevelTickEvent`).
 - Don't keep `Player*` across ticks; store `getOrCreateUniqueID()` / the UUID and look it up again.

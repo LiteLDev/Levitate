@@ -9,7 +9,7 @@
 namespace lv::feature::kinetics {
 
 struct KineticsConfig {
-    int version = 1;
+    int version = 2; // 2: gantry_shaft impact 0 (as Create)
 
     // ---- CKinetics ----
     /// Disable the stress mechanic (networks never overstress).
@@ -45,7 +45,7 @@ struct KineticsConfig {
         {"rope_pulley",               4},
         {"elevator_pulley",           4},
         {"hose_pulley",               4},
-        {"gantry_shaft",              4},
+        {"gantry_shaft",              0}, // Create 6.0.10: no impact (the pinion carriage drives the gantry)
         {"turntable",                 4},
         {"mechanical_pump",           4},
         {"copper_backtank",           4},

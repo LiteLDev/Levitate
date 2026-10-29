@@ -45,7 +45,84 @@ Click $slotX $slotY -Relative
 Wait-LogLine 'filter: .* set slot 0 to minecraft:stone' 20 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'filter-set' | Out-Null
+# Shift-click the stone: straight into the next free ghost slot (1)
+$crashStart = Get-Date
+Move-Mouse $stoneX $stoneY -Relative
+Start-Sleep -Milliseconds 300
+[BsE2E.Native]::Key(0x10, $false)   # Shift down
+Start-Sleep -Milliseconds 200
+Click $stoneX $stoneY -Relative
+Start-Sleep -Milliseconds 200
+[BsE2E.Native]::Key(0x10, $true)    # Shift up
+Wait-LogLine 'filter: .* set slot 1 to minecraft:stone' 20 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 600
+Save-Screenshot 'filter-shift' | Out-Null
+Press-Key E                          # the inventory key closes our native screens
+Start-Sleep -Milliseconds 1000
+
+# The attribute filter: shift-click the stone as reference, then left-click it onto the cursor and
+# into the reference slot, then add the first attribute it offers.
+Invoke-Chat '/give @s levitate:attribute_filter 1'
+Press-Key '3'                      # hotbar slot 3: the attribute filter
+Start-Sleep -Milliseconds 600
+$mark = Get-LogMark
+Click 0.5 0.5 -Relative -Right
+$line = Wait-LogLine 'screen opened: .* panel=' 20 -Since $mark
+if ($line -notmatch 'panel=([\d.]+),([\d.]+) inv=([\d.]+),([\d.]+) gui=([\d.]+)x([\d.]+)') { throw "no layout in '$line'" }
+$px = [double]$Matches[1]; $py = [double]$Matches[2]; $ix = [double]$Matches[3]; $iy = [double]$Matches[4]
+$gw = [double]$Matches[5]; $gh = [double]$Matches[6]
+$stoneX = ($ix + 8 + 9) / $gw;  $stoneY = ($iy + 8 + 3 * 18 + 4 + 9) / $gh
+$refX   = ($px + 8 + 9) / $gw;  $refY   = ($py + 20 + 9) / $gh
+$addX   = ($px + 170 + 9) / $gw; $addY  = ($py + 20 + 9) / $gh
+Move-Mouse $stoneX $stoneY -Relative
+Start-Sleep -Milliseconds 300
+[BsE2E.Native]::Key(0x10, $false)
+Start-Sleep -Milliseconds 200
+Click $stoneX $stoneY -Relative
+Start-Sleep -Milliseconds 200
+[BsE2E.Native]::Key(0x10, $true)
+Wait-LogLine 'attribute filter: .* set the reference item to minecraft:stone' 20 -Since $mark | Out-Null
+$mark2 = Get-LogMark
+Click $stoneX $stoneY -Relative
+Start-Sleep -Milliseconds 400
+Move-Mouse $refX $refY -Relative
+Start-Sleep -Milliseconds 300
+Click $refX $refY -Relative
+Wait-LogLine 'attribute filter: .* set the reference item to minecraft:stone' 20 -Since $mark2 | Out-Null
+Start-Sleep -Milliseconds 800
+Move-Mouse $addX $addY -Relative
+Start-Sleep -Milliseconds 300
+Click $addX $addY -Relative
+Wait-LogLine 'attribute filter: .* added ' 20 -Since $mark2 | Out-Null
+Start-Sleep -Milliseconds 800
+Save-Screenshot 'attribute-filter' | Out-Null
+$mark3 = Get-LogMark
+Close-Screen                         # Esc closes native screens (and tells the server)
+Wait-LogLine 'screen common\.attribute_filter closed by' 20 -Since $mark3 | Out-Null
+
+# The text field: type into it, Enter submits; then Esc closes the screen.
+$mark = Get-LogMark
+Invoke-Chat '/create screentest'
+$line = Wait-LogLine 'screen opened: .* panel=' 20 -Since $mark
+if ($line -notmatch 'panel=([\d.]+),([\d.]+) inv=([\d.]+),([\d.]+) gui=([\d.]+)x([\d.]+)') { throw "no layout in '$line'" }
+$px = [double]$Matches[1]; $py = [double]$Matches[2]; $gw = [double]$Matches[5]; $gh = [double]$Matches[6]
+$fieldX = ($px + 8 + 80) / $gw; $fieldY = ($py + 20 + 8) / $gh
+Move-Mouse $fieldX $fieldY -Relative
+Start-Sleep -Milliseconds 300
+Click $fieldX $fieldY -Relative
+Start-Sleep -Milliseconds 400
+Type-Text 'Levitate 123'
+Start-Sleep -Milliseconds 400
+Save-Screenshot 'text-field' | Out-Null
+Press-Key ENTER
+Wait-LogLine "screen test: .* submitted 'Levitate 123'" 20 -Since $mark | Out-Null
 Close-Screen
+Wait-LogLine 'screen common\.text_test closed by' 20 -Since $mark | Out-Null
+# no crash while clicking items into the screens (the game asserts on ItemStack copies off its thread)
+$crashDir = Join-Path $script:VersionDir 'logs\crash'
+$crashes = @(Get-ChildItem $crashDir -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $crashStart })
+if ($crashes) { throw "the game wrote $($crashes.Count) crash file(s) in $crashDir while using the filter screens" }
+if (-not (Get-GameProcess)) { throw 'the game is gone after using the filter screens' }
 
 if ($script:Mode -eq 'local') {
     $r = Invoke-SelfTest 'common.*'

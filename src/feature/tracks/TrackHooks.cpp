@@ -1,20 +1,18 @@
-// Tracks unit: game hooks for using / breaking with the track item.
-//
-// GameMode is where every player action ends up (network players and SimulatedPlayers alike),
-// so the track item is handled here rather than through the LeviLamina player events.
+// Tracks unit: using / breaking with the track item, through the shared interaction dispatch
+// (feature/common/Interactions.h; GameMode is where every player action ends up, network players
+// and SimulatedPlayers alike).
 
-#include "ll/api/memory/Hook.h"
+#include <vector>
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/platform/UUID.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/common/Interactions.h"
 #include "feature/tracks/Tracks.h"
 #include "feature/tracks/TracksInternal.h"
 #include "game/Blocks.h"
@@ -22,105 +20,60 @@
 
 namespace lv::feature::tracks {
 
+namespace ia = common::interactions;
+
 namespace {
 
-bool isServerPlayer(Player const& p) { return !p.isClientSide(); }
-
 /// Where a plain right-click would put a block.
-ct::BlockPos3 placementPos(BlockSource& region, BlockPos const& clicked, uchar face) {
+ct::BlockPos3 placementPos(BlockSource& region, BlockPos const& clicked, int face) {
     if (game::replaceable(region, clicked)) return toCore(clicked);
     static int const dx[] = {0, 0, 0, 0, -1, 1}, dy[] = {-1, 1, 0, 0, 0, 0}, dz[] = {0, 0, -1, 1, 0, 0};
     ct::BlockPos3 p = toCore(clicked);
-    if (face < 6) p = p.offset(dx[face], dy[face], dz[face]);
+    if (face >= 0 && face < 6) p = p.offset(dx[face], dy[face], dz[face]);
     return p;
+}
+
+std::vector<ia::HandlerId>& handlers() {
+    static std::vector<ia::HandlerId> ids;
+    return ids;
 }
 
 } // namespace
 
-LL_TYPE_INSTANCE_HOOK(
-    TracksUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (!isServerPlayer(player) || item.isNull() || item.getTypeName() != kTrackId) {
-        return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    }
-    auto&        region  = player.getDimensionBlockSource();
-    Block const* clicked = targetBlock ? targetBlock : &region.getBlock(at);
-    if (onTrackItemUse(player, at, face, clicked)) {
-        InteractionResult r{};
-        r.mSuccess = true;
-        r.mSwing   = true;
-        player.sendInventory(false); // undo the client's predicted use
-        return r;
-    }
-    // a plain placement: remember how the player looked for the shape (Create's getStateForPlacement)
-    PlaceIntent intent;
-    Vec3        look = player.getViewVector();
-    intent.look      = {look.x, look.y, look.z};
-    intent.yaw       = player.getRotation().y;
-    intent.uuid      = player.getUuid().asString();
-    state().placeIntents[{int(player.getDimensionId()), placementPos(region, at, face)}] = intent;
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-}
-
-LL_TYPE_INSTANCE_HOOK(
-    TracksUseItemHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItem,
-    bool,
-    ItemStack& item,
-    HandSlot   handSlot
-) {
-    Player& player = mPlayer;
-    if (isServerPlayer(player) && !item.isNull() && item.getTypeName() == kTrackId && player.isSneaking()
-        && state().selections.contains(player.getUuid().asString())) {
-        clearSelection(player); // Create: sneak-use in the air clears the selection
-        return true;
-    }
-    return origin(item, handSlot);
-}
-
-LL_TYPE_INSTANCE_HOOK(
-    TracksDestroyBlockHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$destroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face
-) {
-    Player& player = mPlayer;
-    if (isServerPlayer(player)) {
-        auto key = std::pair{int(player.getDimensionId()), toCore(pos)};
-        state().playerBroke.insert(key);
-        if (player.isCreative()) state().noDrops.insert(key);
-    }
-    return origin(pos, face);
-}
-
 void installHooks() {
-    TracksUseItemOnHook::hook();
-    TracksUseItemHook::hook();
-    TracksDestroyBlockHook::hook();
+    auto& ids = handlers();
+    ids.push_back(ia::onUseOn({.item = std::string(kTrackId)}, [](ia::UseOnContext const& c) {
+        Player&  player = c.player;
+        BlockPos at     = game::blockPos(c.pos);
+        if (onTrackItemUse(player, at, c.face, &c.block)) return ia::Result::Consume;
+        // a plain placement: remember how the player looked for the shape (Create's getStateForPlacement)
+        PlaceIntent intent;
+        Vec3        look = player.getViewVector();
+        intent.look      = {look.x, look.y, look.z};
+        intent.yaw       = player.getRotation().y;
+        intent.uuid      = player.getUuid().asString();
+        state().placeIntents[{c.pos.dim, placementPos(player.getDimensionBlockSource(), at, c.face)}] = intent;
+        return ia::Result::Pass;
+    }));
+    ids.push_back(ia::onUse(std::string(kTrackId), [](ia::UseContext const& c) {
+        if (c.sneaking && state().selections.contains(c.player.getUuid().asString())) {
+            clearSelection(c.player); // Create: sneak-use in the air clears the selection
+            return ia::Result::Consume;
+        }
+        return ia::Result::Pass;
+    }));
+    // every block a player breaks (the track block handler needs to know who broke it)
+    ids.push_back(ia::onDestroy({}, [](ia::DestroyContext const& c) {
+        auto key = std::pair{c.pos.dim, toCore(game::blockPos(c.pos))};
+        state().playerBroke.insert(key);
+        if (c.player.isCreative()) state().noDrops.insert(key);
+        return ia::Result::Pass;
+    }, ia::priority::Highest + 1)); // observes only: before anything that could keep the block
 }
 
 void uninstallHooks() {
-    TracksDestroyBlockHook::unhook();
-    TracksUseItemHook::unhook();
-    TracksUseItemOnHook::unhook();
+    for (auto id : handlers()) ia::remove(id);
+    handlers().clear();
 }
 
 } // namespace lv::feature::tracks
-
