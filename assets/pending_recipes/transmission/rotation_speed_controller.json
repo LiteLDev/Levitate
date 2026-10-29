@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:rotation_speed_controller"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "B",
+      "C"
+    ],
+    "key": {
+      "B": {
+        "item": "levitate:precision_mechanism"
+      },
+      "C": {
+        "item": "levitate:brass_casing"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:precision_mechanism"
+      }
+    ],
+    "result": {
+      "item": "levitate:rotation_speed_controller",
+      "count": 1
+    }
+  }
+}

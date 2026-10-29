@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:vertical_gearbox",
+      "menu_category": {
+        "category": "construction"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_vertical_gearbox",
+      "minecraft:block_placer": {
+        "block": "levitate:gearbox"
+      },
+      "minecraft:display_name": {
+        "value": "item.levitate:vertical_gearbox.name"
+      }
+    }
+  }
+}
