@@ -321,7 +321,7 @@ public:
             {"id",      c.mId                                 },
             {"dim",     c.mDim                                },
             {"axis",    int(c.mTransform.axis)                },
-            {"quarter", cc::quarterTurnsOf(c.mTransform.angle)},
+            {"quarter", c.mDisplayQuarter                         },
             {"transform", transformJson(c.mTransform)         },
             {"blocks",  std::move(blocks)                     },
             {"visuals", std::move(vis)                        },
@@ -614,10 +614,15 @@ public:
     }
 
     void syncDisplays(Contraption& c, BlockSource& region) {
-        int    quarter  = cc::quarterTurnsOf(c.mTransform.angle);
-        double residual = c.mTransform.angle - quarter * 90.0;
-        bool   requart  = quarter != c.mDisplayQuarter;
-        c.mDisplayQuarter = quarter;
+        // The displays show the block turned by mDisplayQuarter; the rest of the angle is their
+        // own turn. Vanilla clients draw blocks axis-aligned, so while one watches, every display
+        // is spawned again at each new nearest quarter turn. Clients with the mod turn the blocks
+        // by any angle: without vanilla viewers the displays stay (no churn every 90 degrees).
+        int  quarter = cc::quarterTurnsOf(c.mTransform.angle);
+        bool requart = quarter != c.mDisplayQuarter && vanillaDims.contains(c.mDim);
+        if (requart) c.mDisplayQuarter = quarter;
+        quarter         = c.mDisplayQuarter;
+        double residual = std::remainder(c.mTransform.angle - quarter * 90.0, 360.0);
         for (auto& b : c.mBlocks) {
             cc::Vec3d center = c.mTransform.toWorld(cc::Vec3d::center(b.local));
             cc::Vec3d feet   = center - cc::Vec3d{0, 0.5, 0};

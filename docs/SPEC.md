@@ -923,11 +923,13 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   never apply the movement the server sends for a falling block that isn't falling (it stays where
   it was spawned), so (U34): companions get each changed transform once per tick
   (`contraption.motion` `{"m": [[id, axis, angle, tx, ty, tz, px, py, pz], ...]}`, world =
-  t + p + R(local − p); `contraption.blocks` carries the transform too); the client mod consumes one
-  per client tick (`core/contraption/Motion.h`), moves every display entity there with the previous
+  t + p + R(local − p); `contraption.blocks` carries the transform too); the client mod takes the newest
+  at each client tick (`core/contraption/Motion.h`), moves every display entity there with the previous
   place as its old position, and draws each block at the frame's partial tick, turned by the exact
   interpolated angle about its center (Create's approach: the client interpolates the
-  contraption's motion). While a player without the client mod is in the dimension, a display that
+  contraption's motion; without vanilla viewers the displays keep the quarter turn they were
+  spawned with and the client mod turns them by the rest, so they aren't spawned again every 90
+  degrees). While a player without the client mod is in the dimension, a display that
   moved away from where it was spawned is spawned again at its place (from half a block away, at
   most every 4 ticks per block, and once more where it comes to rest), so vanilla clients see the
   structure move in steps. Display entities are never written to the world

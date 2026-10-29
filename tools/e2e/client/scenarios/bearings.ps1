@@ -4,15 +4,15 @@
 #   remote-vanilla:     a client without the mod sees the blocks move as falling-block displays.
 # Screenshots: out/bearings/{built,turning-a,turning-b,rails,placed}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
-# Two pictures of a moving contraption must differ around the screen centre (below the chat
-# lines): the structure moves on the client (U34).
-function Assert-ContraptionMoved([string]$a, [string]$b, [string]$what) {
+# Two pictures of a moving contraption must differ in a region of the screen (by default right of
+# the chat lines, above the hotbar): the structure moves on the client (U34).
+function Assert-ContraptionMoved([string]$a, [string]$b, [string]$what, [double]$x0 = 0.42, [double]$x1 = 0.85, [double]$y0 = 0.05, [double]$y1 = 0.85) {
     Add-Type -AssemblyName System.Drawing
     $ia = [System.Drawing.Bitmap]::new($a); $ib = [System.Drawing.Bitmap]::new($b)
     try {
         $changed = 0; $total = 0
-        for ($x = [int]($ia.Width * 0.3); $x -lt [int]($ia.Width * 0.7); $x += 8) {
-            for ($y = [int]($ia.Height * 0.32); $y -lt [int]($ia.Height * 0.85); $y += 8) {
+        for ($x = [int]($ia.Width * $x0); $x -lt [int]($ia.Width * $x1); $x += 8) {
+            for ($y = [int]($ia.Height * $y0); $y -lt [int]($ia.Height * $y1); $y += 8) {
                 $p = $ia.GetPixel($x, $y); $q = $ib.GetPixel($x, $y); $total++
                 if ([Math]::Abs($p.R - $q.R) + [Math]::Abs($p.G - $q.G) + [Math]::Abs($p.B - $q.B) -gt 60) { $changed++ }
             }
@@ -67,7 +67,7 @@ Save-Screenshot 'placed' | Out-Null
 # a minecart contraption (U21): a powered controller rail sends a cart east over a powered cart
 # assembler, which puts the plank above it on the cart; the cart rolls on along the rails
 Invoke-Chat '/tp @s ~ ~ ~ facing ~8 ~ ~-8'
-Invoke-Chat '/setblock ~4 ~ ~-8 levitate:controller_rail ["levitate:rail_axis"=1,"levitate:backwards"=1]'
+Invoke-Chat '/setblock ~4 ~ ~-8 levitate:controller_rail ["levitate:rail_axis"=1,"levitate:backwards"=1,"levitate:power"=15]'
 Invoke-Chat '/setblock ~4 ~ ~-9 redstone_block'
 Invoke-Chat '/setblock ~5 ~ ~-8 levitate:cart_assembler ["levitate:rail_axis"=1,"levitate:rail_type"=0,"levitate:powered"=1]'
 Invoke-Chat '/setblock ~5 ~ ~-9 redstone_block'
@@ -76,6 +76,8 @@ Invoke-Chat '/fill ~6 ~ ~-8 ~18 ~ ~-8 rail ["rail_direction"=1]'
 Start-Sleep -Seconds 1
 $mark = Get-LogMark
 Invoke-Chat '/summon minecart ~4.5 ~ ~-7.5'
+Start-Sleep -Milliseconds 300
+Save-Screenshot 'cart-summoned' | Out-Null
 Wait-LogLine 'cart assembler at .* assembled contraption #\d+ on minecart' 30 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 300
 $a = Save-Screenshot 'cart-moving'

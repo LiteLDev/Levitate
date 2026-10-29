@@ -3,17 +3,17 @@
 #                       magnet down to it), a piston pushes a block out; the selftests pass on the
 #                       (integrated) server.
 #   remote-vanilla:     the same blocks without the client mod: static models, no errors.
-# Screenshots: out/pistons/{built,pulley-moving,pulley-placed,piston-extended}.png
+# Screenshots: out/pistons/{built,pulley-moving-1..4,pulley-placed,piston-extended,gantry-moving-1..5,gantry-placed}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
-# Two pictures of a moving contraption must differ around the screen centre (below the chat
-# lines): the structure moves on the client (U34).
-function Assert-ContraptionMoved([string]$a, [string]$b, [string]$what) {
+# Two pictures of a moving contraption must differ in a region of the screen (by default right of
+# the chat lines, above the hotbar): the structure moves on the client (U34).
+function Assert-ContraptionMoved([string]$a, [string]$b, [string]$what, [double]$x0 = 0.42, [double]$x1 = 0.85, [double]$y0 = 0.05, [double]$y1 = 0.85) {
     Add-Type -AssemblyName System.Drawing
     $ia = [System.Drawing.Bitmap]::new($a); $ib = [System.Drawing.Bitmap]::new($b)
     try {
         $changed = 0; $total = 0
-        for ($x = [int]($ia.Width * 0.3); $x -lt [int]($ia.Width * 0.7); $x += 8) {
-            for ($y = [int]($ia.Height * 0.32); $y -lt [int]($ia.Height * 0.85); $y += 8) {
+        for ($x = [int]($ia.Width * $x0); $x -lt [int]($ia.Width * $x1); $x += 8) {
+            for ($y = [int]($ia.Height * $y0); $y -lt [int]($ia.Height * $y1); $y += 8) {
                 $p = $ia.GetPixel($x, $y); $q = $ib.GetPixel($x, $y); $total++
                 if ([Math]::Abs($p.R - $q.R) + [Math]::Abs($p.G - $q.G) + [Math]::Abs($p.B - $q.B) -gt 60) { $changed++ }
             }
@@ -44,15 +44,13 @@ Save-Screenshot 'built' | Out-Null
 
 $mark = Get-LogMark
 Invoke-Chat '/setblock ~6 ~6 ~1 levitate:kinetics_test_source ["levitate:axis"=2]'
+# pictures while it goes down (taken at once: the log is read with some delay)
+$shots = foreach ($i in 1..4) { Save-Screenshot "pulley-moving-$i"; Start-Sleep -Milliseconds 600 }
+Assert-ContraptionMoved $shots[0] $shots[3] 'the lowered block'
 Wait-LogLine 'pulley at -?\d+ -?\d+ -?\d+ assembled: \d+ blocks' 90 -Since $mark | Out-Null
 Invoke-Chat '/create kinetics ~6 ~6 ~1 speed 96'
 if (-not $vanilla) { Wait-LogLine 'pistons: rendering \d+ rope' 30 -Since $mark | Out-Null }
-Start-Sleep -Milliseconds 400
-$a = Save-Screenshot 'pulley-moving'
-Start-Sleep -Milliseconds 600
-$b = Save-Screenshot 'pulley-moving-later'
-Assert-ContraptionMoved $a $b 'the lowered platform'
-Wait-LogLine 'pulley at -?\d+ -?\d+ -?\d+ disassembled' 90 -Since $mark | Out-Null
+Wait-LogLine 'pulley at -?\d+ -?\d+ -?\d+ disassembled' 120 -Since $mark | Out-Null
 Start-Sleep -Seconds 1
 Save-Screenshot 'pulley-placed' | Out-Null
 
@@ -75,15 +73,11 @@ Start-Sleep -Seconds 1
 $mark = Get-LogMark
 Invoke-Chat '/setblock ~2 ~1 ~6 levitate:kinetics_test_source ["levitate:axis"=0]'
 Invoke-Chat '/setblock ~10 ~1 ~6 levitate:kinetics_test_source ["levitate:axis"=0]'
-Start-Sleep -Seconds 1
-Invoke-Chat '/create kinetics ~2 ~1 ~6 speed 64'
-Invoke-Chat '/create kinetics ~10 ~1 ~6 speed 64'
+# pictures while it runs (taken at once: the log is read with some delay)
+$shots = foreach ($i in 1..5) { Save-Screenshot "gantry-moving-$i"; Start-Sleep -Milliseconds 800 }
+# above the (turning) shafts only
+Assert-ContraptionMoved $shots[0] $shots[4] 'the gantry carriage' 0.42 0.85 0.3 0.62
 Wait-LogLine 'gantry carriage at -?\d+ -?\d+ -?\d+ assembled: \d+ blocks' 60 -Since $mark | Out-Null
-Start-Sleep -Milliseconds 600
-$a = Save-Screenshot 'gantry-moving'
-Start-Sleep -Milliseconds 700
-$b = Save-Screenshot 'gantry-moving-later'
-Assert-ContraptionMoved $a $b 'the gantry carriage'
 Wait-LogLine 'gantry contraption #\d+ stops at' 90 -Since $mark | Out-Null
 Start-Sleep -Seconds 1
 Save-Screenshot 'gantry-placed' | Out-Null

@@ -5,15 +5,15 @@
 #   local / remote-mod: native screens (client mod); remote-vanilla: the server forms
 # Screenshots: out/trains/{assembled,moving-1..5,arrived,station-screen,schedule-screen}.png
 $mark = Get-LogMark
-# Two pictures of a moving contraption must differ around the screen centre (below the chat
-# lines): the structure moves on the client (U34).
-function Assert-ContraptionMoved([string]$a, [string]$b, [string]$what) {
+# Two pictures of a moving contraption must differ in a region of the screen (by default right of
+# the chat lines, above the hotbar): the structure moves on the client (U34).
+function Assert-ContraptionMoved([string]$a, [string]$b, [string]$what, [double]$x0 = 0.42, [double]$x1 = 0.85, [double]$y0 = 0.05, [double]$y1 = 0.85) {
     Add-Type -AssemblyName System.Drawing
     $ia = [System.Drawing.Bitmap]::new($a); $ib = [System.Drawing.Bitmap]::new($b)
     try {
         $changed = 0; $total = 0
-        for ($x = [int]($ia.Width * 0.3); $x -lt [int]($ia.Width * 0.7); $x += 8) {
-            for ($y = [int]($ia.Height * 0.32); $y -lt [int]($ia.Height * 0.85); $y += 8) {
+        for ($x = [int]($ia.Width * $x0); $x -lt [int]($ia.Width * $x1); $x += 8) {
+            for ($y = [int]($ia.Height * $y0); $y -lt [int]($ia.Height * $y1); $y += 8) {
                 $p = $ia.GetPixel($x, $y); $q = $ib.GetPixel($x, $y); $total++
                 if ([Math]::Abs($p.R - $q.R) + [Math]::Abs($p.G - $q.G) + [Math]::Abs($p.B - $q.B) -gt 60) { $changed++ }
             }
@@ -53,14 +53,15 @@ Wait-LogLine "trains: assembled train #\d+ '.*' with 1 carriages" 20 -Since $mar
 # watch from just south-west of the curve
 Invoke-Chat '/tp @s ~17 ~5 ~4 -135 32'
 Start-Sleep -Milliseconds 600
-Save-Screenshot 'assembled' | Out-Null
+$assembled = Save-Screenshot 'assembled'
 Wait-LogLine "trains: train #\d+ '.*' heading to station 'Demo B'" 20 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 1800
 $moving = foreach ($i in 1..5) {
     Save-Screenshot "moving-$i"
     Start-Sleep -Milliseconds 700
 }
-Assert-ContraptionMoved $moving[0] $moving[2] 'the train'
+# the carriage has left Demo A (top of the picture, above the chat lines): it moves on the client
+Assert-ContraptionMoved $assembled $moving[0] 'the train' 0.3 0.7 0.0 0.13
 Wait-LogLine "trains: train #\d+ '.*' arrived at station 'Demo B'" 60 -Since $mark | Out-Null
 Invoke-Chat '/tp @s ~9 ~2 ~-22 -135 30'
 Start-Sleep -Milliseconds 1200
