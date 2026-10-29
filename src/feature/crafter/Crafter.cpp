@@ -1,5 +1,5 @@
 // Mechanical crafter (Create 6.0.10's MechanicalCrafterBlock / MechanicalCrafterBlockEntity /
-// RecipeGridHandler / ConnectedInputHandler), see docs/SPEC.md §3.6 "Crafting tools (U16)".
+// RecipeGridHandler / ConnectedInputHandler), see docs/SPEC.md §3.6.16.
 //
 // Per-crafter state (phase, countdown, slot, grouped items, cover, connected input) lives in
 // BlockData["crafter"]; the in-memory copy is the working state. Block states: levitate:facing

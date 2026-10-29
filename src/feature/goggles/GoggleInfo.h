@@ -1,6 +1,6 @@
 #pragma once
 
-// Goggle overlay contract (U8, docs/SPEC.md §3.6): what a block shows next to the crosshair
+// Goggle overlay contract (U8, docs/SPEC.md §3.6.8): what a block shows next to the crosshair
 // (client mod) or in the action bar (vanilla clients) while a player looks at it. Create's
 // IHaveGoggleInformation (only with Engineer's Goggles on), IHaveHoveringInformation (always),
 // IHaveCustomOverlayIcon and IProxyHoveringInformation, plus the speed/stress text helpers of

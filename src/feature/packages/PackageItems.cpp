@@ -1,4 +1,4 @@
-// Cardboard packages and the package filter (SPEC §2.21, §3.6.1): item data, lore, opening,
+// Cardboard packages and the package filter (SPEC §2.21, §3.6.25): item data, lore, opening,
 // throwing and the address form.
 
 #include <algorithm>

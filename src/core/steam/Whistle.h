@@ -1,6 +1,6 @@
 #pragma once
 
-// Steam whistles (U18, SPEC §3.6.1): Create 6.0.10's WhistleBlock / WhistleBlockEntity /
+// Steam whistles (U18, SPEC §3.6.18): Create 6.0.10's WhistleBlock / WhistleBlockEntity /
 // WhistleExtenderBlock numbers, independent of the game.
 
 #include <functional>

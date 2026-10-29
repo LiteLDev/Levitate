@@ -1,4 +1,4 @@
-// Creative crate (Create's CreativeCrateBlockEntity / BottomlessItemHandler, SPEC §3.6 U12):
+// Creative crate (Create's CreativeCrateBlockEntity / BottomlessItemHandler, SPEC §3.6.12):
 // an endless supply of the item in its filter slot; whatever is inserted is voided.
 
 #include <algorithm>

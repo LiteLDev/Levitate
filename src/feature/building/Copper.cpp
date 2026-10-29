@@ -3,7 +3,7 @@
 //
 // Custom Bedrock blocks get no random ticks, so the unit keeps the positions of its unwaxed,
 // not fully oxidized copper blocks (saved with the world) and gives each one the game's random
-// tick rate: `randomTickSpeed` ticks per 16x16x16 section per game tick (SPEC §3.6.1, §8).
+// tick rate: `randomTickSpeed` ticks per 16x16x16 section per game tick (SPEC §3.6.10, §8).
 
 #include <random>
 #include <set>

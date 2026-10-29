@@ -1,6 +1,6 @@
 #pragma once
 
-// Boiler maths (U18, SPEC §3.6.1): Create 6.0.10's BoilerData, BoilerHeaters and the steam
+// Boiler maths (U18, SPEC §3.6.18): Create 6.0.10's BoilerData, BoilerHeaters and the steam
 // engine / powered shaft numbers, independent of the game.
 //
 // A fluid tank becomes a boiler when steam engines or whistles are attached to it. Its level
