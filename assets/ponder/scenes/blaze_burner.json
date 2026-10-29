@@ -1,0 +1,40 @@
+{
+  "id": "blaze_burner",
+  "size": [7, 5],
+  "blocks": [
+    {"at": [3, 1, 2], "id": "levitate:blaze_burner", "states": {"levitate:blaze": 1}},
+    {"at": [3, 2, 2], "id": "levitate:basin"},
+    {"at": [5, 1, 2], "id": "levitate:deployer", "states": {"levitate:facing": 4, "levitate:axis_along_first": 0}},
+    {"at": [5, 1, 3], "id": "levitate:creative_motor", "states": {"levitate:facing": 2}}
+  ],
+  "timeline": [
+    {"show": "base", "from": "up"},
+    {"idle": 15},
+    {"show": [3, 1, 2], "from": "down"},
+    {"idle": 10},
+    {"show": [3, 2, 2], "from": "down"},
+    {"idle": 10},
+    {"text": 1, "at": [3.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"input": [3.5, 1.5, 2.5], "action": "right", "item": "minecraft:oak_planks", "ticks": 40, "keyframe": true},
+    {"idle": 20},
+    {"modify": [3, 1, 2], "states": {"levitate:blaze": 3}},
+    {"text": 2, "at": [3.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"input": [3.5, 1.5, 2.5], "action": "right", "item": "levitate:blaze_cake", "ticks": 40, "keyframe": true},
+    {"idle": 20},
+    {"modify": [3, 1, 2], "states": {"levitate:blaze": 4}},
+    {"outline": [3, 1, 2], "color": "fast", "ticks": 70},
+    {"text": 3, "at": [3.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"show": [5, 1, 2], "from": "west"},
+    {"idle": 5},
+    {"show": [5, 1, 3], "from": "north"},
+    {"idle": 10},
+    {"rotate": [[5, 1, 2], [5, 1, 3]], "rpm": 16},
+    {"idle": 10},
+    {"item": "minecraft:coal", "at": [4.6, 1.5, 2.5], "to": [3.6, 1.5, 2.5], "ticks": 20},
+    {"text": 4, "at": [5.5, 1.5, 2.5], "ticks": 80, "keyframe": true},
+    {"idle": 90}
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "id": "belt_casing",
+  "size": [5, 5],
+  "blocks": [
+    {"at": [0, 1, 1], "id": "levitate:creative_motor", "states": {"levitate:facing": 3}},
+    {"at": [0, 1, 2], "id": "levitate:belt", "states": {"levitate:part": 0, "levitate:facing": 3, "levitate:slope": 0}},
+    {"area": [[1, 1, 2], [3, 1, 2]], "id": "levitate:belt", "states": {"levitate:part": 1, "levitate:facing": 3, "levitate:slope": 0}},
+    {"at": [4, 1, 2], "id": "levitate:belt", "states": {"levitate:part": 2, "levitate:facing": 3, "levitate:slope": 0}}
+  ],
+  "timeline": [
+    {"show": "base", "from": "up"},
+    {"idle": 10},
+    {"show": [0, 1, 1], "from": "down"},
+    {"idle": 5},
+    {"show": [[0, 1, 2], [4, 1, 2]], "from": "down"},
+    {"idle": 10},
+    {"rotate": [[0, 1, 1], [4, 1, 2]], "rpm": 16},
+    {"idle": 15},
+    {"input": [1.5, 1.8, 2.5], "action": "right", "item": "levitate:andesite_casing", "ticks": 30},
+    {"idle": 10},
+    {"modify": [[0, 1, 2], [2, 1, 2]], "states": {"levitate:casing": 1}},
+    {"idle": 15},
+    {"input": [3.5, 1.8, 2.5], "action": "right", "item": "levitate:brass_casing", "ticks": 30},
+    {"idle": 10},
+    {"modify": [[3, 1, 2], [4, 1, 2]], "states": {"levitate:casing": 2}},
+    {"idle": 10},
+    {"text": 1, "at": [2.5, 1.5, 3.0], "ticks": 80, "keyframe": true},
+    {"idle": 90},
+    {"input": [3.5, 1.8, 2.5], "action": "right", "item": "levitate:wrench", "ticks": 30, "keyframe": true},
+    {"idle": 10},
+    {"modify": [[3, 1, 2], [4, 1, 2]], "states": {"levitate:casing": 0}},
+    {"idle": 10},
+    {"text": 2, "at": [3.5, 1.8, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80}
+  ]
+}

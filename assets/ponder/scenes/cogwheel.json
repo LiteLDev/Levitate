@@ -1,0 +1,40 @@
+{
+  "id": "cogwheel",
+  "size": [5, 5],
+  "blocks": [
+    {"at": [1, 1, 4], "id": "levitate:creative_motor", "states": {"levitate:facing": 2}},
+    {"at": [1, 1, 3], "id": "levitate:shaft", "states": {"levitate:axis": 2}},
+    {"area": [[1, 1, 2], [3, 1, 2]], "id": "levitate:cogwheel", "states": {"levitate:axis": 2}},
+    {"area": [[1, 1, 1], [2, 1, 1]], "id": "levitate:shaft", "states": {"levitate:axis": 2}},
+    {"area": [[1, 1, 0], [2, 1, 0]], "id": "levitate:speedometer", "states": {"levitate:axis": 2, "levitate:facing": 1}}
+  ],
+  "timeline": [
+    {"show": "base", "from": "up"},
+    {"idle": 10},
+    {"show": [[1, 1, 3], [1, 1, 4]], "from": "down"},
+    {"idle": 10},
+    {"show": [1, 1, 2], "from": "down"},
+    {"idle": 5},
+    {"show": [2, 1, 2], "from": "down"},
+    {"idle": 5},
+    {"show": [3, 1, 2], "from": "down"},
+    {"idle": 5},
+    {"rotate": [[1, 1, 2], [1, 1, 4]], "rpm": 16},
+    {"rotate": [2, 1, 2], "rpm": -16},
+    {"rotate": [3, 1, 2], "rpm": 16},
+    {"idle": 10},
+    {"text": 1, "at": [2.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"show": [[1, 1, 1], [2, 1, 1]], "from": "south"},
+    {"idle": 5},
+    {"show": [[1, 1, 0], [2, 1, 0]], "from": "south"},
+    {"idle": 10},
+    {"rotate": [[1, 1, 0], [1, 1, 1]], "rpm": 16},
+    {"rotate": [[2, 1, 0], [2, 1, 1]], "rpm": -16},
+    {"idle": 10},
+    {"outline": [[1, 1, 0], [1, 1, 1]], "color": "blue", "ticks": 90},
+    {"outline": [[2, 1, 0], [2, 1, 1]], "color": "red", "ticks": 90},
+    {"text": 2, "at": [2.0, 1.5, 1.5], "ticks": 90, "keyframe": true},
+    {"idle": 100}
+  ]
+}
