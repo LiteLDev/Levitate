@@ -1,0 +1,16 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:steam_whistle"
+    },
+    "tags": ["crafting_table"],
+    "pattern": ["P", "C"],
+    "key": {
+      "P": { "item": "levitate:golden_sheet" },
+      "C": { "item": "minecraft:copper_ingot" }
+    },
+    "unlock": [{ "item": "levitate:golden_sheet" }],
+    "result": { "item": "levitate:steam_whistle" }
+  }
+}
