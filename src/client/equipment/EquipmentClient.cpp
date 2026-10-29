@@ -515,9 +515,12 @@ public:
                     auto& r = radial();
                     if (ev.isDown() && !r.keyDown) {
                         r.keyDown = true;
+                        if (current() || !net::client::connected())
+                            log().info("equipment: toolbox key ignored (screen open: {}, connected: {})", current() != nullptr, net::client::connected());
                         if (!current() && inLevel() && net::client::connected() && !r.requested) {
                             r.requested = true;
                             net::client::send("equipment.toolbox.radial", Json::object());
+                            log().info("equipment: toolbox radial menu requested");
                         }
                     } else if (!ev.isDown() && r.keyDown) {
                         r.keyDown = false;

@@ -7,6 +7,9 @@
 #              symmetry-screen,cannon-shot,diving-gear}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 
+# native screens close with the inventory key (the framework pops its host scene itself)
+function Close-Native { if ($vanilla) { Close-Screen } else { Press-Key E; Start-Sleep -Milliseconds 800 } }
+
 function Hold-Key([int]$vk, [scriptblock]$body) {
     Assert-GameForeground
     [BsE2E.Native]::Key([uint16]$vk, $false)
@@ -44,24 +47,32 @@ Start-Sleep -Milliseconds 900
 Save-Screenshot 'toolbox-screen' | Out-Null
 if (-not $vanilla) {
     # put the torches and the cobblestone in (click their hotbar slots in the screen's inventory)
-    Click 0.3225 0.885 -Relative
+    Click 0.367 0.792 -Relative
     Start-Sleep -Milliseconds 400
-    Click 0.3675 0.885 -Relative
+    Click 0.402 0.792 -Relative
     Start-Sleep -Milliseconds 600
     Save-Screenshot 'toolbox-filled' | Out-Null
 }
-Close-Screen
+Close-Native
+Start-Sleep -Milliseconds 500
+Save-Screenshot 'toolbox-closed' | Out-Null
 
 if (-not $vanilla) {
     # hold Left Alt: the radial menu of the nearby toolboxes; release over the first entry
     $mark = Get-LogMark
     Hold-Key 0x12 {
         Wait-LogLine 'equipment: toolbox radial menu opened' 15 -Since $mark | Out-Null
-        Start-Sleep -Milliseconds 700
+        Start-Sleep -Milliseconds 500
+        # point at the top entry (compartment 0, the torches: 62 GUI px above the centre)
+        $gui = Wait-LogLine 'screen opened: .* gui=' 10 -Since $mark
+        $gh = if ($gui -match 'gui=[\d.]+x([\d.]+)') { [double]$Matches[1] } else { 300 }
+        Move-Mouse 0.5 (0.5 - 62 / $gh) -Relative
+        Start-Sleep -Milliseconds 500
         Save-Screenshot 'radial' | Out-Null
     }
-    Start-Sleep -Milliseconds 500
-    Close-Screen
+    Wait-LogLine 'equipment: .* equipped minecraft:torch from the toolbox' 15 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 600
+    Save-Screenshot 'radial-equipped' | Out-Null
 } else {
     Invoke-Chat '/create toolbox'
     Start-Sleep -Milliseconds 900
@@ -71,15 +82,17 @@ if (-not $vanilla) {
 
 # worldshaper: sneak + right-click opens its screen
 Invoke-Chat '/clear @s'
-Invoke-Chat '/give @s levitate:handheld_worldshaper'
+Invoke-Chat '/replaceitem entity @s slot.hotbar 1 levitate:handheld_worldshaper'
+Press-Key '2'                      # slot 0 is linked to the toolbox (torches)
 Start-Sleep -Milliseconds 500
 Hold-Key 0x10 { Click 0.5 0.5 -Relative -Right; Start-Sleep -Milliseconds 900 }
 Save-Screenshot 'worldshaper-screen' | Out-Null
-Close-Screen
+Close-Native
 
 # wand of symmetry: right-click a block places the mirror, sneak + right-click opens the screen
 Invoke-Chat '/clear @s'
-Invoke-Chat '/give @s levitate:wand_of_symmetry'
+Invoke-Chat '/replaceitem entity @s slot.hotbar 1 levitate:wand_of_symmetry'
+Press-Key '2'                      # slot 0 is linked to the toolbox (torches)
 Start-Sleep -Milliseconds 500
 $mark = Get-LogMark
 Invoke-Chat '/tp @s ~ ~ ~ -90 60'
@@ -88,12 +101,13 @@ Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'equipment: .* placed a symmetry mirror at ' 15 -Since $mark | Out-Null
 Hold-Key 0x10 { Click 0.5 0.5 -Relative -Right; Start-Sleep -Milliseconds 900 }
 Save-Screenshot 'symmetry-screen' | Out-Null
-Close-Screen
+Close-Native
 
 # potato cannon: a shot at the ground
 Invoke-Chat '/clear @s'
-Invoke-Chat '/give @s levitate:potato_cannon'
+Invoke-Chat '/replaceitem entity @s slot.hotbar 1 levitate:potato_cannon'
 Invoke-Chat '/give @s potato 16'
+Press-Key '2'                      # slot 0 is linked to the toolbox (torches)
 Invoke-Chat '/gamemode survival'
 Start-Sleep -Milliseconds 600
 $mark = Get-LogMark

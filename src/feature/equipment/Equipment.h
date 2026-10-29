@@ -106,6 +106,8 @@ void setMotion(Actor& a, double x, double y, double z);
 [[nodiscard]] std::uint64_t currentTick();
 /// Runs `fn` at the start of the next tick (world edits out of events).
 void defer(std::function<void()> fn);
+/// True when a screen was opened for the player in the last 10 ticks (repeated use packets).
+[[nodiscard]] bool screenDebounced(Player& player);
 void runDeferred();
 void clearDeferred();
 

@@ -259,7 +259,7 @@ bool wandUseOn(Player& player, ItemStack& wand, GlobalPos const& clicked, int fa
 bool wandUse(Player& player, ItemStack& wand) {
     int slot = player.getSelectedItemSlot();
     if (player.isSneaking()) {
-        common::screens::open(player, kScreen, {{"slot", slot}});
+        if (!screenDebounced(player)) common::screens::open(player, kScreen, {{"slot", slot}});
         return true;
     }
     if (cooling(player)) return true;

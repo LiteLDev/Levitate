@@ -1,5 +1,6 @@
 // World helpers of the equipment unit: blocks, sounds, particles, messages, items, deferred edits.
 
+#include <map>
 #include <random>
 
 #include "ll/api/service/Bedrock.h"
@@ -184,6 +185,16 @@ double random01() {
 std::uint64_t currentTick() { return gTick; }
 
 void defer(std::function<void()> fn) { deferred().push_back(std::move(fn)); }
+
+bool screenDebounced(Player& player) {
+    static std::map<std::int64_t, std::uint64_t> last;
+    auto  uid = uidOf(player);
+    auto  now = gTick + 1;
+    auto  it  = last.find(uid);
+    if (it != last.end() && now - it->second < 10) return true;
+    last[uid] = now;
+    return false;
+}
 
 void runDeferred() {
     ++gTick;

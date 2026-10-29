@@ -48,12 +48,15 @@ InteractionResult handled() {
 }
 
 /// Bedrock repeats use packets while the button is held: one action per click (4 ticks).
-bool repeated(Player& player, bool isFirstEvent) {
-    static std::map<std::int64_t, std::uint64_t> last;
+bool repeated(Player& player, BlockPos const& at, bool isFirstEvent) {
+    // (the client may also send the same click twice in one tick, both marked as first events)
+    // the second packet may even arrive a tick later: 4 ticks per block and player
+    static std::map<std::int64_t, std::pair<BlockPos, std::uint64_t>> last;
     auto  uid  = uidOf(player);
-    auto& t    = last[uid];
-    bool  skip = !isFirstEvent && currentTick() - t < 4;
-    if (!skip) t = currentTick();
+    auto  it   = last.find(uid);
+    auto  now  = currentTick() + 1; // 0 = never
+    bool  skip = it != last.end() && now - it->second.second < 4 && (!isFirstEvent || it->second.first == at);
+    if (!skip) last[uid] = {at, now};
     return skip;
 }
 
@@ -123,7 +126,7 @@ LL_TYPE_INSTANCE_HOOK(
              || held == kWand || held == kWorldshaper || held == kPotatoCannon || held == kLinkedController || held == kTreeFertilizer || isPaper(held);
     // sneaking with a block item against our blocks places the block (Create's sneak pass-through)
     if (ours && !(player.isSneaking() && (isToolbox(tid) || isBacktank(tid)) && game::blockWith(held))) {
-        if (repeated(player, isFirstEvent)) {
+        if (repeated(player, at, isFirstEvent)) {
             InteractionResult r{};
             r.mSuccess = true;
             return r;

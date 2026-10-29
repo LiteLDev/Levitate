@@ -412,6 +412,7 @@ std::vector<GlobalPos> nearbyToolboxes(Player& player) {
 }
 
 void openToolbox(Player& player, GlobalPos const& pos) {
+    if (screenDebounced(player)) return;
     if (!common::screens::open(player, kScreen, {{"pos", {pos.dim, pos.x, pos.y, pos.z}}})) return;
     // Create: iron door + chest open sounds
     sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "open.iron_door", .25f, 1.2f + float(random01()) * .1f);

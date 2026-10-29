@@ -287,7 +287,7 @@ bool shaperSelect(Player& player, ItemStack& shaper, GlobalPos const& pos) {
 bool shaperUse(Player& player, ItemStack& shaper) {
     int slot = player.getSelectedItemSlot();
     if (player.isSneaking()) {
-        if (cooling(player, 10)) return true;
+        if (cooling(player, 10) || screenDebounced(player)) return true;
         common::screens::open(player, kScreen, {{"slot", slot}});
         return true;
     }

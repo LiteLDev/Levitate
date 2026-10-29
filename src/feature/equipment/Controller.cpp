@@ -300,7 +300,7 @@ bool controllerUse(Player& player, ItemStack& held) {
     (void)held;
     int slot = player.getSelectedItemSlot();
     if (player.isSneaking() && items::idOf(player.getSelectedItem()) == kLinkedController) {
-        common::screens::open(player, kScreen, {{"slot", slot}});
+        if (!screenDebounced(player)) common::screens::open(player, kScreen, {{"slot", slot}});
         return true;
     }
     setActive(player, !controllerActive(player), std::nullopt);
