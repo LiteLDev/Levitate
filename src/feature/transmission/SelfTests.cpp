@@ -195,8 +195,9 @@ LV_REGISTER_SELFTEST("transmission.gauges", [](Context& ctx) -> ll::coro::CoroTa
     a.put(a.at(1), kSpeedometer, {{kFacing, 2}, {kAlongFirst, 1}}); // facing north, axis x
     a.put(a.at(2), kStressometer, {{kFacing, 3}, {kAlongFirst, 1}}); // facing south, axis x
     a.put(a.at(3), kConsumer, {{kAxis, X}});                          // 4 SU/RPM of 8
-    // a comparator reading the stressometer (output pointing away from it, north)
-    a.put(a.at(2, 0, -1), "minecraft:unpowered_comparator", {{"minecraft:cardinal_direction", 2}});
+    // a comparator north of the stressometer reading it: Bedrock's cardinal direction names the
+    // input side (index 0 = south; south, west, north, east)
+    a.put(a.at(2, 0, -1), "minecraft:unpowered_comparator", {{"minecraft:cardinal_direction", 0}});
     co_await ctx.ticks(4);
     ctx.check(kinetics::speedAt(a.at(3)) == 16, "gauges pass the rotation, got " + speed(a.at(3)));
     float speedDial = dialTarget(a.at(1));

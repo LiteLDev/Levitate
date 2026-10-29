@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <optional>
+#include <variant>
 #include <vector>
 
 #include "ll/api/event/EventBus.h"
@@ -12,7 +13,9 @@
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorHurtResult.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/gamemode/GameMode.h"
 #include "mc/world/gamemode/InteractionResult.h"
@@ -54,6 +57,8 @@ struct Registry {
     std::vector<std::function<void()>> deferred;
     HandlerId                          next    = 0;
     int                                inUseOn = 0; ///< depth of the use-on hook (UseContext::onBlock)
+    int                                inUse    = 0; ///< depth of GameMode::useItem (baseUseItem below it)
+    int                                inAttack = 0; ///< depth of GameMode::attack (Player::attack below it)
 };
 Registry& registry() {
     static Registry r;
@@ -328,12 +333,37 @@ LL_TYPE_INSTANCE_HOOK(
     HandSlot         handSlot
 ) {
     Player& player = mPlayer;
-    if (!isServerPlayer(player) || registry().use.empty()) return origin(item, handSlot);
+    if (registry().inUse > 0 || !isServerPlayer(player) || registry().use.empty()) return origin(item, handSlot);
     std::string itemId = idOf(item);
     auto        r      = dispatchUse(UseContext{player, item, itemId, player.isSneaking(), registry().inUseOn > 0});
     if (r == Result::Pass) return origin(item, handSlot);
     player.sendInventory(false);
     return r == Result::Consume;
+}
+
+// GameMode::useItem: not every item use reaches baseUseItem (SimulatedPlayer::simulateUseItem and
+// items with their own use go through here only); dispatched once, baseUseItem below skips it.
+LL_TYPE_INSTANCE_HOOK(
+    InteractionsUseItemVirtualHook,
+    ll::memory::HookPriority::Normal,
+    GameMode,
+    &GameMode::$useItem,
+    bool,
+    ItemStack& item,
+    HandSlot   handSlot
+) {
+    Player& player = mPlayer;
+    if (registry().inUse > 0 || !isServerPlayer(player) || registry().use.empty()) return origin(item, handSlot);
+    std::string itemId = idOf(item);
+    auto        r      = dispatchUse(UseContext{player, item, itemId, player.isSneaking(), registry().inUseOn > 0});
+    if (r != Result::Pass) {
+        player.sendInventory(false);
+        return r == Result::Consume;
+    }
+    ++registry().inUse;
+    bool ok = origin(item, handSlot);
+    --registry().inUse;
+    return ok;
 }
 
 LL_TYPE_INSTANCE_HOOK(
@@ -427,9 +457,40 @@ LL_TYPE_INSTANCE_HOOK(
     EntityContext ctx{player, item, itemId, entity, entityId, vecOf(hitPosition), player.isSneaking()};
     auto          r = registry().attack.empty() ? Result::Pass : dispatchAttack(ctx);
     if (r != Result::Pass) return r == Result::Consume;
+    ++registry().inAttack;
     bool ok = origin(entity, hitPosition);
+    --registry().inAttack;
     notify(registry().attacked, entityId, itemId, ctx, ok, "attacked");
     return ok;
+}
+
+// SimulatedPlayer::simulateAttack calls Player::attack directly (not through GameMode::attack):
+// the same dispatch for those calls.
+LL_TYPE_INSTANCE_HOOK(
+    InteractionsPlayerAttackHook,
+    ll::memory::HookPriority::Normal,
+    Player,
+    &Player::$attack,
+    ActorHurtResult,
+    Actor&                                       entity,
+    SharedTypes::Legacy::ActorDamageCause const& cause
+) {
+    if (registry().inAttack > 0 || !isServerPlayer(*this) || (registry().attack.empty() && registry().attacked.empty()))
+        return origin(entity, cause);
+    auto const&   item     = getSelectedItem();
+    std::string   itemId   = idOf(item);
+    std::string   entityId = entity.getTypeName();
+    EntityContext ctx{*this, item, itemId, entity, entityId, vecOf(entity.getPosition()), isSneaking()};
+    auto          r = registry().attack.empty() ? Result::Pass : dispatchAttack(ctx);
+    if (r != Result::Pass) {
+        ActorHurtResult res{};
+        res.mHurtOrDamage         = std::variant<bool, float>(r == Result::Consume);
+        res.mShouldAllowKnockback = false;
+        return res;
+    }
+    auto res = origin(entity, cause);
+    notify(registry().attacked, entityId, itemId, ctx, static_cast<bool>(res), "attacked");
+    return res;
 }
 
 class InteractionsModule {
@@ -437,10 +498,12 @@ public:
     void install() {
         InteractionsUseItemOnHook::hook();
         InteractionsUseItemHook::hook();
+        InteractionsUseItemVirtualHook::hook();
         InteractionsDestroyBlockHook::hook();
         InteractionsStartDestroyHook::hook();
         InteractionsInteractHook::hook();
         InteractionsAttackHook::hook();
+        InteractionsPlayerAttackHook::hook();
         mTick = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { runDeferred(); });
         static bool registered = false;
         if (!registered) {
@@ -450,10 +513,12 @@ public:
     }
     void uninstall() {
         ll::event::EventBus::getInstance().removeListener(mTick);
+        InteractionsPlayerAttackHook::unhook();
         InteractionsAttackHook::unhook();
         InteractionsInteractHook::unhook();
         InteractionsStartDestroyHook::unhook();
         InteractionsDestroyBlockHook::unhook();
+        InteractionsUseItemVirtualHook::unhook();
         InteractionsUseItemHook::unhook();
         InteractionsUseItemOnHook::unhook();
     }

@@ -173,6 +173,16 @@ namespace detail {
 void installHooks() {
     auto& ids = handlerIds();
     ids.push_back(ia::onUseOn({}, useOnHandler, ia::priority::High));
+    // Create: on a valve handle only the wrench edits the angle box; any other click turns the
+    // valve, so it goes before U3's value boxes (priority::Highest)
+    ids.push_back(ia::onUseOn(
+        {},
+        [](ia::UseOnContext const& c) {
+            if (kindOf(c.block) != Kind::Valve || c.itemId == kWrench) return ia::Result::Pass;
+            return useOnHandler(c);
+        },
+        ia::priority::Highest + 1
+    ));
     ids.push_back(ia::onPlace({}, placeHandler));
     ids.push_back(ia::onDestroy({}, [](ia::DestroyContext const& c) {
         if (c.player.isCreative()) noteCreativeBreak(c.pos);

@@ -39,7 +39,7 @@ Invoke-Chat '/setblock 3 -60 5 levitate:belt ["levitate:facing"=3,"levitate:part
 Invoke-Chat '/fill 4 -60 5 6 -60 5 levitate:belt ["levitate:facing"=3,"levitate:part"=1]'
 Invoke-Chat '/setblock 7 -60 5 levitate:belt ["levitate:facing"=3,"levitate:part"=2]'
 Start-Sleep -Seconds 1
-Invoke-Chat '/tp @s 5.5 -60 3.5 facing 5.5 -59.9 5.2'
+Invoke-Chat '/tp @s 5.5 -60 4.5 0 60'   # south, steeply down: the crosshair is on the belt at 5 -60 5
 Start-Sleep -Milliseconds 800
 Press-Key '2'
 Start-Sleep -Milliseconds 500
