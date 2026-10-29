@@ -1,0 +1,35 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:contraption_controls_from_spruce_button"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "B",
+      "C",
+      "I"
+    ],
+    "key": {
+      "B": {
+        "item": "minecraft:spruce_button"
+      },
+      "C": {
+        "item": "levitate:andesite_casing"
+      },
+      "I": {
+        "item": "levitate:electron_tube"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:contraption_controls"
+    }
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "levitate_redstone_link": {
+    "textures": "textures/blocks/redstone_link"
+  },
+  "levitate_analog_lever": {
+    "textures": "textures/blocks/analog_lever"
+  },
+  "levitate_pulse_repeater": {
+    "textures": "textures/blocks/pulse_repeater"
+  },
+  "levitate_pulse_extender": {
+    "textures": "textures/blocks/pulse_extender"
+  },
+  "levitate_pulse_timer": {
+    "textures": "textures/blocks/pulse_timer"
+  },
+  "levitate_powered_latch": {
+    "textures": "textures/blocks/powered_latch"
+  },
+  "levitate_powered_toggle_latch": {
+    "textures": "textures/blocks/powered_toggle_latch"
+  },
+  "levitate_content_observer_front": {
+    "textures": "textures/blocks/content_observer_front"
+  },
+  "levitate_content_observer_front_powered": {
+    "textures": "textures/blocks/content_observer_front_powered"
+  },
+  "levitate_content_observer_back": {
+    "textures": "textures/blocks/content_observer_back"
+  },
+  "levitate_content_observer_side": {
+    "textures": "textures/blocks/content_observer_side"
+  },
+  "levitate_content_observer_top": {
+    "textures": "textures/blocks/content_observer_top"
+  },
+  "levitate_stockpile_switch_front": {
+    "textures": "textures/blocks/stockpile_switch_front"
+  },
+  "levitate_stockpile_switch_side": {
+    "textures": "textures/blocks/stockpile_switch_side"
+  },
+  "levitate_stockpile_switch_top": {
+    "textures": "textures/blocks/stockpile_switch_top"
+  },
+  "levitate_stockpile_switch_back_0_off": {
+    "textures": "textures/blocks/stockpile_switch_back_0_off"
+  },
+  "levitate_stockpile_switch_back_0_on": {
+    "textures": "textures/blocks/stockpile_switch_back_0_on"
+  },
+  "levitate_stockpile_switch_back_1_off": {
+    "textures": "textures/blocks/stockpile_switch_back_1_off"
+  },
+  "levitate_stockpile_switch_back_1_on": {
+    "textures": "textures/blocks/stockpile_switch_back_1_on"
+  },
+  "levitate_stockpile_switch_back_2_off": {
+    "textures": "textures/blocks/stockpile_switch_back_2_off"
+  },
+  "levitate_stockpile_switch_back_2_on": {
+    "textures": "textures/blocks/stockpile_switch_back_2_on"
+  },
+  "levitate_stockpile_switch_back_3_off": {
+    "textures": "textures/blocks/stockpile_switch_back_3_off"
+  },
+  "levitate_stockpile_switch_back_3_on": {
+    "textures": "textures/blocks/stockpile_switch_back_3_on"
+  },
+  "levitate_stockpile_switch_back_4_off": {
+    "textures": "textures/blocks/stockpile_switch_back_4_off"
+  },
+  "levitate_stockpile_switch_back_4_on": {
+    "textures": "textures/blocks/stockpile_switch_back_4_on"
+  },
+  "levitate_stockpile_switch_back_5_off": {
+    "textures": "textures/blocks/stockpile_switch_back_5_off"
+  },
+  "levitate_stockpile_switch_back_5_on": {
+    "textures": "textures/blocks/stockpile_switch_back_5_on"
+  },
+  "levitate_redstone_contact_front": {
+    "textures": "textures/blocks/redstone_contact_front"
+  },
+  "levitate_redstone_contact_front_powered": {
+    "textures": "textures/blocks/redstone_contact_front_powered"
+  },
+  "levitate_redstone_contact_back": {
+    "textures": "textures/blocks/redstone_contact_back"
+  },
+  "levitate_redstone_contact_side": {
+    "textures": "textures/blocks/redstone_contact_side"
+  }
+}

@@ -472,7 +472,20 @@ yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, bla
 ### 2.19 Redstone (U23)
 
 `redstone_link`, `analog_lever`, `pulse_repeater`, `pulse_extender`, `pulse_timer`, `powered_latch`,
-`powered_toggle_latch`, `smart_observer`, `threshold_switch`, `redstone_contact`.
+`powered_toggle_latch`, `content_observer` (Smart Observer), `stockpile_switch` (Threshold Switch),
+`redstone_contact`. Create 6.0.10 registers the smart observer and the threshold switch under their
+old paths `content_observer` / `stockpile_switch`, so those are our ids. Every block drops itself.
+Behaviour, states and numbers: §3.6.23.
+
+Recipes (Create 6.0.10, `c:stones` = stone, `c:rods/wooden` = stick): powered latch = redstone
+torch / redstone, lever, redstone / 3 stone; powered toggle latch = redstone torch / lever / 3
+stone (both in the BP). Waiting for U9/U10 items in `assets/pending_recipes/redstone/`: analog
+lever = stick / andesite casing; pulse repeater = redstone, brass sheet, redstone torch / 3 stone;
+pulse extender = _, redstone torch / redstone, brass sheet, redstone torch / 3 stone; pulse timer =
+amethyst shard, brass sheet, redstone torch / 3 stone; redstone contact ×2 = iron sheet / cobble,
+redstone, cobble / 3 cobble; redstone link ×2 = transmitter / andesite casing; smart observer =
+electron tube / brass casing / observer; threshold switch = electron tube / brass casing /
+comparator.
 
 ### 2.20 Display (U24)
 
@@ -1010,6 +1023,80 @@ Actors:
   controls and seats on a contraption can be used without an item.
 - Config `config/actors.json`, log lines `actors: ...` (harvested / broke / tilled / paved,
   psi connected / disconnected / holds, controls toggled, seat sat down / dyed).
+#### 3.6.23 Redstone (U23)
+
+Checked against Create 6.0.10 (RedstoneLinkBlock/BlockEntity, LinkBehaviour, LinkHandler,
+RedstoneLinkNetworkHandler, AnalogLeverBlock/BlockEntity, BrassDiodeBlock/BlockEntity,
+Pulse{Repeater,Extender,Timer}BlockEntity, PoweredLatchBlock, ToggleLatchBlock, SmartObserverBlock/
+BlockEntity, ThresholdSwitchBlock/BlockEntity/Screen, RedstoneContactBlock, ContactMovementBehaviour,
+CLogistics). Code: `src/core/redstone/` (state machines, link networks; gtest),
+`src/feature/redstone/` (world adapter), `src/client/redstone/` (screen, hover panel).
+
+**Redstone on Bedrock.** Outputs are native: every permutation of our blocks carries
+`minecraft:redstone_producer` with its power (`connected_faces` / `strongly_powered_face` per
+state), so vanilla dust, repeaters, lamps, pistons read them through the game's circuit system
+with no polling (the link receiver and the analog lever emit analog 0..15 via a `levitate:power`
+state). Inputs are read from the game's own circuit components around the block once per game
+tick (wire = transporter strength, lever / button / redstone block / our producers = producer,
+torch = capacitor unless it hangs on the block, repeater / comparator = capacitor only when its
+circuit direction faces the block, powered solid block = powered block); that tick is also
+Create's block-entity tick. `redstone::signalFrom(region, pos, face)` / `bestNeighborSignal`
+(`feature/redstone/Redstone.h`) expose this reader to other units. Blocks are tracked while
+loaded (`lv:redstone:blocks`); settings live in BlockData `data["redstone"]`.
+
+- **Redstone link** (`levitate:facing` 0..5 FacingID = clicked face, `receiver`, `powered`,
+  `power` 0..15): needs a non-replaceable block behind it (pops off otherwise). Two frequency
+  slots on the front (Create's slot centres: upward link (8, 3.01, 10.5) first / (8, 3.01, 5.5)
+  second px, sideways links first above, scale .4975): right-click with any item (not the wrench
+  or a linked controller, not sneaking) copies it (count 1, never consumed), an empty hand clears;
+  a click in the overlap sets both, as Create; item-frame sound (.25, .1). Sneak + empty hand or
+  the wrench toggles transmitter / receiver (frequencies kept). Transmitter: strength = max of
+  the signal from every side plus undirected wires / powered blocks on every side but the
+  attached one (Create's getPower), shown as `powered`. Networks (Create's handler): same
+  dimension, same pair of frequencies (item + dye colour), evaluated around the node that
+  changed: power = strongest transmitter within `linkRange` (distSqr < 256²) of it, every
+  receiver within range of it receives that power; receivers emit it weakly on all sides and
+  strongly into the block they hang on. Contract for other units: `feature/redstone/RedstoneLink.h`
+  (`link::add/remove/setTransmit/setKey/setListening/move/received/powerAt/anyPower/keyOf`).
+- **Analog lever** (`face` floor / wall / ceiling, `facing`, `state` handle 0..15, `power`):
+  right-click +1, sneak + empty hand −1 (sneak with an item: nothing), click sound pitch
+  `.25 + (state + 5) / 15 · .5`, red dust while on. The output (and neighbours) follow the handle
+  15 ticks after the last change (Create's lastChange). Strong power into the attached block.
+  Goggles show "Analog Strength: n/15" (client mod hover).
+- **Pulse repeater / extender / timer** (`facing` = back / input side, `powered` = input,
+  `powering`, `inverted`): the input follows the back signal with vanilla diode scheduling
+  (2 ticks). Delay value box on top (8, 2.6, 8): Create's board Ticks / Seconds / Minutes ×
+  0..60 (milestone 10), stored 2..72000 ticks, default 2 (timer 20), labels `5t` / `0:07` /
+  `3:00`. Repeater: one 2-tick pulse starting delay − 1 ticks after a rising edge, re-armed when
+  input and output are off. Extender: on while powered, then `delay` ticks more. Timer: counts
+  while unpowered, a pulse (delay 2: every other tick) per period, held at 0 while powered.
+  Output 15 into the front (strong) when `powering` xor `inverted`; right-click (not sneaking,
+  not the wrench) toggles `inverted` (lever click .3, pitch .6 / .5).
+- **Powered latch** (`powered`, `powered_side`, `powering`): back sets, either side resets, 1-tick
+  scheduling; a click toggles the output only when both inputs agree. **Powered toggle latch**:
+  each rising back edge toggles; a click toggles. Output 15 to the front.
+- **Smart observer** (`facing`, `target` wall / floor / ceiling, `powered`): placed facing an
+  inventory / tank around it (else away from the player, sneaking: towards). Filter slot on the
+  back and top (Create's FilteredDetectorFilterSlot). Every tick: the observed block itself
+  matching a non-empty filter → on for 3 ticks; an inventory (U3 item capability) with an item
+  passing the filter, or a tank with a passing fluid → on for 6 ticks. Funnels (U12) call
+  `observer::onFunnelTransfer` → 4-tick pulse. Emits 15 weakly on every side but the target.
+- **Threshold switch** (`facing`, `target`, `level` 0..5, `powered`): every 10 ticks measures the
+  target: items (slots × max stack size, filtered count), tanks (capacity, filtered mB) or a
+  registered observable (`threshold::registerObservable`); on at or above `onAbove` (default
+  128), off at or below `offBelow` (64); the output follows 2 ticks later (inverted if set).
+  Right-click (any item but the wrench, not sneak+item) opens the screen: native (Create's
+  layout: ≥ / ≤ scroll inputs in items, stacks of 64 or buckets of 1000 mB, item measure, invert
+  button, target with "Currently"/range tooltip) for the client mod, a form for vanilla players.
+- **Redstone contact** (`facing` 0..5, `powered`): placed facing away from the player (sneaking
+  or a facing contact on the clicked block: towards the clicked block); powered while a contact
+  (or U20's elevator contact) faces it; emits 15 weakly except into its front. On a contraption
+  (U4 actor) it powers the world contact it passes (active area .65 blocks in front, not on the
+  first movement) until it moves on / stops.
+
+Config `config/redstone.json`: `linkRange` (256). Log lines: one per player action (placement,
+mode toggle, frequency change, lever change, inversion, latch click, threshold settings, a
+contact powered by a contraption); circuit-driven state changes are not logged.
 
 #### 3.6.16 Crafting tools (U16)
 
@@ -2720,7 +2807,7 @@ Each screen: native (client mod) + form fallback (vanilla). Owner unit in bracke
 | Station (name, assemble/disassemble, door control) | right-click station | U27 |
 | Crafting blueprint | right-click | U29 |
 | Ponder | W over item (client mod) | U30 |
-| Threshold switch / smart observer bounds | right-click | U23 |
+| Threshold switch (`redstone.threshold_switch`; the smart observer has only a filter slot) | right-click | U23 |
 
 ## 5. Configuration
 
@@ -2769,6 +2856,7 @@ keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlock
 `config/actors.json` (U22): `harvestPartiallyGrown` false, `harvesterReplants` true,
 `moveItemsToStorage` true, `rollerFillDepth` 12 (Create's CKinetics), `psiTimeout` 60,
 `seatHostileMobs` true (Create's CLogistics).
+`config/redstone.json` (U23): `linkRange` 256 (Create's CLogistics `linkRange`).
 `config/crafter.json` (U16, Create's CRecipes / CKinetics keys and defaults):
 `allowRegularCraftingInCrafter` (true), `maxFireworkIngredientsInCrafter` (9),
 `allowStonecuttingOnSaw` (true), `bulkCutting` (false), `moveItemsToStorage` (true).
@@ -2868,6 +2956,11 @@ matches Create's official Chinese translation wording).
 | Right-clicking contraption blocks with an empty hand into the air on **vanilla** clients (U22) | a vanilla client sends nothing for an empty-hand click into the air, and display entities can't be clicked | with an item in hand, or with a world block behind, the server casts the look itself; the client mod sends the click |
 | Seat dyeing recipe (seat + dye) (U22) | Bedrock recipes can't use an item tag of our seats | dye a placed seat with a right-click (as Create) |
 | Riders sitting on moving contraption seats (U22) | the engine (U4) carries riders by teleporting them | they stand on the seat while it moves and sit down again on the placed seat |
+| Redstone *input* callbacks for custom blocks (U23) | data-driven blocks can't be circuit capacitors (one circuit component per position: a block that outputs can't also consume) and get no neighbour-signal callback natively | outputs are native `minecraft:redstone_producer` permutations (no polling); inputs are read from the game's circuit components around each loaded block once per tick, which is also Create's block-entity tick, so latency matches Create's scheduled ticks |
+| Redstone link frequency items rendered on the block (U23) | no world-space item rendering (see filter slots above) | client mod: hovering a link shows its mode and both frequency items (icons + names) next to the crosshair; vanilla: action-bar message when a slot is set |
+| Diode value box "short click toggles, hold opens the board" (U23) | see value box row above | clicking the box opens the board; clicking elsewhere on the diode (or with any item but the wrench) toggles inverted |
+| Vanilla repeater / comparator facing in the input reader (U23) | a repeater set by a command keeps an unpowered circuit, so the selftests can't build one; the circuit direction is the game's legacy 2D direction | read from the circuit component (`getDirection`, 2D → face); covered by vanilla play, not by a selftest |
+| Item / block icons of the redstone link: Create draws the upward link | block item icons use the default permutation (facing 0 = down) | `minecraft:item_visual` with the upward geometry |
 | Redstone input of the mechanical crafter (U16) | custom blocks get no redstone neighbour update | the crafter polls the power of its neighbours every tick (same sources as the sticker) |
 | Crafter items on the crafter's face (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it, and the client mod's attempt (the GUI item renderer in the world's block entity pass) draws nothing visible yet | every client sees the blocks, the crit particles, the sounds and the result popping out; the client mod already tracks the animation state, a world-space item renderer is still to be done |
 | Saw output only into blocks with Create's DirectBeltInputBehaviour (U16) | the item capability doesn't say whether a block takes "direct belt input" | the saw (and its belt neighbours) hands its items to Levitate blocks with an item handler except vaults; vanilla containers next to a saw are skipped as in Create |
