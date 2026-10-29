@@ -238,6 +238,57 @@ std::optional<std::string> gunzip(std::string_view data, std::size_t maxOutput) 
     return out;
 }
 
+std::string base64Encode(std::string_view data) {
+    static constexpr char kAlphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string           out;
+    out.reserve((data.size() + 2) / 3 * 4);
+    for (std::size_t i = 0; i < data.size(); i += 3) {
+        std::uint32_t n = static_cast<std::uint8_t>(data[i]) << 16;
+        if (i + 1 < data.size()) n |= static_cast<std::uint8_t>(data[i + 1]) << 8;
+        if (i + 2 < data.size()) n |= static_cast<std::uint8_t>(data[i + 2]);
+        out.push_back(kAlphabet[(n >> 18) & 63]);
+        out.push_back(kAlphabet[(n >> 12) & 63]);
+        out.push_back(i + 1 < data.size() ? kAlphabet[(n >> 6) & 63] : '=');
+        out.push_back(i + 2 < data.size() ? kAlphabet[n & 63] : '=');
+    }
+    return out;
+}
+
+std::optional<std::string> base64Decode(std::string_view text) {
+    auto value = [](char c) -> int {
+        if (c >= 'A' && c <= 'Z') return c - 'A';
+        if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+        if (c >= '0' && c <= '9') return c - '0' + 52;
+        if (c == '+') return 62;
+        if (c == '/') return 63;
+        return -1;
+    };
+    if (text.size() % 4 != 0) return std::nullopt;
+    std::string out;
+    out.reserve(text.size() / 4 * 3);
+    for (std::size_t i = 0; i < text.size(); i += 4) {
+        int v[4];
+        int pad = 0;
+        for (int k = 0; k < 4; ++k) {
+            char c = text[i + static_cast<std::size_t>(k)];
+            if (c == '=' && i + 4 == text.size() && k >= 2) {
+                v[k] = 0;
+                ++pad;
+                continue;
+            }
+            if (pad) return std::nullopt;
+            v[k] = value(c);
+            if (v[k] < 0) return std::nullopt;
+        }
+        std::uint32_t n = (static_cast<std::uint32_t>(v[0]) << 18) | (static_cast<std::uint32_t>(v[1]) << 12) | (static_cast<std::uint32_t>(v[2]) << 6)
+                        | static_cast<std::uint32_t>(v[3]);
+        out.push_back(static_cast<char>((n >> 16) & 0xFF));
+        if (pad < 2) out.push_back(static_cast<char>((n >> 8) & 0xFF));
+        if (pad < 1) out.push_back(static_cast<char>(n & 0xFF));
+    }
+    return out;
+}
+
 std::string gzipStored(std::string_view data) {
     std::string out{'\x1f', '\x8b', '\x08', '\0', '\0', '\0', '\0', '\0', '\0', '\xff'};
     std::size_t pos = 0;

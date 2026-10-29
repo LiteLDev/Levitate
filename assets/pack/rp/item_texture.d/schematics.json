@@ -1,0 +1,14 @@
+{
+  "levitate_empty_schematic": {
+    "textures": "textures/items/empty_schematic"
+  },
+  "levitate_schematic": {
+    "textures": "textures/items/schematic"
+  },
+  "levitate_schematic_and_quill": {
+    "textures": "textures/items/schematic_and_quill"
+  },
+  "levitate_crafting_blueprint": {
+    "textures": "textures/items/crafting_blueprint"
+  }
+}

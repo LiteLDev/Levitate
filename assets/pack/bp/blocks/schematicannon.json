@@ -1,0 +1,67 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:schematicannon",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.schematicannon"
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_schematicannon_base",
+          "render_method": "alpha_test"
+        },
+        "body": {
+          "texture": "levitate_schematicannon_body",
+          "render_method": "alpha_test"
+        },
+        "base": {
+          "texture": "levitate_schematicannon_base",
+          "render_method": "alpha_test"
+        },
+        "barrel": {
+          "texture": "levitate_schematicannon_barrel",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6.0
+      },
+      "minecraft:map_color": "#7d7f7a",
+      "minecraft:light_dampening": 0,
+      "minecraft:collision_box": {
+        "size": [
+          16,
+          16,
+          16
+        ],
+        "origin": [
+          -8,
+          0,
+          -8
+        ]
+      },
+      "minecraft:selection_box": {
+        "size": [
+          16,
+          16,
+          16
+        ],
+        "origin": [
+          -8,
+          0,
+          -8
+        ]
+      },
+      "minecraft:loot": "loot_tables/blocks/schematicannon.json"
+    }
+  }
+}

@@ -22,4 +22,8 @@ namespace lv::core::schematics {
 [[nodiscard]] std::string gzipStored(std::string_view data);
 [[nodiscard]] std::uint32_t crc32(std::string_view data);
 
+/// Base64 (RFC 4648, with padding) for file chunks in JSON messages.
+[[nodiscard]] std::string                base64Encode(std::string_view data);
+[[nodiscard]] std::optional<std::string> base64Decode(std::string_view text);
+
 } // namespace lv::core::schematics

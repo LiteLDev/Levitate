@@ -138,6 +138,17 @@ TEST(SchematicsInflate, StoredRoundTripAndLimits) {
     EXPECT_EQ(crc32("123456789"), 0xCBF43926u);
 }
 
+TEST(SchematicsInflate, Base64) {
+    EXPECT_EQ(base64Encode("Man"), "TWFu");
+    EXPECT_EQ(base64Encode("Ma"), "TWE=");
+    EXPECT_EQ(base64Encode("M"), "TQ==");
+    std::string bin;
+    for (int i = 0; i < 256; ++i) bin.push_back(static_cast<char>(i));
+    EXPECT_EQ(*base64Decode(base64Encode(bin)), bin);
+    EXPECT_FALSE(base64Decode("TQ=a"));
+    EXPECT_FALSE(base64Decode("abc"));
+}
+
 // ---- files ----------------------------------------------------------------------------------------
 
 TEST(SchematicsFiles, McstructureRoundTrip) {
