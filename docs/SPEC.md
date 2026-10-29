@@ -801,9 +801,11 @@ them, whatever placed them).
   contraption moves it).
 - Sounds: Create's crafter_click = wooden button click (.25) + trapdoor open (.125); crafter_craft
   = item break (.5, pitch .75) (Bedrock names `random.click`, `random.door_open`, `random.break`).
-- Client mod: the slot item on the front (half a block), the grouped grid spread over the front
-  half a block apart, sliding one block along the arrow while exporting, the result growing while
-  crafting. Vanilla clients see the blocks and the particles only (§8).
+- Client mod: receives every crafter's state (`crafter.state`) and lays out Create's animation
+  (slot item on the front, the grouped grid half a block apart, sliding one block along the arrow
+  while exporting, the result growing while crafting); the item icons are drawn with the game's
+  GUI item renderer in the block entity pass, which does not show them yet (§8). Every client sees
+  the crit particles, the sounds and the result popping out.
 
 **Mechanical saw.**
 - *Placing* (DirectionalAxisKineticBlock): faces the player (sneaking: away); vertical saws take
@@ -1676,7 +1678,7 @@ matches Create's official Chinese translation wording).
 | Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
 | Redstone input of the mechanical crafter (U16) | custom blocks get no redstone neighbour update | the crafter polls the power of its neighbours every tick (same sources as the sticker) |
-| Crafter items for **vanilla** clients (U16) | Create renders the slot / grid items on the crafter's face client-side | the client mod draws them; vanilla clients see the blocks, the crit particles and the result popping out |
+| Crafter items on the crafter's face (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it, and the client mod's attempt (the GUI item renderer in the world's block entity pass) draws nothing visible yet | every client sees the blocks, the crit particles, the sounds and the result popping out; the client mod already tracks the animation state, a world-space item renderer is still to be done |
 | Saw output only into blocks with Create's DirectBeltInputBehaviour (U16) | the item capability doesn't say whether a block takes "direct belt input" | the saw (and its belt neighbours) hands its items to Levitate blocks with an item handler except vaults; vanilla containers next to a saw are skipped as in Create |
 | Sequenced assembly steps on the saw (U16) | the sequenced assembly state belongs to U15 | the saw cuts plain `cutting` recipes; U15 adds the sequenced cutting step |
 | Block break sounds of the drill / saw per block sound type (U16) | the server can't name a block's hit sound for a PlaySound packet | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone` by the block id |

@@ -183,7 +183,7 @@ void renderCrafterItems(BaseActorRenderContext& ctx) {
     }
     if (!state().loggedDraw) {
         state().loggedDraw = true;
-        log().info("crafter client: drawing items of {} crafters", todo.size());
+        log().info("crafter client: laying out the items of {} crafters", todo.size());
     }
 }
 
