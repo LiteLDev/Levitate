@@ -277,9 +277,11 @@ std::optional<Result> onWrenchUse(Player& player, BlockPos const& at, int face, 
 
 } // namespace
 
+// Low priority: the units' own block interactions (which may use the wrench, e.g. a deployer's mode)
+// run first and fall through to the generic wrench.
 LL_TYPE_INSTANCE_HOOK(
     WrenchUseItemOnHook,
-    ll::memory::HookPriority::Normal,
+    ll::memory::HookPriority::Low,
     GameMode,
     &GameMode::$useItemOn,
     InteractionResult,

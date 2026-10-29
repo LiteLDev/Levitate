@@ -1,0 +1,98 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:mechanical_arm",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:ceiling": [
+          0,
+          1
+        ],
+        "levitate:rotor": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.mechanical_arm",
+        "bone_visibility": {
+          "cog": "q.block_state('levitate:rotor') == 0",
+          "turntable": "q.block_state('levitate:rotor') == 0",
+          "lower": "q.block_state('levitate:rotor') == 0",
+          "upper": "q.block_state('levitate:rotor') == 0",
+          "head": "q.block_state('levitate:rotor') == 0"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_mechanical_arm",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          8,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#b8862a",
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/mechanical_arm.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:ceiling') == 1",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              180,
+              0,
+              0
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              8,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              16
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

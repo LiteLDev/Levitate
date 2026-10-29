@@ -1,0 +1,19 @@
+{
+  "type": "create:milling",
+  "ingredients": [
+    {
+      "item": "minecraft:pink_tulip"
+    }
+  ],
+  "processing_time": 50,
+  "results": [
+    {
+      "id": "minecraft:pink_dye",
+      "count": 2
+    },
+    {
+      "id": "minecraft:lime_dye",
+      "chance": 0.1
+    }
+  ]
+}

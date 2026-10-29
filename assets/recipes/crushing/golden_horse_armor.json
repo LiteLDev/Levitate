@@ -1,0 +1,35 @@
+{
+  "type": "create:crushing",
+  "ingredients": [
+    {
+      "item": "minecraft:golden_horse_armor"
+    }
+  ],
+  "processing_time": 200,
+  "results": [
+    {
+      "id": "minecraft:gold_ingot",
+      "count": 2
+    },
+    {
+      "id": "minecraft:leather",
+      "count": 2,
+      "chance": 0.5
+    },
+    {
+      "id": "minecraft:gold_ingot",
+      "count": 2,
+      "chance": 0.5
+    },
+    {
+      "id": "minecraft:string",
+      "count": 2,
+      "chance": 0.25
+    },
+    {
+      "id": "minecraft:gold_nugget",
+      "count": 8,
+      "chance": 0.25
+    }
+  ]
+}

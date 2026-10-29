@@ -1,0 +1,134 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:purple_sail",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.levitate.sail_y",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_purple_sail",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.5
+      },
+      "minecraft:flammable": {
+        "catch_chance_modifier": 5,
+        "destroy_chance_modifier": 20
+      },
+      "minecraft:loot": "loot_tables/blocks/purple_sail.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 0 || q.block_state('levitate:facing') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.sail_y",
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              7,
+              -8
+            ],
+            "size": [
+              16,
+              2,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              7,
+              -8
+            ],
+            "size": [
+              16,
+              2,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 || q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.sail_z",
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -1
+            ],
+            "size": [
+              16,
+              16,
+              2
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -1
+            ],
+            "size": [
+              16,
+              16,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 || q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.sail_x",
+          "minecraft:collision_box": {
+            "origin": [
+              -1,
+              0,
+              -8
+            ],
+            "size": [
+              2,
+              16,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -1,
+              0,
+              -8
+            ],
+            "size": [
+              2,
+              16,
+              16
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

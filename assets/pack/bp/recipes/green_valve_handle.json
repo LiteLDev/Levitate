@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:green_valve_handle"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:copper_valve_handle"
+      },
+      {
+        "item": "minecraft:green_dye"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:copper_valve_handle"
+      }
+    ],
+    "result": {
+      "item": "levitate:green_valve_handle",
+      "count": 1
+    }
+  }
+}

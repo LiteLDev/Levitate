@@ -1,0 +1,15 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:belt_connector",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_belt_connector",
+      "minecraft:max_stack_size": 64
+    }
+  }
+}
