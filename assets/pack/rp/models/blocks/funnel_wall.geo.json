@@ -1,0 +1,375 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.funnel_wall",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "plate",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                0,
+                4
+              ],
+              "size": [
+                16,
+                16,
+                4
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    16,
+                    16
+                  ],
+                  "material_instance": "frame"
+                },
+                "south": {
+                  "uv": [
+                    0.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    16,
+                    16
+                  ],
+                  "material_instance": "back"
+                },
+                "east": {
+                  "uv": [
+                    6.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ],
+                  "material_instance": "side"
+                },
+                "west": {
+                  "uv": [
+                    6.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ],
+                  "material_instance": "side"
+                },
+                "up": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "side"
+                },
+                "down": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "side"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "hood",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                1,
+                -1
+              ],
+              "size": [
+                12,
+                13,
+                5
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    2.0,
+                    1.0
+                  ],
+                  "uv_size": [
+                    12,
+                    13
+                  ],
+                  "material_instance": "frame"
+                },
+                "east": {
+                  "uv": [
+                    5.0,
+                    1.0
+                  ],
+                  "uv_size": [
+                    5,
+                    13
+                  ],
+                  "material_instance": "side"
+                },
+                "west": {
+                  "uv": [
+                    5.0,
+                    1.0
+                  ],
+                  "uv_size": [
+                    5,
+                    13
+                  ],
+                  "material_instance": "side"
+                },
+                "up": {
+                  "uv": [
+                    2.0,
+                    5.0
+                  ],
+                  "uv_size": [
+                    12,
+                    5
+                  ],
+                  "material_instance": "side"
+                },
+                "down": {
+                  "uv": [
+                    2.0,
+                    5.0
+                  ],
+                  "uv_size": [
+                    12,
+                    5
+                  ],
+                  "material_instance": "side"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "flap",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -5,
+                2,
+                -2
+              ],
+              "size": [
+                10,
+                11,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    3.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    10,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    3.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    10,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    3.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    10,
+                    1
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    3.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    10,
+                    1
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "flap_open",
+          "pivot": [
+            0,
+            13,
+            -1.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -5,
+                2,
+                -2
+              ],
+              "size": [
+                10,
+                11,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    3.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    10,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    3.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    10,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    3.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    10,
+                    1
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    3.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    10,
+                    1
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            }
+          ],
+          "rotation": [
+            -22.5,
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}

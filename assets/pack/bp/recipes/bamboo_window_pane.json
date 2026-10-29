@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:bamboo_window_pane"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "###",
+      "###"
+    ],
+    "key": {
+      "#": {
+        "item": "levitate:bamboo_window"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:bamboo_window"
+      }
+    ],
+    "result": {
+      "item": "levitate:bamboo_window_pane",
+      "count": 16
+    }
+  }
+}

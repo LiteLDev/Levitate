@@ -1,0 +1,93 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:metal_girder",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:axis": [
+          0,
+          1,
+          2
+        ],
+        "levitate:x": [
+          0,
+          1
+        ],
+        "levitate:z": [
+          0,
+          1
+        ],
+        "levitate:top": [
+          0,
+          1
+        ],
+        "levitate:bottom": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6.0
+      },
+      "minecraft:map_color": "#5b5d63",
+      "minecraft:loot": "loot_tables/blocks/metal_girder.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.metal_girder",
+        "bone_visibility": {
+          "pole": "q.block_state('levitate:axis') == 1 || (q.block_state('levitate:x') == 0 && q.block_state('levitate:z') == 0)",
+          "x": "q.block_state('levitate:x') == 1",
+          "z": "q.block_state('levitate:z') == 1",
+          "top": "q.block_state('levitate:axis') != 1 && q.block_state('levitate:top') == 1",
+          "bottom": "q.block_state('levitate:axis') != 1 && q.block_state('levitate:bottom') == 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_metal_girder",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -4,
+          0,
+          -4
+        ],
+        "size": [
+          8,
+          16,
+          8
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:x') == 1 || q.block_state('levitate:z') == 1",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              2,
+              -8
+            ],
+            "size": [
+              16,
+              12,
+              16
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
