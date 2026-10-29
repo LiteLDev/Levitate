@@ -1,0 +1,20 @@
+{
+  "levitate_schematic_table_top": {
+    "textures": "textures/blocks/schematic_table_top"
+  },
+  "levitate_schematic_table_side": {
+    "textures": "textures/blocks/schematic_table_side"
+  },
+  "levitate_schematicannon_base": {
+    "textures": "textures/blocks/schematicannon_base"
+  },
+  "levitate_schematicannon_body": {
+    "textures": "textures/blocks/schematicannon_body"
+  },
+  "levitate_schematicannon_barrel": {
+    "textures": "textures/blocks/schematicannon_barrel"
+  },
+  "levitate_crafting_blueprint_block": {
+    "textures": "textures/blocks/crafting_blueprint"
+  }
+}

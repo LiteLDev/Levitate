@@ -1,0 +1,72 @@
+{
+  "levitate.stock.link": {
+    "category": "block",
+    "sounds": [
+      {
+        "name": "sounds/note/pling",
+        "pitch": 1.6,
+        "volume": 0.4
+      }
+    ]
+  },
+  "levitate.stock.request": {
+    "category": "block",
+    "sounds": [
+      {
+        "name": "sounds/note/bell",
+        "pitch": 1.2,
+        "volume": 0.6
+      }
+    ]
+  },
+  "levitate.stock.trade": {
+    "category": "block",
+    "sounds": [
+      {
+        "name": "sounds/note/bell",
+        "pitch": 1.8,
+        "volume": 0.8
+      }
+    ]
+  },
+  "levitate.stock.confirm": {
+    "category": "block",
+    "sounds": [
+      {
+        "name": "sounds/random/orb",
+        "pitch": 1.4,
+        "volume": 0.5
+      }
+    ]
+  },
+  "levitate.stock.deny": {
+    "category": "block",
+    "sounds": [
+      {
+        "name": "sounds/note/bass",
+        "pitch": 0.7,
+        "volume": 0.8
+      }
+    ]
+  },
+  "levitate.stock.connect": {
+    "category": "block",
+    "sounds": [
+      {
+        "name": "sounds/random/click",
+        "pitch": 0.6,
+        "volume": 0.5
+      }
+    ]
+  },
+  "levitate.stock.clear": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "sounds/random/click",
+        "pitch": 1.0,
+        "volume": 0.6
+      }
+    ]
+  }
+}
