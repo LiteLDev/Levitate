@@ -193,6 +193,32 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
 `fluid_tank`, `creative_fluid_tank`, `steam_engine`, `steam_whistle` (+ `steam_whistle_extension`), `powered_shaft` (internal).
 
+- `fluid_tank` / `creative_fluid_tank`: full blocks (copper, hardness as Create's copper machines,
+  drop themselves; the fluid inside is lost when its share no longer fits, §3.6.1). States
+  `levitate:above`, `levitate:below` (another part continues there: Create's TOP / BOTTOM inverted,
+  the vertical connected textures), `levitate:shape` (Create's FluidTankBlock.Shape with window and
+  plain swapped so a lone windowed tank is the default state: 0 window, 1 plain, 2 window_nw,
+  3 window_sw, 4 window_ne, 5 window_se), `levitate:light` (0..15, Create's luminosity of a tank
+  holding a glowing fluid). (Bedrock reads integer states by their index in the declared list, so
+  every list is in ascending order and defaults are 0.)
+- `steam_engine`: attaches to the face of a tank it is placed on (`minecraft:block_face` from
+  `minecraft:placement_position`, `minecraft:cardinal_direction` for the floor / ceiling facing);
+  it can only be placed on tanks and pops when its tank goes. Drops itself.
+- `steam_whistle`: on the side of a tank (wall, bracket towards the tank) or on its top (floor,
+  mouth towards the player who placed it); states `levitate:size` (0 medium (the default),
+  1 small, 2 large), `levitate:powered`. `steam_whistle_extension` (no item, drops nothing): `levitate:size`,
+  `levitate:shape` (0 single = half, 1 double, 2 double_connected).
+- `powered_shaft`: what a shaft (U6's `levitate:shaft`, `levitate:axis`) becomes two blocks in front of
+  an engine; states `levitate:axis`, `levitate:rotor` (kinetic rotor model); drops a shaft (given by
+  the code to survival players who break it: its loot table can't name U6's item before U6 is in the
+  pack, so explosions drop nothing).
+- `steam_test_heater` (Levitate test block, no item): `levitate:heat` = Create's heat level 0..4,
+  used by selftests and e2e until U14's blaze burners exist.
+- Recipes (Create 6.0.10, added with U9's sheets / alloy, `assets/pending_recipes/steam/`): fluid
+  tank = copper sheet / barrel / copper sheet (column); steam engine = golden sheet / andesite alloy /
+  block of copper (column); steam whistle = golden sheet / copper ingot (column). The creative fluid
+  tank has no recipe.
+
 ### 2.14 Fluid machines (U19)
 
 `spout`, `item_drain`, `hose_pulley` (states `levitate:facing` 2..5, `levitate:rotor`),
@@ -1188,6 +1214,106 @@ current (its shape stops it at once).
 
 **Client**: rotating parts through the kinetic renderer (millstone stone; crushing wheel; fan shaft
 at the network speed and propeller at 5×); every block has a static model for vanilla clients.
+#### 3.6.1 Fluid tanks, boilers, steam engines and whistles (U18)
+
+Checked against Create 6.0.10 (FluidTankBlock / BlockEntity / Item, ConnectivityHandler,
+CreativeFluidTankBlockEntity, BoilerData, BoilerHeaters, SteamEngineBlock / BlockEntity,
+PoweredShaftBlock / BlockEntity, WhistleBlock / BlockEntity, WhistleExtenderBlock). Pure maths in
+`src/core/steam/` (gtest), game side in `src/feature/steam/`, drawing in `src/client/steam/`.
+Query API for the goggles (U8): `feature/steam/Steam.h` (`goggleLines`, `tank`, `comparatorLevel`,
+`whistlePitch`).
+
+**Tank multiblocks** (ConnectivityHandler for vertical containers). A tank is a square base of
+width 1..3 (`MAX_SIZE` 3) by height 1..`fluidTankMaxHeight` (32) blocks; the controller is the
+lowest x, y, z corner and holds the fluid of the whole structure, `fluidTankCapacity` (8) buckets
+per block. On placement (the next tick) the new block searches down (unbounded) and 2 blocks
+towards −x / −z for tanks; every part that is its own controller tries to become the min corner of
+the largest complete structure (each width 1..3, layer by layer upwards, a layer only counts when
+complete, existing structures inside must fit inside it, never past the max height, different
+fluids never connect; ties prefer the wider one); the largest candidates form first. Absorbed
+parts pour their fluid into the new controller (what doesn't fit is lost). Fluid tanks and creative
+tanks never connect. Breaking a part splits its structure into 1×1 tanks: the controller (if it
+remains) keeps one block's worth, the others get one block's worth each in y, x, z order, the rest
+is lost; they re-connect at once. (Create can duplicate the controller's share when a non-controller
+part is broken; Levitate doesn't.) A tank item used on the top or bottom face of a structure wider
+than 1, not sneaking, fills the whole next layer (all positions free, enough items in survival).
+
+**Look**: vertical connected textures (top / middle / bottom / single pieces), windows by default
+(Create's `setWindows`: width 1 every side, width 2 the two outer faces of each column, width 3 the
+middle of each side); the wrench (U8's `levitate:wrench`, not sneaking) toggles them for the whole
+structure, except on a boiler; becoming a boiler closes them. After a split every part takes the
+window setting of the old structure. A glowing fluid (lava, light 15) lights the parts up to its
+level with 15 / 1.2 = 12 and the parts above with 1, only with windows.
+
+**Fluids**: fluid capability on every part (the controller's tank): fills with the same fluid or
+into an empty tank, drains any or the requested fluid. Comparator level = Create's
+`fractionToRedstoneLevel(amount / capacity)` (floor(14·f + (f > 0)), §8). Right-click (not
+sneaking) with a filled bucket / water bottle empties it into the tank when it all fits (Create's
+`tryEmptyItemIntoBE`; survival: the empty container comes back), with an empty bucket / glass bottle
+takes 1000 / 250 mB (bottles only water); creative players keep their item. Units' buckets
+(`<ns>:<fluid>_bucket`, registered with `registerFluidItem`) work too. Sound: bucket empty / fill,
+volume .5, pitch `clamp(1 − amount / (capacity per block · 16), 0, 1) / 1.5 + .5 ± .125`.
+**Creative tank**: always full of its fluid (`setContainedFluid`), drains never empty it, fills are
+accepted and voided; a filled bucket sets its fluid, an empty bucket takes some and empties it.
+Contraptions carry tanks with their contents (data carrier `steam:tank`, fluid storage for U4's
+mounted storage); they re-form when placed back.
+
+**Boiler** (BoilerData). A tank structure with steam engines (facing away from it on any part) or
+whistles (attached to any part) is a boiler: its fluid capability takes water only (any amount),
+counting it as supply instead of storing it; it can't be drained. Heat from the blocks under the
+bottom layer (BoilerHeaters): none (−1), passive 0 (U3's `heat::level` smouldering: fire, soul fire,
+lava, magma, lit campfires, smouldering blaze burners), 1 per fading / kindled burner, 2 per
+seething; passive only counts without active heat. Water supply: the mB received every 5 ticks / 5,
+the best of the last 10 samples (creative tanks: 200 mB/t). Limits: size `min(18, blocks / 4)`,
+water `min(18, ceil(supply) / 10)`, heat; **level = min(active heat, water limit, size limit)**
+(0..18). Passive: passive heat with size and water limits ≥ 1. Engine efficiency: passive
+`1/8 / engines`; no active heat 0; else 1 when engines ≤ level, otherwise level / engines.
+Goggles (Create's lines and colours): "Boiler Status: Passive / Idle / Lvl N / Max", the Size,
+Water and Heat bars (`|` per level: dark green up to the minimum, green at it, dark green up to the
+value, dark red up to the maximum, grey up to the next multiple of 5, max 18), then either "Water
+input rate" with "N mB / 10 mB per Tick" (engines, size ok, no water, heat) or "Kinetic Stress
+Capacity:" `efficiency · 16 · max(level, engines) · 1024` su "via N engines". Without engines and
+whistles: Create's fluid container lines.
+
+**Steam engine** (SteamEngineBlockEntity, each tick). Its shaft is the block two in front of it
+(`getShaftPos`); a plain shaft there whose axis differs from the engine's facing axis becomes a
+**powered shaft** (Create's `pickCorrectShaftType` / `SteamEngineBlock.onPlace`), which turns back
+into a shaft when no engine two blocks away points at it. A powered shaft takes one engine
+(`canBePoweredBy`, not in its first 3 ticks). Each tick: efficiency = clamp(boiler efficiency);
+direction = 1 when the efficiency is 0 or the shaft is vertical, else +1 for a facing (for floor /
+ceiling engines their horizontal facing) towards +x / +y / +z and −1 otherwise, negated for a z
+shaft and for the value box's Counter-Clockwise; when the shaft is driven by another source turning
+the other way the engine flips its own setting. The powered shaft generates `direction · 16 ·
+(1 + (e ≥ 1 ? 3 : min(2, ⌊4e⌋)))` RPM (64 at full, 48 / 32 / 16 below) with a capacity of `e · 1024 /
+modifier` su per RPM (= e · 16384 su: a full engine 16384 su, a passive one 2048 su); no tank, no
+shaft or efficiency 0: speed 0. Value box "Rotation Direction" (Clockwise / Counter-Clockwise) on the
+engine's four side faces. Puffs of steam (sound `levitate.steam.engine`, evaporation particles) twice
+per shaft turn while it runs.
+
+**Whistle** (WhistleBlock / BlockEntity). Pitch = 2 semitones per full extension above it, 1 for a
+half (single) one at the top (`updatePitch`, up to 25). Using a whistle item on a whistle or an
+extension grows the column (Create's `incrementSize`: up to 6 blocks: a half extension becomes full,
+else a half extension is added on the next free block; the item is not used up; place sound pitched
+2^(−2i/12)). Wrench: the next size (small → medium → large → small) for the whole column; sneaking
+with the wrench on the top extension shortens it by half a block. Extensions without a whistle or
+extension below vanish. Powered by redstone (polled, §8) on a boiler with heat (passive or active) it
+sounds: the `levitate.steam.whistle_chiff` hiss when it starts, then the tone: one original sample
+played at `octave · 2^(−pitch/12)` (sounds `whistle_high` / `whistle_medium` / `whistle_low` are the
+same sample at pitch 2 / 1 / .5; restarted every 10 ticks, heard up to 64 blocks), steam particles out
+of the mouth every 8 ticks. One log line when it starts / stops.
+
+**Client** (client mod): the server sends tank contents (`steam.tanks`: controller, size, fluid,
+amount, capacity, windows, boiler) and engines (`steam.engines`: position, facing, shaft speed and
+axis) to companions; the client draws the fluid inside windowed tanks as Create's renderer (1/4
+caps, a 1/16 puddle, inset by the hull, the level easing towards the real one) in the fluid's colour,
+and each running engine's piston rod, crosshead and connecting rod following Create's
+`(1 − sin a) / 4 · 24/16` stroke on a crank pin turning with the shaft.
+
+**Persistence**: tank parts in BlockData (`data["steam"]`: controller, width, height, window,
+fluid, amount), engines' value box there too; the engine / whistle / powered shaft index in
+`lv:steam:index`, synced tanks in `lv:steam:tanks`. Boiler water supply samples are not saved
+(they refill within 50 ticks).
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -1225,7 +1351,7 @@ place:
 | water_wheel | | 32 | 8 |
 | large_water_wheel | | 128 | 4 |
 | windmill_bearing | | 512 ⚠ (per sail-count rules) | sails / 8 ⚠ |
-| steam_engine | | 1024 ⚠ | boiler driven |
+| steam_engine | | 1024 (per engine, on its powered shaft, §3.6.1) | 16..64 (boiler driven) |
 | creative_motor | | 16384 | value box (−256..256) |
 | mechanical_press | 8 | | |
 | mechanical_mixer | 4 | | |
@@ -1261,6 +1387,8 @@ true, `psiTimeout` 60.
 `config/bulk.json` (U13, Create's CKinetics keys): `crushingDamage` 4, `fanPushDistance` 20,
 `fanPullDistance` 20, `fanBlockCheckRate` 30, `fanRotationArgmax` 256, `fanProcessingTime` 150, and
 `fanParticleDensity` 0.5 (Create's client option).
+`config/steam.json` (U18): `fluidTankCapacity` (8, buckets per tank block) and `fluidTankMaxHeight`
+(32), Create's CFluids keys and defaults.
 
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
@@ -1283,6 +1411,7 @@ generators' own behaviour (U7, U18, U21), not a config value.
 | `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
 | `/create ponder <id>` (client mod) | anyone | U30 |
 | `/create highlight <pos>` | op | U3 |
+| `/create steam <pos>` (tank / boiler goggle lines) / `steam <pos> fill <fluid> <mB>` (Levitate debug: fills, or drains when negative, through the fluid capability) | op | U18 |
 | `/create overlay reset` | anyone | U8 |
 
 ## 7. Strings
@@ -1336,6 +1465,12 @@ matches Create's official Chinese translation wording).
 | Millstone / crusher ambient sounds, air current wind sound (U13) | Create's soundscapes are client-side sound assets | not played (U2's note on kinetic soundscapes) |
 | Pulling nozzle explosion with more than 256 entities (U13) | rare edge case | not ported |
 | Air currents through blocks made of several boxes (U13) | the server only gets one collision box per block | a partial block stops the current by its bounding box (stairs, walls and hoppers block it like a full block); fan-transparent blocks pass as in Create |
+| Comparator output of fluid tanks (U18) | Bedrock comparators only read vanilla containers; a custom block's comparator signal can't be supplied without hooking the shared (folded) `hasComparatorSignal` of every block | `steam::comparatorLevel(pos)` gives Create's level for units that read it (threshold switch, display links); vanilla comparators read nothing |
+| Fluid inside tanks and the moving engine piston for **vanilla** clients (U18) | no client-side rendering without the client mod; a fluid level per block would need a block state per level and fluid | the client mod draws them; vanilla clients see the tank (windows show an empty inside) and a static engine |
+| Whistle redstone input (U18) | custom blocks get no redstone neighbour update | the whistle polls its neighbours' redstone power every 2 ticks (as the sticker, U4) |
+| Whistle tone as one looping sound with a changing pitch (U18) | Bedrock's server can't hold a looping sound instance on clients | the tone sample (0.6 s) is restarted every 10 ticks at the whistle's pitch, so it sounds continuous; the chiff plays when it starts |
+| Boiler gauges drawn on the tank sides (U18) | Create draws them with its block entity renderer | the goggle lines (`/create steam`, U8's overlay) show the same status |
+| Steam particles of whistles / engines as Create's custom steam jet particle (U18) | no custom particle shipped yet | vanilla's water evaporation particle at the whistle's mouth / the engine's front, for every client |
 
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
