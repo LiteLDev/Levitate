@@ -1,0 +1,30 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:raw_zinc_block"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "CCC",
+      "CCC",
+      "CCC"
+    ],
+    "key": {
+      "C": {
+        "item": "levitate:raw_zinc"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:raw_zinc"
+      }
+    ],
+    "result": {
+      "item": "levitate:raw_zinc_block",
+      "count": 1
+    }
+  }
+}

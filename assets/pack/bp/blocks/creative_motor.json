@@ -25,7 +25,7 @@
       "minecraft:geometry": {
         "identifier": "geometry.levitate.creative_motor",
         "bone_visibility": {
-          "body": true,
+          "body": "q.block_state('levitate:rotor') != 2",
           "shaft": "q.block_state('levitate:rotor') == 0"
         }
       },

@@ -1,0 +1,18 @@
+{
+  "type": "levitate:mixing",
+  "ingredients": [
+    {
+      "tag": "c:ingots/copper"
+    },
+    {
+      "tag": "c:ingots/zinc"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:brass_ingot",
+      "count": 2
+    }
+  ],
+  "heat_requirement": "heated"
+}

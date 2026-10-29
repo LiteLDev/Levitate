@@ -1,0 +1,7 @@
+tile.levitate:fluid_pipe.name=Fluid Pipe
+tile.levitate:glass_fluid_pipe.name=Glass Fluid Pipe
+tile.levitate:encased_fluid_pipe.name=Encased Fluid Pipe
+tile.levitate:mechanical_pump.name=Mechanical Pump
+tile.levitate:fluid_valve.name=Fluid Valve
+tile.levitate:smart_fluid_pipe.name=Smart Fluid Pipe
+tile.levitate:pipes_test_tank.name=Pipes Test Tank

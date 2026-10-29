@@ -1,0 +1,821 @@
+{
+  "levitate:zinc_ore": {
+    "sound": "stone"
+  },
+  "levitate:deepslate_zinc_ore": {
+    "sound": "deepslate"
+  },
+  "levitate:raw_zinc_block": {
+    "sound": "stone"
+  },
+  "levitate:zinc_block": {
+    "sound": "metal"
+  },
+  "levitate:brass_block": {
+    "sound": "metal"
+  },
+  "levitate:andesite_alloy_block": {
+    "sound": "stone"
+  },
+  "levitate:rose_quartz_tiles": {
+    "sound": "deepslate"
+  },
+  "levitate:small_rose_quartz_tiles": {
+    "sound": "deepslate"
+  },
+  "levitate:experience_block": {
+    "sound": "amethyst_block"
+  },
+  "levitate:industrial_iron_block": {
+    "sound": "netherite"
+  },
+  "levitate:weathered_iron_block": {
+    "sound": "netherite"
+  },
+  "levitate:rose_quartz_block": {
+    "sound": "deepslate"
+  },
+  "levitate:cardboard_block": {
+    "sound": "wood"
+  },
+  "levitate:bound_cardboard_block": {
+    "sound": "wood"
+  },
+  "levitate:cut_granite": {
+    "sound": "stone"
+  },
+  "levitate:cut_granite_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_granite_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_granite_wall": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_granite": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_granite_stairs": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_granite_slab": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_granite_wall": {
+    "sound": "stone"
+  },
+  "levitate:cut_granite_bricks": {
+    "sound": "stone"
+  },
+  "levitate:cut_granite_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_granite_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_granite_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:small_granite_bricks": {
+    "sound": "stone"
+  },
+  "levitate:small_granite_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:small_granite_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:small_granite_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:layered_granite": {
+    "sound": "stone"
+  },
+  "levitate:granite_pillar": {
+    "sound": "stone"
+  },
+  "levitate:cut_diorite": {
+    "sound": "stone"
+  },
+  "levitate:cut_diorite_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_diorite_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_diorite_wall": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_diorite": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_diorite_stairs": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_diorite_slab": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_diorite_wall": {
+    "sound": "stone"
+  },
+  "levitate:cut_diorite_bricks": {
+    "sound": "stone"
+  },
+  "levitate:cut_diorite_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_diorite_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_diorite_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:small_diorite_bricks": {
+    "sound": "stone"
+  },
+  "levitate:small_diorite_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:small_diorite_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:small_diorite_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:layered_diorite": {
+    "sound": "stone"
+  },
+  "levitate:diorite_pillar": {
+    "sound": "stone"
+  },
+  "levitate:cut_andesite": {
+    "sound": "stone"
+  },
+  "levitate:cut_andesite_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_andesite_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_andesite_wall": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_andesite": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_andesite_stairs": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_andesite_slab": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_andesite_wall": {
+    "sound": "stone"
+  },
+  "levitate:cut_andesite_bricks": {
+    "sound": "stone"
+  },
+  "levitate:cut_andesite_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_andesite_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_andesite_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:small_andesite_bricks": {
+    "sound": "stone"
+  },
+  "levitate:small_andesite_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:small_andesite_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:small_andesite_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:layered_andesite": {
+    "sound": "stone"
+  },
+  "levitate:andesite_pillar": {
+    "sound": "stone"
+  },
+  "levitate:cut_calcite": {
+    "sound": "calcite"
+  },
+  "levitate:cut_calcite_stairs": {
+    "sound": "calcite"
+  },
+  "levitate:cut_calcite_slab": {
+    "sound": "calcite"
+  },
+  "levitate:cut_calcite_wall": {
+    "sound": "calcite"
+  },
+  "levitate:polished_cut_calcite": {
+    "sound": "calcite"
+  },
+  "levitate:polished_cut_calcite_stairs": {
+    "sound": "calcite"
+  },
+  "levitate:polished_cut_calcite_slab": {
+    "sound": "calcite"
+  },
+  "levitate:polished_cut_calcite_wall": {
+    "sound": "calcite"
+  },
+  "levitate:cut_calcite_bricks": {
+    "sound": "calcite"
+  },
+  "levitate:cut_calcite_brick_stairs": {
+    "sound": "calcite"
+  },
+  "levitate:cut_calcite_brick_slab": {
+    "sound": "calcite"
+  },
+  "levitate:cut_calcite_brick_wall": {
+    "sound": "calcite"
+  },
+  "levitate:small_calcite_bricks": {
+    "sound": "calcite"
+  },
+  "levitate:small_calcite_brick_stairs": {
+    "sound": "calcite"
+  },
+  "levitate:small_calcite_brick_slab": {
+    "sound": "calcite"
+  },
+  "levitate:small_calcite_brick_wall": {
+    "sound": "calcite"
+  },
+  "levitate:layered_calcite": {
+    "sound": "calcite"
+  },
+  "levitate:calcite_pillar": {
+    "sound": "calcite"
+  },
+  "levitate:cut_dripstone": {
+    "sound": "dripstone_block"
+  },
+  "levitate:cut_dripstone_stairs": {
+    "sound": "dripstone_block"
+  },
+  "levitate:cut_dripstone_slab": {
+    "sound": "dripstone_block"
+  },
+  "levitate:cut_dripstone_wall": {
+    "sound": "dripstone_block"
+  },
+  "levitate:polished_cut_dripstone": {
+    "sound": "dripstone_block"
+  },
+  "levitate:polished_cut_dripstone_stairs": {
+    "sound": "dripstone_block"
+  },
+  "levitate:polished_cut_dripstone_slab": {
+    "sound": "dripstone_block"
+  },
+  "levitate:polished_cut_dripstone_wall": {
+    "sound": "dripstone_block"
+  },
+  "levitate:cut_dripstone_bricks": {
+    "sound": "dripstone_block"
+  },
+  "levitate:cut_dripstone_brick_stairs": {
+    "sound": "dripstone_block"
+  },
+  "levitate:cut_dripstone_brick_slab": {
+    "sound": "dripstone_block"
+  },
+  "levitate:cut_dripstone_brick_wall": {
+    "sound": "dripstone_block"
+  },
+  "levitate:small_dripstone_bricks": {
+    "sound": "dripstone_block"
+  },
+  "levitate:small_dripstone_brick_stairs": {
+    "sound": "dripstone_block"
+  },
+  "levitate:small_dripstone_brick_slab": {
+    "sound": "dripstone_block"
+  },
+  "levitate:small_dripstone_brick_wall": {
+    "sound": "dripstone_block"
+  },
+  "levitate:layered_dripstone": {
+    "sound": "dripstone_block"
+  },
+  "levitate:dripstone_pillar": {
+    "sound": "dripstone_block"
+  },
+  "levitate:cut_deepslate": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_deepslate_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_deepslate_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_deepslate_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_deepslate": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_deepslate_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_deepslate_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_deepslate_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_deepslate_bricks": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_deepslate_brick_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_deepslate_brick_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_deepslate_brick_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:small_deepslate_bricks": {
+    "sound": "deepslate"
+  },
+  "levitate:small_deepslate_brick_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:small_deepslate_brick_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:small_deepslate_brick_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:layered_deepslate": {
+    "sound": "deepslate"
+  },
+  "levitate:deepslate_pillar": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_tuff": {
+    "sound": "tuff"
+  },
+  "levitate:cut_tuff_stairs": {
+    "sound": "tuff"
+  },
+  "levitate:cut_tuff_slab": {
+    "sound": "tuff"
+  },
+  "levitate:cut_tuff_wall": {
+    "sound": "tuff"
+  },
+  "levitate:polished_cut_tuff": {
+    "sound": "tuff"
+  },
+  "levitate:polished_cut_tuff_stairs": {
+    "sound": "tuff"
+  },
+  "levitate:polished_cut_tuff_slab": {
+    "sound": "tuff"
+  },
+  "levitate:polished_cut_tuff_wall": {
+    "sound": "tuff"
+  },
+  "levitate:cut_tuff_bricks": {
+    "sound": "tuff"
+  },
+  "levitate:cut_tuff_brick_stairs": {
+    "sound": "tuff"
+  },
+  "levitate:cut_tuff_brick_slab": {
+    "sound": "tuff"
+  },
+  "levitate:cut_tuff_brick_wall": {
+    "sound": "tuff"
+  },
+  "levitate:small_tuff_bricks": {
+    "sound": "tuff"
+  },
+  "levitate:small_tuff_brick_stairs": {
+    "sound": "tuff"
+  },
+  "levitate:small_tuff_brick_slab": {
+    "sound": "tuff"
+  },
+  "levitate:small_tuff_brick_wall": {
+    "sound": "tuff"
+  },
+  "levitate:layered_tuff": {
+    "sound": "tuff"
+  },
+  "levitate:tuff_pillar": {
+    "sound": "tuff"
+  },
+  "levitate:asurine": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_asurine": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_asurine_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_asurine_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_asurine_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_asurine": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_asurine_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_asurine_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_asurine_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_asurine_bricks": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_asurine_brick_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_asurine_brick_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_asurine_brick_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:small_asurine_bricks": {
+    "sound": "deepslate"
+  },
+  "levitate:small_asurine_brick_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:small_asurine_brick_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:small_asurine_brick_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:layered_asurine": {
+    "sound": "deepslate"
+  },
+  "levitate:asurine_pillar": {
+    "sound": "deepslate"
+  },
+  "levitate:crimsite": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_crimsite": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_crimsite_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_crimsite_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_crimsite_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_crimsite": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_crimsite_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_crimsite_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:polished_cut_crimsite_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_crimsite_bricks": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_crimsite_brick_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_crimsite_brick_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:cut_crimsite_brick_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:small_crimsite_bricks": {
+    "sound": "deepslate"
+  },
+  "levitate:small_crimsite_brick_stairs": {
+    "sound": "deepslate"
+  },
+  "levitate:small_crimsite_brick_slab": {
+    "sound": "deepslate"
+  },
+  "levitate:small_crimsite_brick_wall": {
+    "sound": "deepslate"
+  },
+  "levitate:layered_crimsite": {
+    "sound": "deepslate"
+  },
+  "levitate:crimsite_pillar": {
+    "sound": "deepslate"
+  },
+  "levitate:limestone": {
+    "sound": "stone"
+  },
+  "levitate:cut_limestone": {
+    "sound": "stone"
+  },
+  "levitate:cut_limestone_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_limestone_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_limestone_wall": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_limestone": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_limestone_stairs": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_limestone_slab": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_limestone_wall": {
+    "sound": "stone"
+  },
+  "levitate:cut_limestone_bricks": {
+    "sound": "stone"
+  },
+  "levitate:cut_limestone_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_limestone_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_limestone_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:small_limestone_bricks": {
+    "sound": "stone"
+  },
+  "levitate:small_limestone_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:small_limestone_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:small_limestone_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:layered_limestone": {
+    "sound": "stone"
+  },
+  "levitate:limestone_pillar": {
+    "sound": "stone"
+  },
+  "levitate:ochrum": {
+    "sound": "calcite"
+  },
+  "levitate:cut_ochrum": {
+    "sound": "calcite"
+  },
+  "levitate:cut_ochrum_stairs": {
+    "sound": "calcite"
+  },
+  "levitate:cut_ochrum_slab": {
+    "sound": "calcite"
+  },
+  "levitate:cut_ochrum_wall": {
+    "sound": "calcite"
+  },
+  "levitate:polished_cut_ochrum": {
+    "sound": "calcite"
+  },
+  "levitate:polished_cut_ochrum_stairs": {
+    "sound": "calcite"
+  },
+  "levitate:polished_cut_ochrum_slab": {
+    "sound": "calcite"
+  },
+  "levitate:polished_cut_ochrum_wall": {
+    "sound": "calcite"
+  },
+  "levitate:cut_ochrum_bricks": {
+    "sound": "calcite"
+  },
+  "levitate:cut_ochrum_brick_stairs": {
+    "sound": "calcite"
+  },
+  "levitate:cut_ochrum_brick_slab": {
+    "sound": "calcite"
+  },
+  "levitate:cut_ochrum_brick_wall": {
+    "sound": "calcite"
+  },
+  "levitate:small_ochrum_bricks": {
+    "sound": "calcite"
+  },
+  "levitate:small_ochrum_brick_stairs": {
+    "sound": "calcite"
+  },
+  "levitate:small_ochrum_brick_slab": {
+    "sound": "calcite"
+  },
+  "levitate:small_ochrum_brick_wall": {
+    "sound": "calcite"
+  },
+  "levitate:layered_ochrum": {
+    "sound": "calcite"
+  },
+  "levitate:ochrum_pillar": {
+    "sound": "calcite"
+  },
+  "levitate:scoria": {
+    "sound": "stone"
+  },
+  "levitate:cut_scoria": {
+    "sound": "stone"
+  },
+  "levitate:cut_scoria_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_scoria_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_scoria_wall": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_scoria": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_scoria_stairs": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_scoria_slab": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_scoria_wall": {
+    "sound": "stone"
+  },
+  "levitate:cut_scoria_bricks": {
+    "sound": "stone"
+  },
+  "levitate:cut_scoria_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_scoria_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_scoria_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:small_scoria_bricks": {
+    "sound": "stone"
+  },
+  "levitate:small_scoria_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:small_scoria_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:small_scoria_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:layered_scoria": {
+    "sound": "stone"
+  },
+  "levitate:scoria_pillar": {
+    "sound": "stone"
+  },
+  "levitate:scorchia": {
+    "sound": "stone"
+  },
+  "levitate:cut_scorchia": {
+    "sound": "stone"
+  },
+  "levitate:cut_scorchia_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_scorchia_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_scorchia_wall": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_scorchia": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_scorchia_stairs": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_scorchia_slab": {
+    "sound": "stone"
+  },
+  "levitate:polished_cut_scorchia_wall": {
+    "sound": "stone"
+  },
+  "levitate:cut_scorchia_bricks": {
+    "sound": "stone"
+  },
+  "levitate:cut_scorchia_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:cut_scorchia_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:cut_scorchia_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:small_scorchia_bricks": {
+    "sound": "stone"
+  },
+  "levitate:small_scorchia_brick_stairs": {
+    "sound": "stone"
+  },
+  "levitate:small_scorchia_brick_slab": {
+    "sound": "stone"
+  },
+  "levitate:small_scorchia_brick_wall": {
+    "sound": "stone"
+  },
+  "levitate:layered_scorchia": {
+    "sound": "stone"
+  },
+  "levitate:scorchia_pillar": {
+    "sound": "stone"
+  },
+  "levitate:veridium": {
+    "sound": "tuff"
+  },
+  "levitate:cut_veridium": {
+    "sound": "tuff"
+  },
+  "levitate:cut_veridium_stairs": {
+    "sound": "tuff"
+  },
+  "levitate:cut_veridium_slab": {
+    "sound": "tuff"
+  },
+  "levitate:cut_veridium_wall": {
+    "sound": "tuff"
+  },
+  "levitate:polished_cut_veridium": {
+    "sound": "tuff"
+  },
+  "levitate:polished_cut_veridium_stairs": {
+    "sound": "tuff"
+  },
+  "levitate:polished_cut_veridium_slab": {
+    "sound": "tuff"
+  },
+  "levitate:polished_cut_veridium_wall": {
+    "sound": "tuff"
+  },
+  "levitate:cut_veridium_bricks": {
+    "sound": "tuff"
+  },
+  "levitate:cut_veridium_brick_stairs": {
+    "sound": "tuff"
+  },
+  "levitate:cut_veridium_brick_slab": {
+    "sound": "tuff"
+  },
+  "levitate:cut_veridium_brick_wall": {
+    "sound": "tuff"
+  },
+  "levitate:small_veridium_bricks": {
+    "sound": "tuff"
+  },
+  "levitate:small_veridium_brick_stairs": {
+    "sound": "tuff"
+  },
+  "levitate:small_veridium_brick_slab": {
+    "sound": "tuff"
+  },
+  "levitate:small_veridium_brick_wall": {
+    "sound": "tuff"
+  },
+  "levitate:layered_veridium": {
+    "sound": "tuff"
+  },
+  "levitate:veridium_pillar": {
+    "sound": "tuff"
+  }
+}

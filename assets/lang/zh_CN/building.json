@@ -1,0 +1,22 @@
+{
+  "block.create.copycat_panel.tooltip.behaviour1": "若条件满足，将根据_手持物品_改变_材质_。同一物品_再次点击_将循环切换_方向_或_充能_状态材质。_扳手_右击以清空。",
+  "block.create.copycat_panel.tooltip.condition1": "右击时",
+  "block.create.copycat_panel.tooltip.summary": "能将任意_完整方块转变为_装饰板。_栏杆_和_活板门_同样适配。",
+  "block.create.copycat_step.tooltip.behaviour1": "若条件满足，将根据_手持物品_改变_材质_。同一物品_再次点击_将循环切换_方向_或_充能_状态材质。_扳手_右击以清空。",
+  "block.create.copycat_step.tooltip.condition1": "右击时",
+  "block.create.copycat_step.tooltip.summary": "能将任意_完整方块转变为_装饰半阶。",
+  "block.create.metal_bracket.tooltip.summary": "使用这种工业风格的金属支架来装饰你的_传动杆_、_齿轮_和_管道_吧。",
+  "block.create.placard.tooltip.behaviour1": "将手持的_物品__放入_置物板。当手持的物品与内部放置的物品匹配时，_发出_短暂的_红石_信号。",
+  "block.create.placard.tooltip.behaviour2": "_移除_内部的_物品_",
+  "block.create.placard.tooltip.condition1": "手持物品右击时",
+  "block.create.placard.tooltip.condition2": "左击时",
+  "block.create.placard.tooltip.summary": "把你的_物品_放进这个华丽的黄铜面板里_框起来_。支持动态结构！",
+  "block.create.wooden_bracket.tooltip.summary": "使用这种给人温馨感的木质支架来装饰你的_传动杆_、_齿轮_和_管道_吧。",
+  "tag.block.create.casing": "机壳",
+  "tag.item.create.casing": "机壳",
+  "tag.block.create.copycat_allow": "可填充于伪装方块",
+  "tag.block.create.copycat_deny": "不可填充于伪装方块",
+  "tag.block.create.table_cloths": "桌布",
+  "tag.item.create.table_cloths": "桌布",
+  "tag.item.create.dyed_table_cloths": "染色桌布"
+}

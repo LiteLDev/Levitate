@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:orange_table_cloth_from_white_table_cloth"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:orange_dye"
+      },
+      {
+        "item": "levitate:white_table_cloth"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:orange_dye"
+      }
+    ],
+    "result": {
+      "item": "levitate:orange_table_cloth",
+      "count": 1
+    }
+  }
+}

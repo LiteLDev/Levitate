@@ -1,0 +1,14 @@
+{
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "weight": 1,
+          "type": "item",
+          "name": "levitate:smart_fluid_pipe"
+        }
+      ]
+    }
+  ]
+}

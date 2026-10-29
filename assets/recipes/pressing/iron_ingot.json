@@ -1,0 +1,13 @@
+{
+  "type": "levitate:pressing",
+  "ingredients": [
+    {
+      "tag": "c:ingots/iron"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:iron_sheet"
+    }
+  ]
+}
