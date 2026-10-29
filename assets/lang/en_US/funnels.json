@@ -3,7 +3,6 @@
   "create.logistics.filter.up_to": "Up to",
   "create.logistics.filter.exactly": "Exactly",
   "create.logistics.filter.any_amount_short": "Any",
-  "create.logistics.when_multiple_outputs_available": "Distribution Method",
   "create.tunnel.selection_mode.split": "Split",
   "create.tunnel.selection_mode.forced_split": "Forced Split",
   "create.tunnel.selection_mode.round_robin": "Round Robin",
