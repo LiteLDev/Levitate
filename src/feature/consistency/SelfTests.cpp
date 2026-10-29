@@ -51,6 +51,7 @@ int stateAt(Context& ctx, GlobalPos const& p, char const* name) {
 LV_REGISTER_SELFTEST("consistency.chute_states", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto base = at(ctx.testPos(3500), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    ctx.require(co_await ctx.ensureLoaded(at(base, 8, 6, 8)), "test area corner loaded");
     for (int f = 0; f <= 4; ++f) {
         for (int s = 0; s <= 3; ++s) {
             auto p = at(base, f * 2, 6, s * 2);
@@ -60,7 +61,7 @@ LV_REGISTER_SELFTEST("consistency.chute_states", [](Context& ctx) -> ll::coro::C
         }
     }
     for (int v = 0; v <= 1; ++v) {
-        auto p = at(base, 12, 6, v * 2);
+        auto p = at(base, v * 2, 6, 8);
         ctx.require(ctx.setBlock(p, kSmartChute, {{"levitate:powered", v}}), "smart chute placed");
         ctx.check(stateAt(ctx, p, "levitate:powered") == v, "smart chute powered reads back");
     }
