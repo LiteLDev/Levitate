@@ -1,0 +1,27 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:gray_seat"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:gray_wool"
+      },
+      {
+        "tag": "minecraft:wooden_slabs"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:gray_wool"
+      }
+    ],
+    "result": {
+      "item": "levitate:gray_seat"
+    }
+  }
+}

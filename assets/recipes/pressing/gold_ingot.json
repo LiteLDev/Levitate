@@ -1,0 +1,13 @@
+{
+  "type": "levitate:pressing",
+  "ingredients": [
+    {
+      "tag": "c:ingots/gold"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:golden_sheet"
+    }
+  ]
+}

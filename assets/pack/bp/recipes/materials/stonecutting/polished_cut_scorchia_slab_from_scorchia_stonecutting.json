@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:polished_cut_scorchia_slab_from_scorchia_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:scorchia"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:scorchia"
+      }
+    ],
+    "result": {
+      "item": "levitate:polished_cut_scorchia_slab",
+      "count": 2
+    }
+  }
+}

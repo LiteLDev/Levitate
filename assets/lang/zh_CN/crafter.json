@@ -1,0 +1,8 @@
+{
+  "create.recipe.mechanical_crafting": "动力合成",
+  "create.recipe.sawing": "切割",
+  "create.recipe.block_cutting": "方块切割",
+  "create.logistics.recipe_filter": "配方过滤",
+  "lv.crafter.inputs_connected": "合成器输入已连接",
+  "lv.crafter.inputs_disconnected": "合成器输入已断开"
+}

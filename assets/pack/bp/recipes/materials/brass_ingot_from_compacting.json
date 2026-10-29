@@ -1,0 +1,30 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:brass_ingot_from_compacting"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "###",
+      "###",
+      "###"
+    ],
+    "key": {
+      "#": {
+        "item": "levitate:brass_nugget"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:brass_nugget"
+      }
+    ],
+    "result": {
+      "item": "levitate:brass_ingot",
+      "count": 1
+    }
+  }
+}

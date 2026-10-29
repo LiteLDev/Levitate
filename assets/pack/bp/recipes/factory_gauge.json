@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:factory_gauge"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:stock_link"
+      },
+      {
+        "item": "levitate:precision_mechanism"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:stock_link"
+      }
+    ],
+    "result": {
+      "item": "levitate:factory_gauge",
+      "count": 2
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "levitate:fluid_pipe": {
+    "sound": "metal"
+  },
+  "levitate:glass_fluid_pipe": {
+    "sound": "glass"
+  },
+  "levitate:encased_fluid_pipe": {
+    "sound": "metal"
+  },
+  "levitate:mechanical_pump": {
+    "sound": "metal"
+  },
+  "levitate:fluid_valve": {
+    "sound": "metal"
+  },
+  "levitate:smart_fluid_pipe": {
+    "sound": "metal"
+  },
+  "levitate:pipes_test_tank": {
+    "sound": "metal"
+  }
+}

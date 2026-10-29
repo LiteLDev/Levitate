@@ -1,0 +1,30 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:small_veridium_brick_stairs"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "X  ",
+      "XX ",
+      "XXX"
+    ],
+    "key": {
+      "X": {
+        "item": "levitate:small_veridium_bricks"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:small_veridium_bricks"
+      }
+    ],
+    "result": {
+      "item": "levitate:small_veridium_brick_stairs",
+      "count": 4
+    }
+  }
+}

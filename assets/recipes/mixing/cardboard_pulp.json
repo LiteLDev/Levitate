@@ -1,0 +1,26 @@
+{
+  "type": "levitate:mixing",
+  "ingredients": [
+    {
+      "tag": "levitate:pulpifiable"
+    },
+    {
+      "tag": "levitate:pulpifiable"
+    },
+    {
+      "tag": "levitate:pulpifiable"
+    },
+    {
+      "tag": "levitate:pulpifiable"
+    },
+    {
+      "fluid": "minecraft:water",
+      "amount": 250
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:pulp"
+    }
+  ]
+}

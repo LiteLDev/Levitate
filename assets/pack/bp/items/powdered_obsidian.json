@@ -1,0 +1,18 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:powdered_obsidian",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_powdered_obsidian",
+      "minecraft:display_name": {
+        "value": "item.levitate:powdered_obsidian.name"
+      },
+      "minecraft:max_stack_size": 64
+    }
+  }
+}

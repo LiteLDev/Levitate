@@ -1,0 +1,65 @@
+{
+  "levitate:mechanical_harvester": {
+    "sound": "metal"
+  },
+  "levitate:mechanical_plough": {
+    "sound": "metal"
+  },
+  "levitate:mechanical_roller": {
+    "sound": "metal"
+  },
+  "levitate:portable_storage_interface": {
+    "sound": "metal"
+  },
+  "levitate:contraption_controls": {
+    "sound": "metal"
+  },
+  "levitate:white_seat": {
+    "sound": "cloth"
+  },
+  "levitate:orange_seat": {
+    "sound": "cloth"
+  },
+  "levitate:magenta_seat": {
+    "sound": "cloth"
+  },
+  "levitate:light_blue_seat": {
+    "sound": "cloth"
+  },
+  "levitate:yellow_seat": {
+    "sound": "cloth"
+  },
+  "levitate:lime_seat": {
+    "sound": "cloth"
+  },
+  "levitate:pink_seat": {
+    "sound": "cloth"
+  },
+  "levitate:gray_seat": {
+    "sound": "cloth"
+  },
+  "levitate:light_gray_seat": {
+    "sound": "cloth"
+  },
+  "levitate:cyan_seat": {
+    "sound": "cloth"
+  },
+  "levitate:purple_seat": {
+    "sound": "cloth"
+  },
+  "levitate:blue_seat": {
+    "sound": "cloth"
+  },
+  "levitate:brown_seat": {
+    "sound": "cloth"
+  },
+  "levitate:green_seat": {
+    "sound": "cloth"
+  },
+  "levitate:red_seat": {
+    "sound": "cloth"
+  },
+  "levitate:black_seat": {
+    "sound": "cloth"
+  }
+}

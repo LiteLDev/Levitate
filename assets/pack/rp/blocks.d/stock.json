@@ -1,0 +1,14 @@
+{
+  "levitate:stock_link": {
+    "sound": "metal"
+  },
+  "levitate:stock_ticker": {
+    "sound": "wood"
+  },
+  "levitate:factory_gauge": {
+    "sound": "copper"
+  },
+  "levitate:redstone_requester": {
+    "sound": "wood"
+  }
+}

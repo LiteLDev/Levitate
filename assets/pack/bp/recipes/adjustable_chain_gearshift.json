@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:adjustable_chain_gearshift"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:encased_chain_drive"
+      },
+      {
+        "item": "levitate:electron_tube"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:encased_chain_drive"
+      }
+    ],
+    "result": {
+      "item": "levitate:adjustable_chain_gearshift",
+      "count": 1
+    }
+  }
+}

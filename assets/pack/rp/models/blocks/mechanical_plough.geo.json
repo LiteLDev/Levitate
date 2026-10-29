@@ -1,0 +1,429 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.mechanical_plough",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "body",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                0,
+                4
+              ],
+              "size": [
+                16,
+                10,
+                4
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    6
+                  ],
+                  "uv_size": [
+                    16,
+                    10
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    0,
+                    6
+                  ],
+                  "uv_size": [
+                    16,
+                    10
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    12,
+                    6
+                  ],
+                  "uv_size": [
+                    4,
+                    10
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    12,
+                    6
+                  ],
+                  "uv_size": [
+                    4,
+                    10
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    0,
+                    12
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    0,
+                    12
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ]
+                }
+              }
+            },
+            {
+              "origin": [
+                -5,
+                2,
+                0
+              ],
+              "size": [
+                10,
+                6,
+                4
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    3,
+                    8
+                  ],
+                  "uv_size": [
+                    10,
+                    6
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    3,
+                    8
+                  ],
+                  "uv_size": [
+                    10,
+                    6
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    8,
+                    8
+                  ],
+                  "uv_size": [
+                    4,
+                    6
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    8,
+                    8
+                  ],
+                  "uv_size": [
+                    4,
+                    6
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    3,
+                    8
+                  ],
+                  "uv_size": [
+                    10,
+                    4
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    3,
+                    8
+                  ],
+                  "uv_size": [
+                    10,
+                    4
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "share",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -7,
+                0,
+                -3
+              ],
+              "size": [
+                14,
+                5,
+                3
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    1,
+                    11
+                  ],
+                  "uv_size": [
+                    14,
+                    5
+                  ],
+                  "material_instance": "blade"
+                },
+                "south": {
+                  "uv": [
+                    1,
+                    11
+                  ],
+                  "uv_size": [
+                    14,
+                    5
+                  ],
+                  "material_instance": "blade"
+                },
+                "east": {
+                  "uv": [
+                    5,
+                    11
+                  ],
+                  "uv_size": [
+                    3,
+                    5
+                  ],
+                  "material_instance": "blade"
+                },
+                "west": {
+                  "uv": [
+                    5,
+                    11
+                  ],
+                  "uv_size": [
+                    3,
+                    5
+                  ],
+                  "material_instance": "blade"
+                },
+                "up": {
+                  "uv": [
+                    1,
+                    5
+                  ],
+                  "uv_size": [
+                    14,
+                    3
+                  ],
+                  "material_instance": "blade"
+                },
+                "down": {
+                  "uv": [
+                    1,
+                    5
+                  ],
+                  "uv_size": [
+                    14,
+                    3
+                  ],
+                  "material_instance": "blade"
+                }
+              }
+            },
+            {
+              "origin": [
+                -6,
+                0,
+                -6
+              ],
+              "size": [
+                12,
+                3,
+                3
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    2,
+                    13
+                  ],
+                  "uv_size": [
+                    12,
+                    3
+                  ],
+                  "material_instance": "blade"
+                },
+                "south": {
+                  "uv": [
+                    2,
+                    13
+                  ],
+                  "uv_size": [
+                    12,
+                    3
+                  ],
+                  "material_instance": "blade"
+                },
+                "east": {
+                  "uv": [
+                    2,
+                    13
+                  ],
+                  "uv_size": [
+                    3,
+                    3
+                  ],
+                  "material_instance": "blade"
+                },
+                "west": {
+                  "uv": [
+                    2,
+                    13
+                  ],
+                  "uv_size": [
+                    3,
+                    3
+                  ],
+                  "material_instance": "blade"
+                },
+                "up": {
+                  "uv": [
+                    2,
+                    2
+                  ],
+                  "uv_size": [
+                    12,
+                    3
+                  ],
+                  "material_instance": "blade"
+                },
+                "down": {
+                  "uv": [
+                    2,
+                    2
+                  ],
+                  "uv_size": [
+                    12,
+                    3
+                  ],
+                  "material_instance": "blade"
+                }
+              }
+            },
+            {
+              "origin": [
+                -4,
+                0,
+                -8
+              ],
+              "size": [
+                8,
+                2,
+                2
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    4,
+                    14
+                  ],
+                  "uv_size": [
+                    8,
+                    2
+                  ],
+                  "material_instance": "blade"
+                },
+                "south": {
+                  "uv": [
+                    4,
+                    14
+                  ],
+                  "uv_size": [
+                    8,
+                    2
+                  ],
+                  "material_instance": "blade"
+                },
+                "east": {
+                  "uv": [
+                    0,
+                    14
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "blade"
+                },
+                "west": {
+                  "uv": [
+                    0,
+                    14
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "blade"
+                },
+                "up": {
+                  "uv": [
+                    4,
+                    0
+                  ],
+                  "uv_size": [
+                    8,
+                    2
+                  ],
+                  "material_instance": "blade"
+                },
+                "down": {
+                  "uv": [
+                    4,
+                    0
+                  ],
+                  "uv_size": [
+                    8,
+                    2
+                  ],
+                  "material_instance": "blade"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

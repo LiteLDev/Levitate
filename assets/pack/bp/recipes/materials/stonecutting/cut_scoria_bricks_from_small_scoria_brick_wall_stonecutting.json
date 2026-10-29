@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:cut_scoria_bricks_from_small_scoria_brick_wall_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:small_scoria_brick_wall"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:small_scoria_brick_wall"
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_scoria_bricks",
+      "count": 1
+    }
+  }
+}

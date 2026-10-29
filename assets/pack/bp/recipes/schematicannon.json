@@ -1,0 +1,39 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:schematicannon"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " I ",
+      "LIL",
+      "SDS"
+    ],
+    "key": {
+      "I": {
+        "item": "minecraft:iron_block"
+      },
+      "L": {
+        "tag": "minecraft:logs"
+      },
+      "S": {
+        "item": "minecraft:smooth_stone"
+      },
+      "D": {
+        "item": "minecraft:dispenser"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:dispenser"
+      }
+    ],
+    "result": {
+      "count": 1,
+      "item": "levitate:schematicannon"
+    }
+  }
+}
