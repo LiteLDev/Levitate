@@ -14,9 +14,8 @@ struct PonderConfig {
     bool comfyReading = false;
     /// Hold time scale of the Ponder key (1 = Create's ~11 ticks).
     float holdSpeed = 1.0f;
-    /// Depth of a scene block in the UI pass, as a fraction of its on-screen size (sign = which way
-    /// the GUI depth buffer grows).
-    float depthScale = 0.05f;
+    /// Depth of a scene block in the UI pass, as a fraction of its on-screen size.
+    float depthScale = 0.1f;
     /// Colour of the placeholder drawn for blocks that are not registered (ARGB).
     unsigned placeholderColour = 0xFFFF55FF;
 };

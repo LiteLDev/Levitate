@@ -2,9 +2,10 @@
 
 // Draws a Ponder scene state into a screen.
 //
-// Blocks are tessellated by the game's own block tessellator (`BlockTessellator::getMeshForBlock`,
-// the mesh the game uses for a block on its own: falling blocks, item icons) and drawn with the
-// block atlas through the UI pass, with the scene camera (core::ponder::View) as the world matrix.
+// Levitate blocks are built from the pack's own block files and geometry (core/ponder/BlockModel.h:
+// permutations, bone visibility, material instances, transformations); other blocks are tessellated
+// by a block tessellator of our own (`appendTessellatedBlock`). Both are drawn with the block atlas
+// through the UI pass, with the scene camera (core::ponder::View) as the world matrix.
 // Blocks are drawn back to front. A block id that is not registered (a unit that has not landed)
 // is drawn as a placeholder outline and skipped. Kinetic blocks turn: blocks with a kinetic rotor
 // model (U2) draw their static part and their rotor bones at the scene's angle; other kinetic blocks
@@ -186,6 +187,34 @@ mce::Mesh* modelMesh(Tessellator& tess, cp::BlockDef const& def) {
 }
 
 
+/// Water and lava (the block tessellator draws no liquids on their own): a 14/16 high tinted cube
+/// of the still texture.
+mce::Mesh* fluidMesh(Tessellator& tess, std::string const& id) {
+    bool water = id == "minecraft:water" || id == "minecraft:flowing_water";
+    bool lava  = id == "minecraft:lava" || id == "minecraft:flowing_lava";
+    if (!water && !lava) return nullptr;
+    auto& c = cache().modelMeshes;
+    if (auto it = c.find(id); it != c.end()) return it->second.get();
+    auto&         slot = c[id];
+    cp::ResolvedBlock block;
+    block.materials["*"] = water ? "still_water_grey" : "still_lava";
+    block.scale          = {1.f, 14.f / 16.f, 1.f};
+    block.translation    = {0.f, -1.f / 16.f, 0.f};
+    float r = water ? 0.25f : 1.f, g = water ? 0.46f : 1.f, b = water ? 0.92f : 1.f;
+    tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
+    for (auto const& q : cp::buildQuads(block, cp::fullBlock(), {})) {
+        auto  tex = BlockGraphics::getTextureUVCoordinateSet(q.texture, 0, 0);
+        float u0 = tex._u0, v0 = tex._v0, u1 = tex._u1, v1 = tex._v1;
+        auto  uv  = [&](cp::V2 const& t) { return Vec2{u0 + (u1 - u0) * t[0], v0 + (v1 - v0) * t[1]}; };
+        auto  at  = [](cp::V3 const& p) { return Vec3{p[0], p[1], p[2]}; };
+        tess.color(r * q.shade, g * q.shade, b * q.shade, 1.f);
+        tess.simpleQuad(at(q.pos[0]), uv(q.uv[0]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[3]), uv(q.uv[3]));
+        tess.simpleQuad(at(q.pos[3]), uv(q.uv[3]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[0]), uv(q.uv[0]));
+    }
+    slot = std::make_unique<mce::Mesh>(tess.end(Tessellator::UploadMode::Buffered, "levitate_ponder_fluid", SupplementaryFieldAutoGenerationMode::None));
+    return slot.get();
+}
+
 // ---- rotor meshes (U2's rotor geometry, as the kinetics renderer draws it) ---------------------
 
 std::map<std::string, k::RotorModel> const& rotorModels() {
@@ -287,6 +316,13 @@ unsigned withAlpha(unsigned argb, float a) {
 
 glm::mat4 toGlm(std::array<float, 16> const& m) { return glm::make_mat4(m.data()); }
 
+/// The scene camera for the UI pass. The GUI depth range only keeps depths at or behind 0, where
+/// larger is nearer: every depth is pushed behind 0 by the scene's radius (in blocks).
+glm::mat4 uiCamera(cp::View const& v, float radius) {
+    float d = v.scale * config().depthScale;
+    return glm::translate(glm::mat4(1.f), glm::vec3(0.f, 0.f, -(radius * d + 1.f))) * toGlm(v.matrix(d));
+}
+
 glm::vec3 axisVec(k::Axis a) {
     return {a == k::Axis::X ? 1.f : 0.f, a == k::Axis::Y ? 1.f : 0.f, a == k::Axis::Z ? 1.f : 0.f};
 }
@@ -361,7 +397,7 @@ bool drawIcon(Canvas& c, std::string const& id, float x, float y, float size) {
     std::variant<std::monostate, mce::TexturePtr, mce::ClientTexture, mce::ServerTexture> texture{moving->mAtlasTexture.get()};
     auto& worldMat    = sc.camera.worldMatrixStack.get();
     auto  ref         = worldMat.push(false);
-    ref.mat->_m.get() = ref.mat->_m.get() * toGlm(v.matrix(v.scale * config().depthScale));
+    ref.mat->_m.get() = ref.mat->_m.get() * uiCamera(v, 2.f);
     mesh->renderMesh(sc, moving->mBlockMaterials[static_cast<int>(BlockRenderLayer::RenderlayerAlphatest)].get(), texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
     return true;
 }
@@ -434,7 +470,8 @@ DrawResult drawScene(
     if (!ownTess) return res;
     auto&     blockTess = *ownTess;
     auto&     worldMat  = sc.camera.worldMatrixStack.get();
-    glm::mat4 camera    = toGlm(view.matrix(view.scale * cfg.depthScale));
+    float     radius    = std::sqrt(static_cast<float>(scene.sizeX * scene.sizeX + scene.sizeZ * scene.sizeZ)) + static_cast<float>(scene.height) + 10.f;
+    glm::mat4 camera    = uiCamera(view, radius);
 
     auto drawMesh = [&](mce::Mesh const& mesh, glm::mat4 const& model) {
         auto ref          = worldMat.push(false);
@@ -444,6 +481,7 @@ DrawResult drawScene(
 
     auto meshOf = [&](cp::BlockDef const& def, Block const& block) -> mce::Mesh* {
         if (auto* m = modelMesh(tess, def)) return m;
+        if (auto* m = fluidMesh(tess, def.id)) return m;
         return blockMesh(tess, blockTess, block);
     };
 

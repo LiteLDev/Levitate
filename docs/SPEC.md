@@ -1775,7 +1775,7 @@ generators' own behaviour (U7, U18, U21), not a config value.
 `config/generators.json` (U7): `crankHungerMultiplier` (0.01, exhaustion per hand crank use per RPM).
 
 `config/ponder.json` (U30, client mod): `comfyReading` (false, Create's client option),
-`holdSpeed` (1, scales the hold-to-ponder time), `depthScale` (0.05, depth of scene blocks in the
+`holdSpeed` (1, scales the hold-to-ponder time), `depthScale` (0.1, depth of scene blocks in the
 UI pass), `placeholderColour` (outline of unregistered blocks).
 
 ## 6. Commands
@@ -1887,7 +1887,7 @@ matches Create's official Chinese translation wording).
 | Belt funnels, tunnels on belts, chutes pulling from belts (U12) | waiting for U11's belt | the hooks exist (`beltlink`, FunnelsExt.h); tunnels already work with any registered segment |
 | Ponder for **vanilla** clients (U30) | a scene player needs client-side 3D rendering of a private scene; forms can't draw blocks | Ponder is client mod only; `/create ponder` tells vanilla players it needs the client mod |
 | Ponder scenes as Create's scene code and NBT schematics (U30) | Create's scenes are Java code over its own schematics (and copying them is not allowed) | our own scene scripts as data (`assets/ponder/scenes/*.json`) teaching the same steps; titles keep Create's wording, the texts are our own |
-| Entities, fluids and particles inside Ponder scenes (U30) | the scene is drawn from blocks only (no private level with entities / fluid renderers) | items float as item icons, mobs / minecarts are shown as their item, fluid flow is shown with coloured outlines, redstone with red sparks |
+| Entities, flowing fluids and particles inside Ponder scenes (U30) | the scene is drawn from blocks only (no private level with entities / fluid renderers) | items float as item icons, mobs / minecarts are shown as their item, water and lava blocks as tinted still-fluid cubes, fluid flow in pipes / tanks with coloured outlines, redstone with red sparks |
 | Fading blocks in Ponder (U30) | the UI pass draws block meshes with the opaque / alpha-test block material only | blocks slide in from their direction and grow from 40 % to full size while they appear |
 | "Hold [W] to Ponder" inside the item tooltip (U30) | Bedrock's hover text is built by the UI, not by item tooltip callbacks | the hint and its progress bar are drawn at the top of the screen while a ponderable item is hovered |
 | Ponder's own rebindable key (U30) | no key binding registry for mods | W, Create's default (the scene keys A / D / Q / S as Create's) |
