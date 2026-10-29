@@ -1,0 +1,14 @@
+{
+  "create.logistics.filter.extracted_amount": "Extracted Amount",
+  "create.logistics.filter.up_to": "Up to",
+  "create.logistics.filter.exactly": "Exactly",
+  "create.logistics.filter.any_amount_short": "Any",
+  "create.logistics.when_multiple_outputs_available": "Distribution Method",
+  "create.tunnel.selection_mode.split": "Split",
+  "create.tunnel.selection_mode.forced_split": "Forced Split",
+  "create.tunnel.selection_mode.round_robin": "Round Robin",
+  "create.tunnel.selection_mode.forced_round_robin": "Forced Round Robin",
+  "create.tunnel.selection_mode.prefer_nearest": "Prefer Nearest",
+  "create.tunnel.selection_mode.randomize": "Randomize",
+  "create.tunnel.selection_mode.synchronize": "Synchronize Inputs"
+}

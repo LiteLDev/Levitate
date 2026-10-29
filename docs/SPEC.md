@@ -151,7 +151,20 @@ and wait in `assets/pending_recipes/belts/`.
 ### 2.7 Item logistics (U12)
 
 `andesite_funnel`, `brass_funnel`, `andesite_tunnel`, `brass_tunnel`, `chute`, `smart_chute`,
-`item_vault`, `creative_crate`.
+`item_vault`, `creative_crate`. Behaviour in §3.6 (U12).
+
+| Block | States | Drops / recipe (Create 6.0.10) |
+|---|---|---|
+| `andesite_funnel`, `brass_funnel` | `levitate:facing` 0..5 (the side the opening faces, away from the attached block), `levitate:extracting`, `levitate:powered`, `levitate:flap` | itself; 2 from andesite alloy over dried kelp / 2 from electron tube, brass ingot, dried kelp (column) |
+| `andesite_tunnel`, `brass_tunnel` | `levitate:axis` 0 x / 2 z (the belt's axis), `levitate:shape` 0 straight, 1 window, 2 closed, 3 T left, 4 T right, 5 cross | itself; 2 from 2 andesite alloy over 2 dried kelp / 2 from electron tube, 2 brass ingots, 2 dried kelp |
+| `chute` | `levitate:facing` 0 down or 2..5 (diagonal), `levitate:shape` 0 intersection, 1 window, 2 normal, 3 encased | itself; 4 from iron sheet, iron ingot, iron sheet (column) |
+| `smart_chute` | `levitate:powered` | itself; brass sheet, chute, electron tube (column) |
+| `item_vault` | `levitate:axis` 0 x / 2 z, connected textures `levitate:len` / `levitate:u` / `levitate:v` / `levitate:large` | itself; iron sheet, barrel, iron sheet (column) |
+| `creative_crate` | — | itself; creative only (no recipe) |
+
+The recipes use U9's materials (andesite alloy, brass, sheets, electron tube): they wait in
+`assets/pending_recipes/funnels/` until U9 is merged. Belt funnels (`andesite_belt_funnel`,
+`brass_belt_funnel`: a funnel placed on the side of a belt) come with the belt API (§3.6 U12).
 
 ### 2.8 Bulk processing (U13)
 
@@ -1536,6 +1549,90 @@ page per form: inputs, check toggles, page selector, erase checked).
 **Commands** (op, Levitate debug): `/create display text <x y z> <line> <text>` (`_` = space) writes
 a board line or a nixie row; `/create display bind <x y z> <tx ty tz> <source>` binds a link and
 sends.
+#### 3.6 U12 Item logistics (`funnels`)
+
+Code: `src/feature/funnels/` (blocks, ticking, interaction), `src/core/funnels/Logistics.h`
+(distribution, tunnel shapes, chute air flow, vault structures; gtest), contract extension
+`src/feature/common/FunnelsExt.h` (fan and belt hooks, below). Every block is ticked like a Create
+block entity; per-block state lives in `BlockData["funnels"]` (filters in `BlockData["filter"]`).
+Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `brassTunnelTimer`
+10, `fanBlockCheckRate` 30 (Create's CLogistics / CKinetics defaults).
+
+- **Funnels** (Create's FunnelBlock / FunnelBlockEntity). Placement: facing towards the player along
+  the nearest looking directions (the first that isn't attached to another funnel); placed normally
+  it *extracts*, placed while sneaking it *inserts*; the wrench flips it. Redstone power pauses any
+  funnel (and resets its cooldown).
+  - Extracting: every `defaultExtractionTimer` (8) ticks it pulls from the block behind it (item
+    capability, the side facing the funnel) and drops the stack in front (centre + facing × .25,
+    0.45 lower for wall funnels; ceiling × .5; floor × .15 with an upward push of 4/16), with the
+    default pickup delay; it waits while an item entity is in its block (and the block below,
+    unless it faces up). Andesite: 1 item. Brass: the "Extracted Amount" setting (rows *Up to* /
+    *Exactly*, 1..64, milestones of 16, default up to 64 = "Any"); *exactly* only extracts when that
+    many items of one kind are there. Brass funnels have a filter slot (wall funnel: front, top;
+    floor / ceiling funnel: the four sides near the inventory).
+  - Inserting: item entities touching its opening (on the front side of the centre − facing × .25)
+    go into the inventory behind (filtered); a right-click on the front face with an item inserts
+    the held stack. An upward inserting funnel also takes items from belts / chutes / machines
+    above it (item capability on the funnel, Create's DirectBeltInputBehaviour).
+  - Flaps: horizontal funnels flap (block state `levitate:flap` for 4 ticks, visible on every
+    client) with Create's funnel flap sound (item frame turn + wool).
+  - On a belt (belt funnels, pushing / pulling by belt direction): pending U11's belt (beltlink).
+- **Tunnels** (Create's BeltTunnelBlock / BrassTunnelBlockEntity) sit on a belt segment (beltlink).
+  Shape: a T on each side with an output (a belt running across, or a Levitate block taking items
+  from that side), cross for both; a straight tunnel between two tunnels gets a window (wrench:
+  window ↔ closed). The belt reports items crossing into the segment
+  (`beltlink::itemEntering`):
+  - andesite tunnel junction, belt along the tunnel's axis, stack > 1: one item split off to every
+    side output that takes it (the item waits if one refuses); the rest goes on;
+  - brass tunnel with more than one exit (side flaps or a group): it takes the whole stack (the
+    belt item waits while the tunnel still holds one) and distributes it after 2 ticks, then every
+    `brassTunnelTimer` (10) ticks, among the exits of its group (brass tunnels side by side on
+    parallel belts, same axis): own sides first, then forward, then the other tunnels' exits;
+    exits with a filter first, then the others. Modes (option box on top, "Distribution Method",
+    shared by the group): Split, Forced Split, Round Robin, Forced Round Robin, Prefer Nearest,
+    Randomize, Synchronize Inputs (`core::funnels::planDistribution`; synchronize releases items
+    only when every tunnel of the group holds one). Filter slots on each open side: inbound filters
+    block non-matching belt items, outbound filters sort; a side without its own filter uses the
+    filter of the block on that side (e.g. a brass funnel). Exits: the belt / machine on that side
+    (item capability), or forward out of the end of the belt as an item entity. Items can be
+    inserted into a brass tunnel directly (item capability); empty-hand right-click retrieves the
+    group's stacks.
+- **Chutes** (Create's ChuteBlockEntity). One stack per chute moving at
+  `((push + pull) / 64 clamped to ±20, − 4 when ≤ 0) / 20` blocks per tick (gravity: 4 blocks/s
+  down). Encased fans (airflow) above facing down (pull) or below facing up (push) speed items up
+  or reverse them; push / pull propagate along connected chutes (shared among branches). Input:
+  from the inventory above (below for upward chutes), 16 items at a time; from chutes feeding into
+  it; from items dropped on top of an open chute; upward chutes suck in item entities up to 1 / 2 /
+  3 blocks below at 32 / 64 / 128 RPM. Output: the inventory / chute below (a smart chute below
+  counts as an inventory), the chute it feeds (diagonal chutes: below and behind), or dropped out
+  of the bottom (centre − 12/16, falling at .25) unless the block below has a solid top or a
+  downward funnel; upward: the inventory above an open chute, the fastest input chute, or out of
+  the top. A diagonal chute is made by clicking the side of a block (not sneaking); shapes update
+  with the chutes around (intersection when fed diagonally). Wrench: normal ↔ window, encased →
+  normal; industrial iron block: encase. Empty-hand right-click takes the stack out.
+- **Smart chutes**: a chute with a filter slot on each side (8, 11 px) and the "Extracted
+  Amount" setting (default 64; shown while it pulls from an inventory); redstone power stops it.
+- **Item vaults** (Create's ItemVaultBlock / ConnectivityHandler): vault blocks of the same
+  horizontal axis join into cuboids with a square cross-section up to 3×3 and up to 3× the width
+  long (the controller at the lowest corner forming the most blocks wins; ties: the wider one).
+  Placement: the axis of the vault clicked on (not sneaking), else the player's horizontal
+  facing; wrench on the top / bottom turns the axis. Each block holds `vaultCapacity` (20) stacks;
+  the whole structure is one inventory for every item capability user (no manual access).
+  Connected textures through block states. Comparators next to any block read the whole vault
+  (`floor(fill × 14) + 1` when not empty, Create's `calcRedstoneFromInventory`). Broken blocks
+  drop their own stacks.
+- **Creative crate**: an endless supply of the item in its filter slot (top): extraction gives up
+  to a full stack of it, insertion voids the items (Create's BottomlessItemHandler).
+- **Items in chutes** are shown to every client (vanilla and client mod) as client-only display
+  item entities that follow the stack (Display.cpp, §8).
+- **Contract extension** (`src/feature/common/FunnelsExt.h`, for U11 and U13):
+  `airflow::registerFan(blockId, query)` — a fan's facing and speed (Create's
+  `EncasedFanBlockEntity.getSpeed()`), read by chutes; `beltlink::registerSegment(blockId,
+  query)` — a belt segment's movement facing, speed, slope and casing, read by tunnels; and
+  `beltlink::itemEntering(region, beltPos, stack, movementFacing)` — the belt calls it when an
+  item crosses into a segment (Continue / Stuck / Taken), so the tunnel above can take or split it.
+  Items going *into* belts, depots, funnels and chutes use the item capability with `face` = the
+  side they come from.
 
 ## 4. Screens
 
@@ -1614,6 +1711,8 @@ true, `psiTimeout` 60.
 `config/steam.json` (U18): `fluidTankCapacity` (8, buckets per tank block) and `fluidTankMaxHeight`
 (32), Create's CFluids keys and defaults.
 `config/assembly.json` (U15): `mechanicalArmRange` 5 (Create's CLogistics key and default).
+`config/funnels.json` (U12): `defaultExtractionTimer` 8, `vaultCapacity` 20, `brassTunnelTimer` 10
+(Create's CLogistics), `fanBlockCheckRate` 30 (Create's CKinetics; how often chutes re-check their air flow).
 
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
@@ -1725,6 +1824,13 @@ matches Create's official Chinese translation wording).
 | "Clipboard Actions" hover tip and block outline while holding a clipboard (U24) | per-frame client logic for every block's settings | the action bar tells what was copied / pasted |
 | Deaths statistic of the respawn anchor source (U24) | Bedrock has no deaths statistic | Levitate counts player deaths per world (`lv:display:deaths`) |
 | Display link placement by a SimulatedPlayer (U24 selftests) | `simulateUseItemInSlotOnBlock` does not place this block item | the selftest places the block itself after the item logic; the client e2e places it for real |
+
+| Items drawn inside chutes by a block entity renderer (U12) | custom blocks have no block entity renderers | client-only display item entities (packets only, never a server entity, so nobody can pick them up) follow each moving stack; vanilla clients and the client mod see the same |
+| Smooth (lerped) funnel flaps (U12) | no per-frame block animation for custom blocks without a renderer | the flap is a block state shown for 4 ticks after a transfer (both kinds of clients) |
+| Editing a filter's amount by *holding* the filter slot (U12) | the server sees no held click (see the value box row) | brass funnels and smart chutes have a separate "Extracted Amount" value box next to the filter slot |
+| Funnel / smart chute redstone input by neighbour updates (U12) | custom blocks get no redstone neighbour update | polled every 2 ticks like the sticker (same sources) |
+| Comparators reading a vault (U12) | Bedrock only asks container blocks for analog signals | the vault's signal is handed to the comparator's circuit component before it evaluates (ComparatorCapacitor hook) |
+| Belt funnels, tunnels on belts, chutes pulling from belts (U12) | waiting for U11's belt | the hooks exist (`beltlink`, FunnelsExt.h); tunnels already work with any registered segment |
 
 Units add rows here in their PRs when they find something else impossible.
 

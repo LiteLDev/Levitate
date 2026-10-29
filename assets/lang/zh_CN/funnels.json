@@ -1,0 +1,14 @@
+{
+  "create.logistics.filter.extracted_amount": "提取数量",
+  "create.logistics.filter.up_to": "最多",
+  "create.logistics.filter.exactly": "等于",
+  "create.logistics.filter.any_amount_short": "任何",
+  "create.logistics.when_multiple_outputs_available": "分配方法",
+  "create.tunnel.selection_mode.split": "分流",
+  "create.tunnel.selection_mode.forced_split": "强制分流",
+  "create.tunnel.selection_mode.round_robin": "轮询调度",
+  "create.tunnel.selection_mode.forced_round_robin": "强制轮询调度",
+  "create.tunnel.selection_mode.prefer_nearest": "最近优先",
+  "create.tunnel.selection_mode.randomize": "随机",
+  "create.tunnel.selection_mode.synchronize": "同步输入"
+}
