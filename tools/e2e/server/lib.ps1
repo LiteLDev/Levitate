@@ -229,9 +229,18 @@ function Initialize-ServerSlot([string]$ModDir) {
     Write-Step "deployed $ModDir -> $dest"
 }
 
+# BDS binds the IPv4 port and the IPv6 port (port + 1); either may be taken by another program
+# (or another BDS that is still shutting down), so both families are tried on both ports.
 function Test-UdpPortFree([int]$Port) {
-    try { $u = [System.Net.Sockets.UdpClient]::new($Port); $u.Dispose(); return $true } catch { return $false }
+    foreach ($family in [System.Net.Sockets.AddressFamily]::InterNetwork, [System.Net.Sockets.AddressFamily]::InterNetworkV6) {
+        try { $u = [System.Net.Sockets.UdpClient]::new($Port, $family); $u.Dispose() } catch { return $false }
+    }
+    return $true
 }
+# Port pairs BDS refused in this run ("Port [n] may be in use"): never offered again.
+$script:RefusedPorts = [System.Collections.Generic.HashSet[int]]::new()
+# The log line BDS writes before it exits when a port is taken.
+$script:PortInUsePattern = 'Port \[(\d+)\] may be in use by another process'
 
 # Write server.properties for the fixture world. $Overrides (hashtable) wins over defaults.
 # Slot n owns UDP ports 19600+10n .. 19609+10n, so slots never race for the same port.
@@ -239,6 +248,7 @@ function Set-ServerProperties([hashtable]$Overrides = @{}) {
     $band = 19600 + 10 * $script:Slot
     $port = $null
     foreach ($p in $band, ($band + 2), ($band + 4), ($band + 6), ($band + 8)) {
+        if ($script:RefusedPorts.Contains($p)) { continue }
         if ((Test-UdpPortFree $p) -and (Test-UdpPortFree ($p + 1))) { $port = $p; break }
     }
     if (-not $port) { throw "no free UDP port pair in $band..$($band + 9) for slot $script:Slot" }

@@ -65,10 +65,29 @@ try {
         $prelaunch = Join-Path $PSScriptRoot "scenarios/$Scenario.prelaunch.ps1"
         if (Test-Path $prelaunch) { . $prelaunch }
 
-        Start-Server (Join-Path $outDir 'server.log')
-        try {
+        # A port that was free when server.properties was written can be taken by the time BDS
+        # binds it (another program, a BDS still shutting down): BDS then logs "Port [n] may be in
+        # use" and exits. Take the next free pair and boot again; report a clash as such.
+        for ($boot = 1; ; $boot++) {
+            Start-Server (Join-Path $outDir 'server.log')
             $script:Deadline = (Get-Date).AddSeconds($BootTimeoutSec)
-            $hit = Wait-LogLine "$script:ModName enabled|Failed to (load|enable) mod $script:ModName" $BootTimeoutSec
+            $hit = $null
+            try {
+                $hit = Wait-LogLine "$script:ModName enabled|Failed to (load|enable) mod $script:ModName|$script:PortInUsePattern" $BootTimeoutSec
+            } catch {
+                # the server died: a port clash logged just before is still a port clash
+                $hit = Get-ServerLog | Select-String -Pattern $script:PortInUsePattern | Select-Object -First 1 | ForEach-Object { $_.Line }
+                if (-not $hit) { $script:Sink.Close(); throw }
+            }
+            if ($hit -notmatch $script:PortInUsePattern) { break }
+            Write-Step "port clash: $hit"
+            [void]$script:RefusedPorts.Add($script:ServerPort)
+            Stop-Server -TimeoutSeconds 20 | Out-Null
+            $script:Sink.Close()
+            if ($boot -ge 4) { throw "PORT CLASH: BDS could not bind a UDP port pair of slot $script:Slot (refused: $($script:RefusedPorts -join ', ')); not a mod failure" }
+            Set-ServerProperties $overrides
+        }
+        try {
             if ($hit -notmatch "$script:ModName enabled") { throw "LeviLamina failed to load $($script:ModName): $hit" }
             Wait-LogLine 'Server started' $BootTimeoutSec | Out-Null
             # Fixture world: always day, clear weather, no mob spawning.

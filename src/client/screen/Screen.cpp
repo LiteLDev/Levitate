@@ -480,16 +480,6 @@ public:
     void load() {
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::BeforeUIRenderEvent>([](ll::event::BeforeUIRenderEvent& ev) {
-            // one log line per change of the top scene (title screen, play screen, world, ...):
-            // the e2e harness waits for them instead of guessing load times
-            {
-                static std::string lastTop;
-                auto               top = topScene();
-                if (!top.empty() && top != lastTop) {
-                    lastTop = top;
-                    log().info("client screen: {}", top);
-                }
-            }
             auto& s = state();
             if (!s.screen) return;
             auto name = ev.screenView().getScreenName();
