@@ -1,0 +1,492 @@
+{
+  "levitate_zinc_ore": {
+    "textures": "textures/blocks/zinc_ore"
+  },
+  "levitate_deepslate_zinc_ore": {
+    "textures": "textures/blocks/deepslate_zinc_ore"
+  },
+  "levitate_raw_zinc_block": {
+    "textures": "textures/blocks/raw_zinc_block"
+  },
+  "levitate_zinc_block": {
+    "textures": "textures/blocks/zinc_block"
+  },
+  "levitate_brass_block": {
+    "textures": "textures/blocks/brass_block"
+  },
+  "levitate_andesite_alloy_block": {
+    "textures": "textures/blocks/andesite_alloy_block"
+  },
+  "levitate_rose_quartz_tiles": {
+    "textures": "textures/blocks/rose_quartz_tiles"
+  },
+  "levitate_small_rose_quartz_tiles": {
+    "textures": "textures/blocks/small_rose_quartz_tiles"
+  },
+  "levitate_experience_block": {
+    "textures": "textures/blocks/experience_block"
+  },
+  "levitate_industrial_iron_block": {
+    "textures": "textures/blocks/industrial_iron_block"
+  },
+  "levitate_industrial_iron_block_top": {
+    "textures": "textures/blocks/industrial_iron_block_top"
+  },
+  "levitate_weathered_iron_block": {
+    "textures": "textures/blocks/weathered_iron_block"
+  },
+  "levitate_weathered_iron_block_top": {
+    "textures": "textures/blocks/weathered_iron_block_top"
+  },
+  "levitate_rose_quartz_block": {
+    "textures": "textures/blocks/rose_quartz_block"
+  },
+  "levitate_rose_quartz_block_top": {
+    "textures": "textures/blocks/rose_quartz_block_top"
+  },
+  "levitate_cardboard_block": {
+    "textures": "textures/blocks/cardboard_block"
+  },
+  "levitate_cardboard_block_end": {
+    "textures": "textures/blocks/cardboard_block_end"
+  },
+  "levitate_bound_cardboard_block": {
+    "textures": "textures/blocks/bound_cardboard_block"
+  },
+  "levitate_bound_cardboard_block_end": {
+    "textures": "textures/blocks/bound_cardboard_block_end"
+  },
+  "levitate_granite_cut": {
+    "textures": "textures/blocks/palettes/granite_cut"
+  },
+  "levitate_granite_polished": {
+    "textures": "textures/blocks/palettes/granite_polished"
+  },
+  "levitate_granite_slab": {
+    "textures": "textures/blocks/palettes/granite_slab"
+  },
+  "levitate_granite_brick": {
+    "textures": "textures/blocks/palettes/granite_brick"
+  },
+  "levitate_granite_small_brick": {
+    "textures": "textures/blocks/palettes/granite_small_brick"
+  },
+  "levitate_granite_layered": {
+    "textures": "textures/blocks/palettes/granite_layered"
+  },
+  "levitate_granite_cap": {
+    "textures": "textures/blocks/palettes/granite_cap"
+  },
+  "levitate_granite_pillar": {
+    "textures": "textures/blocks/palettes/granite_pillar"
+  },
+  "levitate_diorite_cut": {
+    "textures": "textures/blocks/palettes/diorite_cut"
+  },
+  "levitate_diorite_polished": {
+    "textures": "textures/blocks/palettes/diorite_polished"
+  },
+  "levitate_diorite_slab": {
+    "textures": "textures/blocks/palettes/diorite_slab"
+  },
+  "levitate_diorite_brick": {
+    "textures": "textures/blocks/palettes/diorite_brick"
+  },
+  "levitate_diorite_small_brick": {
+    "textures": "textures/blocks/palettes/diorite_small_brick"
+  },
+  "levitate_diorite_layered": {
+    "textures": "textures/blocks/palettes/diorite_layered"
+  },
+  "levitate_diorite_cap": {
+    "textures": "textures/blocks/palettes/diorite_cap"
+  },
+  "levitate_diorite_pillar": {
+    "textures": "textures/blocks/palettes/diorite_pillar"
+  },
+  "levitate_andesite_cut": {
+    "textures": "textures/blocks/palettes/andesite_cut"
+  },
+  "levitate_andesite_polished": {
+    "textures": "textures/blocks/palettes/andesite_polished"
+  },
+  "levitate_andesite_slab": {
+    "textures": "textures/blocks/palettes/andesite_slab"
+  },
+  "levitate_andesite_brick": {
+    "textures": "textures/blocks/palettes/andesite_brick"
+  },
+  "levitate_andesite_small_brick": {
+    "textures": "textures/blocks/palettes/andesite_small_brick"
+  },
+  "levitate_andesite_layered": {
+    "textures": "textures/blocks/palettes/andesite_layered"
+  },
+  "levitate_andesite_cap": {
+    "textures": "textures/blocks/palettes/andesite_cap"
+  },
+  "levitate_andesite_pillar": {
+    "textures": "textures/blocks/palettes/andesite_pillar"
+  },
+  "levitate_calcite_cut": {
+    "textures": "textures/blocks/palettes/calcite_cut"
+  },
+  "levitate_calcite_polished": {
+    "textures": "textures/blocks/palettes/calcite_polished"
+  },
+  "levitate_calcite_slab": {
+    "textures": "textures/blocks/palettes/calcite_slab"
+  },
+  "levitate_calcite_brick": {
+    "textures": "textures/blocks/palettes/calcite_brick"
+  },
+  "levitate_calcite_small_brick": {
+    "textures": "textures/blocks/palettes/calcite_small_brick"
+  },
+  "levitate_calcite_layered": {
+    "textures": "textures/blocks/palettes/calcite_layered"
+  },
+  "levitate_calcite_cap": {
+    "textures": "textures/blocks/palettes/calcite_cap"
+  },
+  "levitate_calcite_pillar": {
+    "textures": "textures/blocks/palettes/calcite_pillar"
+  },
+  "levitate_dripstone_cut": {
+    "textures": "textures/blocks/palettes/dripstone_cut"
+  },
+  "levitate_dripstone_polished": {
+    "textures": "textures/blocks/palettes/dripstone_polished"
+  },
+  "levitate_dripstone_slab": {
+    "textures": "textures/blocks/palettes/dripstone_slab"
+  },
+  "levitate_dripstone_brick": {
+    "textures": "textures/blocks/palettes/dripstone_brick"
+  },
+  "levitate_dripstone_small_brick": {
+    "textures": "textures/blocks/palettes/dripstone_small_brick"
+  },
+  "levitate_dripstone_layered": {
+    "textures": "textures/blocks/palettes/dripstone_layered"
+  },
+  "levitate_dripstone_cap": {
+    "textures": "textures/blocks/palettes/dripstone_cap"
+  },
+  "levitate_dripstone_pillar": {
+    "textures": "textures/blocks/palettes/dripstone_pillar"
+  },
+  "levitate_deepslate_cut": {
+    "textures": "textures/blocks/palettes/deepslate_cut"
+  },
+  "levitate_deepslate_polished": {
+    "textures": "textures/blocks/palettes/deepslate_polished"
+  },
+  "levitate_deepslate_slab": {
+    "textures": "textures/blocks/palettes/deepslate_slab"
+  },
+  "levitate_deepslate_brick": {
+    "textures": "textures/blocks/palettes/deepslate_brick"
+  },
+  "levitate_deepslate_small_brick": {
+    "textures": "textures/blocks/palettes/deepslate_small_brick"
+  },
+  "levitate_deepslate_layered": {
+    "textures": "textures/blocks/palettes/deepslate_layered"
+  },
+  "levitate_deepslate_cap": {
+    "textures": "textures/blocks/palettes/deepslate_cap"
+  },
+  "levitate_deepslate_pillar": {
+    "textures": "textures/blocks/palettes/deepslate_pillar"
+  },
+  "levitate_tuff_cut": {
+    "textures": "textures/blocks/palettes/tuff_cut"
+  },
+  "levitate_tuff_polished": {
+    "textures": "textures/blocks/palettes/tuff_polished"
+  },
+  "levitate_tuff_slab": {
+    "textures": "textures/blocks/palettes/tuff_slab"
+  },
+  "levitate_tuff_brick": {
+    "textures": "textures/blocks/palettes/tuff_brick"
+  },
+  "levitate_tuff_small_brick": {
+    "textures": "textures/blocks/palettes/tuff_small_brick"
+  },
+  "levitate_tuff_layered": {
+    "textures": "textures/blocks/palettes/tuff_layered"
+  },
+  "levitate_tuff_cap": {
+    "textures": "textures/blocks/palettes/tuff_cap"
+  },
+  "levitate_tuff_pillar": {
+    "textures": "textures/blocks/palettes/tuff_pillar"
+  },
+  "levitate_asurine_cut": {
+    "textures": "textures/blocks/palettes/asurine_cut"
+  },
+  "levitate_asurine_polished": {
+    "textures": "textures/blocks/palettes/asurine_polished"
+  },
+  "levitate_asurine_slab": {
+    "textures": "textures/blocks/palettes/asurine_slab"
+  },
+  "levitate_asurine_brick": {
+    "textures": "textures/blocks/palettes/asurine_brick"
+  },
+  "levitate_asurine_small_brick": {
+    "textures": "textures/blocks/palettes/asurine_small_brick"
+  },
+  "levitate_asurine_layered": {
+    "textures": "textures/blocks/palettes/asurine_layered"
+  },
+  "levitate_asurine_cap": {
+    "textures": "textures/blocks/palettes/asurine_cap"
+  },
+  "levitate_asurine_pillar": {
+    "textures": "textures/blocks/palettes/asurine_pillar"
+  },
+  "levitate_asurine": {
+    "textures": {
+      "variations": [
+        {
+          "path": "textures/blocks/palettes/asurine_natural_0",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/asurine_natural_1",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/asurine_natural_2",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/asurine_natural_3",
+          "weight": 1
+        }
+      ]
+    }
+  },
+  "levitate_crimsite_cut": {
+    "textures": "textures/blocks/palettes/crimsite_cut"
+  },
+  "levitate_crimsite_polished": {
+    "textures": "textures/blocks/palettes/crimsite_polished"
+  },
+  "levitate_crimsite_slab": {
+    "textures": "textures/blocks/palettes/crimsite_slab"
+  },
+  "levitate_crimsite_brick": {
+    "textures": "textures/blocks/palettes/crimsite_brick"
+  },
+  "levitate_crimsite_small_brick": {
+    "textures": "textures/blocks/palettes/crimsite_small_brick"
+  },
+  "levitate_crimsite_layered": {
+    "textures": "textures/blocks/palettes/crimsite_layered"
+  },
+  "levitate_crimsite_cap": {
+    "textures": "textures/blocks/palettes/crimsite_cap"
+  },
+  "levitate_crimsite_pillar": {
+    "textures": "textures/blocks/palettes/crimsite_pillar"
+  },
+  "levitate_crimsite": {
+    "textures": {
+      "variations": [
+        {
+          "path": "textures/blocks/palettes/crimsite_natural_0",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/crimsite_natural_1",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/crimsite_natural_2",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/crimsite_natural_3",
+          "weight": 1
+        }
+      ]
+    }
+  },
+  "levitate_limestone_cut": {
+    "textures": "textures/blocks/palettes/limestone_cut"
+  },
+  "levitate_limestone_polished": {
+    "textures": "textures/blocks/palettes/limestone_polished"
+  },
+  "levitate_limestone_slab": {
+    "textures": "textures/blocks/palettes/limestone_slab"
+  },
+  "levitate_limestone_brick": {
+    "textures": "textures/blocks/palettes/limestone_brick"
+  },
+  "levitate_limestone_small_brick": {
+    "textures": "textures/blocks/palettes/limestone_small_brick"
+  },
+  "levitate_limestone_layered": {
+    "textures": "textures/blocks/palettes/limestone_layered"
+  },
+  "levitate_limestone_cap": {
+    "textures": "textures/blocks/palettes/limestone_cap"
+  },
+  "levitate_limestone_pillar": {
+    "textures": "textures/blocks/palettes/limestone_pillar"
+  },
+  "levitate_limestone": {
+    "textures": "textures/blocks/palettes/limestone"
+  },
+  "levitate_ochrum_cut": {
+    "textures": "textures/blocks/palettes/ochrum_cut"
+  },
+  "levitate_ochrum_polished": {
+    "textures": "textures/blocks/palettes/ochrum_polished"
+  },
+  "levitate_ochrum_slab": {
+    "textures": "textures/blocks/palettes/ochrum_slab"
+  },
+  "levitate_ochrum_brick": {
+    "textures": "textures/blocks/palettes/ochrum_brick"
+  },
+  "levitate_ochrum_small_brick": {
+    "textures": "textures/blocks/palettes/ochrum_small_brick"
+  },
+  "levitate_ochrum_layered": {
+    "textures": "textures/blocks/palettes/ochrum_layered"
+  },
+  "levitate_ochrum_cap": {
+    "textures": "textures/blocks/palettes/ochrum_cap"
+  },
+  "levitate_ochrum_pillar": {
+    "textures": "textures/blocks/palettes/ochrum_pillar"
+  },
+  "levitate_ochrum": {
+    "textures": {
+      "variations": [
+        {
+          "path": "textures/blocks/palettes/ochrum_natural_0",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/ochrum_natural_1",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/ochrum_natural_2",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/ochrum_natural_3",
+          "weight": 1
+        }
+      ]
+    }
+  },
+  "levitate_scoria_cut": {
+    "textures": "textures/blocks/palettes/scoria_cut"
+  },
+  "levitate_scoria_polished": {
+    "textures": "textures/blocks/palettes/scoria_polished"
+  },
+  "levitate_scoria_slab": {
+    "textures": "textures/blocks/palettes/scoria_slab"
+  },
+  "levitate_scoria_brick": {
+    "textures": "textures/blocks/palettes/scoria_brick"
+  },
+  "levitate_scoria_small_brick": {
+    "textures": "textures/blocks/palettes/scoria_small_brick"
+  },
+  "levitate_scoria_layered": {
+    "textures": "textures/blocks/palettes/scoria_layered"
+  },
+  "levitate_scoria_cap": {
+    "textures": "textures/blocks/palettes/scoria_cap"
+  },
+  "levitate_scoria_pillar": {
+    "textures": "textures/blocks/palettes/scoria_pillar"
+  },
+  "levitate_scoria": {
+    "textures": "textures/blocks/palettes/scoria"
+  },
+  "levitate_scorchia_cut": {
+    "textures": "textures/blocks/palettes/scorchia_cut"
+  },
+  "levitate_scorchia_polished": {
+    "textures": "textures/blocks/palettes/scorchia_polished"
+  },
+  "levitate_scorchia_slab": {
+    "textures": "textures/blocks/palettes/scorchia_slab"
+  },
+  "levitate_scorchia_brick": {
+    "textures": "textures/blocks/palettes/scorchia_brick"
+  },
+  "levitate_scorchia_small_brick": {
+    "textures": "textures/blocks/palettes/scorchia_small_brick"
+  },
+  "levitate_scorchia_layered": {
+    "textures": "textures/blocks/palettes/scorchia_layered"
+  },
+  "levitate_scorchia_cap": {
+    "textures": "textures/blocks/palettes/scorchia_cap"
+  },
+  "levitate_scorchia_pillar": {
+    "textures": "textures/blocks/palettes/scorchia_pillar"
+  },
+  "levitate_scorchia": {
+    "textures": "textures/blocks/palettes/scorchia"
+  },
+  "levitate_veridium_cut": {
+    "textures": "textures/blocks/palettes/veridium_cut"
+  },
+  "levitate_veridium_polished": {
+    "textures": "textures/blocks/palettes/veridium_polished"
+  },
+  "levitate_veridium_slab": {
+    "textures": "textures/blocks/palettes/veridium_slab"
+  },
+  "levitate_veridium_brick": {
+    "textures": "textures/blocks/palettes/veridium_brick"
+  },
+  "levitate_veridium_small_brick": {
+    "textures": "textures/blocks/palettes/veridium_small_brick"
+  },
+  "levitate_veridium_layered": {
+    "textures": "textures/blocks/palettes/veridium_layered"
+  },
+  "levitate_veridium_cap": {
+    "textures": "textures/blocks/palettes/veridium_cap"
+  },
+  "levitate_veridium_pillar": {
+    "textures": "textures/blocks/palettes/veridium_pillar"
+  },
+  "levitate_veridium": {
+    "textures": {
+      "variations": [
+        {
+          "path": "textures/blocks/palettes/veridium_natural_0",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/veridium_natural_1",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/veridium_natural_2",
+          "weight": 1
+        },
+        {
+          "path": "textures/blocks/palettes/veridium_natural_3",
+          "weight": 1
+        }
+      ]
+    }
+  }
+}

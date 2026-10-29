@@ -1,0 +1,84 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:mechanical_pump",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:rotor": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.mechanical_pump",
+        "bone_visibility": {
+          "pump_down": "q.block_state('levitate:facing') == 0",
+          "cog_down": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:rotor') != 1",
+          "pump_up": "q.block_state('levitate:facing') == 1",
+          "cog_up": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:rotor') != 1",
+          "pump_north": "q.block_state('levitate:facing') == 2",
+          "cog_north": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:rotor') != 1",
+          "pump_south": "q.block_state('levitate:facing') == 3",
+          "cog_south": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:rotor') != 1",
+          "pump_west": "q.block_state('levitate:facing') == 4",
+          "cog_west": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:rotor') != 1",
+          "pump_east": "q.block_state('levitate:facing') == 5",
+          "cog_east": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:rotor') != 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_mechanical_pump",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -6.0,
+          2.0,
+          -6.0
+        ],
+        "size": [
+          12.0,
+          12.0,
+          12.0
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -6.0,
+          2.0,
+          -6.0
+        ],
+        "size": [
+          12.0,
+          12.0,
+          12.0
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#c56d43",
+      "minecraft:loot": "loot_tables/blocks/mechanical_pump.json"
+    }
+  }
+}

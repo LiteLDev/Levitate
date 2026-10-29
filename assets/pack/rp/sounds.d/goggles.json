@@ -1,0 +1,25 @@
+{
+  "levitate.wrench_rotate": {
+    "category": "block",
+    "sounds": [
+      { "name": "sounds/block/wooden_trapdoor/close1", "volume": 0.25, "pitch": 1.25 },
+      { "name": "sounds/block/wooden_trapdoor/close2", "volume": 0.25, "pitch": 1.25 },
+      { "name": "sounds/block/wooden_trapdoor/close3", "volume": 0.25, "pitch": 1.25 }
+    ]
+  },
+  "levitate.wrench_remove": {
+    "category": "block",
+    "sounds": [{ "name": "sounds/random/pop", "volume": 0.25, "pitch": 0.75 }]
+  },
+  "levitate.wrench_remove_hit": {
+    "category": "block",
+    "sounds": [
+      { "name": "sounds/step/netherite1", "volume": 1.0, "pitch": 0.75 },
+      { "name": "sounds/step/netherite2", "volume": 1.0, "pitch": 0.75 },
+      { "name": "sounds/step/netherite3", "volume": 1.0, "pitch": 0.75 },
+      { "name": "sounds/step/netherite4", "volume": 1.0, "pitch": 0.75 },
+      { "name": "sounds/step/netherite5", "volume": 1.0, "pitch": 0.75 },
+      { "name": "sounds/step/netherite6", "volume": 1.0, "pitch": 0.75 }
+    ]
+  }
+}

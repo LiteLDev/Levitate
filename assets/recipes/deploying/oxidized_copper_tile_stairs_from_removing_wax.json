@@ -1,0 +1,17 @@
+{
+  "type": "levitate:deploying",
+  "ingredients": [
+    {
+      "item": "levitate:waxed_oxidized_copper_tile_stairs"
+    },
+    {
+      "tag": "minecraft:axes"
+    }
+  ],
+  "results": [
+    {
+      "item": "levitate:oxidized_copper_tile_stairs"
+    }
+  ],
+  "keep_held_item": true
+}

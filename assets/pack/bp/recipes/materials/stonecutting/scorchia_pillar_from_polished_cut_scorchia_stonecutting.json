@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:scorchia_pillar_from_polished_cut_scorchia_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:polished_cut_scorchia"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:polished_cut_scorchia"
+      }
+    ],
+    "result": {
+      "item": "levitate:scorchia_pillar",
+      "count": 1
+    }
+  }
+}

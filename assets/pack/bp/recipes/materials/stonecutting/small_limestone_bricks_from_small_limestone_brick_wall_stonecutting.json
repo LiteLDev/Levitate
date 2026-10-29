@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:small_limestone_bricks_from_small_limestone_brick_wall_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:small_limestone_brick_wall"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:small_limestone_brick_wall"
+      }
+    ],
+    "result": {
+      "item": "levitate:small_limestone_bricks",
+      "count": 1
+    }
+  }
+}

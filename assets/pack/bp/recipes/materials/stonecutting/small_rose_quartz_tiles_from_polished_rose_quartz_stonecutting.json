@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:small_rose_quartz_tiles_from_polished_rose_quartz_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:polished_rose_quartz"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:polished_rose_quartz"
+      }
+    ],
+    "result": {
+      "item": "levitate:small_rose_quartz_tiles",
+      "count": 2
+    }
+  }
+}

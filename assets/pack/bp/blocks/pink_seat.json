@@ -1,0 +1,61 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:pink_seat",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.levitate.seat",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_pink_seat_side",
+          "render_method": "opaque"
+        },
+        "top": {
+          "texture": "levitate_pink_seat_top",
+          "render_method": "opaque"
+        },
+        "base": {
+          "texture": "levitate_seat_base",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 3
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#ed8dac",
+      "minecraft:loot": "loot_tables/blocks/pink_seat.json",
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          8,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          8,
+          16
+        ]
+      }
+    }
+  }
+}

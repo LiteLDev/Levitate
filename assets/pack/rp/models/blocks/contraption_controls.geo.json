@@ -1,0 +1,361 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.contraption_controls",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "body",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                0,
+                -8
+              ],
+              "size": [
+                16,
+                6,
+                16
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    10
+                  ],
+                  "uv_size": [
+                    16,
+                    6
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    0,
+                    10
+                  ],
+                  "uv_size": [
+                    16,
+                    6
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    0,
+                    10
+                  ],
+                  "uv_size": [
+                    16,
+                    6
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    0,
+                    10
+                  ],
+                  "uv_size": [
+                    16,
+                    6
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    16,
+                    16
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    16,
+                    16
+                  ]
+                }
+              }
+            },
+            {
+              "origin": [
+                -7,
+                6,
+                -2
+              ],
+              "size": [
+                14,
+                6,
+                9
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    1,
+                    4
+                  ],
+                  "uv_size": [
+                    14,
+                    6
+                  ],
+                  "material_instance": "panel"
+                },
+                "south": {
+                  "uv": [
+                    1,
+                    4
+                  ],
+                  "uv_size": [
+                    14,
+                    6
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    6,
+                    4
+                  ],
+                  "uv_size": [
+                    9,
+                    6
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    6,
+                    4
+                  ],
+                  "uv_size": [
+                    9,
+                    6
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    1,
+                    6
+                  ],
+                  "uv_size": [
+                    14,
+                    9
+                  ],
+                  "material_instance": "panel"
+                },
+                "down": {
+                  "uv": [
+                    1,
+                    6
+                  ],
+                  "uv_size": [
+                    14,
+                    9
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "button",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -3,
+                12,
+                0
+              ],
+              "size": [
+                6,
+                2,
+                5
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    5,
+                    2
+                  ],
+                  "uv_size": [
+                    6,
+                    2
+                  ],
+                  "material_instance": "button"
+                },
+                "south": {
+                  "uv": [
+                    5,
+                    2
+                  ],
+                  "uv_size": [
+                    6,
+                    2
+                  ],
+                  "material_instance": "button"
+                },
+                "east": {
+                  "uv": [
+                    8,
+                    2
+                  ],
+                  "uv_size": [
+                    5,
+                    2
+                  ],
+                  "material_instance": "button"
+                },
+                "west": {
+                  "uv": [
+                    8,
+                    2
+                  ],
+                  "uv_size": [
+                    5,
+                    2
+                  ],
+                  "material_instance": "button"
+                },
+                "up": {
+                  "uv": [
+                    5,
+                    8
+                  ],
+                  "uv_size": [
+                    6,
+                    5
+                  ],
+                  "material_instance": "button"
+                },
+                "down": {
+                  "uv": [
+                    5,
+                    8
+                  ],
+                  "uv_size": [
+                    6,
+                    5
+                  ],
+                  "material_instance": "button"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "indicator",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                4,
+                12,
+                2
+              ],
+              "size": [
+                2,
+                1,
+                2
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    12,
+                    3
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "indicator"
+                },
+                "south": {
+                  "uv": [
+                    12,
+                    3
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "indicator"
+                },
+                "east": {
+                  "uv": [
+                    10,
+                    3
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "indicator"
+                },
+                "west": {
+                  "uv": [
+                    10,
+                    3
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "indicator"
+                },
+                "up": {
+                  "uv": [
+                    12,
+                    10
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "indicator"
+                },
+                "down": {
+                  "uv": [
+                    12,
+                    10
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "indicator"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:zinc_ingot_from_decompacting"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:zinc_block"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:zinc_block"
+      }
+    ],
+    "result": {
+      "item": "levitate:zinc_ingot",
+      "count": 9
+    }
+  }
+}

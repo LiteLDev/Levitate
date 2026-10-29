@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:cut_veridium_bricks_from_cut_veridium_wall_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:cut_veridium_wall"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:cut_veridium_wall"
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_veridium_bricks",
+      "count": 1
+    }
+  }
+}

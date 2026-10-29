@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:andesite_door_4"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:acacia_door"
+      },
+      {
+        "item": "levitate:andesite_casing"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:acacia_door"
+      }
+    ],
+    "result": {
+      "item": "levitate:andesite_door",
+      "count": 1
+    }
+  }
+}

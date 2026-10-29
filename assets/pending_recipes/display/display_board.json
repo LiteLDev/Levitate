@@ -1,0 +1,14 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "levitate:display_board" },
+    "tags": ["crafting_table"],
+    "pattern": ["PAP"],
+    "key": {
+      "A": { "item": "levitate:electron_tube" },
+      "P": { "item": "levitate:andesite_alloy" }
+    },
+    "unlock": [{ "item": "levitate:electron_tube" }],
+    "result": { "item": "levitate:display_board", "count": 2 }
+  }
+}

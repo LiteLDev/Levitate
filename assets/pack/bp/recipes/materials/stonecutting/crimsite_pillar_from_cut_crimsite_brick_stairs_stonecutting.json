@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:crimsite_pillar_from_cut_crimsite_brick_stairs_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:cut_crimsite_brick_stairs"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:cut_crimsite_brick_stairs"
+      }
+    ],
+    "result": {
+      "item": "levitate:crimsite_pillar",
+      "count": 1
+    }
+  }
+}

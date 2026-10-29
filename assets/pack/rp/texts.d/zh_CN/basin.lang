@@ -1,0 +1,6 @@
+tile.levitate:basin.name=工作盆
+tile.levitate:mechanical_press.name=动力冲压机
+tile.levitate:mechanical_mixer.name=动力搅拌器
+tile.levitate:blaze_burner.name=烈焰人燃烧室
+tile.levitate:empty_blaze_burner.name=空的烈焰人燃烧室
+tile.levitate:lit_blaze_burner.name=烈焰人燃烧室（已点燃）
