@@ -26,6 +26,11 @@
     "result": {
       "item": "levitate:package_frogport",
       "count": 1
-    }
+    },
+    "unlock": [
+      {
+        "item": "levitate:item_vault"
+      }
+    ]
   }
 }

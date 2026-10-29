@@ -2,7 +2,7 @@
   "format_version": "1.20.10",
   "minecraft:recipe_shaped": {
     "description": {
-      "identifier": "levitate:contraption_controls"
+      "identifier": "levitate:contraption_controls_from_dark_oak_button"
     },
     "tags": [
       "crafting_table"
@@ -14,7 +14,7 @@
     ],
     "key": {
       "B": {
-        "tag": "minecraft:wooden_buttons"
+        "item": "minecraft:dark_oak_button"
       },
       "C": {
         "item": "levitate:andesite_casing"

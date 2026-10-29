@@ -36,7 +36,7 @@
       "minecraft:material_instances": {
         "*": {
           "texture": "levitate_actor_casing",
-          "render_method": "opaque"
+          "render_method": "alpha_test"
         },
         "blade": {
           "texture": "levitate_harvester_blade",

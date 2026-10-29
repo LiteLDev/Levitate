@@ -26,6 +26,11 @@
     "result": {
       "item": "levitate:packager",
       "count": 1
-    }
+    },
+    "unlock": [
+      {
+        "item": "levitate:cardboard_block"
+      }
+    ]
   }
 }

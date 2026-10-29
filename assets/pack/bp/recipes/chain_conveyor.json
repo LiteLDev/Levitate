@@ -23,6 +23,11 @@
     "result": {
       "item": "levitate:chain_conveyor",
       "count": 2
-    }
+    },
+    "unlock": [
+      {
+        "item": "levitate:large_cogwheel"
+      }
+    ]
   }
 }

@@ -21,6 +21,11 @@
     "result": {
       "item": "levitate:package_filter",
       "count": 1
-    }
+    },
+    "unlock": [
+      {
+        "item": "levitate:zinc_nugget"
+      }
+    ]
   }
 }
