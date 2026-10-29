@@ -1,0 +1,11 @@
+{
+  "levitate:belt": {
+    "sound": "cloth"
+  },
+  "levitate:depot": {
+    "sound": "stone"
+  },
+  "levitate:weighted_ejector": {
+    "sound": "metal"
+  }
+}

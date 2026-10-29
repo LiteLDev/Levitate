@@ -1,0 +1,59 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:rope",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.rope"
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_rope",
+          "render_method": "alpha_test"
+        },
+        "rope": {
+          "texture": "levitate_rope",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.8
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.8
+      },
+      "minecraft:map_color": "#6e4f2c",
+      "minecraft:light_dampening": 0,
+      "minecraft:collision_box": {
+        "origin": [
+          -2,
+          0,
+          -2
+        ],
+        "size": [
+          4,
+          16,
+          4
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -2,
+          0,
+          -2
+        ],
+        "size": [
+          4,
+          16,
+          4
+        ]
+      },
+      "minecraft:loot": "loot_tables/blocks/rope.json"
+    }
+  }
+}

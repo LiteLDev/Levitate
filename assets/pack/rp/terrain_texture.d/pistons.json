@@ -1,0 +1,83 @@
+{
+  "levitate_elevator_belt": {
+    "textures": "textures/blocks/elevator_belt"
+  },
+  "levitate_elevator_contact_front": {
+    "textures": "textures/blocks/elevator_contact_front"
+  },
+  "levitate_elevator_contact_front_dim": {
+    "textures": "textures/blocks/elevator_contact_front_dim"
+  },
+  "levitate_elevator_contact_front_powered": {
+    "textures": "textures/blocks/elevator_contact_front_powered"
+  },
+  "levitate_elevator_contact_side": {
+    "textures": "textures/blocks/elevator_contact_side"
+  },
+  "levitate_elevator_pulley_side": {
+    "textures": "textures/blocks/elevator_pulley_side"
+  },
+  "levitate_elevator_pulley_top": {
+    "textures": "textures/blocks/elevator_pulley_top"
+  },
+  "levitate_gantry_carriage_side": {
+    "textures": "textures/blocks/gantry_carriage_side"
+  },
+  "levitate_gantry_carriage_top": {
+    "textures": "textures/blocks/gantry_carriage_top"
+  },
+  "levitate_gantry_pinion": {
+    "textures": "textures/blocks/gantry_pinion"
+  },
+  "levitate_gantry_shaft": {
+    "textures": "textures/blocks/gantry_shaft"
+  },
+  "levitate_gantry_shaft_end": {
+    "textures": "textures/blocks/gantry_shaft_end"
+  },
+  "levitate_gantry_shaft_powered": {
+    "textures": "textures/blocks/gantry_shaft_powered"
+  },
+  "levitate_piston_back": {
+    "textures": "textures/blocks/piston_back"
+  },
+  "levitate_piston_front": {
+    "textures": "textures/blocks/piston_front"
+  },
+  "levitate_piston_front_sticky": {
+    "textures": "textures/blocks/piston_front_sticky"
+  },
+  "levitate_piston_head_side": {
+    "textures": "textures/blocks/piston_head_side"
+  },
+  "levitate_piston_inner": {
+    "textures": "textures/blocks/piston_inner"
+  },
+  "levitate_piston_pole": {
+    "textures": "textures/blocks/piston_pole"
+  },
+  "levitate_piston_pole_end": {
+    "textures": "textures/blocks/piston_pole_end"
+  },
+  "levitate_piston_side": {
+    "textures": "textures/blocks/piston_side"
+  },
+  "levitate_pistons_shaft": {
+    "textures": "textures/blocks/pistons_shaft"
+  },
+  "levitate_pulley_magnet": {
+    "textures": "textures/blocks/pulley_magnet"
+  },
+  "levitate_rope": {
+    "textures": "textures/blocks/rope"
+  },
+  "levitate_rope_coil": {
+    "textures": "textures/blocks/rope_coil"
+  },
+  "levitate_rope_pulley_side": {
+    "textures": "textures/blocks/rope_pulley_side"
+  },
+  "levitate_rope_pulley_top": {
+    "textures": "textures/blocks/rope_pulley_top"
+  }
+}

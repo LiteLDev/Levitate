@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:item_vault"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "B",
+      "C",
+      "B"
+    ],
+    "key": {
+      "B": {
+        "item": "levitate:iron_sheet"
+      },
+      "C": {
+        "item": "minecraft:barrel"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:barrel"
+      }
+    ],
+    "result": {
+      "item": "levitate:item_vault"
+    }
+  }
+}
