@@ -32,7 +32,7 @@ $ia = [System.Drawing.Bitmap]::new($a); $ib = [System.Drawing.Bitmap]::new($b)
 try {
     $changed = 0; $total = 0
     for ($x = [int]($ia.Width * 0.3); $x -lt [int]($ia.Width * 0.7); $x += 8) {
-        for ($y = [int]($ia.Height * 0.2); $y -lt [int]($ia.Height * 0.8); $y += 8) {
+        for ($y = [int]($ia.Height * 0.32); $y -lt [int]($ia.Height * 0.85); $y += 8) { # below the chat lines
             $p = $ia.GetPixel($x, $y); $q = $ib.GetPixel($x, $y); $total++
             if ([Math]::Abs($p.R - $q.R) + [Math]::Abs($p.G - $q.G) + [Math]::Abs($p.B - $q.B) -gt 60) { $changed++ }
         }
