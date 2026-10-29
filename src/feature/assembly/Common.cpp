@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <numbers>
+#include <unordered_map>
 
 #include "ll/api/service/Bedrock.h"
 
@@ -54,6 +55,25 @@ Player* playerById(std::int64_t uniqueId) {
     ActorUniqueID id;
     id.rawID = uniqueId;
     return level->getPlayer(id);
+}
+
+bool logAction(std::string const& key, int& suppressed) {
+    struct Entry {
+        std::uint64_t last    = 0;
+        int           skipped = 0;
+        bool          logged  = false;
+    };
+    static std::unordered_map<std::string, Entry> entries;
+    constexpr std::uint64_t kInterval = 200; // 10 s
+    auto  now = currentTick();
+    auto& e   = entries[key];
+    if (e.logged && now >= e.last && now - e.last < kInterval) {
+        ++e.skipped;
+        return false;
+    }
+    suppressed = e.skipped;
+    e          = Entry{now, 0, true};
+    return true;
 }
 
 void actionBar(Player& player, std::string const& text) {

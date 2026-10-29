@@ -473,7 +473,8 @@ void processTransportItem(GlobalPos const& pos, Runtime& r, BlockSource& region,
     }
     if (items::isEmpty(r.held)) detail::playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.break", .25f, 1.f);
     detail::playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.pop", .25f, .75f);
-    log().info("deployer at {} applied {} to {}", pos.key(), items::idOf(r.held), items::idOf(one));
+    if (int more = 0; detail::logAction("deployer.apply@" + pos.key() + "#" + items::idOf(one), more))
+        log().info("deployer at {} applied {} to {}{}", pos.key(), items::idOf(r.held), items::idOf(one), detail::similar(more));
 }
 
 void start(GlobalPos const& pos, Runtime& r, BlockSource& region, Face facing) {
@@ -500,8 +501,10 @@ void activate(GlobalPos const& pos, Runtime& r, BlockSource& region, Face facing
     ItemStack              before = r.held;
     act(handOf(pos, facing, r.mode), r.held, extra, r.breaking);
     for (auto& e : extra) r.overflow.push_back(e);
-    if (!sameStack(before, r.held) || !extra.empty())
-        log().info("deployer at {} used {} ({} item(s) to hand out)", pos.key(), items::idOf(before), extra.size());
+    if (!sameStack(before, r.held) || !extra.empty()) {
+        if (int more = 0; detail::logAction("deployer.use@" + pos.key() + "#" + items::idOf(before), more))
+            log().info("deployer at {} used {} ({} item(s) to hand out){}", pos.key(), items::idOf(before), extra.size(), detail::similar(more));
+    }
 }
 
 void tickOne(GlobalPos const& pos) {
