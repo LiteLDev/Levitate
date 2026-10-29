@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:waxed_copper_tile_stairs_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:waxed_copper_tiles"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:waxed_copper_tiles"
+      }
+    ],
+    "result": {
+      "item": "levitate:waxed_copper_tile_stairs",
+      "count": 1
+    }
+  }
+}

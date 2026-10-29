@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:red_table_cloth_from_blue_table_cloth"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:red_dye"
+      },
+      {
+        "item": "levitate:blue_table_cloth"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:red_dye"
+      }
+    ],
+    "result": {
+      "item": "levitate:red_table_cloth",
+      "count": 1
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:horizontal_framed_glass_pane_from_glass_pane_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:glass_pane"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:glass_pane"
+      }
+    ],
+    "result": {
+      "item": "levitate:horizontal_framed_glass_pane",
+      "count": 1
+    }
+  }
+}
