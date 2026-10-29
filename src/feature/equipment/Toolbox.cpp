@@ -395,17 +395,22 @@ std::vector<GlobalPos> nearbyToolboxes(Player& player) {
     auto const& v   = player.getPosition();
     int         r   = config().toolboxRange;
     int         dim = static_cast<int>(player.getDimensionId());
-    int         cx0 = (int(std::floor(v.x)) - r) >> 4, cx1 = (int(std::floor(v.x)) + r) >> 4;
-    int         cz0 = (int(std::floor(v.z)) - r) >> 4, cz1 = (int(std::floor(v.z)) + r) >> 4;
     std::vector<std::pair<double, GlobalPos>> found;
-    for (int cx = cx0; cx <= cx1; ++cx)
-        for (int cz = cz0; cz <= cz1; ++cz)
-            bd::forEachInChunk(dim, cx, cz, [&](GlobalPos const& p, Json const& doc) {
-                if (!doc.contains("equipment") || !doc["equipment"].contains("toolbox")) return;
-                if (!inRange(player, p) || !isToolbox(idAt(p))) return;
+    // every toolbox block in range (toolboxes placed by commands have no data until used)
+    int bx = int(std::floor(v.x)), by = int(std::floor(v.y)), bz = int(std::floor(v.z));
+    for (int y = by - r; y <= by + r; ++y) {
+        if (y < region->getMinHeight() || y >= region->getMaxHeight()) continue;
+        for (int x = bx - r; x <= bx + r; ++x)
+            for (int z = bz - r; z <= bz + r; ++z) {
+                GlobalPos p{dim, x, y, z};
+                if (!inRange(player, p)) continue;
+                BlockPos bp{x, y, z};
+                if (!region->hasChunksAt(bp, 0, false)) continue;
+                if (!isToolbox(region->getBlock(bp).getTypeName())) continue;
                 double dx = v.x - (p.x + .5), dy = v.y - p.y, dz = v.z - (p.z + .5);
                 found.emplace_back(dx * dx + dy * dy + dz * dz, p);
-            });
+            }
+    }
     std::sort(found.begin(), found.end());
     for (std::size_t i = 0; i < found.size() && i < 8; ++i) out.push_back(found[i].second);
     return out;
