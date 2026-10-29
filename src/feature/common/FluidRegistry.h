@@ -6,7 +6,8 @@
 // Fluids are identified by id (`fluids::FluidStack::fluid`): vanilla "minecraft:water",
 // "minecraft:lava", "minecraft:milk", "minecraft:powder_snow"; Levitate's own ("levitate:honey",
 // "levitate:chocolate", "levitate:tea", registered by U19); potions as "potion:<name>" with the
-// Bedrock potion name ("potion:swiftness", "potion:long_swiftness", ...).
+// Bedrock potion name ("potion:swiftness", "potion:long_swiftness", ...), or U19's
+// "levitate:potion/<bottle>/<potion>" (both forms are potions here; U19's is what its items produce).
 //
 //     fluidtypes::registerFluid({.id = "levitate:honey", .nameKey = "fluid.create.honey",
 //                                .nameFallback = "Honey", .sourceBlock = "levitate:honey",
@@ -53,7 +54,7 @@ void registerFluid(FluidType type);
 [[nodiscard]] FluidType const* byWorldBlock(std::string_view blockId);
 
 [[nodiscard]] bool        isPotion(std::string_view id);
-/// "swiftness" for "potion:swiftness" ("" for other ids).
+/// "swiftness" for "potion:swiftness" and "levitate:potion/regular/swiftness" ("" for other ids).
 [[nodiscard]] std::string potionName(std::string_view id);
 
 /// The area an open pipe end affects (block coordinates, max exclusive), Create's

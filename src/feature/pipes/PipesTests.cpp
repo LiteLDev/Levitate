@@ -148,7 +148,12 @@ LV_REGISTER_SELFTEST("pipes.registry", [](Context& ctx) {
     ctx.check(ft::find("potion:swiftness") != nullptr, "potion fluids resolve");
     ctx.check(ft::potionName("potion:long_swiftness") == "long_swiftness", "potion name");
     ctx.check(ft::byWorldBlock("minecraft:flowing_water") == water, "flowing water is water");
-    for (char const* id : {"minecraft:water", "minecraft:lava", "minecraft:milk", "levitate:tea", "potion:healing"})
+    // U19's ids, by string (its potion form and its honey / chocolate source blocks)
+    ctx.check(ft::isPotion("levitate:potion/splash/long_swiftness"), "U19 potion fluids are potions");
+    ctx.check(ft::potionName("levitate:potion/regular/long_swiftness") == "long_swiftness", "U19 potion name");
+    ctx.check(ft::byWorldBlock("levitate:honey") == ft::find("levitate:honey"), "honey's world block is U19's source");
+    for (char const* id : {"minecraft:water", "minecraft:lava", "minecraft:milk", "levitate:tea", "potion:healing",
+                           "levitate:potion/lingering/healing"})
         ctx.check(ft::effectFor(id) != nullptr, std::string("open pipe effect for ") + id);
     auto const* pump = lv::kinetics::specOf(kPump);
     ctx.require(pump != nullptr, "the pump is a kinetic block");

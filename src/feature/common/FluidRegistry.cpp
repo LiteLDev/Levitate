@@ -39,10 +39,9 @@ State& state() {
         add(builtin("minecraft:lava", "tile.lava.name", "Lava", "minecraft:lava", {"minecraft:flowing_lava"}, 0xFFE0661A, 2, true));
         add(builtin("minecraft:milk", "lv.pipes.fluid.milk", "Milk", "", {}, 0xFFF4F4F4, 5));
         add(builtin("minecraft:powder_snow", "tile.powder_snow.name", "Powder Snow", "", {}, 0xFFF0F7FA, 5));
-        // Create's fluids (U19 registers their full entries with world blocks and buckets; these
-        // defaults keep pipes rendering and reacting correctly until then)
-        add(builtin("levitate:honey", "fluid.create.honey", "Honey", "", {}, 0xFFF8B533, 3, false, "levitate:limestone"));
-        add(builtin("levitate:chocolate", "fluid.create.chocolate", "Chocolate", "", {}, 0xFF6B3A1E, 4, false, "levitate:scoria"));
+        // Create's fluids (U19 owns them; its world blocks are non-flowing sources with the fluid's id)
+        add(builtin("levitate:honey", "fluid.create.honey", "Honey", "levitate:honey", {}, 0xFFF8B533, 3, false, "levitate:limestone"));
+        add(builtin("levitate:chocolate", "fluid.create.chocolate", "Chocolate", "levitate:chocolate", {}, 0xFF6B3A1E, 4, false, "levitate:scoria"));
         add(builtin("levitate:tea", "fluid.create.tea", "Builder's Tea", "", {}, 0xFFA05A2C, 7));
         add(builtin("potion:", "fluid.create.potion", "Potion", "", {}, 0xFF7E3FB0, 6));
         return st;
@@ -83,9 +82,22 @@ FluidType const* byWorldBlock(std::string_view blockId) {
     return nullptr;
 }
 
-bool isPotion(std::string_view id) { return id.starts_with("potion:"); }
+namespace {
+constexpr std::string_view kShortPotion = "potion:";          // "potion:<name>"
+constexpr std::string_view kU19Potion   = "levitate:potion/"; // U19: "levitate:potion/<bottle>/<name>"
+} // namespace
 
-std::string potionName(std::string_view id) { return isPotion(id) ? std::string(id.substr(7)) : std::string{}; }
+bool isPotion(std::string_view id) { return id.starts_with(kShortPotion) || id.starts_with(kU19Potion); }
+
+std::string potionName(std::string_view id) {
+    if (id.starts_with(kShortPotion)) return std::string(id.substr(kShortPotion.size()));
+    if (id.starts_with(kU19Potion)) {
+        auto rest = id.substr(kU19Potion.size());
+        auto slash = rest.find('/');
+        return slash == std::string_view::npos ? std::string{} : std::string(rest.substr(slash + 1));
+    }
+    return {};
+}
 
 void registerEffect(std::string id, EffectHandler handler) { state().effects[std::move(id)] = std::move(handler); }
 
@@ -94,6 +106,9 @@ EffectHandler const* effectFor(std::string_view id) {
     if (auto it = e.find(id); it != e.end()) return &it->second;
     for (auto const& [key, h] : e)
         if (!key.empty() && key.back() == ':' && id.starts_with(key)) return &h;
+    // every potion id form shares the "potion:" handler
+    if (isPotion(id))
+        if (auto it = e.find(kShortPotion); it != e.end()) return &it->second;
     return nullptr;
 }
 
