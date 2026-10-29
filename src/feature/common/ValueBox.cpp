@@ -285,7 +285,7 @@ void displayItems(GlobalPos const& pos, Block const& block, std::vector<std::pai
             static constexpr int kNormal[6][3]{{0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}};
             // a slot less than a pixel under the face is drawn on the face (the model covers it)
             std::array<double, 3> at = *c;
-            int                   axis = face / 2;
+            int                   axis = face < 2 ? 1 : face < 4 ? 2 : 0;
             double                plane = kNormal[face][axis] > 0 ? 1.0 : 0.0;
             if (std::abs(at[axis] - plane) < 1 / 16.0) at[axis] = plane;
             itemrender::DisplayItem d;

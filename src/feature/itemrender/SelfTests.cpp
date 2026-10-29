@@ -228,6 +228,21 @@ LV_REGISTER_SELFTEST("itemrender.filter_slot", [](Context& ctx) -> ll::coro::Cor
     ctx.check(count(&o) == 0, "a cleared filter is not drawn");
 });
 
+LV_REGISTER_SELFTEST("itemrender.funnel_filter", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto o = at(ctx.testPos(3345), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
+    ctx.require(ctx.setBlock(o, "levitate:brass_funnel", {{"levitate:facing", 1}}), "brass funnel");
+    co_await ctx.ticks(1);
+    common::filterslot::set(o, stackOf(ctx, "minecraft:iron_ingot"));
+    auto list = itemsOf(o);
+    ctx.check(list.size() == 4, "the filter item on the four sides of an upright funnel, got " + std::to_string(list.size()));
+    for (auto const& [slot, d] : list) {
+        double dx = d.at.x - o.x, dz = d.at.z - o.z;
+        ctx.check(dx < 0 || dx > 1 || dz < 0 || dz > 1, "outside the funnel's base (not hidden in its model)");
+    }
+    common::filterslot::set(o, items::empty());
+});
+
 LV_REGISTER_SELFTEST("itemrender.placard", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto o = at(ctx.testPos(3350), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
