@@ -1,6 +1,6 @@
 #pragma once
 
-// Contraption actors (U22, SPEC §2.18 / §3.6.1): mechanical harvester, mechanical plough,
+// Contraption actors (U22, SPEC §2.18 / §3.6.22): mechanical harvester, mechanical plough,
 // mechanical roller, portable storage interface, contraption controls and the 16 seats.
 //
 // Internal header of the unit (not a contract for other units). Every actor registers itself

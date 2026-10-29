@@ -1,0 +1,33 @@
+{
+  "create.tooltip.deployer.header": "机械手信息",
+  "create.tooltip.deployer.using": "模式：使用",
+  "create.tooltip.deployer.punching": "模式：攻击",
+  "create.tooltip.deployer.contains": "物品：{0} x{1}",
+
+  "create.mechanical_arm.extract_from": "从{0}中取出物品",
+  "create.mechanical_arm.deposit_to": "将物品放入{0}",
+  "create.mechanical_arm.summary": "动力臂有{0}个输入和{1}个输出。",
+  "create.mechanical_arm.points_outside_range": "由于范围限制，{0}个选定的交互点已被移除。",
+  "create.mechanical_arm.selection_mode.round_robin": "轮询调度",
+  "create.mechanical_arm.selection_mode.forced_round_robin": "强制轮询调度",
+  "create.mechanical_arm.selection_mode.prefer_first": "优先第一个目标",
+  "create.logistics.when_multiple_outputs_available": "当有多个输出目标可用时",
+
+  "create.recipe.sequenced_assembly": "序列组装",
+  "create.recipe.assembly.next": "下一步：{0}",
+  "create.recipe.assembly.step": "第{0}步：",
+  "create.recipe.assembly.progress": "进度：{0}/{1}",
+  "create.recipe.assembly.pressing": "使用辊压机加工",
+  "create.recipe.assembly.spout_filling_fluid": "注入{0}",
+  "create.recipe.assembly.deploying_item": "安装{0}",
+  "create.recipe.assembly.cutting": "使用动力锯切割",
+  "create.recipe.assembly.repeat": "重复此序列{0}次",
+  "create.recipe.assembly.junk": "随机废料",
+
+  "lv.assembly.fluid.water": "水",
+  "lv.assembly.fluid.lava": "熔岩",
+  "lv.assembly.fluid.milk": "牛奶",
+  "lv.assembly.fluid.honey": "蜂蜜",
+  "lv.assembly.fluid.chocolate": "巧克力",
+  "lv.assembly.fluid.tea": "建筑工人茶"
+}

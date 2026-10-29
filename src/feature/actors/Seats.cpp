@@ -263,6 +263,8 @@ struct Registrar {
             b.visitNewPosition = seatVisit;
             registerOwnActor(id, std::move(b));
         }
+        // the settings of this unit's blocks (roller mode / filter, controls state and filter)
+        for (auto id : {kHarvester, kPlough, kRoller, kPsi, kControls}) ext::carryBlockData(std::string(id));
         // this unit's per-block hand-off at assembly / disassembly
         con::registerDataCarrier(con::DataCarrier{
             "actors",

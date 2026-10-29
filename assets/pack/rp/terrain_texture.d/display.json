@@ -1,0 +1,86 @@
+{
+  "levitate_display_link": {
+    "textures": "textures/blocks/display_link"
+  },
+  "levitate_display_link_side": {
+    "textures": "textures/blocks/display_link_side"
+  },
+  "levitate_display_link_lens": {
+    "textures": "textures/blocks/display_link_lens"
+  },
+  "levitate_display_link_powered": {
+    "textures": "textures/blocks/display_link_powered"
+  },
+  "levitate_display_board_front": {
+    "textures": "textures/blocks/display_board_front"
+  },
+  "levitate_display_board_side": {
+    "textures": "textures/blocks/display_board_side"
+  },
+  "levitate_display_board_back": {
+    "textures": "textures/blocks/display_board_back"
+  },
+  "levitate_nixie_tube": {
+    "textures": "textures/blocks/nixie_tube"
+  },
+  "levitate_nixie_tube_glass": {
+    "textures": "textures/blocks/nixie_tube_glass"
+  },
+  "levitate_clipboard_board": {
+    "textures": "textures/blocks/clipboard_board"
+  },
+  "levitate_clipboard_paper": {
+    "textures": "textures/blocks/clipboard_paper"
+  },
+  "levitate_clipboard_paper_written": {
+    "textures": "textures/blocks/clipboard_paper_written"
+  },
+  "levitate_nixie_tube_filament_white": {
+    "textures": "textures/blocks/nixie_tube_filament_white"
+  },
+  "levitate_nixie_tube_filament_orange": {
+    "textures": "textures/blocks/nixie_tube_filament_orange"
+  },
+  "levitate_nixie_tube_filament_magenta": {
+    "textures": "textures/blocks/nixie_tube_filament_magenta"
+  },
+  "levitate_nixie_tube_filament_light_blue": {
+    "textures": "textures/blocks/nixie_tube_filament_light_blue"
+  },
+  "levitate_nixie_tube_filament_yellow": {
+    "textures": "textures/blocks/nixie_tube_filament_yellow"
+  },
+  "levitate_nixie_tube_filament_lime": {
+    "textures": "textures/blocks/nixie_tube_filament_lime"
+  },
+  "levitate_nixie_tube_filament_pink": {
+    "textures": "textures/blocks/nixie_tube_filament_pink"
+  },
+  "levitate_nixie_tube_filament_gray": {
+    "textures": "textures/blocks/nixie_tube_filament_gray"
+  },
+  "levitate_nixie_tube_filament_light_gray": {
+    "textures": "textures/blocks/nixie_tube_filament_light_gray"
+  },
+  "levitate_nixie_tube_filament_cyan": {
+    "textures": "textures/blocks/nixie_tube_filament_cyan"
+  },
+  "levitate_nixie_tube_filament_purple": {
+    "textures": "textures/blocks/nixie_tube_filament_purple"
+  },
+  "levitate_nixie_tube_filament_blue": {
+    "textures": "textures/blocks/nixie_tube_filament_blue"
+  },
+  "levitate_nixie_tube_filament_brown": {
+    "textures": "textures/blocks/nixie_tube_filament_brown"
+  },
+  "levitate_nixie_tube_filament_green": {
+    "textures": "textures/blocks/nixie_tube_filament_green"
+  },
+  "levitate_nixie_tube_filament_red": {
+    "textures": "textures/blocks/nixie_tube_filament_red"
+  },
+  "levitate_nixie_tube_filament_black": {
+    "textures": "textures/blocks/nixie_tube_filament_black"
+  }
+}

@@ -2,6 +2,12 @@
 
 #include "feature/contraption/ActorsExt.h"
 
+#include <unordered_set>
+
+#include "mc/world/level/BlockPos.h"
+#include "mc/world/level/BlockSource.h"
+#include "mc/world/level/block/Block.h"
+
 #include "feature/common/BlockData.h"
 #include "feature/contraption/Internal.h"
 #include "feature/contraption/Registries.h"
@@ -12,12 +18,22 @@ namespace {
 
 namespace bd = ::lv::feature::common::blockdata;
 
-/// BlockData moves with its block (Create's block entity data on contraptions).
+std::unordered_set<std::string>& carriedIds() {
+    static std::unordered_set<std::string> s;
+    return s;
+}
+
+/// BlockData moves with its block (Create's block entity data on contraptions), for the block
+/// ids registered with `carryBlockData` (other units carry their own blocks' data themselves).
 struct BlockDataCarrierRegistrar {
     BlockDataCarrierRegistrar() {
         registerDataCarrier(DataCarrier{
             kBlockDataCarrier,
-            [](BlockSource&, core::GlobalPos const& pos) -> std::optional<nlohmann::json> { return bd::take(pos); },
+            [](BlockSource& region, core::GlobalPos const& pos) -> std::optional<nlohmann::json> {
+                auto const& block = region.getBlock(BlockPos{pos.x, pos.y, pos.z});
+                if (!carriedIds().contains(block.getTypeName())) return std::nullopt;
+                return bd::take(pos);
+            },
             [](BlockSource&, core::GlobalPos const& pos, nlohmann::json const& doc) { bd::put(pos, doc); },
             nullptr,
         });
@@ -26,6 +42,8 @@ struct BlockDataCarrierRegistrar {
 BlockDataCarrierRegistrar const gBlockDataCarrier;
 
 } // namespace
+
+void carryBlockData(std::string blockId) { carriedIds().insert(std::move(blockId)); }
 
 CarriedBlock const* carriedAt(Contraption const& c, cc::Pos const& local) {
     for (auto const& b : c.blocks())

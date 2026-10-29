@@ -1,0 +1,35 @@
+{
+  "levitate:mechanical_piston": {
+    "sound": "wood"
+  },
+  "levitate:sticky_mechanical_piston": {
+    "sound": "wood"
+  },
+  "levitate:piston_extension_pole": {
+    "sound": "scaffolding"
+  },
+  "levitate:mechanical_piston_head": {
+    "sound": "wood"
+  },
+  "levitate:rope_pulley": {
+    "sound": "wood"
+  },
+  "levitate:rope": {
+    "sound": "cloth"
+  },
+  "levitate:pulley_magnet": {
+    "sound": "stone"
+  },
+  "levitate:elevator_pulley": {
+    "sound": "metal"
+  },
+  "levitate:elevator_contact": {
+    "sound": "metal"
+  },
+  "levitate:gantry_carriage": {
+    "sound": "wood"
+  },
+  "levitate:gantry_shaft": {
+    "sound": "stone"
+  }
+}
