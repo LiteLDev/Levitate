@@ -422,8 +422,7 @@ void initializePrinter(Cannon& c) {
     c.current.reset();
     c.state  = "PAUSED";
     c.status = "ready";
-    updateChecklist(c);
-    c.toPlace += c.placed;
+    updateChecklist(c); // toPlace = placed + what is left
     c.dirty = c.viewDirty = true;
 }
 
@@ -512,7 +511,8 @@ void tickPrinter(Cannon& c) {
         if (c.printerLoaded) resetPrinter(c);
         return;
     }
-    if (c.state == "PAUSED" && !c.positionNotLoaded && items::isEmpty(c.missing) && c.fuel > 0) return;
+    // (a creative crate leaves no fuel: still honour the pause)
+    if (c.state == "PAUSED" && !c.positionNotLoaded && items::isEmpty(c.missing) && (c.fuel > 0 || c.creative)) return;
     if (!c.printerLoaded) {
         initializePrinter(c);
         return;
@@ -836,6 +836,14 @@ void doAction(Player* player, Cannon& c, Json const& action) {
     } else if (op == "replace") {
         c.replace = std::clamp(action.value("mode", 2), 0, 3);
         updateChecklist(c);
+    } else if (op == "settings") {
+        int  mode      = std::clamp(action.value("mode", c.replace), 0, 3);
+        bool replaceBE = action.value("replaceBE", c.replaceBE);
+        bool changed   = mode != c.replace || replaceBE != c.replaceBE;
+        c.replace      = mode;
+        c.replaceBE    = replaceBE;
+        c.skipMissing  = action.value("skipMissing", c.skipMissing);
+        if (changed) updateChecklist(c);
     } else if (op == "skipMissing") {
         c.skipMissing = action.value("value", !c.skipMissing);
     } else if (op == "replaceBE") {
@@ -916,10 +924,7 @@ void cannonForm(Player& player, Json const& ctx) {
                 auto const* u = std::get_if<uint64>(&it->second);
                 return u ? *u : 0;
             };
-            auto& c3 = cannonAt(pos);
-            doAction(&p2, c3, {{"op", "replace"}, {"mode", static_cast<int>(num("replace"))}});
-            doAction(&p2, c3, {{"op", "skipMissing"}, {"value", num("skip") != 0}});
-            doAction(&p2, c3, {{"op", "replaceBE"}, {"value", num("protect") == 0}});
+            doAction(&p2, cannonAt(pos), {{"op", "settings"}, {"mode", static_cast<int>(num("replace"))}, {"skipMissing", num("skip") != 0}, {"replaceBE", num("protect") == 0}});
             cannonForm(p2, {{"pos", posJson(pos)}});
         });
     });

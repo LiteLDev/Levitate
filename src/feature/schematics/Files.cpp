@@ -31,6 +31,7 @@ std::string safeName(std::string const& name) {
         else out.push_back(c);
     }
     while (!out.empty() && (out.back() == '.' || out.back() == ' ')) out.pop_back();
+    while (!out.empty() && (out.front() == '.' || out.front() == ' ')) out.erase(out.begin());
     if (out.empty() || out == "." || out == "..") out = "_";
     return out;
 }
@@ -119,7 +120,8 @@ std::shared_ptr<Loaded const> loadSchematic(std::string const& owner, std::strin
     std::error_code ec;
     auto            time = fs::last_write_time(path, ec);
     if (ec) return fail("file not found");
-    std::string key = path.string();
+    auto        u8  = path.u8string();
+    std::string key(u8.begin(), u8.end());
     {
         std::lock_guard lock(gCacheMutex);
         if (auto it = gCache.find(key); it != gCache.end() && it->second.time == time) return it->second.value;
@@ -201,6 +203,12 @@ std::optional<std::string> saveArea(fs::path const& dir, std::string name, bool 
     else if (name.ends_with(".nbt")) name.resize(name.size() - 4);
     name = safeName(name);
     if (name.size() > 100) name.resize(100);
+    cs::Pos size{hi.x - lo.x + 1, hi.y - lo.y + 1, hi.z - lo.z + 1};
+    if (size.x > cs::kMaxDimension || size.y > cs::kMaxDimension || size.z > cs::kMaxDimension
+        || static_cast<std::size_t>(size.x) * size.y * size.z > cs::kMaxVolume) {
+        log().warn("schematics: refused to save a {}x{}x{} area (too large)", size.x, size.y, size.z);
+        return std::nullopt;
+    }
     std::string file = overwrite ? name + ".mcstructure" : freeName(dir, name, ".mcstructure");
     auto        s    = capture(dim, lo, hi);
     auto        path = dir / upath(file);

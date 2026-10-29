@@ -236,6 +236,12 @@ Block const* resolve(cs::BlockState const& state) {
     return out;
 }
 
+void clearBlockCaches() {
+    std::lock_guard lock(gStateMutex);
+    gStateCache.clear();
+    gResolveCache.clear();
+}
+
 std::unique_ptr<CompoundTag> gameTag(cs::nbt::Tag const& tag) {
     auto ct = CompoundTag::fromBinaryNbt(cs::nbt::write(tag, "", cs::nbt::Endian::Little), true);
     if (!ct) return nullptr;

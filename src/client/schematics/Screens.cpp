@@ -512,7 +512,7 @@ bool startUpload(std::string const& file, Json const& pos, int maxSizeKb, int pa
     gUpload        = {};
     gUpload.name   = file;
     gUpload.bytes  = std::move(bytes);
-    gUpload.packet = std::max(256, packetSize);
+    gUpload.packet = std::max(1, packetSize);
     net::client::send("schematics.upload.begin", {{"pos", pos}, {"name", file}, {"size", gUpload.bytes.size()}});
     log().info("schematics client: uploading {} ({} bytes)", file, gUpload.bytes.size());
     return true;

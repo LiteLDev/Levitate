@@ -413,7 +413,8 @@ LV_REGISTER_SELFTEST("schematics.blueprint", [](Context& ctx) -> ll::coro::CoroT
     auto doc = dataIf(sec);
     ctx.require(doc && doc->contains("blueprint"), "section data");
     auto display = items::fromJson((*doc)["blueprint"]["items"][9]);
-    ctx.check(items::idOf(display) == "minecraft:stick", "the display item is inferred from the recipe: " + items::idOf(display) + " (" + debugRecipes("minecraft:stick") + ")");
+    if (items::idOf(display) != "minecraft:stick")
+        ctx.check(false, "the display item is inferred from the recipe: " + items::idOf(display) + " (" + debugRecipes("minecraft:stick") + ")");
     auto& inv = player.getInventory();
     for (int i = 0; i < inv.getContainerSize(); ++i) inv.setItem(i, items::empty());
     ctx.give(player, *makeItem("minecraft:oak_planks", 4));

@@ -150,7 +150,8 @@ std::optional<std::string> quillSave(Player& player, std::string name, bool conv
     if (name.empty()) name = trFor(player, "create.schematicAndQuill.fallbackName", "My Schematic");
     auto dir   = playerDir(player.getRealName());
     auto& cfg  = config();
-    if (convert) deleteOldestIfFull(dir, cfg.maxSchematics);
+    // the server's folder of the player is Create's uploaded folder: same limit for every save
+    deleteOldestIfFull(dir, cfg.maxSchematics);
     auto file = saveArea(dir, name, convert, dim, lo, hi);
     if (!file) {
         message(player, "§c" + trFor(player, "create.schematicAndQuill.failed", "Failed to save schematic, check logs for details"));

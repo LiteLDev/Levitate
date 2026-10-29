@@ -238,7 +238,7 @@ void blueprintForm(Player& player, Json const& ctx) {
             auto it = r->find("slot" + std::to_string(i));
             if (it == r->end()) continue;
             auto const* v = std::get_if<uint64>(&it->second);
-            if (!v || *v == 0) continue;
+            if (!v || *v == 0 || *v > inv.size() + 1) continue;
             setBlueprintSlot(pos, i, *v == 1 ? items::empty() : inv[static_cast<std::size_t>(*v - 2)]);
         }
         log().info("crafting blueprint at {} {} {}: {} set the recipe (form)", pos.x, pos.y, pos.z, pl.getRealName());

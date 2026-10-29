@@ -88,6 +88,8 @@ void                       destroyAt(GlobalPos const& p, bool drop);
 /// The block for a schematic state (alternatives tried, unknown states dropped). nullptr when the
 /// block id doesn't exist.
 [[nodiscard]] Block const* resolve(cs::BlockState const& state);
+/// Drops the Block pointer caches (block states are registered again for every world).
+void clearBlockCaches();
 /// A game CompoundTag from a core NBT compound (nullptr on failure).
 [[nodiscard]] std::unique_ptr<CompoundTag> gameTag(cs::nbt::Tag const& tag);
 /// SNBT of a block (for saving launched blocks) and back.

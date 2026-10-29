@@ -56,7 +56,7 @@ bool                                  gNoDrop = false;
 bool debounce(Player& p) {
     auto  uid  = uidOf(p);
     auto& last = gLastUse[uid];
-    if (last && currentTick() - last < 4) return false;
+    if (last && currentTick() - last < 5) return false;
     last = currentTick();
     return true;
 }
@@ -100,19 +100,19 @@ LL_TYPE_INSTANCE_HOOK(
     bool         sneakWithItem = player.isSneaking() && !item.isNull();
     try {
         if (tid == kTable && !sneakWithItem) {
-            if (isFirstEvent && debounce(player)) openTable(player, p);
+            if (debounce(player)) openTable(player, p);
             return used();
         }
         if (tid == kCannon && !sneakWithItem) {
-            if (isFirstEvent && debounce(player)) openCannon(player, p);
+            if (debounce(player)) openCannon(player, p);
             return used();
         }
         if (tid == kBlueprintBlock && held != kBlueprintItem) {
-            if (isFirstEvent && debounce(player)) blueprintUse(player, p, held == kWrench);
+            if (debounce(player)) blueprintUse(player, p, held == kWrench);
             return used();
         }
         if (isOurItem(held)) {
-            if (!isFirstEvent || !debounce(player)) return used();
+            if (!debounce(player)) return used();
             std::pair<cs::Pos, int> h{cp(p), static_cast<int>(face)};
             if (held == kQuill) quillUse(player, h);
             else if (held == kSchematic) schematicUse(player, h);
@@ -192,6 +192,7 @@ public:
                 resetQuills();
                 resetUploads();
                 clearSchematicCache();
+                clearBlockCaches();
                 gLastUse.clear();
             });
             common::blockdata::onErase([](GlobalPos const& p, Json const& doc, std::string const& prev) {

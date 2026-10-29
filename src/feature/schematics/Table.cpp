@@ -83,7 +83,9 @@ void cancelUpload(std::int64_t uid, std::string const& why) {
     if (it == gUploads.end()) return;
     log().warn("schematics: cancelled schematic upload {} ({})", it->second.name, why);
     auto table = it->second.table;
+    auto name  = it->second.name;
     gUploads.erase(it);
+    if (auto* p = playerById(uid)) net::send(*p, "schematics.upload.status", {{"name", name}, {"ok", false}, {"message", why}});
     if (isTable(table)) setUploading(table, "", 0);
     refreshViewer(uid, table);
 }
