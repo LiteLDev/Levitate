@@ -2,6 +2,7 @@
 
 #include "feature/itemrender/DisplayItems.h"
 
+#include <climits>
 #include <cmath>
 #include <map>
 #include <mutex>
@@ -293,6 +294,14 @@ std::size_t count(GlobalPos const* owner) {
     std::size_t n = 0;
     for (auto it = s.items.lower_bound(Key{*owner, INT64_MIN}); it != s.items.end() && it->first.owner == *owner; ++it) ++n;
     return n;
+}
+
+std::vector<std::pair<std::int64_t, DisplayItem>> itemsOf(GlobalPos const& owner) {
+    std::vector<std::pair<std::int64_t, DisplayItem>> out;
+    auto& s = state();
+    for (auto it = s.items.lower_bound(Key{owner, INT64_MIN}); it != s.items.end() && it->first.owner == owner; ++it)
+        out.emplace_back(it->first.slot, it->second.d);
+    return out;
 }
 
 void registerProvider(std::string const& blockId, Provider fn) {

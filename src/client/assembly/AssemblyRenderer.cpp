@@ -9,6 +9,8 @@
 //   phase / timer / reach the server sends on "assembly.deployer" when the phase changes;
 // - arm: turntable, lower arm, upper arm and claw at the angles between the previous and the next
 //   interaction point ("assembly.arm"), resting when nothing was received.
+// Both draw the item they hold (Create's DeployerRenderer / ArmRenderer) with the world item
+// renderer (client/render/WorldItems.h): in the deployer's hand, between the arm's claws.
 // Vanilla clients see the static model (`rotor = 0`).
 
 #include <cmath>
@@ -63,6 +65,8 @@
 #include "mc/world/level/block/actor/BlockActorRendererId.h"
 
 #include "client/Client.h"
+#include "client/render/WorldItems.h"
+#include "feature/common/Items.h"
 #include "core/assembly/Arm.h"
 #include "core/assembly/Deployer.h"
 #include "core/kinetics/RotorModel.h"
@@ -92,9 +96,10 @@ struct PosEq {
 };
 
 struct DeployerAnim {
-    int      state = 0, timer = 0, speed = 0, pose = 0;
-    float    reach = .5f;
-    uint64_t at    = 0; ///< client tick when received
+    int       state = 0, timer = 0, speed = 0, pose = 0;
+    float     reach = .5f;
+    uint64_t  at    = 0; ///< client tick when received
+    ItemStack held;
 };
 struct ArmAnim {
     int           phase = 0;
@@ -102,6 +107,7 @@ struct ArmAnim {
     ca::ArmAngles from, to;
     bool          target = false;
     uint64_t      at     = 0;
+    ItemStack     held;
 };
 
 struct State {
@@ -222,6 +228,17 @@ struct Drawer {
     }
 };
 
+/// A held item standing out of a hand / claw whose tip is at `tip` (pointing along its +Y):
+/// blocks stand on it, flat items stick out edge first (Create's deployer / arm item).
+void drawHeld(Drawer& d, ItemStack const& stack, glm::mat4 const& tip, float size) {
+    if (feature::common::items::isEmpty(stack)) return;
+    if (render::isBlockItem(stack)) {
+        render::drawItem(d.ctx, stack, glm::scale(tip, glm::vec3{size * .75f}), render::Style::Lying);
+        return;
+    }
+    render::drawItem(d.ctx, stack, glm::scale(glm::translate(tip, glm::vec3{0.f, size * .4f, 0.f}), glm::vec3{size}), render::Style::Facing);
+}
+
 void drawDeployer(Drawer& d, Tessellator& tess, BlockPos const& pos, Block const& block, DeployerAnim const* anim, double now) {
     int   facing = game::intState(block, "levitate:facing").value_or(1);
     float offset = 0;
@@ -241,6 +258,7 @@ void drawDeployer(Drawer& d, Tessellator& tess, BlockPos const& pos, Block const
     constexpr char kModel[] = "geometry.levitate.deployer_head";
     d.draw(mesh(tess, kModel, "pole", "levitate_deployer"), m);
     d.draw(mesh(tess, kModel, pose == static_cast<int>(ca::HandPose::Punching) ? "fist" : "hand", "levitate_deployer"), m);
+    if (anim) drawHeld(d, anim->held, glm::translate(m, glm::vec3{.5f, 17 / 16.f, .5f}), .5f);
 }
 
 void drawArm(Drawer& d, Tessellator& tess, BlockPos const& pos, Block const& block, ArmAnim const* anim, double now) {
@@ -271,6 +289,7 @@ void drawArm(Drawer& d, Tessellator& tess, BlockPos const& pos, Block const& blo
     d.draw(mesh(tess, kModel, "upper", kTex), centered(upper));
     glm::mat4 head = glm::rotate(glm::translate(upper, glm::vec3{0.f, static_cast<float>(ca::kArmUpperLength), 0.f}), glm::radians(90.f - a.lower - a.upper), {1, 0, 0});
     d.draw(mesh(tess, kModel, "head", kTex), centered(head));
+    if (anim) drawHeld(d, anim->held, glm::translate(head, glm::vec3{0.f, 4 / 16.f, 0.f}), .4f);
 }
 
 void renderParts(BaseActorRenderContext& ctx) {
@@ -400,6 +419,7 @@ public:
             a.reach = msg.value("reach", .5f);
             a.pose  = msg.value("pose", 0);
             a.at    = clientTick();
+            if (auto h = msg.find("held"); h != msg.end() && h->is_object()) a.held = feature::common::items::fromJson(*h);
             std::lock_guard lock(st().mutex);
             st().deployers[*p] = a;
         });
@@ -414,6 +434,7 @@ public:
             a.to       = anglesOf(msg.value("to", Json()));
             a.target   = msg.value("target", false);
             a.at       = clientTick();
+            if (auto h = msg.find("heldItem"); h != msg.end() && h->is_object()) a.held = feature::common::items::fromJson(*h);
             std::lock_guard lock(st().mutex);
             st().arms[*p] = a;
         });

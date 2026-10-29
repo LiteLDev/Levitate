@@ -65,6 +65,8 @@ void clear(GlobalPos const& owner);
 [[nodiscard]] DisplayItem const* find(GlobalPos const& owner, std::int64_t slot);
 /// Number of items of `owner` (all owners when nullptr).
 [[nodiscard]] std::size_t count(GlobalPos const* owner = nullptr);
+/// The items of `owner` with their slots (selftests).
+[[nodiscard]] std::vector<std::pair<std::int64_t, DisplayItem>> itemsOf(GlobalPos const& owner);
 
 /// Builds the items of a block: `out.emplace_back(slot, item)`.
 using Provider = std::function<void(GlobalPos const& owner, Block const& block, std::vector<std::pair<std::int64_t, DisplayItem>>& out)>;

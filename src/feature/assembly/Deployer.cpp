@@ -82,6 +82,7 @@ struct Runtime {
     std::vector<ItemStack>                     overflow;
     std::optional<std::pair<BlockPos, float>>  breaking;
     bool                                       redstone = false;
+    ItemStack                                  synced; ///< `held` as last sent to the client mod
 };
 
 struct State {
@@ -159,7 +160,8 @@ void syncState(GlobalPos const& pos, Runtime const& r, Face facing) {
          {"speed", ca::deployerTimerSpeed(speed)},
          {"reach", r.reach},
          {"pose", static_cast<int>(ca::deployerHandPose(r.mode, !items::isEmpty(r.held)))},
-         {"facing", static_cast<int>(facing)}}
+         {"facing", static_cast<int>(facing)},
+         {"held", items::isEmpty(r.held) ? Json() : items::toJson(r.held)}}
     );
 }
 
@@ -512,6 +514,11 @@ void tickOne(GlobalPos const& pos) {
         st().runtimes.erase(pos);
         if (st().index.erase(pos)) st().indexDirty = true;
         return;
+    }
+    // the client mod draws the held item in the hand: tell it when the item changed
+    if (auto it = st().runtimes.find(pos); it != st().runtimes.end() && !sameStack(it->second.synced, it->second.held)) {
+        it->second.synced = it->second.held;
+        syncState(pos, it->second, facingOf(block));
     }
     float speed = kinetics::speedAt(pos);
     if (speed == 0) return;

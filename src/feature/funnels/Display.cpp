@@ -1,10 +1,11 @@
-// Items moving through chutes, shown to every client (SPEC §3.6 U12, §8).
+// Items moving through chutes (SPEC §3.6 U12, §8).
 //
-// Create draws the item inside a chute with its block entity renderer. Bedrock has no block
-// entity renderers for custom blocks, so the server shows each moving stack as a *display item*:
-// an item entity that exists only on the clients (AddItemActor / MoveActorAbsolute /
-// RemoveActor packets with runtime ids of our own range, never a server entity, so nobody can
-// pick it up). Clients interpolate its movement; vanilla clients and the client mod see the same.
+// Create draws the item inside a chute with its block entity renderer:
+// - players with the client mod get a display item (feature/itemrender): the stack drawn by the
+//   mod, lying at its height in the chute, interpolated between ticks;
+// - vanilla players get an item entity that exists only on their client (AddItemActor /
+//   MoveActorAbsolute / RemoveActor packets with runtime ids of our own range, never a server
+//   entity, so nobody can pick it up). Their clients interpolate its movement.
 // Every player within view distance gets it (also players who arrive later).
 
 #include <cmath>
@@ -29,6 +30,8 @@
 
 #include "feature/common/Items.h"
 #include "feature/funnels/FunnelsInternal.h"
+#include "feature/itemrender/DisplayItems.h"
+#include "feature/net/Net.h"
 #include "game/WorldDb.h"
 
 namespace lv::feature::funnels::detail {
@@ -123,6 +126,13 @@ void showItem(GlobalPos const& owner, ItemStack const& stack, Vec3 const& pos) {
         hideItem(owner);
         return;
     }
+    itemrender::DisplayItem d; // the client mod's item (Create's ChuteRenderer: half size)
+    d.stack     = stack;
+    d.at        = {pos.x, pos.y, pos.z};
+    d.at.scale  = .5f;
+    d.style     = itemrender::Style::Lying;
+    d.lerpTicks = 1;
+    itemrender::set(owner, 0, d);
     auto key  = owner.key();
     auto what = items::idOf(stack) + " x" + std::to_string(items::countOf(stack));
     auto it   = shown().find(key);
@@ -148,6 +158,7 @@ void showItem(GlobalPos const& owner, ItemStack const& stack, Vec3 const& pos) {
 }
 
 void hideItem(GlobalPos const& owner) {
+    itemrender::remove(owner, 0);
     auto it = shown().find(owner.key());
     if (it == shown().end()) return;
     removeFromViewers(it->second);
@@ -166,7 +177,8 @@ void flushDisplays() {
     };
     std::vector<Viewer> players;
     level->forEachPlayer([&](Player& p) {
-        if (!p.isSimulatedPlayer()) players.push_back({&p, p.getOrCreateUniqueID().rawID, static_cast<int>(p.getDimensionId()), p.getPosition()});
+        // players with the client mod see the display item instead
+        if (!p.isSimulatedPlayer() && !net::isCompanion(p)) players.push_back({&p, p.getOrCreateUniqueID().rawID, static_cast<int>(p.getDimensionId()), p.getPosition()});
         return true;
     });
     for (auto& [key, s] : shown()) {
