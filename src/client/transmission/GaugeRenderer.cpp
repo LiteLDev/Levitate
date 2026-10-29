@@ -141,7 +141,9 @@ void loadNeedle() {
                 float d  = (rx - c1[0]) * (rx - c1[0]) + (ry - c1[1]) * (ry - c1[1]);
                 if (d < best) {
                     best   = d;
-                    s.sign = sign;
+                    // the parsed geometry turns cubes the other way round than the game draws
+                    // them (checked against vanilla clients): follow the game
+                    s.sign = -sign;
                 }
             }
         }

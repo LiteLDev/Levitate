@@ -60,31 +60,33 @@ Invoke-Chat '/setblock ~6 ~3 ~2 levitate:adjustable_chain_gearshift ["levitate:a
 Invoke-Chat '/setblock ~6 ~3 ~4 levitate:sequenced_gearshift ["levitate:axis"=0]'
 Invoke-Chat '/setblock ~6 ~3 ~6 levitate:rotation_speed_controller ["levitate:axis"=2]'
 Invoke-Chat '/setblock ~6 ~4 ~6 levitate:large_cogwheel ["levitate:axis"=0]'
-# row 3 (y+5): a driven line with both gauges facing the player (west)
-Invoke-Chat '/setblock ~6 ~5 ~-4 levitate:kinetics_test_source ["levitate:axis"=2]'
-Invoke-Chat '/setblock ~6 ~5 ~-3 levitate:speedometer ["levitate:facing"=4,"levitate:along_first"=0]'
-Invoke-Chat '/setblock ~6 ~5 ~-2 levitate:shaft ["levitate:axis"=2]'
-Invoke-Chat '/setblock ~6 ~5 ~-1 levitate:stressometer ["levitate:facing"=4,"levitate:along_first"=0]'
-Invoke-Chat '/setblock ~6 ~5 ~0 levitate:kinetics_test_consumer ["levitate:axis"=2]'
-Invoke-Chat '/setblock ~6 ~5 ~2 levitate:sequenced_gearshift ["levitate:axis"=0]'
 Start-Sleep -Seconds 2
 if ($withMod) {
     Invoke-Chat '/create kinetics ~7 ~1 ~-6 speed 32'
     Wait-LogLine 'kinetics client: drawing \d+ rotating parts' 30 | Out-Null
-    Wait-LogLine 'transmission client: drawing \d+ gauge needles' 30 | Out-Null
 }
 Start-Sleep -Seconds 2
 Save-Screenshot 'wall' | Out-Null
 Start-Sleep -Milliseconds 400
 Save-Screenshot 'wall-b' | Out-Null
 
-# close-up of the gauges
-Invoke-Chat '/tp @s ~3 ~5 ~-2 -90 20'
+# at eye level: a driven line with both gauges facing the player (west), 3 blocks ahead
+Invoke-Chat '/setblock ~3 ~1 ~-3 levitate:kinetics_test_source ["levitate:axis"=2]'
+Invoke-Chat '/setblock ~3 ~1 ~-2 levitate:speedometer ["levitate:facing"=4,"levitate:along_first"=0]'
+Invoke-Chat '/setblock ~3 ~1 ~-1 levitate:shaft ["levitate:axis"=2]'
+Invoke-Chat '/setblock ~3 ~1 ~0 levitate:stressometer ["levitate:facing"=4,"levitate:along_first"=0]'
+Invoke-Chat '/setblock ~3 ~1 ~1 levitate:kinetics_test_consumer ["levitate:axis"=2]'
+# a sequenced gearshift on the ground 2 blocks ahead
+Invoke-Chat '/setblock ~2 ~ ~ levitate:sequenced_gearshift ["levitate:axis"=0]'
+Invoke-Chat '/tp @s ~ ~ ~ -90 10'
+if ($withMod) { Wait-LogLine 'transmission client: drawing \d+ gauge needles' 30 | Out-Null }
 Start-Sleep -Seconds 2
 Save-Screenshot 'gauges' | Out-Null
 
-# right-click the sequenced gearshift (2 blocks south of the gauges' line, at eye height)
-Invoke-Chat '/tp @s ~ ~ ~4 -90 25'
+# right-click the sequenced gearshift (with an item in hand: the game only sends block clicks
+# with an empty hand for interactive blocks; Create opens the screen with any item but the wrench)
+Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 stick'
+Invoke-Chat '/tp @s ~ ~ ~ -90 35'
 Start-Sleep -Milliseconds 800
 $mark2 = Get-LogMark
 Click 0.5 0.5 -Relative -Right
