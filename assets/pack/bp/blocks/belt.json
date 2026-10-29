@@ -1,0 +1,1460 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:belt",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "levitate:slope": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "levitate:part": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "levitate:casing": [
+          0,
+          1,
+          2
+        ],
+        "levitate:dyed": [
+          0,
+          1
+        ],
+        "levitate:color": {
+          "values": {
+            "min": 0,
+            "max": 15
+          }
+        }
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.belt",
+        "bone_visibility": {
+          "h_top_mid": "q.block_state('levitate:slope') == 0 && (q.block_state('levitate:part') == 1 || q.block_state('levitate:part') == 3)",
+          "h_bot_mid": "q.block_state('levitate:slope') == 0 && (q.block_state('levitate:part') == 1 || q.block_state('levitate:part') == 3)",
+          "h_top_start": "q.block_state('levitate:slope') == 0 && q.block_state('levitate:part') == 0",
+          "h_bot_start": "q.block_state('levitate:slope') == 0 && q.block_state('levitate:part') == 0",
+          "h_cap_start": "q.block_state('levitate:slope') == 0 && q.block_state('levitate:part') == 0",
+          "h_top_end": "q.block_state('levitate:slope') == 0 && q.block_state('levitate:part') == 2",
+          "h_bot_end": "q.block_state('levitate:slope') == 0 && q.block_state('levitate:part') == 2",
+          "h_cap_end": "q.block_state('levitate:slope') == 0 && q.block_state('levitate:part') == 2",
+          "slope": "q.block_state('levitate:slope') == 1 || q.block_state('levitate:slope') == 2",
+          "v_front": "q.block_state('levitate:slope') == 3",
+          "v_back": "q.block_state('levitate:slope') == 3",
+          "v_cap_bottom": "q.block_state('levitate:slope') == 3 && ((q.block_state('levitate:part') == 0 && (q.block_state('levitate:facing') == 0 || q.block_state('levitate:facing') == 3)) || (q.block_state('levitate:part') == 2 && !(q.block_state('levitate:facing') == 0 || q.block_state('levitate:facing') == 3)))",
+          "v_cap_top": "q.block_state('levitate:slope') == 3 && ((q.block_state('levitate:part') == 2 && (q.block_state('levitate:facing') == 0 || q.block_state('levitate:facing') == 3)) || (q.block_state('levitate:part') == 0 && !(q.block_state('levitate:facing') == 0 || q.block_state('levitate:facing') == 3)))",
+          "w_left": "q.block_state('levitate:slope') == 4",
+          "w_right": "q.block_state('levitate:slope') == 4",
+          "w_cap_start": "q.block_state('levitate:slope') == 4 && q.block_state('levitate:part') == 0",
+          "w_cap_end": "q.block_state('levitate:slope') == 4 && q.block_state('levitate:part') == 2",
+          "pulley": "q.block_state('levitate:slope') != 4 && q.block_state('levitate:part') != 1",
+          "pulley_y": "q.block_state('levitate:slope') == 4 && q.block_state('levitate:part') != 1",
+          "casing": "q.block_state('levitate:slope') == 0 && q.block_state('levitate:casing') != 0"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_belt",
+          "render_method": "alpha_test",
+          "ambient_occlusion": false
+        },
+        "pulley": {
+          "texture": "levitate_belt_pulley",
+          "render_method": "alpha_test",
+          "ambient_occlusion": false
+        },
+        "casing": {
+          "texture": "levitate_belt_casing_andesite",
+          "render_method": "alpha_test",
+          "ambient_occlusion": false
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -7,
+          3,
+          -8
+        ],
+        "size": [
+          14,
+          10,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -7,
+          3,
+          -8
+        ],
+        "size": [
+          14,
+          10,
+          16
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.8
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.8
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/belt.json",
+      "minecraft:map_color": "#2d2a28"
+    },
+    "permutations": [
+      {
+        "condition": "0 == 0 && q.block_state('levitate:slope') != 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "0 == 0 && q.block_state('levitate:slope') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "1 == 1 && q.block_state('levitate:slope') != 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "1 == 1 && q.block_state('levitate:slope') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "2 == 2 && q.block_state('levitate:slope') != 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "2 == 2 && q.block_state('levitate:slope') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "3 == 3 && q.block_state('levitate:slope') != 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "3 == 3 && q.block_state('levitate:slope') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:slope') == 0 && q.block_state('levitate:casing') != 0",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:slope') == 1 || q.block_state('levitate:slope') == 2",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:slope') == 3",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -7,
+              0,
+              -5
+            ],
+            "size": [
+              14,
+              16,
+              10
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -7,
+              0,
+              -5
+            ],
+            "size": [
+              14,
+              16,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:slope') == 4",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -5,
+              1,
+              -8
+            ],
+            "size": [
+              10,
+              14,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -5,
+              1,
+              -8
+            ],
+            "size": [
+              10,
+              14,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 0 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 0 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_white",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 1 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_orange",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 2 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_magenta",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 3 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_light_blue",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 4 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_yellow",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 5 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_lime",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 6 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_pink",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 7 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_gray",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 8 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_light_gray",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 9 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_cyan",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 10 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_purple",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 11 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_blue",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 12 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_brown",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 13 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_green",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 14 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_red",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 15 && q.block_state('levitate:casing') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_black",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 0 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 0 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_white",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 1 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_orange",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 2 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_magenta",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 3 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_light_blue",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 4 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_yellow",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 5 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_lime",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 6 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_pink",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 7 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_gray",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 8 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_light_gray",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 9 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_cyan",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 10 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_purple",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 11 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_blue",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 12 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_brown",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 13 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_green",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 14 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_red",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 15 && q.block_state('levitate:casing') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_black",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_andesite",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 0 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 0 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_white",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 1 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_orange",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 2 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_magenta",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 3 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_light_blue",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 4 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_yellow",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 5 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_lime",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 6 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_pink",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 7 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_gray",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 8 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_light_gray",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 9 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_cyan",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 10 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_purple",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 11 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_blue",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 12 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_brown",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 13 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_green",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 14 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_red",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:dyed') == 1 && q.block_state('levitate:color') == 15 && q.block_state('levitate:casing') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_belt_black",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "pulley": {
+              "texture": "levitate_belt_pulley",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            },
+            "casing": {
+              "texture": "levitate_belt_casing_brass",
+              "render_method": "alpha_test",
+              "ambient_occlusion": false
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -138,8 +138,15 @@ slabs); `andesite_scaffolding`, `brass_scaffolding`, `copper_scaffolding`; `ande
 
 ### 2.6 Belts and depots (U11)
 
-`belt_connector` (item), `belt` (block, states `part` start/middle/end/pulley, `slope`, `facing`,
-`casing`), `depot`, `weighted_ejector`.
+`belt_connector` (item "Mechanical Belt", stack 64; recipe: 6 dried kelp, `DDD/DDD`), `belt` (block,
+no item; states `levitate:facing` 0..3 (0 south, 1 west, 2 north, 3 east: start -> end), `levitate:slope`
+0 horizontal / 1 upward / 2 downward / 3 vertical / 4 sideways, `levitate:part` 0 start / 1 middle /
+2 end / 3 pulley, `levitate:casing` 0 none / 1 andesite / 2 brass, `levitate:dyed` + `levitate:color`
+0..15 (Create's dye colour in the block entity; a state here so vanilla clients see it); hardness 0.8,
+wool sounds, drops handled in code), `depot` (recipe: andesite alloy + andesite casing, shapeless),
+`weighted_ejector` (states `levitate:facing`, `levitate:lid` (plate up), `levitate:rotor`; recipe:
+golden sheet / depot / cogwheel in a column). The depot and ejector recipes need U9 / U10 / U6 items
+and wait in `assets/pending_recipes/belts/`.
 
 ### 2.7 Item logistics (U12)
 
@@ -640,7 +647,7 @@ with belts/funnels/arms/deployers/pipes where Create has it, processing recipes 
 particles, goggles info, and the client rendering. The unit's PR adds a §3.<unit> subsection here with
 the details and numbers it implemented. Short reminders of the less obvious ones:
 
-- **Belts (U11)**: 2–20 ⚠ blocks long, connect two shafts in a line or slope (45°), items move at
+- **Belts (U11)**: 2–20 blocks long (§3.6.1), connect two shafts in a line or slope (45°), items move at
   speed proportional to RPM, belt carries entities, funnels/tunnels/depots/processing work on belt
   items, belt casing, dye, wrench to adjust, breaking returns belts.
 - **Fans (U13)**: push/pull entities and items along up to `fanPushDistance` 20 ⚠ blocks; items in the
@@ -923,6 +930,81 @@ shaft turns after the outer one stops). Stress impact 0 (Create: setNoImpact; th
 structure (`pistons.rope` messages, every 3 ticks, extrapolated in between); contraption blocks are
 drawn by U4's display entities.
 
+#### 3.6.1 Belts, depots and weighted ejectors (U11)
+
+Checked against Create 6.0.10 (BeltBlock, BeltConnectorItem, BeltSlicer, BeltInventory,
+BeltMovementHandler, DepotBehaviour, SharedDepotBlockMethods, WeightedEjectorBlockEntity,
+EjectorTargetHandler). Pure rules in `src/core/belts/` (gtest), game side in `src/feature/belts/`,
+drawing in `src/client/belts/`. Config `config/belts.json` (§5).
+
+- **Belt connector**: right-click a shaft (U6's `levitate:shaft`; U2's test shaft too) selects it,
+  right-click a second shaft connects them when (Create's canConnect) both are loaded, closer than
+  `maxBeltLength` (20, Euclidean), same axis, in a line or exactly 45 degrees in the plane
+  perpendicular to the axis (vertical shafts: straight only), not turning against each other and only
+  replaceable blocks or same-axis shafts in between. One connector is used (survival), wool sound.
+  Shafts in between become pulleys; vertical shafts make a sideways belt, a vertical line a vertical
+  belt. Sneak + use (block or air) clears the selection; any second click clears it. While a shaft
+  is selected, particles show the planned belt towards the shaft looked at (green: valid, red: not).
+- **Kinetics**: a belt is a kinetic block (stress 0): pulley segments (start, end, pulley) have shaft
+  ends on both faces of the rotation axis (the axis 90 degrees from the facing; sideways: y); all
+  segments of one belt turn together, sloped ones through their diagonal neighbours.
+- **Items** (BeltInventory): speed `rpm / 480` blocks per tick, START -> END when Create's
+  direction-aware speed is positive (`rpm * step(facing) * (x axis ? -1 : 1) > 0`); items keep one
+  block apart, stop 0.45 before a blocked end (solid block), 0.25 before a block that takes items
+  (another belt, depot, ejector, other units' direct inputs) and fall off an open end (thrown along the
+  belt at max(speed, 1/8) plus 1/8 up). Vertical and sideways belts carry nothing (items fall off).
+  Belt-to-belt: the end inserts into the block after it (for slopes also the block level with the
+  last segment) with the movement direction as side; a belt refuses insertion against its movement,
+  side insertions start 0.35 off-centre and slide to the middle. Dropped item entities landing on a
+  belt are taken whole at their segment (Create's item handler: one stack per segment until it moved
+  on). Right-click with an empty hand takes the stacks within 0.55 of that segment's centre.
+- **Entities** (BeltMovementHandler): mobs, items and players standing on a moving belt (|rpm| >= 1)
+  move at `rpm / 480` along it, are pulled to the middle (not while walking), climb / descend slopes;
+  sneaking or flying players are not carried.
+- **Right-click on a belt**: dye (any `*_dye`) colours the whole belt, water (bucket, water bottle)
+  removes the colour (nothing used, as Create); a shaft on a middle segment makes it a pulley (1 used);
+  andesite / brass casing encases the segment (not used, as Create); the belt connector on the outer
+  half of an end extends the belt by one (free; the old end loses its shaft) or merges it with a
+  compatible belt end there (2 shafts + 1 connector back); the wrench: on the outer half of an end
+  shortens the belt (length > 2; a pulley that becomes the end gives its shaft back), elsewhere splits it
+  between this segment and its neighbour on the clicked half (both parts >= 2; a shaft from the
+  inventory per new end that isn't a pulley yet); on a cased segment's side the casing comes off, on a
+  pulley's side its shaft comes out.
+- **Breaking** a segment destroys the whole belt: items drop, pulleys become shafts again, the other
+  segments vanish; a survival player gets one belt connector plus a shaft if the broken segment had a
+  pulley.
+- **Depot** (DepotBehaviour): holds one stack (max stack size) and an 8-slot output buffer.
+  Right-click gives back the held stack and the outputs, then puts the held hand stack on it (slides from
+  0.25 to the centre). Items arrive from belts / funnels / ejectors (DirectBeltInput) only when it is
+  empty, slide to the centre (1/4 of the distance per tick), are processed by the block 2 above (Create's
+  BeltProcessingBehaviour, unless the block between has a collision box), outputs go to the buffer.
+  Item capability: 9 slots (0 held, 1..8 outputs), insert only into an empty depot, extract outputs
+  first, the held stack when it isn't being processed. Sounds: Create's depot slide / plop (sand break
+  0.125 / 1.5, item frame add 0.25 / 1.25).
+- **Weighted ejector**: a depot with a launch plate; kinetic (impact 2 SU/RPM, shaft on the sides).
+  Target: sneak + right-click a block with the ejector item ("Target Selected"), then place it: it
+  faces the target and throws there if the target is in line with it, not straight above / below and
+  within `maxEjectorDistance` (32) ("Ejecting to [x,y,z]"), else ("Target was not Valid") the block in
+  front; placed without a selection it faces away from the player. Launches when charged, turning, not
+  powered by redstone (polled every 4 ticks), and an entity stands on the plate or the held stack is
+  centred and (stack size value box 0 = any) at least the configured size and the targeted block can take
+  it. The stack flies on Create's arc (gravity 0.08, drag 0.98 / 0.91 per tick, apex 1 + 0.3 x distance
+  blocks above the higher end) and is inserted into the target's belt input or dropped there; entities
+  get the same velocity. The plate stays up 2 ticks and recharges at `|rpm| / 256 / distance` per tick.
+  Value box (front and back faces): "Ejected Stack Size" 0..64 (`*` = any).
+- **Contract** for other units (`src/feature/belts/BeltApi.h`): transported items (Create's
+  TransportedItemStack), `handleCenteredProcessing` / `handleProcessingOnAllItems` / `itemsAt` on a
+  belt segment or depot, processors 2 above (`registerProcessor`: received / held -> pass / hold /
+  remove), blocks on a belt (`registerAboveInteractor`: funnels / tunnels see each passing item and may
+  take it or stop it), direct inputs (`registerDirectInput` / `insertDirect`: what belt ends and
+  ejectors insert into; `side` = travel direction), `beltAt`. Belts, depots and ejectors are item
+  capabilities too.
+- **Data**: BlockData `belt` {c: controller, i: index, n: length} per segment, the controller also
+  holds `items`; `depot` {held, incoming, outputs, stackSize, target, airborne, ...}; the index of
+  controllers / depots / ejectors in `lv:belts:index`.
+- **Client mod**: belts are left out of the chunk mesh and drawn every frame from the same geometry:
+  the band texture scrolls at the surface speed (1 px steps), pulleys turn at Create's kinetic angle;
+  speeds over `belts.query` / `belts.speed`. The ejector's shaft turns through U2's rotor rendering.
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -986,6 +1068,8 @@ pulleys 4; gantry shaft and carriage 0 (`gantry_shaft` 4 in the table above is w
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
 
+`config/belts.json` (U11): `maxBeltLength` 20, `maxEjectorDistance` 32 (Create's CKinetics keys and
+defaults), `displayItems` true (show items on belts / depots / in flight as item entities, §8).
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
 `mediumCapacity` (256), `highCapacity` (1024), `impact` {block path: SU per RPM} and `capacity`
@@ -1057,6 +1141,13 @@ matches Create's official Chinese translation wording).
 | Elevator door control acting on doors (U20) | the sliding / train doors are U10's | the mode is stored per contact (`data["pistons"]["door"]`) for U10 to apply |
 | Sequenced gearshift distance limits on pistons / gantries (U20) | Create passes the sequence context through its kinetic block entities; the U2 contract has no such channel | pistons and gantries run until their end / collision |
 
+| Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer (U11) | Bedrock has no item renderer for vanilla clients, and the client framework has no world-space item renderer yet | the server shows each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick; for every client, the client mod included); with `displayItems` off nothing is shown |
+| Sloped belt collision shape (U11) | a custom block has one collision box | slopes collide as a half slab; entities are carried up / down by the belt code |
+| Casing drawn on sloped / vertical belts (U11) | the sloped casing would leave the block geometry bounds | the casing state is kept (and removable with the wrench) but only horizontal belts draw it |
+| Belt drops when exploded or removed by commands (U11) | the server can't tell an explosion from a command removing the block | the connector / shaft drops only for survival players breaking the belt; items on it always drop |
+| Comparator output of depots / ejectors (U11) | custom blocks can't give a comparator signal | none |
+| Redstone input of the ejector (U11) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker) |
+| Belt connector selection preview line (U11) | Create draws it client-side every frame | server particles along the planned belt every 5 ticks while the connector is held |
 Units add rows here in their PRs when they find something else impossible.
 
 ## 9. Work plan

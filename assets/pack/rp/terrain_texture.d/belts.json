@@ -1,0 +1,83 @@
+{
+  "levitate_belt": {
+    "textures": "textures/blocks/belt"
+  },
+  "levitate_belt_pulley": {
+    "textures": "textures/blocks/belt_pulley"
+  },
+  "levitate_belt_casing_andesite": {
+    "textures": "textures/blocks/belt_casing_andesite"
+  },
+  "levitate_belt_casing_brass": {
+    "textures": "textures/blocks/belt_casing_brass"
+  },
+  "levitate_depot_top": {
+    "textures": "textures/blocks/depot_top"
+  },
+  "levitate_depot_side": {
+    "textures": "textures/blocks/depot_side"
+  },
+  "levitate_depot_bottom": {
+    "textures": "textures/blocks/depot_bottom"
+  },
+  "levitate_weighted_ejector": {
+    "textures": "textures/blocks/weighted_ejector_shaft"
+  },
+  "levitate_weighted_ejector_top": {
+    "textures": "textures/blocks/weighted_ejector_top"
+  },
+  "levitate_weighted_ejector_side": {
+    "textures": "textures/blocks/weighted_ejector_side"
+  },
+  "levitate_weighted_ejector_bottom": {
+    "textures": "textures/blocks/weighted_ejector_bottom"
+  },
+  "levitate_belt_white": {
+    "textures": "textures/blocks/belt_white"
+  },
+  "levitate_belt_orange": {
+    "textures": "textures/blocks/belt_orange"
+  },
+  "levitate_belt_magenta": {
+    "textures": "textures/blocks/belt_magenta"
+  },
+  "levitate_belt_light_blue": {
+    "textures": "textures/blocks/belt_light_blue"
+  },
+  "levitate_belt_yellow": {
+    "textures": "textures/blocks/belt_yellow"
+  },
+  "levitate_belt_lime": {
+    "textures": "textures/blocks/belt_lime"
+  },
+  "levitate_belt_pink": {
+    "textures": "textures/blocks/belt_pink"
+  },
+  "levitate_belt_gray": {
+    "textures": "textures/blocks/belt_gray"
+  },
+  "levitate_belt_light_gray": {
+    "textures": "textures/blocks/belt_light_gray"
+  },
+  "levitate_belt_cyan": {
+    "textures": "textures/blocks/belt_cyan"
+  },
+  "levitate_belt_purple": {
+    "textures": "textures/blocks/belt_purple"
+  },
+  "levitate_belt_blue": {
+    "textures": "textures/blocks/belt_blue"
+  },
+  "levitate_belt_brown": {
+    "textures": "textures/blocks/belt_brown"
+  },
+  "levitate_belt_green": {
+    "textures": "textures/blocks/belt_green"
+  },
+  "levitate_belt_red": {
+    "textures": "textures/blocks/belt_red"
+  },
+  "levitate_belt_black": {
+    "textures": "textures/blocks/belt_black"
+  }
+}
