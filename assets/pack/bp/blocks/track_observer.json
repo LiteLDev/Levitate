@@ -1,0 +1,66 @@
+{
+  "format_version": "1.21.120",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:track_observer",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:powered": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_track_observer_side",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "levitate_track_observer_top",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#6a4b2e",
+      "minecraft:loot": "loot_tables/blocks/track_observer.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_track_observer_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_track_observer_top_on",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "connected_faces": [
+              "north",
+              "south",
+              "east",
+              "west",
+              "up",
+              "down"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

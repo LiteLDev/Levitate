@@ -558,6 +558,14 @@ U5: `track`, curved track (no separate id: stored in BlockData + graph), `track_
 U27: `track_station`, `small_bogey`, `large_bogey`, `controls`, `schedule` (item), `railway_casing` is
 U10, `train_door` is U10. U28: `track_signal`, `track_observer`.
 
+U28 (details in §3.6.28): `track_signal` ("Train Signal", states `levitate:signal_type` 0 entry /
+1 cross, `levitate:signal_state` 0 off / 1 red / 2 yellow / 3 green, `levitate:powered`; post
+with a lamp head, metal sound, 1.5 s to mine, drops itself) and `track_observer` ("Train
+Observer", `levitate:powered`, full block with a lens on top that lights up, emits redstone 15
+on every side while powered). Both are placed by first right-clicking the track they should
+watch (Create's track targeting items). Recipes: `track_signal` ×4 = railway casing + electron tube
+(shapeless), `track_observer` ×2 = railway casing + any pressure plate (shapeless) ⚠.
+
 ### 2.24 Schematics (U29)
 
 `schematic_table`, `schematicannon`, `empty_schematic`, `schematic`, `schematic_and_quill`,
@@ -2827,6 +2835,103 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   stack(s) sent to 'A' through K packager(s)`, `stock: redstone requester at x y z sent its order to
   'A'`, `stock: factory gauge at x y z restocks <id> xN to 'A'`, `stock: factory gauge at x y z panel S
   requested its ingredients to 'A'`, `stock: … checked out a shopping list …`.
+#### 3.6.28 Signals and observers (U28)
+
+Checked against Create 6.0.10 (SignalBlock, SignalBlockEntity, SignalBoundary, SignalEdgeGroup,
+SignalPropagator, Navigation's signal scan, TrackTargetingBlockItem, TrackTargetingBehaviour,
+TrackObserver). Pure logic in `src/core/signals/` (gtest), game side in `src/feature/signals/`,
+track markers in `src/client/signals/`, contract `src/feature/tracks/SignalsExt.h`.
+
+**Placing** (Create's TrackTargetingBlockItem, same for both blocks):
+- Right-click a track with the item: selects it with the direction along the track closest to
+  the look ("Targeted track selected", click sound). Curves are selected by clicking their track
+  bed (`levitate:fake_track`). Refused (deny sound, red): crossings
+  (`create.track_target.no_junctions`), a spot within 0.75 blocks of another edge point
+  (`occupied`; another signal within 0.25 blocks is joined instead: both form one boundary), no
+  graph there (`invalid`).
+- Right-click elsewhere: places the block when it is closer than 16 blocks to the selected track
+  (else `too_far`); without a selection `missing`. Success: "Successfully bound to targeted track",
+  the selection is used up. Sneak-right-click a block with a selection clears it
+  (`create.track_target.clear`). Selections are per player and per item (§8).
+- The block keeps its target. When the track graph around it is rebuilt or removed, it binds
+  again; while its track is gone the signal is dark (`Invalid`) and the boundary is gone.
+
+**Signal boundaries and sections.** A signal block is bound to a boundary edge point (type
+`levitate:signal`) on one of its two sides: side 1 controls trains travelling along the point's
+edge (node1 → node2), side 0 the other way. Several signal blocks may share a side (one type per
+side; a joining block takes the side's type). Boundaries split the graph into sections (Create's
+signal edge groups): the track reachable from a boundary side without passing another boundary,
+across every connection at nodes. Networks without boundaries have no sections and ignore
+signals. Sections whose tracks cross without a node (a curve over another track, checked on the
+xz plane with 0.5 blocks of height tolerance) are linked: a train in one occupies all of them
+(Create's intersecting groups).
+
+**Occupancy and reservations.** A section is occupied while any part of a train covers it
+(trains report the stretch they cover). A train that is let past a signal *reserves* the section
+until it enters it (or asks again / stops navigating). For a train T, a section is occupied when
+another train is in it or in a linked section, or another train reserved it (Create's
+`isOccupiedUnless(train)`).
+
+**Signal types** (wrench right-click cycles the side's type: "-> Allow passage if section
+unoccupied" / "-> Allow passage if section fully traversable"; unbound: "Unable to switch mode of
+this Signal"):
+- *Entry signal*: the train may enter when the section is free; it reserves it.
+- *Cross signal*: the train may enter only when every section on its path up to and including
+  the one behind the next entry signal is free (chain signalling: consecutive cross signals
+  chain); all of them are reserved at once. Otherwise it waits at the first cross signal of the
+  chain, never inside the junction. A path that ends inside the chain, or leaves it through a
+  boundary without a signal for its direction, ends the chain.
+- A boundary side without a signal block doesn't stop trains (it still splits sections).
+- A redstone-powered signal is red for trains (forced red).
+
+**Signal state** (Create's tickState, every tick): red when forced by redstone or when the section
+is occupied by any train or reserved through another signal; for a cross signal, yellow when it
+would be green but a signal leading out of its section (on the way forward, no turns sharper
+than Create's 7/8 rule) is red; green otherwise; off when unbound. The block shows it with its
+lamp (`levitate:signal_state`, vanilla clients and the client mod alike). Comparators reading a
+signal output 15 while it is red, 0 otherwise. Redstone input sets `levitate:powered` (polled
+every 4 ticks, §8).
+
+**Track observers** (edge point type `levitate:observer`, never shared, can't be within 0.75 of
+another point): powered while a train covers its position, and for 8 ticks after (Create's
+`keepAlive`), with redstone 15 to all sides (`minecraft:redstone_producer` on the powered state;
+the circuit component's strength is set with the state change). The filter slot on
+top (U3 filter slot, "filter") limits it to trains carrying a matching item (in any carriage
+inventory) or fluid (any tank), asked through the trains' cargo provider; an empty filter
+matches every train. A display link on an observer offers "Observed Train Name" (Create's
+`observed_train_name` source, U24 contract): the name of the train it sees, empty otherwise.
+
+**Client mod** (Create's track overlay): an arrow is drawn on the track at every bound signal side
+(pointing the way of the trains it controls, in the signal's colour) and a square at every
+observer (lit while powered), from `signals.overlay` messages (U3 protocol, companions only, sent
+when the markers change and on join). Vanilla clients see the block lamps only.
+
+**Contract** (`feature/tracks/SignalsExt.h`, namespace `lv::feature::tracks::signals`), for U27
+trains and other units. Train ids are stable strings (Create: the train UUID).
+- `setTrainSpans(id, spans)` / `setTrainExtent(id, trailing, leading)`: the track the train
+  covers (spans: edge between two node locations, from/to blocks from the first node; extent:
+  found along the graph from the trailing to the leading point, both travelling the same way).
+  Call every tick the train moved, after assembly and after `tracks::onGraphChanged`. This
+  replaces Create's front/back signal listeners: a train enters a section when its covered track
+  first touches it and leaves it when it no longer does; observers see it while it covers them.
+- `removeTrain(id)`: disassembled / destroyed.
+- `checkAhead(id, front, pathEdges, lookahead)` → `Authority {clear, stopDistance, waitingFor,
+  waitingSide, reserved}`: Create's Navigation scan from the leading point along the path
+  (`PathResult::edges`); signals farther than `lookahead` are not checked yet (a started cross
+  chain is always followed to its end). The train's previous reservations are replaced by what
+  this call grants, so call it every tick while driving and stop within `stopDistance` when not
+  clear. `releaseReservations(id)` when the train stops following the path.
+- `signalsAhead(front, path, maxDistance)`: boundaries on the way (id, side entered, distance).
+- `pathPenalty(id, graph, edge)` for `PathQuery::edgePenalty`: Create's `RED_SIGNAL` 25 for a
+  signal into an occupied section, `REDSTONE_RED_SIGNAL` 400 for a redstone-powered one.
+- Queries: `sectionAt(location)`, `trainsIn(section)`, `signalState(pos)`, `observerPowered(pos)`.
+- Provided by trains: `setCargoProvider(fn(id, itemTest, fluidTest) -> bool)` (any carried item /
+  fluid passes the test); without it filtered observers never trigger.
+  `setTrainNameProvider(fn(id) -> name)` for the display source; `observedTrain(pos)`.
+
+Persistence: the blocks (target, bound point, side, cached type and power) in `lv:signals:blocks`;
+edge points are stored with the track graph (U5); observer filters in BlockData; sections,
+occupancy and reservations are rebuilt (trains report again after a load).
 
 ## 4. Screens
 
@@ -3096,6 +3201,11 @@ matches Create's official Chinese translation wording).
 | Comparator output of depots / ejectors (U11) | custom blocks can't give a comparator signal | none |
 | Redstone input of the ejector (U11) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker) |
 | Belt connector selection preview line (U11) | Create draws it client-side every frame | server particles along the planned belt every 5 ticks while the connector is held |
+| Signal / observer track selection stored on the item (U28) | changing the held item's data from the server re-sends the slot and breaks the click flow; the glint isn't controllable | the selection is kept per player and per item id on the server (lost on relog); no glint, no outline of the selected track |
+| Signal lamp rendered toward the track, track overlay for vanilla clients (U28) | Bedrock block models are fixed per state and can't face an edge point | the lamp shows on all four sides of the signal head (block state); the client mod draws Create's arrows / squares on the track |
+| Redstone input of signals (U28) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker; diodes count only when facing the signal) |
+| Comparator output of signals (U28) | Bedrock asks only containers for analog signals | the signal's 15 / 0 is handed to the comparator's circuit component before it evaluates (ComparatorCapacitor hook, as U12's vault) |
+| Train occupancy by front/back signal listeners (U28) | not a limitation: trains report the track they cover | sections and observers follow the covered track (same results as Create's listeners, robust against skipped ticks) |
 | Display board text for **vanilla** clients (U24) | no client-side text rendering on blocks without the client mod | the lines as a name tag in front of a turning board (invisible entity, colours as § codes, no flap animation); the client mod draws the split flaps |
 | Nixie tube glyphs for **vanilla** clients (U24) | same | the two characters as a coloured name tag above each tube |
 | Display link / nixie tube redstone input (U24) | custom blocks get no redstone neighbour updates | polled every 2 ticks from the neighbours' states (wire, torches, levers, buttons, plates, repeaters, comparators, observers, redstone blocks); strong power through solid blocks is not seen |
