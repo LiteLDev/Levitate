@@ -1,5 +1,4 @@
 {
-  "create.contraptions.movement_mode": "移动模式",
   "create.contraptions.movement_mode.rotate_place": "停止时总是放置",
   "create.contraptions.movement_mode.rotate_place_returned": "仅在初始角度附近放置",
   "create.contraptions.movement_mode.rotate_never_place": "仅在锚点被破坏时放置",

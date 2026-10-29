@@ -1,5 +1,4 @@
 {
-  "create.contraptions.movement_mode": "Movement Mode",
   "create.contraptions.movement_mode.rotate_place": "Always Place when Stopped",
   "create.contraptions.movement_mode.rotate_place_returned": "Only Place near Initial Angle",
   "create.contraptions.movement_mode.rotate_never_place": "Only Place when Anchor Destroyed",

@@ -1,0 +1,166 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:sticky_mechanical_piston",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:axis_first": [
+          0,
+          1
+        ],
+        "levitate:state": [
+          0,
+          1,
+          2
+        ],
+        "levitate:rotor": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.mechanical_piston",
+        "bone_visibility": {
+          "head": "q.block_state('levitate:state') == 0",
+          "pole": "q.block_state('levitate:state') == 2",
+          "shaft_x": "q.block_state('levitate:rotor') == 0 && q.block_state('levitate:axis_first') == 1",
+          "shaft_z": "q.block_state('levitate:rotor') == 0 && q.block_state('levitate:axis_first') == 0"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_piston_side",
+          "render_method": "alpha_test"
+        },
+        "side": {
+          "texture": "levitate_piston_side",
+          "render_method": "alpha_test"
+        },
+        "back": {
+          "texture": "levitate_piston_back",
+          "render_method": "alpha_test"
+        },
+        "inner": {
+          "texture": "levitate_piston_inner",
+          "render_method": "alpha_test"
+        },
+        "head_side": {
+          "texture": "levitate_piston_head_side",
+          "render_method": "alpha_test"
+        },
+        "front": {
+          "texture": "levitate_piston_front_sticky",
+          "render_method": "alpha_test"
+        },
+        "pole": {
+          "texture": "levitate_piston_pole",
+          "render_method": "alpha_test"
+        },
+        "pole_end": {
+          "texture": "levitate_piston_pole_end",
+          "render_method": "alpha_test"
+        },
+        "shaft": {
+          "texture": "levitate_pistons_shaft",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#7a5c3a",
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/sticky_mechanical_piston.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 0",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              180,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 1",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              -90,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              90
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              -90
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
