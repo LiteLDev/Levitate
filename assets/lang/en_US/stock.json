@@ -149,6 +149,7 @@
   "lv.stock.screen.category_up": "Move up",
   "lv.stock.screen.category_down": "Move down",
   "lv.stock.screen.rename": "Rename",
+  "lv.stock.screen.requester": "Redstone Requester",
   "lv.stock.screen.add_filter": "Shift-click a filter in your inventory to add a category",
   "lv.stock.screen.target": "Target: {}",
   "lv.stock.screen.in_storage": "In storage: {}",

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 
 #include "ll/api/form/CustomForm.h"
 #include "ll/api/form/SimpleForm.h"
@@ -75,11 +76,29 @@ Json categoriesOf(GlobalPos const& p) {
     return d ? d->value("categories", Json::array()) : Json::array();
 }
 
+/// The search text of each player's request screen (Create keeps it in the client screen).
+std::map<std::string, std::string>& searches() {
+    static std::map<std::string, std::string> m;
+    return m;
+}
+
+std::string lowerCase(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return s;
+}
+
+bool matchesSearch(ItemStack const& s, std::string const& search) {
+    if (search.empty()) return true;
+    auto q = lowerCase(search);
+    return lowerCase(items::displayName(s)).find(q) != std::string::npos || items::idOf(s).find(q) != std::string::npos;
+}
+
 /// The network stock split into the ticker's categories (Create's receiveStockPacket), hidden
 /// categories of the player removed. The last group is "Unsorted".
-Json stockGroups(GlobalPos const& ticker, Player& player) {
+Json stockGroups(GlobalPos const& ticker, Player& player, std::string const& search = {}) {
     auto const& stock = summaryOf(freqOf(ticker), false);
     auto        all   = stock.byCount();
+    std::erase_if(all, [&](BigStack const& e) { return !matchesSearch(e.stack, search); });
     auto        cats  = categoriesOf(ticker);
     auto const* d     = dataOf(ticker);
     Json        hidden = d ? d->value("hidden", Json::object()).value(uuidOf(player), Json::array()) : Json::array();
@@ -121,7 +140,8 @@ Json requestData(Player& player, GlobalPos const& ticker) {
     auto const* d       = dataOf(ticker);
     return {
         {"pos",          posJson(ticker)                                                          },
-        {"groups",       stockGroups(ticker, player)                                              },
+        {"groups",       stockGroups(ticker, player, searches()[uuidOf(player)])                  },
+        {"search",       searches()[uuidOf(player)]                                               },
         {"address",      d ? d->value("prevAddress", std::string{}) : std::string{}               },
         {"links",        stock.summary.contributingLinks                                          },
         {"canLock",      mayAdministrate(network, player) && isLockable(network)                  },
@@ -279,6 +299,18 @@ void requestAction(Player& player, Json const& ctx, Json const& action) {
         auto it = std::find(list.begin(), list.end(), Json(index));
         if (it == list.end()) list.push_back(index);
         else list.erase(it);
+    } else if (op == "search") {
+        searches()[uuidOf(player)] = action.value("text", std::string{}).substr(0, 50);
+    } else if (op == "search_form") {
+        ll::form::CustomForm form(trFor(player, "create.gui.stock_keeper.search_items", "Search Items"));
+        form.appendInput("text", trFor(player, "create.gui.stock_keeper.search_items", "Search Items"), "", searches()[uuidOf(player)]);
+        GlobalPos t = *ticker;
+        form.sendTo(player, [t](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
+            if (!result || !isTickerAt(t)) return;
+            if (auto it = result->find("text"); it != result->end())
+                if (auto const* s = std::get_if<std::string>(&it->second)) searches()[uuidOf(p)] = s->substr(0, 50);
+            screens::open(p, kRequestScreen, {{"pos", posJson(t)}});
+        });
     } else if (op == "address_form") {
         // the native screen has no text field: the address is typed in a form
         ll::form::CustomForm form(trFor(player, "create.gui.stock_keeper.package_address", "Package Address"));
