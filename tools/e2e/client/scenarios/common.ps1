@@ -57,7 +57,8 @@ Start-Sleep -Milliseconds 200
 Wait-LogLine 'filter: .* set slot 1 to minecraft:stone' 20 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 600
 Save-Screenshot 'filter-shift' | Out-Null
-Close-Screen
+Press-Key E                          # the inventory key closes our native screens
+Start-Sleep -Milliseconds 1000
 
 # The attribute filter: shift-click the stone as reference, then left-click it onto the cursor and
 # into the reference slot, then add the first attribute it offers.
@@ -95,7 +96,8 @@ Click $addX $addY -Relative
 Wait-LogLine 'attribute filter: .* added ' 20 -Since $mark2 | Out-Null
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'attribute-filter' | Out-Null
-Close-Screen
+Press-Key E
+Start-Sleep -Milliseconds 1000
 # no crash while clicking items into the screens (the game asserts on ItemStack copies off its thread)
 $crashDir = Join-Path $script:VersionDir 'logs\crash'
 $crashes = @(Get-ChildItem $crashDir -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $crashStart })

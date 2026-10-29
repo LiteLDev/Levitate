@@ -106,7 +106,9 @@ the server harness).
 The run **fails** if any of these happen:
 - the scenario throws;
 - a selftest fails, never prints `DONE`, or matches no test;
-- an `ERR`/`FTL` line comes from `Levitate`, `LeviLamina` or `CrashLogger`;
+- an `ERR`/`FTL` line comes from `Levitate`, `LeviLamina` or `CrashLogger`, or is a Bedrock content
+  error (`ERR [Server] [Recipes|Components|Blocks|Geometry|...] ...`: pack mistakes; the transport
+  banner is not one);
 - a file appears in `logs\crash`;
 - the exit code is non-zero;
 - the server has to be killed because `stop` did not end it within 60 s.

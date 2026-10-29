@@ -98,8 +98,9 @@ Registrations live in .cpp files linked directly into the DLL, so they are never
   polling neighbours in your unit. Output (comparator signals) is U12's ComparatorCapacitor hook.
 - **Block data** (`feature/common/BlockData.h`): per-block state lives in BlockData under your unit's
   key; contraptions carry the whole document automatically: new units register no
-  `contraption::registerDataCarrier` for it (a unit that keeps its own carrier for a key declares
-  `blockdata::ownCarrier(key)`, so it is not carried twice). Direction-dependent values turn with
+  `contraption::registerDataCarrier` for it (existing unit carriers run before the generic one and
+  keep what they take; one that only copies a key declares `blockdata::ownCarrier(key)`, so it is
+  not carried twice). Direction-dependent values turn with
   the block through `blockdata::onRotate(key, fn)`. If you cache your part elsewhere, write it back
   in `blockdata::onWriteBack` and adopt moved data in `onPut`. On a moving contraption, write a
   block's carried data with `Contraption::blockData(local)` / `actorData(local)` (never
