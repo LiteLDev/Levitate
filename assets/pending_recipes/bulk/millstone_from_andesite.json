@@ -1,0 +1,36 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:millstone_from_andesite"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "C",
+      "S",
+      "I"
+    ],
+    "key": {
+      "C": {
+        "item": "levitate:cogwheel"
+      },
+      "S": {
+        "item": "levitate:andesite_casing"
+      },
+      "I": {
+        "item": "minecraft:andesite"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:millstone",
+      "count": 1
+    }
+  }
+}

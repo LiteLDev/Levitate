@@ -1,0 +1,244 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:water_wheel",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:wood": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "levitate:rotor": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.water_wheel",
+        "bone_visibility": {
+          "wheel": "q.block_state('levitate:rotor') == 0"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_water_wheel_spruce",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 3
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#6e4f2f",
+      "minecraft:loot": "loot_tables/blocks/water_wheel.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:wood') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_oak",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_spruce",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_birch",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 3",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_jungle",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 4",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_acacia",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 5",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_dark_oak",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 6",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_mangrove",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 7",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_cherry",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 8",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_bamboo",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 9",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_crimson",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 10",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_warped",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:wood') == 11",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_water_wheel_pale_oak",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') >= 4",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              90
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 || q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

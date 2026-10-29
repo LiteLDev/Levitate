@@ -1,0 +1,39 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:mechanical_arm"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "LLI",
+      "L  ",
+      "RC "
+    ],
+    "key": {
+      "L": {
+        "item": "levitate:brass_sheet"
+      },
+      "I": {
+        "item": "levitate:electron_tube"
+      },
+      "R": {
+        "item": "levitate:precision_mechanism"
+      },
+      "C": {
+        "item": "levitate:brass_casing"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:brass_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:mechanical_arm",
+      "count": 1
+    }
+  }
+}

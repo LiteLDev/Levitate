@@ -1,0 +1,7 @@
+{
+  "create.weighted_ejector.target_set": "Target Selected",
+  "create.weighted_ejector.target_not_valid": "Ejecting to Adjacent block (Target was not Valid)",
+  "create.weighted_ejector.no_target": "Ejecting to Adjacent block (No Target was Selected)",
+  "create.weighted_ejector.targeting": "Ejecting to [{0},{1},{2}]",
+  "create.weighted_ejector.stack_size": "Ejected Stack Size"
+}

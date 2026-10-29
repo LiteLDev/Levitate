@@ -1,0 +1,18 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:minecart_coupling",
+      "menu_category": {
+        "category": "equipment"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_minecart_coupling",
+      "minecraft:max_stack_size": 64,
+      "minecraft:display_name": {
+        "value": "item.levitate:minecart_coupling.name"
+      }
+    }
+  }
+}

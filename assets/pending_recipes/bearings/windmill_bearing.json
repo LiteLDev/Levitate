@@ -1,0 +1,36 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:windmill_bearing"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " B ",
+      " C ",
+      " I "
+    ],
+    "key": {
+      "B": {
+        "tag": "minecraft:wooden_slabs"
+      },
+      "C": {
+        "item": "minecraft:stone"
+      },
+      "I": {
+        "item": "levitate:shaft"
+      }
+    },
+    "result": {
+      "item": "levitate:windmill_bearing",
+      "count": 1
+    },
+    "unlock": [
+      {
+        "item": "levitate:shaft"
+      }
+    ]
+  }
+}

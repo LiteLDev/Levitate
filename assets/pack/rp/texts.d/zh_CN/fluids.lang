@@ -1,0 +1,9 @@
+tile.levitate:spout.name=注液器
+tile.levitate:item_drain.name=分液池
+tile.levitate:hose_pulley.name=软管滑轮
+tile.levitate:portable_fluid_interface.name=移动式流体接口
+tile.levitate:honey.name=蜂蜜
+tile.levitate:chocolate.name=巧克力
+tile.levitate:fluids_test_depot.name=流体测试置物台
+item.levitate:honey_bucket.name=蜂蜜桶
+item.levitate:chocolate_bucket.name=巧克力桶

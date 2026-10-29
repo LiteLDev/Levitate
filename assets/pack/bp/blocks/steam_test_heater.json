@@ -1,0 +1,38 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:steam_test_heater",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "levitate:heat": [0, 1, 2, 3, 4]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_fluid_tank_bottom",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:loot": "loot_tables/blocks/steam_test_heater.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:heat') >= 3",
+        "components": {
+          "minecraft:light_emission": 13
+        }
+      }
+    ]
+  }
+}
