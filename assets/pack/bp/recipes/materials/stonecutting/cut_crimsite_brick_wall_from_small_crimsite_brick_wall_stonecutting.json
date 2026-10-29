@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:cut_crimsite_brick_wall_from_small_crimsite_brick_wall_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:small_crimsite_brick_wall"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:small_crimsite_brick_wall"
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_crimsite_brick_wall",
+      "count": 1
+    }
+  }
+}

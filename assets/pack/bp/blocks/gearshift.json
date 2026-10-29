@@ -1,0 +1,201 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:gearshift",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:axis": [
+          0,
+          1,
+          2
+        ],
+        "levitate:powered": [
+          0,
+          1
+        ],
+        "levitate:rotor": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.transmission_split_shaft",
+        "bone_visibility": {
+          "rotor": "q.block_state('levitate:rotor') != 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_transmission_rotor",
+          "render_method": "alpha_test"
+        },
+        "side": {
+          "texture": "levitate_transmission_gearshift_side",
+          "render_method": "alpha_test"
+        },
+        "end": {
+          "texture": "levitate_transmission_andesite_end",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/gearshift.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_gearshift_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_andesite_end",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              -90
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_gearshift_side_on",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_andesite_end",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              -90
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_gearshift_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_andesite_end",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 1 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_gearshift_side_on",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_andesite_end",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:powered') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_gearshift_side",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_andesite_end",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_transmission_rotor",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_transmission_gearshift_side_on",
+              "render_method": "alpha_test"
+            },
+            "end": {
+              "texture": "levitate_transmission_andesite_end",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              90,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:waxed_weathered_copper_shingle_stairs"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "X  ",
+      "XX ",
+      "XXX"
+    ],
+    "key": {
+      "X": {
+        "item": "levitate:waxed_weathered_copper_shingles"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:waxed_weathered_copper_shingles"
+      }
+    ],
+    "result": {
+      "item": "levitate:waxed_weathered_copper_shingle_stairs",
+      "count": 4
+    }
+  }
+}

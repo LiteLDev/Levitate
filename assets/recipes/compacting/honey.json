@@ -1,0 +1,14 @@
+{
+  "type": "levitate:compacting",
+  "ingredients": [
+    {
+      "fluidTag": "c:honey",
+      "amount": 1000
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:honey_block"
+    }
+  ]
+}

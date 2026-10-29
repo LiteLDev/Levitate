@@ -1,0 +1,2298 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:copper_casing",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:c_down": [
+          0,
+          1
+        ],
+        "levitate:c_up": [
+          0,
+          1
+        ],
+        "levitate:c_north": [
+          0,
+          1
+        ],
+        "levitate:c_south": [
+          0,
+          1
+        ],
+        "levitate:c_west": [
+          0,
+          1
+        ],
+        "levitate:c_east": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6.0
+      },
+      "minecraft:map_color": "#b5694d",
+      "minecraft:loot": "loot_tables/blocks/copper_casing.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "tag:minecraft:is_axe_item_destructible": {},
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_copper_casing_0",
+          "render_method": "opaque"
+        }
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_0",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_4",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_1",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_5",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_8",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_2",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_12",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_6",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_9",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_3",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_13",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_7",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_10",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_14",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_11",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_copper_casing_15",
+              "render_method": "opaque"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

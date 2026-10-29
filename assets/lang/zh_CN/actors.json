@@ -1,0 +1,16 @@
+{
+  "create.contraption.controls.actor_toggle.on": "开启",
+  "create.contraption.controls.actor_toggle.off": "关闭",
+  "create.contraption.controls.all_actor_toggle": "所有元件：{0}",
+  "create.contraption.controls.specific_actor_toggle": "{0} 工作状态：{1}",
+  "create.contraption.controls.floor_unreachable": "无法访问",
+  "create.contraptions.contoller.target": "目标元件",
+  "create.contraptions.mechanical_roller.pave_material": "铺路材料",
+  "create.contraptions.roller_mode": "压路机模式",
+  "create.contraptions.roller_mode.tunnel_pave": "清理方块并铺路",
+  "create.contraptions.roller_mode.straight_fill": "竖直填充下方",
+  "create.contraptions.roller_mode.wide_fill": "坡度填充下方",
+  "block.create.seat.tooltip.summary": "坐下来享受旅程吧！坐垫将会把玩家固定在_动态结构_上。用来作为装饰也不错！五颜六色的它会给你的建筑增添新的风采。",
+  "block.create.seat.tooltip.condition1": "右击坐垫时",
+  "block.create.seat.tooltip.behaviour1": "玩家将坐到_坐垫_上。按下潜行键以离开_坐垫_。"
+}

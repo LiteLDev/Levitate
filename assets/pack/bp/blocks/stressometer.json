@@ -1,0 +1,340 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:stressometer",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:along_first": [
+          0,
+          1
+        ],
+        "levitate:dial": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:rotor": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.transmission_gauge_side_x",
+        "bone_visibility": {
+          "rotor": "q.block_state('levitate:rotor') != 1",
+          "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+          "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+          "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+          "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+          "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+          "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_transmission_rotor",
+          "render_method": "alpha_test"
+        },
+        "head": {
+          "texture": "levitate_transmission_stressometer_head",
+          "render_method": "alpha_test"
+        },
+        "side": {
+          "texture": "levitate_transmission_andesite_casing",
+          "render_method": "alpha_test"
+        },
+        "end": {
+          "texture": "levitate_transmission_andesite_end",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/stressometer.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:along_first') == 0",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_vert",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:along_first') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_vert",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:along_first') == 0",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_vert",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:along_first') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_vert",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:along_first') == 0",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_side_y",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:along_first') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_side_x",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:along_first') == 0",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_side_y",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:along_first') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_side_x",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:along_first') == 0",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_side_x",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:along_first') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_side_y",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:along_first') == 0",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_side_x",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              270,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:along_first') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.transmission_gauge_side_y",
+            "bone_visibility": {
+              "rotor": "q.block_state('levitate:rotor') != 1",
+              "dial_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 0",
+              "dial_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 1",
+              "dial_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 2",
+              "dial_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 3",
+              "dial_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 4",
+              "dial_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:dial') == 5"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              270,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

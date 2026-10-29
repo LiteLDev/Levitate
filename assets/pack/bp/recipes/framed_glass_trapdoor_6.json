@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:framed_glass_trapdoor_6"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:mangrove_trapdoor"
+      },
+      {
+        "item": "levitate:framed_glass"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:mangrove_trapdoor"
+      }
+    ],
+    "result": {
+      "item": "levitate:framed_glass_trapdoor",
+      "count": 1
+    }
+  }
+}

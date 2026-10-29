@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:polished_cut_tuff_from_tuff_pillar_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:tuff_pillar"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:tuff_pillar"
+      }
+    ],
+    "result": {
+      "item": "levitate:polished_cut_tuff",
+      "count": 1
+    }
+  }
+}

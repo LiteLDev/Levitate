@@ -1,0 +1,21 @@
+{
+  "c:ingots/brass": ["levitate:brass_ingot"],
+  "c:ingots/zinc": ["levitate:zinc_ingot"],
+  "c:nuggets/zinc": ["levitate:zinc_nugget"],
+  "c:flours/wheat": ["levitate:wheat_flour"],
+  "c:eggs": ["minecraft:egg", "minecraft:brown_egg", "minecraft:blue_egg"],
+  "c:cobblestones": ["minecraft:cobblestone", "minecraft:mossy_cobblestone", "minecraft:infested_cobblestone", "minecraft:cobbled_deepslate"],
+  "c:honey": ["levitate:honey"],
+  "minecraft:leaves": [
+    "minecraft:oak_leaves", "minecraft:spruce_leaves", "minecraft:birch_leaves", "minecraft:jungle_leaves",
+    "minecraft:acacia_leaves", "minecraft:dark_oak_leaves", "minecraft:mangrove_leaves", "minecraft:cherry_leaves",
+    "minecraft:azalea_leaves", "minecraft:azalea_leaves_flowered", "minecraft:pale_oak_leaves"
+  ],
+  "minecraft:saplings": [
+    "minecraft:oak_sapling", "minecraft:spruce_sapling", "minecraft:birch_sapling", "minecraft:jungle_sapling",
+    "minecraft:acacia_sapling", "minecraft:dark_oak_sapling", "minecraft:cherry_sapling", "minecraft:mangrove_propagule",
+    "minecraft:azalea", "minecraft:flowering_azalea", "minecraft:pale_oak_sapling"
+  ],
+  "minecraft:convertable_to_mud": ["minecraft:dirt", "minecraft:coarse_dirt", "minecraft:dirt_with_roots"],
+  "levitate:pulpifiable": ["minecraft:bamboo", "minecraft:sugar_cane", "#minecraft:saplings"]
+}

@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:birch_window_pane"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "###",
+      "###"
+    ],
+    "key": {
+      "#": {
+        "item": "levitate:birch_window"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:birch_window"
+      }
+    ],
+    "result": {
+      "item": "levitate:birch_window_pane",
+      "count": 16
+    }
+  }
+}

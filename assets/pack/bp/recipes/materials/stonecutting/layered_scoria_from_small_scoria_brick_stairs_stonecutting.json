@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:layered_scoria_from_small_scoria_brick_stairs_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:small_scoria_brick_stairs"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:small_scoria_brick_stairs"
+      }
+    ],
+    "result": {
+      "item": "levitate:layered_scoria",
+      "count": 1
+    }
+  }
+}
