@@ -28,6 +28,7 @@
 
 #include "feature/bearings/Bearings.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "game/Blocks.h"
 
 namespace lv::feature::bearings {
@@ -134,60 +135,7 @@ cc::Dir facingOf(Block const& block) {
     return static_cast<cc::Dir>(std::clamp(game::intState(block, "levitate:facing").value_or(1), 0, 5));
 }
 
-namespace {
-std::string stringState(Block const& block, char const* key) {
-    auto const& nbt = *block.mSerializationId;
-    if (!nbt.contains("states")) return {};
-    auto const& states = nbt["states"];
-    if (!states.is_object()) return {};
-    for (auto const& [name, v] : states.items()) {
-        if (name != key) continue;
-        if (!v.hold(Tag::Type::String)) return {};
-        return std::string(v.get<StringTag>());
-    }
-    return {};
-}
-
-/// Signal a neighbour block gives to `towards` (state based).
-int signalFrom(BlockSource& region, cc::Pos const& n, cc::Pos const& towards) {
-    auto bpos = bp(n);
-    if (!region.hasChunksAt(bpos, 0, false)) return 0;
-    auto const& block = region.getBlock(bpos);
-    if (block.isAir()) return 0;
-    std::string const& id = block.getTypeName();
-    if (id == "minecraft:redstone_block") return 15;
-    if (id == "minecraft:lever") return game::intState(block, "open_bit").value_or(0) ? 15 : 0;
-    if (id.ends_with("_button")) return game::intState(block, "button_pressed_bit").value_or(0) ? 15 : 0;
-    if (id == "minecraft:observer") return game::intState(block, "powered_bit").value_or(0) ? 15 : 0;
-    if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return 15;
-    if (id == "minecraft:redstone_torch") {
-        // a torch powers every neighbour except the block it stands on
-        auto t = stringState(block, "torch_facing_direction");
-        cc::Pos support = n + cc::Pos{0, -1, 0};
-        if (t == "west") support = n + cc::Pos{1, 0, 0};
-        else if (t == "east") support = n + cc::Pos{-1, 0, 0};
-        else if (t == "north") support = n + cc::Pos{0, 0, 1};
-        else if (t == "south") support = n + cc::Pos{0, 0, -1};
-        return support == towards ? 0 : 15;
-    }
-    if (auto s = game::intState(block, "redstone_signal")) return std::clamp(*s, 0, 15);
-    // a solid block standing on a lit torch is strongly powered
-    if (block.getBlockType().mSolid) {
-        auto below = bp(n + cc::Pos{0, -1, 0});
-        if (region.hasChunksAt(below, 0, false) && region.getBlock(below).getTypeName() == "minecraft:redstone_torch") {
-            auto t = stringState(region.getBlock(below), "torch_facing_direction");
-            if (t.empty() || t == "top" || t == "unknown") return 15;
-        }
-    }
-    return 0;
-}
-} // namespace
-
-int redstoneSignal(BlockSource& region, cc::Pos const& p) {
-    int best = 0;
-    for (auto d : cc::kAllDirs) best = std::max(best, signalFrom(region, p + cc::offset(d), p));
-    return best;
-}
+int redstoneSignal(BlockSource& region, cc::Pos const& p) { return common::redstone::power(region, bp(p)); }
 
 // ---- players and actors -----------------------------------------------------------------------
 

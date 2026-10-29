@@ -1,6 +1,5 @@
-// Generators (U7): player interaction. GameMode is where every player action ends up (network
-// players and SimulatedPlayers alike), so the unit's clicks are handled here rather than through
-// the LeviLamina player events.
+// Generators (U7): player interaction through the shared dispatch (common/Interactions.h; network
+// players and SimulatedPlayers alike) rather than through the LeviLamina player events.
 //
 // - Hand crank: right-click turns it (sneaking: backwards); sneaking with an item uses the item.
 // - Valve handle: right-click turns it by its angle (sneaking: the other way), a dye of another
@@ -13,7 +12,6 @@
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/player/PlayerInteractBlockEvent.h"
-#include "ll/api/memory/Hook.h"
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/network/MinecraftPacketIds.h"
@@ -21,7 +19,6 @@
 #include "mc/network/packet/UpdateBlockPacket.h"
 #include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
 #include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -29,6 +26,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "core/common/ValueSettings.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/ValueBox.h"
 #include "feature/generators/Generators.h"
 #include "game/Blocks.h"
@@ -41,13 +39,6 @@ InteractionResult handled() {
     InteractionResult r{};
     r.mSuccess = true;
     r.mSwing   = true;
-    return r;
-}
-
-InteractionResult refused() {
-    InteractionResult r{};
-    r.mSuccess = false;
-    r.mSwing   = false;
     return r;
 }
 
@@ -126,62 +117,49 @@ std::optional<InteractionResult> useOnBlock(Player& player, ItemStack& item, Blo
 
 } // namespace
 
-LL_TYPE_INSTANCE_HOOK(
-    GeneratorsUseItemOnHook,
-    ll::memory::HookPriority::High,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region  = player.getDimensionBlockSource();
-    Block const& clicked = targetBlock ? *targetBlock : region.getBlock(at);
-    if (auto r = useOnBlock(player, item, at, face, hit, clicked)) return *r;
+namespace ia = common::interactions;
 
-    Kind placing = item.isNull() ? Kind::None : kindOf(item.getTypeName());
-    if (placing == Kind::None || face > 5) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+namespace {
+
+ia::Result toResult(InteractionResult const& r) { return r.mSuccess ? ia::Result::Consume : ia::Result::Deny; }
+
+/// Clicks on the unit's blocks, and the large water wheel's placement (done by the unit).
+ia::Result useOnHandler(ia::UseOnContext const& c) {
+    auto&    player = c.player;
+    auto&    region = player.getDimensionBlockSource();
+    auto&    item   = ia::mutableItem(c.item);
+    BlockPos at     = game::blockPos(c.pos);
+    auto     face   = static_cast<uchar>(c.face);
+    Vec3     hit{float(c.hit[0]), float(c.hit[1]), float(c.hit[2])}; // block-local (localHit keeps it)
+    if (auto r = useOnBlock(player, item, at, face, hit, c.block)) return toResult(*r);
+
+    Kind placing = item.isNull() ? Kind::None : kindOf(c.itemId);
+    if (placing != Kind::LargeWheel || face > 5) return ia::Result::Pass;
+    if (!player.canUseAbility(AbilitiesIndex::Build)) return ia::Result::Pass;
     BlockPos target = placementPos(region, at, face);
-    if (placing == Kind::LargeWheel) {
-        if (!player.canUseAbility(AbilitiesIndex::Build)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-        bool placed = placeLargeWheel(player, item, game::globalPos(region, target), static_cast<Face>(face));
-        if (!placed) {
-            resendBlock(player, region, target);
-            player.sendInventory(false);
-            return refused();
-        }
-        return handled();
+    bool     placed = placeLargeWheel(player, item, game::globalPos(region, target), static_cast<Face>(face));
+    if (!placed) {
+        resendBlock(player, region, target);
+        player.sendInventory(false);
+        return ia::Result::Deny;
     }
-    bool wasOurs = region.hasChunksAt(target, 0, false) && kindOf(region.getBlock(target)) == placing;
-    auto result  = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    if (!wasOurs && region.hasChunksAt(target, 0, false) && kindOf(region.getBlock(target)) == placing) {
-        orientPlaced(player, game::globalPos(region, target), static_cast<Face>(face));
-    }
-    return result;
+    return ia::Result::Consume;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    GeneratorsDestroyBlockHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$destroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face
-) {
-    Player& player = mPlayer;
-    if (!player.isClientSide() && player.isCreative()) {
-        noteCreativeBreak(game::globalPos(player.getDimensionBlockSource(), pos));
-    }
-    return origin(pos, face);
+/// After the game placed one of the unit's blocks: turn it as Create's getStateForPlacement.
+void placeHandler(ia::PlaceContext const& c) {
+    if (c.face > 5) return;
+    Kind placing = kindOf(c.itemId);
+    if (placing == Kind::None || kindOf(c.block) != placing) return;
+    orientPlaced(c.player, c.pos, static_cast<Face>(c.face));
 }
+
+std::vector<ia::HandlerId>& handlerIds() {
+    static std::vector<ia::HandlerId> ids;
+    return ids;
+}
+
+} // namespace
 
 namespace {
 std::vector<ll::event::ListenerPtr>& listeners() {
@@ -193,8 +171,13 @@ std::vector<ll::event::ListenerPtr>& listeners() {
 namespace detail {
 
 void installHooks() {
-    GeneratorsUseItemOnHook::hook();
-    GeneratorsDestroyBlockHook::hook();
+    auto& ids = handlerIds();
+    ids.push_back(ia::onUseOn({}, useOnHandler, ia::priority::High));
+    ids.push_back(ia::onPlace({}, placeHandler));
+    ids.push_back(ia::onDestroy({}, [](ia::DestroyContext const& c) {
+        if (c.player.isCreative()) noteCreativeBreak(c.pos);
+        return ia::Result::Pass;
+    }));
     // If the interaction event reaches U3's value boxes before GameMode: a click on a valve
     // handle with anything but the wrench turns it (Create's short click) instead of opening the board.
     auto& bus = ll::event::EventBus::getInstance();
@@ -217,8 +200,8 @@ void uninstallHooks() {
     auto& bus = ll::event::EventBus::getInstance();
     for (auto& l : listeners()) bus.removeListener(l);
     listeners().clear();
-    GeneratorsDestroyBlockHook::unhook();
-    GeneratorsUseItemOnHook::unhook();
+    for (auto id : handlerIds()) ia::remove(id);
+    handlerIds().clear();
 }
 
 } // namespace detail

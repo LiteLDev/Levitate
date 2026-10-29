@@ -3,6 +3,7 @@
 #include "feature/common/Interactions.h"
 
 #include <algorithm>
+#include <optional>
 #include <vector>
 
 #include "ll/api/event/EventBus.h"
@@ -46,6 +47,9 @@ struct Registry {
     std::vector<Entry<DestroyHandler>> startDestroy;
     std::vector<Entry<EntityHandler>>  interact;
     std::vector<Entry<EntityHandler>>  attack;
+    std::vector<Entry<UseOnHandler>>   unusedUseOn;
+    std::vector<Entry<DestroyedHandler>> destroyed;
+    std::vector<Entry<AttackedHandler>>  attacked;
     std::vector<std::function<void()>> deferred;
     HandlerId                          next    = 0;
     int                                inUseOn = 0; ///< depth of the use-on hook (UseContext::onBlock)
@@ -83,6 +87,21 @@ Result run(std::vector<Entry<Fn>> const& list, std::string const& blockId, std::
         }
     }
     return Result::Pass;
+}
+
+/// Calls every matching after-handler (no result).
+template <class Fn, class Ctx>
+void notify(std::vector<Entry<Fn>> const& list, std::string const& blockId, std::string const& itemId, Ctx const& ctx, bool outcome, char const* what) {
+    if (list.empty()) return;
+    auto snapshot = list;
+    for (auto const& e : snapshot) {
+        if (!matches(e.match, blockId, itemId)) continue;
+        try {
+            e.fn(ctx, outcome);
+        } catch (std::exception const& ex) {
+            log().error("interactions: {} handler failed: {}", what, ex.what());
+        }
+    }
 }
 
 std::string idOf(ItemStack const& item) { return item.isNull() ? std::string{} : item.getTypeName(); }
@@ -133,11 +152,26 @@ HandlerId onInteract(Match match, EntityHandler fn, int prio) {
 
 HandlerId onAttack(Match match, EntityHandler fn, int prio) { return add(registry().attack, std::move(match), std::move(fn), prio); }
 
+HandlerId onUnusedUseOn(Match match, UseOnHandler fn, int prio) {
+    return add(registry().unusedUseOn, std::move(match), std::move(fn), prio);
+}
+
+HandlerId onDestroyed(Match match, DestroyedHandler fn, int prio) {
+    return add(registry().destroyed, std::move(match), std::move(fn), prio);
+}
+
+HandlerId onAttacked(Match match, AttackedHandler fn, int prio) {
+    return add(registry().attacked, std::move(match), std::move(fn), prio);
+}
+
 void nextTick(std::function<void()> fn) { registry().deferred.push_back(std::move(fn)); }
 
 void remove(HandlerId id) {
     auto& r    = registry();
     auto  gone = [id](auto const& e) { return e.id == id; };
+    std::erase_if(r.unusedUseOn, gone);
+    std::erase_if(r.destroyed, gone);
+    std::erase_if(r.attacked, gone);
     std::erase_if(r.useOn, gone);
     std::erase_if(r.use, gone);
     std::erase_if(r.destroy, gone);
@@ -234,16 +268,36 @@ LL_TYPE_INSTANCE_HOOK(
     };
     auto r = registry().useOn.empty() ? Result::Pass : dispatchUseOn(ctx);
     if (r == Result::Pass) {
-        if (registry().place.empty() || item.isNull()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+        bool watchPlace  = !registry().place.empty() && !item.isNull();
+        bool watchUnused = !registry().unusedUseOn.empty();
+        if (!watchPlace && !watchUnused) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
         // a placement: the block lands in the clicked block when that is replaceable
-        BlockPos     dest   = game::replaceable(region, at) ? at : stepOf(at, face);
-        std::string  before = region.getBlock(dest).getTypeName();
-        auto         result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-        Block const& now    = region.getBlock(dest);
-        std::string  after  = now.getTypeName();
-        if (after != before && !now.isAir()) {
-            PlaceContext pc{player, itemId, now, after, game::globalPos(region, dest), ctx.pos, ctx.face, ctx.hit, ctx.sneaking};
-            dispatchPlace(pc);
+        BlockPos                 dest = at;
+        std::string              before;
+        std::optional<ItemStack> held;
+        if (watchPlace) {
+            dest   = game::replaceable(region, at) ? at : stepOf(at, face);
+            before = region.getBlock(dest).getTypeName();
+            held   = item;
+        }
+        auto result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+        if (watchPlace) {
+            Block const& now   = region.getBlock(dest);
+            std::string  after = now.getTypeName();
+            if (after != before && !now.isAir()) {
+                PlaceContext pc{player, itemId, now, after, game::globalPos(region, dest), ctx.pos, ctx.face, ctx.hit, ctx.sneaking, &*held};
+                dispatchPlace(pc);
+            }
+        }
+        if (watchUnused && !result.mSuccess) {
+            // Create's Item#useOn after the block's use passed
+            auto u = run(registry().unusedUseOn, blockId, itemId, ctx, "unused use-on");
+            if (u != Result::Pass) {
+                if (isFirstEvent) player.sendInventory(false);
+                result          = InteractionResult{};
+                result.mSuccess = u == Result::Consume;
+                result.mSwing   = u == Result::Consume;
+            }
         }
         return result;
     }
@@ -284,15 +338,17 @@ LL_TYPE_INSTANCE_HOOK(
     uchar           face
 ) {
     Player& player = mPlayer;
-    if (!isServerPlayer(player) || registry().destroy.empty()) return origin(pos, face);
+    if (!isServerPlayer(player) || (registry().destroy.empty() && registry().destroyed.empty())) return origin(pos, face);
     auto&        region  = player.getDimensionBlockSource();
     Block const& block   = region.getBlock(pos);
     std::string  blockId = block.getTypeName();
     auto const&  item    = player.getSelectedItem();
     std::string  itemId  = idOf(item);
     DestroyContext ctx{player, item, itemId, block, blockId, game::globalPos(region, pos), static_cast<int>(face), player.isSneaking()};
-    if (dispatchDestroy(ctx) == Result::Pass) return origin(pos, face);
-    return false;
+    if (!registry().destroy.empty() && dispatchDestroy(ctx) != Result::Pass) return false;
+    bool ok = origin(pos, face);
+    notify(registry().destroyed, blockId, itemId, ctx, ok, "destroyed");
+    return ok;
 }
 
 LL_TYPE_INSTANCE_HOOK(
@@ -350,14 +406,16 @@ LL_TYPE_INSTANCE_HOOK(
     Vec3 const& hitPosition
 ) {
     Player& player = mPlayer;
-    if (!isServerPlayer(player) || registry().attack.empty()) return origin(entity, hitPosition);
+    if (!isServerPlayer(player) || (registry().attack.empty() && registry().attacked.empty())) return origin(entity, hitPosition);
     auto const&   item     = player.getSelectedItem();
     std::string   itemId   = idOf(item);
     std::string   entityId = entity.getTypeName();
     EntityContext ctx{player, item, itemId, entity, entityId, vecOf(hitPosition), player.isSneaking()};
-    auto          r = dispatchAttack(ctx);
-    if (r == Result::Pass) return origin(entity, hitPosition);
-    return r == Result::Consume;
+    auto          r = registry().attack.empty() ? Result::Pass : dispatchAttack(ctx);
+    if (r != Result::Pass) return r == Result::Consume;
+    bool ok = origin(entity, hitPosition);
+    notify(registry().attacked, entityId, itemId, ctx, ok, "attacked");
+    return ok;
 }
 
 class InteractionsModule {

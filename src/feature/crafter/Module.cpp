@@ -1,24 +1,24 @@
 // Crafter unit (U16): module, game hooks (block use, placement) and the tick loop.
 //
-// GameMode is where every player action ends up (network players and SimulatedPlayers alike), so
-// the crafter's use and the orientation of placed crafters, saws and drills are handled there.
+// The crafter's use and the orientation of placed crafters, saws and drills come from the shared
+// interaction dispatch (common/Interactions.h; network players and SimulatedPlayers alike).
 
+#include <algorithm>
 #include <cmath>
 #include <unordered_map>
+#include <vector>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
-#include "ll/api/memory/Hook.h"
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/crafter/Internal.h"
 #include "feature/kinetics/Kinetics.h"
@@ -30,6 +30,7 @@ namespace lv::feature::crafter {
 
 namespace k  = core::kinetics;
 namespace ci = common::items;
+namespace ia = common::interactions;
 
 namespace {
 
@@ -42,13 +43,6 @@ bool debounced(Player& player, GlobalPos const& pos) {
     bool  skip = last.first == pos && gTick - last.second < 5;
     last       = {pos, gTick};
     return skip;
-}
-
-/// Block-local hit position (the game reports it relative or absolute depending on the path).
-std::array<double, 3> localHit(BlockPos const& pos, Vec3 const& click) {
-    auto in = [](double v) { return v >= -0.01 && v <= 1.01; };
-    if (in(click.x) && in(click.y) && in(click.z)) return {click.x, click.y, click.z};
-    return {click.x - pos.x, click.y - pos.y, click.z - pos.z};
 }
 
 Face nearestLooking(Player const& p) {
@@ -73,14 +67,6 @@ Face horizontalLooking(Player const& p) {
 }
 
 bool isOurBlock(std::string_view id) { return id == kCrafter || id == kSaw || id == kDrill; }
-
-InteractionResult handled(Player& player) {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    player.sendInventory(false); // undo the client's predicted use
-    return r;
-}
 
 /// The crafter's own interactions: wrench edges (connect inputs), the front face (insert / take /
 /// cover / eject), wrench on the front (cycle the arrow). Returns true if handled.
@@ -125,59 +111,49 @@ bool crafterUse(Player& player, GlobalPos const& pos, int face, std::array<doubl
 
 std::uint64_t currentTick() { return gTick; }
 
-LL_TYPE_INSTANCE_HOOK(
-    CrafterUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region  = player.getDimensionBlockSource();
-    Block const* clicked = targetBlock ? targetBlock : &region.getBlock(at);
-    auto         pos     = game::globalPos(region, at);
+namespace {
+
+std::vector<ia::HandlerId> gHandlers;
+
+ia::Result onUseOn(ia::UseOnContext const& c) {
+    if (c.blockId != kCrafter) return ia::Result::Pass;
     try {
-        if (clicked && clicked->getTypeName() == kCrafter) {
-            if (crafterUse(player, pos, face, localHit(at, hit), item)) return handled(player);
+        // the dispatch passes the hook's (mutable) held stack as const: the crafter takes from it
+        auto& held = const_cast<ItemStack&>(c.item);
+        if (crafterUse(c.player, c.pos, c.face, c.hit, held)) {
+            c.player.sendInventory(false); // undo the client's predicted use
+            return ia::Result::Consume;
         }
     } catch (std::exception const& e) {
         log().error("crafter use failed: {}", e.what());
     }
+    return ia::Result::Pass;
+}
 
-    std::string itemId = item.isNull() ? "" : std::string(item.getTypeName());
-    if (!isOurBlock(itemId)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    // placement: remember how the player clicked and looked, orient the block once it exists
-    GlobalPos target = pos;
-    if (!game::replaceable(region, at) && face < 6) target = world::offset(pos, static_cast<Face>(face));
-    Face look     = nearestLooking(player);
-    Face hlook    = horizontalLooking(player);
-    bool sneaking = player.isSneaking();
-    bool before   = world::idAt(target) == itemId;
-    auto result   = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+/// Placement: orient the block from how the player clicked and looked.
+void onPlaced(ia::PlaceContext const& c) {
+    if (c.itemId != c.blockId || !isOurBlock(c.blockId)) return;
     try {
-        if (!before && world::idAt(target) == itemId) {
-            // Create: the block the new one was placed against (behind the clicked face)
-            Face clickedFace = static_cast<Face>(std::min<int>(face, 5));
-            auto placedOn    = world::offset(target, k::opposite(clickedFace));
-            if (itemId == kCrafter) crafterlogic::orientPlaced(target, clickedFace, placedOn, hlook, sneaking);
-            else machines::orientPlaced(target, itemId, look, hlook, sneaking);
-        }
+        // Create: the block the new one was placed against (behind the clicked face)
+        Face clickedFace = static_cast<Face>(std::clamp(c.face, 0, 5));
+        auto placedOn    = world::offset(c.pos, k::opposite(clickedFace));
+        if (c.blockId == kCrafter) crafterlogic::orientPlaced(c.pos, clickedFace, placedOn, horizontalLooking(c.player), c.sneaking);
+        else machines::orientPlaced(c.pos, c.blockId, nearestLooking(c.player), horizontalLooking(c.player), c.sneaking);
     } catch (std::exception const& e) {
         log().error("crafter placement failed: {}", e.what());
     }
-    return result;
 }
 
-void installHooks() { CrafterUseItemOnHook::hook(); }
-void uninstallHooks() { CrafterUseItemOnHook::unhook(); }
+} // namespace
+
+void installHooks() {
+    gHandlers.push_back(ia::onUseOn({.block = std::string(kCrafter)}, onUseOn));
+    gHandlers.push_back(ia::onPlace({}, onPlaced));
+}
+void uninstallHooks() {
+    for (auto id : gHandlers) ia::remove(id);
+    gHandlers.clear();
+}
 
 class CrafterModule {
 public:

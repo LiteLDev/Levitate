@@ -88,6 +88,23 @@ BlockPos torchSupport(Block const& torch, BlockPos const& at) {
 
 } // namespace
 
+namespace {
+std::unordered_map<std::string, EmitterFn>& emitters() {
+    static std::unordered_map<std::string, EmitterFn> m;
+    return m;
+}
+
+/// The input side (FacingID) of a repeater or comparator from its block state: Bedrock's
+/// cardinal direction of a diode points from its output to its input. -1 if unknown.
+int diodeRear(Block const& b) {
+    int f = facingByName(stringState(b, "minecraft:cardinal_direction"));
+    return f >= 2 ? f : -1;
+}
+} // namespace
+
+void registerEmitter(std::string const& blockId, EmitterFn fn) { emitters()[blockId] = std::move(fn); }
+void unregisterEmitter(std::string const& blockId) { emitters().erase(blockId); }
+
 int signalFrom(BlockSource& region, BlockPos const& from, BlockPos const& to) {
     int towards = facingOf(from, to);
     if (towards < 0 || !region.hasChunksAt(from, 0, false)) return 0;
@@ -95,6 +112,16 @@ int signalFrom(BlockSource& region, BlockPos const& from, BlockPos const& to) {
     if (block.isAir()) return 0;
     auto const& id = block.getTypeName();
     if (id == "minecraft:redstone_block") return 15;
+    if (auto const& em = emitters(); !em.empty()) {
+        if (auto it = em.find(id); it != em.end() && it->second) {
+            try {
+                return std::clamp(it->second(region, from, block, towards), 0, 15);
+            } catch (std::exception const& e) {
+                log().error("redstone: emitter {} failed: {}", id, e.what());
+                return 0;
+            }
+        }
+    }
     auto* comp = componentAt(region, from);
     if (!comp) return std::clamp(game::intState(block, "redstone_signal").value_or(0), 0, 15);
     int strength = std::clamp(comp->getStrength(), 0, 15);
@@ -104,8 +131,12 @@ int signalFrom(BlockSource& region, BlockPos const& from, BlockPos const& to) {
         return torchSupport(block, from) == to ? 0 : strength; // a torch never powers its support
     case CircuitComponentType::RepeaterCapacitor:
     case CircuitComponentType::ComparatorCapacitor:
-        // they only power the block in front of them (the component's direction is its input side)
-        return comp->getDirection() == (towards ^ 1) ? strength : 0;
+    {
+        // they only power the block in front of them, opposite their input side
+        int rear = diodeRear(block);
+        if (rear < 0) rear = comp->getDirection(); // no block state: the component's input side
+        return rear == (towards ^ 1) ? strength : 0;
+    }
     case CircuitComponentType::ConsumerComponent:
     case CircuitComponentType::PistonConsumer:
         return 0; // lamps, pistons, ... don't pass power on

@@ -25,6 +25,7 @@
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/common/ValueBox.h"
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
@@ -170,22 +171,8 @@ void setLidState(Depot& d, int lid) {
 
 /// Redstone power next to the ejector (custom blocks get no neighbour updates: polled).
 bool poweredAt(GlobalPos const& p) {
-    static int const dx[] = {0, 0, 0, 0, -1, 1}, dy[] = {-1, 1, 0, 0, 0, 0}, dz[] = {0, 0, -1, 1, 0, 0};
-    for (int f = 0; f < 6; ++f) {
-        GlobalPos   n = offset(p, {dx[f], dy[f], dz[f]});
-        auto const* b = blockAt(n);
-        if (!b || b->isAir()) continue;
-        auto const& id = b->getTypeName();
-        if (id == "minecraft:redstone_block") return true;
-        if (game::intState(*b, "redstone_signal").value_or(0) > 0) return true;
-        if (id == "minecraft:lever" && game::intState(*b, "open_bit").value_or(0)) return true;
-        if (game::intState(*b, "button_pressed_bit").value_or(0)) return true;
-        if (id == "minecraft:observer" && game::intState(*b, "powered_bit").value_or(0)) return true;
-        if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return true;
-        // a lit torch below powers the block above it (a torch on top stands on the ejector)
-        if (id == "minecraft:redstone_torch" && dy[f] < 0) return true;
-    }
-    return false;
+    auto* region = regionOf(p.dim);
+    return region && common::redstone::powered(*region, game::blockPos(p));
 }
 
 std::vector<Actor*> entitiesOnPlate(Depot const& d) {

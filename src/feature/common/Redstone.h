@@ -59,6 +59,17 @@ using WatchFn = std::function<void(GlobalPos const& pos, int power)>;
 WatchId watch(GlobalPos const& pos, WatchFn fn);
 void    unwatch(WatchId id);
 
+// ---- custom signal sources (U36) ---------------------------------------------------------------
+
+/// The signal a custom block at `at` sends into its neighbour on side `towards` (FacingID from
+/// `at`), Create's getSignal. Custom blocks are not part of the game's circuit graph: units whose
+/// blocks emit redstone (links, latches, pulse repeaters, ... of U23) register them here so that
+/// `power` / `signalFrom` see them like vanilla sources.
+using EmitterFn = std::function<int(BlockSource& region, BlockPos const& at, Block const& block, int towards)>;
+/// Registers a signal source block id (replaces an earlier one for the same id).
+void registerEmitter(std::string const& blockId, EmitterFn fn);
+void unregisterEmitter(std::string const& blockId);
+
 // ---- comparator output (U36) -------------------------------------------------------------------
 
 /// Create's getAnalogOutputSignal for a block id: 0..15, or nullopt for "no output right now".

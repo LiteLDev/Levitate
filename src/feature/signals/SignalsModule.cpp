@@ -31,13 +31,12 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/dimension/Dimension.h"
-#include "mc/world/redstone/circuit/CircuitSceneGraph.h"
 #include "mc/world/redstone/circuit/CircuitSystem.h"
-#include "mc/world/redstone/circuit/components/BaseCircuitComponent.h"
 
 #include "core/tracks/Shape.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/common/ValueBox.h"
 #include "feature/display/Display.h"
 #include "feature/net/Net.h"
@@ -185,8 +184,6 @@ void loadWorld() {
     s.selections.clear();
     s.intents.clear();
     s.tasks.clear();
-    s.comparators.clear();
-    s.released.clear();
     s.system      = cs::SignalSystem{};
     s.seenVersion = ~0ull;
     s.lastOverlay.clear();
@@ -377,63 +374,6 @@ void tickObservers() {
     }
 }
 
-/// A string block state ("" when absent).
-std::string strState(Block const& b, char const* name) {
-    auto const& nbt = b.mSerializationId.get();
-    if (!nbt.contains("states", Tag::Type::Compound)) return {};
-    auto const& st = nbt["states"].get<CompoundTag>();
-    if (!st.contains(name, Tag::Type::String)) return {};
-    return std::string(st[name].get<StringTag>());
-}
-
-/// The input neighbour of a comparator (or, with `repeaters`, a repeater) at `at`.
-std::optional<BlockPos> comparatorRear(Block const& b, BlockPos const& at, bool repeaters = false) {
-    std::string const& id = b.getTypeName();
-    bool comparator = id == "minecraft:unpowered_comparator" || id == "minecraft:powered_comparator";
-    bool repeater   = id == "minecraft:unpowered_repeater" || id == "minecraft:powered_repeater";
-    if (!comparator && !(repeaters && repeater)) return std::nullopt;
-    std::string dir = strState(b, "minecraft:cardinal_direction");
-    // Bedrock's cardinal direction of a diode points from its output to its input
-    if (dir == "north") return BlockPos{at.x, at.y, at.z - 1};
-    if (dir == "south") return BlockPos{at.x, at.y, at.z + 1};
-    if (dir == "west") return BlockPos{at.x - 1, at.y, at.z};
-    if (dir == "east") return BlockPos{at.x + 1, at.y, at.z};
-    return std::nullopt;
-}
-
-void const* circuitOf(int dim) {
-    auto level = ll::service::getLevel();
-    if (!level) return nullptr;
-    auto d = level->getDimension(dim).lock();
-    if (!d) return nullptr;
-    return d->mCircuitSystem.get();
-}
-
-/// Create's SignalBlock.getAnalogOutputSignal: 15 while red.
-void updateComparators() {
-    auto& s        = state();
-    auto  previous = std::move(s.comparators);
-    s.comparators.clear();
-    for (auto const& [pos, r] : s.blocks) {
-        if (r.kind != Kind::Signal) continue;
-        auto* region = regionOf(pos.dim);
-        if (!region) continue;
-        BlockPos bp = game::blockPos(pos);
-        if (!region->hasChunksAt(bp, 1, false)) continue;
-        void const* circuit = circuitOf(pos.dim);
-        if (!circuit) continue;
-        int signal = lampOf(r) == cs::SignalState::Red ? 15 : 0;
-        for (auto [dx, dz] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
-            BlockPos cp{bp.x + dx, bp.y, bp.z + dz};
-            auto     rear = comparatorRear(region->getBlock(cp), cp);
-            if (!rear || *rear != bp) continue;
-            s.comparators[{circuit, {cp.x, cp.y, cp.z}}] = signal;
-        }
-    }
-    for (auto const& [key, value] : previous)
-        if (!s.comparators.contains(key)) s.released.insert(key);
-}
-
 // ---- client overlay (Create's TrackTargetingBehaviour track overlay) ---------------------------
 
 nlohmann::json overlay() {
@@ -621,7 +561,10 @@ cs::SignalState lampOf(BlockRec const& rec) {
 }
 
 bool poweredAt(BlockSource& region, BlockPos const& pos) {
-    // custom blocks get no redstone updates: look at the neighbours (as the sticker of U4)
+    // Create's hasNeighborSignal: custom blocks get no redstone updates, the shared redstone
+    // input reads the neighbours from the circuit graph
+    if (common::redstone::powered(region, pos)) return true;
+    // track observers are signal sources of this unit (not part of the vanilla circuit)
     static int const d[6][3] = {
         {0, -1, 0},
         {0, 1,  0},
@@ -630,43 +573,11 @@ bool poweredAt(BlockSource& region, BlockPos const& pos) {
         {-1, 0, 0},
         {1, 0,  0}
     };
-    CircuitSystem* circuit = region.getDimension().mCircuitSystem.get();
     for (auto const& o : d) {
         BlockPos n{pos.x + o[0], pos.y + o[1], pos.z + o[2]};
         if (!region.hasChunksAt(n, 0, false)) continue;
         Block const& b = region.getBlock(n);
-        if (b.isAir()) continue;
-        std::string const& id = b.getTypeName();
-        if (id == "minecraft:redstone_block") return true;
-        if (id == "minecraft:redstone_torch") {
-            // a torch powers every neighbour but the block it is attached to
-            std::string t = strState(b, "torch_facing_direction");
-            BlockPos    support{n.x, n.y - 1, n.z};
-            if (t == "north") support = {n.x, n.y, n.z + 1};
-            else if (t == "south") support = {n.x, n.y, n.z - 1};
-            else if (t == "west") support = {n.x + 1, n.y, n.z};
-            else if (t == "east") support = {n.x - 1, n.y, n.z};
-            if (support != pos) return true;
-            continue;
-        }
-        if (id == api::kObserverId && game::intState(b, api::kPoweredState).value_or(0)) return true;
-        // solid blocks powered by levers, buttons, diodes, ... (Create's hasNeighborSignal)
-        if (circuit) {
-            auto const& all = circuit->mSceneGraph->mAllComponents;
-            if (auto it = all.find(n); it != all.end() && it->second
-                && it->second->getCircuitComponentType() == CircuitComponentType::PoweredBlockComponent
-                && it->second->getStrength() > 0)
-                return true;
-        }
-        if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") {
-            // diodes power the block in front of them only (opposite their input)
-            if (auto rear = comparatorRear(b, n, true); rear && BlockPos{2 * n.x - rear->x, n.y, 2 * n.z - rear->z} == pos) return true;
-            continue;
-        }
-        if (game::intState(b, "redstone_signal").value_or(0) > 0) return true;
-        if (id == "minecraft:lever" && game::intState(b, "open_bit").value_or(0)) return true;
-        if (game::intState(b, "button_pressed_bit").value_or(0)) return true;
-        if (id == "minecraft:observer" && game::intState(b, "powered_bit").value_or(0)) return true;
+        if (b.getTypeName() == api::kObserverId && game::intState(b, api::kPoweredState).value_or(0)) return true;
     }
     return false;
 }
@@ -717,7 +628,6 @@ void runTick() {
     tickObservers();
     s.system.updateStates();
     pushBlockStates();
-    if (s.tick % 2 == 0) updateComparators();
     if (s.tick % 10 == 0) sendOverlay(nullptr);
 }
 
@@ -794,6 +704,13 @@ public:
             }
         );
         installHooks();
+        // Create's SignalBlock.getAnalogOutputSignal: 15 while red
+        common::redstone::registerAnalog(std::string{api::kSignalId}, [](BlockSource& region, BlockPos const& pos, Block const&) -> std::optional<int> {
+            auto const& blocks = state().blocks;
+            auto        it     = blocks.find(game::globalPos(region, pos));
+            if (it == blocks.end() || it->second.kind != Kind::Signal) return 0;
+            return lampOf(it->second) == cs::SignalState::Red ? 15 : 0;
+        });
     }
 
     void uninstall() {
@@ -821,23 +738,11 @@ struct WorldHooks {
             s.selections.clear();
             s.intents.clear();
             s.tasks.clear();
-            s.comparators.clear();
             s.system = cs::SignalSystem{};
         });
     }
 } const gWorldHooks;
 } // namespace
-
-std::optional<int> comparatorOverride(void const* circuit, BlockPos const& pos) {
-    auto& s  = state();
-    auto  it = s.comparators.find({circuit, {pos.x, pos.y, pos.z}});
-    if (it == s.comparators.end()) return std::nullopt;
-    return it->second;
-}
-
-bool comparatorReleased(void const* circuit, BlockPos const& pos) {
-    return state().released.erase({circuit, {pos.x, pos.y, pos.z}}) > 0;
-}
 
 } // namespace lv::feature::signals
 

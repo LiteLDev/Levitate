@@ -6,8 +6,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <random>
 #include <unordered_map>
+#include <vector>
 
 #include "ll/api/memory/Hook.h"
 
@@ -19,8 +21,6 @@
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/effect/EffectDuration.h"
 #include "mc/world/effect/MobEffectInstance.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/item/VanillaItemTags.h"
 #include "mc/world/item/enchanting/Enchant.h"
@@ -35,6 +35,7 @@
 #include "mc/world/level/block/BlockType.h"
 #include "mc/world/level/block/ResourceDropsContext.h"
 
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -257,35 +258,28 @@ LL_TYPE_INSTANCE_HOOK(
     }
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    MaterialsUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || item.isNull()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto const* itemBlock = game::blockWith(item.getTypeName());
-    auto const* info      = itemBlock ? infoOf(itemBlock->getBlockType()) : nullptr;
-    if (!info || info->shape != Shape::Slab) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+namespace ia = common::interactions;
 
-    // Create's SlabBlock.canBeReplaced: a single slab takes a second one of its kind into its empty half.
-    auto&        region  = player.getDimensionBlockSource();
-    Block const& clicked = targetBlock ? *targetBlock : region.getBlock(at);
+namespace {
+
+/// Create's SlabBlock.canBeReplaced: a single slab takes a second one of its kind into its empty half.
+ia::Result slabUseOn(ia::UseOnContext const& c) {
+    if (c.itemId.empty()) return ia::Result::Pass;
+    auto const* itemBlock = game::blockWith(c.itemId);
+    auto const* info      = itemBlock ? infoOf(itemBlock->getBlockType()) : nullptr;
+    if (!info || info->shape != Shape::Slab) return ia::Result::Pass;
+
+    auto&                   player  = c.player;
+    auto&                   region  = player.getDimensionBlockSource();
+    Block const&            clicked = c.block;
+    BlockPos                at      = game::blockPos(c.pos);
+    int                     face    = c.face;
     std::optional<BlockPos> mergeAt;
     if (&clicked.getBlockType() == &itemBlock->getBlockType()) {
         // the clicked slab: its top face (bottom slab), bottom face (top slab), or a side clicked in
         // the empty half
         if (auto top = singleSlabHalf(clicked)) {
-            bool upper = hit.y - std::floor(hit.y) > 0.5f;
+            bool upper = c.hit[1] - std::floor(c.hit[1]) > 0.5;
             bool side  = face >= 2 && face < 6;
             if ((!*top && (face == 1 || (upper && side))) || (*top && (face == 0 || (!upper && side)))) mergeAt = at;
         }
@@ -293,7 +287,7 @@ LL_TYPE_INSTANCE_HOOK(
     if (!mergeAt && !game::replaceable(region, at)) {
         // placing into the block beside the clicked face: a single slab there always takes it
         static int const dx[] = {0, 0, 0, 0, -1, 1}, dy[] = {-1, 1, 0, 0, 0, 0}, dz[] = {0, 0, -1, 1, 0, 0};
-        if (face < 6) {
+        if (face >= 0 && face < 6) {
             BlockPos     n{at.x + dx[face], at.y + dy[face], at.z + dz[face]};
             Block const& there = region.getBlock(n);
             if (&there.getBlockType() == &itemBlock->getBlockType() && singleSlabHalf(there)) mergeAt = n;
@@ -303,36 +297,39 @@ LL_TYPE_INSTANCE_HOOK(
         // vanilla placement rules: no adventure mode, nobody standing in the block
         AABB box{Vec3{float(mergeAt->x), float(mergeAt->y), float(mergeAt->z)}, Vec3{mergeAt->x + 1.0f, mergeAt->y + 1.0f, mergeAt->z + 1.0f}};
         if (player.getPlayerGameType() == GameType::Adventure || !region.isUnobstructedByEntities(box, nullptr)) mergeAt.reset();
-    }    if (!mergeAt || !mergeSlab(region, *mergeAt)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    }
+    if (!mergeAt || !mergeSlab(region, *mergeAt)) return ia::Result::Pass;
     if (!player.isCreative()) {
+        auto& item = ia::mutableItem(c.item);
         item.set(item.mCount - 1);
         if (item.mCount <= 0) item = ItemStack::EMPTY_ITEM();
     }
     player.sendInventory(false);
     lv::log().info("materials: {} merged {} into a double slab", player.getRealName(), info->id);
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    return r;
+    return ia::Result::Consume;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    MaterialsUseItemHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItem,
-    bool,
-    ItemStack& item,
-    HandSlot   handSlot
-) {
-    Player& player = mPlayer;
-    if (!player.isClientSide() && !item.isNull() && item.getTypeName() == kExperienceNugget) {
-        useExperienceNuggets(player, item, player.isSneaking());
-        player.sendInventory(false);
-        return true;
-    }
-    return origin(item, handSlot);
+std::vector<ia::HandlerId>& handlerIds() {
+    static std::vector<ia::HandlerId> ids;
+    return ids;
 }
+
+void installInteractions() {
+    auto& ids = handlerIds();
+    ids.push_back(ia::onUseOn({}, slabUseOn));
+    ids.push_back(ia::onUse(kExperienceNugget, [](ia::UseContext const& c) {
+        useExperienceNuggets(c.player, ia::mutableItem(c.item), c.sneaking);
+        c.player.sendInventory(false);
+        return ia::Result::Consume;
+    }));
+}
+
+void uninstallInteractions() {
+    for (auto id : handlerIds()) ia::remove(id);
+    handlerIds().clear();
+}
+
+} // namespace
 
 LL_TYPE_INSTANCE_HOOK(MaterialsCompleteUsingItemHook, ll::memory::HookPriority::Normal, Player, &Player::completeUsingItem, void) {
     bool tea = !isClientSide() && getSelectedItem().getTypeName() == kBuildersTea;
@@ -377,8 +374,7 @@ struct MaterialsModule {
             resetItemCache();
         });
         MaterialsSpawnResourcesHook::hook();
-        MaterialsUseItemOnHook::hook();
-        MaterialsUseItemHook::hook();
+        installInteractions();
         MaterialsCompleteUsingItemHook::hook();
         installMagicalItemHook();
         installWorldGenHooks();
@@ -387,8 +383,7 @@ struct MaterialsModule {
         uninstallWorldGenHooks();
         uninstallMagicalItemHook();
         MaterialsCompleteUsingItemHook::unhook();
-        MaterialsUseItemHook::unhook();
-        MaterialsUseItemOnHook::unhook();
+        uninstallInteractions();
         MaterialsSpawnResourcesHook::unhook();
     }
 };

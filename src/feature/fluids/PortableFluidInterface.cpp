@@ -7,6 +7,9 @@
 
 #include <cmath>
 
+#include "mc/world/level/BlockSource.h"
+
+#include "feature/common/Redstone.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/fluids/FluidsInternal.h"
 #include "game/Blocks.h"
@@ -214,6 +217,13 @@ void registerPfi() {
     };
     b.stopMoving = [](ctr::MovementContext& ctx) { reset(ctx); };
     ctr::registerActor(kPfi, b);
+
+    // Create's PortableStorageInterfaceBlock.getAnalogOutputSignal (the fluid interface extends
+    // it): 15 while connected to a contraption, else 0
+    common::redstone::registerAnalog(kPfi, [](BlockSource& region, BlockPos const& pos, Block const&) -> std::optional<int> {
+        auto s = loadStation(game::globalPos(region, pos));
+        return s.timer.connected && s.timer.isConnected() ? 15 : 0;
+    });
 }
 
 } // namespace lv::feature::fluids

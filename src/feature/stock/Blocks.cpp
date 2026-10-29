@@ -21,6 +21,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/common/BlockData.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
@@ -32,6 +33,7 @@
 namespace lv::feature::stock {
 
 namespace items = common::items;
+namespace ia    = common::interactions;
 
 namespace {
 constexpr char kDbBlocks[] = "lv:stock:blocks";
@@ -45,21 +47,6 @@ int facing2dOf(int face) {
     case 5: return 3;
     default: return 2;
     }
-}
-
-GlobalPos placementPos(BlockSource& region, BlockPos const& clicked, int face) {
-    auto gp = game::globalPos(region, clicked);
-    if (game::replaceable(region, clicked)) return gp;
-    static int const dx[] = {0, 0, 0, 0, -1, 1}, dy[] = {-1, 1, 0, 0, 0, 0}, dz[] = {0, 0, -1, 1, 0, 0};
-    if (face >= 0 && face < 6) gp = offset(gp, dx[face], dy[face], dz[face]);
-    return gp;
-}
-
-/// Block-local hit position (GameMode reports absolute or relative click positions).
-cs::Vec3d localHit(BlockPos const& pos, Vec3 const& hit) {
-    auto in = [](double v) { return v >= -0.01 && v <= 1.01; };
-    if (in(hit.x) && in(hit.y) && in(hit.z)) return {hit.x, hit.y, hit.z};
-    return {hit.x - pos.x, hit.y - pos.y, hit.z - pos.z};
 }
 
 bool ourBlock(std::string_view id) { return isLinkedItem(id); }
@@ -284,198 +271,171 @@ void onRequesterPlaced(GlobalPos const& p, Player* player, ItemStack const& item
 
 // ---- hooks ---------------------------------------------------------------------------------------
 
-LL_TYPE_INSTANCE_HOOK(
-    StockUseItemOnHook,
-    ll::memory::HookPriority::High,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region = player.getDimensionBlockSource();
-    Block const& target = targetBlock ? *targetBlock : region.getBlock(at);
-    std::string  tid    = target.getTypeName();
-    GlobalPos    clicked = game::globalPos(region, at);
-    std::string  hid     = item.isNull() ? std::string() : std::string(item.getTypeName());
+// U36: all of the unit's clicks go through the shared interaction dispatch.
 
+namespace {
+
+/// The held stack of a use-on that may place one of the unit's blocks (its tuning / order is
+/// read once the block exists).
+struct PendingPlace {
+    std::int64_t  player = 0;
+    std::uint64_t tick   = 0;
+    ItemStack     item;
+};
+PendingPlace gPendingPlace;
+
+/// Right-clicks on the unit's blocks, and the checks before placing a linked block.
+ia::Result stockUseOn(ia::UseOnContext const& c) {
+    Player&            player  = c.player;
+    std::string const& tid     = c.blockId;
+    std::string const& hid     = c.itemId;
+    GlobalPos          clicked = c.pos;
     bool candidate = ourBlock(tid) || tid == kBlazeBurner || isTableCloth(tid);
     if (candidate && !player.isSpectator()) {
         // Bedrock repeats the use while the button is held (and clients may send it twice):
         // one action per click and block
         auto uid = player.getOrCreateUniqueID().rawID;
-        if (uid == gLastUser && clicked == gLastUsePos && currentTick() - gLastUseTick < 5) {
-            InteractionResult r{};
-            r.mSuccess = true;
-            return r;
-        }
+        if (uid == gLastUser && clicked == gLastUsePos && currentTick() - gLastUseTick < 5) return ia::Result::Consume;
         try {
-            if (useOnBlock(player, item, clicked, face, localHit(at, hit), tid)) {
+            if (useOnBlock(player, c.item, clicked, c.face, cs::Vec3d{c.hit[0], c.hit[1], c.hit[2]}, tid)) {
                 gLastUser    = uid;
                 gLastUseTick = currentTick();
                 gLastUsePos  = clicked;
-                InteractionResult r{};
-                r.mSuccess = true;
-                r.mSwing   = true;
                 player.sendInventory(false);
-                return r;
+                return ia::Result::Consume;
             }
         } catch (std::exception const& e) {
             log().error("stock: interaction failed: {}", e.what());
         }
     }
-    bool ourItem = isLinkedItem(hid) || (isTableCloth(hid) && common::items::getData(item, kRequestData).is_object());
-    if (!ourItem) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    if (hid == kFactoryGauge && networkOfItem(item).empty()) {
+    bool ourItem = isLinkedItem(hid) || (isTableCloth(hid) && common::items::getData(c.item, kRequestData).is_object());
+    if (!ourItem) return ia::Result::Pass;
+    if (hid == kFactoryGauge && networkOfItem(c.item).empty()) {
         // Create's FactoryPanelBlockItem.place: an untuned gauge can't be placed
         playSound(clicked, "levitate.stock.deny", 0.5f, 1.0f);
         statusKey(player, "create.factory_panel.tune_before_placing", "Tune to a stock link before placing");
         player.sendInventory(false);
-        InteractionResult r{};
-        return r;
+        return ia::Result::Deny;
     }
-    ItemStack   copy   = item;
-    GlobalPos   p      = placementPos(region, at, face);
-    std::string before = idAt(p);
-    auto        result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    std::string after  = idAt(p);
-    if (after == hid && before != hid) {
-        gLastPlacer    = player.getOrCreateUniqueID().rawID;
-        gLastPlaceTick = currentTick();
-        try {
-            afterPlaced(p, hid, copy, player, face);
-        } catch (std::exception const& e) {
-            log().error("stock: placement failed: {}", e.what());
-        }
-    }
-    return result;
+    gPendingPlace = {player.getOrCreateUniqueID().rawID, currentTick(), c.item};
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    StockUseItemHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItem,
-    bool,
-    ItemStack& item,
-    HandSlot   handSlot
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || item.isNull()) return origin(item, handSlot);
-    std::string hid = item.getTypeName();
+/// A linked block / shop cloth placed by vanilla: tune it from the stack it was placed with.
+void stockPlaced(ia::PlaceContext const& c) {
+    if (c.blockId != c.itemId) return;
+    auto uid = c.player.getOrCreateUniqueID().rawID;
+    if (gPendingPlace.player != uid || gPendingPlace.tick != currentTick() || items::idOf(gPendingPlace.item) != c.itemId)
+        return;
+    ItemStack copy = gPendingPlace.item;
+    gPendingPlace  = {};
+    gLastPlacer    = uid;
+    gLastPlaceTick = currentTick();
+    try {
+        afterPlaced(c.pos, c.blockId, copy, c.player, c.face);
+    } catch (std::exception const& e) {
+        log().error("stock: placement failed: {}", e.what());
+    }
+}
+
+/// Linked items in the air clear their tuning; sneak-using a shopping list discards it.
+ia::Result stockUse(ia::UseContext const& c) {
+    Player&            player = c.player;
+    std::string const& hid    = c.itemId;
+    if (hid.empty()) return ia::Result::Pass;
     // the use of a click that already placed / tuned on a block is not a click in the air
-    auto        uid        = player.getOrCreateUniqueID().rawID;
-    bool        justPlaced = (gLastPlacer == uid && currentTick() - gLastPlaceTick < 2) || (gLastUser == uid && currentTick() - gLastUseTick < 2);
-    if (isLinkedItem(hid) && !networkOfItem(item).empty() && !justPlaced) {
+    auto uid        = player.getOrCreateUniqueID().rawID;
+    bool justPlaced = (gLastPlacer == uid && currentTick() - gLastPlaceTick < 2) || (gLastUser == uid && currentTick() - gLastUseTick < 2);
+    if (isLinkedItem(hid) && !networkOfItem(c.item).empty() && !justPlaced) {
         // Create's LogisticallyLinkedBlockItem.use: right-click in the air clears the tuning
+        ItemStack item = c.item;
         clearTuning(item);
         player.setSelectedItem(item);
         player.sendInventory(false);
         statusKey(player, "create.logistically_linked.cleared", "Cleared connection to network");
         playSound(game::globalPos(player.getDimensionBlockSource(), BlockPos{player.getPosition()}), "levitate.stock.clear", 0.75f, 1.0f);
         log().info("stock: {} cleared the tuning of {}", player.getRealName(), hid);
-        return true;
+        return ia::Result::Consume;
     }
-    if (hid == kShoppingList && player.isSneaking()) {
+    if (hid == kShoppingList && c.sneaking) {
         // Create's ShoppingListItem.use: sneak-use discards the list
         player.setSelectedItem(ItemStack::EMPTY_ITEM());
         player.sendInventory(false);
         statusKey(player, "create.table_cloth.shopping_list_discarded", "Shopping list discarded");
         log().info("stock: {} discarded a shopping list", player.getRealName());
-        return true;
+        return ia::Result::Consume;
     }
-    return origin(item, handSlot);
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    StockInteractHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$interact,
-    bool,
-    Actor&      entity,
-    Vec3 const& location,
-    HandSlot    handSlot
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || player.isSpectator() || entity.isPlayer() || !entity.getVehicle())
-        return origin(entity, location, handSlot);
-    // Create's StockTickerInteractionHandler: a seated mob next to exactly one stock ticker
+/// Create's StockTickerInteractionHandler: a seated mob next to exactly one stock ticker.
+ia::Result stockInteract(ia::EntityContext const& c) {
+    Player& player = c.player;
+    Actor&  entity = c.entity;
+    if (player.isSpectator() || entity.isPlayer() || !entity.getVehicle()) return ia::Result::Pass;
     auto const& pos = entity.getPosition();
     GlobalPos   at{static_cast<int>(entity.getDimensionId()), static_cast<int>(std::floor(pos.x)), static_cast<int>(std::floor(pos.y + 0.01)), static_cast<int>(std::floor(pos.z))};
     auto        ticker = tickerOfKeeper(at, false);
-    if (!ticker) return origin(entity, location, handSlot);
+    if (!ticker) return ia::Result::Pass;
     try {
-        auto const& held = player.getSelectedItem();
+        auto const& held = c.item;
         if (!items::isEmpty(held) && items::idOf(held) == kShoppingList) checkout(player, *ticker, held);
         else useKeeper(player, *ticker);
     } catch (std::exception const& e) {
         log().error("stock: keeper interaction failed: {}", e.what());
     }
-    return true;
+    return ia::Result::Consume;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    StockDestroyBlockHook,
-    ll::memory::HookPriority::High,
-    GameMode,
-    &GameMode::$destroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(pos, face);
+/// Breaking a gauge with several panels removes one panel; a shop drops its encoded cloth.
+ia::Result stockDestroy(ia::DestroyContext const& c) {
+    Player&     player = c.player;
     auto&       region = player.getDimensionBlockSource();
-    GlobalPos   p      = game::globalPos(region, pos);
-    std::string id     = idAt(p);
+    GlobalPos   p      = c.pos;
+    BlockPos    pos{p.x, p.y, p.z};
+    std::string id = c.blockId;
     if (id == kFactoryGauge) {
         // Create: breaking a gauge with several panels removes the targeted panel only
         int panels = stateOr(p, kStatePanels, 0);
         int count  = 0;
         for (int s = 0; s < 4; ++s) count += (panels >> s) & 1;
         if (count > 1) {
-            auto      eye  = player.getEyePos();
-            auto      look = player.getViewVector();
-            auto      c    = cs::panelCentre(faceOf(p), facingOf(p), cs::PanelSlot::TopLeft);
-            auto      n    = cs::supportOffset(faceOf(p), facingOf(p));
+            auto eye  = player.getEyePos();
+            auto look = player.getViewVector();
+            auto mid  = cs::panelCentre(faceOf(p), facingOf(p), cs::PanelSlot::TopLeft);
+            auto n    = cs::supportOffset(faceOf(p), facingOf(p));
             // intersect the view ray with the panel plane
             double    denom = look.x * n[0] + look.y * n[1] + look.z * n[2];
             cs::Vec3d hit{0.5, 0.5, 0.5};
             if (std::abs(denom) > 1e-6) {
-                double px = p.x + c.x, py = p.y + c.y, pz = p.z + c.z;
+                double px = p.x + mid.x, py = p.y + mid.y, pz = p.z + mid.z;
                 double t  = ((px - eye.x) * n[0] + (py - eye.y) * n[1] + (pz - eye.z) * n[2]) / denom;
                 hit       = {eye.x + look.x * t - p.x, eye.y + look.y * t - p.y, eye.z + look.z * t - p.z};
             }
             removeGaugePanel(p, targetedSlotAt(p, hit.x, hit.y, hit.z), &player);
-            return false;
+            return ia::Result::Deny;
         }
     }
     if (isTableCloth(id) && isShop(p)) {
         // Create's TableClothBlock.getDrops: a shop drops its cloth with the encoded order
-        if (player.isCreative()) return origin(pos, face);
-        auto const* d    = dataOf(p);
-        Json        shop = d ? d->value("shop", Json::object()) : Json::object();
+        if (player.isCreative()) return ia::Result::Pass;
+        auto const* d     = dataOf(p);
+        Json        shop  = d ? d->value("shop", Json::object()) : Json::object();
         auto        cloth = items::make(id, 1);
-        if (!cloth) return origin(pos, face);
+        if (!cloth) return ia::Result::Pass;
         ItemStack drop = *cloth;
         items::setData(drop, kRequestData, {{"order", shop.value("order", Json::array())}, {"address", shop.value("address", std::string{})}, {"ticker", shop.value("ticker", Json())}});
         updateLore(drop);
         // the cloth's own loot would drop a plain cloth: remove the block without drops instead
-        if (!game::clearBlock(region, pos)) return origin(pos, face);
+        if (!game::clearBlock(region, pos)) return ia::Result::Pass;
         dropAt(p, drop);
         log().info("stock: shop at {} {} {} broken by {}", p.x, p.y, p.z, player.getRealName());
-        return true;
+        return ia::Result::Consume;
     }
-    return origin(pos, face);
+    return ia::Result::Pass;
 }
+
+} // namespace
 
 // ---- polling ------------------------------------------------------------------------------------
 
@@ -545,10 +505,11 @@ public:
         registerRequesterScreens();
         registerGaugeScreens();
         registerShopValueBoxes();
-        StockUseItemOnHook::hook();
-        StockUseItemHook::hook();
-        StockInteractHook::hook();
-        StockDestroyBlockHook::hook();
+        mHandlers.push_back(ia::onUseOn({}, stockUseOn, ia::priority::High));
+        mHandlers.push_back(ia::onPlace({}, stockPlaced));
+        mHandlers.push_back(ia::onUse({}, stockUse));
+        mHandlers.push_back(ia::onInteract({}, stockInteract));
+        mHandlers.push_back(ia::onDestroy({}, stockDestroy, ia::priority::High));
         mTick = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { tick(); });
         if (game::db::available()) {
             loadNetworks();
@@ -558,10 +519,8 @@ public:
 
     void uninstall() {
         ll::event::EventBus::getInstance().removeListener(mTick);
-        StockDestroyBlockHook::unhook();
-        StockInteractHook::unhook();
-        StockUseItemHook::unhook();
-        StockUseItemOnHook::unhook();
+        for (auto id : mHandlers) ia::remove(id);
+        mHandlers.clear();
         saveNetworks();
     }
 
@@ -577,7 +536,8 @@ private:
             log().error("stock: tick failed: {}", e.what());
         }
     }
-    ll::event::ListenerPtr mTick;
+    ll::event::ListenerPtr     mTick;
+    std::vector<ia::HandlerId> mHandlers;
 };
 } // namespace
 

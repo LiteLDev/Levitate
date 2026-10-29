@@ -33,6 +33,7 @@
 #include "mc/world/level/dimension/Dimension.h"
 #include "mc/world/phys/AABB.h"
 
+#include "feature/common/Redstone.h"
 #include "feature/contraption/Internal.h"
 #include "feature/contraption/Registries.h"
 #include "mod/Config.h"
@@ -297,30 +298,7 @@ cc::BlockInfo describe(BlockSource& region, int /*dim*/, cc::Pos const& p) {
     return info;
 }
 
-bool powered(BlockSource& region, cc::Pos const& p) {
-    for (auto d : cc::kAllDirs) {
-        cc::Pos n  = p + cc::offset(d);
-        auto    bp = toBlockPos(n);
-        if (!region.hasChunksAt(bp, 0, false)) continue;
-        auto const& block = region.getBlock(bp);
-        if (block.isAir()) continue;
-        std::string const& id = block.getTypeName();
-        auto               s  = statesOf(block);
-        if (id == "minecraft:redstone_block") return true;
-        if (intState(s, "redstone_signal").value_or(0) > 0) return true;
-        if (intState(s, "open_bit").value_or(0) && id == "minecraft:lever") return true;
-        if (intState(s, "button_pressed_bit").value_or(0)) return true;
-        if (intState(s, "powered_bit").value_or(0) && id == "minecraft:observer") return true;
-        if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return true;
-        if (id == "minecraft:redstone_torch") {
-            // a torch powers every neighbour except the block it stands on
-            auto t       = strState(s, "torch_facing_direction").value_or("top");
-            auto support = t == "top" || t == "unknown" ? std::optional<cc::Dir>(cc::Dir::Down) : cc::dirFromName(t);
-            if (!support || n + cc::offset(*support) != p) return true;
-        }
-    }
-    return false;
-}
+bool powered(BlockSource& region, cc::Pos const& p) { return common::redstone::powered(region, toBlockPos(p)); }
 
 void actionBar(Player& player, std::string const& text) {
     auto                            pkt = TextPacket{};

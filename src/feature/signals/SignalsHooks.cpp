@@ -1,9 +1,9 @@
-// Signals unit (U28): item use (Create's TrackTargetingBlockItem, the wrench on a signal) and
-// comparators reading signals.
+// Signals unit (U28): item use (Create's TrackTargetingBlockItem, the wrench on a signal).
 //
-// GameMode is where every player action ends up (network players and SimulatedPlayers alike).
+// Clicks come from the shared interaction dispatch (network players and SimulatedPlayers alike).
 
 #include <cmath>
+#include <vector>
 
 #include "ll/api/memory/Hook.h"
 
@@ -16,9 +16,8 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
-#include "mc/world/redstone/circuit/CircuitSystem.h"
-#include "mc/world/redstone/circuit/components/ComparatorCapacitor.h"
 
+#include "feature/common/Interactions.h"
 #include "feature/goggles/Wrenchable.h"
 #include "feature/signals/SignalsInternal.h"
 #include "game/Blocks.h"
@@ -111,36 +110,11 @@ bool onTargetingItemUse(Player& player, std::string const& item, BlockPos const&
 
 namespace lv::feature::signals {
 
-LL_TYPE_INSTANCE_HOOK(
-    SignalsUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || item.isNull()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    std::string const& id = item.getTypeName();
-    auto               ok = [&] {
-        InteractionResult r{};
-        r.mSuccess = true;
-        r.mSwing   = true;
-        player.sendInventory(false);
-        return r;
-    };
-    if (id == api::kSignalId || id == api::kObserverId) {
-        if (onTargetingItemUse(player, id, at, face)) return ok();
-        return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    }
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-}
+namespace ia = common::interactions;
+
+namespace {
+std::vector<ia::HandlerId> gHandlers;
+} // namespace
 
 namespace wrench = goggles::wrench;
 
@@ -162,33 +136,21 @@ LV_REGISTER_WRENCHABLE(
 // Create's TrackObserverBlock is IWrenchable with the defaults (nothing to rotate; sneak: pick up)
 LV_REGISTER_WRENCHABLE(std::string{api::kObserverId});
 
-LL_TYPE_INSTANCE_HOOK(
-    SignalsComparatorHook,
-    ll::memory::HookPriority::Normal,
-    ComparatorCapacitor,
-    &ComparatorCapacitor::$evaluate,
-    bool,
-    CircuitSystem&  system,
-    BlockPos const& pos
-) {
-    if (auto v = comparatorOverride(&system, pos)) {
-        mRearAnalogStrength = *v;
-        mHasAnalogBeenSet   = true;
-    } else if (comparatorReleased(&system, pos)) {
-        mRearAnalogStrength = 0;
-        mHasAnalogBeenSet   = false;
-    }
-    return origin(system, pos);
-}
-
+// U36: the targeting items go through the shared interaction dispatch
 void installHooks() {
-    SignalsUseItemOnHook::hook();
-    SignalsComparatorHook::hook();
+    for (std::string item : {std::string(api::kSignalId), std::string(api::kObserverId)}) {
+        gHandlers.push_back(ia::onUseOn({{}, item},[](ia::UseOnContext const& c) {
+            BlockPos at{c.pos.x, c.pos.y, c.pos.z};
+            if (!onTargetingItemUse(c.player, c.itemId, at, c.face)) return ia::Result::Pass;
+            c.player.sendInventory(false);
+            return ia::Result::Consume;
+        }));
+    }
 }
 
 void uninstallHooks() {
-    SignalsComparatorHook::unhook();
-    SignalsUseItemOnHook::unhook();
+    for (auto id : gHandlers) ia::remove(id);
+    gHandlers.clear();
 }
 
 } // namespace lv::feature::signals

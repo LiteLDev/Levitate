@@ -135,6 +135,8 @@ bool clear(GlobalPos const& p);
 [[nodiscard]] bool mayBuild(Player const& player);
 /// The block at `p` receives redstone power from a neighbour (Java hasNeighborSignal).
 [[nodiscard]] bool hasNeighborSignal(GlobalPos const& p);
+/// Registers powered placards as signal sources of the shared redstone input (common/Redstone.h).
+void registerPlacardSignal();
 void playSound(GlobalPos const& p, std::string const& sound, float volume = 1.f, float pitch = 1.f);
 void particle(GlobalPos const& p, std::string const& effect);
 /// Drops `count` items of `id` at the centre of `p`.

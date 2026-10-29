@@ -1,6 +1,5 @@
 // Bearings unit: the module (index of our blocks, tick, world lifecycle, config) and the game
-// hooks for using items on blocks / actors. GameMode is where every player action ends up
-// (network players and SimulatedPlayers alike).
+// handlers for using items on blocks / actors (the shared dispatch, common/Interactions.h).
 
 #include <algorithm>
 #include <map>
@@ -15,8 +14,6 @@
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -24,6 +21,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/bearings/Bearings.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "game/Blocks.h"
@@ -35,6 +33,8 @@
 LV_REGISTER_CONFIG("bearings", lv::feature::bearings::Config);
 
 namespace lv::feature::bearings {
+
+namespace ia = common::interactions;
 
 namespace {
 
@@ -131,20 +131,6 @@ void tick() {
     if (s.dirty && s.tick % 100 == 0) saveIndex();
 }
 
-cc::Vec3d localHit(BlockPos const& at, Vec3 const& hit) {
-    auto in = [](double v) { return v >= -0.01 && v <= 1.01; };
-    if (in(hit.x) && in(hit.y) && in(hit.z)) return {hit.x, hit.y, hit.z};
-    return {hit.x - at.x, hit.y - at.y, hit.z - at.z};
-}
-
-InteractionResult handled(Player& player) {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    player.sendInventory(false); // undo the client's predicted use
-    return r;
-}
-
 } // namespace
 
 void defer(std::function<void()> fn) { ms().deferred.push_back(std::move(fn)); }
@@ -165,37 +151,30 @@ std::vector<GP> tracked() {
     return out;
 }
 
-// ---- hooks --------------------------------------------------------------------------------------
+// ---- player interactions (common/Interactions.h) ------------------------------------------------
 
-LL_TYPE_INSTANCE_HOOK(
-    BearingsUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region  = player.getDimensionBlockSource();
-    Block const* clicked = targetBlock ? targetBlock : &region.getBlock(at);
-    std::string  target  = clicked->getTypeName();
-    std::string  held    = common::items::idOf(item);
-    GP           pos     = game::globalPos(region, at);
-    auto         uid     = uidOf(player);
-    cc::Vec3d    local   = localHit(at, hit);
-    auto         kind    = kindOf(target);
-    bool         build   = player.canUseAbility(AbilitiesIndex::Build);
+namespace {
+
+ia::Result handled(Player& player) {
+    player.sendInventory(false); // undo the client's predicted use
+    return ia::Result::Consume;
+}
+
+ia::Result onUseOn(ia::UseOnContext const& c) {
+    Player&            player  = c.player;
+    Block const*       clicked = &c.block;
+    std::string const& target  = c.blockId;
+    std::string const& held    = c.itemId;
+    GP                 pos     = c.pos;
+    auto               uid     = uidOf(player);
+    cc::Vec3d          local{c.hit[0], c.hit[1], c.hit[2]};
+    int                face  = c.face;
+    auto               kind  = kindOf(target);
+    bool               build = player.canUseAbility(AbilitiesIndex::Build);
 
     // bearings: an empty hand assembles / disassembles (value boxes on the sides go to U3)
     if (kind && (*kind == Kind::Mechanical || *kind == Kind::Windmill || *kind == Kind::Clockwork) && held.empty()
-        && !player.isSneaking() && build && !common::valuebox::boxAt(*clicked, face, {local.x, local.y, local.z})) {
+        && !c.sneaking && build && !common::valuebox::boxAt(*clicked, face, {local.x, local.y, local.z})) {
         if (!debounce(player)) defer([uid, pos] {
             if (auto* p = playerById(uid)) bearingUse(*p, pos);
         });
@@ -203,7 +182,7 @@ LL_TYPE_INSTANCE_HOOK(
     }
     // sails: placement helper, dye, shears
     if (build && isSail(target) && !held.empty() && (isSail(held) || held == "minecraft:shears" || dyeColourOf(held))) {
-        if ((isSail(held) && !player.isSneaking()) || held == "minecraft:shears" || (!isSailFrame(target) && dyeColourOf(held))) {
+        if ((isSail(held) && !c.sneaking) || held == "minecraft:shears" || (!isSailFrame(target) && dyeColourOf(held))) {
             if (!debounce(player)) {
                 int face_ = face;
                 defer([uid, pos, face_, local, held] {
@@ -232,46 +211,23 @@ LL_TYPE_INSTANCE_HOOK(
         });
         return handled(player);
     }
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    BearingsInteractHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$interact,
-    bool,
-    Actor&      entity,
-    Vec3 const& location,
-    HandSlot    handSlot
-) {
-    Player& player = mPlayer;
-    if (!player.isClientSide()) {
-        std::string held = common::items::idOf(player.getSelectedItem());
-        if ((held == kMinecartCoupling || held == kWrench) && cartInteract(player, entity)) {
-            player.sendInventory(false);
-            return true;
-        }
-    }
-    return origin(entity, location, handSlot);
+/// Minecart coupling / wrench on a minecart.
+ia::Result onInteract(ia::EntityContext const& c) {
+    if (c.itemId != kMinecartCoupling && c.itemId != kWrench) return ia::Result::Pass;
+    if (!cartInteract(c.player, c.entity)) return ia::Result::Pass;
+    c.player.sendInventory(false);
+    return ia::Result::Consume;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    BearingsDestroyBlockHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$destroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face
-) {
-    Player& player = mPlayer;
-    if (!player.isClientSide() && player.isCreative()) {
-        auto& region = player.getDimensionBlockSource();
-        if (region.getBlock(pos).getTypeName() == kCartAssembler) markCreativeBreak(game::globalPos(region, pos));
-    }
-    return origin(pos, face);
+ia::Result onDestroy(ia::DestroyContext const& c) {
+    if (c.player.isCreative()) markCreativeBreak(c.pos);
+    return ia::Result::Pass;
 }
+
+} // namespace
 
 // ---- module ---------------------------------------------------------------------------------------
 
@@ -334,9 +290,11 @@ public:
         }
         registerBearingBoxes();
         registerCartBoxes();
-        BearingsUseItemOnHook::hook();
-        BearingsInteractHook::hook();
-        BearingsDestroyBlockHook::hook();
+        mHandlers = {
+            ia::onUseOn({}, onUseOn),
+            ia::onInteract({}, onInteract),
+            ia::onDestroy({.block = std::string(kCartAssembler)}, onDestroy),
+        };
         if (game::db::available()) {
             loadIndex();
             loadCarts();
@@ -344,9 +302,8 @@ public:
     }
 
     void uninstall() {
-        BearingsDestroyBlockHook::unhook();
-        BearingsInteractHook::unhook();
-        BearingsUseItemOnHook::unhook();
+        for (auto id : mHandlers) ia::remove(id);
+        mHandlers.clear();
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
@@ -362,6 +319,7 @@ public:
 private:
     std::vector<ll::event::ListenerPtr>         mListeners;
     std::unordered_map<std::int64_t, int>       mLastFace;
+    std::vector<ia::HandlerId>                  mHandlers;
 };
 
 } // namespace lv::feature::bearings

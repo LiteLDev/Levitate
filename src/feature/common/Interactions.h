@@ -41,6 +41,13 @@
 //   the click, e.g. assembling a contraption).
 // - `UseContext::onBlock`: the item use comes from a use-on that no block took (Bedrock calls the
 //   item use from there too); units that only want right-clicks in the air return `Pass` then.
+// - `onUnusedUseOn`: after vanilla's use-on did not succeed (no block took the click and nothing
+//   was placed): Create's item useOn that runs only when the block passes (buckets of custom
+//   fluids, putting a package down). `Consume` / `Deny` make the click a handled one.
+// - `onDestroyed` / `onAttacked`: after vanilla's destroyBlock / attack ran, with its result
+//   (forgetting a removed block's data, knockback of a hit).
+// - `mutableItem(ctx.item)`: the held stack is the player's hand slot; handlers that change it in
+//   place (counts, item data) use this instead of a copy.
 
 #include <functional>
 #include <string>
@@ -124,6 +131,7 @@ struct PlaceContext {
     int                face;    ///< the clicked face
     Vec                hit;     ///< click position, local to the clicked block (0..1)
     bool               sneaking;
+    ItemStack const*   itemBefore = nullptr; ///< a copy of the held stack before the placement (data, count)
 };
 
 /// Right- / left-click on an entity (U36).
@@ -142,7 +150,12 @@ using UseHandler     = std::function<Result(UseContext const&)>;
 using DestroyHandler = std::function<Result(DestroyContext const&)>;
 using PlaceHandler   = std::function<void(PlaceContext const&)>;
 using EntityHandler  = std::function<Result(EntityContext const&)>;
+using DestroyedHandler = std::function<void(DestroyContext const&, bool destroyed)>;
+using AttackedHandler  = std::function<void(EntityContext const&, bool hit)>;
 using HandlerId      = int;
+
+/// The held stack of a context as the mutable hand slot it is (use-on, use, destroy, entity).
+inline ItemStack& mutableItem(ItemStack const& contextItem) { return const_cast<ItemStack&>(contextItem); }
 
 HandlerId onUseOn(Match match, UseOnHandler fn, int priority = priority::Normal);
 /// `itemId` "" = any item (an empty hand never uses an item in the air).
@@ -158,6 +171,14 @@ HandlerId onStartDestroy(Match match, DestroyHandler fn, int priority = priority
 HandlerId onInteract(Match match, EntityHandler fn, int priority = priority::Normal);
 /// (U36) Attacking an entity; `Consume` = the attack is replaced, `Deny` = no attack.
 HandlerId onAttack(Match match, EntityHandler fn, int priority = priority::Normal);
+/// (U36) After vanilla's use-on did not succeed (and no handler took it): `firstEvent` etc. as
+/// for onUseOn; `Consume` / `Deny` turn the click into a handled / refused one.
+HandlerId onUnusedUseOn(Match match, UseOnHandler fn, int priority = priority::Normal);
+/// (U36) After vanilla's destroyBlock ran (also when a handler did not stop it): `destroyed` is
+/// its result. `ctx.block` / `ctx.blockId` are the block before the break.
+HandlerId onDestroyed(Match match, DestroyedHandler fn, int priority = priority::Normal);
+/// (U36) After vanilla's attack ran; `hit` is its result. `match.block` = entity type id.
+HandlerId onAttacked(Match match, AttackedHandler fn, int priority = priority::Normal);
 /// (U36) Runs `fn` on the next server tick (server thread).
 void nextTick(std::function<void()> fn);
 /// (U36) A player of the server level (not the client's own predicting LocalPlayer).

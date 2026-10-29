@@ -1,8 +1,10 @@
-// Game hooks and the module of the equipment unit. GameMode is where every player action ends
-// up (network players and SimulatedPlayers alike), so item uses, block uses, breaking, attacks and
-// the pick range are handled here.
+// Game hooks and the module of the equipment unit. Item uses, block uses, breaking and attacks go
+// through the shared dispatch (common/Interactions.h; network players and SimulatedPlayers
+// alike); the pick range, releasing a used item and item durability are hooked here.
 
+#include <cmath>
 #include <map>
+#include <vector>
 
 #include "ll/api/command/CommandHandle.h"
 #include "ll/api/event/EventBus.h"
@@ -16,7 +18,6 @@
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/item/ItemStackBase.h"
 #include "mc/world/level/BlockPos.h"
@@ -25,6 +26,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/common/BlockData.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/Recipes.h"
 #include "feature/equipment/Equipment.h"
@@ -40,13 +42,6 @@ namespace items = common::items;
 
 namespace {
 
-InteractionResult handled() {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    return r;
-}
-
 /// Bedrock repeats use packets while the button is held: one action per click (4 ticks).
 bool repeated(Player& player, BlockPos const& at, bool isFirstEvent) {
     // (the client may also send the same click twice in one tick, both marked as first events)
@@ -58,13 +53,6 @@ bool repeated(Player& player, BlockPos const& at, bool isFirstEvent) {
     bool  skip = it != last.end() && now - it->second.second < 4 && (!isFirstEvent || it->second.first == at);
     if (!skip) last[uid] = {at, now};
     return skip;
-}
-
-GlobalPos placementPos(BlockSource& region, BlockPos const& at, uchar face) {
-    if (game::replaceable(region, at)) return game::globalPos(region, at);
-    static constexpr int dx[] = {0, 0, 0, 0, -1, 1}, dy[] = {-1, 1, 0, 0, 0, 0}, dz[] = {0, 0, -1, 1, 0, 0};
-    int f = face < 6 ? face : 1;
-    return game::globalPos(region, BlockPos{at.x + dx[f], at.y + dy[f], at.z + dz[f]});
 }
 
 /// Block interactions of the unit; true when handled.
@@ -102,145 +90,140 @@ bool useInAir(Player& player, ItemStack& item) {
 
 } // namespace
 
-LL_TYPE_INSTANCE_HOOK(
-    EquipmentUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region = player.getDimensionBlockSource();
-    Block const& target = targetBlock ? *targetBlock : region.getBlock(at);
-    std::string  held   = items::isEmpty(item) ? std::string() : items::idOf(item);
-    std::string  tid    = target.getTypeName();
-    bool ours = isToolbox(tid) || isBacktank(tid) || tid == kLecternController || (tid == "minecraft:lectern" && held == kLinkedController)
-             || held == kWand || held == kWorldshaper || held == kPotatoCannon || held == kLinkedController || held == kTreeFertilizer || isPaper(held);
-    // sneaking with a block item against our blocks places the block (Create's sneak pass-through)
-    if (ours && !(player.isSneaking() && (isToolbox(tid) || isBacktank(tid)) && game::blockWith(held))) {
-        if (repeated(player, at, isFirstEvent)) {
-            InteractionResult r{};
-            r.mSuccess = true;
-            return r;
-        }
-        try {
-            if (useOn(player, item, at, face, target)) {
-                player.sendInventory(false);
-                return handled();
+// ---- interactions (common/Interactions.h) --------------------------------------------------------
+
+namespace ia = common::interactions;
+
+namespace {
+
+/// Whether a block click concerns the unit (its blocks, its items).
+bool oursOn(std::string const& tid, std::string const& held) {
+    return isToolbox(tid) || isBacktank(tid) || tid == kLecternController || (tid == "minecraft:lectern" && held == kLinkedController)
+        || held == kWand || held == kWorldshaper || held == kPotatoCannon || held == kLinkedController || held == kTreeFertilizer || isPaper(held);
+}
+
+/// Grip held when the current attack started (the attack may use it up).
+thread_local bool attackWithGrip = false;
+
+std::vector<ia::HandlerId>& handlerIds() {
+    static std::vector<ia::HandlerId> ids;
+    return ids;
+}
+
+void installInteractions() {
+    auto& ids = handlerIds();
+    ids.push_back(ia::onUseOn({}, [](ia::UseOnContext const& c) {
+        auto&       player = c.player;
+        auto&       item   = ia::mutableItem(c.item);
+        std::string held   = items::isEmpty(item) ? std::string() : items::idOf(item);
+        auto const& tid    = c.blockId;
+        BlockPos    at     = game::blockPos(c.pos);
+        // sneaking with a block item against our blocks places the block (Create's sneak pass-through)
+        if (oursOn(tid, held) && !(c.sneaking && (isToolbox(tid) || isBacktank(tid)) && game::blockWith(held))) {
+            if (repeated(player, at, c.firstEvent)) return ia::Result::Consume;
+            try {
+                if (useOn(player, item, at, static_cast<uchar>(c.face), c.block)) {
+                    player.sendInventory(false);
+                    return ia::Result::Consume;
+                }
+            } catch (std::exception const& e) {
+                log().error("equipment: use on block failed: {}", e.what());
             }
-        } catch (std::exception const& e) {
-            log().error("equipment: use on block failed: {}", e.what());
         }
-    }
-    // placement: remember the item's data (toolbox contents, backtank air), mirror it, count the grip
-    GlobalPos   p      = placementPos(region, at, face);
-    std::string before = idAt(p);
-    Json        toolboxData = isToolbox(held) ? items::getData(item, kToolboxData) : Json();
-    int         air         = isBacktank(held) ? airOf(item) : 0;
-    auto        result      = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    std::string after       = idAt(p);
-    if (after != before && after != "minecraft:air" && !after.empty()) {
+        return ia::Result::Pass;
+    }));
+    // placement: the item's data (toolbox contents, backtank air), mirrored placement, the grip
+    ids.push_back(ia::onPlace({}, [](ia::PlaceContext const& c) {
         try {
-            if (isToolbox(after) && after == held) toolboxPlaced(player, p, toolboxData);
-            if (isBacktank(after) && after == held) backtankPlaced(player, p, air, {});
-            mirrorPlacement(player, p);
-            extendoAction(player);
+            auto const& held = c.itemId;
+            if (c.itemBefore && isToolbox(c.blockId) && c.blockId == held) {
+                toolboxPlaced(c.player, c.pos, items::getData(*c.itemBefore, kToolboxData));
+            }
+            if (c.itemBefore && isBacktank(c.blockId) && c.blockId == held) backtankPlaced(c.player, c.pos, airOf(*c.itemBefore), {});
+            mirrorPlacement(c.player, c.pos);
+            extendoAction(c.player);
         } catch (std::exception const& e) {
             log().error("equipment: placement handling failed: {}", e.what());
         }
-    }
-    return result;
-}
-
-LL_TYPE_INSTANCE_HOOK(EquipmentUseItemHook, ll::memory::HookPriority::Normal, GameMode, &GameMode::$useItem, bool, ItemStack& item, HandSlot handSlot) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || items::isEmpty(item)) return origin(item, handSlot);
-    std::string held = items::idOf(item);
-    if (held == kWand || held == kWorldshaper || held == kPotatoCannon || held == kLinkedController || isPaper(held)) {
-        try {
-            if (useInAir(player, item)) {
-                // sand paper keeps the vanilla use (the client shows the "eating" animation)
-                if (isPaper(held)) return origin(item, handSlot);
-                return true;
+    }));
+    ids.push_back(ia::onUse({}, [](ia::UseContext const& c) {
+        auto& player = c.player;
+        if (items::isEmpty(c.item) || c.onBlock) return ia::Result::Pass; // block clicks are the use-on's
+        auto&       item = ia::mutableItem(c.item);
+        std::string held = items::idOf(item);
+        if (held == kWand || held == kWorldshaper || held == kPotatoCannon || held == kLinkedController || isPaper(held)) {
+            try {
+                if (useInAir(player, item)) {
+                    // sand paper keeps the vanilla use (the client shows the "eating" animation)
+                    if (isPaper(held)) return ia::Result::Pass;
+                    return ia::Result::Consume;
+                }
+            } catch (std::exception const& e) {
+                log().error("equipment: use failed: {}", e.what());
             }
-        } catch (std::exception const& e) {
-            log().error("equipment: use failed: {}", e.what());
         }
-    }
-    return origin(item, handSlot);
-}
-
-LL_TYPE_INSTANCE_HOOK(EquipmentStartDestroyHook, ll::memory::HookPriority::Normal, GameMode, &GameMode::$startDestroyBlock, bool, BlockPos const& pos,
-                      uchar face, bool& hasDestroyedBlock) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(pos, face, hasDestroyedBlock);
-    GlobalPos   p    = game::globalPos(player.getDimensionBlockSource(), pos);
-    std::string id   = idAt(p);
-    std::string held = items::idOf(player.getSelectedItem());
-    if (held == kWorldshaper) {
-        ItemStack shaper = player.getSelectedItem();
-        if (shaperSelect(player, shaper, p)) return false;
-    }
-    if (isToolbox(id) && attackToolbox(player, p)) {
-        hasDestroyedBlock = false;
-        return false;
-    }
-    return origin(pos, face, hasDestroyedBlock);
-}
-
-LL_TYPE_INSTANCE_HOOK(EquipmentDestroyBlockHook, ll::memory::HookPriority::Normal, GameMode, &GameMode::$destroyBlock, bool, BlockPos const& pos, uchar face) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(pos, face);
-    GlobalPos   p    = game::globalPos(player.getDimensionBlockSource(), pos);
-    std::string id   = idAt(p);
-    std::string held = items::idOf(player.getSelectedItem());
-    if (held == kWorldshaper) {
-        ItemStack shaper = player.getSelectedItem();
-        if (shaperSelect(player, shaper, p)) return false;
-    }
-    if (isToolbox(id)) {
-        if (attackToolbox(player, p)) return false;
-        noteToolboxBreak(p);
-    }
-    if (isBacktank(id)) noteBacktankBreak(p, player.isCreative());
-    bool ok = origin(pos, face);
-    if (isBacktank(id)) clearBacktankBreak(p); // used by the erase listener inside origin (or not at all)
-    if (ok && idAt(p) != id) {
-        try {
-            mirrorBreak(player, p, id);
-            extendoAction(player);
-        } catch (std::exception const& e) {
-            log().error("equipment: break handling failed: {}", e.what());
+        return ia::Result::Pass;
+    }));
+    ids.push_back(ia::onStartDestroy({}, [](ia::DestroyContext const& c) {
+        auto& player = c.player;
+        if (c.itemId == kWorldshaper) {
+            ItemStack shaper = player.getSelectedItem();
+            if (shaperSelect(player, shaper, c.pos)) return ia::Result::Deny;
         }
-    }
-    return ok;
-}
-
-LL_TYPE_INSTANCE_HOOK(EquipmentAttackHook, ll::memory::HookPriority::Normal, GameMode, &GameMode::$attack, bool, Actor& entity, Vec3 const& hitPos) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(entity, hitPos);
-    bool grip = extendoReach(player) > 0;
-    bool ok   = origin(entity, hitPos);
-    if (ok && grip) {
+        if (isToolbox(c.blockId) && attackToolbox(player, c.pos)) return ia::Result::Deny;
+        return ia::Result::Pass;
+    }));
+    ids.push_back(ia::onDestroy({}, [](ia::DestroyContext const& c) {
+        auto& player = c.player;
+        if (c.itemId == kWorldshaper) {
+            ItemStack shaper = player.getSelectedItem();
+            if (shaperSelect(player, shaper, c.pos)) return ia::Result::Deny;
+        }
+        if (isToolbox(c.blockId)) {
+            if (attackToolbox(player, c.pos)) return ia::Result::Deny;
+            noteToolboxBreak(c.pos);
+        }
+        if (isBacktank(c.blockId)) noteBacktankBreak(c.pos, player.isCreative());
+        return ia::Result::Pass;
+    }));
+    ids.push_back(ia::onDestroyed({}, [](ia::DestroyContext const& c, bool destroyed) {
+        if (isBacktank(c.blockId)) clearBacktankBreak(c.pos); // used by the erase listener inside the break (or not at all)
+        if (destroyed && idAt(c.pos) != c.blockId) {
+            try {
+                mirrorBreak(c.player, c.pos, c.blockId);
+                extendoAction(c.player);
+            } catch (std::exception const& e) {
+                log().error("equipment: break handling failed: {}", e.what());
+            }
+        }
+    }));
+    ids.push_back(ia::onAttack({}, [](ia::EntityContext const& c) {
+        attackWithGrip = extendoReach(c.player) > 0;
+        return ia::Result::Pass;
+    }));
+    ids.push_back(ia::onAttacked({}, [](ia::EntityContext const& c, bool hit) {
+        bool grip      = attackWithGrip;
+        attackWithGrip = false;
+        if (!hit || !grip) return;
         // Create: +2 knockback while holding a grip, and the hit uses the grip
-        auto const& look = player.getViewVector(1.0f);
-        double      h    = std::sqrt(double(look.x) * look.x + double(look.z) * look.z);
+        auto&       player = c.player;
+        auto&       entity = c.entity;
+        auto const& look   = player.getViewVector(1.0f);
+        double      h      = std::sqrt(double(look.x) * look.x + double(look.z) * look.z);
         if (h > 1e-6 && entity.isAlive() && !entity.isPlayer()) {
             auto const& v = entity.getPosDelta();
             setMotion(entity, v.x + look.x / h * 0.8, v.y + 0.1, v.z + look.z / h * 0.8);
         }
         extendoAction(player);
-    }
-    return ok;
+    }));
 }
+
+void uninstallInteractions() {
+    for (auto id : handlerIds()) ia::remove(id);
+    handlerIds().clear();
+}
+
+} // namespace
 
 LL_TYPE_INSTANCE_HOOK(EquipmentPickRangeHook, ll::memory::HookPriority::Normal, GameMode, &GameMode::$getPickRange, float, InputMode const& mode) {
     float base = origin(mode);
@@ -285,11 +268,7 @@ public:
             registered = true;
             game::db::onWorldClosed([] { reset(); });
         }
-        EquipmentUseItemOnHook::hook();
-        EquipmentUseItemHook::hook();
-        EquipmentStartDestroyHook::hook();
-        EquipmentDestroyBlockHook::hook();
-        EquipmentAttackHook::hook();
+        installInteractions();
         EquipmentPickRangeHook::hook();
         EquipmentReleaseHook::hook();
         EquipmentHurtAndBreakHook::hook();
@@ -306,11 +285,7 @@ public:
         EquipmentHurtAndBreakHook::unhook();
         EquipmentReleaseHook::unhook();
         EquipmentPickRangeHook::unhook();
-        EquipmentAttackHook::unhook();
-        EquipmentDestroyBlockHook::unhook();
-        EquipmentStartDestroyHook::unhook();
-        EquipmentUseItemHook::unhook();
-        EquipmentUseItemOnHook::unhook();
+        uninstallInteractions();
     }
 
 private:
