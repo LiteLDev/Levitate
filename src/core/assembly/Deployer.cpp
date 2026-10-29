@@ -63,6 +63,6 @@ float deployerHandOffset(DeployerState state, float timer, int timerSpeed, float
     return std::min(std::clamp(progress, 0.f, 1.f) * (reach + handLength), 21 / 16.f);
 }
 
-float deployerReach(float hitDistance) { return 0.5f - std::min(hitDistance, 0.75f); }
+float deployerReach(float hitDistance) { return 0.5f + std::min(hitDistance, 0.75f); }
 
 } // namespace lv::core::assembly

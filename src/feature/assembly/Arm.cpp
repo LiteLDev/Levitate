@@ -160,8 +160,11 @@ ItemStack insertInto(BlockSource& region, BlockPos const& pos, PointType type, I
         auto* actor = region.getBlockEntity(pos);
         if (!actor) return stack;
         auto& campfire = static_cast<CampfireBlockActor&>(*actor);
-        // a simulation accepts any cookable food (the campfire may still be full: the arm then
-        // keeps the item and searches again)
+        bool free = false;
+        auto const* cooking = reinterpret_cast<ItemInstance const*>(&campfire.mCookingItem);
+        for (int i = 0; i < 4; ++i)
+            if (cooking[i].isNull()) free = true;
+        if (!free) return stack;
         if (!simulate && !campfire.setItem(region, ItemInstance(items::withCount(stack, 1)))) return stack;
         return items::withCount(stack, items::countOf(stack) - 1);
     }

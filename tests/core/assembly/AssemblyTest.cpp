@@ -159,7 +159,7 @@ TEST(Deployer, HandOffset) {
     EXPECT_FLOAT_EQ(deployerHandOffset(DeployerState::Expanding, 500, 32, 0, 0.5f, HandPose::Holding), 0.5f * (0.5f + 0.25f));
     EXPECT_FLOAT_EQ(deployerHandOffset(DeployerState::Retracting, 1000, 32, 0, 0.5f, HandPose::Punching), 0.5f + 3 / 16.f);
     EXPECT_FLOAT_EQ(deployerReach(0.f), 0.5f);
-    EXPECT_FLOAT_EQ(deployerReach(2.f), -0.25f);
+    EXPECT_FLOAT_EQ(deployerReach(2.f), 1.25f);
     EXPECT_EQ(deployerHandPose(DeployerMode::Punch, true), HandPose::Punching);
     EXPECT_EQ(deployerHandPose(DeployerMode::Use, false), HandPose::Pointing);
 }

@@ -20,6 +20,8 @@
 #include "mc/server/SimulatedPlayer.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorType.h"
+#include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
+#include "mc/world/level/block/BlockType.h"
 #include "mc/world/actor/item/ItemActor.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
@@ -259,10 +261,25 @@ void act(Hand const& h, ItemStack& held, std::vector<ItemStack>& extra, std::opt
     auto* fp     = fakeplayer::get(h.dim);
     if (!region || !fp) return;
     auto& inv = fp->getInventory();
-    for (int i = 0; i < inv.getContainerSize(); ++i) {
-        if (auto const& s = inv.getItem(i); !items::isEmpty(s)) extra.push_back(s);
-        inv.setItem(i, items::empty());
-    }
+    auto  clearOthers = [&](int from) {
+        for (int i = from; i < inv.getContainerSize(); ++i) {
+            if (auto const& s = inv.getItem(i); !items::isEmpty(s)) extra.push_back(s);
+            inv.setItem(i, items::empty());
+        }
+        // equipment the action put on (armour, shields) is handed out too (Create: tryDisposeOfExcess)
+        if (auto const& s = fp->getOffhandSlot(); !items::isEmpty(s)) {
+            extra.push_back(s);
+            fp->setOffhandSlot(items::empty());
+        }
+        for (int a = 0; a < 4; ++a) {
+            auto slot = static_cast<SharedTypes::Legacy::ArmorSlot>(a);
+            if (auto const& s = fp->getArmor(slot); !items::isEmpty(s)) {
+                extra.push_back(s);
+                fp->setArmor(slot, items::empty());
+            }
+        }
+    };
+    clearOthers(0);
     inv.setItem(0, held);
     fp->setSelectedSlot(0);
 
@@ -330,9 +347,11 @@ void act(Hand const& h, ItemStack& held, std::vector<ItemStack>& extra, std::opt
                     bool destroyed = false;
                     gm.startDestroyBlock(c, static_cast<uchar>(face), destroyed);
                     if (!destroyed && region->getBlock(c).getTypeName() == block.getTypeName()) {
-                        block.playerDestroy(*fp, c);
+                        auto&       tool     = const_cast<ItemStack&>(inv.getItem(0));
+                        auto const* toolItem = items::isEmpty(tool) ? nullptr : tool.mItem.get();
+                        bool        harvest  = !block.getBlockType().mRequiresCorrectToolForDrops || (toolItem && toolItem->canDestroySpecial(block));
+                        if (harvest) block.playerDestroy(*fp, c);
                         game::clearBlock(*region, c);
-                        auto& tool = const_cast<ItemStack&>(inv.getItem(0));
                         if (!items::isEmpty(tool) && tool.isDamageableItem()) {
                             tool.hurtAndBreak(1, fp);
                             if (tool.isNull()) inv.setItem(0, items::empty());
@@ -381,10 +400,7 @@ void act(Hand const& h, ItemStack& held, std::vector<ItemStack>& extra, std::opt
 
     held = inv.getItem(0);
     if (items::isEmpty(held)) held = items::empty();
-    for (int i = 1; i < inv.getContainerSize(); ++i) {
-        if (auto const& s = inv.getItem(i); !items::isEmpty(s)) extra.push_back(s);
-        inv.setItem(i, items::empty());
-    }
+    clearOthers(1);
     inv.setItem(0, items::empty());
     // wait out of reach of item entities
     fp->teleport(Vec3{float(ox), 400.f, float(oz)}, DimensionType(h.dim), Vec2{0.f, 0.f});
@@ -443,7 +459,12 @@ void processTransportItem(GlobalPos const& pos, Runtime& r, BlockSource& region,
     auto one  = handler->extract(at, pred, 1, false);
     if (items::isEmpty(one)) return;
     auto outputs = deployOnItem(one, r.held, false);
-    if (!outputs) return;
+    if (!outputs || outputs->empty()) {
+        // nothing came out: the item goes back where it was
+        auto rest = handler->insert(at, one, false);
+        if (!items::isEmpty(rest)) detail::dropItem(region, target.x + .5, target.y + 1.0, target.z + .5, rest);
+        if (!outputs) return;
+    }
     for (auto const& o : *outputs) {
         auto rest = handler->insert(at, o, false);
         if (!items::isEmpty(rest)) detail::dropItem(region, target.x + .5, target.y + 1.0, target.z + .5, rest);
@@ -571,6 +592,7 @@ common::items::Handler capability() {
             if (!simulate) {
                 r.held = stack;
                 save(pos, r);
+                syncState(pos, r, facingOf(at.region.getBlock(at.pos)));
             }
             return items::empty();
         }
@@ -607,6 +629,7 @@ common::items::Handler capability() {
         if (!simulate) {
             r.held = items::withCount(r.held, items::countOf(r.held) - take);
             save(pos, r);
+            syncState(pos, r, facingOf(at.region.getBlock(at.pos)));
         }
         return out;
     };
@@ -663,8 +686,10 @@ void actorActivate(contraption::MovementContext& ctx, GlobalPos const& visited) 
     h.mode   = rtv.mode;
     h.clicked = game::blockPos(visited);
     auto* region = detail::regionOf(h.dim);
-    if (!region) return;
-    if (h.mode == DeployerMode::Use && !shouldActivate(*region, rtv.held, h.clicked, h.facing)) return;
+    if (!region || (h.mode == DeployerMode::Use && !shouldActivate(*region, rtv.held, h.clicked, h.facing))) {
+        doc[kDataKey] = toJson(rtv); // keep what the hand took from the storage
+        return;
+    }
 
     std::vector<ItemStack> extra;
     act(h, rtv.held, extra, rtv.breaking);
