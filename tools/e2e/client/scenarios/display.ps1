@@ -55,7 +55,12 @@ if ($vanilla) {
 # the inventory key closes native screens (and forms do not mind a second key)
 if ($vanilla) { Close-Screen } else { Press-Key E; Start-Sleep -Milliseconds 800 }
 
-# the clipboard: right-click in the air opens it
+if ($script:Mode -eq 'local') {
+    $r = Invoke-SelfTest 'display.*'
+    if ($r.Pass -lt 11) { throw "expected at least 11 display selftests to pass, got $($r.Pass)" }
+}
+
+# the clipboard (last: closing it may leave the inventory open): right-click in the air opens it
 Invoke-Chat '/give @s levitate:clipboard 1'
 Invoke-Chat '/tp @s ~ ~ ~ 0 -90'
 Press-Key '1'
@@ -72,8 +77,3 @@ if ($vanilla) {
     Save-Screenshot 'clipboard-screen' | Out-Null
 }
 if ($vanilla) { Close-Screen } else { Press-Key E; Start-Sleep -Milliseconds 800 }
-
-if ($script:Mode -eq 'local') {
-    $r = Invoke-SelfTest 'display.*'
-    if ($r.Pass -lt 11) { throw "expected at least 11 display selftests to pass, got $($r.Pass)" }
-}
