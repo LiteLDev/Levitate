@@ -14,9 +14,9 @@
 // Server thread only. Never keep `Contraption&` across ticks: keep the `Id` (persisted with the
 // world) and look it up with `find(id)`.
 //
-// Client rendering: each block is shown by a display entity (a vanilla falling block entity
-// moved every tick), so vanilla clients see the blocks move; the client mod also turns them by
-// the contraption's angle (see docs/SPEC.md §3.4 and §8).
+// Client rendering: each block is shown by a display entity (a vanilla falling block entity).
+// The client mod moves the displays from the contraption's motion and turns them by its angle;
+// vanilla clients see them spawned again in half-block steps (see docs/SPEC.md §3.4 and §8).
 
 #include <cstdint>
 #include <functional>

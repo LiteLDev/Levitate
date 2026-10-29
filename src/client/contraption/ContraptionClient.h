@@ -4,10 +4,11 @@
 // their actors (harvester blades, roller drums, drills, ...) on top of the display entities.
 //
 // The server tells companions which display entity shows which block of which contraption
-// (channel "contraption.blocks", sent when displays are spawned) and each actor's animation
-// state (`contraption::setActorVisual`, channel "contraption.visual"). `forEachBlock` gives every
-// known block of the player's dimension with its world transform at this frame's partial tick,
-// so drawing follows the contraption exactly as the display entities do:
+// (channel "contraption.blocks", sent when displays are spawned), the contraption's transform
+// each tick it changes ("contraption.motion"; the client moves the display entities from it) and
+// each actor's animation state (`contraption::setActorVisual`, channel "contraption.visual").
+// `forEachBlock` gives every known block of the player's dimension with its world transform at
+// this frame's partial tick, so drawing follows the contraption exactly as the display entities do:
 //
 //     lv::client::contraption::forEachBlock("levitate:mechanical_harvester", partialTicks,
 //         [&](auto const& b) { drawBlade(b.center, b.axis, b.angle, b.visual.value("speed", 0.f)); });
