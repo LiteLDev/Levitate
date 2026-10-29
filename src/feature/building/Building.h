@@ -1,6 +1,6 @@
 #pragma once
 
-// Building blocks (U10, docs/SPEC.md §2.5 / §3.6.1): casings, connected glass, windows, panes,
+// Building blocks (U10, docs/SPEC.md §2.5 / §3.6.10): casings, connected glass, windows, panes,
 // bars, copper shingles / tiles, scaffolding, ladders, sliding doors, trapdoors, girders,
 // brackets, table cloths, placards and copycats.
 //

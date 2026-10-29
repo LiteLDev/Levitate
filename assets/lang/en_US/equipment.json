@@ -29,8 +29,8 @@
   "lv.equipment.toolbox.put_held": "Put the held item in",
   "lv.equipment.toolbox.none": "No toolbox in range",
   "lv.equipment.toolbox.select_box": "Select a Toolbox",
-  "create.backtank.low": "⚠ Backtank pressure low",
-  "create.backtank.depleted": "⚠ Backtank pressure depleted",
+  "create.backtank.low": "Backtank pressure low",
+  "create.backtank.depleted": "Backtank pressure depleted",
   "create.potato_cannon.ammo.attack_damage": "{0} Attack Damage",
   "create.potato_cannon.ammo.reload_ticks": "{0} Reload Ticks",
   "create.potato_cannon.ammo.knockback": "{0} Knockback",
@@ -78,7 +78,6 @@
   "create.generic.length": "Length",
   "create.generic.radius": "Radius",
   "lv.equipment.worldshaper.param": "Parameter {}",
-  "lv.equipment.confirm": "Confirm",
   "create.linked_controller.bind_mode": "Bind mode active",
   "create.linked_controller.key_bound": "Frequency bound to {0}",
   "create.linked_controller.press_keybind": "Press {0}, {1}, {2}, {3}, {4} or {5}, to bind this frequency to the respective key",
@@ -90,7 +89,6 @@
   "lv.equipment.controller.key.right": "D",
   "lv.equipment.controller.key.jump": "Space",
   "lv.equipment.controller.key.sneak": "Shift",
-  "lv.equipment.controller.empty": "(empty)",
   "lv.equipment.controller.active": "Linked controller active (Esc or right-click to stop)",
   "lv.equipment.controller.no_frequency": "This link has no frequency to bind"
 }

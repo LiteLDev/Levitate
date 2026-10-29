@@ -1,4 +1,4 @@
-// Packager and re-packager (SPEC §2.21, §3.6.1): Create 6.0.10's PackagerBlock(Entity) and
+// Packager and re-packager (SPEC §2.21, §3.6.25): Create 6.0.10's PackagerBlock(Entity) and
 // RepackagerBlockEntity. The packager boxes the contents of the inventory behind it on a
 // redstone pulse (or a stock network request), unpacks packages put into it into that inventory
 // and holds one finished package for a frogport, funnel or player to take. The re-packager

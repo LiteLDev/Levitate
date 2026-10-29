@@ -1,0 +1,5 @@
+{
+  "lv.itemrender.cleared": "Display item test pattern removed",
+  "lv.itemrender.demo": "Display item test pattern at {} {} {}",
+  "lv.itemrender.no_permission": "You need operator permission."
+}

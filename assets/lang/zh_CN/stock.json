@@ -146,8 +146,6 @@
   "lv.stock.screen.click_add": "点击：+1，Shift：+一组，右键：-1",
   "lv.stock.screen.lock": "锁定",
   "lv.stock.screen.hide": "隐藏 / 显示此分类",
-  "lv.stock.screen.category_up": "上移",
-  "lv.stock.screen.category_down": "下移",
   "create.display_source.gauge_status": "工厂仪表状态",
   "lv.stock.screen.rename": "重命名",
   "lv.stock.screen.requester": "红石请求器",

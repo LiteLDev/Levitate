@@ -1,9 +1,9 @@
 #pragma once
 
-// Fluid registry of the fluids unit (U19, SPEC §2.14 / §3.6.19), contract style: the fluids Create
-// adds (honey, chocolate, builder's tea, potion fluids) and how items hold them. Other units may
-// use these functions through this header once U19 is merged (they work on fluid ids only, as the
-// U3 fluid capability does); until then they read the same ids from `core/fluids/Fluids.h`.
+// How items hold fluids (U19, SPEC §2.14 / §3.6.19): filling and emptying items. The fluids
+// themselves (honey, chocolate, builder's tea, potion fluids, their buckets / bottles, names,
+// world blocks) are in the one fluid registry, `feature/common/FluidRegistry.h`; U19 registers
+// Create's fluids there.
 //
 // Fluid ids: "minecraft:water", "minecraft:lava", "minecraft:milk", "levitate:honey",
 // "levitate:chocolate", "levitate:tea", potion fluids "levitate:potion/<bottle>/<potion>"
@@ -49,13 +49,5 @@ struct Emptied {
 /// Fills one of `stack` with `available` (which must hold at least `requiredAmount`); returns the
 /// filled item (empty on failure).
 [[nodiscard]] ItemStack fillItem(ItemStack const& stack, FluidStack const& available, bool bySpout);
-
-/// The bucket item of a fluid ("" when it has none).
-[[nodiscard]] std::string bucketOf(std::string_view fluid);
-/// Fluid ids Create can place in the world as a block (water, lava, honey, chocolate).
-[[nodiscard]] bool hasBlockState(std::string_view fluid);
-
-/// Display name of a fluid in the server's default locale ("Honey", "Potion of Swiftness").
-[[nodiscard]] std::string fluidName(std::string_view fluid);
 
 } // namespace lv::feature::fluids

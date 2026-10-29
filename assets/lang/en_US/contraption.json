@@ -6,7 +6,7 @@
   "create.super_glue.too_far": "Selected area is too big",
   "create.super_glue.cannot_reach": "Selected blocks must be connected",
   "create.super_glue.click_to_confirm": "Click again to confirm",
-  "create.super_glue.click_to_discard": "Sneak-Click to discard selection",
+  "create.super_glue.click_to_discard": "Sneak-click to discard selection",
   "create.super_glue.abort": "Selection discarded",
   "create.super_glue.not_enough": "Not enough glue in inventory",
   "create.super_glue.success": "Applying Glue...",

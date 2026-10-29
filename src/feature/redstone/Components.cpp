@@ -312,9 +312,9 @@ void registerValueBoxes() {
             b.maxValue          = cr::kDelayBoardMax;
             b.milestoneInterval = cr::kDelayBoardMilestone;
             b.rows              = {
-                tr("lv.redstone.unit.ticks", "Ticks"),
-                tr("lv.redstone.unit.seconds", "Seconds"),
-                tr("lv.redstone.unit.minutes", "Minutes"),
+                tr("create.generic.unit.ticks", "Ticks"),
+                tr("create.generic.unit.seconds", "Seconds"),
+                tr("create.generic.unit.minutes", "Minutes"),
             };
             return b;
         };
@@ -374,7 +374,7 @@ bool use(Click const& c, Block const& block, Kind kind) {
         // two hit areas overlap slightly in the middle), second slot first
         int  facing = state(block, sFacing, kUp);
         bool used   = false;
-        auto name   = empty ? trFor(c.player, "lv.redstone.frequency_empty", "(empty)") : common::items::displayName(c.held);
+        auto name   = empty ? trFor(c.player, "lv.common.filter.empty", "(empty)") : common::items::displayName(c.held);
         for (bool first : {false, true}) {
             if (!core::common::testBoxHit(c.hit, frequencySlotCentre(facing, first), kFrequencySlotScale)) continue;
             setFrequency(c.pos, first, c.held);

@@ -2,7 +2,7 @@
 
 // Rotating contraptions (U21), pure rules: bearing angles and disassembly, windmill speed, clock
 // hands, cart assembler actions, controller rails, cart orientation and the sail placement
-// helper. Numbers and formulas follow Create 6.0.10 (see docs/SPEC.md §3.6.1).
+// helper. Numbers and formulas follow Create 6.0.10 (see docs/SPEC.md §3.6.21).
 
 #include <optional>
 #include <vector>

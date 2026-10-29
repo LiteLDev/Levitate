@@ -14,14 +14,6 @@
   "create.gui.threshold_switch.range_max": "(max. {0})",
   "create.gui.threshold_switch.not_attached": "Not attached to a block",
   "create.gui.threshold_switch.incompatible": "Incompatible block",
-  "lv.redstone.unit.ticks": "Ticks",
-  "lv.redstone.unit.seconds": "Seconds",
-  "lv.redstone.unit.minutes": "Minutes",
-  "lv.redstone.threshold.items": "Items",
-  "lv.redstone.threshold.stacks": "Stacks",
-  "lv.redstone.threshold.buckets": "Buckets",
-  "lv.redstone.threshold.item_measure": "Item Measure",
-  "lv.redstone.frequency_empty": "(empty)",
   "lv.redstone.transmitter": "Transmitter",
   "lv.redstone.receiver": "Receiver"
 }

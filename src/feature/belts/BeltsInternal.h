@@ -57,7 +57,8 @@ struct BeltsConfig {
     int maxBeltLength = 20;
     /// Max distance in blocks a weighted ejector can throw (CKinetics.maxEjectorDistance).
     int maxEjectorDistance = 32;
-    /// Show items on belts / depots / in flight as item entities (the vanilla-visible display).
+    /// Show items on belts / depots / in flight as item entities (the vanilla-visible display;
+    /// players with the client mod get display items drawn by the mod instead).
     bool displayItems = true;
 };
 BeltsConfig const& config();
@@ -70,7 +71,9 @@ struct StackData {
     int          processingTime = -1;
     std::string  processedBy;
     Json         extra;
-    std::int64_t display = 0; ///< display item entity (unique id), 0 none
+    std::int64_t  display = 0;  ///< display item entity (unique id), 0 none
+    GlobalPos     shownOwner;   ///< owner of the client mod's display item (itemrender)
+    std::uint64_t shownKey = 0; ///< its slot, 0 none
 };
 
 struct Belt {

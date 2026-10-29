@@ -9,15 +9,15 @@
       "states": {
         "levitate:facing": [
           0,
+          1,
           2,
           3,
-          4,
-          5
+          4
         ],
         "levitate:shape": [
-          2,
           0,
           1,
+          2,
           3
         ]
       }
@@ -95,7 +95,7 @@
         }
       },
       {
-        "condition": "q.block_state('levitate:shape') == 0",
+        "condition": "q.block_state('levitate:shape') == 2",
         "components": {
           "minecraft:material_instances": {
             "*": {
@@ -160,7 +160,7 @@
         }
       },
       {
-        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') != 3",
+        "condition": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:shape') != 3",
         "components": {
           "minecraft:geometry": {
             "identifier": "geometry.levitate.chute_diagonal"
@@ -175,7 +175,7 @@
         }
       },
       {
-        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') != 3",
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') != 3",
         "components": {
           "minecraft:geometry": {
             "identifier": "geometry.levitate.chute_diagonal"
@@ -190,7 +190,7 @@
         }
       },
       {
-        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') != 3",
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') != 3",
         "components": {
           "minecraft:geometry": {
             "identifier": "geometry.levitate.chute_diagonal"
@@ -205,7 +205,7 @@
         }
       },
       {
-        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') != 3",
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') != 3",
         "components": {
           "minecraft:geometry": {
             "identifier": "geometry.levitate.chute_diagonal"

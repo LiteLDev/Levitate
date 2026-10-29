@@ -1,6 +1,6 @@
 #pragma once
 
-// Fluid tank multiblocks (U18, SPEC §3.6.1): Create 6.0.10's ConnectivityHandler for vertical
+// Fluid tank multiblocks (U18, SPEC §3.6.18): Create 6.0.10's ConnectivityHandler for vertical
 // tanks (FluidTankBlockEntity), independent of the game.
 //
 // Each tank block is a *part*; a structure is a square base of `width` (1..maxWidth) by

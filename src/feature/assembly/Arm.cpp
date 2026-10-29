@@ -333,7 +333,8 @@ void syncState(GlobalPos const& pos, Runtime& r, BlockSource& region) {
          {"to", angles(to)},
          {"target", has},
          {"ceiling", ceiling},
-         {"held", items::isEmpty(r.held) ? "" : items::idOf(r.held)}}
+         {"held", items::isEmpty(r.held) ? "" : items::idOf(r.held)},
+         {"heldItem", items::isEmpty(r.held) ? Json() : items::toJson(r.held)}}
     );
 }
 
@@ -427,7 +428,8 @@ void collectItem(GlobalPos const& pos, Runtime& r, BlockSource& region) {
             syncState(pos, r, region);
             if (!items::sameItem(r.held, prev))
                 detail::playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.pop", .125f, .5f + detail::currentTick() % 4 * .0625f);
-            log().info("arm at {} took {} x{}", pos.key(), items::idOf(r.held), items::countOf(r.held));
+            if (int more = 0; detail::logAction("arm.take@" + pos.key() + "#" + items::idOf(r.held), more))
+                log().info("arm at {} took {} x{}{}", pos.key(), items::idOf(r.held), items::countOf(r.held), detail::similar(more));
             return;
         }
     }
@@ -444,7 +446,8 @@ void depositItem(GlobalPos const& pos, Runtime& r, BlockSource& region) {
         auto before = items::countOf(r.held);
         auto id     = items::idOf(r.held);
         r.held      = insertInto(region, wp, *typeOf(region, wp), r.held, false);
-        if (items::countOf(r.held) != before) log().info("arm at {} deposited {} x{}", pos.key(), id, before - items::countOf(r.held));
+        if (int more = 0; items::countOf(r.held) != before && detail::logAction("arm.deposit@" + pos.key() + "#" + id, more))
+            log().info("arm at {} deposited {} x{}{}", pos.key(), id, before - items::countOf(r.held), detail::similar(more));
     }
     r.phase    = items::isEmpty(r.held) ? ArmPhase::SearchInputs : ArmPhase::SearchOutputs;
     r.progress = 0;
@@ -519,7 +522,7 @@ void registerValueBox() {
     common::valuebox::BoxSpec box;
     box.id            = "selection_mode";
     box.label         = "create.logistics.when_multiple_outputs_available";
-    box.labelFallback = "When Multiple Outputs Available";
+    box.labelFallback = "Distribution Method";
     box.scale         = 0.3;
     box.board         = [](Block const&) { return core::common::optionBoard(3, ""); };
     box.centre        = [](Block const& block, int face) -> std::optional<core::common::Vec> {
@@ -638,7 +641,7 @@ void onPlaced(BlockSource& region, BlockPos const& pos, Player* placer, Face cli
             int in  = static_cast<int>(listOf(r, true).size());
             int out = static_cast<int>(listOf(r, false).size());
             if (removed > 0)
-                detail::actionBar(*placer, "§c" + trFor(*placer, "create.mechanical_arm.points_outside_range", "{0} selected Interaction Point(s) removed due to Range Limitations.", removed));
+                detail::actionBar(*placer, "§c" + trFor(*placer, "create.mechanical_arm.points_outside_range", "{0} selected interaction point(s) removed due to range limitations.", removed));
             else if (in + out > 0)
                 detail::actionBar(*placer, trFor(*placer, "create.mechanical_arm.summary", "Mechanical Arm has {0} input(s) and {1} output(s).", in, out));
         }

@@ -10,6 +10,7 @@
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/legacy/ActorRuntimeID.h"
 #include "mc/network/MinecraftPacketIds.h"
 #include "mc/network/MinecraftPackets.h"
 #include "mc/network/packet/PlaySoundPacket.h"
@@ -32,6 +33,7 @@
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -511,27 +513,48 @@ Actor* fetchActor(std::int64_t id) {
 }
 } // namespace
 
-void removeDisplay(StackData& data) {
+namespace {
+/// The client mod's display item of a stack (Create's belt / depot item look): lying, half size,
+/// a pile for bigger stacks, turned by a fixed angle per stack; it hides the fallback entity.
+void publishShown(GlobalPos const& owner, StackData& data, cb::Vec3d const& at, std::int64_t hideActor) {
+    static std::uint64_t nextKey = 0;
+    if (!data.shownKey) data.shownKey = ++nextKey;
+    else if (data.shownOwner != owner) itemrender::remove(data.shownOwner, static_cast<std::int64_t>(data.shownKey));
+    data.shownOwner = owner;
+    itemrender::DisplayItem d;
+    d.stack     = data.stack;
+    d.at        = {at.x, at.y, at.z};
+    d.at.yaw    = static_cast<float>((data.shownKey * 137) % 360);
+    d.at.scale  = .5f;
+    d.style     = itemrender::Style::Lying;
+    d.pile      = true;
+    d.lerpTicks = 1;
+    d.hideActor = hideActor;
+    itemrender::set(owner, static_cast<std::int64_t>(data.shownKey), d);
+}
+
+void removeEntity(StackData& data) {
     if (!data.display) return;
     if (auto* a = fetchActor(data.display)) a->remove();
     state().displays.erase(data.display);
     data.display = 0;
 }
 
-void syncDisplay(GlobalPos const& dimRef, StackData& data, cb::Vec3d const& at) {
-    if (!config().displayItems || citems::isEmpty(data.stack)) {
-        removeDisplay(data);
-        return;
+/// The fallback item entity (vanilla players); returns its runtime id (0 when there is none).
+std::int64_t syncEntity(GlobalPos const& dimRef, StackData& data, cb::Vec3d const& at) {
+    if (!config().displayItems) {
+        removeEntity(data);
+        return 0;
     }
     auto* actor = fetchActor(data.display);
     if (actor && actor->getEntityTypeId() == ActorType::ItemEntity) {
         auto const& shown = static_cast<ItemActor*>(actor)->mItem.get();
         if (!citems::sameItemSameData(shown, data.stack) || citems::countOf(shown) != citems::countOf(data.stack)) {
-            removeDisplay(data);
+            removeEntity(data);
             actor = nullptr;
         }
     } else if (actor) {
-        removeDisplay(data);
+        removeEntity(data);
         actor = nullptr;
     } else if (data.display) {
         state().displays.erase(data.display);
@@ -542,11 +565,11 @@ void syncDisplay(GlobalPos const& dimRef, StackData& data, cb::Vec3d const& at) 
     if (!actor) {
         auto  level  = ll::service::getLevel();
         auto* region = regionOf(dimRef.dim);
-        if (!level || !region) return;
+        if (!level || !region) return 0;
         BlockPos bp{int(std::floor(at.x)), int(std::floor(at.y)), int(std::floor(at.z))};
-        if (!region->hasChunksAt(bp, 0, false)) return;
+        if (!region->hasChunksAt(bp, 0, false)) return 0;
         auto* a = level->getSpawner().spawnItem(*region, data.stack, nullptr, target, 0);
-        if (!a) return;
+        if (!a) return 0;
         a->addTag(kDisplayTag);
         auto* item          = static_cast<ItemActor*>(a);
         item->mPickupDelay  = 0x7fff;
@@ -554,12 +577,30 @@ void syncDisplay(GlobalPos const& dimRef, StackData& data, cb::Vec3d const& at) 
         a->mBuiltInComponents->mStateVectorComponent->mPosDelta = Vec3{0, 0, 0};
         data.display = a->getOrCreateUniqueID().rawID;
         state().displays.insert(data.display);
-        return;
+        return static_cast<std::int64_t>(a->getRuntimeID().rawID);
     }
     Vec3 const& cur = actor->getPosition();
     float       dx = cur.x - target.x, dy = cur.y - target.y, dz = cur.z - target.z;
     actor->mBuiltInComponents->mStateVectorComponent->mPosDelta = Vec3{0, 0, 0};
     if (dx * dx + dy * dy + dz * dz > 1e-5f) actor->teleportTo(target, false, 0, 0, false);
+    return static_cast<std::int64_t>(actor->getRuntimeID().rawID);
+}
+} // namespace
+
+void removeDisplay(StackData& data) {
+    if (data.shownKey) {
+        itemrender::remove(data.shownOwner, static_cast<std::int64_t>(data.shownKey));
+        data.shownKey = 0;
+    }
+    removeEntity(data);
+}
+
+void syncDisplay(GlobalPos const& dimRef, StackData& data, cb::Vec3d const& at) {
+    if (citems::isEmpty(data.stack)) {
+        removeDisplay(data);
+        return;
+    }
+    publishShown(dimRef, data, at, syncEntity(dimRef, data, at));
 }
 
 TransportedItem toApi(cb::Item const& item, StackData const& data) {

@@ -1,5 +1,5 @@
 {
-  "create.tooltip.deployer.header": "Deployer Info",
+  "create.tooltip.deployer.header": "Deployer Information",
   "create.tooltip.deployer.using": "Mode: Use",
   "create.tooltip.deployer.punching": "Mode: Attack",
   "create.tooltip.deployer.contains": "Item: {0} x{1}",
@@ -7,11 +7,11 @@
   "create.mechanical_arm.extract_from": "Take items from {0}",
   "create.mechanical_arm.deposit_to": "Deposit items to {0}",
   "create.mechanical_arm.summary": "Mechanical Arm has {0} input(s) and {1} output(s).",
-  "create.mechanical_arm.points_outside_range": "{0} selected Interaction Point(s) removed due to Range Limitations.",
+  "create.mechanical_arm.points_outside_range": "{0} selected interaction point(s) removed due to range limitations.",
   "create.mechanical_arm.selection_mode.round_robin": "Round Robin",
   "create.mechanical_arm.selection_mode.forced_round_robin": "Forced Round Robin",
   "create.mechanical_arm.selection_mode.prefer_first": "Prefer First Target",
-  "create.logistics.when_multiple_outputs_available": "When Multiple Outputs Available",
+  "create.logistics.when_multiple_outputs_available": "Distribution Method",
 
   "create.recipe.sequenced_assembly": "Recipe Sequence",
   "create.recipe.assembly.next": "Next: {0}",
@@ -22,12 +22,6 @@
   "create.recipe.assembly.deploying_item": "Deploy {0}",
   "create.recipe.assembly.cutting": "Cut with Saw",
   "create.recipe.assembly.repeat": "Repeat Sequence {0} Times",
-  "create.recipe.assembly.junk": "Random Salvage",
+  "create.recipe.assembly.junk": "Random salvage"
 
-  "lv.assembly.fluid.water": "Water",
-  "lv.assembly.fluid.lava": "Lava",
-  "lv.assembly.fluid.milk": "Milk",
-  "lv.assembly.fluid.honey": "Honey",
-  "lv.assembly.fluid.chocolate": "Chocolate",
-  "lv.assembly.fluid.tea": "Builder's Tea"
 }

@@ -20,6 +20,7 @@
 #include "feature/common/Filter.h"
 #include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "mod/I18n.h"
@@ -265,6 +266,38 @@ void set(GlobalPos const& pos, ItemStack const& filter, std::string const& slotI
     if (!d["filter"].is_object()) d["filter"] = Json::object();
     if (items::isEmpty(filter)) d["filter"].erase(slotId);
     else d["filter"][slotId] = items::toJson(items::withCount(filter, 1));
+    itemrender::refresh(pos); // the client mod draws the new filter item
+}
+
+/// Display items of a block's filter slots for the client mod (Create's FilteringRenderer): the
+/// filter item on every face its slot is on, facing out, at a quarter block (half a value box).
+void displayItems(GlobalPos const& pos, Block const& block, std::vector<std::pair<std::int64_t, itemrender::DisplayItem>>& out) {
+    auto it = registry().find(block.getTypeName());
+    if (it == registry().end()) return;
+    for (auto const& spec : it->second) {
+        if (!spec.centre) continue;
+        ItemStack stack = get(pos, spec.id);
+        if (items::isEmpty(stack)) continue;
+        auto slotBase = static_cast<std::int64_t>(std::hash<std::string>{}(spec.id) & 0xffffff) * 8;
+        for (int face = 0; face < 6; ++face) {
+            auto c = spec.centre(block, face);
+            if (!c) continue;
+            static constexpr int kNormal[6][3]{{0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}};
+            // a slot less than a pixel under the face is drawn on the face (the model covers it)
+            std::array<double, 3> at = *c;
+            int                   axis = face < 2 ? 1 : face < 4 ? 2 : 0;
+            double                plane = kNormal[face][axis] > 0 ? 1.0 : 0.0;
+            if (std::abs(at[axis] - plane) < 1 / 16.0) at[axis] = plane;
+            itemrender::DisplayItem d;
+            d.stack    = stack;
+            d.at       = itemrender::facingFace(face);
+            d.at.x     = pos.x + at[0] + kNormal[face][0] * .01;
+            d.at.y     = pos.y + at[1] + kNormal[face][1] * .01;
+            d.at.z     = pos.z + at[2] + kNormal[face][2] * .01;
+            d.at.scale = static_cast<float>(spec.scale) * .5f;
+            out.emplace_back(slotBase + face, std::move(d));
+        }
+    }
 }
 
 bool matches(GlobalPos const& pos, ItemStack const& stack, std::string const& slotId) {
@@ -342,6 +375,11 @@ public:
             auto run = std::exchange(pending(), {});
             for (auto& fn : run) fn();
         }));
+        static bool providerAdded = false;
+        if (!providerAdded) {
+            providerAdded = true;
+            itemrender::registerProvider([](std::string_view id) { return filterslot::hasSlots(std::string(id)); }, filterslot::displayItems);
+        }
         net::on("valuebox.set", [](Player& player, Json const& msg) {
             auto pos = posFrom(msg.value("pos", Json()));
             if (!pos) return;

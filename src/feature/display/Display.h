@@ -1,6 +1,6 @@
 #pragma once
 
-// Display sources and targets (U24, SPEC §2.20 / §3.6 "Display"): the contract other units use to
+// Display sources and targets (U24, SPEC §2.20 / §3.6.24): the contract other units use to
 // feed Display Links (Create's DisplaySource / DisplayTarget registries). Server thread only.
 //
 // A Display Link sits on a *source* block (the block it is attached to) and sends text to a

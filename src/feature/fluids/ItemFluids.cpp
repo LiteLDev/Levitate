@@ -1,18 +1,19 @@
-// Fluid registry (U19): Create's fluids, their containers and the filling / emptying rules.
+// Filling and emptying items (U19), and Create's fluids in the common fluid registry.
 
-#include "feature/fluids/FluidRegistry.h"
+#include "feature/fluids/ItemFluids.h"
 
 #include <random>
 
 #include "core/fluids/Fluids.h"
+#include "feature/common/FluidRegistry.h"
 #include "feature/common/Items.h"
 #include "feature/common/Recipes.h"
-#include "mod/I18n.h"
 #include "mod/Log.h"
 
 namespace lv::feature::fluids {
 
 namespace cf    = core::fluids;
+namespace ft    = common::fluidtypes;
 namespace items = common::items;
 namespace rec   = common::recipes;
 
@@ -22,18 +23,26 @@ constexpr char kBucket[]      = "minecraft:bucket";
 constexpr char kGlassBottle[] = "minecraft:glass_bottle";
 constexpr char kBuildersTea[] = "levitate:builders_tea";
 
-/// Registers the containers of our fluids with the U3 fluid capability (bucket <-> 1000 mB,
-/// bottle <-> 250 mB), so every unit (tanks, basins, pipes) knows them.
-struct ContainerRegistrar {
-    ContainerRegistrar() {
-        namespace cfl = common::fluids;
-        cfl::registerFluidItem("levitate:honey_bucket", {std::string(cf::kHoney), cf::kBucket}, kBucket);
-        cfl::registerFluidItem("levitate:chocolate_bucket", {std::string(cf::kChocolate), cf::kBucket}, kBucket);
-        cfl::registerFluidItem("minecraft:honey_bottle", {std::string(cf::kHoney), cf::kBottle}, kGlassBottle);
-        cfl::registerFluidItem(kBuildersTea, {std::string(cf::kTea), cf::kBottle}, kGlassBottle);
+/// Create's fluids (AllFluids) in the common registry; their buckets / bottles reach the U3 fluid
+/// capability through it, so every unit (tanks, basins, pipes) knows them.
+struct FluidRegistrar {
+    FluidRegistrar() {
+        ft::registerFluid({.id = std::string(cf::kHoney), .nameKey = cf::fluidNameKey(cf::kHoney), .nameFallback = "Honey",
+                           .sourceBlock = "levitate:honey", .color = ft::colorOf(cf::kHoney), .renderSlot = 3,
+                           .lavaInteraction = "levitate:limestone", .bucketItem = "levitate:honey_bucket",
+                           .bottleItem = "minecraft:honey_bottle"});
+        ft::registerFluid({.id = std::string(cf::kChocolate), .nameKey = cf::fluidNameKey(cf::kChocolate), .nameFallback = "Chocolate",
+                           .sourceBlock = "levitate:chocolate", .color = ft::colorOf(cf::kChocolate), .renderSlot = 4,
+                           .lavaInteraction = "levitate:scoria", .bucketItem = "levitate:chocolate_bucket"});
+        ft::registerFluid({.id = std::string(cf::kTea), .nameKey = cf::fluidNameKey(cf::kTea), .nameFallback = "Builder's Tea",
+                           .color = ft::colorOf(cf::kTea), .renderSlot = 7, .bottleItem = kBuildersTea});
+        // every potion id ("potion:<name>", "levitate:potion/<bottle>/<name>") resolves to this
+        // entry; a potion's own tint is cf::fluidColor(id)
+        ft::registerFluid({.id = "potion:", .nameKey = "fluid.create.potion", .nameFallback = "Potion", .color = 0xFF7E3FB0,
+                           .renderSlot = 6});
     }
 };
-ContainerRegistrar const gContainers;
+FluidRegistrar const gFluids;
 
 ItemStack make(std::string_view id, int aux = 0) {
     auto s = items::make(id, 1, aux);
@@ -143,25 +152,12 @@ bool bottleTakes(std::string_view fluid) { return fluid == cf::kWater || cf::isP
 
 } // namespace
 
-std::string bucketOf(std::string_view fluid) {
-    if (fluid == cf::kWater) return "minecraft:water_bucket";
-    if (fluid == cf::kLava) return "minecraft:lava_bucket";
-    if (fluid == cf::kMilk) return "minecraft:milk_bucket";
-    if (fluid == cf::kHoney) return "levitate:honey_bucket";
-    if (fluid == cf::kChocolate) return "levitate:chocolate_bucket";
-    return {};
-}
-
-bool hasBlockState(std::string_view fluid) {
-    return fluid == cf::kWater || fluid == cf::kLava || fluid == cf::kHoney || fluid == cf::kChocolate;
-}
-
 std::optional<Emptied> emptyItem(ItemStack const& stack) {
     if (items::isEmpty(stack)) return std::nullopt;
     auto id = items::idOf(stack);
     // potions (and water bottles) -> potion fluid + glass bottle
     if (auto f = cf::fluidOfPotionItem(id, stack.getAuxValue()); !f.empty())
-        return Emptied{{f, cf::kBottle}, make(kGlassBottle)};
+        return Emptied{{f, ft::kBottle}, make(kGlassBottle)};
     // emptying recipes
     if (auto const* r = rec::findFirst("emptying", stack); r && !r->fluidResults.empty()) {
         ItemStack rest = items::empty();
@@ -195,8 +191,8 @@ int requiredAmount(ItemStack const& stack, FluidStack const& available, bool byS
         }
         if (auto const* r = fillingRecipe(stack, available)) return r->fluidIngredients.front().amount;
     }
-    if (id == kGlassBottle && bottleTakes(available.fluid)) return cf::kBottle;
-    if (id == kBucket && !bucketOf(available.fluid).empty()) return cf::kBucket;
+    if (id == kGlassBottle && bottleTakes(available.fluid)) return ft::kBottle;
+    if (id == kBucket && !ft::bucketOf(available.fluid).empty()) return ft::kBucket;
     return -1;
 }
 
@@ -218,23 +214,10 @@ ItemStack fillItem(ItemStack const& stack, FluidStack const& available, bool byS
         if (auto b = cf::bottleFor(available.fluid)) return make(b->id, b->aux);
     }
     if (id == kBucket) {
-        auto b = bucketOf(available.fluid);
+        auto b = ft::bucketOf(available.fluid);
         if (!b.empty()) return make(b);
     }
     return items::empty();
-}
-
-std::string fluidName(std::string_view fluid) {
-    auto key = cf::fluidNameKey(fluid);
-    if (auto pf = cf::parsePotionFluid(fluid)) {
-        std::string name = pf->potion;
-        for (auto& c : name)
-            if (c == '_') c = ' ';
-        return tr(key, "Potion") + " (" + name + ")";
-    }
-    std::string fallback(fluid.substr(fluid.find(':') + 1));
-    if (!fallback.empty()) fallback[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(fallback[0])));
-    return tr(key, fallback);
 }
 
 } // namespace lv::feature::fluids

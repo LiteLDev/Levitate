@@ -1,7 +1,7 @@
 #pragma once
 
 // Create's wrench rotation (IWrenchable.getRotatedBlockState) on Levitate's block state
-// conventions (pure C++, unit-tested). See docs/SPEC.md §3.6 (U8).
+// conventions (pure C++, unit-tested). See docs/SPEC.md §3.6.8 (U8).
 //
 // State conventions (integer block states):
 //   levitate:facing / minecraft:facing_direction  0..5 in Create's Direction order

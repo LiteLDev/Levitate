@@ -159,11 +159,11 @@ std::uint32_t fluidColor(std::string_view fluid) {
 }
 
 std::string fluidNameKey(std::string_view fluid) {
-    if (isPotionFluid(fluid)) return "fluid_type.create.potion";
+    if (isPotionFluid(fluid)) return "fluid.create.potion";
     auto colon = fluid.find(':');
     std::string_view ns   = colon == std::string_view::npos ? std::string_view("minecraft") : fluid.substr(0, colon);
     std::string_view path = colon == std::string_view::npos ? fluid : fluid.substr(colon + 1);
-    if (ns == "levitate") return "fluid_type.create." + std::string(path);
+    if (ns == "levitate") return "fluid.create." + std::string(path);
     return "fluid_type." + std::string(ns) + "." + std::string(path);
 }
 

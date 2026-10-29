@@ -1,5 +1,5 @@
 // Item vaults (Create's ItemVaultBlock / ItemVaultBlockEntity / ConnectivityHandler,
-// SPEC §3.6 U12).
+// SPEC §3.6.12).
 //
 // Vault blocks along the same horizontal axis join into multi-block vaults (square base up to
 // 3x3, up to 3x the width long). Each block holds `vaultCapacity` (20) stacks; the structure

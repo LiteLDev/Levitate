@@ -580,7 +580,11 @@ Json renderJson(BasinState const& b) {
             if (!t.empty()) fluidsJ.push_back({t.id, t.amount});
     Json out = Json::array();
     for (auto const& [s, t] : b.visualOut) out.push_back(items::idOf(s));
-    return {{"items", itemsJ}, {"fluids", fluidsJ}, {"spouting", out}};
+    Json stacks = Json::array(); // full stacks for the client mod's item renderer (U33)
+    for (auto const* arr : {&b.in, &b.out})
+        for (auto const& s : *arr)
+            if (!items::isEmpty(s)) stacks.push_back(items::toJson(s));
+    return {{"items", itemsJ}, {"fluids", fluidsJ}, {"spouting", out}, {"stacks", stacks}};
 }
 
 // ---- capabilities ---------------------------------------------------------------------------------------------

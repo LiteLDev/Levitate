@@ -368,14 +368,14 @@ public:
         auto size       = mData.value("size", Json::array({0, 0, 0}));
         add<Label>(Rect{8, 42, 184, 9}, ctr("create.schematicAndQuill.dimensions", "Schematic Size: {0}x{1}x{2}", size[0].get<int>(), size[1].get<int>(), size[2].get<int>()));
         auto& ok = add<IconButton>(Rect{134, 54, 18, 18}, "v", [this] { save(false); });
-        ok.tooltip = {ctr("lv.schematics.quill.save", "Save")};
+        ok.tooltip = {ctr("create.action.saveToFile", "Save")};
         auto& up = add<IconButton>(Rect{154, 54, 18, 18}, "^", [this] { save(true); });
         up.tooltip = {ctr("create.schematicAndQuill.convert", "Save and Upload Immediately")};
         auto& no = add<IconButton>(Rect{174, 54, 18, 18}, "x", [this] {
             mSend({{"op", "abort"}});
             close();
         });
-        no.tooltip   = {ctr("lv.schematics.quill.abort", "Abort")};
+        no.tooltip   = {ctr("create.action.abort", "Abort")};
         no.litColour = color::kButtonOff;
     }
 
@@ -407,7 +407,7 @@ public:
         mMir = &add<ScrollInput>(Rect{8, 72, 120, 16}, ctr("create.schematic.mirror", "Mirror"), 0, 2, mData.value("mirror", 0), [](int) {});
         mMir->options = {ctr("create.schematic.mirror.none", "None"), ctr("create.schematic.mirror.leftRight", "Left-Right"), ctr("create.schematic.mirror.frontBack", "Front-Back")};
         auto& ok = add<IconButton>(Rect{174, 70, 18, 18}, "v", [this] { confirm(); });
-        ok.tooltip = {ctr("lv.schematics.edit.confirm", "Confirm")};
+        ok.tooltip = {ctr("create.action.confirm", "Confirm")};
         for (auto* f : mPos) f->onEnter = [this] { confirm(); };
     }
 

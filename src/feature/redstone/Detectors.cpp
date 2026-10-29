@@ -230,9 +230,9 @@ std::string formatValue(std::string const& type, int value, bool stacks, std::st
         auto const& id = region->getBlock(*target).getTypeName();
         if (auto it = observables().find(id); it != observables().end() && it->second.format) return it->second.format(value);
     }
-    auto unit = type == "item" ? (stacks ? translate("lv.redstone.threshold.stacks", "Stacks", locale)
-                                         : translate("lv.redstone.threshold.items", "Items", locale))
-                               : translate("lv.redstone.threshold.buckets", "Buckets", locale);
+    auto unit = type == "item" ? (stacks ? translate("create.schedule.condition.threshold.stacks", "Stacks", locale)
+                                         : translate("create.schedule.condition.threshold.items", "Items", locale))
+                               : translate("create.schedule.condition.threshold.buckets", "Buckets", locale);
     return std::to_string(value) + " " + std::string(unit);
 }
 
@@ -343,9 +343,9 @@ std::optional<Json> screenData(Player& player, Json const& ctx) {
         {"inStacks",  stacks                                                     },
         {"powered",   state(*block, sPowered) != 0                               },
         {"target",    target.isAir() ? "" : target.getTypeName()                 },
-        {"unitItems", std::string(translate("lv.redstone.threshold.items", "Items", locale))},
-        {"unitStacks", std::string(translate("lv.redstone.threshold.stacks", "Stacks", locale))},
-        {"unitBuckets", std::string(translate("lv.redstone.threshold.buckets", "Buckets", locale))},
+        {"unitItems", std::string(translate("create.schedule.condition.threshold.items", "Items", locale))},
+        {"unitStacks", std::string(translate("create.schedule.condition.threshold.stacks", "Stacks", locale))},
+        {"unitBuckets", std::string(translate("create.schedule.condition.threshold.buckets", "Buckets", locale))},
     };
     if (type == "custom") {
         // labels of custom values, so the client needs no knowledge of the observable
@@ -392,8 +392,8 @@ void screenForm(Player& player, Json const& ctx) {
     if (type == "item") {
         form.appendDropdown(
             "measure",
-            trFor(player, "lv.redstone.threshold.item_measure", "Item Measure"),
-            {trFor(player, "lv.redstone.threshold.items", "Items"), trFor(player, "lv.redstone.threshold.stacks", "Stacks")},
+            trFor(player, "create.schedule.condition.threshold.item_measure", "Item Measure"),
+            {trFor(player, "create.schedule.condition.threshold.items", "Items"), trFor(player, "create.schedule.condition.threshold.stacks", "Stacks")},
             stacks ? 1 : 0
         );
     }
