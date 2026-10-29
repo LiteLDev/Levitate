@@ -22,8 +22,10 @@ Start-Sleep -Seconds 1
 function Show-Indicator([string]$command, [string]$rpm, [string]$shot) {
     $mark = Get-LogMark
     Invoke-Chat $command
-    Start-Sleep -Milliseconds 350
+    Start-Sleep -Milliseconds 250
     Save-Screenshot $shot | Out-Null
+    Start-Sleep -Milliseconds 250
+    Save-Screenshot "$shot-later" | Out-Null
     Wait-LogLine "kinetics: rotation indicators at 3 -59 3 \($rpm RPM\) for 1 players" 20 -Since $mark | Out-Null
     Start-Sleep -Milliseconds 1500
 }

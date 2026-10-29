@@ -10,7 +10,7 @@
     },
     "components": {
       "minecraft:emitter_rate_instant": {
-        "num_particles": "variable.count"
+        "num_particles": 20
       },
       "minecraft:emitter_lifetime_once": {
         "active_time": 0
@@ -38,8 +38,8 @@
       },
       "minecraft:particle_appearance_billboard": {
         "size": [
-          "0.075 * (0.5 + 0.5 * variable.particle_random_2)",
-          "0.075 * (0.5 + 0.5 * variable.particle_random_2)"
+          "0.15 * (0.5 + 0.5 * variable.particle_random_2)",
+          "0.15 * (0.5 + 0.5 * variable.particle_random_2)"
         ],
         "facing_camera_mode": "rotate_xyz",
         "uv": {

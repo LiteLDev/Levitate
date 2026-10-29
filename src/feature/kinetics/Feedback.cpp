@@ -138,7 +138,6 @@ void spawnIndicators(GlobalPos const& pos) {
         if (dx * dx + dy * dy + dz * dz > fb::kIndicatorRange * fb::kIndicatorRange) return true;
         if (!goggles::isWearingGoggles(p)) return true;
         MolangVariableMap map;
-        setVar(map, "count", static_cast<float>(ind->count));
         setVar(map, "life", static_cast<float>(ind->lifeSpan));
         setVar(map, "base", static_cast<float>(base));
         setVar(map, "spd", static_cast<float>(ind->speed));
@@ -389,7 +388,7 @@ LV_REGISTER_SELFTEST("gaps.feedback_ambience", [](Context& ctx) -> ll::coro::Cor
     Listener near{&player, p, Vec3{static_cast<float>(p.x) + .5f, static_cast<float>(p.y) + 2.5f, static_cast<float>(p.z) + .5f}, {}};
     near.block.y += 2;
     GlobalPos farBlock = p;
-    farBlock.x += 16;
+    farBlock.x += 17; // 16 blocks from the cog
     Listener far{&player, farBlock, Vec3{static_cast<float>(farBlock.x), static_cast<float>(farBlock.y), static_cast<float>(farBlock.z)}, {}};
     std::vector<Listener> ls{near, far};
     collectSources(ls);
