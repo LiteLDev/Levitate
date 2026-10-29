@@ -1,0 +1,31 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:spout"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "C",
+      "K"
+    ],
+    "key": {
+      "C": {
+        "item": "levitate:copper_casing"
+      },
+      "K": {
+        "item": "minecraft:dried_kelp"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:copper_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:spout"
+    }
+  }
+}

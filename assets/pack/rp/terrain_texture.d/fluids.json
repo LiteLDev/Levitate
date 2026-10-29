@@ -1,0 +1,29 @@
+{
+  "levitate_spout": {
+    "textures": "textures/blocks/spout"
+  },
+  "levitate_item_drain": {
+    "textures": "textures/blocks/item_drain"
+  },
+  "levitate_hose_pulley": {
+    "textures": "textures/blocks/hose_pulley"
+  },
+  "levitate_portable_fluid_interface_front": {
+    "textures": "textures/blocks/portable_fluid_interface_front"
+  },
+  "levitate_portable_fluid_interface_back": {
+    "textures": "textures/blocks/portable_fluid_interface_back"
+  },
+  "levitate_portable_fluid_interface_side": {
+    "textures": "textures/blocks/portable_fluid_interface_side"
+  },
+  "levitate_honey_still": {
+    "textures": "textures/blocks/honey_still"
+  },
+  "levitate_chocolate_still": {
+    "textures": "textures/blocks/chocolate_still"
+  },
+  "levitate_fluids_test_depot": {
+    "textures": "textures/blocks/portable_fluid_interface_back"
+  }
+}

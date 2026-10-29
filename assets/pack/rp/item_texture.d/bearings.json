@@ -1,0 +1,8 @@
+{
+  "levitate_minecart_coupling": {
+    "textures": "textures/items/minecart_coupling"
+  },
+  "levitate_minecart_contraption": {
+    "textures": "textures/items/minecart_contraption"
+  }
+}
