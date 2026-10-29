@@ -1,0 +1,35 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:mechanical_roller"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "A",
+      "C",
+      "I"
+    ],
+    "key": {
+      "A": {
+        "item": "levitate:electron_tube"
+      },
+      "C": {
+        "item": "levitate:andesite_casing"
+      },
+      "I": {
+        "item": "levitate:crushing_wheel"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_casing"
+      }
+    ],
+    "result": {
+      "item": "levitate:mechanical_roller"
+    }
+  }
+}
