@@ -16,6 +16,7 @@
 #include "nlohmann/json.hpp"
 
 #include "core/GlobalPos.h"
+#include "core/equipment/Shaper.h"
 
 class Actor;
 class Block;
@@ -186,6 +187,12 @@ void installWand();
 // ---- worldshaper (Worldshaper.cpp) -----------------------------------------------------------
 bool shaperUse(Player& player, ItemStack& shaper);
 bool shaperSelect(Player& player, ItemStack& shaper, GlobalPos const& pos);
+/// Applies the worldshaper settings at a block face (Create's WorldshaperItem.activate); returns the changed blocks.
+int shapeAt(Player& player, core::equipment::ShaperSettings const& st, GlobalPos const& target, int face);
+/// The material block of the settings (nullptr: none).
+[[nodiscard]] Block const* shaperMaterial(core::equipment::ShaperSettings const& st);
+/// Serialises a block for the settings' material.
+[[nodiscard]] std::string shaperMaterialOf(Block const& block);
 void tickShaper();
 void installShaper();
 

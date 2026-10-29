@@ -1,0 +1,15 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_smithing_transform": {
+    "description": {
+      "identifier": "levitate:netherite_diving_boots_from_netherite"
+    },
+    "tags": [
+      "smithing_table"
+    ],
+    "template": "minecraft:netherite_upgrade_smithing_template",
+    "base": "minecraft:netherite_boots",
+    "addition": "levitate:copper_diving_boots",
+    "result": "levitate:netherite_diving_boots"
+  }
+}

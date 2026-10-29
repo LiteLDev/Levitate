@@ -1,0 +1,27 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:pink_toolbox_dyeing"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "tag": "levitate:toolbox"
+      },
+      {
+        "item": "minecraft:pink_dye"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:pink_dye"
+      }
+    ],
+    "result": {
+      "item": "levitate:pink_toolbox"
+    }
+  }
+}

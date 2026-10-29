@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:linked_controller"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "SSS",
+      " P ",
+      "SSS"
+    ],
+    "key": {
+      "S": {
+        "item": "minecraft:wooden_button"
+      },
+      "P": {
+        "item": "levitate:redstone_link"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:wooden_button"
+      }
+    ],
+    "result": {
+      "item": "levitate:linked_controller",
+      "count": 1
+    }
+  }
+}

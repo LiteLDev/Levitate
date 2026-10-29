@@ -1,0 +1,59 @@
+{
+  "levitate:white_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:orange_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:magenta_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:light_blue_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:yellow_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:lime_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:pink_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:gray_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:light_gray_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:cyan_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:purple_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:blue_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:brown_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:green_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:red_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:black_toolbox": {
+    "sound": "wood"
+  },
+  "levitate:copper_backtank": {
+    "sound": "copper"
+  },
+  "levitate:netherite_backtank": {
+    "sound": "metal"
+  },
+  "levitate:lectern_controller": {
+    "sound": "wood"
+  }
+}

@@ -274,7 +274,7 @@ bool shaperSelect(Player& player, ItemStack& shaper, GlobalPos const& pos) {
     }
     int  slot = player.getSelectedItemSlot();
     auto st   = settingsOf(shaper);
-    st.material = b->mSerializationId->toSnbt(SnbtFormat::Minimize, 0);
+    st.material = shaperMaterialOf(*b);
     writeSettings(player, slot, st);
     shaper = player.getSelectedItem();
     auto p = player.getPosition();
@@ -305,9 +305,15 @@ bool shaperUse(Player& player, ItemStack& shaper) {
     }
     auto hit = player.traceRay(128.0f, false, true);
     if (hit.mType != HitResultType::Tile) return true;
-    int      dim    = static_cast<int>(player.getDimensionId());
-    int      face   = hit.mFacing;
-    ce::IPos target{hit.mBlock.x, hit.mBlock.y, hit.mBlock.z};
+    GlobalPos target{static_cast<int>(player.getDimensionId()), hit.mBlock.x, hit.mBlock.y, hit.mBlock.z};
+    shapeAt(player, st, target, hit.mFacing);
+    return true;
+}
+
+int shapeAt(Player& player, ce::ShaperSettings const& st, GlobalPos const& at, int face) {
+    Block const* material = materialBlock(st);
+    int      dim = at.dim;
+    ce::IPos target{at.x, at.y, at.z};
     std::vector<ce::IPos> positions;
     if (ce::hasPlacement(st.brush)) {
         auto off = ce::placementOffset(st, face);
@@ -360,8 +366,12 @@ bool shaperUse(Player& player, ItemStack& shaper) {
     sound(dim, target.x + .5, target.y + .5, target.z + .5, "mob.shulker.shoot", .3f, 1.5f);
     log().info("equipment: {} used the worldshaper ({} / {}) at {} {} {}: {} blocks", player.getRealName(), ce::brushFallback(st.brush),
                ce::toolFallback(st.tool), target.x, target.y, target.z, changed);
-    return true;
+    return changed;
 }
+
+Block const* shaperMaterial(ce::ShaperSettings const& st) { return materialBlock(st); }
+
+std::string shaperMaterialOf(Block const& block) { return block.mSerializationId->toSnbt(SnbtFormat::Minimize, 0); }
 
 void tickShaper() {}
 
