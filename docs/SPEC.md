@@ -179,7 +179,22 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
 ### 2.10 Assembly (U15)
 
-`deployer`, `mechanical_arm`, sequenced assembly intermediates (`incomplete_*`).
+`deployer`, `mechanical_arm`. Create 6.0.10's sequenced assembly intermediates are
+`incomplete_precision_mechanism` and `unprocessed_obsidian_sheet` (U9, with their recipes) and
+`incomplete_track` (U5); U15 owns the engine that advances them (§3.6.15).
+
+- `deployer`: states `levitate:facing` 0..5 (down, up, north, south, west, east; faces away from the
+  player who places it, towards them when sneaking), `levitate:axis_along_first` 0/1 (Create's
+  AXIS_ALONG_FIRST_COORDINATE: the shaft axis; horizontal deployers take a vertical shaft when one is
+  above / below and no horizontal one at the sides, vertical ones the shaft offered at the sides or
+  the player's horizontal look axis), `levitate:rotor` (client mod: 1 = drawn without its shaft,
+  pole and hand). Breaking drops the held item and the items waiting to be handed out.
+- `mechanical_arm`: states `levitate:ceiling` (placed against the bottom of a block), `levitate:rotor`.
+  Shaft input from below (above on the ceiling). Breaking drops the held item.
+- Recipes (Create 6.0.10): deployer = electron tube / andesite casing / brass hand (column);
+  mechanical arm = `LLI` / `L  ` / `RC ` (L brass sheet, I electron tube, R precision mechanism,
+  C brass casing). Their ingredients are U9 / U10 items: the files wait in
+  `assets/pending_recipes/assembly/`.
 
 ### 2.11 Crafting tools (U16)
 
@@ -1313,6 +1328,102 @@ and each running engine's piston rod, crosshead and connecting rod following Cre
 fluid, amount), engines' value box there too; the engine / whistle / powered shaft index in
 `lv:steam:index`, synced tanks in `lv:steam:tanks`. Boiler water supply samples are not saved
 (they refill within 50 ticks).
+### 3.6.15 Assembly (U15)
+
+Checked against Create 6.0.10 (DeployerBlock(Entity), DeployerHandler, DeployerItemHandler,
+BeltDeployerCallbacks, DeployerMovementBehaviour, ArmBlock(Entity), ArmInteractionPoint(Type)s,
+ArmInteractionPointHandler, ArmAngleTarget, SequencedAssemblyRecipe, ManualApplicationRecipe).
+Pure maths in `src/core/assembly/` (gtest), game side in `src/feature/assembly/`, animation in
+`src/client/assembly/`.
+
+**Deployer.** Kinetic (impact 4 SU/RPM). While turning it runs Create's cycle with a timer that
+drops by `clamp(|speed|·2, 8, 512)` per tick: *waiting* → (start) *expanding* 1000 → activation →
+*retracting* 1000 → *waiting* with a pause of 500. In *waiting* it first hands out excess items
+(nothing happens while it has some: timer 10 ticks' worth), moves a held item the filter rejects
+out of the hand, skips use-mode activations that would do nothing (a block item facing that block,
+a bucket facing its fluid, an item over a belt / depot), and does not start while powered by
+redstone (polled, §8). Activation (Create's DeployerHandler.activate) acts on the block two in
+front through the dimension's deployer player (§8), standing in the hand 1.5 blocks out, looking
+along the facing:
+- an entity in that block first (one at random, contraption blocks excluded): *use* interacts with
+  it (shearing, milking, feeding animals, trading, ...; food is fed to players), *punch* attacks it;
+  the drops of a kill go to the deployer;
+- otherwise *punch* mines the block: each activation adds 16× the player's per-tick destroy
+  progress (tool, enchantments and effects included) and the block breaks at 1, its drops going
+  into the deployer (fire in front is put out instead);
+- otherwise *use* right-clicks the block face facing the deployer with the held item (placing
+  blocks, bone meal, flint and steel, buckets, hoes, axes, opening / using blocks, other units'
+  item and block actions, item application below); when that does nothing the item is used in the
+  air (except ender pearls).
+Everything the player ends up holding besides the main hand stack becomes items to hand out.
+Modes: *use* (default) and *punch*, toggled with the wrench on the front face (action bar shows
+"Mode: Use" / "Mode: Attack"). Right-click on the front face swaps the deployer's item with the
+player's. Filter slot on the two sides that carry neither the hand nor the shaft. Item capability
+(Create's DeployerItemHandler): slots = items to hand out + the hand; insertion goes into the hand
+(if the filter allows, merging up to 64), extraction takes the items to hand out first, then the
+hand unless a set filter asks for it.
+
+*Deploying on items:* a deployer facing down two blocks above a depot / belt / weighted ejector
+(`levitate:depot|belt|weighted_ejector`, reached through their item capability, slot 0) in use mode
+starts when that item has a recipe with the held item and, when the hand is out, replaces one item
+by the outputs (outputs that don't fit drop on top). Recipes in Create's order: sand paper
+(`levitate:sand_paper` / `red_sand_paper`) polishing (`sandpaper_polishing`), the next deploying step
+of a sequenced assembly, `deploying`, `item_application` (keep_held_item honoured). The held item is
+used up (or damaged by 1 if it has durability). Sounds: item pop, item break when the hand empties.
+
+*On contraptions* (Create's DeployerMovementBehaviour, `contraption::registerActor`): every new
+block two blocks ahead (facing turned with the contraption) gets an activation; an empty hand
+takes an item the filter allows from the contraption's storage; excess goes into the storage or
+drops; while breaking a block the contraption stalls and the deployer hits it every 20 ticks. The
+deployer's BlockData travels with it (data carrier `assembly:deployer`; the shaft axis is turned
+with the facing).
+
+**Mechanical arm.** Kinetic (impact 2). Selection (Create's ArmInteractionPointHandler): holding
+the arm item, right-click an interaction point: first "Take items from <block>" (input), again
+"Deposit items to <block>" (output), and so on; left-click removes it; switching away from the arm
+item forgets the selection; selected points show particles (blue input, orange output). Placing the
+arm keeps the points within `mechanicalArmRange` (5: squared block distance < 25) and reports
+"<n> selected Interaction Point(s) removed due to Range Limitations." or "Mechanical Arm has <i>
+input(s) and <o> output(s)." Points are stored relative to the arm (they turn with it on
+contraptions). Interaction point types (Create's registry): basin, belt, blaze burner, chute /
+smart chute, mechanical crafter, crushing wheel controller, deployer, depot / weighted ejector /
+train station, andesite / brass funnel, millstone, mechanical saw facing up — all through their
+item capability — and the vanilla jukebox, composter (in from the top, bone meal from the bottom),
+campfire (cookable food) and respawn anchor (glowstone charges it).
+Behaviour (Create's ArmBlockEntity): progress towards the chased point grows by
+`min(256, |speed|)/1024` per tick; at a point it collects (the amount the outputs can take,
+simulated) or deposits; searching for an input (not while powered) and for an output (every 10
+ticks) follows the value box *When Multiple Outputs Available*: Round Robin (after the last used
+point, forgetting it when nothing is found), Forced Round Robin (only the next one), Prefer First
+Target (always from the first). A jukebox point playing a record makes the arm dance. Item pickup
+sound on collecting.
+
+**Animation (client mod).** Deployers send their phase / timer / reach / hand pose and arms the
+angles they move between (`assembly.deployer`, `assembly.arm`, companions within 96 blocks); the
+client mod draws the pole and hand at Create's hand offset (pointing, holding, punching) and the
+arm's turntable, lower / upper arm and claw from Create's inverse kinematics (segments 18/16 and
+17/16, folding back to rest first, then reaching out), and spins the shaft / cog with the kinetics
+renderer. Vanilla clients see the static models.
+
+**Sequenced assembly** (contract `src/feature/assembly/SequencedAssembly.h`). Recipes
+`assets/recipes/sequenced_assembly/*.json` in Create's format (`ingredient`, `transitional_item`,
+`loops`, `sequence` of deploying / pressing / cutting / filling recipes, weighted `results`; a
+Levitate `tags` object may define tags inline). A machine of another unit asks
+`findStep(kPressing|kCutting|kFilling, stack)` (deploying: `findDeployingStep(stack, held)`,
+filling: `acceptsFluid` / `fluidAmount`) before its own recipes and calls `advance(step, oneItem)`
+per item. The first step accepts the base ingredient or the transitional item, later steps only the
+transitional item carrying that recipe's progress (item data `sequenced_assembly` {recipe, step,
+progress}); after `sequence.size()·loops` steps one result is picked by weight (Create's
+rollResult). The item's lore shows Create's tooltip: "Recipe Sequence", "Progress: s/t",
+"Next: <step>" and the remaining steps ("Deploy <item>", "Process in Press", "Cut with Saw",
+"Spout <fluid>").
+
+**Item application** (Create's ManualApplicationRecipe, `assets/recipes/item_application/`):
+right-clicking a block with the applied item (players and deployers, not sneaking) turns it into
+the result block (further results pop out), plays the copper break sound (pitch 1.45) and uses up
+the item unless creative or `keep_held_item`. Shipped: andesite / copper / brass casing from
+stripped logs and wood, railway casing, bound cardboard; deploying: cogwheel, large cogwheel,
+waxing Create's copper shingles / tiles.
 
 ## 4. Screens
 
@@ -1389,6 +1500,7 @@ true, `psiTimeout` 60.
 `fanParticleDensity` 0.5 (Create's client option).
 `config/steam.json` (U18): `fluidTankCapacity` (8, buckets per tank block) and `fluidTankMaxHeight`
 (32), Create's CFluids keys and defaults.
+`config/assembly.json` (U15): `mechanicalArmRange` 5 (Create's CLogistics key and default).
 
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
@@ -1471,6 +1583,12 @@ matches Create's official Chinese translation wording).
 | Whistle tone as one looping sound with a changing pitch (U18) | Bedrock's server can't hold a looping sound instance on clients | the tone sample (0.6 s) is restarted every 10 ticks at the whistle's pitch, so it sounds continuous; the chiff plays when it starts |
 | Boiler gauges drawn on the tank sides (U18) | Create draws them with its block entity renderer | the goggle lines (`/create steam`, U8's overlay) show the same status |
 | Steam particles of whistles / engines as Create's custom steam jet particle (U18) | no custom particle shipped yet | vanilla's water evaporation particle at the whistle's mouth / the engine's front, for every client |
+| Deployer fake player (U15) | Bedrock has no fake players | one simulated player per dimension ("Deployer", invisible, invulnerable, survival) acts for every deployer: it is moved into the hand for each action and waits above the build limit in between; it shows in the player list |
+| Redstone input of the deployer and the arm (U15) | custom blocks get no neighbour updates | power is polled every tick (same sources as the sticker) |
+| Item held by a deployer drawn in its hand, item held by the arm (U15) | no world-space item renderer in the client mod yet | the hand pose shows whether it holds something; the item is in the goggles / log; vanilla clients see static models |
+| Transitional item progress bar and tooltip (U15) | item bars come only from durability and tooltips are client-side | the tooltip lines are the item's lore (server language); no bar |
+| Deployer kills dropping no experience (U15) | Bedrock has no hook between a kill and its orbs | orbs drop as for a player kill; item drops go into the deployer |
+| Deployer "fist bump" easter egg (U15) | cosmetic advancement only | not reproduced |
 
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
