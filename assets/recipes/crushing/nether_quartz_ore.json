@@ -1,0 +1,27 @@
+{
+  "type": "create:crushing",
+  "ingredients": [
+    {
+      "item": "minecraft:quartz_ore"
+    }
+  ],
+  "processing_time": 350,
+  "results": [
+    {
+      "id": "minecraft:quartz",
+      "count": 2
+    },
+    {
+      "id": "minecraft:quartz",
+      "chance": 0.25
+    },
+    {
+      "id": "create:experience_nugget",
+      "chance": 0.75
+    },
+    {
+      "id": "minecraft:netherrack",
+      "chance": 0.125
+    }
+  ]
+}
