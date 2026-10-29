@@ -50,6 +50,20 @@ namespace items     = common::items;
 namespace screens   = common::screens;
 
 namespace {
+
+/// The first `chars` UTF-8 characters of `s` (never splits a character: a cut one would make the
+/// JSON sent back to the screen invalid).
+std::string utf8Prefix(std::string const& s, std::size_t chars) {
+    std::size_t i = 0, n = 0;
+    while (i < s.size() && n < chars) {
+        auto        c   = static_cast<unsigned char>(s[i]);
+        std::size_t len = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 1;
+        if (i + len > s.size()) break;
+        i += len;
+        ++n;
+    }
+    return s.substr(0, i);
+}
 constexpr char kDbLinks[]  = "lv:display:links";
 constexpr char kDataKey[]  = "display_link";
 constexpr char kItemKey[]  = "display_link";
@@ -515,7 +529,9 @@ void applyAction(Player& player, GlobalPos const& link, Json const& action) {
         if (!d) return;
         auto key = action.value("key", std::string{});
         if (key.empty() || key.starts_with("lv:")) return;
-        d->config[key] = action.value("value", Json());
+        auto value = action.value("value", Json());
+        if (value.is_string()) value = utf8Prefix(value.get<std::string>(), 100); // the native text box's limit
+        d->config[key] = std::move(value);
         write(link, *d);
         log().info("display link at {} option {} set by {}", link.key(), key, player.getRealName());
     } else {

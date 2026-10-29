@@ -459,7 +459,7 @@ LL_TYPE_INSTANCE_HOOK(PackagesUseItemHook, ll::memory::HookPriority::Normal, Gam
             return origin(item, handSlot);
         }
         if (isPackageFilter(item)) {
-            if (!debounced(player, GlobalPos{-2, 0, 0, 0})) openPackageFilterForm(player);
+            if (!debounced(player, GlobalPos{-2, 0, 0, 0})) openPackageFilterScreen(player);
             return true;
         }
     } catch (std::exception const& e) {

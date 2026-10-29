@@ -32,6 +32,20 @@ namespace items   = common::items;
 namespace screens = common::screens;
 
 namespace {
+
+/// The first `chars` UTF-8 characters of `s` (never splits a character: a cut one would make the
+/// JSON sent back to the screen invalid).
+std::string utf8Prefix(std::string const& s, std::size_t chars) {
+    std::size_t i = 0, n = 0;
+    while (i < s.size() && n < chars) {
+        auto        c   = static_cast<unsigned char>(s[i]);
+        std::size_t len = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 1;
+        if (i + len > s.size()) break;
+        i += len;
+        ++n;
+    }
+    return s.substr(0, i);
+}
 constexpr char kRequestScreen[]  = "stock.request";
 constexpr char kCategoryScreen[] = "stock.categories";
 constexpr int  kPaymentSlots     = 27;
@@ -300,7 +314,10 @@ void requestAction(Player& player, Json const& ctx, Json const& action) {
         if (it == list.end()) list.push_back(index);
         else list.erase(it);
     } else if (op == "search") {
-        searches()[uuidOf(player)] = action.value("text", std::string{}).substr(0, 50);
+        searches()[uuidOf(player)] = utf8Prefix(action.value("text", std::string{}), 50);
+    } else if (op == "address") {
+        // the native screen's address box (Create keeps the last used address on the ticker)
+        editData(*ticker)["prevAddress"] = utf8Prefix(action.value("text", std::string{}), 50);
     } else if (op == "search_form") {
         ll::form::CustomForm form(trFor(player, "create.gui.stock_keeper.search_items", "Search Items"));
         form.appendInput("text", trFor(player, "create.gui.stock_keeper.search_items", "Search Items"), "", searches()[uuidOf(player)]);

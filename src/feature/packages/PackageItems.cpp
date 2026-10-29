@@ -11,13 +11,15 @@
 
 #include "core/packages/Address.h"
 #include "feature/common/Items.h"
+#include "feature/common/Screens.h"
 #include "feature/packages/PackagesInternal.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
 
 namespace lv::feature::packages {
 
-namespace items = common::items;
+namespace items   = common::items;
+namespace screens = common::screens;
 
 namespace {
 constexpr char const* kDataKey  = "package";
@@ -267,6 +269,40 @@ void throwPackage(Player& player, int ticksHeld) {
     log().info("packages: {} threw a package (power {:.2f})", player.getRealName(), f);
 }
 
+namespace {
+constexpr char kFilterScreen[] = "packages.package_filter";
+
+/// The first `chars` UTF-8 characters of `s` (never splits a character: a cut one would make the
+/// JSON sent back to the screen invalid).
+std::string utf8Prefix(std::string const& s, std::size_t chars) {
+    std::size_t i = 0, n = 0;
+    while (i < s.size() && n < chars) {
+        auto        c   = static_cast<unsigned char>(s[i]);
+        std::size_t len = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 1;
+        if (i + len > s.size()) break;
+        i += len;
+        ++n;
+    }
+    return s.substr(0, i);
+}
+
+/// Writes the address of the package filter in the player's hand (Create: 50 characters at most).
+void setFilterAddress(Player& p, std::string const& address) {
+    if (!isPackageFilter(p.getSelectedItem())) return;
+    std::string text   = utf8Prefix(address, 50);
+    ItemStack   filter = p.getSelectedItem();
+    if (cp::isBlank(text)) clearAddress(filter);
+    else setAddress(filter, text);
+    p.setSelectedItem(filter);
+    p.sendInventory(false);
+    log().info("packages: package filter of {} set to '{}'", p.getRealName(), text);
+}
+
+bool filterInHand(Player& p, nlohmann::json const& ctx) {
+    return ctx.value("slot", -1) == p.getSelectedItemSlot() && isPackageFilter(p.getSelectedItem());
+}
+} // namespace
+
 void openPackageFilterForm(Player& player) {
     int slot = player.getSelectedItemSlot();
     if (!isPackageFilter(player.getSelectedItem())) return;
@@ -284,15 +320,29 @@ void openPackageFilterForm(Player& player) {
         if (it == result->end()) return;
         auto const* text = std::get_if<std::string>(&it->second);
         if (!text) return;
-        ItemStack filter = p.getSelectedItem();
-        if (cp::isBlank(*text)) clearAddress(filter);
-        else setAddress(filter, *text);
-        p.setSelectedItem(filter);
-        p.sendInventory(false);
-        log().info("packages: package filter of {} set to '{}'", p.getRealName(), *text);
+        setFilterAddress(p, *text);
     });
 }
 
-void installItemScreens() {}
+void openPackageFilterScreen(Player& player) {
+    if (!isPackageFilter(player.getSelectedItem())) return;
+    screens::open(player, kFilterScreen, {{"slot", player.getSelectedItemSlot()}});
+}
+
+void installItemScreens() {
+    // Create's PackageFilterScreen: one address box (native for companions, the form otherwise)
+    screens::registerType({
+        .id   = kFilterScreen,
+        .data = [](Player& p, Json const& ctx) -> std::optional<Json> {
+            if (!filterInHand(p, ctx)) return std::nullopt;
+            return Json{{"address", addressOf(p.getSelectedItem())}};
+        },
+        .action = [](Player& p, Json const& ctx, Json const& action) {
+            if (!filterInHand(p, ctx) || action.value("op", std::string{}) != "address") return;
+            setFilterAddress(p, action.value("text", std::string{}));
+        },
+        .form = [](Player& p, Json const&) { openPackageFilterForm(p); },
+    });
+}
 
 } // namespace lv::feature::packages

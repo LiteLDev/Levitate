@@ -37,6 +37,20 @@ using common::Access;
 
 namespace {
 
+/// The first `chars` UTF-8 characters of `s` (never splits a character: a cut one would make the
+/// JSON sent back to the screen invalid).
+std::string utf8Prefix(std::string const& s, std::size_t chars) {
+    std::size_t i = 0, n = 0;
+    while (i < s.size() && n < chars) {
+        auto        c   = static_cast<unsigned char>(s[i]);
+        std::size_t len = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 1;
+        if (i + len > s.size()) break;
+        i += len;
+        ++n;
+    }
+    return s.substr(0, i);
+}
+
 constexpr char const* kPortScreen = "packages.port";
 
 void setOpen(GlobalPos const& pos, bool open);
@@ -597,7 +611,7 @@ void portAction(Player& player, Json const& ctx, Json const& action) {
     else if (op == "insert") insertFromInventory(player, *pos, action.value("slot", -1));
     else if (op == "accepts") setAccepts(*pos, action.value("value", true), player);
     else if (op == "address") {
-        if (action.contains("text")) setAddressOf(*pos, action.value("text", std::string{}), player);
+        if (action.contains("text")) setAddressOf(*pos, utf8Prefix(action.value("text", std::string{}), 50), player);
         else {
             screens::close(player, kPortScreen);
             addressForm(player, *pos);
