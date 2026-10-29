@@ -8,7 +8,9 @@
 //   = time * headSpeed * 0.6 degrees). The cog is the kinetic renderer's.
 // - Blaze burner: the blaze head looks at the player while idle and faces forward when heating a
 //   basin (Create's BlazeBurnerBlockEntity.tickAnimation), bobbing up and down.
-// - Basin: the fluid surface at Create's height (2/16 + 12/16 * fill, fill eased).
+// - Basin: the fluid surface at Create's height (2/16 + 12/16 * fill, fill eased), and the stacks
+//   inside (Create's BasinRenderer): a ring around the centre, tilted, slowly turning, bobbing on
+//   the fluid, one more copy per 8 items, drawn by the world item renderer.
 //
 // State comes from the server over "basin.machines" (BasinSync.cpp); between messages the client
 // runs the press / mixer cycle itself, as Create's client block entities do. Chunk meshes leave the
@@ -67,8 +69,10 @@
 #include "mc/world/level/block/actor/BlockActorRendererId.h"
 
 #include "client/Client.h"
+#include "client/render/WorldItems.h"
 #include "core/basin/BasinLogic.h"
 #include "core/kinetics/RotorModel.h"
+#include "feature/common/Items.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
@@ -110,6 +114,7 @@ struct Machine {
     bool  angleInit = false;
     // basin
     std::vector<std::pair<std::string, int>> fluids;
+    std::vector<ItemStack>                   items;
 };
 
 struct State {
@@ -234,6 +239,11 @@ void onMachines(Json const& msg) {
             m.fluids.clear();
             for (auto const& f : b->value("fluids", Json::array()))
                 if (f.is_array() && f.size() == 2) m.fluids.emplace_back(f[0].get<std::string>(), f[1].get<int>());
+            m.items.clear();
+            for (auto const& i : b->value("items", Json::array())) {
+                if (!i.is_array() || i.size() != 3 || !i[0].is_string()) continue;
+                if (auto stack = feature::common::items::make(i[0].get<std::string>(), i[1].get<int>(), i[2].get<int>())) m.items.push_back(*stack);
+            }
         }
     }
 }
@@ -287,6 +297,36 @@ std::string heatName(int blaze) {
     if (blaze >= 4) return "seething";
     if (blaze >= 2) return "kindled";
     return "smouldering";
+}
+
+/// The stacks in a basin (Create's BasinRenderer): spread on a ring of 2 px around the centre,
+/// each turned to its place and tilted by 65°, at Create's level under the fluid surface (bobbing)
+/// or on the bottom; the ring turns slowly.
+void drawBasinItems(BaseActorRenderContext& rc, BlockPos const& pos, Machine const& m, float fluidSurface, double time) {
+    if (m.items.empty()) return;
+    float level = std::clamp(fluidSurface - .3f, .125f, .6f);
+    float part  = 360.f / static_cast<float>(m.items.size());
+    float ring  = static_cast<float>(std::fmod(time * .5, 360.0));
+    std::uint32_t seed = static_cast<std::uint32_t>(pos.x * 73856093 ^ pos.y * 19349663 ^ pos.z * 83492791);
+    auto random = [&seed] {
+        seed = seed * 1664525u + 1013904223u;
+        return static_cast<float>(seed >> 8) / static_cast<float>(1u << 24) - .5f;
+    };
+    glm::mat4 base = glm::translate(glm::mat4{1.f}, render::relative(rc, {pos.x + .5, pos.y + .2, pos.z + .5}));
+    base           = glm::rotate(base, glm::radians(ring), glm::vec3{0.f, 1.f, 0.f});
+    for (std::size_t i = 0; i < m.items.size(); ++i) {
+        float     angle = part * static_cast<float>(i);
+        float     bob   = fluidSurface > 0 ? (std::sin(static_cast<float>(time) / 12.f + glm::radians(angle)) + 1.5f) / 32.f : 0.f;
+        glm::mat4 at    = glm::rotate(base, glm::radians(angle), glm::vec3{0.f, 1.f, 0.f});
+        at              = glm::translate(at, glm::vec3{.125f, level + bob, 0.f});
+        at              = glm::rotate(at, glm::radians(35.f), glm::vec3{0.f, 1.f, 0.f});
+        at              = glm::rotate(at, glm::radians(65.f), glm::vec3{1.f, 0.f, 0.f});
+        int copies = 1 + feature::common::items::countOf(m.items[i]) / 8;
+        for (int c = 0; c < copies; ++c) {
+            glm::mat4 copy = c == 0 ? at : glm::translate(at, glm::vec3{random(), random(), random()} * (2 / 16.f));
+            render::drawItem(rc, m.items[i], glm::scale(copy, glm::vec3{.375f}), render::Style::Facing);
+        }
+    }
 }
 
 float shortestAngle(float from, float to) {
@@ -389,12 +429,15 @@ void renderParts(BaseActorRenderContext& rc) {
         } else if (id == kBasin) {
             int total = 0;
             for (auto const& [f, n] : m.fluids) total += n;
-            if (total < 1) continue;
-            float fill = std::clamp(total / 2000.f, 0.f, 1.f);
-            fill       = 1 - (1 - fill) * (1 - fill);
-            float y    = 2.f / 16.f + 12.f / 16.f * fill;
-            d.draw(fluidMesh(d.tess, fluidTexture(m.fluids.back().first)), pos, glm::translate(glm::mat4{1.f}, glm::vec3{0.f, y, 0.f}));
-            ++drawn;
+            float surface = 0;
+            if (total >= 1) {
+                float fill = std::clamp(total / 2000.f, 0.f, 1.f);
+                fill       = 1 - (1 - fill) * (1 - fill);
+                surface    = 2.f / 16.f + 12.f / 16.f * fill;
+                d.draw(fluidMesh(d.tess, fluidTexture(m.fluids.back().first)), pos, glm::translate(glm::mat4{1.f}, glm::vec3{0.f, surface, 0.f}));
+            }
+            drawBasinItems(rc, pos, m, surface, time);
+            if (total >= 1 || !m.items.empty()) ++drawn;
         } else {
             stale.push_back(pos);
         }

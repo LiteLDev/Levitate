@@ -8,6 +8,7 @@
 // sliding towards the next crafter while exporting, the result growing while crafting. The
 // countdown is advanced locally between updates at the crafter's speed, as Create's client does.
 // The saw blade and the drill head turn through the kinetic renderer (their KineticSpec rotor).
+// The items are drawn by the world item renderer (client/render/WorldItems.h).
 
 #include <cmath>
 #include <map>
@@ -25,7 +26,6 @@
 #include "mc/client/gui/screens/ScreenContext.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
-#include "mc/client/renderer/actor/ItemRenderer.h"
 #include "mc/client/renderer/game/LevelRendererCamera.h"
 #include "mc/deps/core/math/Matrix.h"
 #include "mc/deps/core/math/Vec3.h"
@@ -36,6 +36,7 @@
 #include "mc/world/level/Tick.h"
 
 #include "client/Client.h"
+#include "client/render/WorldItems.h"
 #include "core/crafter/Crafter.h"
 #include "feature/common/Items.h"
 #include "feature/net/Net.h"
@@ -107,19 +108,16 @@ void onState(Json const& msg) {
 
 glm::vec3 vec(k::Offset o) { return {float(o.x), float(o.y), float(o.z)}; }
 
-/// Draws one item icon centred at `centre` on the plane spanned by `right` / `up` (facing `normal`).
-void drawItem(BaseActorRenderContext& ctx, ItemRenderer& renderer, ItemStack const& stack, glm::vec3 centre, glm::vec3 right, glm::vec3 up,
-              glm::vec3 normal, float size) {
+/// Draws one item centred at `centre` (camera relative) on the plane spanned by `right` / `up`,
+/// facing `normal` (blocks stand on that plane).
+void drawItem(BaseActorRenderContext& ctx, ItemStack const& stack, glm::vec3 centre, glm::vec3 right, glm::vec3 up, glm::vec3 normal, float size) {
     if (feature::common::items::isEmpty(stack) || size <= 0.01f) return;
-    auto& world = ctx.mScreenContext.camera.worldMatrixStack.get();
-    auto  ref   = world.push(false);
     glm::mat4 basis{1.f};
-    basis[0] = glm::vec4(right, 0.f);
-    basis[1] = glm::vec4(-up, 0.f); // GUI y grows downwards
-    basis[2] = glm::vec4(-normal, 0.f);
-    glm::mat4 m = glm::translate(glm::mat4{1.f}, centre) * basis * glm::scale(glm::mat4{1.f}, glm::vec3{size / 16.f, size / 16.f, size / 16.f});
-    ref.mat->_m.get() = ref.mat->_m.get() * m;
-    renderer.renderGuiItemNew(ctx, stack, 0, -8.f, -8.f, false, 1.f, 1.f, 1.f, 0);
+    basis[0]    = glm::vec4(right, 0.f);
+    basis[1]    = glm::vec4(up, 0.f);
+    basis[2]    = glm::vec4(normal, 0.f);
+    glm::mat4 m = glm::translate(glm::mat4{1.f}, centre) * basis * glm::scale(glm::mat4{1.f}, glm::vec3{size});
+    render::drawItem(ctx, stack, m, render::Style::Facing);
 }
 
 void renderCrafterItems(BaseActorRenderContext& ctx) {
@@ -127,8 +125,7 @@ void renderCrafterItems(BaseActorRenderContext& ctx) {
     if (!ci) return;
     auto* level    = ci->getLevel();
     auto* player   = ci->getLocalPlayer();
-    auto* renderer = ci->getItemRenderer();
-    if (!level || !player || !renderer) return;
+    if (!level || !player) return;
     double now = static_cast<double>(level->getCurrentTick().tickID) + ctx.mFrameAlpha;
     gNow       = now;
     int dim    = static_cast<int>(player->getDimensionId());
@@ -156,8 +153,8 @@ void renderCrafterItems(BaseActorRenderContext& ctx) {
         float countDown = static_cast<float>(c.countDown) - static_cast<float>(cr::countDownSpeed(c.speed)) * elapsed;
 
         if (c.phase == cr::Phase::Idle || c.phase == cr::Phase::Accepting) {
-            drawItem(ctx, *renderer, c.slot, centre, right, up, normal, .5f);
-            for (auto const& g : c.grid) drawItem(ctx, *renderer, g.stack, centre, right, up, normal, .5f);
+            drawItem(ctx, c.slot, centre, right, up, normal, .5f);
+            for (auto const& g : c.grid) drawItem(ctx, g.stack, centre, right, up, normal, .5f);
             continue;
         }
         if (c.phase == cr::Phase::Crafting || c.phase == cr::Phase::Inserting) {
@@ -165,7 +162,7 @@ void renderCrafterItems(BaseActorRenderContext& ctx) {
             float size     = c.phase == cr::Phase::Inserting ? .5f : .25f + .25f * progress;
             for (auto const& g : c.grid) {
                 glm::vec3 at = centre + right * (float(g.x) * .5f) + up * (float(g.y) * .5f);
-                drawItem(ctx, *renderer, g.stack, at, right, up, normal, size);
+                drawItem(ctx, g.stack, at, right, up, normal, size);
             }
             continue;
         }
@@ -178,7 +175,7 @@ void renderCrafterItems(BaseActorRenderContext& ctx) {
         }
         for (auto const& g : c.grid) {
             glm::vec3 at = centre + shift + right * (float(g.x) * .5f) + up * (float(g.y) * .5f);
-            drawItem(ctx, *renderer, g.stack, at, right, up, normal, .4f);
+            drawItem(ctx, g.stack, at, right, up, normal, .4f);
         }
     }
     if (!state().loggedDraw) {
