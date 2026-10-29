@@ -45,10 +45,18 @@ if ($vanilla) {
 }
 Start-Sleep -Milliseconds 1200
 Save-Screenshot 'threshold-screen' | Out-Null
-Close-Screen
+if ($vanilla) {
+    Close-Screen
+} else {
+    # the confirm button closes it (Create's screen)
+    Click 0.652 0.636 -Relative
+    Start-Sleep -Milliseconds 800
+}
 
-# the receiver link: hover shows its frequencies (client mod)
-Invoke-Chat '/tp @s ~ ~ ~ facing ~6 ~-1.5 ~-2'
-Start-Sleep -Seconds 2
+# a receiver link where the switch was (hanging on the chest, under the crosshair): the hover
+# panel shows its mode and frequencies (client mod)
+Invoke-Chat '/setblock ~3 ~1 ~ levitate:redstone_link ["levitate:facing"=4,"levitate:receiver"=1]'
+if (-not $vanilla) { Wait-LogLine 'redstone client: hover panel shown' 15 -Since $mark | Out-Null }
+Start-Sleep -Seconds 1
 Save-Screenshot 'link-hover' | Out-Null
 Assert-NoErrors

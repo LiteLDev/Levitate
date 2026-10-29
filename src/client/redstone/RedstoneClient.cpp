@@ -28,6 +28,7 @@
 #include "core/redstone/Diodes.h"
 #include "feature/common/Items.h"
 #include "feature/net/Net.h"
+#include "mod/Log.h"
 #include "mod/Module.h"
 
 namespace lv::client::redstone {
@@ -138,7 +139,8 @@ private:
         }
         mTarget->tooltip = tip;
         bool powered     = data.value("powered", false);
-        mState->text     = powered ? "§c●" : "§7○";
+        mState->text     = powered ? "ON" : "OFF";
+        mState->argb     = powered ? 0xFFC0281C : color::kTextGray;
     }
 
     void refreshInputs() {
@@ -246,7 +248,9 @@ public:
                 auto s = items::fromJson(i);
                 h.items.push_back(items::isEmpty(s) ? nullptr : std::make_shared<ItemStack>(s));
             }
-            h.has = !h.lines.empty();
+            bool was = h.has;
+            h.has    = !h.lines.empty();
+            if (h.has && !was) lv::log().info("redstone client: hover panel shown ({} lines)", h.lines.size());
         });
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) { pollHover(); }));

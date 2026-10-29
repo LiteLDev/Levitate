@@ -278,7 +278,8 @@ LL_TYPE_INSTANCE_HOOK(
             // repeats, never a new click
             invalidateCircuitCache();
             auto& last = unit().lastUse[player.getOrCreateUniqueID().rawID];
-            if (!isFirstEvent && last.first == pos && gameTickCounter() - last.second < 5) {
+            auto  since = gameTickCounter() - last.second;
+            if (last.first == pos && (since < 2 || (!isFirstEvent && since < 5))) {
                 InteractionResult r{};
                 r.mSuccess = true;
                 return r;
