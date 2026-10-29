@@ -1,0 +1,38 @@
+{
+  "levitate_track_signal_body": {
+    "textures": "textures/blocks/track_signal_body"
+  },
+  "levitate_track_observer_side": {
+    "textures": "textures/blocks/track_observer_side"
+  },
+  "levitate_track_observer_top": {
+    "textures": "textures/blocks/track_observer_top"
+  },
+  "levitate_track_observer_top_on": {
+    "textures": "textures/blocks/track_observer_top_on"
+  },
+  "levitate_track_signal_lamp_entry_off": {
+    "textures": "textures/blocks/track_signal_lamp_entry_off"
+  },
+  "levitate_track_signal_lamp_entry_red": {
+    "textures": "textures/blocks/track_signal_lamp_entry_red"
+  },
+  "levitate_track_signal_lamp_entry_yellow": {
+    "textures": "textures/blocks/track_signal_lamp_entry_yellow"
+  },
+  "levitate_track_signal_lamp_entry_green": {
+    "textures": "textures/blocks/track_signal_lamp_entry_green"
+  },
+  "levitate_track_signal_lamp_cross_off": {
+    "textures": "textures/blocks/track_signal_lamp_cross_off"
+  },
+  "levitate_track_signal_lamp_cross_red": {
+    "textures": "textures/blocks/track_signal_lamp_cross_red"
+  },
+  "levitate_track_signal_lamp_cross_yellow": {
+    "textures": "textures/blocks/track_signal_lamp_cross_yellow"
+  },
+  "levitate_track_signal_lamp_cross_green": {
+    "textures": "textures/blocks/track_signal_lamp_cross_green"
+  }
+}

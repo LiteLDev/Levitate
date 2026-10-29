@@ -1,0 +1,173 @@
+{
+  "format_version": "1.21.120",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:track_signal",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:signal_type": [
+          0,
+          1
+        ],
+        "levitate:signal_state": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "levitate:powered": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.track_signal"
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_track_signal_body",
+          "render_method": "opaque"
+        },
+        "lamp": {
+          "texture": "levitate_track_signal_lamp_entry_off",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#6a4b2e",
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blocks/track_signal.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:signal_type') == 0 && q.block_state('levitate:signal_state') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_track_signal_body",
+              "render_method": "opaque"
+            },
+            "lamp": {
+              "texture": "levitate_track_signal_lamp_entry_off",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:signal_type') == 0 && q.block_state('levitate:signal_state') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_track_signal_body",
+              "render_method": "opaque"
+            },
+            "lamp": {
+              "texture": "levitate_track_signal_lamp_entry_red",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:signal_type') == 0 && q.block_state('levitate:signal_state') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_track_signal_body",
+              "render_method": "opaque"
+            },
+            "lamp": {
+              "texture": "levitate_track_signal_lamp_entry_yellow",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:signal_type') == 0 && q.block_state('levitate:signal_state') == 3",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_track_signal_body",
+              "render_method": "opaque"
+            },
+            "lamp": {
+              "texture": "levitate_track_signal_lamp_entry_green",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:signal_type') == 1 && q.block_state('levitate:signal_state') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_track_signal_body",
+              "render_method": "opaque"
+            },
+            "lamp": {
+              "texture": "levitate_track_signal_lamp_cross_off",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:signal_type') == 1 && q.block_state('levitate:signal_state') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_track_signal_body",
+              "render_method": "opaque"
+            },
+            "lamp": {
+              "texture": "levitate_track_signal_lamp_cross_red",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:signal_type') == 1 && q.block_state('levitate:signal_state') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_track_signal_body",
+              "render_method": "opaque"
+            },
+            "lamp": {
+              "texture": "levitate_track_signal_lamp_cross_yellow",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:signal_type') == 1 && q.block_state('levitate:signal_state') == 3",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_track_signal_body",
+              "render_method": "opaque"
+            },
+            "lamp": {
+              "texture": "levitate_track_signal_lamp_cross_green",
+              "render_method": "opaque"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
