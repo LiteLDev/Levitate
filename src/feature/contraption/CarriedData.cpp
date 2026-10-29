@@ -31,7 +31,8 @@ struct BlockDataCarrier {
                 }
                 bd::put(pos, std::move(doc));
             },
-            nullptr,
+            // units register how their direction-dependent keys turn (blockdata::onRotate)
+            [](nlohmann::json& carried, cc::Axis axis, int quarterTurns) { bd::rotate(carried, static_cast<int>(axis), quarterTurns); },
         });
     }
 };

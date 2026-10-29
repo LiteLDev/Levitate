@@ -445,6 +445,13 @@ command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kin
 - **API for machines**: `speedAt`, `theoreticalSpeedAt`, `nodeAt`, `networkAt`, `networkMembers`,
   `isOverstressed`, `stressImpactOf` / `stressCapacityOf`, `onSpeedChanged(blockId, fn)` (batched
   once per tick), `onBreak(fn)`.
+- **Angle-limited rotation** (Create's `SequenceContext`, U32): the sequenced gearshift (U6) calls
+  `setSequenceContext(pos, {TurnAngle | MoveDistance, value})` while it runs an instruction;
+  `sequenceContextAt(pos)` gives a machine the instruction of the nearest block up its source chain,
+  with the value scaled by `|speed here| / |speed there|` (a bearing driven at half the gearshift's
+  speed turns half the angle). Machines read it when their speed changes and stop after turning (bearings,
+  turntables: degrees) or moving (pistons, pulleys, gantries: blocks) that far, as Create's
+  `sequencedAngleLimit` / `sequencedOffsetLimit`. Not persisted (the gearshift sets it again).
 - **Command**: `/create kinetics <pos>` dumps the block and its network; `/create kinetics <pos>
   speed <rpm>` (Levitate debug) sets a generator's speed.
 - **Client** (client mod only): a kinetic block with a `rotorState` (int state, e.g.
@@ -476,11 +483,17 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   `blockdata` data carrier, so units need no carrier for what they keep here). Owners that cache
   their part elsewhere write it back in `onWriteBack(fn)` (before every save and before `take`) and
   adopt moved data in `onPut(fn)` (U2's kinetic records do both).
-- **Interactions** (`Interactions.h`, U32): one hook per GameMode action (`useItemOn`, `useItem`,
+- **Interactions** (`Interactions.h`, U32): one hook per GameMode action (`useItemOn`, `baseUseItem`,
   `destroyBlock`) dispatches to handlers registered per block / item id with a priority
   (`onUseOn`, `onUse`, `onDestroy`, `onWrench`); the first handler that returns `Consume` / `Deny`
   wins (vanilla is skipped and the player's inventory resent), `Pass` goes on. Value boxes and filter
   slots use `priority::Highest`, the wrench's generic rotate / pick up (U8) `priority::Fallback`.
+- **Redstone input** (`Redstone.h`, U32): `power(region, pos)` = the strongest signal (0..15) of the
+  six neighbours read from the game's circuit graph, as a vanilla mechanism sees it (conducting
+  blocks strongly or weakly powered, wire, levers, buttons, plates, redstone blocks, observers;
+  torches except into their support; repeaters and comparators only into the block they face);
+  `watch(pos, fn)` reports changes, polled every 2 ticks while the chunk is loaded (custom blocks
+  get no neighbour updates, §8).
 - **Item capability** (`Capabilities.h`, `items::`): handlers per block id (`registerBlock`) or
   generic providers, with `slots`, `getSlot`, `insert(stack, simulate) -> remainder`,
   `extract(predicate, amount, simulate) -> stack`; `face` is the accessed side (Create's

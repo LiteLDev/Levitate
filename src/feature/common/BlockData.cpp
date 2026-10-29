@@ -232,6 +232,28 @@ void onWriteBack(WriteBackFn fn) { store().writeBacks.push_back(std::move(fn)); 
 
 void onPut(PutListener fn) { store().putListeners.push_back(std::move(fn)); }
 
+namespace {
+std::map<std::string, RotateFn>& rotations() {
+    static std::map<std::string, RotateFn> r;
+    return r;
+}
+} // namespace
+
+void onRotate(std::string key, RotateFn fn) { rotations()[std::move(key)] = std::move(fn); }
+
+void rotate(Json& doc, int axis, int quarterTurns) {
+    if (!doc.is_object() || ((quarterTurns % 4) + 4) % 4 == 0) return;
+    for (auto const& [key, fn] : rotations()) {
+        auto it = doc.find(key);
+        if (it == doc.end()) continue;
+        try {
+            fn(*it, axis, quarterTurns);
+        } catch (std::exception const& e) {
+            log().error("block data rotation of '{}' failed: {}", key, e.what());
+        }
+    }
+}
+
 class BlockDataModule {
 public:
     void install() {

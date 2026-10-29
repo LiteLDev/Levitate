@@ -77,7 +77,14 @@ try {
             } catch {
                 # the server died: a port clash logged just before is still a port clash
                 $hit = Get-ServerLog | Select-String -Pattern $script:PortInUsePattern | Select-Object -First 1 | ForEach-Object { $_.Line }
-                if (-not $hit) { $script:Sink.Close(); throw }
+                if (-not $hit) {
+                    # a hung or crashed boot: never leave the server holding the slot's ports
+                    $err = $_
+                    if (-not (Stop-Server -TimeoutSeconds 20)) { $failures.Add('server did not stop gracefully (killed)') }
+                    $script:Sink.Close()
+                    $failures.Add("server exit code $script:ExitCode")
+                    throw $err
+                }
             }
             if ($hit -notmatch $script:PortInUsePattern) { break }
             Write-Step "port clash: $hit"

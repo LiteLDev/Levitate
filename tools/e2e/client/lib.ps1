@@ -267,6 +267,30 @@ function Restore-OtherMods {
     if (-not (Get-ChildItem $script:AsideDir -Force)) { Remove-Item $script:AsideDir -Force }
 }
 
+# The game caches server packs by uuid + version (games\com.mojang\...\packcache). Builds of other
+# branches can carry the same version, so a cached Levitate pack could hide this build's: drop every
+# cached copy of our packs (matched by the header uuids of assets/pack/*/manifest.json) before a launch.
+function Clear-CachedLevitatePacks {
+    $uuids = @(foreach ($kind in 'rp', 'bp') {
+        $m = Join-Path $script:RepoRoot "assets/pack/$kind/manifest.json"
+        if (Test-Path $m) { (Get-Content $m -Raw | ConvertFrom-Json).header.uuid }
+    })
+    if (-not $uuids) { return }
+    $data = Get-GameDataDir
+    if (-not $data -or -not (Test-Path $data)) { return }
+    foreach ($cache in Get-ChildItem -Recurse -Directory -Path $data -Filter 'packcache' -ErrorAction SilentlyContinue) {
+        foreach ($pack in Get-ChildItem -Directory -Path $cache.FullName -ErrorAction SilentlyContinue | Get-ChildItem -Directory -ErrorAction SilentlyContinue) {
+            $manifest = Join-Path $pack.FullName 'manifest.json'
+            if (-not (Test-Path $manifest)) { continue }
+            try { $uuid = (Get-Content $manifest -Raw | ConvertFrom-Json).header.uuid } catch { continue }
+            if ($uuids -contains $uuid) {
+                Remove-Item -Recurse -Force $pack.FullName -ErrorAction SilentlyContinue
+                Write-Step "dropped cached Levitate pack $($pack.FullName)"
+            }
+        }
+    }
+}
+
 # Install the LV-Test world from fixtures\LV-Test (a level.dat template; the game generates the
 # terrain on first load). LastPlayed is set to now so it is the first world in the list.
 function Restore-TestWorld {

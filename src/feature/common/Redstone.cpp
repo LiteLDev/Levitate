@@ -55,15 +55,25 @@ BaseCircuitComponent* componentAt(BlockSource& region, BlockPos const& pos) {
     return it == all.end() ? nullptr : it->second.get();
 }
 
+std::string stringState(Block const& block, char const* name) {
+    auto const& nbt = *block.mSerializationId;
+    if (!nbt.contains("states") || !nbt["states"].contains(std::string_view(name))) return {};
+    auto const& v = nbt["states"][std::string_view(name)];
+    return v.hold(Tag::Type::String) ? std::string(v.get<StringTag>()) : std::string{};
+}
+
+/// FacingID of a direction name ("down", "up", "north", "south", "west", "east"), -1 if none.
+int facingByName(std::string const& n) {
+    static constexpr char const* names[] = {"down", "up", "north", "south", "west", "east"};
+    for (int i = 0; i < 6; ++i)
+        if (n == names[i]) return i;
+    return -1;
+}
+
 /// The block a torch stands on / hangs on (Bedrock's torch_facing_direction names the side the
 /// torch leans towards: the support is on the opposite side; "top" stands on the block below).
 BlockPos torchSupport(Block const& torch, BlockPos const& at) {
-    std::string t   = "top";
-    auto const& nbt = *torch.mSerializationId;
-    if (nbt.contains("states") && nbt["states"].contains("torch_facing_direction")) {
-        auto const& v = nbt["states"]["torch_facing_direction"];
-        if (v.hold(Tag::Type::String)) t = std::string(v.get<StringTag>());
-    }
+    auto t = stringState(torch, "torch_facing_direction");
     if (t == "north") return step(at, 3);
     if (t == "south") return step(at, 2);
     if (t == "west") return step(at, 5);
@@ -94,7 +104,29 @@ int signalFrom(BlockSource& region, BlockPos const& from, BlockPos const& to) {
     case CircuitComponentType::ConsumerComponent:
     case CircuitComponentType::PistonConsumer:
         return 0; // lamps, pistons, ... don't pass power on
+    case CircuitComponentType::TransporterComponent: {
+        // dust powers the block under it and the sides it points into: a side counts unless the
+        // dust connects sideways to it (a line along the other axis, a bend, a cross)
+        if (towards == 0) return strength;
+        if (towards == 1) return 0;
+        for (int side : {2, 3, 4, 5}) {
+            if ((side >> 1) == (towards >> 1)) continue; // same axis as the target
+            auto* n = componentAt(region, step(from, side));
+            if (!n) continue;
+            auto t = n->getCircuitComponentType();
+            if (t != CircuitComponentType::PoweredBlockComponent && t != CircuitComponentType::ConsumerComponent
+                && t != CircuitComponentType::PistonConsumer)
+                return 0;
+        }
+        return strength;
+    }
     default:
+        if (id == "minecraft:observer") {
+            // an observer powers only the block behind its face
+            int face = game::intState(block, "facing_direction").value_or(-1);
+            if (face < 0) face = facingByName(stringState(block, "minecraft:facing_direction"));
+            return face >= 0 && face < 6 && step(from, face ^ 1) == to ? strength : 0;
+        }
         return strength; // conducting blocks, wire, levers, buttons, plates, observers, ...
     }
 }

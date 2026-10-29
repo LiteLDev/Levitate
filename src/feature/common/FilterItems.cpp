@@ -337,7 +337,7 @@ public:
             .action = attributeAction,
             .form   = attributeForm,
         });
-        // right-click in the air with a filter opens its screen
+        // using a filter (in the air, or on a block that does not take the click) opens its screen
         mHandler = interactions::onUse({}, [](interactions::UseContext const& c) {
             auto& player = c.player;
             bool  list = isListFilter(c.item), attr = isAttributeFilter(c.item);
@@ -357,7 +357,7 @@ public:
     }
 
 private:
-    interactions::HandlerId mHandler = 0;
+    interactions::HandlerId mHandler   = 0;
     ll::event::ListenerPtr  mLeave;
 };
 

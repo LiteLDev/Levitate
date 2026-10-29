@@ -78,7 +78,8 @@ struct UseOnContext {
     bool               firstEvent; ///< false for the repeats while the button is held
 };
 
-/// Right-click in the air (GameMode::useItem).
+/// Using an item (GameMode::baseUseItem): a right-click in the air, or on a block that did not
+/// take the click (vanilla use-on passed).
 struct UseContext {
     Player&            player;
     ItemStack const&   item;

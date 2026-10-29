@@ -123,6 +123,25 @@ LV_REGISTER_SELFTEST("integration.kinetics_sync", [](Context& ctx) -> ll::coro::
     ctx.check(gone, "a broken shaft is synced as removed");
 });
 
+LV_REGISTER_SELFTEST("integration.sequence_context", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = ctx.testPos(3280);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    ctx.setBlock(p, kSource, {{"levitate:axis", 0}});
+    ctx.setBlock(at(p, 1), kShaft, {{"levitate:axis", 0}});
+    ctx.setBlock(at(p, 2), kShaft, {{"levitate:axis", 0}});
+    co_await ctx.ticks(2);
+    using SC = kn::SequenceContext;
+    kn::setSequenceContext(at(p, 1), SC{SC::Kind::TurnAngle, 90});
+    auto down = kn::sequenceContextAt(at(p, 2));
+    ctx.check(down && down->kind == SC::Kind::TurnAngle && down->value == 90, "the shaft it drives gets the instruction");
+    ctx.check(!kn::sequenceContextAt(p), "the generator upstream does not");
+    kn::setGeneratedSpeed(p, 32);
+    auto same = kn::sequenceContextAt(at(p, 2));
+    ctx.check(same && same->value == 90, "a 1:1 chain keeps the value at any speed");
+    kn::setSequenceContext(at(p, 1), std::nullopt);
+    ctx.check(!kn::sequenceContextAt(at(p, 2)), "cleared");
+});
+
 LV_REGISTER_SELFTEST("integration.tracks_sync", [](Context& ctx) {
     auto& player = ctx.player();
     net::joinTestCompanion(player);
@@ -303,6 +322,19 @@ LV_REGISTER_SELFTEST("integration.redstone", [](Context& ctx) -> ll::coro::CoroT
     co_await ctx.ticks(4);
     int wire = rs::power(region, bp);
     ctx.check(wire >= 14, "a powered wire reaches it: " + std::to_string(wire));
+
+    // a line of dust running past it (along x) does not point into it
+    ctx.setBlock(at(p, 0, 0, 2), "minecraft:air");
+    for (int dx = -1; dx <= 2; ++dx) ctx.setBlock(at(p, dx, -1, 1), "minecraft:stone");
+    ctx.setBlock(at(p, -1, 0, 1), "minecraft:redstone_wire");
+    ctx.setBlock(at(p, 1, 0, 1), "minecraft:redstone_wire");
+    ctx.setBlock(at(p, 2, 0, 1), "minecraft:redstone_block");
+    co_await ctx.ticks(4);
+    int past = rs::power(region, bp);
+    ctx.check(past == 0, "dust running past it does not power it: " + std::to_string(past));
+    ctx.setBlock(at(p, -1, 0, 1), "minecraft:air");
+    ctx.setBlock(at(p, 1, 0, 1), "minecraft:air");
+    ctx.setBlock(at(p, 2, 0, 1), "minecraft:air");
 
     // a conducting block: wire on top of the stone east of it powers that stone
     ctx.setBlock(at(p, 0, 0, 1), "minecraft:air");

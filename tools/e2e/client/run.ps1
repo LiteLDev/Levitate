@@ -190,6 +190,7 @@ try {
             if ($script:Headless) { Set-WorldSinglePlayer (Join-Path (Get-WorldsDir) $script:WorldName) }
         }
         Reset-CameraPerspective
+        Clear-CachedLevitatePacks   # never a stale pack cached by another build
         $prelaunch = Join-Path $PSScriptRoot "scenarios/$Scenario.prelaunch.ps1"
         if (Test-Path $prelaunch) { . $prelaunch }
         try {

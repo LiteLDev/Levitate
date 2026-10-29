@@ -56,6 +56,23 @@ double tableValue(std::map<std::string, double> const& table, std::string const&
     return it == table.end() ? fallback : it->second;
 }
 
+/// Sequenced gearshift instructions per block that set one (not persisted; cleared per world).
+std::map<GlobalPos, SequenceContext>& sequenceContexts() {
+    static std::map<GlobalPos, SequenceContext> m;
+    return m;
+}
+
+/// Config files written before version 2 keep the old, wrong default gantry_shaft impact of 4 (the
+/// version merge keeps existing table entries): Create 6.0.10 has none. Reset it once per load.
+void fixStaleDefaults() {
+    auto& cfg = config::mut<KineticsConfig>();
+    if (auto it = cfg.impact.find("gantry_shaft"); it != cfg.impact.end() && it->second == 4.0) {
+        it->second = 0.0;
+        config::saveAll();
+        log().info("kinetics: config gantry_shaft impact 4 (an old default) set to 0 as in Create 6.0.10");
+    }
+}
+
 k::SolverConfig solverConfig() {
     auto const&     cfg = config::get<KineticsConfig>();
     k::SolverConfig sc;
@@ -98,6 +115,7 @@ public:
 
     void install() {
         auto& bus = ll::event::EventBus::getInstance();
+        fixStaleDefaults();
         mSolver.setConfig(solverConfig());
         mListeners.push_back(bus.emplaceListener<ll::event::BlockChangedEvent>([this](ll::event::BlockChangedEvent& ev) {
             onBlockChanged(ev);
@@ -108,7 +126,10 @@ public:
             registered = true;
             game::db::onWorldReady([this] { loadWorld(); });
             game::db::onWorldClosed([this] { closeWorld(); });
-            config::onReload([this] { mSolver.setConfig(solverConfig()); });
+            config::onReload([this] {
+                fixStaleDefaults();
+                mSolver.setConfig(solverConfig());
+            });
             // BlockData saves (and contraptions take) our records: write them back first
             bd::onWriteBack([this](GlobalPos const* pos) { writeBack(pos); });
             bd::onPut([this](GlobalPos const& pos, nlohmann::json const& doc) { adopt(pos, doc); });
@@ -362,6 +383,7 @@ public:
         mPendingChanges.clear();
         mCheckOrder.clear();
         mCheckCursor = 0;
+        sequenceContexts().clear();
         migrateLegacy();
         std::size_t count = 0;
         bd::forEach([&](GlobalPos const& pos, nlohmann::json const& doc) {
@@ -449,6 +471,7 @@ public:
 
     void closeWorld() {
         mLoaded = false;
+        sequenceContexts().clear();
         detail::clearBlockCaches();
         mSolver.clear();
         mQueue.clear();
@@ -562,6 +585,33 @@ void setStressCapacity(GlobalPos const& pos, std::optional<double> suPerRpm) {
 void refresh(GlobalPos const& pos) {
     mod().flush();
     mod().refresh(pos);
+}
+
+void setSequenceContext(GlobalPos const& pos, std::optional<SequenceContext> context) {
+    if (context) sequenceContexts()[pos] = *context;
+    else sequenceContexts().erase(pos);
+}
+
+std::optional<SequenceContext> sequenceContextAt(GlobalPos const& pos) {
+    auto& contexts = sequenceContexts();
+    if (contexts.empty()) return std::nullopt;
+    auto& solver = mod().solver();
+    auto  here   = solver.node(pos);
+    if (!here) return std::nullopt;
+    // walk the source chain up to the generator; the nearest block with an instruction wins
+    std::optional<NodeInfo> n = here;
+    for (int depth = 0; n && depth < 4096; ++depth) {
+        if (auto it = contexts.find(n->pos); it != contexts.end()) {
+            SequenceContext out = it->second;
+            double          at  = std::abs(here->theoreticalSpeed);
+            double          src = std::abs(n->theoreticalSpeed);
+            out.value           = src > 0 ? std::abs(out.value) * at / src : 0.0;
+            return out;
+        }
+        if (!n->source || *n->source == n->pos) break;
+        n = solver.node(*n->source);
+    }
+    return std::nullopt;
 }
 
 ListenerId onSpeedChanged(std::string blockId, std::function<void(SpeedChange const&)> fn) {

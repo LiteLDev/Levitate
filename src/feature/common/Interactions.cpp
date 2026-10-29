@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "ll/api/memory/Hook.h"
+#include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
@@ -14,6 +15,7 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 
 #include "game/Blocks.h"
@@ -82,7 +84,14 @@ Vec localHit(BlockPos const& pos, Vec3 const& click) {
     return {click.x - pos.x, click.y - pos.y, click.z - pos.z};
 }
 
-bool isServerPlayer(Player const& p) { return !p.isClientSide(); }
+/// A player of the server level. `isClientSide()` alone is not enough: the client's own
+/// LocalPlayer goes through GameMode too (prediction) and was seen passing it, which ran handlers
+/// twice in local worlds and on the client of a remote server.
+bool isServerPlayer(Player& p) {
+    if (p.isClientSide()) return false;
+    auto level = ll::service::getLevel();
+    return level && &p.getLevel() == level.as_ptr();
+}
 
 } // namespace
 
@@ -147,7 +156,7 @@ LL_TYPE_INSTANCE_HOOK(
     };
     auto r = dispatchUseOn(ctx);
     if (r == Result::Pass) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    player.sendInventory(false); // undo the client's predicted use
+    if (isFirstEvent) player.sendInventory(false); // undo the client's predicted use (once per click)
     InteractionResult result{};
     if (r == Result::Consume) {
         result.mSuccess = true;
@@ -160,10 +169,10 @@ LL_TYPE_INSTANCE_HOOK(
     InteractionsUseItemHook,
     ll::memory::HookPriority::Normal,
     GameMode,
-    &GameMode::$useItem,
+    &GameMode::baseUseItem, // in the air, and after a block that did not take a use-on
     bool,
-    ItemStack& item,
-    HandSlot   handSlot
+    ItemStack const& item,
+    HandSlot         handSlot
 ) {
     Player& player = mPlayer;
     if (!isServerPlayer(player) || registry().use.empty() || item.isNull()) return origin(item, handSlot);
