@@ -80,13 +80,20 @@ Registrations live in .cpp files linked directly into the DLL, so they are never
   `/create selftest` (no glob) and the server scenario `full` run every unit's tests together:
   keep them passing there.
 - **Interactions** (`feature/common/Interactions.h`): never hook `GameMode::$useItemOn / $useItem / baseUseItem /
-  $destroyBlock` (or use the LeviLamina interact / use / destroy events) for gameplay: with separate
-  hooks the first one wins. Register `interactions::onUseOn({block, item}, fn, priority)`, `onUse(item,
-  fn)`, `onDestroy({block, item}, fn)` and, for the wrench, `onWrench(blockId, fn)` (Create's
-  `onWrenched` / `onSneakWrenched` = `ctx.sneaking`). Handlers return `Pass` / `Consume` / `Deny`;
-  the first non-`Pass` by priority wins (value boxes and filter slots run at `priority::Highest`, the
-  generic wrench rotate / pick up of U8 at `priority::Fallback` for block `""`). Handlers may edit the
-  world directly (no rollback); use `ctx.firstEvent` to act once per click.
+  $destroyBlock / $startDestroyBlock / $interact / $attack` (or use the LeviLamina interact / use /
+  destroy events) for gameplay: with separate hooks the first one wins. No unit hooks them any more
+  (U36). Register `interactions::onUseOn({block, item}, fn, priority)`, `onUse(item, fn)` (`ctx.onBlock`:
+  called from a block click nobody took; return `Pass` there for air-only uses), `onDestroy({block,
+  item}, fn)` and, for the wrench, `onWrench(blockId, fn)` (Create's `onWrenched` / `onSneakWrenched` =
+  `ctx.sneaking`). Handlers return `Pass` / `Consume` / `Deny`; the first non-`Pass` by priority wins
+  (value boxes and filter slots `priority::Highest`, a unit's own blocks `Normal` (so its wrench
+  handling runs before U8's), U8's generic rotate / pick up `priority::Fallback` for block `""`).
+  After vanilla: `onPlace({placedBlock, heldItem}, fn)` (orient a block vanilla just placed),
+  `onUnusedUseOn` (vanilla's use-on did not succeed), `onDestroyed` / `onAttacked` (with vanilla's
+  result). Also `onStartDestroy` (left-click on a block), `onInteract` / `onAttack` (entities,
+  `Match::block` = entity type id), `nextTick(fn)` (defer a world edit), `mutableItem(ctx.item)` (the
+  hand slot). Handlers may edit the world directly (no rollback). Bedrock repeats use-on while the
+  button is held and SimulatedPlayers never send a first event: debounce per player in the unit.
 - **Client sync** (`feature/net/Net.h`): server → client-mod data goes over the companion protocol
   only (`net::send`, `net::onCompanionJoined` for the full state, `net::client::on`), never over
   private `ScriptMessagePacket`s. A channel has one client handler: other units read kinetic speeds
@@ -95,7 +102,12 @@ Registrations live in .cpp files linked directly into the DLL, so they are never
   power reaching a block with `redstone::power(region, pos)` (0..15, from the game's circuit graph:
   conducting blocks, wire, torches, repeaters/comparators facing it, levers, buttons, ...) and get
   told about changes with `redstone::watch(pos, fn)` (polled centrally every 2 ticks) instead of
-  polling neighbours in your unit. Output (comparator signals) is U12's ComparatorCapacitor hook.
+  polling neighbours in your unit; never copy the neighbour scan. Custom blocks that emit a signal
+  register `redstone::registerEmitter(id, fn)` so `power` sees them (redstone links, placards).
+- **Comparator output** (`feature/common/Redstone.h`): register Create's `getAnalogOutputSignal` with
+  `redstone::registerAnalog(blockId, fn)` (0..15, `nullopt` = none); one ComparatorCapacitor hook
+  feeds vanilla comparators behind the block, or behind a solid block behind it (Java's rule).
+  `fractionToRedstoneLevel` is Create's ComparatorUtil. Never hook ComparatorCapacitor in a unit.
 - **Block data** (`feature/common/BlockData.h`): per-block state lives in BlockData under your unit's
   key; contraptions carry the whole document automatically: new units register no
   `contraption::registerDataCarrier` for it (existing unit carriers run before the generic one and

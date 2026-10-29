@@ -1,7 +1,7 @@
 // The wrench (U8): Create's WrenchItem + IWrenchable on Bedrock.
 //
-// GameMode is where every player action ends up (network players and SimulatedPlayers alike),
-// so the wrench is handled in GameMode::useItemOn / interact / attack hooks, like the track item.
+// The wrench is handled through the shared dispatch (common/Interactions.h; network players and
+// SimulatedPlayers alike) at Fallback priority: use-on any block, interact / attack on entities.
 
 #include "feature/goggles/Wrenchable.h"
 
@@ -10,7 +10,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
@@ -23,8 +22,6 @@
 #include "mc/world/actor/ActorHurtResult.h"
 #include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemInstance.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/item/SaveContext.h"
@@ -40,6 +37,7 @@
 #include "mc/deps/nbt/CompoundTag.h"
 
 #include "core/goggles/Rotation.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/Contraption.h"
@@ -111,7 +109,6 @@ core::common::Vec localHit(BlockPos const& pos, Vec3 const& click) {
     return {click.x - pos.x, click.y - pos.y, click.z - pos.z};
 }
 
-bool isWrench(ItemStack const& item) { return !item.isNull() && item.getTypeName() == kWrenchId; }
 
 // Create's track (TrackBlock): wrenching does nothing, sneak-wrenching gives the curves' tracks
 // to the player (survival) before the default pick-up.
@@ -277,83 +274,54 @@ std::optional<Result> onWrenchUse(Player& player, BlockPos const& at, int face, 
 
 } // namespace
 
-// Low priority: the units' own block interactions (which may use the wrench, e.g. a deployer's mode)
-// run first and fall through to the generic wrench.
-LL_TYPE_INSTANCE_HOOK(
-    WrenchUseItemOnHook,
-    ll::memory::HookPriority::Low,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || !isWrench(item)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto r = onWrenchUse(player, at, face, hit);
-    if (!r || *r == Result::Pass) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    InteractionResult out{};
-    out.mSuccess = true;
-    out.mSwing   = true;
-    return out;
-}
+namespace ia = common::interactions;
 
-LL_TYPE_INSTANCE_HOOK(
-    WrenchInteractHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$interact,
-    bool,
-    Actor&      entity,
-    Vec3 const& location,
-    HandSlot    handSlot
-) {
-    Player& player = mPlayer;
-    if (!player.isClientSide() && isWrench(player.getSelectedItem())) {
-        for (auto const& h : entityHandlers()) {
-            if (h(player, entity, player.isSneaking())) return true;
-        }
-    }
-    return origin(entity, location, handSlot);
-}
-
-// Create's WrenchItem.wrenchInstaKillsMinecarts: survival players break minecarts in one hit.
-// (Player::attack: network players and SimulatedPlayers both end up here.)
-LL_TYPE_INSTANCE_HOOK(
-    WrenchAttackHook,
-    ll::memory::HookPriority::Normal,
-    Player,
-    &Player::$attack,
-    ActorHurtResult,
-    Actor&                                       entity,
-    SharedTypes::Legacy::ActorDamageCause const& cause
-) {
-    if (!isClientSide() && !isCreative() && isWrench(getSelectedItem()) && entity.getTypeName().ends_with("minecart")
-        && entity.isAlive()) {
-        auto type = entity.getTypeName();
-        entity.hurtByCause(100, SharedTypes::Legacy::ActorDamageCause::EntityAttack, *this);
-        log().info("wrench: {} broke a {}", getRealName(), type);
-    }
-    return origin(entity, cause);
-}
-
+// Fallback priority: the units' own block interactions (which may use the wrench, e.g. a
+// deployer's mode) and value boxes run first and fall through to the generic wrench.
 class WrenchModule {
 public:
     void install() {
-        WrenchUseItemOnHook::hook();
-        WrenchInteractHook::hook();
-        WrenchAttackHook::hook();
+        mIds.push_back(ia::onWrench(
+            "",
+            [](ia::UseOnContext const& c) {
+                Vec3 hit{float(c.hit[0]), float(c.hit[1]), float(c.hit[2])}; // block-local (localHit keeps it)
+                auto r = onWrenchUse(c.player, game::blockPos(c.pos), c.face, hit);
+                return !r || *r == Result::Pass ? ia::Result::Pass : ia::Result::Consume;
+            },
+            ia::priority::Fallback
+        ));
+        mIds.push_back(ia::onInteract(
+            {.item = ia::kWrenchId},
+            [](ia::EntityContext const& c) {
+                for (auto const& h : entityHandlers()) {
+                    if (h(c.player, c.entity, c.sneaking)) return ia::Result::Consume;
+                }
+                return ia::Result::Pass;
+            },
+            ia::priority::Fallback
+        ));
+        // Create's WrenchItem.wrenchInstaKillsMinecarts: survival players break minecarts in one hit.
+        mIds.push_back(ia::onAttack(
+            {.item = ia::kWrenchId},
+            [](ia::EntityContext const& c) {
+                auto& player = c.player;
+                auto& entity = c.entity;
+                if (!player.isCreative() && c.entityId.ends_with("minecart") && entity.isAlive()) {
+                    entity.hurtByCause(100, SharedTypes::Legacy::ActorDamageCause::EntityAttack, player);
+                    log().info("wrench: {} broke a {}", player.getRealName(), c.entityId);
+                }
+                return ia::Result::Pass;
+            },
+            ia::priority::Fallback
+        ));
     }
     void uninstall() {
-        WrenchAttackHook::unhook();
-        WrenchInteractHook::unhook();
-        WrenchUseItemOnHook::unhook();
+        for (auto id : mIds) ia::remove(id);
+        mIds.clear();
     }
+
+private:
+    std::vector<ia::HandlerId> mIds;
 };
 
 } // namespace lv::feature::goggles::wrench

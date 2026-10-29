@@ -28,6 +28,7 @@
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -87,21 +88,6 @@ std::mt19937& rng() {
 
 constexpr int kDx[6]{0, 0, 0, 0, -1, 1}, kDy[6]{-1, 1, 0, 0, 0, 0}, kDz[6]{0, 0, -1, 1, 0, 0};
 
-/// Redstone power a neighbour block gives (polled approximation of Create's getSignal).
-int powerOf(Block const& block, GlobalPos const& from, GlobalPos const& to) {
-    if (block.isAir()) return 0;
-    std::string const& id = block.getTypeName();
-    if (id == "minecraft:redstone_block") return 15;
-    if (auto s = game::intState(block, "redstone_signal"); s && *s > 0) return std::clamp(*s, 0, 15);
-    if (id == "minecraft:lever") return game::intState(block, "open_bit").value_or(0) ? 15 : 0;
-    if (game::intState(block, "button_pressed_bit").value_or(0)) return 15;
-    if (id == "minecraft:observer") return game::intState(block, "powered_bit").value_or(0) ? 15 : 0;
-    if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return 15;
-    if (id == "minecraft:redstone_torch") return 15;
-    (void)from;
-    (void)to;
-    return 0;
-}
 } // namespace
 
 // ---- world helpers -------------------------------------------------------------------------------
@@ -169,14 +155,13 @@ std::optional<GlobalPos> posFrom(Json const& j) {
 std::uint64_t currentTick() { return tickCounter(); }
 
 int receivedPower(GlobalPos const& p, int except) {
-    int best = 0;
-    for (int d = 0; d < 6; ++d) {
+    auto* region = regionOf(p.dim);
+    if (!region) return 0;
+    auto bp   = game::blockPos(p);
+    int  best = 0;
+    for (int d = 0; d < 6 && best < 15; ++d) {
         if (d == except) continue;
-        auto        n = offset(p, kDx[d], kDy[d], kDz[d]);
-        auto const* b = blockAt(n);
-        if (!b) continue;
-        best = std::max(best, powerOf(*b, n, p));
-        if (best >= 15) break;
+        best = std::max(best, common::redstone::signalFrom(*region, {bp.x + kDx[d], bp.y + kDy[d], bp.z + kDz[d]}, bp));
     }
     return best;
 }

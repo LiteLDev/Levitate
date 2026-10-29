@@ -1,6 +1,8 @@
 // Schematics unit: player interaction (GameMode hooks, so network players and SimulatedPlayers
 // behave alike), block removal, ticking, world lifecycle and `/create schematic ...`.
 
+#include <set>
+
 #include "ll/api/command/CommandHandle.h"
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/player/PlayerDisconnectEvent.h"
@@ -19,6 +21,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/common/BlockData.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/schematics/Schematics.h"
 #include "game/Blocks.h"
@@ -47,9 +50,10 @@ void registerBlueprint();
 namespace {
 
 namespace items = common::items;
+namespace ia    = common::interactions;
 
 std::map<std::int64_t, std::uint64_t> gLastUse;
-bool                                  gNoDrop = false;
+std::set<GlobalPos>                   gNoDropAt; ///< blueprints a creative player is breaking right now
 
 /// One tool action per 4 ticks per player (Bedrock repeats use while the button is held and may
 /// send a click on air after a click on a block).
@@ -61,13 +65,6 @@ bool debounce(Player& p) {
     return true;
 }
 
-InteractionResult used() {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    return r;
-}
-
 bool isOurItem(std::string const& id) { return id == kQuill || id == kSchematic || id == kBlueprintItem; }
 
 } // namespace
@@ -76,99 +73,87 @@ bool isOurItem(std::string const& id) { return id == kQuill || id == kSchematic 
 
 using namespace lv::feature::schematics;
 
-LL_TYPE_INSTANCE_HOOK(
-    SchematicsUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region = player.getDimensionBlockSource();
-    Block const& target = targetBlock ? *targetBlock : region.getBlock(at);
-    std::string  tid    = target.getTypeName();
-    std::string  held   = item.isNull() ? std::string() : std::string(item.getTypeName());
-    GlobalPos    p      = lv::game::globalPos(region, at);
-    bool         sneakWithItem = player.isSneaking() && !item.isNull();
+// ---- interactions (U36: on the shared dispatch) --------------------------------------------------
+
+namespace {
+
+/// Right-clicks on the unit's blocks and with its items.
+ia::Result schematicsUseOn(ia::UseOnContext const& c) {
+    Player&            player        = c.player;
+    std::string const& tid           = c.blockId;
+    std::string const& held          = c.itemId;
+    GlobalPos          p             = c.pos;
+    bool               sneakWithItem = c.sneaking && !c.item.isNull();
     try {
         if (tid == kTable && !sneakWithItem) {
             if (debounce(player)) openTable(player, p);
-            return used();
+            return ia::Result::Consume;
         }
         if (tid == kCannon && !sneakWithItem) {
             if (debounce(player)) openCannon(player, p);
-            return used();
+            return ia::Result::Consume;
         }
         if (tid == kBlueprintBlock && held != kBlueprintItem) {
             if (debounce(player)) blueprintUse(player, p, held == kWrench);
-            return used();
+            return ia::Result::Consume;
         }
         if (isOurItem(held)) {
-            if (!debounce(player)) return used();
-            std::pair<cs::Pos, int> h{cp(p), static_cast<int>(face)};
+            if (!debounce(player)) return ia::Result::Consume;
+            std::pair<cs::Pos, int> h{cp(p), c.face};
             if (held == kQuill) quillUse(player, h);
             else if (held == kSchematic) schematicUse(player, h);
             else if (held == kBlueprintItem) {
-                if (placeBlueprint(player, p, static_cast<int>(face)) && !player.isCreative()) {
-                    item.remove(1);
+                if (placeBlueprint(player, p, c.face) && !player.isCreative()) {
+                    // the held stack is the player's own (non-const) inventory slot
+                    const_cast<ItemStack&>(c.item).remove(1);
                     player.sendInventory(false);
                 }
             }
-            return used();
+            return ia::Result::Consume;
         }
     } catch (std::exception const& e) {
         lv::log().error("schematics: use failed: {}", e.what());
-        return used();
+        return ia::Result::Consume;
     }
-    if (held != kTable) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    // the table faces the player (Create: horizontal facing opposite to the player's)
-    static constexpr std::array<lv::core::schematics::Pos, 6> kN{{{0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}}};
-    GlobalPos placed = lv::game::replaceable(region, at) ? p : gp(p.dim, cp(p) + kN[std::min<int>(face, 5)]);
-    std::string before = idAt(placed);
-    auto        result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    if (before != kTable && idAt(placed) == kTable) placeId(placed, kTable, {{kFacing, lv::game::opposite(lv::game::playerFacing(player))}});
-    return result;
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(SchematicsUseItemHook, ll::memory::HookPriority::Normal, GameMode, &GameMode::$useItem, bool, ItemStack& item, HandSlot handSlot) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || item.isNull()) return origin(item, handSlot);
-    std::string held = item.getTypeName();
-    if (held != kQuill && held != kSchematic) return origin(item, handSlot);
-    if (!debounce(player)) return true;
+/// The table faces the player (Create: horizontal facing opposite to the player's).
+void schematicsPlaced(ia::PlaceContext const& c) {
+    if (c.itemId != kTable) return;
+    placeId(c.pos, kTable, {{kFacing, lv::game::opposite(lv::game::playerFacing(c.player))}});
+}
+
+/// Quill and schematic used in the air.
+ia::Result schematicsUse(ia::UseContext const& c) {
+    std::string const& held = c.itemId;
+    if (held != kQuill && held != kSchematic) return ia::Result::Pass;
+    if (!debounce(c.player)) return ia::Result::Consume;
     try {
-        if (held == kQuill) quillUse(player, std::nullopt);
-        else schematicUse(player, std::nullopt);
+        if (held == kQuill) quillUse(c.player, std::nullopt);
+        else schematicUse(c.player, std::nullopt);
     } catch (std::exception const& e) {
         lv::log().error("schematics: use failed: {}", e.what());
     }
-    return true;
+    return ia::Result::Consume;
 }
 
-LL_TYPE_INSTANCE_HOOK(SchematicsDestroyBlockHook, ll::memory::HookPriority::Normal, GameMode, &GameMode::$destroyBlock, bool, BlockPos const& pos, uchar face) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(pos, face);
-    auto&     region = player.getDimensionBlockSource();
-    GlobalPos p      = lv::game::globalPos(region, pos);
-    if (region.getBlock(pos).getTypeName() != kBlueprintBlock) return origin(pos, face);
-    // Create: hitting a configured blueprint section clears it instead of breaking the blueprint
-    if (blueprintAttack(player, p)) {
+/// Breaking a blueprint: hitting a configured section clears it instead (Create), creative
+/// players break it without drops.
+ia::Result schematicsDestroy(ia::DestroyContext const& c) {
+    GlobalPos p = c.pos;
+    if (blueprintAttack(c.player, p)) {
         if (auto const* b = blockAt(p)) place(p, *b, 3);
-        return false;
+        return ia::Result::Deny;
     }
-    gNoDrop = player.isCreative();
-    bool ok = origin(pos, face);
-    gNoDrop = false;
-    return ok;
+    if (c.player.isCreative()) {
+        gNoDropAt.insert(p); // read by the erase listener while vanilla breaks the block
+        ia::nextTick([p] { gNoDropAt.erase(p); });
+    }
+    return ia::Result::Pass;
 }
+
+} // namespace
 
 namespace lv::feature::schematics {
 
@@ -201,14 +186,15 @@ public:
                 if (prev == kTable) tableRemoved(p, d);
                 else if (prev == kCannon) cannonRemoved(p, d);
                 else if (prev == kBlueprintBlock && !blueprintSilent()) {
-                    bool drop = !gNoDrop;
+                    bool drop = gNoDropAt.erase(p) == 0;
                     defer([p, d, drop] { blueprintRemoved(p, d, drop); });
                 }
             });
         }
-        SchematicsUseItemOnHook::hook();
-        SchematicsUseItemHook::hook();
-        SchematicsDestroyBlockHook::hook();
+        mHandlers.push_back(ia::onUseOn({}, schematicsUseOn));
+        mHandlers.push_back(ia::onPlace({std::string(kTable), std::string(kTable)}, schematicsPlaced));
+        mHandlers.push_back(ia::onUse({}, schematicsUse));
+        mHandlers.push_back(ia::onDestroy({std::string(kBlueprintBlock)}, schematicsDestroy));
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { tick(); }));
         mListeners.push_back(bus.emplaceListener<ll::event::PlayerDisconnectEvent>([](ll::event::PlayerDisconnectEvent& ev) {
@@ -221,9 +207,8 @@ public:
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
-        SchematicsDestroyBlockHook::unhook();
-        SchematicsUseItemHook::unhook();
-        SchematicsUseItemOnHook::unhook();
+        for (auto id : mHandlers) ia::remove(id);
+        mHandlers.clear();
     }
 
 private:
@@ -240,6 +225,7 @@ private:
     }
 
     std::vector<ll::event::ListenerPtr> mListeners;
+    std::vector<ia::HandlerId>          mHandlers;
 };
 
 } // namespace

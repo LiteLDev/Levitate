@@ -1,21 +1,20 @@
-// Display unit (U24): game hooks. GameMode is where every player action ends up (network players
-// and SimulatedPlayers alike), so the display blocks and items are handled here: right-clicks on
-// links / boards / nixie tubes / clipboards, the link and clipboard items, placements (states the
-// BP can't compute) and the clipboard's left-click paste.
+// Display unit (U24): player interactions through the shared dispatch (common/Interactions.h;
+// network players and SimulatedPlayers alike): right-clicks on links / boards / nixie tubes /
+// clipboards, the link and clipboard items, placements (states the BP can't compute) and the
+// clipboard's left-click paste.
 
 #include <map>
-
-#include "ll/api/memory/Hook.h"
+#include <optional>
+#include <vector>
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/display/Internal.h"
 #include "game/Blocks.h"
@@ -26,16 +25,6 @@ namespace items = common::items;
 
 namespace {
 
-bool isServerPlayer(Player const& p) { return !p.isClientSide(); }
-
-InteractionResult handled(Player& player) {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    player.sendInventory(false); // undo the client's predicted use
-    return r;
-}
-
 /// Bedrock repeats use-on packets while the button is held: one action per click.
 bool repeated(Player& player, GlobalPos const& pos) {
     static std::map<std::int64_t, std::pair<GlobalPos, std::uint64_t>> last;
@@ -44,11 +33,6 @@ bool repeated(Player& player, GlobalPos const& pos) {
     bool  rep = l.first == pos && now - l.second < 5;
     l         = {pos, now};
     return rep;
-}
-
-BlockPos placementPos(BlockSource& region, BlockPos const& clicked, uchar face) {
-    if (game::replaceable(region, clicked) || face > 5) return clicked;
-    return BlockPos{clicked.x + kDx[face], clicked.y + kDy[face], clicked.z + kDz[face]};
 }
 
 /// Our handling of a right-click on a block; true = consumed (no vanilla use / placement).
@@ -130,115 +114,105 @@ bool ourItem(std::string const& id) { return id == kLinkId || id == kBoardId || 
 
 } // namespace
 
-LL_TYPE_INSTANCE_HOOK(
-    DisplayUseItemOnHook,
-    ll::memory::HookPriority::High,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (!isServerPlayer(player)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto& region = player.getDimensionBlockSource();
-    if (onUseOn(player, item, region, at, face, hit)) return handled(player);
-    auto heldId = items::idOf(item);
-    if (!ourItem(heldId)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    // a placement: let the game place it, then set the states the pack can't compute
-    BlockPos           target = placementPos(region, at, face);
-    std::optional<int> boardFacing;
-    if (heldId == kBoardId) {
-        if (auto s = board::structureOf(region, game::globalPos(region, at))) boardFacing = s->facing;
-    }
-    ItemStack before = item;
-    auto      result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    afterPlace(player, before, region, target, face, boardFacing);
-    return result;
+namespace ia = common::interactions;
+
+namespace {
+
+std::vector<ia::HandlerId>& handlerIds() {
+    static std::vector<ia::HandlerId> ids;
+    return ids;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    DisplayUseItemHook,
-    ll::memory::HookPriority::High,
-    GameMode,
-    &GameMode::$useItem,
-    bool,
-    ItemStack& item,
-    HandSlot   handSlot
-) {
-    Player& player = mPlayer;
-    if (isServerPlayer(player) && items::idOf(item) == kClipboardId && !player.isSneaking()) {
-        clipboard::useInAir(player);
-        return true;
-    }
-    return origin(item, handSlot);
+/// Facing of the clicked board, noted before a board placement (per player).
+std::map<std::int64_t, std::optional<int>>& pendingBoardFacing() {
+    static std::map<std::int64_t, std::optional<int>> m;
+    return m;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    DisplayStartDestroyHook,
-    ll::memory::HookPriority::High,
-    GameMode,
-    &GameMode::$startDestroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face,
-    bool&           hasDestroyedBlock
-) {
-    Player& player = mPlayer;
-    if (isServerPlayer(player) && items::idOf(player.getSelectedItem()) == kClipboardId) {
-        auto& region = player.getDimensionBlockSource();
-        if (clipboard::paste(player, region, game::globalPos(region, pos))) {
-            hasDestroyedBlock = false;
-            return false;
-        }
-    }
-    return origin(pos, face, hasDestroyedBlock);
-}
+Vec3 hitVec(ia::Vec const& h) { return Vec3{float(h[0]), float(h[1]), float(h[2])}; }
 
-LL_TYPE_INSTANCE_HOOK(
-    DisplayDestroyBlockHook,
-    ll::memory::HookPriority::High,
-    GameMode,
-    &GameMode::$destroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face
-) {
-    Player& player = mPlayer;
-    if (!isServerPlayer(player)) return origin(pos, face);
-    auto& region = player.getDimensionBlockSource();
-    auto  gp     = game::globalPos(region, pos);
-    if (items::idOf(player.getSelectedItem()) == kClipboardId && player.isCreative()) {
-        // creative left-clicks destroy at once: paste first (Create cancels the break)
-        if (clipboard::paste(player, region, gp)) return false;
-    }
-    auto id = idAt(region, gp);
-    if (id == kClipboardId) clipboard::noteBreak(player, gp);
-    bool ok = origin(pos, face);
-    if (ok) {
-        if (board::isBoard(id)) board::removed(region, gp);
-        else if (nixie::isNixie(id)) nixie::removed(gp);
-    }
-    return ok;
-}
+} // namespace
 
 void installHooks() {
-    DisplayUseItemOnHook::hook();
-    DisplayUseItemHook::hook();
-    DisplayStartDestroyHook::hook();
-    DisplayDestroyBlockHook::hook();
+    auto& ids = handlerIds();
+    // right-clicks on our blocks / with our items (Create's use / useOn)
+    ids.push_back(ia::onUseOn(
+        {},
+        [](ia::UseOnContext const& c) {
+            auto& player = c.player;
+            auto& region = player.getDimensionBlockSource();
+            auto  at     = game::blockPos(c.pos);
+            if (onUseOn(player, c.item, region, at, static_cast<uchar>(c.face), hitVec(c.hit))) {
+                player.sendInventory(false); // undo the client's predicted use
+                return ia::Result::Consume;
+            }
+            // a board placement: remember the clicked board's facing for the placed one
+            if (c.itemId == kBoardId) {
+                std::optional<int> facing;
+                if (auto st = board::structureOf(region, c.pos)) facing = st->facing;
+                pendingBoardFacing()[player.getOrCreateUniqueID().rawID] = facing;
+            }
+            return ia::Result::Pass;
+        },
+        ia::priority::High
+    ));
+    // after the game placed a block from one of our items: the states the pack can't compute
+    ids.push_back(ia::onPlace({}, [](ia::PlaceContext const& c) {
+        std::optional<int> boardFacing;
+        if (c.itemId == kBoardId) {
+            auto& pending = pendingBoardFacing();
+            if (auto it = pending.find(c.player.getOrCreateUniqueID().rawID); it != pending.end()) {
+                boardFacing = it->second;
+                pending.erase(it);
+            }
+        }
+        if (!ourItem(c.itemId) || c.blockId != c.itemId) return;
+        ItemStack before = c.itemBefore ? *c.itemBefore : ItemStack{};
+        afterPlace(c.player, before, c.player.getDimensionBlockSource(), game::blockPos(c.pos), static_cast<uchar>(c.face), boardFacing);
+    }));
+    // the clipboard in the air opens it (sneaking: vanilla)
+    ids.push_back(ia::onUse(
+        kClipboardId,
+        [](ia::UseContext const& c) {
+            if (c.sneaking || c.onBlock) return ia::Result::Pass; // a block click was the use-on's
+            clipboard::useInAir(c.player);
+            return ia::Result::Consume;
+        },
+        ia::priority::High
+    ));
+    // left-click with the clipboard pastes its settings
+    ids.push_back(ia::onStartDestroy(
+        {.item = kClipboardId},
+        [](ia::DestroyContext const& c) {
+            auto& region = c.player.getDimensionBlockSource();
+            return clipboard::paste(c.player, region, c.pos) ? ia::Result::Consume : ia::Result::Pass;
+        },
+        ia::priority::High
+    ));
+    ids.push_back(ia::onDestroy(
+        {},
+        [](ia::DestroyContext const& c) {
+            auto& region = c.player.getDimensionBlockSource();
+            if (c.itemId == kClipboardId && c.player.isCreative()) {
+                // creative left-clicks destroy at once: paste first (Create cancels the break)
+                if (clipboard::paste(c.player, region, c.pos)) return ia::Result::Consume;
+            }
+            if (c.blockId == kClipboardId) clipboard::noteBreak(c.player, c.pos);
+            return ia::Result::Pass;
+        },
+        ia::priority::High
+    ));
+    ids.push_back(ia::onDestroyed({}, [](ia::DestroyContext const& c, bool destroyed) {
+        if (!destroyed) return;
+        if (board::isBoard(c.blockId)) board::removed(c.player.getDimensionBlockSource(), c.pos);
+        else if (nixie::isNixie(c.blockId)) nixie::removed(c.pos);
+    }));
 }
 
 void uninstallHooks() {
-    DisplayDestroyBlockHook::unhook();
-    DisplayStartDestroyHook::unhook();
-    DisplayUseItemHook::unhook();
-    DisplayUseItemOnHook::unhook();
+    for (auto id : handlerIds()) ia::remove(id);
+    handlerIds().clear();
+    pendingBoardFacing().clear();
 }
 
 } // namespace lv::feature::display

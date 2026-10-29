@@ -31,6 +31,7 @@
 
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/crafter/Internal.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
@@ -113,29 +114,7 @@ GlobalPos offset(GlobalPos p, Face f) {
 
 bool powered(GlobalPos const& pos) {
     auto* region = loadedRegion(pos);
-    if (!region) return false;
-    for (auto f : core::kinetics::kFaces) {
-        auto n  = offset(pos, f);
-        auto bp = game::blockPos(n);
-        if (!region->hasChunksAt(bp, 0, false)) continue;
-        auto const& block = region->getBlock(bp);
-        if (block.isAir()) continue;
-        std::string id = block.getTypeName();
-        if (id == "minecraft:redstone_block") return true;
-        if (game::intState(block, "redstone_signal").value_or(0) > 0) {
-            // wire only powers what it points into; repeaters/comparators handled below
-            return true;
-        }
-        if (id == "minecraft:lever" && game::intState(block, "open_bit").value_or(0)) return true;
-        if (game::intState(block, "button_pressed_bit").value_or(0)) return true;
-        if (id == "minecraft:observer" && game::intState(block, "powered_bit").value_or(0)) return true;
-        if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return true;
-        if (id == "minecraft:redstone_torch") {
-            // a torch powers its neighbours except the block it hangs on; approximated by: not below
-            if (f != Face::Up) return true;
-        }
-    }
-    return false;
+    return region && common::redstone::powered(*region, game::blockPos(pos));
 }
 
 void playSoundAt(int dim, double x, double y, double z, std::string const& sound, float volume, float pitch) {

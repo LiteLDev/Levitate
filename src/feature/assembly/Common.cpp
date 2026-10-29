@@ -29,6 +29,7 @@
 
 #include "feature/assembly/AssemblyInternal.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -132,27 +133,7 @@ Block const* withStates(Block const& block, std::vector<std::pair<std::string, i
     return cur;
 }
 
-bool powered(BlockSource& region, BlockPos const& pos) {
-    for (int f = 0; f < 6; ++f) {
-        auto n = offsetPos(pos, static_cast<Face>(f));
-        if (!region.hasChunksAt(n, 0, false)) continue;
-        auto const& block = region.getBlock(n);
-        if (block.isAir()) continue;
-        std::string const& id = block.getTypeName();
-        if (id == "minecraft:redstone_block") return true;
-        if (game::intState(block, "redstone_signal").value_or(0) > 0) return true;
-        if (id == "minecraft:lever" && game::intState(block, "open_bit").value_or(0)) return true;
-        if (game::intState(block, "button_pressed_bit").value_or(0)) return true;
-        if (id == "minecraft:observer" && game::intState(block, "powered_bit").value_or(0)) return true;
-        if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return true;
-        if (id == "minecraft:redstone_torch") {
-            // a torch powers every neighbour but the block it is attached to; floor torches stand
-            // below, which is the common case checked here
-            if (f != static_cast<int>(Face::Up)) return true;
-        }
-    }
-    return false;
-}
+bool powered(BlockSource& region, BlockPos const& pos) { return common::redstone::powered(region, pos); }
 
 bool shaftTowards(BlockSource& region, BlockPos const& pos, Face face) {
     if (!region.hasChunksAt(pos, 0, false)) return false;

@@ -2,12 +2,12 @@
 // blocks carried by contraptions (contraption controls and seats are right-clicked while the
 // contraption exists: the server casts the player's look against the carried blocks).
 //
-// GameMode is where every player action ends up (network players and SimulatedPlayers alike),
-// so the hooks are on GameMode::$useItemOn / $useItem (as the wave-1 units do).
+// Clicks go through the shared interaction dispatch (common/Interactions.h).
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
@@ -18,8 +18,6 @@
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/phys/AABB.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/dimension/DimensionType.h"
@@ -27,6 +25,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/actors/Actors.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/ActorsExt.h"
 #include "feature/net/Net.h"
@@ -39,6 +38,7 @@ namespace lv::feature::actors {
 
 namespace ext = ::lv::feature::contraption::actors_ext;
 namespace fs  = ::lv::feature::common::filterslot;
+namespace ia  = ::lv::feature::common::interactions;
 
 namespace {
 
@@ -110,30 +110,8 @@ void placed(Player& player, BlockSource& region, BlockPos const& pos, BlockPos c
     if (id == kControls) trackStationaryControls(gp);
 }
 
-/// Where a plain right-click would put a block.
-BlockPos placementPos(BlockSource& region, BlockPos const& clicked, uchar face) {
-    if (game::replaceable(region, clicked)) return clicked;
-    static int const dx[] = {0, 0, 0, 0, -1, 1}, dy[] = {-1, 1, 0, 0, 0, 0}, dz[] = {0, 0, -1, 1, 0, 0};
-    if (face >= 6) return clicked;
-    return BlockPos{clicked.x + dx[face], clicked.y + dy[face], clicked.z + dz[face]};
-}
-
-InteractionResult handled() {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    return r;
-}
-
-/// The click position in world coordinates (the game may give it relative to the block).
-cc::Vec3d worldHit(BlockPos const& at, Vec3 const& hit) {
-    auto in = [](float v) { return v >= -0.01f && v <= 1.01f; };
-    if (in(hit.x) && in(hit.y) && in(hit.z)) return {at.x + double(hit.x), at.y + double(hit.y), at.z + double(hit.z)};
-    return ccVec(hit);
-}
-
-/// Right-click on one of our stationary blocks. True when handled.
-bool useOnBlock(Player& player, ItemStack const& item, BlockPos const& at, uchar face, Vec3 const& hit) {
+/// Right-click on one of our stationary blocks (`local`: block-local click). True when handled.
+bool useOnBlock(Player& player, ItemStack const& item, BlockPos const& at, uchar face, core::common::Vec const& local) {
     auto&       region = player.getDimensionBlockSource();
     auto const& block  = region.getBlock(at);
     std::string id     = block.getTypeName();
@@ -144,8 +122,6 @@ bool useOnBlock(Player& player, ItemStack const& item, BlockPos const& at, uchar
         return recentlyUsed(uid) || seatUse(player, gp, item);
     }
     if (id == kControls && !player.isSneaking() && (item.isNull() || item.mCount == 0)) {
-        auto w = worldHit(at, hit);
-        core::common::Vec local{w.x - at.x, w.y - at.y, w.z - at.z};
         if (fs::slotAt(block, face, local)) return false; // the filter slot (U3)
         if (recentlyUsed(uid)) return true;
         controlsClickStationary(player, gp);
@@ -217,66 +193,52 @@ bool useOnContraption(Player& player, ContraptionHit const& target) {
 
 // ---- hooks ------------------------------------------------------------------------------------
 
-LL_TYPE_INSTANCE_HOOK(
-    ActorsUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+namespace {
+
+/// A contraption block in front of the clicked world block takes the click.
+ia::Result useOnContraptionInFront(ia::UseOnContext const& ctx) {
+    Player& player = ctx.player;
     try {
-        // a contraption block in front of the clicked world block
         if (auto c = raycastContraption(player, kReach)) {
             cc::Vec3d eye = ccVec(player.getEyePos());
-            if (c->distance < (worldHit(at, hit) - eye).length() && useOnContraption(player, *c)) {
+            cc::Vec3d world{ctx.pos.x + ctx.hit[0], ctx.pos.y + ctx.hit[1], ctx.pos.z + ctx.hit[2]};
+            if (c->distance < (world - eye).length() && useOnContraption(player, *c)) {
                 player.sendInventory(false);
-                return handled();
+                return ia::Result::Consume;
             }
-        }
-        if (useOnBlock(player, item, at, face, hit)) {
-            player.sendInventory(false);
-            return handled();
         }
     } catch (std::exception const& e) {
         log().error("actors: use failed: {}", e.what());
     }
-    auto&    region = player.getDimensionBlockSource();
-    BlockPos target = placementPos(region, at, face);
-    auto     before = region.getBlock(target).getTypeName();
-    auto     result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto     after  = region.getBlock(target).getTypeName();
-    if (after != before && isOurs(after)) {
-        try {
-            placed(player, region, target, at, static_cast<cc::Dir>(std::min<int>(face, 5)));
-        } catch (std::exception const& e) {
-            log().error("actors: placement failed: {}", e.what());
-        }
-    }
-    return result;
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    ActorsUseItemHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItem,
-    bool,
-    ItemStack& item,
-    HandSlot   handSlot
-) {
-    Player& player = mPlayer;
-    if (!player.isClientSide() && useOnContraption(player)) return true;
-    return origin(item, handSlot);
+ia::Result useOnStationary(ia::UseOnContext const& ctx) {
+    try {
+        BlockPos at{ctx.pos.x, ctx.pos.y, ctx.pos.z};
+        if (useOnBlock(ctx.player, ctx.item, at, static_cast<uchar>(ctx.face), ctx.hit)) {
+            ctx.player.sendInventory(false);
+            return ia::Result::Consume;
+        }
+    } catch (std::exception const& e) {
+        log().error("actors: use failed: {}", e.what());
+    }
+    return ia::Result::Pass;
 }
+
+void onPlaced(ia::PlaceContext const& ctx) {
+    if (!isOurs(ctx.blockId)) return;
+    auto&    region = ctx.player.getDimensionBlockSource();
+    BlockPos target{ctx.pos.x, ctx.pos.y, ctx.pos.z};
+    BlockPos clicked{ctx.clicked.x, ctx.clicked.y, ctx.clicked.z};
+    try {
+        placed(ctx.player, region, target, clicked, static_cast<cc::Dir>(std::clamp(ctx.face, 0, 5)));
+    } catch (std::exception const& e) {
+        log().error("actors: placement failed: {}", e.what());
+    }
+}
+
+} // namespace
 
 namespace {
 
@@ -287,8 +249,16 @@ public:
         controlsInstall();
         psiInstall();
         seatsInstall();
-        ActorsUseItemOnHook::hook();
-        ActorsUseItemHook::hook();
+        mHandlers = {
+            ia::onUseOn({}, useOnContraptionInFront, ia::priority::High),
+            ia::onUseOn({}, useOnStationary),
+            ia::onPlace({}, onPlaced),
+            // right-click into the air (a click on a block was handled by the use-on handlers)
+            ia::onUse({}, [](ia::UseContext const& c) {
+                if (c.onBlock) return ia::Result::Pass;
+                return useOnContraption(c.player) ? ia::Result::Consume : ia::Result::Pass;
+            }),
+        };
         auto& bus = ll::event::EventBus::getInstance();
         mTick     = bus.emplaceListener<ll::event::ServerLevelTickEvent>([this](auto&) { tick(); });
         // empty-hand right-click into the air (client mod): the server can't see it otherwise
@@ -304,8 +274,8 @@ public:
     void uninstall() {
         net::off("actors.use");
         ll::event::EventBus::getInstance().removeListener(mTick);
-        ActorsUseItemHook::unhook();
-        ActorsUseItemOnHook::unhook();
+        for (auto id : mHandlers) ia::remove(id);
+        mHandlers.clear();
     }
 
 private:
@@ -320,8 +290,9 @@ private:
         }
     }
 
-    ll::event::ListenerPtr mTick;
-    std::uint64_t          mTicks = 0;
+    ll::event::ListenerPtr     mTick;
+    std::uint64_t              mTicks = 0;
+    std::vector<ia::HandlerId> mHandlers;
 };
 
 } // namespace

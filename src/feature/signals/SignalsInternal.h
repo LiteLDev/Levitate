@@ -79,8 +79,6 @@ struct State {
     bool                               indexDirty   = false;
     bool                               sidesDirty   = false;
     bool                               loaded       = false;
-    std::map<std::pair<void const*, std::tuple<int, int, int>>, int> comparators; ///< (circuit, pos) -> signal
-    std::set<std::pair<void const*, std::tuple<int, int, int>>>      released;
     std::string                        lastOverlay;  ///< last overlay sent to companions
     bool                               loggedSync = false;
 };
@@ -122,8 +120,5 @@ void refresh();
 bool onTargetingItemUse(Player& player, std::string const& item, BlockPos const& clicked, int face);
 void installHooks();
 void uninstallHooks();
-/// Comparator overrides (SignalsHooks.cpp reads them).
-std::optional<int> comparatorOverride(void const* circuit, BlockPos const& pos);
-bool               comparatorReleased(void const* circuit, BlockPos const& pos);
 
 } // namespace lv::feature::signals

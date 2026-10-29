@@ -2,7 +2,7 @@
 //
 // Every funnel, tunnel, chute, smart chute, item vault and creative crate is kept in an index
 // (persisted in the world DB under "lv:funnels:index") and ticked like Create's block entities.
-// Player actions arrive through GameMode hooks (they also see SimulatedPlayers).
+// Player actions arrive through the shared dispatch (common/Interactions.h; SimulatedPlayers too).
 
 #include <algorithm>
 #include <cmath>
@@ -24,8 +24,6 @@
 #include "mc/network/packet/PlaySoundPacket.h"
 #include "mc/world/actor/item/ItemActor.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -39,7 +37,9 @@
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Filter.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/common/ValueBox.h"
 #include "feature/funnels/FunnelsInternal.h"
 #include "game/Blocks.h"
@@ -117,15 +117,6 @@ void loadIndex() {
         }
     }
     st().loaded = true;
-}
-
-/// Block states through the block's serialisation id (string states too).
-std::string stringState(Block const& block, char const* key) {
-    auto const& id = block.mSerializationId.get();
-    if (!id.contains("states", Tag::Type::Compound)) return {};
-    auto const& states = id["states"].get<CompoundTag>();
-    if (!states.contains(key, Tag::Type::String)) return {};
-    return std::string(states[key].get<StringTag>());
 }
 
 /// Block-local hit position from a click position (relative or absolute).
@@ -219,37 +210,7 @@ bool setStates(BlockSource& region, BlockPos const& pos, std::vector<std::pair<s
     return game::setBlock(region, pos, *next);
 }
 
-bool powered(BlockSource& region, BlockPos const& pos) {
-    for (int face : cf::kAllFaces) {
-        BlockPos    n     = offset(pos, face);
-        auto const* block = loadedBlock(region, n);
-        if (!block || block->isAir()) continue;
-        std::string id = block->getTypeName();
-        if (id == "minecraft:redstone_block") return true;
-        if (game::intState(*block, "redstone_signal").value_or(0) > 0) return true;
-        if (id == "minecraft:lever" && game::intState(*block, "open_bit").value_or(0)) return true;
-        if (game::intState(*block, "button_pressed_bit").value_or(0)) return true;
-        if (id == "minecraft:observer" && game::intState(*block, "powered_bit").value_or(0)) return true;
-        if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return true;
-        if (id == "minecraft:redstone_torch") {
-            // a torch powers every neighbour except the block it stands on
-            auto t       = stringState(*block, "torch_facing_direction");
-            int  support = cf::kDown;
-            if (t == "north") support = cf::kSouth;
-            else if (t == "south") support = cf::kNorth;
-            else if (t == "west") support = cf::kEast;
-            else if (t == "east") support = cf::kWest;
-            if (offset(n, support) != pos) return true;
-        }
-        if (id == "minecraft:daylight_detector" || id == "minecraft:daylight_detector_inverted"
-            || id == "minecraft:sculk_sensor" || id == "minecraft:calibrated_sculk_sensor") {
-            if (game::intState(*block, "redstone_signal").value_or(0) > 0
-                || game::intState(*block, "sculk_sensor_phase").value_or(0) == 1)
-                return true;
-        }
-    }
-    return false;
-}
+bool powered(BlockSource& region, BlockPos const& pos) { return common::redstone::powered(region, pos); }
 
 bool solidFace(BlockSource& region, BlockPos const& pos, int face) {
     auto const* block = loadedBlock(region, pos);
@@ -477,52 +438,43 @@ void markHandled(std::int64_t uid, GlobalPos const& pos) { handledUses()[uid] = 
 
 } // namespace
 
-LL_TYPE_INSTANCE_HOOK(
-    FunnelsUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+namespace ia = common::interactions;
+
+namespace {
+
+/// Right-clicks on our blocks, and the placement intent of our block items.
+ia::Result useOnHandler(ia::UseOnContext const& c) {
+    auto& player = c.player;
     auto& region = player.getDimensionBlockSource();
     auto  uid    = player.getOrCreateUniqueID().rawID;
-    if (kindAt(region, at) != Kind::None) {
+    auto  at     = toBlockPos(c.pos);
+    if (kindOf(c.blockId) != Kind::None) {
         // Bedrock repeats the use while the button is held: one action per click, and the
         // repeats of a handled click must not place the held block either
-        auto gp      = toGlobal(static_cast<int>(player.getDimensionId()), at);
-        bool handled = recentlyHandled(uid, gp);
-        if (!handled && onUse(player, region, at, face, hit, item)) {
-            markHandled(uid, gp);
+        bool handled = recentlyHandled(uid, c.pos);
+        Vec3 hit{float(c.hit[0]), float(c.hit[1]), float(c.hit[2])}; // block-local (localHit keeps it)
+        if (!handled && onUse(player, region, at, c.face, hit, ia::mutableItem(c.item))) {
+            markHandled(uid, c.pos);
             handled = true;
         }
         if (handled) {
-            InteractionResult r{};
-            r.mSuccess = true;
-            r.mSwing   = true;
             player.sendInventory(false);
-            return r;
+            return ia::Result::Consume;
         }
     }
-    if (!item.isNull() && ourBlockItem(item.getTypeName())) {
+    if (!c.itemId.empty() && ourBlockItem(c.itemId)) {
         Intent in;
         in.player   = uid;
-        in.face     = face;
-        in.sneaking = player.isSneaking();
+        in.face     = c.face;
+        in.sneaking = c.sneaking;
         in.look     = player.getViewVector();
         in.tick     = st().tick;
-        st().intents[game::globalPos(region, placementPos(region, at, face))] = in;
+        st().intents[game::globalPos(region, placementPos(region, at, static_cast<uchar>(c.face)))] = in;
     }
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    return ia::Result::Pass;
 }
+
+} // namespace
 
 // ---- module -------------------------------------------------------------------------------------------
 
@@ -552,12 +504,13 @@ public:
             onBlockChanged(ev);
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { onTick(); }));
-        FunnelsUseItemOnHook::hook();
+        mUseOn = ia::onUseOn({}, useOnHandler);
         if (game::db::available() && !st().loaded) loadIndex(); // BDS: the world exists already
     }
 
     void uninstall() {
-        FunnelsUseItemOnHook::unhook();
+        ia::remove(mUseOn);
+        mUseOn = 0;
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
@@ -721,6 +674,7 @@ private:
     }
 
     std::vector<ll::event::ListenerPtr> mListeners;
+    ia::HandlerId                       mUseOn = 0;
 };
 
 } // namespace lv::feature::funnels

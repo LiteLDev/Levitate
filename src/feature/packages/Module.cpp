@@ -1,8 +1,12 @@
-// Packages unit (U25): block index, ticking, world lifecycle and the game hooks every player
-// action goes through (GameMode: network players and SimulatedPlayers alike).
+// Packages unit (U25): block index, ticking, world lifecycle and the player interactions
+// (common/Interactions.h: network players and SimulatedPlayers alike; network players' block-item
+// placements also arrive as PlayerPlacingBlockEvent / PlayerPlacedBlockEvent).
 
 #include <algorithm>
+#include <map>
+#include <optional>
 #include <unordered_map>
+#include <vector>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/player/PlayerPlaceBlockEvent.h"
@@ -12,8 +16,6 @@
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -21,6 +23,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/common/BlockData.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/packages/PackagesInternal.h"
 #include "game/Blocks.h"
@@ -218,13 +221,6 @@ void onErase(GlobalPos const& pos, nlohmann::json const& doc, std::string const&
 
 bool isServerPlayer(Player const& p) { return !p.isClientSide(); }
 
-InteractionResult consumed() {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    return r;
-}
-
 /// Where a placement right-click on `at` / `face` puts a block.
 GlobalPos placementPos(BlockSource& region, BlockPos const& at, uchar face) {
     auto p = game::globalPos(region, at);
@@ -297,41 +293,41 @@ std::vector<GlobalPos> tracked(Kind kind) {
 void          defer(std::function<void()> fn) { S().deferred.push_back(std::move(fn)); }
 std::uint64_t currentTick() { return S().tick; }
 
-LL_TYPE_INSTANCE_HOOK(
-    PackagesUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (!isServerPlayer(player)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region  = player.getDimensionBlockSource();
-    Block const* clicked = targetBlock ? targetBlock : &region.getBlock(at);
-    auto         target  = game::globalPos(region, at);
-    auto         kind    = kindOf(game::blockId(*clicked));
-    auto         heldId  = items::idOf(item);
-    bool         sneak   = player.isSneaking();
+// ---- interactions (common/Interactions.h) --------------------------------------------------------
+
+namespace ia = common::interactions;
+
+namespace {
+
+/// Packager facing worked out before the placement, by placement position.
+std::map<GlobalPos, std::optional<int>>& pendingFacing() {
+    static std::map<GlobalPos, std::optional<int>> m;
+    return m;
+}
+
+cp::V3 absoluteHit(ia::UseOnContext const& c) {
+    return {c.pos.x + c.hit[0], c.pos.y + c.hit[1], c.pos.z + c.hit[2]};
+}
+
+ia::Result packagesUseOn(ia::UseOnContext const& c) {
+    auto&       player = c.player;
+    auto&       item   = ia::mutableItem(c.item);
+    auto&       region = player.getDimensionBlockSource();
+    BlockPos    at     = game::blockPos(c.pos);
+    auto const& target = c.pos;
+    auto        kind   = kindOf(game::blockId(c.block));
+    auto const& heldId = c.itemId;
+    bool        sneak  = c.sneaking;
+    int         face   = c.face;
     // the caller writes `item` back into the hand slot: keep it in sync with what we changed
     auto done = [&] {
         item = player.getSelectedItem();
-        return consumed();
+        return ia::Result::Consume;
     };
 
     try {
         // chains in front of the clicked block
-        cp::V3 hitAbs{at.x + double(hit.x), at.y + double(hit.y), at.z + double(hit.z)};
-        if (hit.x >= -0.01 && hit.x <= 1.01 && hit.y >= -0.01 && hit.y <= 1.01 && hit.z >= -0.01 && hit.z <= 1.01) {
-        } else {
-            hitAbs = {hit.x, hit.y, hit.z};
-        }
+        cp::V3 hitAbs        = absoluteHit(c);
         double blockDistance = eyePos(player).distanceTo(hitAbs);
         if (chainInteraction(player, item, blockDistance)) return done();
 
@@ -371,7 +367,7 @@ LL_TYPE_INSTANCE_HOOK(
         if (isChainItem(item) && kind != Kind::ChainConveyor) clearChainSelection(player, true);
 
         // postboxes select a train station before being placed
-        if (isPostboxId(heldId) && game::blockId(*clicked) == kStationId) {
+        if (isPostboxId(heldId) && game::blockId(c.block) == kStationId) {
             if (!debounced(player, target)) {
                 PendingTarget t;
                 t.target.type = PortTarget::Type::Station;
@@ -383,90 +379,147 @@ LL_TYPE_INSTANCE_HOOK(
             return done();
         }
 
-        // package items: sneak opens, otherwise it is put down on the block
+        // package items: sneak opens, otherwise it is put down on the block (onUnusedUseOn below)
         if (isPackage(item)) {
             if (sneak) {
                 // Java skips the block's use while sneaking with an item: the package opens
                 if (!debounced(player, target)) openPackage(player);
                 return done();
             }
-            // the block's own use (chests, doors, other units' machines) comes first, as Create's
-            // PackageItem.useOn only runs when the block passes
-            auto result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-            if (result.mSuccess || !isPackage(item) || debounced(player, target)) return result;
-            cp::V3 at3 = hitAbs;
-            if (face == 0) at3.y -= 1.0;
-            dropItem(player.getDimensionId(), at3 + cp::V3{0, 0.1, 0}, items::withCount(item, 1), cp::V3{});
-            if (!player.isCreative()) {
-                player.setSelectedItem(items::withCount(item, items::countOf(item) - 1));
-                player.sendInventory(false);
-            }
-            return done();
+            return ia::Result::Pass;
         }
 
-        // placing one of our blocks
+        // placing one of our blocks (oriented in packagesPlaced)
         auto placedKind = kindOf(heldId);
         if (placedKind != Kind::None) {
-            auto place = placementPos(region, at, face);
-            if (placedKind == Kind::ChainConveyor && conveyorPlacementBlocked(place)) return InteractionResult{};
+            auto place = placementPos(region, at, static_cast<uchar>(face));
+            if (placedKind == Kind::ChainConveyor && conveyorPlacementBlocked(place)) return ia::Result::Deny;
             std::optional<int> facing;
             if (placedKind == Kind::Packager || placedKind == Kind::Repackager) {
                 facing = packagerPlacementFacing(player, place, placedKind == Kind::Repackager);
-                if (!facing) return InteractionResult{};
+                if (!facing) return ia::Result::Deny;
             }
-            auto before = idAt(place);
-            auto result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-            if (idAt(place) == heldId && before != heldId && !S().placedByEvent.contains(place)) {
-                S().placedByHook.insert(place);
-                track(place, placedKind);
-                switch (placedKind) {
-                case Kind::Packager:
-                case Kind::Repackager: onPackagerPlaced(place, *facing); break;
-                case Kind::Frogport:
-                case Kind::Postbox: onPortPlaced(&player, place, placedKind); break;
-                default: break;
-                }
-                if (placedKind == Kind::Postbox) {
-                    setStates(place, {{kDirection, game::opposite(game::playerFacing(player))}});
-                }
-                log().info("packages: {} placed at {} by {}", kindName(placedKind), place.key(), player.getRealName());
-            }
-            return result;
+            pendingFacing()[place] = facing;
         }
     } catch (std::exception const& e) {
         log().error("packages: use on block failed: {}", e.what());
     }
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(PackagesUseItemHook, ll::memory::HookPriority::Normal, GameMode, &GameMode::$useItem, bool, ItemStack& item, HandSlot handSlot) {
-    Player& player = mPlayer;
-    if (!isServerPlayer(player)) return origin(item, handSlot);
+/// Create's PackageItem.useOn: when the clicked block passes, the package is put down on it.
+ia::Result packagesPutDown(ia::UseOnContext const& c) {
+    auto& player = c.player;
+    auto& item   = ia::mutableItem(c.item);
+    if (c.sneaking || !isPackage(item) || debounced(player, c.pos)) return ia::Result::Pass;
+    try {
+        cp::V3 at3 = absoluteHit(c);
+        if (c.face == 0) at3.y -= 1.0;
+        dropItem(player.getDimensionId(), at3 + cp::V3{0, 0.1, 0}, items::withCount(item, 1), cp::V3{});
+        if (!player.isCreative()) {
+            player.setSelectedItem(items::withCount(item, items::countOf(item) - 1));
+            player.sendInventory(false);
+        }
+        item = player.getSelectedItem();
+        return ia::Result::Consume;
+    } catch (std::exception const& e) {
+        log().error("packages: use on block failed: {}", e.what());
+    }
+    return ia::Result::Pass;
+}
+
+/// After the game placed one of our blocks from a click (network players' placements arrive
+/// through PlayerPlacedBlockEvent instead, see onPlaced).
+void packagesPlaced(ia::PlaceContext const& c) {
+    auto& pending = pendingFacing();
+    auto  it      = pending.find(c.pos);
+    std::optional<int> facing;
+    if (it != pending.end()) {
+        facing = it->second;
+        pending.erase(it);
+    }
+    auto placedKind = kindOf(c.itemId);
+    if (placedKind == Kind::None || c.blockId != c.itemId || S().placedByEvent.contains(c.pos)) return;
+    try {
+        auto& player = c.player;
+        auto  place  = c.pos;
+        S().placedByHook.insert(place);
+        track(place, placedKind);
+        switch (placedKind) {
+        case Kind::Packager:
+        case Kind::Repackager:
+            if (facing) onPackagerPlaced(place, *facing);
+            break;
+        case Kind::Frogport:
+        case Kind::Postbox: onPortPlaced(&player, place, placedKind); break;
+        default: break;
+        }
+        if (placedKind == Kind::Postbox) setStates(place, {{kDirection, game::opposite(game::playerFacing(player))}});
+        log().info("packages: {} placed at {} by {}", kindName(placedKind), place.key(), player.getRealName());
+    } catch (std::exception const& e) {
+        log().error("packages: placement failed: {}", e.what());
+    }
+}
+
+ia::Result packagesUse(ia::UseContext const& c) {
+    if (c.onBlock) return ia::Result::Pass; // block clicks are the use-on's
+    auto& player = c.player;
+    auto& item   = ia::mutableItem(c.item);
     try {
         if (chainInteraction(player, item, 1e9)) {
             item = player.getSelectedItem();
-            return true;
+            return ia::Result::Consume;
         }
-        if (isChainItem(item) && player.isSneaking()) clearChainSelection(player, true);
+        if (isChainItem(item) && c.sneaking) clearChainSelection(player, true);
         if (isPackage(item)) {
-            if (player.isSneaking()) {
+            if (c.sneaking) {
                 if (!debounced(player, GlobalPos{-1, 0, 0, 0})) openPackage(player);
                 item = player.getSelectedItem();
-                return true;
+                return ia::Result::Consume;
             }
             // Create: hold to charge, release to throw
             S().useStart[player.getOrCreateUniqueID().rawID] = S().tick;
-            return origin(item, handSlot);
+            return ia::Result::Pass;
         }
         if (isPackageFilter(item)) {
             if (!debounced(player, GlobalPos{-2, 0, 0, 0})) openPackageFilterForm(player);
-            return true;
+            return ia::Result::Consume;
         }
     } catch (std::exception const& e) {
         log().error("packages: use item failed: {}", e.what());
     }
-    return origin(item, handSlot);
+    return ia::Result::Pass;
 }
+
+std::vector<ia::HandlerId>& handlerIds() {
+    static std::vector<ia::HandlerId> ids;
+    return ids;
+}
+
+void installInteractions() {
+    auto& ids = handlerIds();
+    ids.push_back(ia::onUseOn({}, packagesUseOn));
+    ids.push_back(ia::onUnusedUseOn({}, packagesPutDown));
+    ids.push_back(ia::onPlace({}, packagesPlaced));
+    ids.push_back(ia::onUse({}, packagesUse));
+    ids.push_back(ia::onDestroy({}, [](ia::DestroyContext const& c) {
+        if (c.player.isCreative()) S().creativeBroken.insert(c.pos);
+        return ia::Result::Pass;
+    }));
+    static bool registered = false;
+    if (!registered) {
+        registered = true;
+        game::db::onWorldClosed([] { pendingFacing().clear(); }); // the client loads many worlds
+    }
+}
+
+void uninstallInteractions() {
+    for (auto id : handlerIds()) ia::remove(id);
+    handlerIds().clear();
+    pendingFacing().clear();
+}
+
+} // namespace
 
 LL_TYPE_INSTANCE_HOOK(PackagesReleaseHook, ll::memory::HookPriority::Normal, Player, &Player::releaseUsingItem, void) {
     if (!isClientSide()) {
@@ -487,19 +540,6 @@ LL_TYPE_INSTANCE_HOOK(PackagesReleaseHook, ll::memory::HookPriority::Normal, Pla
     origin();
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    PackagesDestroyBlockHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$destroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face
-) {
-    Player& player = mPlayer;
-    if (isServerPlayer(player) && player.isCreative()) S().creativeBroken.insert(game::globalPos(player.getDimensionBlockSource(), pos));
-    return origin(pos, face);
-}
 
 namespace {
 
@@ -629,10 +669,8 @@ public:
             } catch (...) {
             }
         }));
-        PackagesUseItemOnHook::hook();
-        PackagesUseItemHook::hook();
+        installInteractions();
         PackagesReleaseHook::hook();
-        PackagesDestroyBlockHook::hook();
         installPackagerCapabilities();
         installPortCapabilities();
         installPortScreens();
@@ -646,10 +684,8 @@ public:
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
-        PackagesDestroyBlockHook::unhook();
         PackagesReleaseHook::unhook();
-        PackagesUseItemHook::unhook();
-        PackagesUseItemOnHook::unhook();
+        uninstallInteractions();
     }
 
 private:

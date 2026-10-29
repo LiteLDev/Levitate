@@ -147,8 +147,9 @@ void clearTracked();
 /// goes to `later`).
 void onBlockChanged(BlockSource& region, GlobalPos const& pos, std::string const& before, std::string const& after,
                     std::vector<std::function<void()>>& later);
-void installComparatorHook();
-void uninstallComparatorHook();
+/// Registers the comparator output of the gauges and the sequenced gearshift (common/Redstone.h).
+void installComparatorOutput();
+void uninstallComparatorOutput();
 
 // ---- sequenced gearshift (Sequencer.cpp) -------------------------------------------------------------
 void sequencerRedstone(BlockSource& region, GlobalPos const& pos, bool powered);

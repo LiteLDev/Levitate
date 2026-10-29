@@ -1,17 +1,16 @@
-// Belts unit: game hooks. GameMode is where every player action ends up (network players and
-// SimulatedPlayers alike), so right-clicks on belts / depots / ejectors and with the belt
-// connector / ejector item are handled here; the ItemActor hooks keep the display items (items
-// riding belts, held on depots, in flight) from being picked up, merging or despawning.
+// Belts unit: game hooks. Right-clicks on belts / depots / ejectors and with the belt connector /
+// ejector item go through the shared interaction dispatch (common/Interactions.h); the ItemActor
+// hooks keep the display items (items riding belts, held on depots, in flight) from being picked
+// up, merging or despawning.
+
+#include <vector>
 
 #include "ll/api/memory/Hook.h"
 
-#include "mc/deps/core/math/Vec3.h"
 #include "mc/world/Container.h"
 #include "mc/world/actor/Hopper.h"
 #include "mc/world/actor/item/ItemActor.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -19,6 +18,7 @@
 
 #include "core/common/ValueSettings.h"
 #include "feature/belts/BeltsInternal.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "game/Blocks.h"
@@ -26,13 +26,9 @@
 
 namespace lv::feature::belts {
 
-namespace {
+namespace ia = common::interactions;
 
-cb::Vec3d localHit(BlockPos const& pos, Vec3 const& click) {
-    auto in = [](double v) { return v >= -0.01 && v <= 1.01; };
-    if (in(click.x) && in(click.y) && in(click.z)) return {click.x, click.y, click.z};
-    return {click.x - pos.x, click.y - pos.y, click.z - pos.z};
-}
+namespace {
 
 GlobalPos placementPos(BlockSource& region, BlockPos const& clicked, int face) {
     auto g = game::globalPos(region, clicked);
@@ -54,103 +50,58 @@ bool debounced(Player& player, GlobalPos const& pos) {
     return hit;
 }
 
-InteractionResult handledResult(Player& player) {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
+ia::Result handledResult(Player& player) {
     player.sendInventory(false); // undo the client's predicted use
-    return r;
+    return ia::Result::Consume;
 }
 
-} // namespace
+ia::Result onUseOn(ia::UseOnContext const& c) {
+    Player&            player = c.player;
+    auto&              region = player.getDimensionBlockSource();
+    std::string const& id     = c.blockId;
+    std::string const& heldId = c.itemId;
+    bool               ours   = id == kBeltId || isDepotId(id) || heldId == kBeltConnectorId || heldId == kEjectorId;
+    if (!ours) return ia::Result::Pass;
 
-bool isDisplayActor(Actor const& actor) {
-    return state().displays.contains(actor.getOrCreateUniqueID().rawID) || actor.hasTag(kDisplayTag);
-}
-
-LL_TYPE_INSTANCE_HOOK(
-    BeltsUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region  = player.getDimensionBlockSource();
-    Block const* clicked = targetBlock ? targetBlock : &region.getBlock(at);
-    auto const&  id      = clicked->getTypeName();
-    auto         heldId  = item.isNull() ? std::string() : item.getTypeName();
-    bool         ours    = id == kBeltId || isDepotId(id) || heldId == kBeltConnectorId || heldId == kEjectorId;
-    if (!ours) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-
-    auto pos = game::globalPos(region, at);
-    auto h   = localHit(at, hit);
+    BlockPos  at{c.pos.x, c.pos.y, c.pos.z};
+    auto      pos  = c.pos;
+    int       face = c.face;
+    cb::Vec3d h{c.hit[0], c.hit[1], c.hit[2]};
     try {
         // value boxes (the ejector's stack size) are handled by the value box module
-        if (id == kEjectorId && !player.isSneaking() && (item.isNull() || heldId == kWrenchId)
-            && common::valuebox::boxAt(*clicked, face, {h.x, h.y, h.z})) {
-            return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+        if (id == kEjectorId && !c.sneaking && (heldId.empty() || heldId == kWrenchId)
+            && common::valuebox::boxAt(c.block, face, {h.x, h.y, h.z})) {
+            return ia::Result::Pass;
         }
         bool handled = false;
-        bool mine    = heldId == kBeltConnectorId || id == kBeltId || isDepotId(id) || (heldId == kEjectorId && player.isSneaking());
+        bool mine    = heldId == kBeltConnectorId || id == kBeltId || isDepotId(id) || (heldId == kEjectorId && c.sneaking);
         // a repeat of a click we handle: swallow it (a second depot click would take the item back)
-        if (mine && !player.isSneaking() && debounced(player, pos)) return handledResult(player);
-        if (mine && player.isSneaking() && (heldId == kBeltConnectorId || heldId == kEjectorId) && debounced(player, pos))
+        if (mine && !c.sneaking && debounced(player, pos)) return handledResult(player);
+        if (mine && c.sneaking && (heldId == kBeltConnectorId || heldId == kEjectorId) && debounced(player, pos))
             return handledResult(player);
         if (heldId == kBeltConnectorId) handled = onConnectorUse(player, pos, face, h);
         else if (id == kBeltId) handled = onBeltUse(player, pos, face, h);
         else if (isDepotId(id)) handled = onDepotUse(player, pos, face, h);
         if (!handled && heldId == kEjectorId) {
-            if (player.isSneaking()) handled = onEjectorItemUse(player, pos);
+            if (c.sneaking) handled = onEjectorItemUse(player, pos);
             else state().placeIntents[placementPos(region, at, face)] = {uuidOf(player), game::playerFacing(player)};
         }
         if (handled) return handledResult(player);
     } catch (std::exception const& e) {
         log().error("belts: interaction failed: {}", e.what());
     }
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    BeltsUseItemHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItem,
-    bool,
-    ItemStack& item,
-    HandSlot   handSlot
-) {
-    Player& player = mPlayer;
-    if (!player.isClientSide() && !item.isNull() && item.getTypeName() == kBeltConnectorId && player.isSneaking()) {
-        clearConnectorSelection(player); // Create: sneak-use resets the first pulley
-        return true;
-    }
-    return origin(item, handSlot);
+std::vector<ia::HandlerId>& handlerIds() {
+    static std::vector<ia::HandlerId> ids;
+    return ids;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    BeltsDestroyBlockHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$destroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face
-) {
-    Player& player = mPlayer;
-    if (!player.isClientSide()) {
-        auto& region = player.getDimensionBlockSource();
-        if (game::blockIdAt(region, pos) == kBeltId) state().playerBroke[game::globalPos(region, pos)] = player.isCreative();
-    }
-    return origin(pos, face);
+} // namespace
+
+bool isDisplayActor(Actor const& actor) {
+    return state().displays.contains(actor.getOrCreateUniqueID().rawID) || actor.hasTag(kDisplayTag);
 }
 
 // display items are never picked up
@@ -188,9 +139,17 @@ LL_TYPE_INSTANCE_HOOK(
 }
 
 void installHooks() {
-    BeltsUseItemOnHook::hook();
-    BeltsUseItemHook::hook();
-    BeltsDestroyBlockHook::hook();
+    auto& ids = handlerIds();
+    ids.push_back(ia::onUseOn({}, onUseOn));
+    ids.push_back(ia::onUse(std::string(kBeltConnectorId), [](ia::UseContext const& c) {
+        if (c.onBlock || !c.sneaking) return ia::Result::Pass;
+        clearConnectorSelection(c.player); // Create: sneak-use resets the first pulley
+        return ia::Result::Consume;
+    }));
+    ids.push_back(ia::onDestroy({.block = std::string(kBeltId)}, [](ia::DestroyContext const& c) {
+        state().playerBroke[c.pos] = c.player.isCreative();
+        return ia::Result::Pass;
+    }));
     BeltsDisplayTouchHook::hook();
     BeltsDisplayTickHook::hook();
     BeltsDisplayHopperHook::hook();
@@ -200,9 +159,8 @@ void uninstallHooks() {
     BeltsDisplayHopperHook::unhook();
     BeltsDisplayTickHook::unhook();
     BeltsDisplayTouchHook::unhook();
-    BeltsDestroyBlockHook::unhook();
-    BeltsUseItemHook::unhook();
-    BeltsUseItemOnHook::unhook();
+    for (auto id : handlerIds()) ia::remove(id);
+    handlerIds().clear();
 }
 
 } // namespace lv::feature::belts
