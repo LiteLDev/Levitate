@@ -22,11 +22,11 @@
       }
     },
     "components": {
-      "minecraft:geometry": "geometry.levitate.crushing_wheel_controller",
+      "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
         "*": {
           "texture": "levitate_crushing_wheel_controller",
-          "render_method": "blend"
+          "render_method": "alpha_test"
         }
       },
       "minecraft:collision_box": {

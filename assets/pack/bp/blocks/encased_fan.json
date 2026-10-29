@@ -29,8 +29,8 @@
           "casing": "q.block_state('levitate:rotor') != 2",
           "shaft_up": "q.block_state('levitate:rotor') == 0",
           "blades_up": "q.block_state('levitate:rotor') == 0",
-          "shaft_down": false,
-          "blades_down": false
+          "shaft_down": "q.block_state('levitate:rotor') == 3",
+          "blades_down": "q.block_state('levitate:rotor') == 3"
         }
       },
       "minecraft:material_instances": {

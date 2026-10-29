@@ -49,4 +49,8 @@ Save-Screenshot 'bulk-b' | Out-Null
 Invoke-Chat '/tp @s ~ ~ ~3 facing ~6 ~1.5 ~3'
 Start-Sleep -Seconds 1
 Save-Screenshot 'bulk-fan' | Out-Null
+# close-up of the fans and the nozzle
+Invoke-Chat '/tp @s ~2 ~1 ~ facing ~4 ~ ~'
+Start-Sleep -Seconds 1
+Save-Screenshot 'bulk-close' | Out-Null
 Assert-NoErrors
