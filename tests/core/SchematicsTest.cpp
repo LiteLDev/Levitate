@@ -286,6 +286,13 @@ TEST(SchematicsMapping, CreateBlocks) {
     auto glass = *mapJavaState(parseJavaState("create:encased_chain_drive[axis=y,attach_face=none,powered=true]"));
     EXPECT_EQ(stateInt(glass, "levitate:axis"), 1);
     EXPECT_EQ(stateInt(glass, "levitate:powered"), 1);
+    // chute states run 0..n (facing 0 down, 1..4 north..east; shape 0 normal .. 3 encased)
+    auto chute = *mapJavaState(parseJavaState("create:chute[facing=west,shape=intersection]"));
+    EXPECT_EQ(stateInt(chute, "levitate:facing"), 3);
+    EXPECT_EQ(stateInt(chute, "levitate:shape"), 2);
+    auto down = *mapJavaState(parseJavaState("create:chute[facing=down,shape=window]"));
+    EXPECT_EQ(stateInt(down, "levitate:facing"), 0);
+    EXPECT_EQ(stateInt(down, "levitate:shape"), 1);
 }
 
 // ---- transforms -------------------------------------------------------------------------------------
