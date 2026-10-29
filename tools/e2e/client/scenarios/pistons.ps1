@@ -5,6 +5,20 @@
 #   remote-vanilla:     the same blocks without the client mod: static models, no errors.
 # Screenshots: out/pistons/{built,pulley-moving-1..4,pulley-placed,piston-extended,gantry-moving-1..5,gantry-placed}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
+# Sets a test generator's speed and waits for the server to confirm it. The game sometimes loses
+# a typed command or resolves its position oddly: then the chat is pictured and the command sent
+# again, through /execute (the position taken from the player on the server).
+function Set-GeneratorSpeed([string]$rel, [int]$rpm, [string]$picture) {
+    $m = Get-LogMark
+    foreach ($try in 1..3) {
+        if ($try -eq 1) { Invoke-Chat "/create kinetics $rel speed $rpm" }
+        else { Invoke-Chat "/execute as @s at @s run create kinetics $rel speed $rpm" }
+        try { Wait-LogLine "Generator at -?\d+ -?\d+ -?\d+ now turns at $rpm " 10 -Since $m | Out-Null; return }
+        catch { Save-Screenshot "$picture-try$try" | Out-Null; Write-Step "speed $rpm not confirmed (try $try)" }
+    }
+    throw "the generator at $rel never turned at $rpm"
+}
+
 # Two pictures of a moving contraption must differ in a region of the screen (by default right of
 # the chat lines, above the hotbar): the structure moves on the client (U34).
 function Assert-ContraptionMoved([string]$a, [string]$b, [string]$what, [double]$x0 = 0.42, [double]$x1 = 0.85, [double]$y0 = 0.05, [double]$y1 = 0.85) {
@@ -59,12 +73,7 @@ Save-Screenshot 'pulley-placed' | Out-Null
 $mark = Get-LogMark
 Invoke-Chat '/setblock ~6 ~1 ~-2 levitate:kinetics_test_source ["levitate:axis"=2]'
 Start-Sleep -Seconds 2
-# (the game sometimes drops a chat command: send it again then)
-foreach ($try in 1..3) {
-    Invoke-Chat '/create kinetics ~6 ~1 ~-2 speed -128'
-    try { Wait-LogLine 'Generator at -?\d+ -?\d+ -?\d+ now turns at -128 ' 10 -Since $mark | Out-Null; break }
-    catch { Write-Step "speed command not seen (try $try)" }
-}
+Set-GeneratorSpeed '~6 ~1 ~-2' -128 'speed-128'
 Wait-LogLine 'piston at -?\d+ -?\d+ -?\d+ disassembled at offset 2' 90 -Since $mark | Out-Null
 Start-Sleep -Seconds 1
 Save-Screenshot 'piston-extended' | Out-Null
