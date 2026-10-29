@@ -71,6 +71,15 @@ Block const& transformed(Block const& block, ce::Mat2 const& t) {
             ce::Mat2    c{R.a * m.a + R.b * m.c, R.a * m.b + R.b * m.d, R.c * m.a + R.d * m.c, R.c * m.b + R.d * m.d};
             if (!(c == t)) continue;
             std::string id = block.getTypeName();
+            if (isToolbox(id) || isBacktank(id) || id == kLecternController) {
+                // Java 2D facing (0 S, 1 W, 2 N, 3 E) <-> Create's Direction order (0 N, 1 S, 2 W, 3 E)
+                static constexpr int toDir[] = {1, 2, 0, 3}, fromDir[] = {2, 0, 1, 3};
+                auto f = game::intState(block, kFacing);
+                if (!f || *f < 0 || *f > 3) return block;
+                int  d    = ce::transformHorizontal(t, toDir[*f]);
+                auto const* b = game::blockWith(id, {{kFacing, fromDir[d]}});
+                return b ? *b : block;
+            }
             if (id.starts_with("levitate:")) {
                 auto f = game::intState(block, kFacing);
                 if (!f) return block;

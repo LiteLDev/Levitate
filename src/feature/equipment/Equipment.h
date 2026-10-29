@@ -132,7 +132,7 @@ int  depositAll(Player& player, std::vector<GlobalPos> const& boxes);
 /// Opens the vanilla "nearby toolboxes" form.
 void openToolboxForm(Player& player);
 /// Before a player breaks a toolbox (creative breaks of empty toolboxes drop nothing).
-void noteToolboxBreak(GlobalPos const& p, bool creative);
+void noteToolboxBreak(GlobalPos const& p);
 void tickToolboxes();
 void resetToolboxes();
 void installToolboxes();
@@ -154,6 +154,8 @@ void tickBacktanks();
 void tickDivingGear();
 /// Before a player breaks a backtank block (creative breaks drop nothing).
 void noteBacktankBreak(GlobalPos const& p, bool creative);
+/// The break did not happen: forget the note.
+void clearBacktankBreak(GlobalPos const& p);
 void uninstallBacktanks();
 void resetBacktanks();
 void installBacktanks();

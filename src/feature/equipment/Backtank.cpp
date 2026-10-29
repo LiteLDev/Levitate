@@ -222,7 +222,11 @@ bool useBacktankBlock(Player& player, ItemStack& held, GlobalPos const& pos) {
     std::string id   = idAt(pos);
     int         air  = blockAir(pos);
     handledBreaks()[pos] = true;
-    clearAt(pos);
+    if (!clearAt(pos)) {
+        handledBreaks().erase(pos);
+        return false;
+    }
+    handledBreaks().erase(pos);
     player.setArmor(ArmorSlot::Torso, backtankItem(id, air, {}));
     player.sendInventory(false);
     sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.pop", .75f, 1.f);
@@ -235,6 +239,8 @@ void noteBacktankBreak(GlobalPos const& p, bool creative) {
     blockDoc(p, true);
     if (creative) handledBreaks()[p] = true;
 }
+
+void clearBacktankBreak(GlobalPos const& p) { handledBreaks().erase(p); }
 
 void tickBacktanks() {
     for (auto& [pos, f] : fillers()) {
@@ -326,7 +332,7 @@ void installBacktanks() {
         bd::onErase([](GlobalPos const& p, Json const& doc, std::string const& prevId) {
             if (prevId.empty() || !isBacktank(prevId)) return;
             fillers().erase(p);
-            if (handledBreaks().erase(p)) return;
+            if (handledBreaks().contains(p)) return;
             int  air  = doc.contains("equipment") ? doc["equipment"].value("air", 0) : 0;
             auto item = backtankItem(prevId, air, {});
             defer([p, item] { dropAt(p.dim, p.x + .5, p.y + .5, p.z + .5, item); });

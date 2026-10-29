@@ -77,6 +77,7 @@ std::vector<Projectile>& projectiles() {
     static std::vector<Projectile> v;
     return v;
 }
+std::uint64_t gProjectileSerial = 0;
 std::map<std::int64_t, std::uint64_t>& cannonCooldowns() {
     static std::map<std::int64_t, std::uint64_t> m;
     return m;
@@ -283,7 +284,10 @@ bool firePotatoCannon(Player& player) {
         p.ammo        = items::withCount(ammo, 1);
         p.owner       = uid;
         p.recoverable = i == 0;
-        auto* actor   = level->getSpawner().spawnItem(*region, p.ammo, nullptr, Vec3{float(start.x), float(start.y), float(start.z)}, 0);
+        // the shown item carries a unique tag so it never merges with items on the ground
+        auto shown = p.ammo;
+        items::setData(shown, "lv:projectile", static_cast<std::int64_t>(++gProjectileSerial));
+        auto* actor = level->getSpawner().spawnItem(*region, shown, nullptr, Vec3{float(start.x), float(start.y), float(start.z)}, 0);
         if (actor) {
             actor->pickupDelay() = 32767;
             p.display            = uidOf(*actor);

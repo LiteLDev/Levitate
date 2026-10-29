@@ -14,7 +14,10 @@
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
+#include "mc/world/level/BlockPos.h"
+#include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
+#include "mc/world/level/block/actor/LecternBlockActor.h"
 
 #include "core/equipment/Gear.h"
 #include "feature/common/BlockData.h"
@@ -227,8 +230,10 @@ void registerNet() {
         auto pressed = msg.value("pressed", Json::array());
         std::array<bool, 6> st{};
         for (std::size_t i = 0; i < 6 && i < pressed.size(); ++i) st[i] = pressed[i].get<bool>();
-        users()[uidOf(p)].fromClient = true;
-        controllerButtons(p, st, users()[uidOf(p)].lectern);
+        auto& u      = users()[uidOf(p)];
+        u.fromClient = true;
+        if (!u.active) return; // a press still in flight after the controller was put away
+        controllerButtons(p, st, u.lectern);
     });
     net::on("equipment.controller.stop", [](Player& p, Json const&) {
         if (controllerActive(p)) setActive(p, false, std::nullopt);
@@ -321,6 +326,11 @@ bool lecternUse(Player& player, ItemStack& held, GlobalPos const& pos) {
     if (id == "minecraft:lectern") {
         if (items::idOf(held) != kLinkedController || player.isSneaking()) return false;
         if (common::blockdata::has(pos)) return false;
+        // Create: only a lectern without a book takes the controller
+        if (auto* region = regionOf(pos.dim)) {
+            auto* actor = region->getBlockEntity(BlockPos{pos.x, pos.y, pos.z});
+            if (actor && !static_cast<LecternBlockActor*>(actor)->mBook->isNull()) return false;
+        }
         int dir = stateAt(pos, "direction").value_or(0);
         ItemStack controller = items::withCount(held, 1);
         if (!place(pos, kLecternController, {{kFacing, std::clamp(dir, 0, 3)}})) return false;
@@ -370,6 +380,7 @@ void tickControllers() {
         auto& u = it->second;
         if (!p) {
             linkbus::releaseOwner(it->first);
+            std::erase_if(lecternUsers(), [&](auto const& e) { return e.second == it->first; });
             it = users().erase(it);
             continue;
         }

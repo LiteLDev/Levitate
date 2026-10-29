@@ -315,8 +315,10 @@ void registerNet() {
     net::on("equipment.toolbox.unequip", [](Player& p, Json const& msg) { unequipSlot(p, p.getSelectedItemSlot(), msg.value("keep", false)); });
     net::on("equipment.toolbox.deposit", [](Player& p, Json const& msg) {
         std::vector<GlobalPos> boxes;
-        if (auto pos = posFrom(msg)) boxes.push_back(*pos);
-        else boxes = nearbyToolboxes(p);
+        if (auto pos = posFrom(msg)) {
+            if (!isToolbox(idAt(*pos)) || !inRange(p, *pos)) return;
+            boxes.push_back(*pos);
+        } else boxes = nearbyToolboxes(p);
         depositAll(p, boxes);
     });
 }
@@ -356,11 +358,6 @@ common::items::Handler handler() {
 
 // ---- breaking -----------------------------------------------------------------------------------------
 
-/// Creative breaks of a toolbox (no drop when it is empty).
-std::map<GlobalPos, bool>& creativeBreaks() {
-    static std::map<GlobalPos, bool> m;
-    return m;
-}
 /// Positions picked up by a left-click (the item was given already).
 std::map<GlobalPos, bool>& pickedUp() {
     static std::map<GlobalPos, bool> m;
@@ -447,10 +444,14 @@ bool useToolbox(Player& player, ItemStack& held, GlobalPos const& pos) {
 bool attackToolbox(Player& player, GlobalPos const& pos) {
     std::string id = idAt(pos);
     if (!isToolbox(id) || player.isClientSide()) return false;
-    auto inv = load(pos);
-    unlinkBox(pos);
+    auto inv        = load(pos);
     pickedUp()[pos] = true;
-    clearAt(pos);
+    if (!clearAt(pos)) {
+        pickedUp().erase(pos);
+        return true; // nothing changed: no item either
+    }
+    pickedUp().erase(pos);
+    unlinkBox(pos);
     giveOrDrop(player, toolboxItem(id, inv));
     sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.pop", .2f, 1.4f);
     log().info("equipment: toolbox at {} {} {} picked up by {}", pos.x, pos.y, pos.z, player.getRealName());
@@ -618,9 +619,13 @@ void tickToolboxes() {
                 ++it;
                 continue;
             }
+            ItemStack s = container.getItem(slot);
+            if (tick % 10 != 0 && !items::isEmpty(s) && items::countOf(s) == ce::hotbarTarget(std::max<int>(1, s.getMaxStackSize()))) {
+                ++it;
+                continue; // nothing to do this tick (Create checks every tick; the result is the same)
+            }
             auto inv    = load(l.box);
             auto filter = inv.filters[static_cast<std::size_t>(l.compartment)];
-            ItemStack s = container.getItem(slot);
             // the slot no longer holds the compartment's item, or the filter was cleared: drop the link
             if (filter.empty() || (!items::isEmpty(s) && toT(s).match != filter.match)) {
                 it          = slots.erase(it);
@@ -658,7 +663,6 @@ void tickToolboxes() {
 
 void resetToolboxes() {
     links().clear();
-    creativeBreaks().clear();
     pickedUp().clear();
     gLinksDirty = false;
 }
@@ -681,22 +685,17 @@ void installToolboxes() {
         if (prevId.empty() || !isToolbox(prevId)) return;
         if (!doc.contains("equipment") || !doc["equipment"].contains("toolbox")) return;
         unlinkBox(p);
-        if (pickedUp().erase(p)) return;
-        auto inv      = ce::ToolboxInv::fromJson(doc["equipment"]["toolbox"]);
-        bool creative = creativeBreaks().erase(p) > 0;
-        bool any      = false;
-        for (int c = 0; c < ce::kCompartments; ++c) any = any || inv.count(c) > 0;
-        if (creative && !any) return;
+        if (pickedUp().contains(p)) return; // picked up: the player got the item
+        auto inv  = ce::ToolboxInv::fromJson(doc["equipment"]["toolbox"]);
         auto item = toolboxItem(prevId, inv);
         defer([p, item] { dropAt(p.dim, p.x + .5, p.y + .5, p.z + .5, item); });
     });
 }
 
 /// Called by the destroy hook before a player breaks a toolbox.
-void noteToolboxBreak(GlobalPos const& p, bool creative) {
+void noteToolboxBreak(GlobalPos const& p) {
     // a toolbox placed by a command has no data yet: create it so the erase listener drops the item
     if (!docOf(p)) store(p, ce::ToolboxInv{});
-    if (creative) creativeBreaks()[p] = true;
 }
 
 } // namespace lv::feature::equipment

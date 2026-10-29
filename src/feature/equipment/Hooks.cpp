@@ -205,10 +205,11 @@ LL_TYPE_INSTANCE_HOOK(EquipmentDestroyBlockHook, ll::memory::HookPriority::Norma
     }
     if (isToolbox(id)) {
         if (attackToolbox(player, p)) return false;
-        noteToolboxBreak(p, player.isCreative());
+        noteToolboxBreak(p);
     }
     if (isBacktank(id)) noteBacktankBreak(p, player.isCreative());
     bool ok = origin(pos, face);
+    if (isBacktank(id)) clearBacktankBreak(p); // used by the erase listener inside origin (or not at all)
     if (ok && idAt(p) != id) {
         try {
             mirrorBreak(player, p, id);
