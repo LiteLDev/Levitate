@@ -173,7 +173,8 @@ void drawHud(MinecraftUIRenderContext& ctx) {
     cv.fill({mx - 1, y - 3, 2, h + 6}, color::kTextGold);
     auto label = ctr("lv.trains.hud.throttle", "Throttle: {0}%", static_cast<int>(std::lround(throttle * 100)));
     if (c.hud.value("approach", false)) label = ctr("lv.trains.hud.approaching", "Approaching station...");
-    cv.text(sw / 2, y - 12, c.name.empty() ? label : c.name + "  " + label, color::kText, Align::Centre);
+    // beside the bar: the action bar above it carries the game's prompts
+    cv.text(x + w + 6, y - 1, label, color::kText, Align::Left);
 }
 
 } // namespace

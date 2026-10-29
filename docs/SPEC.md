@@ -3087,7 +3087,7 @@ companion's client mod sent key input, its PlayerAuthInputPacket is ignored for 
 stops controlling. Keys are only taken while no screen (ours, chat, inventory, pause) is over the
 HUD, and a key's release is only taken when its press was. The server sends the controlling companion
 `trains.hud` {speed, target, top, throttle, name, approach} every 5 ticks; the HUD draws a bar above
-the hotbar filled to speed / top speed with a gold marker at the throttle and "Throttle: n%" (or
+the hotbar filled to speed / top speed with a gold marker at the throttle and, beside it, "Throttle: n%" (or
 "Approaching station..." while holding Space towards a station).
 
 **Arrival / departure.** A train arrives when its leading point passes the station marker in the
