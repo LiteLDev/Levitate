@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:nozzle"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " S ",
+      " C ",
+      "SSS"
+    ],
+    "key": {
+      "S": {
+        "item": "levitate:andesite_alloy"
+      },
+      "C": {
+        "tag": "minecraft:wool"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_alloy"
+      }
+    ],
+    "result": {
+      "item": "levitate:nozzle",
+      "count": 1
+    }
+  }
+}

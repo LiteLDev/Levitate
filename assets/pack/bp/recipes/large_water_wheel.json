@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:large_water_wheel"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "PPP",
+      "PWP",
+      "PPP"
+    ],
+    "key": {
+      "P": {
+        "tag": "minecraft:planks"
+      },
+      "W": {
+        "item": "levitate:water_wheel"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:water_wheel"
+      }
+    ],
+    "result": {
+      "item": "levitate:large_water_wheel"
+    }
+  }
+}

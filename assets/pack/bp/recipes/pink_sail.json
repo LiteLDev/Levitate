@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:pink_sail"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:white_sail"
+      },
+      {
+        "item": "minecraft:pink_dye"
+      }
+    ],
+    "result": {
+      "item": "levitate:pink_sail",
+      "count": 1
+    },
+    "unlock": [
+      {
+        "item": "levitate:white_sail"
+      }
+    ]
+  }
+}
