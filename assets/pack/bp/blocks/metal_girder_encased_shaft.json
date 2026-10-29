@@ -1,0 +1,70 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:metal_girder_encased_shaft",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:axis": [
+          0,
+          2
+        ],
+        "levitate:top": [
+          0,
+          1
+        ],
+        "levitate:bottom": [
+          0,
+          1
+        ],
+        "levitate:rotor": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 2.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6.0
+      },
+      "minecraft:map_color": "#5b5d63",
+      "minecraft:loot": "loot_tables/blocks/metal_girder_encased_shaft.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.metal_girder_encased_shaft",
+        "bone_visibility": {
+          "beam_x": "q.block_state('levitate:axis') == 2",
+          "beam_z": "q.block_state('levitate:axis') == 0",
+          "shaft_x": "q.block_state('levitate:axis') == 0 && q.block_state('levitate:rotor') == 0",
+          "shaft_z": "q.block_state('levitate:axis') == 2 && q.block_state('levitate:rotor') == 0",
+          "top": "q.block_state('levitate:top') == 1",
+          "bottom": "q.block_state('levitate:bottom') == 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_metal_girder",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          2,
+          -8
+        ],
+        "size": [
+          16,
+          12,
+          16
+        ]
+      }
+    }
+  }
+}

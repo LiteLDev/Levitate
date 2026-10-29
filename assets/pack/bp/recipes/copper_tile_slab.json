@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:copper_tile_slab"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "XXX"
+    ],
+    "key": {
+      "X": {
+        "item": "levitate:copper_tiles"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:copper_tiles"
+      }
+    ],
+    "result": {
+      "item": "levitate:copper_tile_slab",
+      "count": 6
+    }
+  }
+}

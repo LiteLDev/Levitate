@@ -1,0 +1,16 @@
+{
+  "type": "levitate:item_application",
+  "ingredients": [
+    {
+      "item": "levitate:brass_casing"
+    },
+    {
+      "tag": "c:plates/obsidian"
+    }
+  ],
+  "results": [
+    {
+      "item": "levitate:railway_casing"
+    }
+  ]
+}

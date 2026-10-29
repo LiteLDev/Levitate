@@ -1,0 +1,13 @@
+{
+  "type": "levitate:splashing",
+  "ingredients": [
+    {
+      "item": "levitate:industrial_iron_window_pane"
+    }
+  ],
+  "results": [
+    {
+      "item": "levitate:weathered_iron_window_pane"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:weathered_iron_window"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " # ",
+      "#X#"
+    ],
+    "key": {
+      "X": {
+        "item": "minecraft:glass"
+      },
+      "#": {
+        "item": "levitate:weathered_iron_block"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:glass"
+      }
+    ],
+    "result": {
+      "item": "levitate:weathered_iron_window",
+      "count": 2
+    }
+  }
+}

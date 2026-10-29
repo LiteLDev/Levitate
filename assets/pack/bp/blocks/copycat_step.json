@@ -1,0 +1,289 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:copycat_step",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:facing": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:top": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.5
+      },
+      "minecraft:map_color": "#8a8d84",
+      "minecraft:loot": "loot_tables/blocks/copycat_step.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "tag:minecraft:is_axe_item_destructible": {},
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.copycat_step",
+        "bone_visibility": {
+          "f20": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:top') == 0",
+          "f21": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:top') == 1",
+          "f30": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:top') == 0",
+          "f31": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:top') == 1",
+          "f40": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:top') == 0",
+          "f41": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:top') == 1",
+          "f50": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:top') == 0",
+          "f51": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:top') == 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_copycat_base",
+          "render_method": "alpha_test"
+        }
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:top') == 0",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              8
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              8
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:top') == 1",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              8,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              8
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              8,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              8
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:top') == 0",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              0
+            ],
+            "size": [
+              16,
+              8,
+              8
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              0
+            ],
+            "size": [
+              16,
+              8,
+              8
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:top') == 1",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              8,
+              0
+            ],
+            "size": [
+              16,
+              8,
+              8
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              8,
+              0
+            ],
+            "size": [
+              16,
+              8,
+              8
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:top') == 0",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              0,
+              0,
+              -8
+            ],
+            "size": [
+              8,
+              8,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              0,
+              0,
+              -8
+            ],
+            "size": [
+              8,
+              8,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:top') == 1",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              0,
+              8,
+              -8
+            ],
+            "size": [
+              8,
+              8,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              0,
+              8,
+              -8
+            ],
+            "size": [
+              8,
+              8,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:top') == 0",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              8,
+              8,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              8,
+              8,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:top') == 1",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              8,
+              -8
+            ],
+            "size": [
+              8,
+              8,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              8,
+              -8
+            ],
+            "size": [
+              8,
+              8,
+              16
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

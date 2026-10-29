@@ -1,0 +1,102 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:brass_door",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:facing": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:upper": [
+          0,
+          1
+        ],
+        "levitate:hinge": [
+          0,
+          1
+        ],
+        "levitate:open": [
+          0,
+          1
+        ],
+        "levitate:powered": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 3.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 3.0
+      },
+      "minecraft:map_color": "#8d8f86",
+      "minecraft:loot": "loot_tables/blocks/brass_door.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.door_slide",
+        "bone_visibility": {
+          "cl2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 0",
+          "rl2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
+          "ol2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
+          "cu2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 0",
+          "ru2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
+          "ou2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
+          "cl3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 0",
+          "rl3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
+          "ol3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
+          "cu3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 0",
+          "ru3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
+          "ou3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
+          "cl4": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 0",
+          "rl4": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
+          "ol4": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
+          "cu4": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 0",
+          "ru4": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
+          "ou4": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
+          "cl5": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 0",
+          "rl5": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
+          "ol5": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
+          "cu5": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 0",
+          "ru5": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
+          "ou5": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_brass_door",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          16,
+          16
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:upper') == 1",
+        "components": {
+          "minecraft:loot": "loot_tables/blocks/building_empty.json"
+        }
+      }
+    ]
+  }
+}

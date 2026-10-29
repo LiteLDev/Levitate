@@ -1,0 +1,349 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:placard",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:powered": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 1.0
+      },
+      "minecraft:map_color": "#c08d3e",
+      "minecraft:loot": "loot_tables/blocks/placard.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.placard",
+        "bone_visibility": {
+          "f0": "q.block_state('levitate:facing') == 0",
+          "f1": "q.block_state('levitate:facing') == 1",
+          "f2": "q.block_state('levitate:facing') == 2",
+          "f3": "q.block_state('levitate:facing') == 3",
+          "f4": "q.block_state('levitate:facing') == 4",
+          "f5": "q.block_state('levitate:facing') == 5"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_placard",
+          "render_method": "alpha_test"
+        }
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 0",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -6,
+              13,
+              -6
+            ],
+            "size": [
+              12,
+              3,
+              12
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -6,
+              13,
+              -6
+            ],
+            "size": [
+              12,
+              3,
+              12
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 1",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -6,
+              0,
+              -6
+            ],
+            "size": [
+              12,
+              3,
+              12
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -6,
+              0,
+              -6
+            ],
+            "size": [
+              12,
+              3,
+              12
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -6,
+              2,
+              5
+            ],
+            "size": [
+              12,
+              12,
+              3
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -6,
+              2,
+              5
+            ],
+            "size": [
+              12,
+              12,
+              3
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -6,
+              2,
+              -8
+            ],
+            "size": [
+              12,
+              12,
+              3
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -6,
+              2,
+              -8
+            ],
+            "size": [
+              12,
+              12,
+              3
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              2,
+              -6
+            ],
+            "size": [
+              3,
+              12,
+              12
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              2,
+              -6
+            ],
+            "size": [
+              3,
+              12,
+              12
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              5,
+              2,
+              -6
+            ],
+            "size": [
+              3,
+              12,
+              12
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              5,
+              2,
+              -6
+            ],
+            "size": [
+              3,
+              12,
+              12
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:powered') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_placard_powered",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:powered') == 1 && q.block_state('levitate:facing') == 0",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "up",
+            "connected_faces": [
+              "down",
+              "up",
+              "north",
+              "south",
+              "west",
+              "east"
+            ],
+            "transform_relative": false
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:powered') == 1 && q.block_state('levitate:facing') == 1",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "down",
+            "connected_faces": [
+              "down",
+              "up",
+              "north",
+              "south",
+              "west",
+              "east"
+            ],
+            "transform_relative": false
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:powered') == 1 && q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "south",
+            "connected_faces": [
+              "down",
+              "up",
+              "north",
+              "south",
+              "west",
+              "east"
+            ],
+            "transform_relative": false
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:powered') == 1 && q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "north",
+            "connected_faces": [
+              "down",
+              "up",
+              "north",
+              "south",
+              "west",
+              "east"
+            ],
+            "transform_relative": false
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:powered') == 1 && q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "east",
+            "connected_faces": [
+              "down",
+              "up",
+              "north",
+              "south",
+              "west",
+              "east"
+            ],
+            "transform_relative": false
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:powered') == 1 && q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:redstone_producer": {
+            "power": 15,
+            "strongly_powered_face": "west",
+            "connected_faces": [
+              "down",
+              "up",
+              "north",
+              "south",
+              "west",
+              "east"
+            ],
+            "transform_relative": false
+          }
+        }
+      }
+    ]
+  }
+}

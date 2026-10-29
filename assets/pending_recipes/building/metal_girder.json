@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:metal_girder"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "PPP",
+      "CCC"
+    ],
+    "key": {
+      "C": {
+        "item": "levitate:andesite_alloy"
+      },
+      "P": {
+        "item": "levitate:iron_sheet"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_alloy"
+      }
+    ],
+    "result": {
+      "item": "levitate:metal_girder",
+      "count": 8
+    }
+  }
+}

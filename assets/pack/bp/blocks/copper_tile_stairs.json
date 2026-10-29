@@ -1,0 +1,60 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:copper_tile_stairs",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:facing": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:upside": [
+          0,
+          1
+        ],
+        "levitate:shape": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 3.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6.0
+      },
+      "minecraft:map_color": "#c06a50",
+      "minecraft:loot": "loot_tables/blocks/copper_tile_stairs.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.stairs",
+        "bone_visibility": {
+          "lnw": "q.block_state('levitate:upside') == 1 || ((q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 3) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 4) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 1))",
+          "unw": "q.block_state('levitate:upside') == 0 || ((q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 3) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 4) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 1))",
+          "lne": "q.block_state('levitate:upside') == 1 || ((q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 4) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 3))",
+          "une": "q.block_state('levitate:upside') == 0 || ((q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 4) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 3))",
+          "lse": "q.block_state('levitate:upside') == 1 || ((q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 3) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 4))",
+          "use": "q.block_state('levitate:upside') == 0 || ((q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 3) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 4))",
+          "lsw": "q.block_state('levitate:upside') == 1 || ((q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 4) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 3) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 2))",
+          "usw": "q.block_state('levitate:upside') == 0 || ((q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 4) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 0) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 1) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 2) || (q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 3) || (q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 2))"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_copper_tiles_fresh",
+          "render_method": "opaque"
+        }
+      }
+    }
+  }
+}
