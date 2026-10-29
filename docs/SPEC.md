@@ -411,7 +411,32 @@ U10, `train_door` is U10. U28: `track_signal`, `track_observer`.
 `<colour>_toolbox` (16), `copper_backtank`, `netherite_backtank`, `copper_diving_helmet`,
 `copper_diving_boots`, `netherite_diving_helmet`, `netherite_diving_boots`, `extendo_grip`,
 `potato_cannon`, `wand_of_symmetry`, `handheld_worldshaper`, `linked_controller`, `sand_paper`,
-`red_sand_paper`, `tree_fertilizer`, `minecart_contraption` (item).
+`red_sand_paper`, `tree_fertilizer`, `lectern_controller` (block, no item). `minecart_contraption`
+is U21's (it is made by its cart assembler). Mechanics in §3.6.31.
+
+- States: toolboxes, backtank blocks and the lectern controller `levitate:facing` 0..3 (Java 2D
+  order: south, west, north, east; the block faces the player). Toolboxes and backtanks are block
+  items that replace their block item (`minecraft:block_placer` `replace_block_item`) so the item
+  can stack to 1 / be worn. Their loot tables are empty: the unit drops them itself with their
+  contents (toolbox inventory, backtank air). The lectern controller drops a lectern (+ the
+  controller from its data).
+- Items (Create 6.0.10 values): toolboxes stack 1; backtanks chest armour, protection 4 (copper) /
+  8 (netherite), the item bar (durability 900) shows the air and never breaks; diving helmet
+  protection 2 / 3, durability 77 / 407; diving boots 1 / 3, durability 91 / 481 (repaired with
+  copper / netherite ingots); extendo grip durability 200; potato cannon 100; sand papers 8 (32-tick
+  "eat" use); tree fertilizer stacks 64. Armour toughness and knockback resistance of the netherite
+  pieces are not expressible (§8).
+- Recipes (Create 6.0.10): toolbox dyeing (any toolbox + a dye, 16 shapeless recipes),
+  copper diving helmet (copper ingots around glass), sand paper (paper + sand), red sand paper
+  (paper + red sand), tree fertilizer ×2 (2 small flowers + a coral + bone meal; one recipe per
+  flower × coral, §8), netherite helmet / boots / backtank (smithing: upgrade template + the copper
+  piece + a netherite ingot, or + the netherite piece + the copper piece) ship in the BP. Brown
+  toolbox (cogwheel / golden sheet, chest, golden sheet / leather), copper backtank (andesite alloy,
+  shaft, andesite alloy / copper ingot, copper block, copper ingot / copper ingot), copper diving
+  boots (copper ingots, andesite alloy) and linked controller (wooden buttons around a redstone
+  link) wait in `assets/pending_recipes/equipment/`. Extendo grip, potato cannon and wand of
+  symmetry are mechanical crafting recipes (`assets/recipes/mechanical_crafting/`, U16); the
+  worldshaper has none (creative only). `sandpaper_polishing/rose_quartz` (U15's deployer uses it).
 
 ### 2.26 Filters (U3)
 
@@ -1634,6 +1659,134 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
   Items going *into* belts, depots, funnels and chutes use the item capability with `face` = the
   side they come from.
 
+### 3.6.31 Equipment (U31)
+
+Checked against Create 6.0.10 (ToolboxBlock / ToolboxBlockEntity / ToolboxInventory /
+ToolboxHandler / RadialToolboxMenu, BacktankItem / BacktankBlockEntity / BacktankUtil,
+DivingHelmetItem, DivingBootsItem, NetheriteDivingHandler, ExtendoGripItem, PotatoCannonItem /
+PotatoProjectileEntity / the built-in projectile types, SymmetryWandItem / SymmetryHandler and the
+mirrors, WorldshaperItem / TerrainBrushes / TerrainTools / FlattenTool / PlacementPatterns,
+LinkedControllerItem / LinkedControllerServerHandler / LecternControllerBlock, SandPaperItem,
+TreeFertilizerItem, CEquipment). Code: `src/core/equipment/` (inventory, mirrors, brushes, air and
+projectile numbers; gtest), `src/feature/equipment/`, `src/client/equipment/`. Block data lives in
+BlockData `data["equipment"]`; item data in the stack's user data (`lv:toolbox`, `lv:air`,
+`lv:symmetry`, `lv:shaper`, `lv:controller`).
+
+**Toolboxes.** 8 compartments × 4 stacks. A compartment locks to the first item put in (its
+filter stays when it runs empty; clicking an empty compartment slot with an empty cursor clears it);
+items share a compartment when they are the same item with the same data, or the same damageable
+unstackable tool. Insertion follows insertItemStacked (merge into same stacks, then empty slots in
+order); toolboxes, shulker boxes and bundles don't fit. The block exposes all 32 slots through the
+item capability (funnels, arms, chutes, ...). Right-click opens the screen (native: the 8
+compartments in an octagon with the inventory below — click a compartment to take a stack, right-click
+half, click an inventory slot to put it in; vanilla: a form), with Create's iron door + chest sounds;
+sneak passes through so blocks can be placed against it. A dye of another colour recolours it in
+place without using the dye. Left-click (attack) picks it up with its contents into the inventory
+(unlinking everyone); breaking it any other way drops it with its contents (creative: only when not
+empty).
+- *Equipping* (Create's ToolboxHandler): a hotbar slot linked to a compartment of a toolbox within
+  `toolboxRange` (10; squared distance to the block's bottom centre) is kept at
+  `(maxStack + 1) / 2` items every tick (32 / 8 / 1): it refills from the compartment and gives the
+  excess back. The link drops when the slot holds another item or the filter is cleared; it persists
+  in the world DB. Equip: the slot is unequipped first, its old item goes into the toolbox (matching
+  compartments only), then the inventory; Unequip returns the slot's items (Stop tracking keeps them,
+  out of range); Return items puts every inventory stack into matching compartments of the nearby
+  toolboxes (unlinking their slots).
+- *Radial menu* (client mod): hold **Left Alt** (Create's "Access Nearby Toolboxes" key): the 8
+  nearest toolboxes in range (SELECT_BOX when there are several) and then their compartments;
+  releasing the key (or clicking) confirms the hovered entry; the centre unequips the selected
+  slot ("Unequip: …", or "Stop tracking and keep item" out of range) or returns items ("Return items
+  to (nearby) Toolbox(es)"). Linked hotbar slots get a marker (green in range, grey out of range).
+  Vanilla players use `/create toolbox` (a form with the same entries).
+
+**Backtanks.** Air 0..`airInBacktank` (900) in the item (bar = air). Placed as a block (facing the
+player, keeping its air), it is a kinetic block with a shaft end at the bottom (stress impact 4):
+while turning it adds `clamp(floor((|rpm| − 100) / 20), 1, 5)` air, then waits
+`clamp(int(128 − |rpm| / 5) − 108, 0, 20)` ticks (256 RPM: 5 air per tick); full: a chime and a
+ring of particles. Right-click with an empty chest slot (not sneaking, not holding a block item)
+puts it on. Air tools cost `max(900 / uses, 1)` air (extendo grip 1000 uses: 1 air; potato cannon
+200 uses: 4 air) from a worn backtank with air, else 1 durability (creative: free; 0 uses:
+unbreakable). Pressure warnings as a subtitle when the air drops to max / 10 ("⚠ Backtank pressure
+low", gold) and to 1 ("⚠ Backtank pressure depleted", red).
+- *Diving helmet*: under water with a worn backtank with air: breathing (water breathing, refreshed)
+  and 1 air per second; the netherite helmet with a netherite backtank does the same in lava
+  (air only). The air timer (mm:ss, red under 60 s) is shown while it is used (client mod: next to the
+  hotbar; vanilla: action bar).
+- *Netherite set*: netherite diving helmet + netherite backtank with air + netherite leggings +
+  netherite (diving) boots: fire immunity (fire resistance, refreshed).
+- *Diving boots*: in water (not swimming, not flying): sinking (vy − 0.05 per tick, a jump on the
+  ground +0.5) and walking speed ×1.3 below 0.145 blocks per tick (motion sent to the player, §8).
+
+**Extendo grip**: +3 block reach in either hand, +5 with one in each hand (pick range; §8); every
+block broken or placed and every entity hit by the holder uses the grip (air / durability, main hand
+first); hits get Create's extra knockback.
+
+**Potato cannon.** Ammo: off hand first, then the inventory (creative: not used up). Projectiles
+leave 1.5 blocks in front of the eyes at `2 × velocity` blocks per tick and move with
+`v = (v − (0, 0.05 · gravity, 0)) · drag` (gravity 1, drag 0.99); split shots spread around the aim.
+Cooldown = the type's reload ticks (× 2/3 with a cannon in each hand). Types (damage / reload /
+velocity / knockback / split): potato 5/15/1.25/1.5 (plants potatoes on farmland), baked potato
+5/15/1.25/0.5 (fire 3 s), carrot 4/12/1.45/0.3 (plants carrots), golden carrot 12/15/1.45/0.5, sweet
+berries 3/10/1.05/0.1 ×3, glow berries 2/10/1.05/0.05 ×2, chocolate glazed berries 4/10/1.05/0.2
+×3, poisonous potato 5/15/1.25/0.05 (poison 8 s), chorus fruit 3/15/1.2/0.05 (random teleport),
+apple 5/10/1.45/0.5, honeyed apple 6/15/1.35/0.1 (slowness II 8 s), golden apple 1/100 (golden
+apple effects), enchanted golden apple 1/100, beetroot 2/5/1.6/0.1, melon slice 3/8/1.45/0.1,
+glistering melon 5/8/1.45/0.1, melon 8/20/0.95/2 and pumpkin 6/15/0.95/2 (placed where they hit),
+pumpkin pie 7/15/1.1/0.05, cake 8/15/1.1/0.1, blaze cake 15/20/1.1/0.3 (fire 12 s), fish (cod,
+salmon, cooked, tropical) 4/10/1.3/0.6, pufferfish 4/10/1.1/0.4 (pufferfish effects), suspicious
+stew 3/40/0.8/0.2 (drops the bowl). Knockback × 0.6 along the shot; endermen take damage only; a
+powered wither is immune. The item is recovered with 12.5 % unless the hit used it up.
+
+**Wand of symmetry.** Right-click a block: the mirror goes to the block in front of the clicked face
+and the wand is enabled (5-tick cooldown); a new mirror is "Mirror Once" (players facing north /
+south: "Along Z", else "Along X"); moving a plane re-orients it, moving a rectangular mirror picks
+diagonal when |yaw mod 90| is in 22..67. Right-click the air disables it (the mirror stays);
+sneak-right-click opens the screen (Mirror: Mirror Once / Rectangular / Octagonal, Orientation).
+Every enabled wand in the hotbar mirrors blocks placed within `maxSymmetryWandRange` (50) of its
+mirror (horizontal reflections about the mirror block; 1 / 3 / 7 copies), turning their states
+(Bedrock's structure transform for vanilla blocks, `levitate:facing` for ours); survival copies use
+an item each and need a free spot; breaking breaks the mirrored blocks (survival: same block only,
+with drops). The mirror shows end-rod particles to the holder; each copy draws a particle line.
+
+**Handheld worldshaper** (Creative Worldshaper; creative tab only). Left-click a block picks the
+material ("Using: …"; not unbreakable blocks, block entities, Levitate blocks with data, doors and
+beds). Sneak-right-click opens the screen (brush, its parameters, tool, placement, pattern);
+right-click shapes at the looked-at block up to 128 blocks away (2-tick cooldown; "Shift-Right-Click
+to Select a Shape" / "Left-Click a Block to set Material" otherwise). Brushes: cuboid (w / h / l
+1..32, from −(n−1)/2 to n/2), sphere (radius 0..10, centre distance < r + .5), cylinder (radius 0..8,
+height 1..8, distance < r + .42), surface and cluster (range 1..10, Follow Diagonals, Ignore Material
+Borders: flood fill from the clicked block within distance < range; surface stays in the face's plane
+and needs an open face). Placement (shaped brushes): merged / attached / inserted (Create's
+offsets). Tools: fill (air only), place, replace (non-air only), clear, overlay (on top of non-air
+blocks), flatten (Create's 5×5 Gaussian height smoothing). Patterns: solid, checkerboard, inverted
+checkerboard, 25 / 50 / 75 % roll.
+
+**Linked controller.** Six buttons — forward, back, left, right, jump, sneak — each bound to a
+frequency (two items, Create's Couple<Frequency>). Right-click toggles it in use; in use, held buttons
+transmit power 15 on their frequency from the player's position through the redstone link bus
+(`src/feature/equipment/RedstoneLinkBus.h`, new contract for U23: transmitters, `powerAt(frequency,
+pos, range)` with `linkRange` 256 per axis, change listeners, and a frequency source per link block
+id for binding). A pressed frequency stays alive 30 ticks without a refresh. Client mod: W / S / A
+/ D / Space / Shift are captured while in use (Esc stops), sent on change and every 5 ticks;
+vanilla: the player's movement input is polled. Right-click a redstone link: bind mode ("Bind mode
+active"); the next pressed button takes the link's frequency ("Frequency bound to …").
+Sneak-right-click in the air: the binding screen (12 ghost slots; vanilla: a form of dropdowns).
+Lectern: right-click a lectern without a book with the controller places it (lectern controller,
+keeping the controller in its data); right-click it to use it (one user at a time, within 4 blocks),
+sneak + controller swaps, sneak with anything else takes it off (back to a lectern, the controller
+drops on top).
+
+**Sand paper / red sand paper.** Use (32 ticks, "eat" animation) to polish the item in the other
+hand (or an item entity at the looked-at point within 3 blocks) by the `sandpaper_polishing` recipes:
+the result goes to the inventory, the paper loses 1 durability; releasing early cancels. On copper
+blocks it scrapes one oxidation stage or the wax like an axe (1 durability).
+
+**Tree fertilizer.** On a sapling (not a hanging mangrove propagule) the tree grows at once
+(Bedrock's own growth, repeated until it grows, so 2×2 trees work); one item is used (creative: none).
+
+**Messages / logs**: one log line per user-visible action (`equipment: ...`), e2e scenarios wait
+for them.
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -1713,6 +1866,9 @@ true, `psiTimeout` 60.
 `config/assembly.json` (U15): `mechanicalArmRange` 5 (Create's CLogistics key and default).
 `config/funnels.json` (U12): `defaultExtractionTimer` 8, `vaultCapacity` 20, `brassTunnelTimer` 10
 (Create's CLogistics), `fanBlockCheckRate` 30 (Create's CKinetics; how often chutes re-check their air flow).
+`config/equipment.json` (U31, Create's CEquipment keys and defaults): `toolboxRange` 10, `airInBacktank`
+900, `maxExtendoGripActions` 1000, `maxPotatoCannonShots` 200, `maxSymmetryWandRange` 50, and
+`linkRange` 256 (Create's CLogistics; the reach of the linked controller's transmissions).
 
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
@@ -1738,6 +1894,7 @@ generators' own behaviour (U7, U18, U21), not a config value.
 | `/create steam <pos>` (tank / boiler goggle lines) / `steam <pos> fill <fluid> <mB>` (Levitate debug: fills, or drains when negative, through the fluid capability) | op | U18 |
 | `/create display text <x y z> <line> <text>` / `bind <x y z> <tx ty tz> <source>` (Levitate debug) | op | U24 |
 | `/create overlay reset` | anyone | U8 |
+| `/create toolbox` (the toolbox radial menu as a form, for players without the client mod) | anyone | U31 |
 
 ## 7. Strings
 
@@ -1831,6 +1988,21 @@ matches Create's official Chinese translation wording).
 | Funnel / smart chute redstone input by neighbour updates (U12) | custom blocks get no redstone neighbour update | polled every 2 ticks like the sticker (same sources) |
 | Comparators reading a vault (U12) | Bedrock only asks container blocks for analog signals | the vault's signal is handed to the comparator's circuit component before it evaluates (ComparatorCapacitor hook) |
 | Belt funnels, tunnels on belts, chutes pulling from belts (U12) | waiting for U11's belt | the hooks exist (`beltlink`, FunnelsExt.h); tunnels already work with any registered segment |
+
+| Holding the toolbox key on a **vanilla** client (U31) | the server can't see a held key without the client mod | `/create toolbox` opens the same entries as a form |
+| Dyeing a toolbox in the crafting grid keeps its contents (U31) | Bedrock crafting results carry no data of the ingredients | the crafted toolbox is empty; right-clicking a placed toolbox with a dye recolours it with its contents (as Create does too) |
+| Tree fertilizer as one recipe with "any small flower" (U31) | Bedrock recipes take one item or tag per ingredient and vanilla flowers have no common item tag | one recipe per flower × coral (two of the same flower) |
+| Toolbox lid / drawer animation, toolbox comparator output (U31) | custom blocks have no block entity renderer; comparators only read containers | static model (closed lid); no comparator output yet |
+| Enchantments Capacity (backtank air) and Potato Recovery (U31) | Bedrock has no data-driven enchantments | air is always `airInBacktank`; projectiles are recovered with the base 12.5 % |
+| Armour toughness and knockback resistance of the netherite diving gear (U31) | `minecraft:wearable` only has `protection` | protection as Create; no toughness / knockback resistance |
+| Netherite helmet lava vision and the diving helmet's clearer underwater fog (U31) | fog is client-side | no fog change |
+| Diving boots movement (U31) | players move themselves (client-authoritative input); the server can only push them | sinking and the ×1.3 walking speed are sent as motion packets while in water (less smooth than Create) |
+| Extendo grip reach for **vanilla** clients (U31) | the client limits its own block picking range | the pick range is raised in GameMode (server validation and the client mod's local player); vanilla clients keep their normal reach |
+| Potato projectiles as entities (U31) | no custom projectile entities without a client-side renderer | the server simulates the flight (Create's drag / gravity, block and entity hits) and shows the ammo as an item entity that can't be picked up; sticky projectiles don't stick; glow berries / glistering melon have no glowing (Bedrock has no glowing effect); golden apples don't cure zombie villagers; custom sounds use vanilla ones |
+| Tree fertilizer growing without room (U31) | Create grows the tree in a virtual world and copies it; Bedrock's tree features aren't callable into another world | Bedrock's own sapling growth, repeated until it grows (needs the room Bedrock trees need) |
+| Linked controller input for **vanilla** clients (U31) | movement keys are only visible through Bedrock's movement input | the movement input the server receives is polled (the player still moves); the client mod captures the keys as Create |
+| Worldshaper preview outline (U31) | no world-space line renderer yet | no preview; the changed blocks are logged and appear at once |
+| Lectern controller comparator output 15 (U31) | comparators only read containers | none |
 
 Units add rows here in their PRs when they find something else impossible.
 

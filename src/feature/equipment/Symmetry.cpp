@@ -60,7 +60,8 @@ void writeMirror(Player& player, int slot, ce::Mirror const& m) {
 /// The block transformed by a mirror copy (vanilla blocks through Bedrock's structure transform,
 /// Levitate blocks through their `levitate:facing` state).
 Block const& transformed(Block const& block, ce::Mat2 const& t) {
-    // find (rotation, mirror) with R(rotation) * M(mirror) == t
+    // find (rotation, mirror) with R(rotation) * M(mirror) == t; Bedrock's Mirror::Z negates x (checked by
+    // the equipment.symmetry_wand selftest)
     static constexpr ce::Mat2 rots[4] = {{1, 0, 0, 1}, {0, -1, 1, 0}, {-1, 0, 0, -1}, {0, 1, -1, 0}};
     static constexpr Rotation rotIds[4] = {Rotation::None, Rotation::Clockwise90, Rotation::Clockwise180, Rotation::CounterClockwise90};
     for (int mi = 0; mi < 2; ++mi) {
@@ -79,7 +80,7 @@ Block const& transformed(Block const& block, ce::Mat2 const& t) {
                 auto const* b = game::blockWith(id, {{kFacing, d + 2}});
                 return b ? *b : block;
             }
-            auto const* out = VanillaBlockStateTransformUtils::transformBlock(block, rotIds[r], mi ? Mirror::X : Mirror::None);
+            auto const* out = VanillaBlockStateTransformUtils::transformBlock(block, rotIds[r], mi ? Mirror::Z : Mirror::None);
             return out ? *out : block;
         }
     }
@@ -333,5 +334,7 @@ void installWand() {
 }
 
 bool mirroringNow() { return gMirroring > 0; }
+
+Block const& mirroredBlock(Block const& block, ce::Mat2 const& t) { return transformed(block, t); }
 
 } // namespace lv::feature::equipment

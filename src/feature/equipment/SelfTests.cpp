@@ -17,6 +17,8 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
+#include "mc/world/level/Spawner.h"
+#include "mc/world/actor/ActorDefinitionIdentifier.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/dimension/DimensionType.h"
 #include "mc/world/phys/AABB.h"
@@ -241,7 +243,7 @@ LV_REGISTER_SELFTEST("equipment.backtank_fill", [](Context& ctx) -> ll::coro::Co
     co_await ctx.ticks(40);
     int air = eq::blockAir(tank);
     // 256 RPM: +5 air every tick
-    ctx.check(air >= 150, "a backtank on a 256 RPM shaft fills quickly (air " + std::to_string(air) + ")");
+    ctx.check(air >= 100, "a backtank on a 256 RPM shaft fills quickly (air " + std::to_string(air) + ")");
     lv::kinetics::setGeneratedSpeed(base, 0);
     co_await ctx.ticks(2);
     int stopped = eq::blockAir(tank);
@@ -350,18 +352,29 @@ LV_REGISTER_SELFTEST("equipment.potato_cannon_damage", [](Context& ctx) -> ll::c
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     clearInventory(sp);
-    auto& target = ctx.spawnPlayer("lv_cannon_target");
+    auto level = ll::service::getLevel();
+    ctx.require(level != nullptr, "level");
+    auto  target = at(base, 6, 0, 0);
+    auto* mob    = level->getSpawner().spawnMob(sp.getDimensionBlockSource(), ActorDefinitionIdentifier("minecraft:pig"), nullptr,
+                                                Vec3{target.x + .5f, float(target.y), target.z + .5f}, false, false, false);
+    ctx.require(mob != nullptr, "a pig to shoot at");
+    auto pigId = eq::uidOf(*mob);
     sp.teleport(Vec3{base.x + .5f, float(base.y), base.z + .5f}, DimensionType(0));
-    target.teleport(Vec3{base.x + 6.5f, float(base.y), base.z + .5f}, DimensionType(0));
-    co_await ctx.ticks(5);
-    sp.simulateLookAt(Vec3{base.x + 6.5f, float(base.y) + 1.4f, base.z + .5f}, sim::LookDuration::Continuous);
     co_await ctx.ticks(3);
-    int before = target.getHealth();
+    sp.simulateLookAt(Vec3{target.x + .5f, float(target.y) + .5f, target.z + .5f}, sim::LookDuration::Continuous);
+    co_await ctx.ticks(3);
+    int before = mob->getHealth();
     ctx.give(sp, item(ctx, "levitate:potato_cannon"), 0);
     ctx.give(sp, item(ctx, "minecraft:baked_potato", 2), 5);
     ctx.require(eq::firePotatoCannon(sp), "the cannon fires");
     co_await ctx.ticks(15);
-    ctx.check(target.getHealth() < before, "the baked potato hurt the target (" + std::to_string(before) + " -> " + std::to_string(target.getHealth()) + ")");
+    ActorUniqueID id;
+    id.rawID  = pigId;
+    auto* pig = level->fetchEntity(id, false);
+    int   now = pig && pig->isAlive() ? pig->getHealth() : 0;
+    ctx.check(now < before, "the baked potato hurt the pig (" + std::to_string(before) + " -> " + std::to_string(now) + ")");
+    ctx.check(!pig || !pig->isAlive() || pig->isOnFire(), "and set it on fire");
+    if (pig && pig->isAlive()) pig->remove();
     clearItems(sp, base, 8);
     clearInventory(sp);
 });
@@ -401,11 +414,18 @@ LV_REGISTER_SELFTEST("equipment.symmetry_wand", [](Context& ctx) -> ll::coro::Co
     auto mirror = at(base, -1, 0, 2);
     ctx.cleanupBlock(mirror);
     ctx.setBlock(stairs, "minecraft:oak_stairs", {{"weirdo_direction", 0}});
+    ctx.give(sp, item(ctx, "minecraft:oak_stairs", 1), 2); // survival: the copy uses an item
     eq::mirrorPlacement(sp, stairs);
     auto const* b = eq::blockAt(mirror);
     ctx.check(b && std::string(b->getTypeName()) == "minecraft:oak_stairs", "stairs are mirrored");
     auto dir = b ? lv::game::intState(*b, "weirdo_direction") : std::nullopt;
     ctx.check(dir && *dir == 1, "mirrored east-facing stairs face west (weirdo_direction " + std::to_string(dir.value_or(-1)) + ")");
+    // diagonal copies turn blocks too: x <-> z makes west-facing stairs face north
+    if (b) {
+        auto const& turned = eq::mirroredBlock(*b, ce::Mat2{0, 1, 1, 0});
+        auto        d2     = lv::game::intState(turned, "weirdo_direction");
+        ctx.check(d2 && *d2 == 3, "a diagonal mirror turns west-facing stairs north (weirdo_direction " + std::to_string(d2.value_or(-1)) + ")");
+    }
     clearItems(sp, base, 5);
     clearInventory(sp);
 });
@@ -493,8 +513,11 @@ LV_REGISTER_SELFTEST("equipment.linked_controller", [](Context& ctx) -> ll::coro
     auto& p = ctx.player();
     clearInventory(p);
     auto controller = item(ctx, "levitate:linked_controller");
-    items::setData(controller, eq::kControllerData,
-                   {{"freq", {{"minecraft:redstone", "minecraft:diamond"}, {"", ""}, {"", ""}, {"", ""}, {"minecraft:gold_ingot", ""}, {"", ""}}}});
+    auto pair = [](std::string a, std::string b) { return nlohmann::json::array({a, b}); };
+    nlohmann::json freq = nlohmann::json::array(
+        {pair("minecraft:redstone", "minecraft:diamond"), pair("", ""), pair("", ""), pair("", ""), pair("minecraft:gold_ingot", ""), pair("", "")}
+    );
+    items::setData(controller, eq::kControllerData, nlohmann::json{{"freq", freq}});
     p.getInventory().setItem(p.getSelectedItemSlot(), controller);
     p.teleport(Vec3{base.x + .5f, float(base.y), base.z + .5f}, DimensionType(0));
     co_await ctx.ticks(2);

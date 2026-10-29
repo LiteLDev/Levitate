@@ -71,7 +71,7 @@ void setFrequency(ItemStack& controller, int button, std::pair<std::string, std:
     auto f = frequencies(controller);
     f[static_cast<std::size_t>(button)] = freq;
     Json arr = Json::array();
-    for (auto const& [a, b] : f) arr.push_back({a, b});
+    for (auto const& [a, b] : f) arr.push_back(Json::array({a, b}));
     items::setData(controller, kControllerData, {{"freq", arr}});
 }
 

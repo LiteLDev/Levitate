@@ -17,6 +17,7 @@
 
 #include "core/GlobalPos.h"
 #include "core/equipment/Shaper.h"
+#include "core/equipment/Symmetry.h"
 
 class Actor;
 class Block;
@@ -181,6 +182,8 @@ void mirrorPlacement(Player& player, GlobalPos const& pos);
 void mirrorBreak(Player& player, GlobalPos const& pos, std::string const& blockId);
 /// True while mirrored copies are being placed / broken.
 [[nodiscard]] bool mirroringNow();
+/// A block as a mirror copy turns it (Mat2 of core/equipment/Symmetry.h; selftests).
+[[nodiscard]] Block const& mirroredBlock(Block const& block, core::equipment::Mat2 const& t);
 void tickWands();
 void installWand();
 
