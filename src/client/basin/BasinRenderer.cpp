@@ -240,9 +240,9 @@ void onMachines(Json const& msg) {
             for (auto const& f : b->value("fluids", Json::array()))
                 if (f.is_array() && f.size() == 2) m.fluids.emplace_back(f[0].get<std::string>(), f[1].get<int>());
             m.items.clear();
-            for (auto const& i : b->value("items", Json::array())) {
-                if (!i.is_array() || i.size() != 3 || !i[0].is_string()) continue;
-                if (auto stack = feature::common::items::make(i[0].get<std::string>(), i[1].get<int>(), i[2].get<int>())) m.items.push_back(*stack);
+            for (auto const& i : b->value("stacks", Json::array())) {
+                ItemStack stack = feature::common::items::fromJson(i);
+                if (!feature::common::items::isEmpty(stack)) m.items.push_back(std::move(stack));
             }
         }
     }
@@ -307,7 +307,8 @@ void drawBasinItems(BaseActorRenderContext& rc, BlockPos const& pos, Machine con
     float level = std::clamp(fluidSurface - .3f, .125f, .6f);
     float part  = 360.f / static_cast<float>(m.items.size());
     float ring  = static_cast<float>(std::fmod(time * .5, 360.0));
-    std::uint32_t seed = static_cast<std::uint32_t>(pos.x * 73856093 ^ pos.y * 19349663 ^ pos.z * 83492791);
+    std::uint32_t seed = static_cast<std::uint32_t>(pos.x) * 73856093u ^ static_cast<std::uint32_t>(pos.y) * 19349663u
+                       ^ static_cast<std::uint32_t>(pos.z) * 83492791u;
     auto random = [&seed] {
         seed = seed * 1664525u + 1013904223u;
         return static_cast<float>(seed >> 8) / static_cast<float>(1u << 24) - .5f;

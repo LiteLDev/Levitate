@@ -1,6 +1,7 @@
 // Selftests of the display item contract (U33) and of the units that publish display items.
 // testPos dx 3300..3399.
 
+#include <atomic>
 #include <cmath>
 
 #include "mc/deps/core/math/Vec3.h"
@@ -70,7 +71,7 @@ struct Companion {
     ~Companion() { net::setTestCompanion(player, false); }
 };
 
-bool testProviderOn = false;
+std::atomic<bool> testProviderOn{false};
 
 } // namespace
 

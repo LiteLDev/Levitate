@@ -13,7 +13,9 @@
 // Display items from the server ("itemrender.batch") are kept per (dimension, owner, slot),
 // moved towards their latest transform over `lerp` ticks and drawn in the opaque block entity
 // pass. Fallback item entities they name are not drawn (ItemRenderer hook). Blocks with item
-// providers seen in chunk meshes are asked for ("itemrender.query").
+// providers seen in chunk meshes are asked for ("itemrender.query"). Whenever the store is cleared
+// (new level, other dimension) the client sends "itemrender.reset" so the server sends everything
+// in range again.
 
 #include "client/render/WorldItems.h"
 
@@ -120,7 +122,9 @@ struct PosEq {
 struct State {
     std::mutex                                           mutex;
     std::map<Key, Shown>                                 shown;
-    std::unordered_set<std::uint64_t>                    hidden; ///< runtime ids of fallback entities
+    std::mutex                                           hiddenMutex; ///< guards `hidden` only (entity pass)
+    std::unordered_set<std::uint64_t>                    hidden;      ///< runtime ids of fallback entities
+    bool                                                 needReset = true; ///< tell the server we have nothing
     double                                               now    = 0; ///< level ticks + partial of the last frame
     int                                                  dim    = -1;
     void const*                                          level  = nullptr;
@@ -137,22 +141,29 @@ State& st() {
 }
 
 void rebuildHidden(State& s) {
+    std::lock_guard lock(s.hiddenMutex);
     s.hidden.clear();
     for (auto const& [k, v] : s.shown)
         if (v.hide) s.hidden.insert(v.hide);
 }
 
-ci::Transform currentOf(Shown const& v, double now) { return ci::lerp(v.from, v.to, ci::progress(now, v.start, v.lerp)); }
-
-void resetLevel(State& s) {
+/// Forgets every display item (the server is told with "itemrender.reset").
+void clearShown(State& s) {
     s.shown.clear();
-    s.hidden.clear();
-    s.providerBlocks.clear();
+    rebuildHidden(s);
     s.tracked.clear();
     s.queried.clear();
     s.lastQuery = -1e9;
-    s.logged    = false;
-    s.dim       = -1;
+    s.needReset = true;
+}
+
+ci::Transform currentOf(Shown const& v, double now) { return ci::lerp(v.from, v.to, ci::progress(now, v.start, v.lerp)); }
+
+void resetLevel(State& s) {
+    clearShown(s);
+    s.providerBlocks.clear();
+    s.logged = false;
+    s.dim    = -1;
 }
 
 void onBatch(Json const& msg) {
@@ -196,12 +207,17 @@ void onBatch(Json const& msg) {
     rebuildHidden(s);
 }
 
-bool hasProviderCached(Block const& block) {
-    auto&           s = st();
-    std::lock_guard lock(s.mutex);
+/// With `st().mutex` held.
+bool hasProviderLocked(State& s, Block const& block) {
     auto [it, fresh] = s.providerBlocks.try_emplace(&block, false);
     if (fresh) it->second = feature::itemrender::hasProvider(game::blockId(block));
     return it->second;
+}
+
+bool hasProviderCached(Block const& block) {
+    auto&           s = st();
+    std::lock_guard lock(s.mutex);
+    return hasProviderLocked(s, block);
 }
 
 /// Asks the server about provider blocks near the player (once a second; a block again after 10 s).
@@ -214,14 +230,24 @@ void sendQueries(LocalPlayer& player, double now) {
         if (now - s.lastQuery < 20 && now >= s.lastQuery) return;
         s.lastQuery    = now;
         auto const& at = player.getPosition();
-        for (auto const& p : s.tracked) {
-            double dx = at.x - p.x, dy = at.y - p.y, dz = at.z - p.z;
-            if (dx * dx + dy * dy + dz * dz > 64.0 * 64.0) continue;
+        auto&       region = player.getDimensionBlockSource();
+        for (auto it = s.tracked.begin(); it != s.tracked.end();) {
+            auto const& p  = *it;
+            double      dx = at.x - p.x, dy = at.y - p.y, dz = at.z - p.z;
+            double      d2 = dx * dx + dy * dy + dz * dz;
+            // far away or no longer such a block: forgotten (seen again when its chunk is meshed)
+            bool gone = d2 > 128.0 * 128.0 || (region.hasChunksAt(p, 0, false) && !hasProviderLocked(s, region.getBlock(p)));
+            if (gone) {
+                s.queried.erase(p);
+                it = s.tracked.erase(it);
+                continue;
+            }
+            ++it;
+            if (d2 > 64.0 * 64.0 || list.size() >= 256) continue;
             auto [q, fresh] = s.queried.try_emplace(p, now);
             if (!fresh && now - q->second < 200 && now >= q->second) continue;
             q->second = now;
             list.push_back(Json::array({p.x, p.y, p.z}));
-            if (list.size() >= 256) break;
         }
     }
     if (!list.empty()) feature::net::client::send("itemrender.query", {{"dim", static_cast<int>(player.getDimensionId())}, {"pos", list}});
@@ -255,28 +281,31 @@ void renderFrame(BaseActorRenderContext& ctx) {
     if (!level || !player) return;
     double now = static_cast<double>(level->getCurrentTick().tickID) + ctx.mFrameAlpha;
     int    dim = static_cast<int>(player->getDimensionId());
-    std::vector<Shown> todo;
+    bool reset = false;
     {
         std::lock_guard lock(s.mutex);
         s.now = now;
         if (dim != s.dim) {
-            if (s.dim != -1) {
-                s.shown.clear();
-                s.hidden.clear();
-                s.tracked.clear();
-                s.queried.clear();
-            }
+            if (s.dim != -1) clearShown(s);
             s.dim = dim;
         }
-        todo.reserve(s.shown.size());
-        for (auto const& [k, v] : s.shown)
-            if (k.dim == dim) todo.push_back(v);
+        if (s.needReset && feature::net::client::connected()) {
+            s.needReset = false;
+            reset       = true;
+        }
     }
+    if (reset) feature::net::client::send("itemrender.reset", {{"dim", dim}});
     sendQueries(*player, now);
+
+    std::lock_guard          lock(s.mutex); // the store only changes on this thread; held while drawing
+    std::vector<Shown const*> todo;
+    todo.reserve(s.shown.size());
+    for (auto const& [k, v] : s.shown)
+        if (k.dim == dim) todo.push_back(&v);
     if (todo.empty()) return;
     // batched by item: consecutive draws reuse the game's cached model of that item
-    std::sort(todo.begin(), todo.end(), [](Shown const& a, Shown const& b) { return a.itemKey < b.itemKey; });
-    for (auto const& v : todo) drawOne(ctx, v, now);
+    std::sort(todo.begin(), todo.end(), [](Shown const* a, Shown const* b) { return a->itemKey < b->itemKey; });
+    for (auto const* v : todo) drawOne(ctx, *v, now);
     if (!s.logged) {
         s.logged = true;
         log().info("itemrender client: drawing {} display items", todo.size());
@@ -369,7 +398,7 @@ LL_TYPE_INSTANCE_HOOK(
         std::uint64_t id = actor->getRuntimeID().rawID;
         bool          hide;
         {
-            std::lock_guard lock(s.mutex);
+            std::lock_guard lock(s.hiddenMutex);
             hide = !s.hidden.empty() && s.hidden.contains(id);
         }
         if (hide) return;

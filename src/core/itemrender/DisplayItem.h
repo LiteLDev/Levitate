@@ -5,12 +5,13 @@
 // registry is feature/itemrender/DisplayItems.h, the renderer client/render/WorldItems.h.
 //
 // Wire format (companion channel "itemrender.batch", server -> client):
-//     {"dim": 0, "set": [entry, ...], "move": [entry, ...], "del": [[x, y, z, slot], ...], "reset": bool}
+//     {"dim": 0, "set": [entry, ...], "move": [entry, ...], "del": [[x, y, z, slot], ...]}
 //     entry = {"o": [x, y, z], "s": slot, "i": item json (set only), "p": [x, y, z],
 //              "r": [yaw, pitch, roll], "c": scale, "st": style, "sp": spin, "pl": pile, "t": lerp ticks,
 //              "h": actor runtime id to hide}
 // Client -> server: "itemrender.query" {"dim": 0, "pos": [[x, y, z], ...]} asks for the display items of
-// blocks the client sees that a provider draws (filter slots, placards, ...).
+// blocks the client sees that a provider draws (filter slots, placards, ...); "itemrender.reset"
+// {"dim": 0} says the client dropped every item (new level / dimension): the server sends them again.
 
 #include <array>
 #include <cstdint>

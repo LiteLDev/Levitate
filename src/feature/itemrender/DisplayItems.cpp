@@ -214,7 +214,8 @@ void flush() {
         }
         for (auto uid : item.viewers)
             if (!inRange.contains(uid))
-                if (auto b = batches.find(uid); b != batches.end())
+                // a viewer now in another dimension already dropped it (and sent itemrender.reset)
+                if (auto b = batches.find(uid); b != batches.end() && b->second.dim == key.owner.dim)
                     b->second.del.push_back(ci::encodeKey({key.owner.x, key.owner.y, key.owner.z}, key.slot));
         item.viewers   = std::move(inRange);
         item.dirtyItem = false;
@@ -359,12 +360,14 @@ class DisplayItemsModule {
 public:
     void install() {
         net::on("itemrender.query", onQuery);
+        net::on("itemrender.reset", [](Player& p, Json const&) { forgetViewer(p.getOrCreateUniqueID().rawID); });
         net::onCompanionJoined([](Player& p) { forgetViewer(p.getOrCreateUniqueID().rawID); });
         mTick = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { flush(); });
         game::db::onWorldClosed([] { state() = State{}; });
     }
     void uninstall() {
         net::off("itemrender.query");
+        net::off("itemrender.reset");
         ll::event::EventBus::getInstance().removeListener(mTick);
         state() = State{};
     }
