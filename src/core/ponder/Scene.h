@@ -28,6 +28,8 @@
 // Areas: `[x, y, z]` (one block), `[[x1, y1, z1], [x2, y2, z2]]` (a box, corners inclusive),
 // `{"union": [area, ...]}`, or `"base"` (the base plate). Points (`at`, `to`, `origin`) are block
 // coordinates as numbers (fractions allowed: [2.5, 1.5, 2.5] is the centre of block 2 1 2).
+// States are integers, booleans or strings (string states / traits such as
+// "minecraft:cardinal_direction": "north", used by the block model only).
 // Directions: "down" (slides in moving down, the default), "up", "north", "south", "west",
 // "east", "none". Colours (Create's PonderPalette): "white" (default), "black", "red", "green",
 // "blue", "slow", "medium", "fast", "input", "output".
@@ -100,10 +102,13 @@ enum class Palette { White, Black, Red, Green, Blue, Slow, Medium, Fast, Input, 
 
 using States = std::map<std::string, int>;
 
+using StringStates = std::map<std::string, std::string>;
+
 struct BlockDef {
-    std::string id;
-    States      states;
-    bool        operator==(BlockDef const&) const = default;
+    std::string  id;
+    States       states;
+    StringStates strings; ///< string states / block traits (e.g. "minecraft:block_face": "north")
+    bool         operator==(BlockDef const&) const = default;
 };
 
 enum class Op { Idle, Show, Hide, Set, Destroy, Modify, Text, Outline, Input, Redstone, Rotate, Move, Turn, Item, Keyframe };
@@ -116,6 +121,7 @@ struct Instruction {
     std::string section;
     BlockDef    block;   ///< set
     States      states;  ///< modify
+    StringStates strings; ///< modify
     int         text = 0;
     bool        hasPoint = false;
     Vec3f       point;   ///< text / input / item start / turn origin
@@ -210,11 +216,15 @@ struct RedstoneView {
     float age = 0, left = 0;
 };
 
-struct SectionView {
-    Vec3f offset;
+struct SectionTurn {
     char  axis    = 'y';
     float degrees = 0;
     Vec3f origin;
+};
+
+struct SectionView {
+    Vec3f                    offset;
+    std::vector<SectionTurn> turns; ///< applied in order, each about its origin (moved by `offset`)
 };
 
 struct SceneState {

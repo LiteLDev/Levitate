@@ -153,8 +153,9 @@ public:
         dt         = std::min(dt, 0.25f);
         if (auto const* s = scene()) {
             float speed = 20.f;
-            if (mSlow && !cp::evaluate(*s, mTime).texts.empty()) speed *= 0.5f;
+            if (mSlow && !mState.texts.empty()) speed *= 0.5f; // last frame's state
             if (!mIdentify) mTime = std::min(mTime + dt * speed, static_cast<float>(s->length()));
+            mState = cp::evaluate(*s, mTime); // once per frame
         }
         mFade = std::min(1.f, mFade + dt * 4.f);
         // camera drag
@@ -176,7 +177,7 @@ public:
         drawHeader(c, *s, mx, my);
         drawTimeline(c, *s, mx, my);
         drawTags(c, mx, my);
-        auto st  = cp::evaluate(*s, mTime);
+        auto const& st = mState;
         auto res = drawScene(c, *s, st, mView, mIdentify, mx, my);
         if (!mLoggedDraw) {
             mLoggedDraw = true;
@@ -260,6 +261,7 @@ private:
         mIdentify   = false;
         mLoggedDraw = false;
         if (auto const* s = scene()) {
+            mState = cp::evaluate(*s, 0);
             mView = cp::View::fit(*s, width / 2, height / 2 + 16, width * 0.8f, height * 0.72f);
             log().info("ponder: scene {} ({}/{}) of {}", s->id, mIndex + 1, mScenes.size(), mComponent);
         }
@@ -365,6 +367,7 @@ private:
     float                           mFade  = 1;
     bool                            mIdentify = false, mSlow = false, mLoggedDraw = false;
     cp::View                        mView;
+    cp::SceneState                  mState;
     std::chrono::steady_clock::time_point mLastFrame{};
     float                           mMouseX = 0, mMouseY = 0, mDragX = 0, mDragY = 0;
     bool                            mDragging = false, mSubjectHover = false;

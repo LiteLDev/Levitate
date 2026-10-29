@@ -16,7 +16,7 @@ struct Result {
     std::string message;
 };
 
-/// The Ponder index shipped in the mod folder (`ponder/index.json`), loaded once.
+/// The Ponder index and scenes shipped in the mod folder (`ponder/`), loaded once.
 [[nodiscard]] core::ponder::Library const& index();
 /// A typed id as the client opens it: "" (the index), a tag id, or a namespaced component id;
 /// nullopt when unknown.

@@ -254,8 +254,18 @@ LL_TYPE_INSTANCE_HOOK(PonderContainerLeaveHook, ll::memory::HookPriority::Normal
 
 class PonderModule {
 public:
-    // input / render listeners at mod load (see screen::ScreenModule), hooks at enable
-    void load() {
+    // input / render listeners at mod load (see screen::ScreenModule; again after a disable), hooks at enable
+    void load() { registerListeners(); }
+    void install() {
+        if (mListeners.empty()) registerListeners();
+        PonderSlotHoverHook::hook();
+        PonderCraftingHoverHook::hook();
+        PonderSlotUnhoverHook::hook();
+        PonderContainerLeaveHook::hook();
+    }
+
+private:
+    void registerListeners() {
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>(
             [](ll::event::KeyInputEvent& ev) {
@@ -322,12 +332,8 @@ public:
             });
         });
     }
-    void install() {
-        PonderSlotHoverHook::hook();
-        PonderCraftingHoverHook::hook();
-        PonderSlotUnhoverHook::hook();
-        PonderContainerLeaveHook::hook();
-    }
+
+public:
     void uninstall() {
         PonderSlotHoverHook::unhook();
         PonderCraftingHoverHook::unhook();

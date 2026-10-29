@@ -103,7 +103,7 @@ struct Parser {
         return std::nullopt;
     }
 
-    std::optional<States> states(Json const& j) {
+    std::optional<States> states(Json const& j, StringStates* strings = nullptr) {
         States s;
         if (j.is_null()) return s;
         if (!j.is_object()) {
@@ -113,8 +113,9 @@ struct Parser {
         for (auto const& [k, v] : j.items()) {
             if (v.is_boolean()) s[k] = v.get<bool>() ? 1 : 0;
             else if (v.is_number_integer()) s[k] = v.get<int>();
+            else if (v.is_string() && strings) (*strings)[k] = v.get<std::string>();
             else {
-                err("state '" + k + "' must be an integer or a boolean");
+                err("state '" + k + "' must be an integer, a boolean or a string");
                 return std::nullopt;
             }
         }
@@ -304,7 +305,7 @@ std::optional<Instruction> instruction(Parser& p, Scene const& s, Json const& j,
         }
         in.block.id = id.get<std::string>();
         p.blockId(in.block.id);
-        if (auto st = p.states(field(j, "states"))) in.block.states = *st;
+        if (auto st = p.states(field(j, "states"), &in.block.strings)) in.block.states = *st;
         break;
     }
     case Op::Destroy:
@@ -312,8 +313,8 @@ std::optional<Instruction> instruction(Parser& p, Scene const& s, Json const& j,
         break;
     case Op::Modify: {
         if (!needArea()) return std::nullopt;
-        auto st = p.states(field(j, "states"));
-        if (!st || st->empty()) p.err("\"modify\" needs \"states\"");
+        auto st = p.states(field(j, "states"), &in.strings);
+        if (!st || (st->empty() && in.strings.empty())) p.err("\"modify\" needs \"states\"");
         else in.states = *st;
         break;
     }
@@ -474,14 +475,16 @@ ParseResult parseScene(Json const& j) {
             }
             BlockDef def{bid.get<std::string>(), {}};
             p.blockId(def.id);
-            if (auto st = p.states(field(b, "states"))) def.states = *st;
+            if (auto st = p.states(field(b, "states"), &def.strings)) def.states = *st;
             std::optional<Area> a;
             if (b.contains("at")) a = p.area(b.at("at"));
             else if (b.contains("area")) a = p.area(b.at("area"));
             else p.err("a block entry needs \"at\" or \"area\"");
             if (!a) continue;
+            auto before = r.errors.size();
             checkArea(p, s, *a);
             if (a->base) p.err("blocks can't use the \"base\" area");
+            if (r.errors.size() != before) continue; // never expand a box outside the scene
             for (auto const& box : a->boxes) {
                 for (int x = box.lo.x; x <= box.hi.x; ++x)
                     for (int y = box.lo.y; y <= box.hi.y; ++y)
@@ -610,16 +613,17 @@ SceneState evaluate(Scene const& scene, float time) {
         case Op::Show:
             for (auto& [p, c] : cells) {
                 if (!c.exists || !inArea(in.area, p, isBase(p))) continue;
+                if (!in.section.empty()) c.section = in.section;
+                if (c.shown && !c.hiding) continue; // already visible: stays in place
                 c.shown   = true;
                 c.hiding  = false;
                 c.shownAt = t;
                 c.showDir = in.dir;
-                if (!in.section.empty()) c.section = in.section;
             }
             break;
         case Op::Hide:
             for (auto& [p, c] : cells) {
-                if (!c.shown || !inArea(in.area, p, isBase(p))) continue;
+                if (!c.shown || c.hiding || !inArea(in.area, p, isBase(p))) continue;
                 c.hiding   = true;
                 c.hiddenAt = t;
                 c.hideDir  = in.dir;
@@ -630,9 +634,13 @@ SceneState evaluate(Scene const& scene, float time) {
                 for (int x = b.lo.x; x <= b.hi.x; ++x)
                     for (int y = b.lo.y; y <= b.hi.y; ++y)
                         for (int z = b.lo.z; z <= b.hi.z; ++z) {
-                            auto& c   = cells[{x, y, z}];
-                            c.block   = in.block;
-                            c.exists  = true;
+                            auto& c = cells[{x, y, z}];
+                            if (!c.exists) c.section.clear(); // a new block, not the destroyed one
+                            c.block    = in.block;
+                            c.exists   = true;
+                            c.rpm      = 0; // placed blocks start still
+                            c.angleBase = 0;
+                            c.rpmSince = t;
                             if (!c.shown || c.hiding) {
                                 c.shown   = true;
                                 c.hiding  = false;
@@ -649,6 +657,7 @@ SceneState evaluate(Scene const& scene, float time) {
             for (auto& [p, c] : cells) {
                 if (!c.exists || !inArea(in.area, p, isBase(p))) continue;
                 for (auto const& [k, v] : in.states) c.block.states[k] = v;
+                for (auto const& [k, v] : in.strings) c.block.strings[k] = v;
             }
             break;
         case Op::Text:
@@ -703,9 +712,7 @@ SceneState evaluate(Scene const& scene, float time) {
         for (auto const& a : list) {
             float k = a.ticks > 0 ? ease((time - a.t0) / a.ticks) : 1.f;
             if (a.turn) {
-                sv.axis   = a.axis;
-                sv.origin = a.origin;
-                sv.degrees += a.degrees * k;
+                sv.turns.push_back({a.axis, a.degrees * k, a.origin});
             } else {
                 sv.offset.x += a.by.x * k;
                 sv.offset.y += a.by.y * k;

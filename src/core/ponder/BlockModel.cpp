@@ -369,13 +369,22 @@ void apply(ResolvedBlock& r, Json const& comps) {
 }
 } // namespace
 
-ResolvedBlock resolve(BlockFile const& file, std::map<std::string, int> const& given) {
+std::map<std::string, std::string> withTraitDefaults(std::map<std::string, std::string> strings) {
+    strings.try_emplace("minecraft:block_face", "down");
+    strings.try_emplace("minecraft:cardinal_direction", "south");
+    strings.try_emplace("minecraft:facing_direction", "down");
+    strings.try_emplace("minecraft:vertical_half", "bottom");
+    return strings;
+}
+
+ResolvedBlock resolve(BlockFile const& file, std::map<std::string, int> const& given, std::map<std::string, std::string> const& strings) {
     auto states = file.defaults;
     for (auto const& [k, v] : given) states[k] = v;
+    auto traits = withTraitDefaults(strings);
     ResolvedBlock r;
     apply(r, file.components);
     for (auto const& [cond, comps] : file.permutations) {
-        auto v = evalMolang(cond, states);
+        auto v = evalMolang(cond, states, traits);
         if (v && *v != 0.f) apply(r, comps);
     }
     return r;
@@ -396,14 +405,21 @@ std::string textureOf(ResolvedBlock const& block, ModelFace const& face) {
     return {};
 }
 
-std::vector<Quad> buildQuads(ResolvedBlock const& block, Geometry const& geometry, std::map<std::string, int> const& states, std::vector<std::string> const& hideBones) {
+std::vector<Quad> buildQuads(
+    ResolvedBlock const&                      block,
+    Geometry const&                           geometry,
+    std::map<std::string, int> const&         states,
+    std::vector<std::string> const&           hideBones,
+    std::map<std::string, std::string> const& strings
+) {
+    auto traits = withTraitDefaults(strings);
     std::vector<Quad> out;
     std::map<std::string, bool> visible;
     for (auto const& f : geometry.faces) {
         auto [it, fresh] = visible.try_emplace(f.bone, true);
         if (fresh) {
             if (auto bv = block.boneVisibility.find(f.bone); bv != block.boneVisibility.end()) {
-                auto v    = evalMolang(bv->second, states);
+                auto v    = evalMolang(bv->second, states, traits);
                 it->second = !v || *v != 0.f;
             }
             for (auto const& h : hideBones)

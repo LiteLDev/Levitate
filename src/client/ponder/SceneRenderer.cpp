@@ -102,6 +102,7 @@ Cache& cache() {
 std::string keyOf(cp::BlockDef const& def) {
     std::string key = def.id;
     for (auto const& [k, v] : def.states) key += "|" + k + "=" + std::to_string(v);
+    for (auto const& [k, v] : def.strings) key += "|" + k + "=" + v;
     return key;
 }
 
@@ -163,14 +164,14 @@ mce::Mesh* modelMesh(Tessellator& tess, cp::BlockDef const& def) {
     auto& c   = cache().modelMeshes;
     if (auto it = c.find(key); it != c.end()) return it->second.get();
     auto& slot     = c[key];
-    auto  resolved = cp::resolve(bf->second, def.states);
+    auto  resolved = cp::resolve(bf->second, def.states, def.strings);
     auto  states   = bf->second.defaults;
     for (auto const& [k, v] : def.states) states[k] = v;
     cp::Geometry const* geo = nullptr;
     if (resolved.geometry == "minecraft:geometry.full_block") geo = &cp::fullBlock();
     else if (auto g = m.geometries.find(resolved.geometry); g != m.geometries.end()) geo = &g->second;
     if (!geo) return nullptr;
-    auto quads = cp::buildQuads(resolved, *geo, states);
+    auto quads = cp::buildQuads(resolved, *geo, states, {}, def.strings);
     tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
     for (auto const& q : quads) {
         auto  tex = BlockGraphics::getTextureUVCoordinateSet(q.texture, 0, 0);
@@ -329,19 +330,24 @@ glm::vec3 axisVec(k::Axis a) {
 
 /// Section transform (movement already in BlockView::offset): the rotation about its origin.
 glm::mat4 sectionTurn(cp::SceneState const& st, std::string const& section) {
-    if (section.empty()) return glm::mat4(1.f);
+    glm::mat4 m(1.f);
+    if (section.empty()) return m;
     auto it = st.sections.find(section);
-    if (it == st.sections.end() || it->second.degrees == 0.f) return glm::mat4(1.f);
+    if (it == st.sections.end()) return m;
     auto const& s = it->second;
-    glm::vec3   o{s.origin.x + s.offset.x, s.origin.y + s.offset.y, s.origin.z + s.offset.z};
-    glm::vec3   ax{s.axis == 'x' ? 1.f : 0.f, s.axis == 'y' ? 1.f : 0.f, s.axis == 'z' ? 1.f : 0.f};
-    glm::mat4   m(1.f);
-    m = glm::translate(m, o);
-    m = glm::rotate(m, glm::radians(s.degrees), ax);
-    m = glm::translate(m, -o);
+    // each turn about its origin (which moves with the section), later turns applied last
+    for (auto const& t : s.turns) {
+        if (t.degrees == 0.f) continue;
+        glm::vec3 o{t.origin.x + s.offset.x, t.origin.y + s.offset.y, t.origin.z + s.offset.z};
+        glm::vec3 ax{t.axis == 'x' ? 1.f : 0.f, t.axis == 'y' ? 1.f : 0.f, t.axis == 'z' ? 1.f : 0.f};
+        glm::mat4 r(1.f);
+        r = glm::translate(r, o);
+        r = glm::rotate(r, glm::radians(t.degrees), ax);
+        r = glm::translate(r, -o);
+        m = r * m;
+    }
     return m;
 }
-
 cp::Vec3f transformPoint(glm::mat4 const& m, cp::Vec3f p) {
     glm::vec4 r = m * glm::vec4(p.x, p.y, p.z, 1.f);
     return {r.x, r.y, r.z};
@@ -614,39 +620,51 @@ DrawResult drawScene(
 }
 
 void drawTexts(Canvas& c, cp::Scene const& scene, cp::SceneState const& st, cp::View const& view, float screenW, bool /*slow*/) {
-    constexpr float kMaxWidth = 180, kLine = 10, kPad = 4;
-    float           stackY    = 0; // texts without a target stack at the top
+    constexpr float   kMaxWidth = 180, kLine = 10, kPad = 4;
+    float             stackY    = 0; // texts not placed near their target stack at the top
+    std::vector<Rect> placed;        // bubbles already drawn (older first): newer ones move down
+    auto overlaps = [&](Rect const& r) {
+        for (auto const& o : placed)
+            if (r.x < o.x + o.w && o.x < r.x + r.w && r.y < o.y + o.h && o.y < r.y + r.h) return true;
+        return false;
+    };
     for (auto const& t : st.texts) {
         float a = std::min({1.f, t.age / 6.f, t.left / 6.f});
         if (a <= 0.02f) continue;
-        auto text  = translateClient(scene.textKey(t.text), scene.textKey(t.text));
-        auto lines = cp::wrapText(text, kMaxWidth, [&](std::string const& s) { return c.textWidth(s); });
-        float w = 0;
+        auto  text  = translateClient(scene.textKey(t.text), scene.textKey(t.text));
+        auto  lines = cp::wrapText(text, kMaxWidth, [&](std::string const& s) { return c.textWidth(s); });
+        float w     = 0;
         for (auto const& l : lines) w = std::max(w, c.textWidth(l));
-        float h      = static_cast<float>(lines.size()) * kLine + kPad * 2 - 1;
+        float    h   = static_cast<float>(lines.size()) * kLine + kPad * 2 - 1;
+        float    bw  = w + kPad * 2;
         unsigned col = cp::paletteColour(t.color);
-        float bx, by;
-        if (t.hasPoint) {
-            auto p = view.project(t.point);
-            float px = p.x - c.originX(), py = p.y - c.originY();
+        float    bx, by;
+        if (t.hasPoint && t.near) {
             // next to the target, on its right (left when it would leave the screen)
-            bx = px + 40;
-            if (bx + w + kPad * 2 > screenW - 8) bx = px - 40 - w - kPad * 2;
-            by = py - h - 10 + static_cast<float>(t.index) * 0.f;
-            // connector
-            line(c, px, py, bx + (bx > px ? 0 : w + kPad * 2), by + h / 2, withAlpha(col, a), 1.f, 2.f);
-            c.fill({px - 1.5f, py - 1.5f, 3, 3}, withAlpha(col, a));
+            auto  p  = view.project(t.point);
+            float px = p.x - c.originX(), py = p.y - c.originY();
+            bx       = px + 40;
+            if (bx + bw > screenW - 8) bx = px - 40 - bw;
+            by = py - h - 10;
         } else {
-            bx = (screenW - w) / 2 - kPad;
+            bx = (screenW - bw) / 2;
             by = 44 + stackY;
             stackY += h + 4;
         }
-        c.fill({bx, by, w + kPad * 2, h}, withAlpha(0xE0100010, a));
-        c.frame({bx, by, w + kPad * 2, h}, withAlpha(col, a));
+        for (int guard = 0; guard < 8 && overlaps({bx, by, bw, h}); ++guard) by += h + 4;
+        placed.push_back({bx, by, bw, h});
+        if (t.hasPoint) {
+            auto  p  = view.project(t.point);
+            float px = p.x - c.originX(), py = p.y - c.originY();
+            float ex = bx > px ? bx : bx + bw;
+            line(c, px, py, ex, by + h / 2, withAlpha(col, a), 1.f, 2.f);
+            c.fill({px - 1.5f, py - 1.5f, 3, 3}, withAlpha(col, a));
+        }
+        c.fill({bx, by, bw, h}, withAlpha(0xE0100010, a));
+        c.frame({bx, by, bw, h}, withAlpha(col, a));
         for (std::size_t i = 0; i < lines.size(); ++i) c.text(bx + kPad, by + kPad + static_cast<float>(i) * kLine, lines[i], withAlpha(0xFFFFFFFF, a));
     }
 }
-
 } // namespace lv::client::ponder
 
 #endif // LV_CLIENT

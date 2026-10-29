@@ -34,6 +34,12 @@ core::ponder::Library const& index() {
         std::ifstream         in(dir / "index.json");
         auto                  j = nlohmann::json::parse(in, nullptr, false);
         for (auto const& e : l.setIndex(j)) log().warn("ponder: {}", e);
+        // the scenes too: an entry is only offered when its scenes load (as on the client)
+        std::error_code ec;
+        for (auto const& entry : std::filesystem::directory_iterator(dir / "scenes", ec)) {
+            std::ifstream sin(entry.path());
+            if (auto r = core::ponder::parseScene(nlohmann::json::parse(sin, nullptr, false)); r.scene) l.add(std::move(*r.scene));
+        }
         return l;
     }();
     return lib;
@@ -44,7 +50,7 @@ std::optional<std::string> resolve(std::string const& id) {
     auto const& lib = index();
     if (lib.tag(id)) return id;
     auto full = core::ponder::normaliseId(id);
-    if (lib.component(full)) return full;
+    if (lib.has(full)) return full;
     return std::nullopt;
 }
 

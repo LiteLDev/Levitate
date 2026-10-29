@@ -76,8 +76,17 @@ struct ResolvedBlock {
     V3                                 scale{1, 1, 1};
 };
 
-/// The components in effect for `states` (base components, then every matching permutation in order).
-[[nodiscard]] ResolvedBlock resolve(BlockFile const& file, std::map<std::string, int> const& states);
+/// The components in effect for `states` / `strings` (base components, then every matching permutation in
+/// order). Block traits not given use Bedrock's defaults (block_face "down", cardinal_direction "south",
+/// facing_direction "down").
+[[nodiscard]] ResolvedBlock resolve(
+    BlockFile const&                          file,
+    std::map<std::string, int> const&         states,
+    std::map<std::string, std::string> const& strings = {}
+);
+
+/// `strings` with the trait defaults filled in.
+[[nodiscard]] std::map<std::string, std::string> withTraitDefaults(std::map<std::string, std::string> strings);
 
 /// Texture of a face: its own material instance, then its direction, "side" for the four sides, "*".
 [[nodiscard]] std::string textureOf(ResolvedBlock const& block, ModelFace const& face);
@@ -94,7 +103,8 @@ struct Quad {
     ResolvedBlock const&              block,
     Geometry const&                   geometry,
     std::map<std::string, int> const& states,
-    std::vector<std::string> const&   hideBones = {}
+    std::vector<std::string> const&   hideBones = {},
+    std::map<std::string, std::string> const& strings = {}
 );
 
 } // namespace lv::core::ponder

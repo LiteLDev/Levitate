@@ -95,7 +95,7 @@ TEST(Ponder, RejectsBadScenes) {
     EXPECT_FALSE(bad([](Json& j) { j["timeline"].push_back({{"text", 3}, {"colour", "red"}}); }).scene); // unknown key
     EXPECT_FALSE(bad([](Json& j) { j["unknown"] = 1; }).scene);
     EXPECT_FALSE(bad([](Json& j) { j["timeline"] = Json::array({Json{{"show", "base"}}}); }).scene); // no length
-    EXPECT_FALSE(bad([](Json& j) { j["blocks"][0]["states"] = {{"levitate:axis", "x"}}; }).scene);
+    EXPECT_FALSE(bad([](Json& j) { j["blocks"][0]["states"] = {{"levitate:axis", 1.5}}; }).scene);
 }
 
 TEST(Ponder, EvaluatesShowFadeAndRotation) {
@@ -143,6 +143,45 @@ TEST(Ponder, EvaluatesSectionsAndSet) {
         if (b.block.id == "levitate:shaft") EXPECT_NEAR(b.offset.y, 0.5f, 1e-4);
     ASSERT_EQ(end.texts.size(), 1u);
     EXPECT_FALSE(end.texts[0].hasPoint);
+}
+
+TEST(Ponder, ShowHideSetEdgeCases) {
+    auto j = Json::parse(R"({
+        "id": "edge", "size": [5, 5],
+        "blocks": [{"area": [[0, 1, 0], [4, 1, 0]], "id": "levitate:shaft"},
+                   {"at": [2, 2, 2], "id": "levitate:steam_engine", "states": {"minecraft:block_face": "north"}}],
+        "timeline": [
+            {"show": [[0, 1, 0], [4, 1, 0]]}, {"idle": 20},
+            {"rotate": [[0, 1, 0], [4, 1, 0]], "rpm": 32},
+            {"show": {"union": [[[0, 1, 0], [4, 1, 0]], [2, 2, 2]]}}, {"idle": 5},
+            {"hide": [[0, 1, 0], [1, 1, 0]]}, {"idle": 20},
+            {"hide": [[0, 1, 0], [4, 1, 0]]}, {"idle": 5},
+            {"set": [4, 1, 0], "id": "levitate:cogwheel"}, {"idle": 5}
+        ]})");
+    auto r = parseScene(j);
+    ASSERT_TRUE(r.scene) << (r.errors.empty() ? "" : r.errors[0]);
+    auto const& s = *r.scene;
+    EXPECT_EQ(s.blocks.at({2, 2, 2}).strings.at("minecraft:block_face"), "north");
+    // shown again while visible: stays fully visible
+    for (auto const& b : evaluate(s, 22).blocks)
+        if (b.pos == (Vec3i{3, 1, 0})) EXPECT_FLOAT_EQ(b.alpha, 1.f);
+    // a second hide does not bring the first hidden blocks back
+    for (auto const& b : evaluate(s, 47).blocks) EXPECT_FALSE(b.pos == (Vec3i{0, 1, 0})) << "hidden block came back";
+    // a placed block starts still
+    bool cog = false;
+    for (auto const& b : evaluate(s, 54).blocks) {
+        if (b.block.id == "levitate:cogwheel") {
+            cog = true;
+            EXPECT_FLOAT_EQ(b.rpm, 0.f);
+        }
+    }
+    EXPECT_TRUE(cog);
+}
+
+TEST(Ponder, RejectsHugeAreasCheaply) {
+    auto j = minimal();
+    j["blocks"].push_back({{"area", Json::array({Json::array({0, 1, 0}), Json::array({100000, 100, 100000})})}, {"id", "minecraft:stone"}});
+    EXPECT_FALSE(parseScene(j).scene); // returns at once instead of expanding the box
 }
 
 TEST(Ponder, HoldProgress) {
