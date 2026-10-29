@@ -1,0 +1,37 @@
+{
+  "type": "levitate:compacting",
+  "ingredients": [
+    {
+      "item": "minecraft:snow"
+    },
+    {
+      "item": "minecraft:snow"
+    },
+    {
+      "item": "minecraft:snow"
+    },
+    {
+      "item": "minecraft:snow"
+    },
+    {
+      "item": "minecraft:snow"
+    },
+    {
+      "item": "minecraft:snow"
+    },
+    {
+      "item": "minecraft:snow"
+    },
+    {
+      "item": "minecraft:snow"
+    },
+    {
+      "item": "minecraft:snow"
+    }
+  ],
+  "results": [
+    {
+      "id": "minecraft:ice"
+    }
+  ]
+}
