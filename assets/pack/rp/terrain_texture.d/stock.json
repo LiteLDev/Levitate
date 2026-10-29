@@ -1,0 +1,44 @@
+{
+  "levitate_stock_link": {
+    "textures": "textures/blocks/stock_link"
+  },
+  "levitate_stock_link_side": {
+    "textures": "textures/blocks/stock_link_side"
+  },
+  "levitate_stock_link_bulb": {
+    "textures": "textures/blocks/stock_link_bulb"
+  },
+  "levitate_stock_link_bulb_off": {
+    "textures": "textures/blocks/stock_link_bulb_off"
+  },
+  "levitate_stock_ticker_side": {
+    "textures": "textures/blocks/stock_ticker_side"
+  },
+  "levitate_stock_ticker_screen": {
+    "textures": "textures/blocks/stock_ticker_screen"
+  },
+  "levitate_stock_ticker_keys": {
+    "textures": "textures/blocks/stock_ticker_keys"
+  },
+  "levitate_factory_gauge": {
+    "textures": "textures/blocks/factory_gauge"
+  },
+  "levitate_factory_gauge_dial": {
+    "textures": "textures/blocks/factory_gauge_dial"
+  },
+  "levitate_redstone_requester_side": {
+    "textures": "textures/blocks/redstone_requester_side"
+  },
+  "levitate_redstone_requester_front": {
+    "textures": "textures/blocks/redstone_requester_front"
+  },
+  "levitate_redstone_requester_top": {
+    "textures": "textures/blocks/redstone_requester_top"
+  },
+  "levitate_redstone_requester_top_powered": {
+    "textures": "textures/blocks/redstone_requester_top_powered"
+  },
+  "levitate_redstone_requester_bottom": {
+    "textures": "textures/blocks/redstone_requester_bottom"
+  }
+}

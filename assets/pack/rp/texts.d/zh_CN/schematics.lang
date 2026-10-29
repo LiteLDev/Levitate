@@ -1,0 +1,7 @@
+tile.levitate:schematic_table.name=蓝图桌
+tile.levitate:schematicannon.name=蓝图加农炮
+tile.levitate:placed_crafting_blueprint.name=合成蓝图
+item.levitate:empty_schematic.name=空白蓝图
+item.levitate:schematic.name=蓝图
+item.levitate:schematic_and_quill.name=蓝图与笔
+item.levitate:crafting_blueprint.name=合成蓝图
