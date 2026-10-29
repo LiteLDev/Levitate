@@ -79,6 +79,7 @@
   "lv.display.clipboard.edit": "Edit page",
   "lv.display.clipboard.empty": "(empty page)",
   "lv.display.clipboard.entry": "Entry {}",
+  "lv.display.clipboard.new_entry": "New entry...",
   "lv.display.clipboard.page": "Page",
   "lv.display.clipboard.title": "Clipboard",
   "lv.display.link.none": "(none)",

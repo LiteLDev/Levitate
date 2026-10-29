@@ -16,6 +16,7 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
 
+#include "core/common/Utf8.h"
 #include "core/packages/Address.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
@@ -36,6 +37,8 @@ namespace screens   = common::screens;
 using common::Access;
 
 namespace {
+
+using core::utf8Prefix;
 
 constexpr char const* kPortScreen = "packages.port";
 
@@ -597,7 +600,7 @@ void portAction(Player& player, Json const& ctx, Json const& action) {
     else if (op == "insert") insertFromInventory(player, *pos, action.value("slot", -1));
     else if (op == "accepts") setAccepts(*pos, action.value("value", true), player);
     else if (op == "address") {
-        if (action.contains("text")) setAddressOf(*pos, action.value("text", std::string{}), player);
+        if (action.contains("text")) setAddressOf(*pos, utf8Prefix(action.value("text", std::string{}), 50), player);
         else {
             screens::close(player, kPortScreen);
             addressForm(player, *pos);

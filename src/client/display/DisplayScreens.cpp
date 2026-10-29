@@ -1,7 +1,7 @@
 // Native screens of the display unit (SPEC §4): the Display Link configuration (source, target
 // line, the source's options) and the Clipboard (pages of checklist entries). Both talk to the
-// server through "screen.action"; text is edited in the server form ("edit" buttons), since the
-// native framework has no text field.
+// server through "screen.action"; text (clipboard entries, text options of display sources) is
+// typed into native text fields and sent when Enter is pressed or the field is left.
 
 #ifdef LV_CLIENT
 
@@ -17,6 +17,12 @@ namespace lv::client::display {
 namespace {
 using namespace lv::client::screen;
 
+/// Screens that rebuild their widgets on new data wait while the player types in one of them
+/// (the rebuild would drop the focused field and what was typed).
+bool anyFocused(std::vector<TextField*> const& fields) {
+    return std::any_of(fields.begin(), fields.end(), [](TextField const* f) { return f->focused(); });
+}
+
 // ---- display link -----------------------------------------------------------------------------
 
 class LinkScreen : public Screen {
@@ -30,11 +36,25 @@ public:
 
     void onData(Json const& data) override {
         mData = data;
+        if (anyFocused(mFields)) {
+            mDirty = true;
+            return;
+        }
+        rebuild();
+    }
+
+    void tick() override {
+        if (mDirty && !anyFocused(mFields)) rebuild();
+    }
+
+private:
+    void rebuild() {
+        mDirty = false;
+        mFields.clear();
         widgets.clear();
         build();
     }
 
-private:
     void build() {
         float y = 18;
         add<Label>(Rect{8, y, 204, 10}, ctr("create.display_link.reading_from", "Read from:") + " " + mData.value("sourceName", std::string{}));
@@ -77,11 +97,20 @@ private:
             line.options = opts;
         }
         y += 19;
-        bool hasText = false;
         if (active) {
             for (auto const& o : (*active)["options"]) {
                 if (o.value("text", false)) {
-                    hasText = true;
+                    // Create's text options (e.g. the label of a source): a text box
+                    auto key   = o.value("key", std::string{});
+                    auto value = o["value"].is_string() ? o["value"].get<std::string>() : std::string{};
+                    add<Label>(Rect{8, y + 3, 80, 10}, o.value("label", std::string{}), color::kTextDark);
+                    auto& field = add<TextField>(Rect{90, y, 122, 16}, value, [this, key, value](std::string const& text) {
+                        if (text == value) return;
+                        mSend({{"op", "option"}, {"key", key}, {"value", text}});
+                    });
+                    field.maxLength = 100;
+                    mFields.push_back(&field);
+                    y += 19;
                     continue;
                 }
                 auto choices = o["choices"].get<std::vector<std::string>>();
@@ -95,16 +124,13 @@ private:
                 y += 19;
             }
         }
-        if (hasText) {
-            auto& edit   = add<IconButton>(Rect{8, y, 18, 18}, "T", [this] { mSend({{"op", "form"}}); });
-            edit.tooltip = {ctr("lv.display.link.option_text", "Edit text options")};
-            y += 20;
-        }
         height = std::max(110.f, y + 8);
     }
 
-    SendFn mSend;
-    Json   mData;
+    SendFn                  mSend;
+    Json                    mData;
+    std::vector<TextField*> mFields;
+    bool                    mDirty = false;
 };
 
 // ---- clipboard ------------------------------------------------------------------------------
@@ -122,11 +148,44 @@ public:
 
     void onData(Json const& data) override {
         mData = data;
+        if (anyFocused(mFields)) {
+            mDirty = true;
+            return;
+        }
+        rebuild();
+    }
+
+    void tick() override {
+        if (mDirty && !anyFocused(mFields)) rebuild();
+    }
+
+private:
+    void rebuild() {
+        mDirty = false;
+        mFields.clear();
         widgets.clear();
         build();
     }
 
-private:
+    /// The page as typed: every field's text with the entry's check mark (blank entries are
+    /// dropped by the server, as Create's clipboard drops empty lines).
+    void submitPage() {
+        auto pages   = mData.value("pages", Json::array());
+        Json current = mPage < static_cast<int>(pages.size()) ? pages[static_cast<std::size_t>(mPage)] : Json::array();
+        Json entries = Json::array();
+        bool changed = false;
+        for (std::size_t i = 0; i < mFields.size(); ++i) {
+            bool        has  = i < current.size();
+            std::string was  = has ? current[i].value("t", std::string{}) : std::string{};
+            auto const& text = mFields[i]->text;
+            changed          = changed || text != was;
+            entries.push_back({{"t", text}, {"c", has && current[i].value("c", false)}});
+        }
+        if (!changed) return;
+        mSend({{"op", "set"}, {"page", mPage}, {"entries", entries}});
+        log().info("clipboard page {} typed ({} entries)", mPage + 1, entries.size());
+    }
+
     void go(int page) {
         int pages = static_cast<int>(mData.value("pages", Json::array()).size());
         int max   = std::min(mData.value("maxPage", 50), pages); // one empty page after the last
@@ -134,8 +193,8 @@ private:
         if (page == mPage) return;
         mPage = page;
         mSend({{"op", "page"}, {"page", page}});
-        widgets.clear();
-        build();
+        // the page shown changes after the server's answer (onData rebuilds)
+        mDirty = true;
     }
 
     void build() {
@@ -146,20 +205,25 @@ private:
                    color::kTextDark, Align::Right);
         Json entries = mPage < count ? pages[static_cast<std::size_t>(mPage)] : Json::array();
         float y      = 32;
-        if (entries.empty()) add<Label>(Rect{30, y, 160, 10}, ctr("lv.display.clipboard.empty", "(empty page)"), color::kTextGray);
-        for (std::size_t i = 0; i < entries.size(); ++i) {
-            auto const& e       = entries[i];
-            bool        checked = e.value("c", false);
-            auto        text    = e.value("t", std::string{});
-            bool        address = text.size() > 1 && text[0] == '#';
-            if (!address) {
-                auto& box   = add<IconButton>(Rect{8, y - 1, 11, 11}, checked ? "v" : "", [this, i] {
+        int maxEntries = mData.value("maxEntries", 15);
+        // one text field per entry (Create edits the page in place), plus a blank one to add an entry
+        std::size_t rows = std::min<std::size_t>(entries.size() + 1, static_cast<std::size_t>(std::max(1, maxEntries)));
+        for (std::size_t i = 0; i < rows; ++i) {
+            bool has     = i < entries.size();
+            bool checked = has && entries[i].value("c", false);
+            auto text    = has ? entries[i].value("t", std::string{}) : std::string{};
+            bool address = text.size() > 1 && text[0] == '#';
+            if (has && !address) {
+                auto& box   = add<IconButton>(Rect{8, y, 11, 11}, checked ? "v" : "", [this, i] {
                     mSend({{"op", "toggle"}, {"page", mPage}, {"entry", static_cast<int>(i)}});
                 });
                 box.toggled = checked;
             }
-            add<Label>(Rect{24, y, 168, 10}, (address ? "> " : "") + text, checked ? color::kTextGray : color::kTextDark);
-            y += 12;
+            auto& field     = add<TextField>(Rect{22, y - 1, 170, 12}, text, [this](std::string const&) { submitPage(); });
+            field.maxLength = 512;
+            if (!has) field.placeholder = ctr("lv.display.clipboard.new_entry", "New entry...");
+            mFields.push_back(&field);
+            y += 11.5f;
         }
         auto& prev = add<IconButton>(Rect{8, 212, 18, 18}, "<", [this] { go(mPage - 1); });
         prev.enabled = mPage > 0;
@@ -167,13 +231,13 @@ private:
         next.enabled = mPage < 50;
         auto& erase   = add<IconButton>(Rect{30, 212, 18, 18}, "x", [this] { mSend({{"op", "erase_checked"}, {"page", mPage}}); });
         erase.tooltip = {ctr("create.gui.clipboard.erase_checked", "Erase checked items")};
-        auto& edit    = add<IconButton>(Rect{52, 212, 18, 18}, "T", [this] { mSend({{"op", "edit"}, {"page", mPage}}); });
-        edit.tooltip  = {ctr("lv.display.clipboard.edit", "Edit page")};
     }
 
-    SendFn mSend;
-    Json   mData;
-    int    mPage = 0;
+    SendFn                  mSend;
+    Json                    mData;
+    std::vector<TextField*> mFields;
+    bool                    mDirty = false;
+    int                     mPage  = 0;
 };
 
 class DisplayScreensModule {

@@ -6,6 +6,7 @@
 #include "feature/kinetics/Kinetics.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <map>
 #include <set>
@@ -588,8 +589,19 @@ void refresh(GlobalPos const& pos) {
 }
 
 void setSequenceContext(GlobalPos const& pos, std::optional<SequenceContext> context) {
-    if (context) sequenceContexts()[pos] = *context;
-    else sequenceContexts().erase(pos);
+    // milliseconds since the epoch << 10: numbers of an earlier run (saved by consumers) never come
+    // again
+    static std::uint64_t serial = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                                 std::chrono::system_clock::now().time_since_epoch()
+                                                             )
+                                                                 .count())
+                               << 10;
+    if (context) {
+        auto& stored = sequenceContexts()[pos] = *context;
+        if (stored.serial == 0) stored.serial = ++serial;
+    } else {
+        sequenceContexts().erase(pos);
+    }
 }
 
 std::optional<SequenceContext> sequenceContextAt(GlobalPos const& pos) {

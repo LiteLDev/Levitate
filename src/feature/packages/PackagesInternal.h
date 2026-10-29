@@ -266,6 +266,8 @@ void openPackage(Player& player);
 /// Release after holding use: throws the package (Create's releaseUsing).
 void throwPackage(Player& player, int ticksHeld);
 void openPackageFilterForm(Player& player);
+/// The package filter address screen: native for companions, the form otherwise.
+void openPackageFilterScreen(Player& player);
 /// NeoForge's insertItemStacked into `slots` (slot limit 64): returns what did not fit.
 ItemStack insertStackedInto(std::vector<ItemStack>& slots, ItemStack const& stack);
 void installItemScreens();

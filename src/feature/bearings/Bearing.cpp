@@ -2,6 +2,7 @@
 // WindmillBearingBlockEntity, ClockworkBearingBlockEntity): kinetic specs, assembly through the
 // contraption engine, rotation each tick, disassembly rules and their value boxes.
 
+#include <algorithm>
 #include <cmath>
 #include <unordered_map>
 
@@ -81,6 +82,8 @@ struct State {
     int      sails    = 0;
     float    gen      = 0;     ///< windmill: generated speed
     bool     placeBack = false; ///< windmill: angle set to 0, disassemble next tick
+    double   limit    = -1;    ///< Create's sequencedAngleLimit (degrees left; -1: none)
+    std::uint64_t seq = 0;     ///< serial of the sequence context the limit came from
     std::string  error;
     std::int64_t by = 0;       ///< player who asked for the assembly (messages)
 
@@ -98,6 +101,8 @@ struct State {
         s.sails     = j.value("sails", 0);
         s.gen       = j.value("gen", 0.f);
         s.placeBack = j.value("placeBack", false);
+        s.limit     = j.value("limit", -1.0);
+        s.seq       = j.value("seq", std::uint64_t{0});
         s.error     = j.value("error", std::string{});
         s.by        = j.value("by", std::int64_t{0});
         return s;
@@ -115,6 +120,8 @@ struct State {
             {"sails",     sails    },
             {"gen",       gen      },
             {"placeBack", placeBack},
+            {"limit",     limit    },
+            {"seq",       seq      },
             {"error",     error    },
             {"by",        by       },
         };
@@ -276,8 +283,22 @@ void assemble(State& s, BlockSource& region, GP const& pos, cc::Dir facing, Kind
     }
 }
 
+/// Create's sequencedAngleLimit: a sequenced gearshift turning by an angle reaches the bearing
+/// (scaled by the speed ratio); the bearing stops after exactly that angle. Read on a speed change
+/// and when a new instruction arrives at an unchanged speed (two equal steps in a row).
+void readSequenceLimit(State& s, GP const& pos, Kind kind, bool speedChanged) {
+    if (kind == Kind::Windmill) return;
+    auto context = k::sequenceContextAt(pos);
+    if (context && context->serial == s.seq) return; // an instruction is read once
+    if (!speedChanged && !context) return;
+    s.limit = -1;
+    s.seq   = context ? context->serial : 0;
+    if (context && context->kind == k::SequenceContext::Kind::TurnAngle) s.limit = context->value;
+}
+
 void tickRotating(State& s, BlockSource& region, GP const& pos, cc::Dir facing, Kind kind) {
     float theo = k::theoreticalSpeedAt(pos);
+    readSequenceLimit(s, pos, kind, theo != s.speed);
     if (theo != s.speed) {
         float prev = s.speed;
         s.speed    = theo;
@@ -326,6 +347,10 @@ void tickRotating(State& s, BlockSource& region, GP const& pos, cc::Dir facing, 
         float speed   = kind == Kind::Windmill ? s.gen : k::speedAt(pos);
         float angular = cb::angularSpeed(speed);
         if (k::speedAt(pos) == 0) angular = 0;
+        if (s.limit >= 0) {
+            angular = static_cast<float>(std::clamp<double>(angular, -s.limit, s.limit));
+            s.limit = std::max(0.0, s.limit - std::abs(angular));
+        }
         s.angle = cb::advanceAngle(s.angle, angular);
     }
     applyRotation(s.id, s.angle, cc::axisOf(facing));

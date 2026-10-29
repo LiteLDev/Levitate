@@ -79,6 +79,7 @@
   "lv.display.clipboard.edit": "编辑此页",
   "lv.display.clipboard.empty": "（空白页）",
   "lv.display.clipboard.entry": "条目 {}",
+  "lv.display.clipboard.new_entry": "新条目...",
   "lv.display.clipboard.page": "页",
   "lv.display.clipboard.title": "剪贴板",
   "lv.display.link.none": "（无）",

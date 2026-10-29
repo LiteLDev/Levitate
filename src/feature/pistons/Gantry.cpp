@@ -169,10 +169,20 @@ void tryAssemble(GlobalPos const& carriage) {
     }
     auto* c = ct::find(*r.id);
     if (!c) return;
+    // Create's limitMovement: a sequenced gearshift's "turn to move" instruction reaching the shaft
+    // stops the gantry after exactly that distance (sequencedOffsetLimit, -1: none)
+    double        limit   = -1;
+    std::uint64_t serial  = 0;
+    if (auto context = kinetics::sequenceContextAt(shaft)) {
+        serial = context->serial;
+        if (context->kind == kinetics::SequenceContext::Kind::MoveDistance) limit = context->value;
+    }
     c->anchorData()["gantry"] = {
         {"facing", int(facing)  },
         {"axis",   int(shaftDir)},
-        {"ticks",  0            }
+        {"ticks",  0            },
+        {"seq",    limit        },
+        {"seqId",  serial       }
     };
     st().moving.insert(*r.id);
     sound(carriage, "open.wooden_trapdoor", 0.5f, 0.5f);
@@ -227,6 +237,14 @@ void tickGantry(ct::Id id) {
         disassembleGantry(*c, pinion == 0 ? "stopped" : "powered");
         return;
     }
+    // a new instruction at an unchanged speed (Create detaches the network between two steps, which
+    // places and re-assembles the gantry with the new limit)
+    if (auto context = kinetics::sequenceContextAt(shaft); context && context->serial != g.value("seqId", std::uint64_t{0})) {
+        g["seqId"] = context->serial;
+        g["seq"]   = context->kind == kinetics::SequenceContext::Kind::MoveDistance ? context->value : -1.0;
+    }
+    double limit = g.value("seq", -1.0);
+    if (limit >= 0) pinion = static_cast<float>(std::clamp<double>(pinion, -limit, limit));
     cc::Vec3d motion = cc::Vec3d::of(cc::offset(shaftDir)) * pinion;
     cc::Vec3d next   = current + motion;
     auto      axis   = cc::axisOf(shaftDir);
@@ -238,7 +256,7 @@ void tickGantry(ct::Id id) {
     cc::Dir dir    = pinion * (cc::positive(shaftDir) ? 1 : -1) >= 0 ? cc::dirOf(axis, true) : cc::dirOf(axis, false);
     auto    origin = c->transform().origin + c->transform().offset;
     auto    grid   = cp::collisionGrid(origin, dir);
-    if (ct::ext::collidesWithWorld(c->dimension(), ct::ext::structureOf(*c), grid, dir)) {
+    if (pinion != 0 && ct::ext::collidesWithWorld(c->dimension(), ct::ext::structureOf(*c), grid, dir)) {
         disassembleGantry(*c, "blocked");
         return;
     }
@@ -247,6 +265,7 @@ void tickGantry(ct::Id id) {
         t.offset = t.offset + motion;
         c->setTransform(t);
         g["target"] = Json::array({t.offset.x, t.offset.y, t.offset.z});
+        if (limit > 0) g["seq"] = std::max(0.0, limit - std::abs(pinion));
     } else if (stalled && g.contains("target")) {
         auto t      = c->transform();
         g["target"] = Json::array({t.offset.x, t.offset.y, t.offset.z});
