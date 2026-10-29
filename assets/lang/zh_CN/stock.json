@@ -148,6 +148,7 @@
   "lv.stock.screen.hide": "隐藏 / 显示此分类",
   "lv.stock.screen.category_up": "上移",
   "lv.stock.screen.category_down": "下移",
+  "create.display_source.gauge_status": "工厂仪表状态",
   "lv.stock.screen.rename": "重命名",
   "lv.stock.screen.requester": "红石请求器",
   "lv.stock.screen.add_filter": "Shift 点击物品栏中的过滤器以添加分类",

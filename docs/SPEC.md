@@ -2293,7 +2293,9 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   inStorage, 0, 9 stacks)` (capped by the network stock outside its own inventory) to its address
   and promises it. Promises expire after never / 30 s / 1..31 min. The wrench on a panel with
   outputs cycles the arrow path mode. Redstone links (U23) pause panels through
-  `stock::setPanelPaused`; display links (U24) read `stock::panelAt`.
+  `stock::setPanelPaused`. A display link (U24) on a gauge offers Create's "Factory gauge status"
+  source (`gauge_status`): one line per panel, `<level in storage> ✔|↑|▪ <item>` (shortened /
+  full numbers); other units read panels with `stock::panelAt`.
 - **Table cloth shops**: a table cloth (U10) programmed at a stock ticker becomes a shop when
   placed (owner = placer, facing = towards the placer). The owner sets the price with an item on
   the price tag (front of the top face; Sneak + empty hand clears it, empty hand opens the amount

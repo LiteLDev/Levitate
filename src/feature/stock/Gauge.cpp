@@ -19,6 +19,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/common/ValueBox.h"
+#include "feature/display/Display.h"
 #include "feature/net/Net.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
@@ -30,6 +31,7 @@ namespace lv::feature::stock {
 
 namespace items   = common::items;
 namespace screens = common::screens;
+namespace display = feature::display;
 
 /// config/stock.json: Create's CLogistics keys used by the stock network.
 struct StockConfig {
@@ -847,6 +849,35 @@ void registerGaugeScreens() {
             }
         );
     }
+    // Create's FactoryGaugeDisplaySource ("gauge_status"): a display link on the gauge lists its
+    // panels as a value list (level in storage, then ✔ satisfied / ↑ promised / ▪ missing + item)
+    display::registerSource(
+        kFactoryGauge,
+        display::Source{
+            .id           = "gauge_status",
+            .name         = "create.display_source.gauge_status",
+            .nameFallback = "Factory gauge status",
+            .text =
+                [](display::Context& ctx, display::TargetStats const& stats) {
+                    display::Lines out;
+                    bool shortened = ctx.config.value("ValueDisplay", 0) == 0;
+                    for (int slot = 0; slot < 4 && static_cast<int>(out.size()) < std::max(1, stats.maxRows); ++slot) {
+                        auto panel = readPanel(ctx.source, slot);
+                        if (!active(panel)) continue;
+                        auto        filter = stackFromJson(panel.value("filter", Json()));
+                        int         demand = items::isEmpty(filter) ? 0 : cs::demandOf(panel.value("count", 0), panel.value("upTo", true), maxStackOf(filter));
+                        std::string mark   = " ";
+                        if (demand != 0) mark = panel.value("satisfied", false) ? "✔" : promisedOf(ctx.source, slot, panel, false) ? "↑" : "▪";
+                        out.push_back(display::formatValue(levelInStorage(ctx.source, panel), shortened) + " " + mark + " " + (items::isEmpty(filter) ? std::string{} : items::displayName(filter)));
+                    }
+                    return out;
+                },
+            .options = {display::Option{
+                "ValueDisplay", "create.display_source.value_list.display", "Value Display",
+                {"create.display_source.value_list.shortened", "create.display_source.value_list.full_number"}, {"Shortened", "Full Number"}, 0}},
+            .multiLine = true,
+        }
+    );
     // the client mod's hover label for gauges and stock tickers
     net::on("stock.hover", [](Player& player, Json const& msg) {
         auto p = posFrom(msg.value("pos", Json()));

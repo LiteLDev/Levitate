@@ -14,6 +14,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/common/ValueBox.h"
+#include "feature/display/Display.h"
 #include "feature/net/Net.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
@@ -306,6 +307,17 @@ LV_REGISTER_SELFTEST("stock.gauge_restock", [](Context& ctx) -> ll::coro::CoroTa
     co_await ctx.ticks(30);
     auto info = stock::gaugeInfo(gauge, 0);
     ctx.check(info.value("satisfied", false) && info.value("promised", 1) == 0, "arrivals fulfil the promise and satisfy the gauge");
+    // a display link on the gauge: Create's "Factory gauge status" source
+    auto& region = p.getDimensionBlockSource();
+    bool  shown  = false;
+    for (auto const* s : lv::feature::display::sourcesAt(region, gauge)) {
+        if (s->id != "gauge_status") continue;
+        JsonT                         cfg = JsonT::object();
+        lv::feature::display::Context dc{region, gauge, gauge, gauge, cfg};
+        auto                          lines = s->text(dc, {4, 20, "display_board"});
+        shown = lines.size() == 1 && lines[0].starts_with("20 ✔");
+    }
+    ctx.check(shown, "the gauge_status display source lists the panel");
 });
 
 LV_REGISTER_SELFTEST("stock.gauge_recipe", [](Context& ctx) -> ll::coro::CoroTask<> {
@@ -379,14 +391,24 @@ LV_REGISTER_SELFTEST("stock.shop", [](Context& ctx) -> ll::coro::CoroTask<> {
     stock::useShop(p, cloth, 0.1, 0.1, 0.1);
     ctx.check(items::isEmpty(p.getSelectedItem()), "no price: no shopping list");
     stock::editData(cloth)["shop"]["price"] = items::toJson(item(ctx, "minecraft:emerald"));
-    ctx.check(stock::stockLevelForTrade(cloth, nullptr) == 0, "no keeper: the ticker is not counted as a shop");
+    ctx.check(stock::stockLevelForTrade(cloth, nullptr) == 5, "10 bread allow 5 trades of 2");
+    stock::useShop(p, cloth, 0.1, 0.1, 0.1);
+    ctx.check(items::isEmpty(p.getSelectedItem()), "no keeper at the ticker: no shopping list");
     ctx.setBlock(at(tickerPos, 1, 0, 0), "levitate:blaze_burner");
-    if (stock::keeperPresent(tickerPos)) {
-        ctx.check(stock::stockLevelForTrade(cloth, nullptr) == 5, "10 bread allow 5 trades of 2");
-        stock::useShop(p, cloth, 0.1, 0.1, 0.1);
-        stock::useShop(p, cloth, 0.1, 0.1, 0.1);
-        auto list = p.getSelectedItem();
-        ctx.check(items::idOf(list) == stock::kShoppingList, "the shop hands out a shopping list");
+    {
+        ItemStack list;
+        if (stock::keeperPresent(tickerPos)) {
+            stock::useShop(p, cloth, 0.1, 0.1, 0.1);
+            stock::useShop(p, cloth, 0.1, 0.1, 0.1);
+            list = p.getSelectedItem();
+            ctx.check(items::idOf(list) == stock::kShoppingList, "the shop hands out a shopping list");
+        } else {
+            // no blaze burner (U14) to seat as keeper: write the list the shop would hand out
+            ctx.info("levitate:blaze_burner is not registered (U14): the shopping list is written directly");
+            list = item(ctx, stock::kShoppingList);
+            items::setData(list, stock::kListData, {{"purchases", JsonT::array({{{"pos", stock::posJson(cloth)}, {"n", 2}}})}, {"owner", stock::uuidOf(p)}, {"network", network}, {"address", "Buyer"}});
+            p.setSelectedItem(list);
+        }
         auto baked = stock::bakeList(items::getData(list, stock::kListData), std::nullopt);
         ctx.check(baked.order.countOf(item(ctx, "minecraft:bread")) == 4 && baked.payment.countOf(item(ctx, "minecraft:emerald")) == 2, "two purchases: 4 bread for 2 emeralds");
         stock::checkout(p, tickerPos, list);
@@ -395,7 +417,8 @@ LV_REGISTER_SELFTEST("stock.shop", [](Context& ctx) -> ll::coro::CoroTask<> {
         stock::checkout(p, tickerPos, list);
         ctx.check(pk.total("minecraft:bread") == 4 && pk.sent.back().address == "Buyer", "paying sends the order");
         ctx.check(!stock::payments(tickerPos).empty(), "the payment is in the ticker");
-    } else {
-        ctx.info("levitate:blaze_burner is not registered (U14): checkout skipped");
+        ctx.check(items::isEmpty(p.getSelectedItem()), "the list is used up");
+        stock::useTicker(p, tickerPos);
+        ctx.check(stock::payments(tickerPos).empty(), "the owner collects the payments at the ticker");
     }
 });
