@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:analog_lever"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "P",
+      "S"
+    ],
+    "key": {
+      "P": {
+        "item": "minecraft:stick"
+      },
+      "S": {
+        "item": "levitate:andesite_casing"
+      }
+    },
+    "result": {
+      "item": "levitate:analog_lever",
+      "count": 1
+    },
+    "unlock": [
+      {
+        "item": "minecraft:stick"
+      }
+    ]
+  }
+}
