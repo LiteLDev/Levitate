@@ -1,0 +1,204 @@
+#pragma once
+
+// Internals of the equipment unit (U31): toolboxes, backtanks, diving gear, extendo grip, potato
+// cannon, wand of symmetry, handheld worldshaper, linked controller, sand paper and tree
+// fertilizer. Not a contract for other units; see docs/SPEC.md §2.25 / §3.6.31.
+
+#include <array>
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "nlohmann/json.hpp"
+
+#include "core/GlobalPos.h"
+
+class Actor;
+class Block;
+class BlockPos;
+class BlockSource;
+class ItemStack;
+class Player;
+class Vec3;
+
+namespace lv::feature::equipment {
+
+using core::GlobalPos;
+using Json = nlohmann::json;
+
+// ---- ids --------------------------------------------------------------------------------------
+inline constexpr std::array<std::string_view, 16> kColours = {
+    "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
+    "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black",
+};
+inline constexpr std::string_view kCopperBacktank       = "levitate:copper_backtank";
+inline constexpr std::string_view kNetheriteBacktank    = "levitate:netherite_backtank";
+inline constexpr std::string_view kCopperHelmet         = "levitate:copper_diving_helmet";
+inline constexpr std::string_view kCopperBoots          = "levitate:copper_diving_boots";
+inline constexpr std::string_view kNetheriteHelmet      = "levitate:netherite_diving_helmet";
+inline constexpr std::string_view kNetheriteBoots       = "levitate:netherite_diving_boots";
+inline constexpr std::string_view kExtendoGrip          = "levitate:extendo_grip";
+inline constexpr std::string_view kPotatoCannon         = "levitate:potato_cannon";
+inline constexpr std::string_view kWand                 = "levitate:wand_of_symmetry";
+inline constexpr std::string_view kWorldshaper          = "levitate:handheld_worldshaper";
+inline constexpr std::string_view kLinkedController     = "levitate:linked_controller";
+inline constexpr std::string_view kLecternController    = "levitate:lectern_controller";
+inline constexpr std::string_view kSandPaper            = "levitate:sand_paper";
+inline constexpr std::string_view kRedSandPaper         = "levitate:red_sand_paper";
+inline constexpr std::string_view kTreeFertilizer       = "levitate:tree_fertilizer";
+/// Owned by U23 (redstone): referenced by id only.
+inline constexpr std::string_view kRedstoneLink = "levitate:redstone_link";
+
+// ---- states -----------------------------------------------------------------------------------
+/// Horizontal facing of toolboxes, backtanks and the lectern controller: Java 2D order
+/// 0 south, 1 west, 2 north, 3 east (game::playerFacing); the block faces the player.
+inline constexpr char kFacing[] = "levitate:facing";
+
+// ---- item data keys (user data, items::setData) -------------------------------------------------
+inline constexpr char kToolboxData[]    = "lv:toolbox";    ///< {inv, uuid}
+inline constexpr char kAirData[]        = "lv:air";        ///< backtank air (number)
+inline constexpr char kSymmetryData[]   = "lv:symmetry";   ///< Mirror json
+inline constexpr char kShaperData[]     = "lv:shaper";     ///< ShaperSettings json
+inline constexpr char kControllerData[] = "lv:controller"; ///< {"freq": [[a, b] x 6]}
+
+/// `config/equipment.json` (Create's CEquipment keys and defaults).
+struct Config {
+    int version               = 1;
+    int toolboxRange          = 10;   ///< Create: toolboxRange
+    int airInBacktank         = 900;  ///< Create: airInBacktank (seconds of breathing)
+    int maxExtendoGripActions = 1000; ///< Create: maxExtendoGripActions (0: unbreakable)
+    int maxPotatoCannonShots  = 200;  ///< Create: maxPotatoCannonShots (0: unbreakable)
+    int maxSymmetryWandRange  = 50;   ///< Create: maxSymmetryWandRange
+    int linkRange             = 256;  ///< Create (CLogistics): linkRange, used by the controller's transmissions
+};
+[[nodiscard]] Config const& config();
+
+// ---- world helpers (World.cpp) ------------------------------------------------------------------
+[[nodiscard]] BlockSource* regionOf(int dim);
+[[nodiscard]] Block const* blockAt(GlobalPos const& p);
+[[nodiscard]] std::string  idAt(GlobalPos const& p);
+[[nodiscard]] std::optional<int> stateAt(GlobalPos const& p, char const* name);
+bool place(GlobalPos const& p, std::string_view id, std::vector<std::pair<std::string_view, int>> const& states = {});
+bool placeBlock(GlobalPos const& p, Block const& block);
+bool clearAt(GlobalPos const& p);
+[[nodiscard]] bool replaceableAt(GlobalPos const& p);
+void sound(int dim, double x, double y, double z, std::string const& name, float volume = 1.f, float pitch = 1.f);
+void particle(int dim, double x, double y, double z, std::string const& effect);
+void actionBar(Player& player, std::string const& text);
+/// Create's "subtitle with an empty title" (fade 10/40/10).
+void subtitle(Player& player, std::string const& text);
+[[nodiscard]] Player* playerById(std::int64_t uid);
+[[nodiscard]] std::int64_t uidOf(Actor const& a);
+/// Gives an item to the player (inventory, else dropped at the player).
+void giveOrDrop(Player& player, ItemStack const& stack);
+void dropAt(int dim, double x, double y, double z, ItemStack const& stack);
+/// Sets a motion (players through a motion packet, as their client moves them).
+void setMotion(Actor& a, double x, double y, double z);
+[[nodiscard]] std::string itemId(ItemStack const& s);
+[[nodiscard]] bool isPaper(std::string_view id);
+[[nodiscard]] double random01();
+[[nodiscard]] std::uint64_t currentTick();
+/// Runs `fn` at the start of the next tick (world edits out of events).
+void defer(std::function<void()> fn);
+void runDeferred();
+void clearDeferred();
+
+// ---- toolboxes (Toolbox.cpp) --------------------------------------------------------------------
+[[nodiscard]] bool isToolbox(std::string_view id);
+[[nodiscard]] std::string toolboxId(std::string_view colour);
+/// The toolbox's inventory json at `pos` ({} when empty).
+[[nodiscard]] Json toolboxInventory(GlobalPos const& pos);
+void               setToolboxInventory(GlobalPos const& pos, Json const& inv);
+/// A player's right-click on a toolbox block (open; dye).
+bool               useToolbox(Player& player, ItemStack& held, GlobalPos const& pos);
+/// Left-click (Create: pick up with contents).
+bool               attackToolbox(Player& player, GlobalPos const& pos);
+/// After the player placed a toolbox: move the item's contents into the block.
+void               toolboxPlaced(Player& player, GlobalPos const& pos, Json const& itemData);
+/// Opens the toolbox screen (native or form).
+void               openToolbox(Player& player, GlobalPos const& pos);
+/// Radial menu actions (client mod and form): equip a compartment / unequip / deposit.
+bool equipFromToolbox(Player& player, GlobalPos const& pos, int compartment, int hotbarSlot);
+bool unequipSlot(Player& player, int hotbarSlot, bool keepItems);
+int  depositAll(Player& player, std::vector<GlobalPos> const& boxes);
+/// The 8 nearest toolboxes in range of the player.
+[[nodiscard]] std::vector<GlobalPos> nearbyToolboxes(Player& player);
+/// Opens the vanilla "nearby toolboxes" form.
+void openToolboxForm(Player& player);
+/// Before a player breaks a toolbox (creative breaks of empty toolboxes drop nothing).
+void noteToolboxBreak(GlobalPos const& p, bool creative);
+void tickToolboxes();
+void resetToolboxes();
+void installToolboxes();
+
+// ---- backtanks and diving gear (Backtank.cpp) ---------------------------------------------------
+[[nodiscard]] bool isBacktank(std::string_view id);
+/// Air stored in a backtank item (its user data).
+[[nodiscard]] int  airOf(ItemStack const& stack);
+void               setAir(ItemStack& stack, int air);
+[[nodiscard]] int  maxAir();
+/// Air tools (extendo grip, potato cannon): uses air from the worn backtank, else durability.
+/// Returns true when the use was paid for by air.
+bool useAirOrDurability(Player& player, bool mainHand, int usesPerTank);
+bool useBacktankBlock(Player& player, ItemStack& held, GlobalPos const& pos);
+void backtankPlaced(Player& player, GlobalPos const& pos, int air, std::string const& name);
+[[nodiscard]] int blockAir(GlobalPos const& pos);
+void              setBlockAir(GlobalPos const& pos, int air);
+void tickBacktanks();
+void tickDivingGear();
+/// Before a player breaks a backtank block (creative breaks drop nothing).
+void noteBacktankBreak(GlobalPos const& p, bool creative);
+void uninstallBacktanks();
+void resetBacktanks();
+void installBacktanks();
+
+// ---- tools (Tools.cpp) ----------------------------------------------------------------------------
+/// Extra reach of the extendo grip(s) the player holds (0, 3 or 5).
+[[nodiscard]] float extendoReach(Player const& player);
+void extendoAction(Player& player);
+bool firePotatoCannon(Player& player);
+void tickProjectiles();
+void resetProjectiles();
+bool startSanding(Player& player, bool mainHand);
+bool sandBlock(Player& player, ItemStack& held, GlobalPos const& pos);
+void cancelSanding(Player& player);
+void tickSanding();
+bool useTreeFertilizer(Player& player, ItemStack& held, GlobalPos const& pos);
+/// Number of projectiles in flight (selftests).
+[[nodiscard]] int projectileCount();
+
+// ---- symmetry wand (Symmetry.cpp) ---------------------------------------------------------------
+bool wandUseOn(Player& player, ItemStack& wand, GlobalPos const& clicked, int face);
+bool wandUse(Player& player, ItemStack& wand);
+/// A block was placed by `player` at `pos` (mirror it for every enabled wand in the hotbar).
+void mirrorPlacement(Player& player, GlobalPos const& pos);
+/// A block of `blockId` was broken by `player` at `pos`.
+void mirrorBreak(Player& player, GlobalPos const& pos, std::string const& blockId);
+/// True while mirrored copies are being placed / broken.
+[[nodiscard]] bool mirroringNow();
+void tickWands();
+void installWand();
+
+// ---- worldshaper (Worldshaper.cpp) -----------------------------------------------------------
+bool shaperUse(Player& player, ItemStack& shaper);
+bool shaperSelect(Player& player, ItemStack& shaper, GlobalPos const& pos);
+void tickShaper();
+void installShaper();
+
+// ---- linked controller (Controller.cpp) ----------------------------------------------------------
+bool controllerUse(Player& player, ItemStack& held);
+bool controllerUseOn(Player& player, ItemStack& held, GlobalPos const& pos);
+bool lecternUse(Player& player, ItemStack& held, GlobalPos const& pos);
+/// Button presses from a controller in hand or on a lectern (client mod messages / polled input).
+void controllerButtons(Player& player, std::array<bool, 6> const& pressed, std::optional<GlobalPos> lectern);
+[[nodiscard]] bool controllerActive(Player const& player);
+void tickControllers();
+void resetControllers();
+void installControllers();
+void uninstallControllers();
+
+} // namespace lv::feature::equipment
