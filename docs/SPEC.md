@@ -729,11 +729,30 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   `common:blockdata` data carrier, so units need no carrier for what they keep here). Owners that cache
   their part elsewhere write it back in `onWriteBack(fn)` (before every save and before `take`) and
   adopt moved data in `onPut(fn)` (U2's kinetic records do both).
-- **Interactions** (`Interactions.h`, U32): one hook per GameMode action (`useItemOn`, `baseUseItem`,
-  `destroyBlock`) dispatches to handlers registered per block / item id with a priority
-  (`onUseOn`, `onUse`, `onDestroy`, `onWrench`); the first handler that returns `Consume` / `Deny`
-  wins (vanilla is skipped and the player's inventory resent), `Pass` goes on. Value boxes and filter
-  slots use `priority::Highest`, the wrench's generic rotate / pick up (U8) `priority::Fallback`.
+- **Interactions** (`Interactions.h`, U32, U36): one hook per GameMode action (`useItemOn`,
+  `baseUseItem`, `destroyBlock`, `startDestroyBlock`, `interact`, `attack`) dispatches to handlers
+  registered per block / item (entity) id with a priority (`onUseOn`, `onUse`, `onDestroy`,
+  `onWrench`, `onStartDestroy`, `onInteract`, `onAttack`); the first handler that returns `Consume` /
+  `Deny` wins (vanilla is skipped and the player's inventory resent), `Pass` goes on. Value boxes and
+  filter slots use `priority::Highest`, units' own blocks `Normal` (their wrench handling, Create's
+  `IWrenchable#onWrenched`, comes before the generic one), the wrench's generic rotate / pick up (U8)
+  `priority::Fallback`. After vanilla ran: `onPlace` (a block vanilla placed from a use-on nobody
+  took: Create's `getStateForPlacement` / `setPlacedBy`), `onUnusedUseOn` (vanilla's use-on failed,
+  e.g. a bucket in the air), `onDestroyed` / `onAttacked` (with vanilla's result). `nextTick` defers
+  a world edit to the next server tick. Since U36 every unit goes through this dispatch; the only
+  remaining player hooks are not click dispatch (pick range, item release, eating, tool damage).
+- **Comparator output** (`Redstone.h`, U36): `registerAnalog(blockId, fn)` = Create's
+  `getAnalogOutputSignal`; one `ComparatorCapacitor::evaluate` hook gives a vanilla comparator the
+  output of the registered block behind it, or behind the solid block behind it (Java's
+  `ComparatorBlock.getInputSignal`), and releases it when it stops reading one. Registered: fluid
+  tank and creative tank (`fractionToRedstoneLevel` of the structure's fill), basin (inventory),
+  blaze burner (heat - 1) and lit burner (1 / soul 2), depot and weighted ejector (stack / max
+  stack), item vault (inventory), toolboxes (inventory), lectern controller (15), portable storage
+  and fluid interfaces (15 while connected), packager (15 while busy), frogport / postboxes
+  (inventory), redstone requester (15 after a successful request), train station (15 while a train is
+  present), train signal (15 while red), speedometer / stressometer (dial) and sequenced gearshift
+  (its step). `registerEmitter(blockId, fn)` lets `power` see custom signal sources (redstone links,
+  latches, placards).
 - **Redstone input** (`Redstone.h`, U32): `power(region, pos)` = the strongest signal (0..15) of the
   six neighbours read from the game's circuit graph, as a vanilla mechanism sees it (conducting
   blocks strongly or weakly powered, wire, levers, buttons, plates, redstone blocks, observers;
@@ -1483,6 +1502,8 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   segments vanish; a survival player gets one belt connector plus a shaft if the broken segment had a
   pulley.
 - **Depot** (DepotBehaviour): holds one stack (max stack size) and an 8-slot output buffer.
+  Comparator output (depot and ejector, U36): f = (held + output buffer counts) / max stack size
+  (64, the ejector's stack size setting when set); floor(14·f) + (f > 0).
   Right-click gives back the held stack and the outputs, then puts the held hand stack on it (slides from
   0.25 to the centre). Items arrive from belts / funnels / ejectors (DirectBeltInput) only when it is
   empty, slide to the centre (1/4 of the distance per tick), are processed by the block 2 above (Create's
@@ -1695,6 +1716,8 @@ blocks are listed in `lv:basin:machines` and ticked while loaded.
 
 **Basin.** 9 input slots and 9 output slots (64 per slot, one stack per item kind, the first free
 slot otherwise), 2 input and 2 output tanks of 1000 mB with enforced variety (one tank per fluid).
+Comparator output (U36): Create's calcRedstoneFromInventory over the 18 item slots; blaze burner:
+heat ordinal − 1 (at least 0).
 - Item capability (Create's CombinedInvWrapper): slots 0–8 inputs, 9–17 outputs; insertion only
   into the inputs, extraction from any slot (first matching slot, then more of the same kind).
   Fluid capability (CombinedTankWrapper(output, input)): fill only the input tanks, drain output
@@ -1771,7 +1794,7 @@ whisk speed: half the shaft speed idle, ×2 between ticks 15 and 20.
   burner (one empty burner used unless creative). Flint and steel lights it (`lit_blaze_burner`,
   damages the flint and steel); on a lit burner a shovel puts it out (empty again), soul sand / soul
   soil turns the flame to soul fire. Lit burners give smouldering heat (passive heater), light 12 /
-  9, comparator 1 / 2 ⚠ (§8).
+  9, comparator 1 / 2 (soul flame 2).
 - Blaze burner: smouldering without fuel (light 8, 15 when burning). Fuel (Create's tryUpdateFuel):
   the blaze cake is special fuel (3200 ticks, seething), any furnace fuel is normal fuel (its furnace
   burn time, kindled; fading when < 125 ticks remain); special fuel can't be replaced by normal fuel;
@@ -2115,7 +2138,8 @@ level with 15 / 1.2 = 12 and the parts above with 1, only with windows.
 
 **Fluids**: fluid capability on every part (the controller's tank): fills with the same fluid or
 into an empty tank, drains any or the requested fluid. Comparator level = Create's
-`fractionToRedstoneLevel(amount / capacity)` (floor(14·f + (f > 0)), §8). Right-click (not
+`fractionToRedstoneLevel(amount / capacity)` (floor(14·f + (f > 0))) of the whole structure (also
+creative tanks), read by vanilla comparators through `common/Redstone.h` (U36). Right-click (not
 sneaking) with a filled bucket / water bottle empties it into the tank when it all fits (Create's
 `tryEmptyItemIntoBE`; survival: the empty container comes back), with an empty bucket / glass bottle
 takes 1000 / 250 mB (bottles only water); creative players keep their item. Units' buckets
@@ -2492,7 +2516,8 @@ Actors:
   from storage; a layer with a placement stops (falling blocks keep going), an all-failed layer
   below the first stops. After a placement the roller waits 2 ticks (stalled) and fills the same
   column again.
-- **Portable storage interface**: a carried PSI's area is 1.85 ahead of its front; a stationary
+- **Portable storage interface**: comparator output 15 while connected, else 0 (also the portable
+  fluid interface; U36). A carried PSI's area is 1.85 ahead of its front; a stationary
   PSI there or one block further that faces back at it and is not powered connects (Create's
   timer: connecting sets 14, connected while 4 ≤ timer ≤ `psiTimeout` + 4, a transfer sets
   `psiTimeout` + 4, it counts down every tick, at 0 or when powered it disconnects; the carried PSI
@@ -2715,6 +2740,8 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   releasing throws it with the bow's power curve (`(t² + 2t) / 3`, t = seconds held, capped at 1,
   thrown only from 0.1; speed 2 × power, snowball sound at volume 0.5, pitch 0.5); right-click on a
   block puts it down there. Packages, shulker boxes and bundles don't fit into packages.
+- Comparator output (U36): packager / re-packager 15 while holding or animating a package, else 0;
+  frogport / postbox calcRedstoneFromInventory over the port's 18 slots.
 - **Packager** (`levitate:facing` 0–5 = the side the tray faces, the inventory is behind it;
   `levitate:powered`; `levitate:linked`): placed facing away from the first neighbour with an
   inventory in the player's look order (Java's `orderedByNearest`), otherwise towards the player
@@ -2832,7 +2859,7 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   (remembered per ticker), "Send" (sound, "Request Sent!") or, holding a redstone requester or a
   table cloth, "Program Requester" (the order, address and ticker position go into the held item;
   a requester item is tuned to the network).
-- **Redstone requester**: a rising redstone edge (polled every tick) sends its order: with
+- **Redstone requester**: comparator output 15 when the last request succeeded (U36). A rising redstone edge (polled every tick) sends its order: with
   "Must send all items" every entry must be in stock (else deny sound, nothing sent); with
   "Allow partial orders" it sends what is there. Placed from a programmed item: "Connected to
   Stock keeper successfully" if the ticker is within 128 blocks in the same dimension, else
@@ -2888,7 +2915,7 @@ top speed `trainTopSpeed / 20` (28 → 1.4 b/t), turning `trainTurningTopSpeed /
 `trainAcceleration / 400` (3 → 0.0075 b/t²). A train with fuel burning ("powered") uses the
 `poweredTrain*` values (40 / 20 / 3).
 
-**Stations.** Placing: right-click a track with the station item selects it ("Targeted track
+**Stations.** Comparator output (U36): 15 while a train stands at the station. Placing: right-click a track with the station item selects it ("Targeted track
 selected"; junctions refused: `create.track_target.no_junctions`); the direction the player looks
 along the track is the station's direction (trains arrive facing it; the assembly area lies behind).
 Sneak-use in the air clears the selection. The station block must be placed within 16 blocks of the
@@ -3252,7 +3279,8 @@ projectile numbers; gtest), `src/feature/equipment/`, `src/client/equipment/`. B
 BlockData `data["equipment"]`; item data in the stack's user data (`lv:toolbox`, `lv:air`,
 `lv:symmetry`, `lv:shaper`, `lv:controller`).
 
-**Toolboxes.** 8 compartments × 4 stacks. A compartment locks to the first item put in (its
+**Toolboxes.** Comparator output (U36): calcRedstoneFromInventory over the 32 slots; the lectern
+controller gives 15. 8 compartments × 4 stacks. A compartment locks to the first item put in (its
 filter stays when it runs empty; clicking an empty compartment slot with an empty cursor clears it);
 items share a compartment when they are the same item with the same data, or the same damageable
 unstackable tool. Insertion follows insertItemStacked (merge into same stacks, then empty slots in
@@ -3570,7 +3598,7 @@ matches Create's official Chinese translation wording).
 | "Hold Ctrl for maximized turn" (U5) | the server can't see a held key without the client mod | the player's sprint state is used (sprinting = maximized) |
 | Tilted tracks between two sloped curves (U5) | Create re-shapes the curves and tilts the block model at runtime | curves keep their original handles; the middle track stays flat |
 | Redstone neighbour updates of the clutch, gearshifts and sequenced gearshift (U6) | custom blocks get no redstone neighbour update | they read their neighbours' signal from the circuit system every tick (same reaction time as Create's scheduled tick); the sequenced gearshift reacts to power *changes* only, as Create's neighbour updates |
-| Comparator reading a gauge / sequenced gearshift (U6) | `getComparatorSignal` of custom blocks can't be overridden (a folded function) | a hook on the comparator's evaluation feeds it the block's output when its rear (directly or through a solid block) is one of ours |
+| Comparator reading a gauge / sequenced gearshift (U6) | `getComparatorSignal` of custom blocks can't be overridden (a folded function) | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
 | Smooth gauge needle for **vanilla** clients (U6) | block models are static per state; cube rotations are limited to 22.5° steps | the needle state snaps to the nearest 22.5°; the client mod draws the eased needle |
 | Gauge dial particles (U6) | Create's coloured dust particles need a client particle with a colour parameter | not shown yet |
 | Sequenced gearshift stopping a bearing / piston exactly (U6) | Create passes a "sequence context" through the kinetic network to the driven machine; the wave-1 kinetics contract has no such channel | the instructions run for Create's durations (which overshoot by two ticks); exact stops need a kinetics contract extension |
@@ -3600,7 +3628,7 @@ matches Create's official Chinese translation wording).
 | Random ticks of copper roofing (U10) | data-driven blocks get no random ticks without scripting | the unit keeps the positions of its weathering blocks (saved with the world) and ticks them at the game's `randomTickSpeed` rate |
 | Climbable ladders / scaffolding, multi-box collision (U10) | no JSON component for either | the block types get the Climbable property and a collision hook (server and client mod); vanilla clients are corrected by the server's movement authority, so climbing and stairs feel slightly rubbery for them |
 | Sliding door animation, open panel beyond the block (U10) | Bedrock models are static per state and must fit 30 px | the open state shows the slid / folded panel clipped to the model bounds, no sliding animation |
-| Door / trapdoor redstone input (U10) | custom blocks get no neighbour updates | polled every 2 ticks from adjacent power sources (wire, levers, buttons, torches, repeaters, comparators, observers, plates, placards, blocks strongly powered by them); the direction of wire / repeaters is not checked |
+| Door / trapdoor redstone input (U10) | custom blocks get no neighbour updates | polled every 2 ticks from adjacent power sources (wire, levers, buttons, torches, repeaters, comparators, observers, plates, placards, blocks strongly powered by them); read with `Redstone.h` `power` (U36: wire and diodes only into the blocks they point at) |
 | Item on the placard, copycat material, brackets drawn on vanilla clients (U10) | a block model can't show another item / block | the data and every behaviour exist on both; the client mod draws the placard's item on its plate (display item, U33); vanilla clients see the placard frame, the copycat base and the plain shaft; the copycat material and brackets are not drawn by the client mod yet (they need block models in the shape of the copycat, not items) |
 | Copycat material state cycling (U10) | Bedrock block items always place their default state | materials are applied in their default state; clicking again with the same block does nothing |
 | Placement helpers of girders / table cloths (U10) | — (not done yet) | girders and table cloths are placed like normal blocks |
@@ -3608,14 +3636,13 @@ matches Create's official Chinese translation wording).
 | Sloped belt collision shape (U11) | a custom block has one collision box | slopes collide as a half slab; entities are carried up / down by the belt code |
 | Casing drawn on sloped / vertical belts (U11) | the sloped casing would leave the block geometry bounds | the casing state is kept (and removable with the wrench) but only horizontal belts draw it |
 | Belt drops when exploded or removed by commands (U11) | the server can't tell an explosion from a command removing the block | the connector / shaft drops only for survival players breaking the belt; items on it always drop |
-| Comparator output of depots / ejectors (U11) | custom blocks can't give a comparator signal | none |
 | Redstone input of the ejector (U11) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker) |
 | Belt connector selection preview line (U11) | Create draws it client-side every frame | server particles along the planned belt every 5 ticks while the connector is held |
 | Items drawn inside chutes by a block entity renderer, for **vanilla** clients (U12) | custom blocks have no block entity renderers | the client mod draws the moving stack (display item, U33, interpolated); vanilla clients get client-only item entities (packets only, never a server entity, so nobody can pick them up) that follow each moving stack |
 | Smooth (lerped) funnel flaps (U12) | no per-frame block animation for custom blocks without a renderer | the flap is a block state shown for 4 ticks after a transfer (both kinds of clients) |
 | Editing a filter's amount by *holding* the filter slot (U12) | the server sees no held click (see the value box row) | brass funnels and smart chutes have a separate "Extracted Amount" value box next to the filter slot |
 | Funnel / smart chute redstone input by neighbour updates (U12) | custom blocks get no redstone neighbour update | polled every 2 ticks like the sticker (same sources) |
-| Comparators reading a vault (U12) | Bedrock only asks container blocks for analog signals | the vault's signal is handed to the comparator's circuit component before it evaluates (ComparatorCapacitor hook) |
+| Comparators reading a vault (U12) | Bedrock only asks container blocks for analog signals | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
 | Belt funnels, tunnels on belts, chutes pulling from belts (U12) | waiting for U11's belt | the hooks exist (`beltlink`, FunnelsExt.h); tunnels already work with any registered segment |
 | Crushing wheel controller letting only the crushed entity through (U13) | Bedrock block collision can't depend on the entity | the controller keeps Create's 13 px slab for everyone; the item being crushed is moved through it by the server; mobs are hurt where they stand on it |
 | Create's crushing death messages, looting 2 for crushed mobs, fan damage types (U13) | Bedrock has no data-driven damage types or per-kill looting | crushing uses the contact cause, fans fire / lava / drowning causes; drops are the mob's plain loot; the strings exist in the lang files |
@@ -3626,7 +3653,6 @@ matches Create's official Chinese translation wording).
 | Pulling nozzle explosion with more than 256 entities (U13) | rare edge case | not ported |
 | Air currents through blocks made of several boxes (U13) | the server only gets one collision box per block | a partial block stops the current by its bounding box (stairs, walls and hoppers block it like a full block); fan-transparent blocks pass as in Create |
 | Items floating in the basin for **vanilla** clients (U14) | no item rendering hooks for vanilla clients | the client mod draws the stacks inside (Create's ring around the centre, tilted, slowly turning, bobbing on the fluid, one more copy per 8 items) with the world item renderer (U33) and the fluid surface; vanilla clients see the basin; the items are taken out with an empty hand or seen by funnels |
-| Basin / blaze burner comparator output (U14) | custom blocks can't provide a comparator signal | none yet (Create: basin inputs fill level; burner heat − 1; lit burner 1 / 2) |
 | Hollow basin collision (U14) | a custom block has a single collision box | full-block collision; item entities resting on top are collected as if they fell in |
 | Press on a moving belt (U14) | no belt contract to hold an item under the press | items on a depot or belt below are pressed through the item capability (one per cycle) |
 | Sequenced-assembly pressing steps, potion brewing in the mixer (U14) | they need U15's sequenced assembly and U19's potion fluids | plain pressing / mixing; added with those units |
@@ -3647,7 +3673,6 @@ matches Create's official Chinese translation wording).
 | Waterlogged pipes, pumps and valves (U17) | Bedrock custom blocks have no waterlogged state the server can set | open ends don't drain or fill waterlogged blocks; pipes in water are not waterlogged |
 | Pipe particles (drips at rims, splashes, the pouring stream of open ends) (U17) | Create's fluid particles need fluid-tinted particle types | not shown yet |
 | Instant potion effects from open ends at half strength (U17) | Bedrock applies instantaneous effects through `addEffect` at full strength | instant potion effects apply at full strength |
-| Comparator output of fluid tanks (U18) | Bedrock comparators only read vanilla containers; a custom block's comparator signal can't be supplied without hooking the shared (folded) `hasComparatorSignal` of every block | `steam::comparatorLevel(pos)` gives Create's level for units that read it (threshold switch, display links); vanilla comparators read nothing |
 | Fluid inside tanks and the moving engine piston for **vanilla** clients (U18) | no client-side rendering without the client mod; a fluid level per block would need a block state per level and fluid | the client mod draws them; vanilla clients see the tank (windows show an empty inside) and a static engine |
 | Whistle redstone input (U18) | custom blocks get no redstone neighbour update | the whistle polls its neighbours' redstone power every 2 ticks (as the sticker, U4) |
 | Whistle tone as one looping sound with a changing pitch (U18) | Bedrock's server can't hold a looping sound instance on clients | the tone sample (0.6 s) is restarted every 10 ticks at the whistle's pitch, so it sounds continuous; the chiff plays when it starts |
@@ -3670,7 +3695,6 @@ matches Create's official Chinese translation wording).
 | Picking up a minecart contraption (U21) | the engine has no "discard" | the structure is placed and its blocks removed again silently (refused when something is in the way: `lv.bearings.pickup_blocked`); the item carries the engine's own record of the structure |
 | Coupling chains drawn between carts (U21) | no client-side line rendering for entities | couplings work but aren't drawn |
 | Sequenced gearshift angle limits on bearings (U21) | the kinetic contract has no sequence context | bearings turn at their speed; the gearshift's own timing still applies |
-| PSI comparator output (U22) | a data-driven block can't give a comparator signal (the block type's comparator virtuals are folded game functions that can't be hooked per block) | the `levitate:extended` state shows the connection |
 | Actors dropping off when the block behind them goes (U22) | data-driven blocks get no neighbour updates and placement filters can't follow a facing state | they stay; they still move with the block behind them |
 | Seats halving fall damage, mobs bouncing on seats (U22) | no fall-damage or bounce hook for data-driven blocks | normal landing; mobs that land on a free seat sit down |
 | Right-clicking contraption blocks with an empty hand into the air on **vanilla** clients (U22) | a vanilla client sends nothing for an empty-hand click into the air, and display entities can't be clicked | with an item in hand, or with a world block behind, the server casts the look itself; the client mod sends the click |
@@ -3679,15 +3703,14 @@ matches Create's official Chinese translation wording).
 | Redstone *input* callbacks for custom blocks (U23) | data-driven blocks can't be circuit capacitors (one circuit component per position: a block that outputs can't also consume) and get no neighbour-signal callback natively | outputs are native `minecraft:redstone_producer` permutations (no polling); inputs are read from the game's circuit components around each loaded block once per tick, which is also Create's block-entity tick, so latency matches Create's scheduled ticks |
 | Redstone link frequency items rendered on the block (U23) | no world-space item rendering (see filter slots above) | client mod: hovering a link shows its mode and both frequency items (icons + names) next to the crosshair; vanilla: action-bar message when a slot is set |
 | Diode value box "short click toggles, hold opens the board" (U23) | see value box row above | clicking the box opens the board; clicking elsewhere on the diode (or with any item but the wrench) toggles inverted |
-| Vanilla repeater / comparator facing in the input reader (U23) | a repeater set by a command keeps an unpowered circuit, so the selftests can't build one; the circuit direction is the game's legacy 2D direction | read from the circuit component (`getDirection`, 2D → face); covered by vanilla play, not by a selftest |
+| Vanilla repeater / comparator facing in the input reader (U23) | a repeater set by a command keeps an unpowered circuit, so the selftests can't build one | read from the block's `minecraft:cardinal_direction` (the input side), falling back to the circuit component's direction (`Redstone.h`, U36) |
 | Display board text for **vanilla** clients (U24) | no client-side text rendering on blocks without the client mod | the lines as a name tag in front of a turning board (invisible entity, colours as § codes, no flap animation); the client mod draws the split flaps |
 | Nixie tube glyphs for **vanilla** clients (U24) | same | the two characters as a coloured name tag above each tube |
-| Display link / nixie tube redstone input (U24) | custom blocks get no redstone neighbour updates | polled every 2 ticks from the neighbours' states (wire, torches, levers, buttons, plates, repeaters, comparators, observers, redstone blocks); strong power through solid blocks is not seen |
+| Display link / nixie tube redstone input (U24) | custom blocks get no redstone neighbour updates | polled every 2 ticks from the neighbours' states (wire, torches, levers, buttons, plates, repeaters, comparators, observers, redstone blocks); read with `Redstone.h` `signalFrom` (U36), so strong power through solid blocks counts |
 | Clipboard text editing in the native screen (U24) | the client mod's screen framework has no text field | the native screen shows pages, checkboxes, erase and page buttons; its edit button opens the server form for the text |
 | "Clipboard Actions" hover tip and block outline while holding a clipboard (U24) | per-frame client logic for every block's settings | the action bar tells what was copied / pasted |
 | Deaths statistic of the respawn anchor source (U24) | Bedrock has no deaths statistic | Levitate counts player deaths per world (`lv:display:deaths`) |
 | Display link placement by a SimulatedPlayer (U24 selftests) | `simulateUseItemInSlotOnBlock` does not place this block item | the selftest places the block itself after the item logic; the client e2e places it for real |
-| Comparator output of packagers (0 / 15), frogports and postboxes (U25) | custom blocks without a block entity can't give comparators a signal | none; read the port / packager state with other means (display links, U24) |
 | Packages as physical entities (thrown, put down, on the ground) (U25) | Create's PackageEntity is a custom entity with its own model and physics | thrown / put-down packages are item entities (same velocity); breaking or opening is done with the item |
 | Typing an address into a native screen (frogport, postbox, package filter) (U25) | the native screen framework has no text field | the address is typed into a form (all clients); the rest of the port screen is native |
 | Chains, hanging packages, frogport tongue and packager tray for **vanilla** clients (U25) | no client-side rendering without the client mod | the client mod draws them; vanilla clients see the static conveyor, frogport and packager models and the postbox flag / lid states |
@@ -3697,8 +3720,7 @@ matches Create's official Chinese translation wording).
 | Package filters in U3's filter slots (U25) | `filter::matches` (U3) only knows list / attribute filters | `packages::filterMatches` implements Create's rule; U3's matcher must delegate `levitate:package_filter` to it (follow-up, called out in the U25 PR) |
 | Spawn eggs inside opened packages spawn their mob (U25) | the server would need the egg's spawn logic | the egg is given to the player like any item |
 | Adding a port's address to a held clipboard (U25) | the clipboard and its data are U24's | no-op until U24 exposes clipboard pages |
-| Stock link and redstone requester redstone input (U26) | custom blocks get no redstone neighbour update | polled (links every 4 ticks, requesters every tick so short pulses count); analog power comes from redstone wire, other sources count as 15 |
-| Redstone requester comparator output (U26) | custom blocks can't give a comparator signal | none (the last result is kept in the requester's data) |
+| Stock link and redstone requester redstone input (U26) | custom blocks get no redstone neighbour update | polled (links every 4 ticks, requesters every tick so short pulses count); the power is `Redstone.h` `signalFrom` (U36): the analog level of every source |
 | Factory gauge item icons, counts and connection arrows drawn on the panel (U26) | no world-space item / text renderer | the client mod shows the panel's label and "in storage / target" next to the crosshair; the bulb is the block model |
 | "Click and hold" on a gauge panel / price tag for the amount board (U26) | the server only sees discrete clicks | Sneak + empty-hand click opens the board |
 | Gauge mechanical crafting arrangement ("Use Mechanical Crafting") and JEI recipe sync (U26) | no recipe viewer; Bedrock crafting recipes are not readable as patterns from a mod | panels send their inputs as plain orders |
@@ -3706,7 +3728,7 @@ matches Create's official Chinese translation wording).
 | Train carriages tilting on slopes (U27) | the contraption transform turns about one axis; a carriage turns about Y on curves | carriages stay level on slopes (height from their first bogey) |
 | Wheels turning on bogeys (U27) | carriage blocks are display entities showing a block model; the client framework has no per-part animation for them yet | bogeys are drawn still (client mod and vanilla) |
 | Opening train doors at stations (U27) | the contraption API can't change a carried block's state | the station's door control setting is stored and shown; doors stay as assembled |
-| Station comparator output and flag animation (U27) | custom blocks can't give a comparator signal; the flag is a block state | the station's texture shows assembly mode; no comparator output |
+| Station flag animation (U27) | the flag is a block state | the station's texture shows assembly mode |
 | Train HUD (speed bar, throttle by mouse wheel) and the horn (U27) | needs a client HUD renderer | action-bar prompts; throttle from schedules (and `trains.throttle` from the client mod) |
 | Train map colours / map markers (U27) | no map mods on Bedrock | none |
 | Wrench relocation of derailed trains (U27) | needs U8's wrench and Create's client-side placement preview | derailed trains re-attach when the track under their front returns; otherwise disassemble them with `/create killtrain` |
@@ -3714,7 +3736,7 @@ matches Create's official Chinese translation wording).
 | Signal / observer track selection stored on the item (U28) | changing the held item's data from the server re-sends the slot and breaks the click flow; the glint isn't controllable | the selection is kept per player and per item id on the server (lost on relog); no glint, no outline of the selected track |
 | Signal lamp rendered toward the track, track overlay for vanilla clients (U28) | Bedrock block models are fixed per state and can't face an edge point | the lamp shows on all four sides of the signal head (block state); the client mod draws Create's arrows / squares on the track |
 | Redstone input of signals (U28) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker; diodes count only when facing the signal) |
-| Comparator output of signals (U28) | Bedrock asks only containers for analog signals | the signal's 15 / 0 is handed to the comparator's circuit component before it evaluates (ComparatorCapacitor hook, as U12's vault) |
+| Comparator output of signals (U28) | Bedrock asks only containers for analog signals | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
 | Train occupancy by front/back signal listeners (U28) | not a limitation: trains report the track they cover | sections and observers follow the covered track (same results as Create's listeners, robust against skipped ticks) |
 | Crafting blueprint as a hanging entity (U29) | custom entities need their own entity definitions and renderers; a block group behaves the same for clicks and breaking | each section is a thin, non-colliding `levitate:placed_crafting_blueprint` block; the 2x2 / 3x3 group is placed and removed together; the display items are not drawn on the blueprint (shown in its screen) |
 | Schematic files saved as Create `.nbt` (U29) | Bedrock block states have no lossless Java form | the quill saves Bedrock `.mcstructure`; Create `.nbt` files are read (uploads, `schematics/`) with best-effort Java→Bedrock state mapping, unmapped block types are reported and skipped |
@@ -3734,7 +3756,7 @@ matches Create's official Chinese translation wording).
 | Holding the toolbox key on a **vanilla** client (U31) | the server can't see a held key without the client mod | `/create toolbox` opens the same entries as a form |
 | Dyeing a toolbox in the crafting grid keeps its contents (U31) | Bedrock crafting results carry no data of the ingredients | the crafted toolbox is empty; right-clicking a placed toolbox with a dye recolours it with its contents (as Create does too) |
 | Tree fertilizer as one recipe with "any small flower" (U31) | Bedrock recipes take one item or tag per ingredient and vanilla flowers have no common item tag | one recipe per flower × coral (two of the same flower) |
-| Toolbox lid / drawer animation, toolbox comparator output (U31) | custom blocks have no block entity renderer; comparators only read containers | static model (closed lid); no comparator output yet |
+| Toolbox lid / drawer animation (U31) | custom blocks have no block entity renderer | static model (closed lid) |
 | Enchantments Capacity (backtank air) and Potato Recovery (U31) | Bedrock has no data-driven enchantments | air is always `airInBacktank`; projectiles are recovered with the base 12.5 % |
 | Armour toughness and knockback resistance of the netherite diving gear (U31) | `minecraft:wearable` only has `protection` | protection as Create; no toughness / knockback resistance |
 | Netherite helmet lava vision and the diving helmet's clearer underwater fog (U31) | fog is client-side | no fog change |
@@ -3744,7 +3766,6 @@ matches Create's official Chinese translation wording).
 | Tree fertilizer growing without room (U31) | Create grows the tree in a virtual world and copies it; Bedrock's tree features aren't callable into another world | Bedrock's own sapling growth, repeated until it grows (needs the room Bedrock trees need) |
 | Linked controller input for **vanilla** clients (U31) | movement keys are only visible through Bedrock's movement input | the movement input the server receives is polled (the player still moves); the client mod captures the keys as Create |
 | Worldshaper preview outline (U31) | no world-space line renderer yet | no preview; the changed blocks are logged and appear at once |
-| Lectern controller comparator output 15 (U31) | comparators only read containers | none |
 
 Units add rows here in their PRs (in unit order) when they find something else impossible.
 

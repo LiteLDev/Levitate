@@ -7,7 +7,9 @@
 // chosen (computed from the world *before* the placement) is applied right after, in the same
 // call, so the kinetic network only ever sees the final state.
 
+#include <optional>
 #include <unordered_map>
+#include <vector>
 
 #include "ll/api/memory/Hook.h"
 
@@ -21,6 +23,7 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/transmission/TransmissionInternal.h"
@@ -30,6 +33,7 @@
 namespace lv::feature::transmission {
 
 namespace items = feature::common::items;
+namespace ia    = feature::common::interactions;
 using States    = std::vector<std::pair<std::string_view, int>>;
 
 namespace {
@@ -389,8 +393,6 @@ bool useOn(Player& player, ItemStack& item, GlobalPos const& clicked, Face face,
 
 namespace {
 
-bool isServerPlayer(Player const& p) { return !p.isClientSide(); }
-
 std::unordered_map<std::int64_t, std::uint64_t>& lastUse() {
     static std::unordered_map<std::int64_t, std::uint64_t> m;
     return m;
@@ -405,45 +407,31 @@ bool cooledDown(Player& player) {
     return true;
 }
 
-std::array<double, 3> localHit(BlockPos const& pos, Vec3 const& hit) {
-    auto in = [](double v) { return v >= -0.01 && v <= 1.01; };
-    if (in(hit.x) && in(hit.y) && in(hit.z)) return {hit.x, hit.y, hit.z};
-    return {hit.x - pos.x, hit.y - pos.y, hit.z - pos.z};
-}
+/// Create's state for placement, decided before vanilla places the block (the neighbours as the
+/// player saw them) and applied once it exists.
+struct PendingPlacement {
+    std::int64_t player = 0;
+    GlobalPos    pos;
+    std::string  blockId;
+    States       states;
+};
+std::optional<PendingPlacement> gPending;
 
-InteractionResult used() {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    return r;
-}
+std::vector<ia::HandlerId> gHandlers;
 
-} // namespace
-
-LL_TYPE_INSTANCE_HOOK(
-    TransmissionUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (!isServerPlayer(player) || handSlot != HandSlot::Mainhand || face > 5) {
-        return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    }
-    auto&       region  = player.getDimensionBlockSource();
-    auto        clicked = game::globalPos(region, at);
-    Face        f       = static_cast<Face>(face);
-    std::string held    = items::isEmpty(item) ? std::string{} : items::idOf(item);
-    std::string block   = idAt(region, clicked);
-    auto        h       = localHit(at, hit);
+// U36: the unit's clicks come from the shared interaction dispatch.
+ia::Result transmissionUseOn(ia::UseOnContext const& c) {
+    if (c.face > 5 || c.offhand) return ia::Result::Pass; // Create: main hand only
+    Player&            player  = c.player;
+    auto&              region  = player.getDimensionBlockSource();
+    GlobalPos          clicked = c.pos;
+    Face               f       = static_cast<Face>(c.face);
+    std::string const& held    = c.itemId;
+    std::string const& block   = c.blockId;
+    auto const&        h       = c.hit;
+    // the held stack is the player's own (non-const) inventory slot: using it may take items
+    auto& item = const_cast<ItemStack&>(c.item);
+    gPending.reset();
 
     // block / item interactions of the unit
     bool ours = !blockOfItem(block).empty() || isDedicatedCogItem(held);
@@ -451,7 +439,7 @@ LL_TYPE_INSTANCE_HOOK(
         // the item may change while the interaction runs: decide on the cooldown first
         static thread_local bool busy = false;
         if (!busy) {
-            busy = true;
+            busy      = true;
             bool done = false;
             try {
                 if (cooledDown(player)) done = useOn(player, item, clicked, f, h[0], h[1], h[2]);
@@ -462,20 +450,20 @@ LL_TYPE_INSTANCE_HOOK(
             busy = false;
             if (done) {
                 player.sendInventory(false);
-                return used();
+                return ia::Result::Consume;
             }
         }
     }
 
     // a plain placement of one of our items: Create's state for placement
     auto blockId = blockOfItem(held);
-    if (blockId.empty()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    if (blockId.empty()) return ia::Result::Pass;
     PlaceContext ctx;
     ctx.clickedPos = clicked;
     ctx.face       = f;
     ctx.pos        = replaceableAt(region, clicked) ? clicked : stepPos(clicked, f);
     ctx.hitX = h[0], ctx.hitY = h[1], ctx.hitZ = h[2];
-    ctx.sneaking = player.isSneaking();
+    ctx.sneaking = c.sneaking;
     auto states  = stateForPlacement(region, held, ctx, player);
     // CogWheelBlock / EncasedCogwheelBlock.canSurvive
     if (states && (isSmallCogBlock(blockId) || isLargeCogBlock(blockId))) {
@@ -484,33 +472,40 @@ LL_TYPE_INSTANCE_HOOK(
             if (k == std::string_view(kAxis)) axis = v;
         if (!validCogPosition(region, isLargeCogBlock(blockId), ctx.pos, static_cast<Axis>(axis))) {
             player.sendInventory(false);
-            return InteractionResult{};
+            return ia::Result::Deny;
         }
     }
     if (held == kVerticalGearbox) {
         // the vertical gearbox item places the gearbox itself (Create's VerticalGearboxItem)
-        if (states
-            && placeLikeHelper(player, item, region, ctx.pos, kGearbox, *states)) {
-            return used();
-        }
-        return InteractionResult{};
+        if (states && placeLikeHelper(player, item, region, ctx.pos, kGearbox, *states)) return ia::Result::Consume;
+        return ia::Result::Deny;
     }
-    Block const* before = region.hasChunksAt(game::blockPos(ctx.pos), 0, false) ? &region.getBlock(game::blockPos(ctx.pos)) : nullptr;
-    auto result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    // only a block this call placed takes the placement state (never re-orient an existing one)
-    bool placed = before && &region.getBlock(game::blockPos(ctx.pos)) != before;
-    if (states && placed && idAt(region, ctx.pos) == blockId) {
-        setStates(region, ctx.pos, *states);
-        if (isChainDrive(blockId)) {
-            for (Face side : ck::kFaces) updateChainShape(region, stepPos(ctx.pos, side));
-        }
-    }
-    return result;
+    if (states) gPending = PendingPlacement{player.getOrCreateUniqueID().rawID, ctx.pos, std::string(blockId), *states};
+    return ia::Result::Pass;
 }
 
-void installPlacementHooks() { TransmissionUseItemOnHook::hook(); }
+/// Only a block this click placed takes the placement state (never re-orient an existing one).
+void transmissionPlaced(ia::PlaceContext const& c) {
+    if (!gPending) return;
+    auto pending = std::move(*gPending);
+    gPending.reset();
+    if (pending.player != c.player.getOrCreateUniqueID().rawID || pending.pos != c.pos || pending.blockId != c.blockId) return;
+    auto& region = c.player.getDimensionBlockSource();
+    setStates(region, c.pos, pending.states);
+    if (isChainDrive(pending.blockId)) {
+        for (Face side : ck::kFaces) updateChainShape(region, stepPos(c.pos, side));
+    }
+}
+
+} // namespace
+
+void installPlacementHooks() {
+    gHandlers.push_back(ia::onUseOn({}, transmissionUseOn));
+    gHandlers.push_back(ia::onPlace({}, transmissionPlaced));
+}
 void uninstallPlacementHooks() {
-    TransmissionUseItemOnHook::unhook();
+    for (auto id : gHandlers) ia::remove(id);
+    gHandlers.clear();
     lastUse().clear();
 }
 

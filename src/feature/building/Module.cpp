@@ -136,6 +136,7 @@ void closeWorld() {
 class BuildingModule {
 public:
     void install() {
+        registerPlacardSignal();
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { tick(); }));
         mListeners.push_back(bus.emplaceListener<ll::event::BlockChangedEvent>([](ll::event::BlockChangedEvent& ev) {

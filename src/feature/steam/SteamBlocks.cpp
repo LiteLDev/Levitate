@@ -24,6 +24,7 @@
 #include "mc/world/level/block/BlockType.h"
 #include "mc/world/level/dimension/Dimension.h"
 
+#include "feature/common/Redstone.h"
 #include "feature/steam/SteamInternal.h"
 #include "game/Blocks.h"
 #include "mod/Config.h"
@@ -127,28 +128,7 @@ void removeBlock(BlockSource& region, GlobalPos const& pos) {
     game::clearBlock(region, game::blockPos(pos));
 }
 
-bool redstonePowered(BlockSource& region, GlobalPos const& pos) {
-    for (auto d : kDirs) {
-        GlobalPos n = offset(pos, d);
-        if (!loaded(region, n)) continue;
-        auto const& block = region.getBlock(game::blockPos(n));
-        if (block.isAir()) continue;
-        std::string const& id = block.getTypeName();
-        if (id == "minecraft:redstone_block") return true;
-        if (intState(block, "redstone_signal").value_or(0) > 0) return true;
-        if (id == "minecraft:lever" && intState(block, "open_bit").value_or(0)) return true;
-        if (intState(block, "button_pressed_bit").value_or(0)) return true;
-        if (id == "minecraft:observer" && intState(block, "powered_bit").value_or(0)) return true;
-        if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return true;
-        if (id == "minecraft:redstone_torch") {
-            // a torch powers every neighbour but the block it stands on
-            auto t       = strState(block, "torch_facing_direction");
-            auto support = (t.empty() || t == "top" || t == "unknown") ? cs::Dir::Down : dirFromName(t, cs::Dir::Down);
-            if (!(offset(n, support) == pos)) return true;
-        }
-    }
-    return false;
-}
+bool redstonePowered(BlockSource& region, GlobalPos const& pos) { return common::redstone::powered(region, game::blockPos(pos)); }
 
 cs::Dir dirFromName(std::string_view name, cs::Dir fallback) {
     if (name == "down") return cs::Dir::Down;

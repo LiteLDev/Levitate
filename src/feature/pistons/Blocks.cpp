@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <numbers>
 
 #include "ll/api/event/EventBus.h"
@@ -22,6 +23,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/common/BlockData.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/kinetics/Kinetics.h"
@@ -43,6 +45,7 @@ void clearDeferred();
 } // namespace detail
 
 namespace ct = feature::contraption;
+namespace ia = feature::common::interactions;
 namespace k  = core::kinetics;
 
 bool& assemblingPiston() {
@@ -424,13 +427,6 @@ bool isOurBlockItem(std::string_view id) {
     return isPiston(id) || id == kPole || id == kRopePulley || id == kElevatorPulley || id == kGantryShaft || id == kGantryCarriage;
 }
 
-/// Where a plain right-click puts a block.
-GlobalPos placementPos(BlockSource& region, BlockPos const& clicked, uchar face) {
-    GlobalPos p = game::globalPos(region, clicked);
-    if (game::replaceable(region, clicked)) return p;
-    return face < 6 ? rel(p, static_cast<cc::Dir>(face)) : p;
-}
-
 /// Create's PoleHelper: a pole / gantry shaft used on the same block extends the line.
 bool poleHelper(Player& player, ItemStack& item, GlobalPos const& at, Vec3 const& hit) {
     auto    id     = idAt(at);
@@ -558,78 +554,57 @@ std::int64_t  gLastUser    = 0;
 
 } // namespace
 
-LL_TYPE_INSTANCE_HOOK(
-    PistonsUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region = player.getDimensionBlockSource();
-    Block const& target = targetBlock ? *targetBlock : region.getBlock(at);
-    std::string  tid    = target.getTypeName();
-    if (tid.starts_with("levitate:")) {
-        // Bedrock repeats the use while the button is held: one action per 4 ticks per player
-        auto uid = player.getOrCreateUniqueID().rawID;
-        bool ours = isPiston(tid) || isPulley(tid) || tid == kGantryCarriage || tid == kElevatorContact || tid == kPole || tid == kGantryShaft;
-        if (ours) {
-            if (uid == gLastUser && currentTick() - gLastUseTick < 4 && !isFirstEvent) {
-                InteractionResult r{};
-                r.mSuccess = true;
-                return r;
-            }
-            if (useOnBlock(player, item, at, face, hit, target)) {
-                gLastUser    = uid;
-                gLastUseTick = currentTick();
-                InteractionResult r{};
-                r.mSuccess = true;
-                r.mSwing   = true;
-                player.sendInventory(false);
-                return r;
-            }
-        }
-    }
-    std::string held = item.isNull() ? std::string() : std::string(item.getTypeName());
-    if (!isOurBlockItem(held)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    GlobalPos   p      = placementPos(region, at, face);
-    std::string before = idAt(p);
-    auto        result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    std::string after  = idAt(p);
-    if (after == held && before != held) orient(p, held, player, static_cast<cc::Dir>(std::min<int>(face, 5)));
-    return result;
+// ---- interactions (U36: on the shared dispatch) --------------------------------------------------
+
+/// Right-clicks on the unit's blocks (one action per 4 ticks per player while the button is held).
+ia::Result pistonsUseOn(ia::UseOnContext const& c) {
+    std::string const& tid = c.blockId;
+    if (!tid.starts_with("levitate:")) return ia::Result::Pass;
+    bool ours = isPiston(tid) || isPulley(tid) || tid == kGantryCarriage || tid == kElevatorContact || tid == kPole
+             || tid == kGantryShaft;
+    if (!ours) return ia::Result::Pass;
+    auto uid = c.player.getOrCreateUniqueID().rawID;
+    if (uid == gLastUser && currentTick() - gLastUseTick < 4 && !c.firstEvent) return ia::Result::Consume;
+    BlockPos at{c.pos.x, c.pos.y, c.pos.z};
+    Vec3 hit{static_cast<float>(at.x + c.hit[0]), static_cast<float>(at.y + c.hit[1]), static_cast<float>(at.z + c.hit[2])};
+    // the held stack is the player's own (non-const) inventory slot: using it may take one item
+    auto& item = const_cast<ItemStack&>(c.item);
+    if (!useOnBlock(c.player, item, at, static_cast<uchar>(c.face), hit, c.block)) return ia::Result::Pass;
+    gLastUser    = uid;
+    gLastUseTick = currentTick();
+    c.player.sendInventory(false);
+    return ia::Result::Consume;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    PistonsDestroyBlockHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$destroyBlock,
-    bool,
-    BlockPos const& pos,
-    uchar           face
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide()) return origin(pos, face);
-    GlobalPos   p  = game::globalPos(player.getDimensionBlockSource(), pos);
-    std::string id = idAt(p);
-    bool        chain = isPiston(id) || id == kPole || id == kHead;
-    cc::Dir     facing = chain ? facingAt(p) : cc::Dir::Up;
-    bool        ok     = origin(pos, face);
-    if (ok && chain && idAt(p) != id) {
-        bool drops = !player.isCreative();
-        if (isPiston(id)) destroyPistonChain(p, facing, drops);
-        else pistonChainBroken(p, id, facing, drops);
-    }
-    return ok;
+/// A placed block of the unit faces the way Create's getStateForPlacement says.
+void pistonsPlaced(ia::PlaceContext const& c) {
+    if (c.itemId != c.blockId || !isOurBlockItem(c.itemId)) return;
+    orient(c.pos, c.blockId, c.player, static_cast<cc::Dir>(std::min<int>(c.face, 5)));
+}
+
+/// A player breaking a piston, pole or head breaks the whole chain (once the block is gone).
+/// The facing of a chain block a player is breaking (read before vanilla removes it).
+std::map<GlobalPos, cc::Dir>& breakingFacing() {
+    static std::map<GlobalPos, cc::Dir> m;
+    return m;
+}
+
+ia::Result pistonsDestroy(ia::DestroyContext const& c) {
+    std::string const& id = c.blockId;
+    if (isPiston(id) || id == kPole || id == kHead) breakingFacing()[c.pos] = facingAt(c.pos);
+    return ia::Result::Pass;
+}
+
+void pistonsDestroyed(ia::DestroyContext const& c, bool destroyed) {
+    auto it = breakingFacing().find(c.pos);
+    if (it == breakingFacing().end()) return;
+    cc::Dir facing = it->second;
+    breakingFacing().erase(it);
+    std::string const& id = c.blockId;
+    if (!destroyed || idAt(c.pos) == id) return; // not broken (refused, protected, ...)
+    bool drops = !c.player.isCreative();
+    if (isPiston(id)) destroyPistonChain(c.pos, facing, drops);
+    else pistonChainBroken(c.pos, id, facing, drops);
 }
 
 namespace {
@@ -705,8 +680,10 @@ public:
         mSpeed.push_back(kinetics::onSpeedChanged(std::string(kGantryShaft), [](kinetics::SpeedChange const& c) {
             if (!c.removed) onShaftSpeed(c.pos);
         }));
-        PistonsUseItemOnHook::hook();
-        PistonsDestroyBlockHook::hook();
+        mHandlers.push_back(ia::onUseOn({}, pistonsUseOn));
+        mHandlers.push_back(ia::onPlace({}, pistonsPlaced));
+        mHandlers.push_back(ia::onDestroy({}, pistonsDestroy));
+        mHandlers.push_back(ia::onDestroyed({}, pistonsDestroyed));
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::BlockChangedEvent>([](ll::event::BlockChangedEvent& ev) { onBlockChanged(ev); }));
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { tick(); }));
@@ -723,8 +700,8 @@ public:
         mListeners.clear();
         for (auto id : mSpeed) kinetics::removeListener(id);
         mSpeed.clear();
-        PistonsDestroyBlockHook::unhook();
-        PistonsUseItemOnHook::unhook();
+        for (auto id : mHandlers) ia::remove(id);
+        mHandlers.clear();
     }
 
 private:
@@ -742,6 +719,7 @@ private:
 
     std::vector<ll::event::ListenerPtr> mListeners;
     std::vector<kinetics::ListenerId>   mSpeed;
+    std::vector<ia::HandlerId>          mHandlers;
 };
 
 } // namespace

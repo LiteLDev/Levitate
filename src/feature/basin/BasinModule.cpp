@@ -23,8 +23,6 @@
 #include "mc/network/packet/PlaySoundPacket.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/player/Player.h"
-#include "mc/world/gamemode/GameMode.h"
-#include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/Item.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -40,6 +38,7 @@
 #include "feature/basin/BasinInternal.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/Recipes.h"
 #include "feature/common/ValueBox.h"
@@ -56,6 +55,7 @@ namespace lv::feature::basin {
 
 namespace k  = lv::kinetics;
 namespace bd = common::blockdata;
+namespace ia = common::interactions;
 
 // ---- kinetic blocks --------------------------------------------------------------------------------
 
@@ -329,53 +329,23 @@ void orientPlaced(Player& player, BlockSource& region, BlockPos const& pos, Kind
     log().info("basin: {} placed at {} {} {} (dim {}) by {}", idAt(region, pos), pos.x, pos.y, pos.z, dim, player.getRealName());
 }
 
-bool isServerPlayer(Player const& p) { return !p.isClientSide(); }
-
-/// Block-local hit position from a click position (relative or absolute).
-core::common::Vec localHit(BlockPos const& pos, Vec3 const& click) {
-    auto in = [](double v) { return v >= -0.01 && v <= 1.01; };
-    if (in(click.x) && in(click.y) && in(click.z)) return {click.x, click.y, click.z};
-    return {click.x - pos.x, click.y - pos.y, click.z - pos.z};
-}
-
 std::unordered_map<std::int64_t, std::pair<GlobalPos, std::uint64_t>>& lastUse() {
     static std::unordered_map<std::int64_t, std::pair<GlobalPos, std::uint64_t>> m;
     return m;
 }
 
-InteractionResult handled() {
-    InteractionResult r{};
-    r.mSuccess = true;
-    r.mSwing   = true;
-    return r;
-}
+ia::Result onUseOn(ia::UseOnContext const& c) {
+    Player&            player  = c.player;
+    auto&              region  = player.getDimensionBlockSource();
+    Block const*       clicked = &c.block;
+    std::string const& target  = c.blockId;
+    std::string const& held    = c.itemId;
+    auto               kind    = kindOf(target);
+    bool               sneak   = c.sneaking;
+    BlockPos           at{c.pos.x, c.pos.y, c.pos.z};
+    int                face = c.face;
 
-} // namespace
-
-LL_TYPE_INSTANCE_HOOK(
-    BasinUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (!isServerPlayer(player)) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region  = player.getDimensionBlockSource();
-    Block const* clicked = targetBlock ? targetBlock : &region.getBlock(at);
-    std::string  target  = clicked->getTypeName();
-    std::string  held    = item.isNull() ? std::string{} : item.getTypeName();
-    auto         kind    = kindOf(target);
-    bool         sneak   = player.isSneaking();
-
-    auto gp = game::globalPos(region, at);
+    auto gp = c.pos;
     // Bedrock repeats the use while the button is held (and SimulatedPlayers never send a "first"
     // event): one action per click, repeats of a handled click are swallowed
     auto  uid    = player.getOrCreateUniqueID().rawID;
@@ -384,62 +354,48 @@ LL_TYPE_INSTANCE_HOOK(
     auto  done   = [&] {
         last = {gp, now()};
         player.sendInventory(false);
-        return handled();
+        return ia::Result::Consume;
     };
     if (kind) log().debug("basin: {} uses {} on {} at {}", player.getRealName(), held.empty() ? "an empty hand" : held, target, gp.key());
-    if (repeat && (kind || held == kEmptyBurner)) return handled();
+    if (repeat && (kind || held == kEmptyBurner)) return ia::Result::Consume;
 
     // blocks of the unit: Create's use() (sneaking with an item places / uses the item instead)
     if (kind && !(sneak && !held.empty())) {
         if (*kind == Kind::Basin) {
             // the filter slot is U3's (value box interaction)
-            if (common::filterslot::slotAt(*clicked, face, localHit(at, hit))) {
-                return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-            }
+            if (common::filterslot::slotAt(*clicked, face, c.hit)) return ia::Result::Pass;
             if (held == kWrench) {
                 if (auto* b = basinops::get(region, gp)) basinops::onWrenched(region, gp, *b, face);
                 return done();
             }
-            if (basinops::use(player, region, gp, item, face)) return done();
+            if (basinops::use(player, region, gp, c.item, face)) return done();
         } else if (*kind == Kind::Burner || *kind == Kind::EmptyBurner || *kind == Kind::LitBurner) {
-            if (burners::use(player, region, gp, item)) return done();
+            if (burners::use(player, region, gp, c.item)) return done();
         }
     }
     // the empty burner on a blaze spawner
     if (held == kEmptyBurner && target == "minecraft:mob_spawner") {
         if (burners::captureFromSpawner(player, region, at)) return done();
     }
-    // placing a block of the unit: orient it afterwards (Create's getStateForPlacement)
-    auto placing = kindOf(held);
-    if (!placing) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    BlockPos dest     = game::replaceable(region, at) ? at : offsetOf(at, face);
-    auto     before   = idAt(region, dest);
-    auto     result   = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto     afterKnd = kindOf(idAt(region, dest));
-    if (afterKnd && idAt(region, dest) != before) orientPlaced(player, region, dest, *afterKnd);
-    return result;
+    return ia::Result::Pass;
 }
 
-LL_TYPE_INSTANCE_HOOK(
-    BasinInteractHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$interact,
-    bool,
-    Actor&      entity,
-    Vec3 const& location,
-    HandSlot    handSlot
-) {
-    Player& player = mPlayer;
-    if (isServerPlayer(player)) {
-        auto const& held = player.getSelectedItem();
-        if (!held.isNull() && held.getTypeName() == kEmptyBurner && burners::captureFromEntity(player, entity)) {
-            player.sendInventory(false);
-            return true;
-        }
-    }
-    return origin(entity, location, handSlot);
+/// Placing a block of the unit: orient it afterwards (Create's getStateForPlacement).
+void onPlaced(ia::PlaceContext const& c) {
+    if (!kindOf(c.itemId)) return;
+    auto kind = kindOf(c.blockId);
+    if (!kind) return;
+    orientPlaced(c.player, c.player.getDimensionBlockSource(), BlockPos{c.pos.x, c.pos.y, c.pos.z}, *kind);
 }
+
+/// The empty blaze burner captures a blaze.
+ia::Result onInteract(ia::EntityContext const& c) {
+    if (!burners::captureFromEntity(c.player, c.entity)) return ia::Result::Pass;
+    c.player.sendInventory(false);
+    return ia::Result::Consume;
+}
+
+} // namespace
 
 // ---- module --------------------------------------------------------------------------------------------
 
@@ -451,8 +407,11 @@ public:
             onBlockChanged(ev);
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { tick(); }));
-        BasinUseItemOnHook::hook();
-        BasinInteractHook::hook();
+        mHandlers = {
+            ia::onUseOn({}, onUseOn),
+            ia::onPlace({}, onPlaced),
+            ia::onInteract({.item = kEmptyBurner}, onInteract),
+        };
         for (auto const* id : {kPress, kMixer}) {
             mSpeedListeners.push_back(k::onSpeedChanged(id, [](k::SpeedChange const& c) { operators::onSpeedChanged(c.pos); }));
         }
@@ -498,8 +457,8 @@ public:
         mListeners.clear();
         for (auto id : mSpeedListeners) k::removeListener(id);
         mSpeedListeners.clear();
-        BasinUseItemOnHook::unhook();
-        BasinInteractHook::unhook();
+        for (auto id : mHandlers) ia::remove(id);
+        mHandlers.clear();
         persist();
     }
 
@@ -616,6 +575,7 @@ private:
 
     std::vector<ll::event::ListenerPtr> mListeners;
     std::vector<k::ListenerId>          mSpeedListeners;
+    std::vector<ia::HandlerId>          mHandlers;
 };
 
 } // namespace lv::feature::basin

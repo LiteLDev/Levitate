@@ -26,6 +26,7 @@
 #include "mc/world/level/dimension/DimensionType.h"
 
 #include "feature/building/Building.h"
+#include "feature/common/Redstone.h"
 #include "game/Blocks.h"
 
 namespace lv::feature::building {
@@ -91,33 +92,15 @@ bool mayBuild(Player const& player) { return player.canUseAbility(AbilitiesIndex
 
 namespace {
 
-/// The neighbour block powers its neighbours (Java's getSignal > 0 for the usual sources).
-bool emitsPower(Block const& block) {
-    std::string const& id = block.getTypeName();
-    if (id == "minecraft:redstone_block" || id == "minecraft:redstone_torch") return true;
-    if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return true;
-    if (id == "minecraft:lever") return game::intState(block, "open_bit").value_or(0) != 0;
-    if (game::intState(block, "button_pressed_bit").value_or(0) != 0) return true;
-    if (id == "minecraft:observer") return game::intState(block, "powered_bit").value_or(0) != 0;
-    if (id == kPlacardId) return game::intState(block, "levitate:powered").value_or(0) != 0;
-    return game::intState(block, "redstone_signal").value_or(0) > 0; // wire, plates, detectors, ...
-}
-
-/// A solid block is strongly powered by a lever / button attached to it, a powered placard
-/// hanging on it, or a redstone torch below it.
-bool stronglyPowered(GlobalPos const& p) {
+/// A powered placard hangs on the solid block at `p` (Create's PlacardBlock.getDirectSignal: it
+/// strongly powers the block it is attached to). Placards are not part of the vanilla circuit, so
+/// the block conducts their power only here.
+bool placardPowersBlock(GlobalPos const& p) {
     for (int d = 0; d < 6; ++d) {
         auto const* n = blockAt(offset(p, d));
-        if (!n || n->isAir()) continue;
-        std::string const& id = n->getTypeName();
-        if (id == "minecraft:lever" && game::intState(*n, "open_bit").value_or(0) != 0) return true;
-        if (game::intState(*n, "button_pressed_bit").value_or(0) != 0 && game::intState(*n, "facing_direction").value_or(d) == d) return true;
-        if (id == kPlacardId && game::intState(*n, "levitate:powered").value_or(0) != 0
-            && game::intState(*n, "levitate:facing").value_or(1) == d) {
-            return true; // the placard faces away from the block it hangs on
-        }
-        if (d == Down && id == "minecraft:redstone_torch") return true;
-        if ((id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator")) return true;
+        if (!n || n->getTypeName() != kPlacardId) continue;
+        // the placard faces away from the block it hangs on
+        if (game::intState(*n, "levitate:powered").value_or(0) != 0 && game::intState(*n, "levitate:facing").value_or(1) == d) return true;
     }
     return false;
 }
@@ -125,14 +108,24 @@ bool stronglyPowered(GlobalPos const& p) {
 } // namespace
 
 bool hasNeighborSignal(GlobalPos const& p) {
+    auto* region = regionOf(p.dim);
+    if (!region) return false;
+    // vanilla sources, conducting blocks and custom signal sources (placards included)
+    if (common::redstone::powered(*region, game::blockPos(p))) return true;
     for (int d = 0; d < 6; ++d) {
         auto        np = offset(p, d);
         auto const* n  = blockAt(np);
         if (!n || n->isAir()) continue;
-        if (emitsPower(*n)) return true;
-        if (n->mCachedComponentData->mIsSolid && !infoOf(*n) && stronglyPowered(np)) return true;
+        if (n->mCachedComponentData->mIsSolid && !infoOf(*n) && placardPowersBlock(np)) return true;
     }
     return false;
+}
+
+void registerPlacardSignal() {
+    // Create's PlacardBlock.getSignal: 15 to every side while powered
+    common::redstone::registerEmitter(kPlacardId, [](BlockSource&, BlockPos const&, Block const& block, int) {
+        return game::intState(block, "levitate:powered").value_or(0) != 0 ? 15 : 0;
+    });
 }
 
 void playSound(GlobalPos const& p, std::string const& sound, float volume, float pitch) {

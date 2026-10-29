@@ -27,6 +27,7 @@
 #include "feature/actors/Actors.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/contraption/ActorsExt.h"
 #include "game/Blocks.h"
 #include "mod/Config.h"
@@ -333,7 +334,14 @@ void psiTick() {
     tickStationary(ticks);
 }
 
-void psiInstall() { caps::items::registerBlock(std::string(kPsi), handler()); }
+void psiInstall() {
+    caps::items::registerBlock(std::string(kPsi), handler());
+    // Create's PortableStorageInterfaceBlock.getAnalogOutputSignal: 15 while connected, else 0
+    common::redstone::registerAnalog(std::string(kPsi), [](BlockSource& region, BlockPos const& pos, Block const&) -> std::optional<int> {
+        auto* s = stationary(game::globalPos(region, pos));
+        return s && s->connected && isConnected(*s) ? 15 : 0;
+    });
+}
 
 void psiClear() { states().clear(); }
 

@@ -37,6 +37,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Filter.h"
 #include "feature/common/FluidRegistry.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "feature/kinetics/Kinetics.h"
@@ -55,6 +56,7 @@ LV_REGISTER_CONFIG("pipes", lv::feature::pipes::PipesConfig);
 namespace lv::feature::pipes {
 
 namespace k  = lv::kinetics;
+namespace ia = common::interactions;
 namespace ft = common::fluidtypes;
 
 // ---- kinetic blocks -----------------------------------------------------------------------------------
@@ -482,7 +484,7 @@ Vec3 localHit(BlockPos const& at, Vec3 const& hit) {
 }
 
 /// Handles the unit's own interactions; true when the click was used.
-bool pipesInteract(Player& player, ItemStack& item, BlockPos const& at, uchar face, Vec3 const& hitIn, Block const& target) {
+bool pipesInteract(Player& player, ItemStack const& item, BlockPos const& at, uchar face, Vec3 const& hitIn, Block const& target) {
     auto k = kindOf(target);
     if (k == BlockKind::None || face > 5) return false;
     std::string held = idOf(item);
@@ -529,42 +531,28 @@ bool placesOurBlock(std::string const& id) { return id == kFluidPipe || id == kP
 
 } // namespace
 
-LL_TYPE_INSTANCE_HOOK(
-    PipesUseItemOnHook,
-    ll::memory::HookPriority::Normal,
-    GameMode,
-    &GameMode::$useItemOn,
-    InteractionResult,
-    ItemStack&      item,
-    BlockPos const& at,
-    uchar           face,
-    Vec3 const&     hit,
-    HandSlot        handSlot,
-    Block const*    targetBlock,
-    bool            isFirstEvent
-) {
-    Player& player = mPlayer;
-    if (player.isClientSide() || !rt().loaded) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-    auto&        region = player.getDimensionBlockSource();
-    Block const& target = targetBlock ? *targetBlock : region.getBlock(at);
-    if (pipesInteract(player, item, at, face, hit, target)) {
-        InteractionResult r{};
-        r.mSuccess = true;
-        r.mSwing   = true;
-        player.sendInventory(false);
-        return r;
+/// The unit's right-clicks (wrench, casing, brackets) and placement intents (U36: on the shared dispatch).
+ia::Result pipesUseOn(ia::UseOnContext const& c) {
+    if (!rt().loaded) return ia::Result::Pass;
+    auto&    region = c.player.getDimensionBlockSource();
+    BlockPos at{c.pos.x, c.pos.y, c.pos.z};
+    Vec3     hit{static_cast<float>(c.hit[0]), static_cast<float>(c.hit[1]), static_cast<float>(c.hit[2])};
+    auto     face = static_cast<uchar>(c.face);
+    if (pipesInteract(c.player, c.item, at, face, hit, c.block)) {
+        c.player.sendInventory(false);
+        return ia::Result::Consume;
     }
-    if (placesOurBlock(idOf(item))) {
+    if (placesOurBlock(c.itemId)) {
         BlockPos place = at;
         if (!game::replaceable(region, at) && face < 6) {
             auto o = cp::offsetOf(static_cast<Face>(face));
             place  = BlockPos{at.x + o.x, at.y + o.y, at.z + o.z};
         }
-        Vec3         look = player.getViewVector();
-        PlaceContext ctx{look.x, look.y, look.z, player.isSneaking()};
+        Vec3         look = c.player.getViewVector();
+        PlaceContext ctx{look.x, look.y, look.z, c.sneaking};
         rt().intents[game::globalPos(region, place)] = ctx;
     }
-    return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
+    return ia::Result::Pass;
 }
 
 // ---- public API of the unit ------------------------------------------------------------------------
@@ -651,12 +639,12 @@ public:
             return true;
         }();
         (void)once;
-        PipesUseItemOnHook::hook();
+        mUseOn = ia::onUseOn({}, pipesUseOn);
         if (game::db::available() && !rt().loaded) loadWorld(); // BDS: the world exists already
     }
 
     void uninstall() {
-        PipesUseItemOnHook::unhook();
+        ia::remove(mUseOn);
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
@@ -665,6 +653,7 @@ public:
 
 private:
     std::vector<ll::event::ListenerPtr> mListeners;
+    ia::HandlerId                       mUseOn = 0;
 };
 
 } // namespace

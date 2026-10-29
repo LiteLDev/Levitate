@@ -34,6 +34,7 @@
 
 #include "core/packages/Address.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/packages/PackagesInternal.h"
 #include "game/Blocks.h"
 
@@ -97,42 +98,9 @@ bool setStates(GlobalPos const& pos, std::vector<std::pair<std::string_view, int
     return game::setBlock(*region, game::blockPos(pos), *next);
 }
 
-namespace {
-std::optional<std::string> strState(Block const& block, char const* key) {
-    auto const& nbt = *block.mSerializationId;
-    if (!nbt.contains("states")) return std::nullopt;
-    auto const& states = nbt["states"];
-    if (!states.is_object() || !states.contains(std::string(key))) return std::nullopt;
-    auto const& v = states[std::string(key)];
-    if (!v.hold(Tag::Type::String)) return std::nullopt;
-    return std::string(v.get<StringTag>());
-}
-} // namespace
-
 bool redstonePowered(GlobalPos const& pos) {
     auto* region = regionOf(pos.dim);
-    if (!region) return false;
-    for (int face = 0; face < 6; ++face) {
-        auto n  = offsetFace(pos, face);
-        auto bp = game::blockPos(n);
-        if (!region->hasChunksAt(bp, 0, false)) continue;
-        auto const& block = region->getBlock(bp);
-        if (block.isAir()) continue;
-        auto id = game::blockId(block);
-        if (id == "minecraft:redstone_block") return true;
-        if (game::intState(block, "redstone_signal").value_or(0) > 0) return true;
-        if (id == "minecraft:lever" && game::intState(block, "open_bit").value_or(0)) return true;
-        if (game::intState(block, "button_pressed_bit").value_or(0)) return true;
-        if (id == "minecraft:observer" && game::intState(block, "powered_bit").value_or(0)) return true;
-        if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") return true;
-        if (id == "minecraft:redstone_torch") {
-            // a torch powers every neighbour except the block it stands on
-            auto t = strState(block, "torch_facing_direction").value_or("top");
-            int  support = t == "top" || t == "unknown" ? 0 : t == "north" ? 3 : t == "south" ? 2 : t == "west" ? 5 : t == "east" ? 4 : 0;
-            if (offsetFace(n, support) != pos) return true;
-        }
-    }
-    return false;
+    return region && common::redstone::powered(*region, game::blockPos(pos));
 }
 
 std::optional<std::string> signText(GlobalPos const& pos) {
