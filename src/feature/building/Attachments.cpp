@@ -1,6 +1,7 @@
 // Building unit: blocks that hold an item (BlockData["building"]):
 // - placard: shows one item; a matching item inserted emits a 19-tick redstone pulse; punching
-//   takes the item back (Create's PlacardBlock).
+//   takes the item back (Create's PlacardBlock). The client mod draws the item on the plate
+//   (display item, feature/itemrender).
 // - copycat panel / step: the applied block ("material") and the item it consumed; the wrench
 //   resets it (Create's CopycatBlock).
 // - brackets: metal / wooden brackets applied to shafts, cogwheels and pipes (Create's
@@ -22,6 +23,7 @@
 #include "feature/common/BlockData.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
 
@@ -55,7 +57,31 @@ void setUnitValue(GlobalPos const& pos, char const* key, nlohmann::json value) {
     if (value.is_null()) u.erase(key);
     else u[key] = std::move(value);
     if (u.empty()) doc.erase(kDataKey);
+    itemrender::refresh(pos); // the placard's item for the client mod
 }
+
+/// The placard's item for the client mod (Create's PlacardRenderer): on the front of the plate
+/// (3 px thick, against the block it hangs on), facing out, half a block big.
+void placardDisplay(GlobalPos const& pos, Block const& block, std::vector<std::pair<std::int64_t, itemrender::DisplayItem>>& out) {
+    ItemStack item = heldItemOf(pos, "item");
+    if (item.isNull()) return;
+    static constexpr int kNormal[6][3]{{0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}};
+    int  facing = std::clamp(stateOf(block, "levitate:facing", 2), 0, 5);
+    auto n      = kNormal[facing];
+    double const front = -.5 + 3 / 16.0 + .01; // from the centre along the facing
+    itemrender::DisplayItem d;
+    d.stack    = item;
+    d.at       = itemrender::facingFace(facing);
+    d.at.x     = pos.x + .5 + n[0] * front;
+    d.at.y     = pos.y + .5 + n[1] * front;
+    d.at.z     = pos.z + .5 + n[2] * front;
+    d.at.scale = .5f;
+    out.emplace_back(0, std::move(d));
+}
+
+struct PlacardItems {
+    PlacardItems() { itemrender::registerProvider(kPlacardId, placardDisplay); }
+} const gPlacardItems;
 
 /// The block a block item places, nullptr if the item isn't a block item.
 Block const* blockOfItem(ItemStack const& stack) {

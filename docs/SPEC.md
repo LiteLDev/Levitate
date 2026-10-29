@@ -808,7 +808,22 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   Units use `net::on(channel, fn)` / `net::send(player, channel, json)` on the server and
   `net::client::on` / `net::client::send` on the client; `net::onCompanionJoined` sends a player
   the full state after the handshake. Typed channels so far: `screen.open/update/close/action`,
-  `valuebox.open/set`, `common.hover`, `kinetics.sync` (§3.1), `tracks.curves` (§3.5).
+  `valuebox.open/set`, `common.hover`, `kinetics.sync` (§3.1), `tracks.curves` (§3.5),
+  `itemrender.batch/query/reset`.
+- **Display items** (U33, server `src/feature/itemrender/DisplayItems.h`, client
+  `src/client/render/WorldItems.h`): items the client mod draws in the world for blocks (Create's
+  block entity renderers draw them). A unit publishes items per (owner block, slot): live items
+  with `set` / `remove` / `clear` every time they change (`lerpTicks` = ticks the client takes to
+  move there, 1 for items moved every tick), provided items through a provider per block id that
+  builds them from block data when a client mod first sees such a block (`itemrender.query`) or the
+  unit calls `refresh(owner)`; provided items go by themselves when the block changes. Companions
+  within 64 blocks get `itemrender.batch {dim, set, move, del}` (core/itemrender/DisplayItem.h:
+  item, position, yaw / pitch / roll, size, style Facing (item frame look) or Lying (belt look),
+  spin, pile, fallback entity to hide). The client interpolates and draws them with the game's own
+  item models (`ItemInHandRenderer::renderItem` at a world matrix: block items as cubes, sprites
+  as flat items), lit like held items; client code that already animates something draws items
+  with `render::drawItem`. Vanilla clients get nothing: each unit keeps its fallback (§8).
+  `/create itemrender demo x y z` (op) shows a test pattern, `/create itemrender clear` removes it.
 - **Screens** (server side `src/feature/common/Screens.h`): `screens::registerType({id, data,
   action, form})`, `screens::open(player, type, context)` → native screen for companions
   (`screen.open {type, context, data}`), the form for vanilla players. Native actions come back
@@ -3517,7 +3532,7 @@ matches Create's official Chinese translation wording).
 | "Hold Ctrl for maximized turn" (U5) | the server can't see a held key without the client mod | the player's sprint state is used (sprinting = maximized) |
 | Tilted tracks between two sloped curves (U5) | Create re-shapes the curves and tilts the block model at runtime | curves keep their original handles; the middle track stays flat |
 | Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
-| Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
+| Filter slot items rendered on the block face for **vanilla** clients | no item rendering hooks for vanilla clients | the client mod draws the filter item on every face its slot is on, facing out, a quarter block big (display items, U33), and the hover label names it; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
 | PSI comparator output (U22) | a data-driven block can't give a comparator signal (the block type's comparator virtuals are folded game functions that can't be hooked per block) | the `levitate:extended` state shows the connection |
 | Actors dropping off when the block behind them goes (U22) | data-driven blocks get no neighbour updates and placement filters can't follow a facing state | they stay; they still move with the block behind them |
@@ -3531,7 +3546,7 @@ matches Create's official Chinese translation wording).
 | Vanilla repeater / comparator facing in the input reader (U23) | a repeater set by a command keeps an unpowered circuit, so the selftests can't build one; the circuit direction is the game's legacy 2D direction | read from the circuit component (`getDirection`, 2D → face); covered by vanilla play, not by a selftest |
 | Item / block icons of the redstone link: Create draws the upward link | block item icons use the default permutation (facing 0 = down) | `minecraft:item_visual` with the upward geometry |
 | Redstone input of the mechanical crafter (U16) | custom blocks get no redstone neighbour update | the crafter polls the power of its neighbours every tick (same sources as the sticker) |
-| Crafter items on the crafter's face (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it, and the client mod's attempt (the GUI item renderer in the world's block entity pass) draws nothing visible yet | every client sees the blocks, the crit particles, the sounds and the result popping out; the client mod already tracks the animation state, a world-space item renderer is still to be done |
+| Crafter items on the crafter's face for **vanilla** clients (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it | the client mod draws the slot item, the grouped grid, the exported grid sliding to the next crafter and the growing result with the world item renderer (U33); every client sees the blocks, the crit particles, the sounds and the result popping out |
 | Saw output only into blocks with Create's DirectBeltInputBehaviour (U16) | the item capability doesn't say whether a block takes "direct belt input" | the saw (and its belt neighbours) hands its items to Levitate blocks with an item handler except vaults; vanilla containers next to a saw are skipped as in Create |
 | Sequenced assembly steps on the saw (U16) | the sequenced assembly state belongs to U15 | the saw cuts plain `cutting` recipes; U15 adds the sequenced cutting step |
 | Block break sounds of the drill / saw per block sound type (U16) | the server can't name a block's hit sound for a PlaySound packet | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone` by the block id |
@@ -3546,7 +3561,7 @@ matches Create's official Chinese translation wording).
 | Package filters in U3's filter slots (U25) | `filter::matches` (U3) only knows list / attribute filters | `packages::filterMatches` implements Create's rule; U3's matcher must delegate `levitate:package_filter` to it (follow-up, called out in the U25 PR) |
 | Spawn eggs inside opened packages spawn their mob (U25) | the server would need the egg's spawn logic | the egg is given to the player like any item |
 | Adding a port's address to a held clipboard (U25) | the clipboard and its data are U24's | no-op until U24 exposes clipboard pages |
-| Items floating in the basin (U14) | the client mod has no world-space item renderer yet | the fluid surface is drawn; the items are taken out with an empty hand or seen by funnels; a later U14 PR draws them once an item renderer exists |
+| Items floating in the basin for **vanilla** clients (U14) | no item rendering hooks for vanilla clients | the client mod draws the stacks inside (Create's ring around the centre, tilted, slowly turning, bobbing on the fluid, one more copy per 8 items) with the world item renderer (U33) and the fluid surface; vanilla clients see the basin; the items are taken out with an empty hand or seen by funnels |
 | Basin / blaze burner comparator output (U14) | custom blocks can't provide a comparator signal | none yet (Create: basin inputs fill level; burner heat − 1; lit burner 1 / 2) |
 | Hollow basin collision (U14) | a custom block has a single collision box | full-block collision; item entities resting on top are collected as if they fell in |
 | Press on a moving belt (U14) | no belt contract to hold an item under the press | items on a depot or belt below are pressed through the item capability (one per cycle) |
@@ -3582,7 +3597,7 @@ matches Create's official Chinese translation wording).
 | Steam particles of whistles / engines as Create's custom steam jet particle (U18) | no custom particle shipped yet | vanilla's water evaporation particle at the whistle's mouth / the engine's front, for every client |
 | Deployer fake player (U15) | Bedrock has no fake players | one simulated player per dimension ("Deployer", invisible, invulnerable, survival) acts for every deployer: it is moved into the hand for each action and waits above the build limit in between; it shows in the player list |
 | Redstone input of the deployer and the arm (U15) | custom blocks get no neighbour updates | power is polled every tick (same sources as the sticker) |
-| Item held by a deployer drawn in its hand, item held by the arm (U15) | no world-space item renderer in the client mod yet | the hand pose shows whether it holds something; the item is in the goggles / log; vanilla clients see static models |
+| Item held by a deployer drawn in its hand, item held by the arm, for **vanilla** clients (U15) | no item rendering hooks for vanilla clients | the client mod draws the held item in the moving hand and between the arm's claws (world item renderer, U33; the server sends the stack with the animation state); vanilla clients see static models, the hand pose shows whether it holds something |
 | Transitional item progress bar and tooltip (U15) | item bars come only from durability and tooltips are client-side | the tooltip lines are the item's lore (server language); no bar |
 | Deployer kills dropping no experience (U15) | Bedrock has no hook between a kill and its orbs | orbs drop as for a player kill; item drops go into the deployer |
 | Deployer "fist bump" easter egg (U15) | cosmetic advancement only | not reproduced |
@@ -3614,7 +3629,7 @@ matches Create's official Chinese translation wording).
 | Text input in native screens (U29) | the screen framework sees key codes, not text | the quill prompt and the coordinates screen take letters, digits, space, `-`, `_`, `.`; other characters through the form fallback |
 | Sequenced gearshift distance limits on pistons / gantries (U20) | Create passes the sequence context through its kinetic block entities; the U2 contract has no such channel | pistons and gantries run until their end / collision |
 
-| Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer (U11) | Bedrock has no item renderer for vanilla clients, and the client framework has no world-space item renderer yet | the server shows each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick; for every client, the client mod included); with `displayItems` off nothing is shown |
+| Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer, for **vanilla** clients (U11) | Bedrock has no item renderer for vanilla clients | the client mod draws each stack (display items, U33: lying, half size, a pile for bigger stacks, interpolated between ticks) and does not draw the fallback; vanilla players see each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick); with `displayItems` off they see nothing |
 | Sloped belt collision shape (U11) | a custom block has one collision box | slopes collide as a half slab; entities are carried up / down by the belt code |
 | Casing drawn on sloped / vertical belts (U11) | the sloped casing would leave the block geometry bounds | the casing state is kept (and removable with the wrench) but only horizontal belts draw it |
 | Belt drops when exploded or removed by commands (U11) | the server can't tell an explosion from a command removing the block | the connector / shaft drops only for survival players breaking the belt; items on it always drop |
@@ -3644,7 +3659,7 @@ matches Create's official Chinese translation wording).
 | Text fields in the native station / schedule screens (U27) | the native screen framework has no text input | the name / filter buttons open the server's form for that field |
 Units add rows here in their PRs when they find something else impossible.
 
-| Items drawn inside chutes by a block entity renderer (U12) | custom blocks have no block entity renderers | client-only display item entities (packets only, never a server entity, so nobody can pick them up) follow each moving stack; vanilla clients and the client mod see the same |
+| Items drawn inside chutes by a block entity renderer, for **vanilla** clients (U12) | custom blocks have no block entity renderers | the client mod draws the moving stack (display item, U33, interpolated); vanilla clients get client-only item entities (packets only, never a server entity, so nobody can pick them up) that follow each moving stack |
 | Smooth (lerped) funnel flaps (U12) | no per-frame block animation for custom blocks without a renderer | the flap is a block state shown for 4 ticks after a transfer (both kinds of clients) |
 | Editing a filter's amount by *holding* the filter slot (U12) | the server sees no held click (see the value box row) | brass funnels and smart chutes have a separate "Extracted Amount" value box next to the filter slot |
 | Funnel / smart chute redstone input by neighbour updates (U12) | custom blocks get no redstone neighbour update | polled every 2 ticks like the sticker (same sources) |
@@ -3662,7 +3677,7 @@ Units add rows here in their PRs when they find something else impossible.
 | Climbable ladders / scaffolding, multi-box collision (U10) | no JSON component for either | the block types get the Climbable property and a collision hook (server and client mod); vanilla clients are corrected by the server's movement authority, so climbing and stairs feel slightly rubbery for them |
 | Sliding door animation, open panel beyond the block (U10) | Bedrock models are static per state and must fit 30 px | the open state shows the slid / folded panel clipped to the model bounds, no sliding animation |
 | Door / trapdoor redstone input (U10) | custom blocks get no neighbour updates | polled every 2 ticks from adjacent power sources (wire, levers, buttons, torches, repeaters, comparators, observers, plates, placards, blocks strongly powered by them); the direction of wire / repeaters is not checked |
-| Item on the placard, copycat material, brackets drawn on vanilla clients (U10) | a block model can't show another item / block | the data and every behaviour exist on both; vanilla clients see the placard frame, the copycat base and the plain shaft; drawing them is the client mod's job (not yet) |
+| Item on the placard, copycat material, brackets drawn on vanilla clients (U10) | a block model can't show another item / block | the data and every behaviour exist on both; the client mod draws the placard's item on its plate (display item, U33); vanilla clients see the placard frame, the copycat base and the plain shaft; the copycat material and brackets are not drawn by the client mod yet (they need block models in the shape of the copycat, not items) |
 | Copycat material state cycling (U10) | Bedrock block items always place their default state | materials are applied in their default state; clicking again with the same block does nothing |
 | Placement helpers of girders / table cloths (U10) | — (not done yet) | girders and table cloths are placed like normal blocks |
 | Redstone neighbour updates of the clutch, gearshifts and sequenced gearshift (U6) | custom blocks get no redstone neighbour update | they read their neighbours' signal from the circuit system every tick (same reaction time as Create's scheduled tick); the sequenced gearshift reacts to power *changes* only, as Create's neighbour updates |
@@ -3749,6 +3764,7 @@ section `<unit>`, lang files `<unit>.json`, e2e scenarios `<unit>.ps1`, texture 
 | U29 | `schematics` | §2.24 |
 | U30 | `ponder` | Ponder (client) |
 | U31 | `equipment` | §2.25 |
+| U33 | `itemrender` | display items (§3.3): the client mod's world item renderer and its use by belts, chutes, filters, placards, deployers, crafters and basins |
 
 Cross-unit integration (e.g. a funnel on a belt, a spout over a depot, a deployer on a contraption)
 goes through wave-1 contracts (capabilities, actors, BlockData); a unit never includes another

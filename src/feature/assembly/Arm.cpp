@@ -333,7 +333,8 @@ void syncState(GlobalPos const& pos, Runtime& r, BlockSource& region) {
          {"to", angles(to)},
          {"target", has},
          {"ceiling", ceiling},
-         {"held", items::isEmpty(r.held) ? "" : items::idOf(r.held)}}
+         {"held", items::isEmpty(r.held) ? "" : items::idOf(r.held)},
+         {"heldItem", items::isEmpty(r.held) ? Json() : items::toJson(r.held)}}
     );
 }
 
