@@ -1,0 +1,33 @@
+{
+  "id": "hand_crank",
+  "size": [5, 5],
+  "blocks": [
+    {"at": [4, 1, 2], "id": "levitate:hand_crank", "states": {"levitate:facing": 4}},
+    {"area": [[1, 1, 2], [3, 1, 2]], "id": "levitate:shaft", "states": {"levitate:axis": 0}},
+    {"at": [0, 1, 2], "id": "levitate:speedometer", "states": {"levitate:facing": 1, "levitate:along_first": 1}}
+  ],
+  "timeline": [
+    {"show": "base", "from": "up"},
+    {"idle": 10},
+    {"show": [[0, 1, 2], [3, 1, 2]], "from": "down"},
+    {"idle": 10},
+    {"show": [4, 1, 2], "from": "west"},
+    {"idle": 15},
+    {"text": 1, "at": [4.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"input": [4.7, 1.5, 2.5], "action": "right", "ticks": 50, "keyframe": true},
+    {"rotate": [[0, 1, 2], [4, 1, 2]], "rpm": 32},
+    {"idle": 10},
+    {"text": 2, "at": [4.7, 1.5, 2.5], "ticks": 50, "keyframe": true},
+    {"idle": 50},
+    {"rotate": [[0, 1, 2], [4, 1, 2]], "rpm": 0},
+    {"idle": 20},
+    {"input": [4.7, 1.5, 2.5], "action": "right", "sneak": true, "ticks": 50, "keyframe": true},
+    {"rotate": [[0, 1, 2], [4, 1, 2]], "rpm": -32},
+    {"idle": 10},
+    {"text": 3, "at": [4.7, 1.5, 2.5], "ticks": 50, "keyframe": true},
+    {"idle": 50},
+    {"rotate": [[0, 1, 2], [4, 1, 2]], "rpm": 0},
+    {"idle": 30}
+  ]
+}

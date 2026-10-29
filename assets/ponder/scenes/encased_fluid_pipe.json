@@ -1,0 +1,40 @@
+{
+  "id": "encased_fluid_pipe",
+  "size": [5, 5],
+  "blocks": [
+    {"at": [0, 1, 2], "id": "levitate:fluid_tank", "states": {"levitate:above": 0, "levitate:below": 0, "levitate:shape": 0}},
+    {"at": [4, 1, 2], "id": "levitate:fluid_tank", "states": {"levitate:above": 0, "levitate:below": 0, "levitate:shape": 0}},
+    {"at": [1, 1, 2], "id": "levitate:fluid_pipe", "states": {"levitate:down": 0, "levitate:up": 0, "levitate:north": 0, "levitate:south": 0, "levitate:west": 1, "levitate:east": 1, "levitate:rim_a": 0, "levitate:rim_b": 2}},
+    {"at": [2, 1, 2], "id": "levitate:fluid_pipe", "states": {"levitate:down": 0, "levitate:up": 0, "levitate:north": 0, "levitate:south": 0, "levitate:west": 1, "levitate:east": 1, "levitate:rim_a": 0, "levitate:rim_b": 0}},
+    {"at": [3, 1, 2], "id": "levitate:fluid_pipe", "states": {"levitate:down": 0, "levitate:up": 0, "levitate:north": 0, "levitate:south": 0, "levitate:west": 1, "levitate:east": 1, "levitate:rim_a": 0, "levitate:rim_b": 4}},
+    {"at": [2, 1, 3], "id": "levitate:fluid_pipe", "states": {"levitate:down": 0, "levitate:up": 0, "levitate:north": 1, "levitate:south": 1, "levitate:west": 0, "levitate:east": 0, "levitate:rim_a": 4, "levitate:rim_b": 1}}
+  ],
+  "timeline": [
+    {"show": "base", "from": "up"},
+    {"idle": 10},
+    {"show": [0, 1, 2], "from": "down"},
+    {"idle": 5},
+    {"show": [4, 1, 2], "from": "down"},
+    {"idle": 5},
+    {"show": [[1, 1, 2], [3, 1, 2]], "from": "down"},
+    {"idle": 20},
+    {"input": [2.5, 1.5, 2.5], "action": "right", "item": "levitate:copper_casing", "ticks": 40},
+    {"idle": 10},
+    {"set": [2, 1, 2], "id": "levitate:encased_fluid_pipe", "states": {"levitate:west": 1, "levitate:east": 1}},
+    {"idle": 10},
+    {"text": 1, "at": [2.5, 1.5, 2.5], "ticks": 60, "keyframe": true},
+    {"idle": 70},
+    {"text": 2, "at": [2.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80},
+    {"show": [2, 1, 3], "from": "north"},
+    {"idle": 15},
+    {"outline": {"union": [[2, 1, 2], [2, 1, 3]]}, "color": "red", "ticks": 60},
+    {"text": 3, "at": [2.5, 1.5, 3.5], "ticks": 60, "color": "red", "keyframe": true},
+    {"idle": 70},
+    {"destroy": [3, 1, 2]},
+    {"idle": 15},
+    {"outline": [2, 1, 2], "color": "white", "ticks": 60},
+    {"text": 4, "at": [2.5, 1.5, 2.5], "ticks": 60, "keyframe": true},
+    {"idle": 70}
+  ]
+}

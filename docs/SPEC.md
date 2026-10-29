@@ -2933,6 +2933,56 @@ Persistence: the blocks (target, bound point, side, cached type and power) in `l
 edge points are stored with the track graph (U5); observer filters in BlockData; sections,
 occupancy and reservations are rebuilt (trains report again after a load).
 
+### 3.6.30 Ponder (U30)
+
+Checked against Create 6.0.10 (`AllCreatePonderScenes`, `AllCreatePonderTags`) and the Ponder
+library it ships with (PonderUI, PonderTagScreen, PonderTagIndexScreen, PonderTooltipHandler).
+Client mod only (§8); the server side is `/create ponder`.
+
+- **Entries and scenes**: `assets/ponder/index.json` lists every component with Ponder scenes in
+  Create's registration order (156 entries: Create's components with our ids, e.g. the 16 dyed
+  valve handles, the 11 postboxes, the 19 table cloths) and each component's scenes in Create's
+  order; the 167 scenes are Create's scene ids (`create.ponder.<id>.header` / `.text_<n>`, e.g.
+  `shaft`, `cog_speedup`, `funnel_intro`, `train_assembly`, `factory_gauge_links`). Each scene is
+  our own script (`assets/ponder/scenes/<id>.json`, format in `src/core/ponder/Scene.h`) teaching
+  the same steps as Create's lesson; titles keep Create's wording, the bubble texts are our own
+  (en_US + zh_CN). Blocks use the SPEC ids; an id that is not registered (yet) is drawn as a
+  placeholder outline and the scene plays on.
+- **Tags** (categories, Create's order and membership, with Create's titles / descriptions):
+  kinetic_relays, kinetic_sources, kinetic_appliances, fluids, logistics, high_logistics,
+  redstone, decoration, creative, movement_anchor, contraption_actor, contraption_assembly
+  (all on the index), windmill_sails, arm_targets, train_related (index), display_sources,
+  display_targets, threshold_switch_targets.
+- **Opening**: hovering an item with scenes in any container screen (inventory, creative
+  inventory, chests) shows "Hold [W] to Ponder" with Create's progress bar; holding the Ponder key
+  (W) fills it with Create's curve (`p = min(1, p + max(0.25, p) · 0.25)` per tick, about 11
+  ticks; released: −0.05 per tick) and opens the item's first scene. `/create ponder` opens the
+  index, `/create ponder <id>` an entry (`shaft`, `levitate:shaft`) or a tag (`kinetic_relays`).
+- **Scene player** (PonderUI): "Pondering about..." with the scene title and the subject item
+  (tooltip "Subject of this scene"); the scene drawn in 3D with the game's block renderer from
+  the south-west, 30° from above (drag with the left button to turn it); scene dots; the timeline
+  with key frames (click: jump, snapping to key frames); text bubbles pointing at their target
+  (Create's palette colours); outlines, hand / mouse-button / item / Sneak + / Ctrl + indicators,
+  redstone sparks, floating items, sections that slide and turn (contraptions), kinetic blocks
+  turning at their RPM (0.3° per tick per RPM, rotor parts as the kinetics renderer); blocks fade in
+  sliding from a direction. Buttons and keys as Create: previous / next scene (A / D, mouse
+  wheel), Close (Esc), Identify (Q: pauses, the hovered block's name; "Identify mode active.
+  Unpause with [Q]"), Comfy Reading (half speed while a text is shown), Replay (S), Think Back
+  (back to the previous Ponder screen). When a scene ends the next button lights up with
+  "Up Next: <title>". The subject's tags are listed on the left (click: the tag screen).
+- **Index** ("Welcome to Ponder", "Available Categories for Create"): the index tags; a tag opens
+  its screen (title, description, "Associated Entries"; entries without scenes are greyed out);
+  "Ponder Index" lists every entry.
+- **Command**: `/create ponder [id]` (anyone) resolves the id on the server (index + tags) and
+  sends `ponder.open {id}` to a companion; the console gets "Only players can ponder.", vanilla
+  clients "Ponder needs the Levitate client mod.", unknown ids "There is nothing to ponder about
+  <id>.".
+- **Log lines** (e2e): `ponder: loaded N scenes for M entries`, `ponder: hovering <id>`,
+  `ponder: held W over <id>`, `ponder: opened <id> (N scenes)`, `ponder: scene <id> (i/n) of
+  <component>`, `ponder: scene <id> drawn (N blocks, M placeholders)`, `ponder: identify mode
+  on|off`, `ponder: replay <id>`, `ponder: closed <id>`, `ponder: tag <id> opened`,
+  `ponder: index of N categories opened`.
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -2953,7 +3003,7 @@ Each screen: native (client mod) + form fallback (vanilla). Owner unit in bracke
 | Train schedule editor | right-click with schedule | U27 |
 | Station (name, assemble/disassemble, door control) | right-click station | U27 |
 | Crafting blueprint | right-click | U29 |
-| Ponder | W over item (client mod) | U30 |
+| Ponder scene player, tag screen, index (§3.6.30; client mod only, no form: §8) | hold W over an item, `/create ponder [id]` | U30 |
 | Threshold switch (`redstone.threshold_switch`; the smart observer has only a filter slot) | right-click | U23 |
 
 ## 5. Configuration
@@ -3050,6 +3100,10 @@ generators' own behaviour (U7, U18, U21), not a config value.
 
 `config/generators.json` (U7): `crankHungerMultiplier` (0.01, exhaustion per hand crank use per RPM).
 
+`config/ponder.json` (U30, client mod): `comfyReading` (false, Create's client option),
+`holdSpeed` (1, scales the hold-to-ponder time), `depthScale` (0.1, depth of scene blocks in the
+UI pass), `placeholderColour` (outline of unregistered blocks).
+
 `config/materials.json` (U9): `disableWorldGen` (false, CWorldGen), `lightSourceCountForRefinedRadiance`
 (10), `enableRefinedRadianceRecipe` (true), `enableShadowSteelRecipe` (true) (CRecipes).
 
@@ -3062,7 +3116,7 @@ generators' own behaviour (U7, U18, U21), not a config value.
 | `/create killtrain <name>`, `/create trains` | op | U27 |
 | `/create glue clear [radius]` (Create's `/create clearglue`; default 16, around the sender) | op | U4 |
 | `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
-| `/create ponder <id>` (client mod) | anyone | U30 |
+| `/create ponder [id]` (client mod; no id: the index; an entry or a tag id) | anyone | U30 |
 | `/create highlight <pos>` | op | U3 |
 | `/create schematic list` (the caller's stored schematics), `/create schematic give <file>` (op: a written schematic of one of them) | anyone / op | U29 |
 | `/create overlay` (overlay position screen, client mod) / `/create overlay reset` | anyone | U8 |
@@ -3220,6 +3274,12 @@ matches Create's official Chinese translation wording).
 | Funnel / smart chute redstone input by neighbour updates (U12) | custom blocks get no redstone neighbour update | polled every 2 ticks like the sticker (same sources) |
 | Comparators reading a vault (U12) | Bedrock only asks container blocks for analog signals | the vault's signal is handed to the comparator's circuit component before it evaluates (ComparatorCapacitor hook) |
 | Belt funnels, tunnels on belts, chutes pulling from belts (U12) | waiting for U11's belt | the hooks exist (`beltlink`, FunnelsExt.h); tunnels already work with any registered segment |
+| Ponder for **vanilla** clients (U30) | a scene player needs client-side 3D rendering of a private scene; forms can't draw blocks | Ponder is client mod only; `/create ponder` tells vanilla players it needs the client mod |
+| Ponder scenes as Create's scene code and NBT schematics (U30) | Create's scenes are Java code over its own schematics (and copying them is not allowed) | our own scene scripts as data (`assets/ponder/scenes/*.json`) teaching the same steps; titles keep Create's wording, the texts are our own |
+| Entities, flowing fluids and particles inside Ponder scenes (U30) | the scene is drawn from blocks only (no private level with entities / fluid renderers) | items float as item icons, mobs / minecarts are shown as their item, water and lava blocks as tinted still-fluid cubes, fluid flow in pipes / tanks with coloured outlines, redstone with red sparks |
+| Fading blocks in Ponder (U30) | the UI pass draws block meshes with the opaque / alpha-test block material only | blocks slide in from their direction and grow from 40 % to full size while they appear |
+| "Hold [W] to Ponder" inside the item tooltip (U30) | Bedrock's hover text is built by the UI, not by item tooltip callbacks | the hint and its progress bar are drawn at the top of the screen while a ponderable item is hovered |
+| Ponder's own rebindable key (U30) | no key binding registry for mods | W, Create's default (the scene keys A / D / Q / S as Create's) |
 
 | Create's connected-texture corners (U10) | a Bedrock face picks its texture from block states; inner corners would need the 12 diagonal neighbours as states | faces join along their four edges (6 neighbour states, 16 textures); the small inner-corner notch of Create's CTM is not drawn; glass panes don't connect their textures |
 | Random ticks of copper roofing (U10) | data-driven blocks get no random ticks without scripting | the unit keeps the positions of its weathering blocks (saved with the world) and ticks them at the game's `randomTickSpeed` rate |

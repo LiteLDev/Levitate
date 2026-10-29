@@ -132,6 +132,20 @@ local function merge_texts(src, dst)
     json.savefile(path.join(dst, "texts", "languages.json"), locales)
 end
 
+-- Ponder scenes and index (U30): assets/ponder/** -> ponder/** (read by the client mod's Ponder and
+-- by `/create ponder` on the server); the previous copy is replaced.
+local function copy_ponder(projectdir, outdir)
+    local src = path.join(projectdir, "assets", "ponder")
+    local dst = path.join(outdir, "ponder")
+    os.tryrm(dst)
+    if not os.isdir(src) then return end
+    for _, file in ipairs(os.files(path.join(src, "**.json"))) do
+        local target = path.join(dst, path.relative(file, src))
+        os.mkdir(path.directory(target))
+        os.cp(file, target)
+    end
+end
+
 -- Processing recipes (Create's recipe types) for the U3 loader: copied as they are, the
 -- previous copy is replaced so deleted recipes disappear.
 local function copy_recipes(projectdir, outdir)
@@ -169,6 +183,7 @@ function main(target, target_type)
 
     merge_lang(projectdir, path.join(outdir, "lang"))
     copy_recipes(projectdir, outdir)
+    copy_ponder(projectdir, outdir)
 
     local version = {major, minor, patch}
     if major == 0 and minor == 0 and patch == 0 then version = {0, 0, 1} end -- packs reject 0.0.0

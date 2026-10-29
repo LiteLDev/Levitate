@@ -1,0 +1,42 @@
+{
+  "id": "mechanical_drill_contraption",
+  "size": [7, 5],
+  "scale": 0.9,
+  "blocks": [
+    {"at": [0, 1, 4], "id": "levitate:gantry_shaft", "states": {"levitate:facing": 4, "levitate:part": 2, "levitate:powered": 0}},
+    {"area": [[1, 1, 4], [4, 1, 4]], "id": "levitate:gantry_shaft", "states": {"levitate:facing": 4, "levitate:part": 1, "levitate:powered": 0}},
+    {"at": [5, 1, 4], "id": "levitate:gantry_shaft", "states": {"levitate:facing": 4, "levitate:part": 0, "levitate:powered": 0}},
+    {"at": [6, 1, 4], "id": "levitate:creative_motor", "states": {"levitate:facing": 4}},
+    {"at": [5, 1, 3], "id": "levitate:gantry_carriage", "states": {"levitate:facing": 2, "levitate:axis_first": 1}},
+    {"at": [5, 1, 2], "id": "levitate:mechanical_drill", "states": {"levitate:facing": 4}},
+    {"area": [[1, 1, 1], [3, 2, 2]], "id": "minecraft:stone"}
+  ],
+  "timeline": [
+    {"show": "base", "from": "up"},
+    {"idle": 15},
+    {"show": [[1, 1, 1], [3, 2, 2]], "from": "down"},
+    {"idle": 10},
+    {"show": [[0, 1, 4], [6, 1, 4]], "from": "down"},
+    {"idle": 10},
+    {"show": [[5, 1, 2], [5, 1, 3]], "from": "west", "as": "rig"},
+    {"idle": 10},
+    {"rotate": [[0, 1, 4], [6, 1, 4]], "rpm": 16},
+    {"text": 1, "at": [5.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"move": "rig", "by": [-1, 0, 0], "ticks": 30},
+    {"idle": 30},
+    {"idle": 20},
+    {"destroy": [3, 1, 2]},
+    {"item": "minecraft:cobblestone", "at": [3.5, 1.3, 2.5], "to": [3.5, 1.2, 1.8], "ticks": 20},
+    {"move": "rig", "by": [-1, 0, 0], "ticks": 30},
+    {"idle": 30},
+    {"idle": 20},
+    {"destroy": [2, 1, 2]},
+    {"item": "minecraft:cobblestone", "at": [2.5, 1.3, 2.5], "to": [2.5, 1.2, 1.8], "ticks": 20},
+    {"move": "rig", "by": [-1, 0, 0], "ticks": 30},
+    {"idle": 30},
+    {"rotate": [[0, 1, 4], [6, 1, 4]], "rpm": 0},
+    {"idle": 10},
+    {"text": 2, "at": [2.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
+    {"idle": 80}
+  ]
+}
