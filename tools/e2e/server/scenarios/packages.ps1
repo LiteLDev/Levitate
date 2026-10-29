@@ -9,7 +9,7 @@ Wait-Seconds 3
 Send-Console 'setblock 4 -60 4 chest'
 Send-Console 'setblock 5 -60 4 levitate:packager ["levitate:facing"=5]'
 Wait-Seconds 1
-Send-Console 'item replace block 4 -60 4 slot.container 0 with cobblestone 32'
+Send-Console 'replaceitem block 4 -60 4 slot.container 0 cobblestone 32'
 Wait-Seconds 1
 $mark = Get-LogMark
 Send-Console 'setblock 5 -59 4 redstone_block'

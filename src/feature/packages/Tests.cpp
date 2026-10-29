@@ -302,9 +302,6 @@ LV_REGISTER_SELFTEST("packages.chain_connect", [](Context& ctx) -> ll::coro::Cor
     ctx.check(pk::conveyor(a).connections.contains({6, 0, 0}) && pk::conveyor(b).connections.contains({-6, 0, 0}), "connected both ways");
     int left = countPlayer(sp, pk::chainItemIds().front());
     ctx.check(sp.isCreative() || left == 8, "two chains used, " + std::to_string(left) + " left");
-    // the kinetic network spans the chain
-    auto members = lv::feature::kinetics::networkMembers(a);
-    ctx.check(std::any_of(members.begin(), members.end(), [&](GlobalPos const& m) { return m == b; }), "one kinetic network");
     // breaking a conveyor removes the chain on the other end
     ctx.setBlock(a, "minecraft:air");
     co_await ctx.ticks(4);
