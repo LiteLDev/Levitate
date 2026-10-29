@@ -539,16 +539,42 @@ Package"), `package_filter`. `filter` + `attribute_filter` are U3. Mechanics in 
 `stock_link`, `stock_ticker`, `factory_gauge`, `redstone_requester`, `blaze_burner` shopkeeper role on
 `<colour>_table_cloth`, `shopping_list` (item).
 
+- `stock_link` (Create's packager link): face-attached like a lever (`levitate:face` 0 floor /
+  1 wall / 2 ceiling, `levitate:facing` Java 2D facing, `levitate:powered`); it belongs to the
+  packager it is attached to. `stock_ticker`: `levitate:facing` (faces the player, sneak reverses).
+  `factory_gauge`: face-attached, `levitate:panels` = bitmask of its 4 panels (each panel is a
+  quadrant of the model; bone visibility follows the mask). `redstone_requester`: `levitate:axis`
+  (0 x / 1 z, the player's horizontal axis), `levitate:powered`. `shopping_list`: stacks to 1, no
+  recipe (handed out by shops).
+- Recipes (Create 6.0.10): stock link = transmitter over item vault; factory gauge (×2) = stock
+  link + precision mechanism (shapeless) — both in `assets/pending_recipes/stock/` (U9 / U12
+  items); stock ticker = glass, stock link, gold ingot (column); redstone requester = redstone,
+  stock link, iron ingot (column); each linked block alone in the crafting grid clears its tuning
+  (`*_clear` recipes).
+
 ### 2.23 Trains (U5 tracks, U27 trains, U28 signals)
 
 U5: `track`, curved track (no separate id: stored in BlockData + graph), `track_station` is U27.
 U27: `track_station`, `small_bogey`, `large_bogey`, `controls`, `schedule` (item), `railway_casing` is
 U10, `train_door` is U10. U28: `track_signal`, `track_observer`.
 
+U28 (details in §3.6.28): `track_signal` ("Train Signal", states `levitate:signal_type` 0 entry /
+1 cross, `levitate:signal_state` 0 off / 1 red / 2 yellow / 3 green, `levitate:powered`; post
+with a lamp head, metal sound, 1.5 s to mine, drops itself) and `track_observer` ("Train
+Observer", `levitate:powered`, full block with a lens on top that lights up, emits redstone 15
+on every side while powered). Both are placed by first right-clicking the track they should
+watch (Create's track targeting items). Recipes: `track_signal` ×4 = railway casing + electron tube
+(shapeless), `track_observer` ×2 = railway casing + any pressure plate (shapeless) ⚠.
+
 ### 2.24 Schematics (U29)
 
 `schematic_table`, `schematicannon`, `empty_schematic`, `schematic`, `schematic_and_quill`,
-`crafting_blueprint`.
+`crafting_blueprint` (item), `placed_crafting_blueprint` (the placed blueprint's sections, §8).
+Empty schematics, schematics and the schematic and quill stack to 1, blueprints to 64. Recipes
+(Create 6.0.10): empty schematic = paper + light blue dye (shapeless); schematic and quill = empty
+schematic + feather; schematic table = `WWW / S / S` (wooden slabs, smooth stone); schematicannon =
+` I / LIL / SDS` (iron block, logs, smooth stone, dispenser); crafting blueprint = painting +
+crafting table. Details in §3.6.29.
 
 ### 2.25 Equipment (U31)
 
@@ -1737,6 +1763,83 @@ shaft turns after the outer one stops). Stress impact 0 (Create: setNoImpact; th
 structure (`pistons.rope` messages, every 3 ticks, extrapolated in between); contraption blocks are
 drawn by U4's display entities.
 
+#### 3.6.29 Schematics (U29)
+
+Checked against Create 6.0.10 (SchematicAndQuillHandler, SchematicExport, ServerSchematicLoader,
+ClientSchematicLoader, SchematicTableBlockEntity, SchematicItem, SchematicHandler and its tools,
+SchematicannonBlockEntity, SchematicPrinter, LaunchedItem, MaterialChecklist, BlueprintEntity,
+BlueprintItem, BlueprintMenu, CSchematics). Code: `src/core/schematics/` (NBT both byte orders,
+DEFLATE/GZIP, `.mcstructure` reader/writer, Create `.nbt` reader, Java→Bedrock state mapping,
+placement transforms, print order, replace modes, checklist, blueprint layout; gtest),
+`src/feature/schematics/`, `src/client/schematics/`.
+
+- **Files.** The server keeps each player's schematics in `<mod>/schematics/<player>/` (Create's
+  `schematics/uploaded/<player>/`); the client mod's local folder is `<mod>/schematics/` (Create's
+  `schematics/`). Files are `.mcstructure` (what the quill saves, Bedrock block states, Levitate
+  BlockData kept per block) or Create/Java `.nbt` (GZIP or raw NBT, block states mapped to Bedrock:
+  vanilla ids with Bedrock's renames and flattened families, state names converted; `create:<path>`
+  → `levitate:<path>` with `levitate:axis` / `levitate:facing` / `levitate:<bool>`; states a block
+  doesn't have are dropped, alternatives tried). Block types without a Bedrock block are skipped and
+  listed to the player once per file (`lv.schematics.unmapped`).
+- **Schematic and quill.** Right-click a block: first, then second corner (clicking the top or
+  bottom face of a non-replaceable block selects the block beyond it); with Ctrl (vanilla:
+  sprinting) the corner is the block `range` (10, Ctrl-scroll 1..100) blocks along the view. With
+  both corners: Ctrl-scroll pushes/pulls the face looked at (inverted from inside, never below one
+  block; size shown in the action bar), right-click opens the name prompt (title "Schematic Name:",
+  Save / "Save and Upload Immediately" / abort; empty name = "My Schematic"). Sneak-right-click
+  discards ("Removed selection."). Saving writes `<name>.mcstructure` (a free `<name>_2...` unless
+  converting), clears the selection, sends the file to the client mod's local folder; the oldest
+  file of the player's server folder is deleted when `maxSchematics` is reached; converting replaces
+  the quill with a written schematic (`maxTotalSchematicSize` checked). Areas above 512 blocks per
+  axis or 8M blocks are refused ("Failed to save schematic"). Client mod: Create's blue (0x6886c5) box outline following the
+  cursor, the face being resized highlighted; vanilla: particle edges.
+- **Schematic table.** Input slot (empty schematic), output slot (written schematic). Client mod:
+  native screen listing the local folder (selection input, refresh, upload); an upload sends
+  `schematics.upload.begin {pos, name, size}` (refused above `maxTotalSchematicSize` KB with
+  Create's two messages; `.nbt` must be GZIP), then one chunk (≤ `maxSchematicPacketSize` bytes,
+  base64) per tick and `schematics.upload.end`; the empty schematic is used up at the start, the
+  progress bar follows the server, an upload idle for `schematicIdleTimeout` ticks is cancelled, a
+  finished file replaces a same-named one (oldest deleted at `maxSchematics`) and becomes the written
+  schematic in the output. Vanilla: a form lists the player's files on the server and writes one.
+- **Written schematic.** Item data `lv:schematic` {file, owner, deployed, anchor, rotation 0..3
+  (clockwise), mirror (none, left-right = z flip, front-back = x flip), size}; lore shows the file
+  (gold) or Create's invalid-item text. Placement = Create's StructurePlaceSettings: mirror, then
+  rotation about the anchor. Client mod: the held schematic's ghost (textured blocks) and bounds,
+  Alt+scroll picks a tool (Position, Move XZ, Move Y, Rotate, Mirror, Print in creative; only
+  Position until deployed), Ctrl+scroll uses it (distance / push along the look axis / up-down /
+  90° turns and mirroring about the footprint's centre), right-click with Position deploys with the
+  target block as the bottom centre (Ctrl: at the fixed distance), Print places it instantly
+  (creative, `creativePrintIncludesAir`). Sneak-right-click: coordinates screen (x, y, z, rotation,
+  mirror). Vanilla: right-click a block deploys there, sneak-right-click opens the same values as a
+  form (with Print for creative players), particle outline of the bounds.
+- **Schematicannon.** Slots: schematic, used schematics out, book (book / book and quill /
+  clipboard), checklist out, gunpowder (hoppers, funnels and arms insert into the matching slot and
+  extract outputs). States STOPPED / PAUSED / RUNNING with Create's status keys
+  (`create.schematicannon.status.*`). A schematic loads as soon as it is inserted ("Ready", paused):
+  not anchored → "Schematic not Positioned", no file / empty → "Schematic File Expired" and broken
+  file → "Incompatible Blocks" (the schematic comes back empty), anchor ≥ 256 blocks away →
+  "Target too far away". Play prints layer by layer (y, then z, then x), brittle blocks (torches,
+  rails, levers, buttons, doors, signs, carpets, ...) deferred to the end; one shot every
+  `schematicannonDelay` (10) ticks, each using one shot of fuel (one gunpowder = 400 shots, from
+  its slot or the attached inventories, "Out of Gunpowder" pauses). Targets within 2 blocks of the
+  cannon, unbreakable blocks, blocks already right and (Protect Block Entities, on by default)
+  data-holding blocks are skipped; the replace mode decides the rest (Don't Replace Solid /
+  Solid with Solid / Solid with Any (default) / Solid with Empty). The item of each block comes
+  from the six neighbouring inventories (any item capability; a creative crate makes everything
+  free); missing items pause with "Missing Item:" or, with Skip missing Blocks (default on), skip
+  the block. A launched block flies `max(10, 4·dist^½)` ticks and is placed with its second half
+  (doors, beds, tall plants); sounds as Create (explode 0.1/1.1 per shot, note bell 1/0.7 at the
+  end). The checklist printer turns a book into a written "Material Checklist" (5 entries per page,
+  missing ones first, `xN | stacks▤ +rest`) in 20 ticks. Client mod: launched blocks drawn along
+  their arc; everyone: smoke at the barrel, particles at the target.
+- **Crafting blueprint.** Placed against a face (walls, floor, ceiling) as the largest of 3x3, 2x2,
+  1x1 that fits (free blocks with a solid block behind each). Each section: 9 recipe slots (filters
+  allowed), the display item (inferred from the crafting recipe, or set by hand) and a secondary
+  display item. Right-click a configured section crafts once from the inventory (sneaking: until
+  64 items or the ingredients run out); an empty section or the wrench opens the recipe screen
+  (native ghost slots / form); hitting a configured section clears it; breaking any section
+  removes the blueprint and drops one item (none in creative).
+
 #### 3.6.1 Belts, depots and weighted ejectors (U11)
 
 Checked against Create 6.0.10 (BeltBlock, BeltConnectorItem, BeltSlicer, BeltInventory,
@@ -2644,6 +2747,192 @@ names come from `tools/gen/materials.names.tsv` (Create's en_US / zh_CN wording)
   write into the 8 neighbour chunks when present. Flat worlds get nothing (as Java). Log once per
   world: `materials: world generation active ...`.
 
+### 3.6.26 Stock network (U26)
+
+Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API is
+`feature/stock/Stock.h` (networks, stock summaries, orders, packager seam, gauge panels).
+
+- **Networks** (Create's GlobalLogisticsManager): a network is a frequency (UUID). Linked block
+  items (stock link, ticker, requester, gauge) right-clicked (not sneaking) on a stock link,
+  ticker or requester take its network ("Tuned to this network"); a gauge panel with an item
+  tunes held linked items too. Right-click in the air clears a tuned item ("Cleared connection to
+  network"); tuned items show "Frequency configured" / "Place in crafting grid to reset" in their
+  lore. Placing an untuned link / ticker / requester starts a new network ("New link network
+  started"), a tuned one joins ("Connected to existing network successfully"); gauges must be
+  tuned ("Tune to a stock link before placing"). The player who placed the first link owns the
+  network; the owner may lock it (request screen): then only the owner interacts with its blocks
+  ("Logistics Network is Protected"; at a keeper: "Interact using a Shopping list, direct access has
+  been locked"). Networks (owner, lock, every link position, promises) are saved in the world DB
+  (`lv:stock:networks`); block positions in `lv:stock:blocks`; block settings in BlockData
+  (`data["stock"]`).
+- **Stock** (Create's LogisticsManager): the network's stock = the target inventories of the
+  packagers its loaded stock links sit on; a link powered with 15 leaves the network; links on the
+  same inventory count once. Summaries are cached 20 ticks (accurate: 1 tick). Orders are split
+  over the links sorted by redstone power (lowest first), one random link per shared inventory,
+  each entry taken from the links in turn; requests carry the address, order id, link index, the
+  final-link flag and (first request only) the order context. A packager with too many queued
+  packages refuses: player orders 50, redstone 20, restock 10. Items that newly appear in a
+  linked packager's inventory fulfil the network's promises (oldest first).
+- **Packagers** plug in through `stock::registerPackagerProvider` (is-packager, available items,
+  inventory id, busy check, send requests). The unit registers U25's packagers
+  (`feature/packages/Packages.h`): a link uses the packager it sits on (not a repackager), the
+  packager's target inventory (opposite its facing) is counted slot by slot, requests go to
+  `packages::attemptToSend` (up to 100 packages at once, Create's performPackageRequests), and
+  U25 asks the unit whether a packager has a stock link (linked packagers ignore redstone).
+  Without a packager a link contributes nothing ("No Packagers Linked").
+- **Stock ticker**: right-click the block hands out the payments its shops collected (27 slots);
+  otherwise it opens the category editor if a keeper is present ("Seat a mob or blaze burner next
+  to this block to use it"). Keepers: a mob riding something (a seat) beside the ticker at its
+  level or one below, or a blaze burner (with a blaze) beside it at its level. Right-clicking the
+  keeper (the mob, or the blaze burner block) opens the stock keeper request screen; with a
+  shopping list in hand it checks out. Category editor: categories are list / attribute filters
+  (taken from the inventory, dropped back when deleted or when the ticker breaks) or empty
+  dividers, named, moved up / down (Shift: to top / bottom). Request screen: the network's stock
+  by count in the ticker's categories (+ "Unsorted"; categories can be hidden per player), search,
+  up to 9 ordered item kinds (click +1, Shift +1 stack, right-click -1), the package address
+  (remembered per ticker), "Send" (sound, "Request Sent!") or, holding a redstone requester or a
+  table cloth, "Program Requester" (the order, address and ticker position go into the held item;
+  a requester item is tuned to the network).
+- **Redstone requester**: a rising redstone edge (polled every tick) sends its order: with
+  "Must send all items" every entry must be in stock (else deny sound, nothing sent); with
+  "Allow partial orders" it sends what is there. Placed from a programmed item: "Connected to
+  Stock keeper successfully" if the ticker is within 128 blocks in the same dimension, else
+  "Requester too far away from Stock keeper". Screen: the 9 order entries with amounts 1..256
+  (scroll, Shift ×10), partial / full, address.
+- **Factory gauge**: up to 4 panels per block (placing a tuned gauge on a free quadrant adds a
+  panel; breaking removes the targeted panel only while others remain). A panel watches one item
+  (click with the item, or with an empty hand pick it from the inventory screen; filter items are
+  refused) in its network — or, when the gauge sits on a packager (restocker), in that packager's
+  inventory. Target amount 0..100 items or stacks on the value board (Sneak + empty-hand click;
+  0 = inactive). Connections: "Add new connection" then click another panel: same face and facing,
+  same plane, closer than 16 blocks, at most 9 inputs, both with an item, the input not a
+  restocker (Create's messages). Every tick a panel checks storage (satisfied / promised-satisfied /
+  waiting for unloaded links); when not satisfied, not paused and its timer ran out
+  (`factoryGaugeTimer`, 100 ticks; a new target waits half of it) it requests: a recipe panel
+  orders every input's amount (1..64 each, summed per item and network; all must be in stock) to
+  its address and promises its output (1..64); a restocker orders `clamp(demand - promised -
+  inStorage, 0, 9 stacks)` (capped by the network stock outside its own inventory) to its address
+  and promises it. Promises expire after never / 30 s / 1..31 min. The wrench on a panel with
+  outputs cycles the arrow path mode. Redstone links (U23) pause panels through
+  `stock::setPanelPaused`. A display link (U24) on a gauge offers Create's "Factory gauge status"
+  source (`gauge_status`): one line per panel, `<level in storage> ✔|↑|▪ <item>` (shortened /
+  full numbers); other units read panels with `stock::panelAt`.
+- **Table cloth shops**: a table cloth (U10) programmed at a stock ticker becomes a shop when
+  placed (owner = placer, facing = towards the placer). The owner sets the price with an item on
+  the price tag (front of the top face; Sneak + empty hand clears it, empty hand opens the amount
+  board 1..100, "Price per Order"). Others click the cloth with an empty hand or a shopping list:
+  each click adds one purchase to the list (stock limited: "Out of Stock", "Stock limit reached";
+  "Shop owner must set a price first", "Stock keeper missing"); the list's lore shows the items and
+  the total cost. At the keeper the list checks out: wrong network, stock too low, cash register
+  full and too broke are refused; otherwise the price moves from the inventory into the ticker's
+  payments and the order is sent to the shop's address ("ka-ching"). Sneak-use discards a list.
+  A broken shop drops its programmed cloth.
+- **Client mod**: native screens (request, category editor, requester, gauge, gauge item picker);
+  text (addresses, search, category names) is typed in a form opened from the screen. Looking at a
+  gauge panel shows its label and "in storage / target" (Create's value box text); looking at a
+  ticker with payments shows them (owner).
+- **Log lines**: `stock: stock link placed at x y z on network …`, `stock: order of N item(s) in M
+  stack(s) sent to 'A' through K packager(s)`, `stock: redstone requester at x y z sent its order to
+  'A'`, `stock: factory gauge at x y z restocks <id> xN to 'A'`, `stock: factory gauge at x y z panel S
+  requested its ingredients to 'A'`, `stock: … checked out a shopping list …`.
+#### 3.6.28 Signals and observers (U28)
+
+Checked against Create 6.0.10 (SignalBlock, SignalBlockEntity, SignalBoundary, SignalEdgeGroup,
+SignalPropagator, Navigation's signal scan, TrackTargetingBlockItem, TrackTargetingBehaviour,
+TrackObserver). Pure logic in `src/core/signals/` (gtest), game side in `src/feature/signals/`,
+track markers in `src/client/signals/`, contract `src/feature/tracks/SignalsExt.h`.
+
+**Placing** (Create's TrackTargetingBlockItem, same for both blocks):
+- Right-click a track with the item: selects it with the direction along the track closest to
+  the look ("Targeted track selected", click sound). Curves are selected by clicking their track
+  bed (`levitate:fake_track`). Refused (deny sound, red): crossings
+  (`create.track_target.no_junctions`), a spot within 0.75 blocks of another edge point
+  (`occupied`; another signal within 0.25 blocks is joined instead: both form one boundary), no
+  graph there (`invalid`).
+- Right-click elsewhere: places the block when it is closer than 16 blocks to the selected track
+  (else `too_far`); without a selection `missing`. Success: "Successfully bound to targeted track",
+  the selection is used up. Sneak-right-click a block with a selection clears it
+  (`create.track_target.clear`). Selections are per player and per item (§8).
+- The block keeps its target. When the track graph around it is rebuilt or removed, it binds
+  again; while its track is gone the signal is dark (`Invalid`) and the boundary is gone.
+
+**Signal boundaries and sections.** A signal block is bound to a boundary edge point (type
+`levitate:signal`) on one of its two sides: side 1 controls trains travelling along the point's
+edge (node1 → node2), side 0 the other way. Several signal blocks may share a side (one type per
+side; a joining block takes the side's type). Boundaries split the graph into sections (Create's
+signal edge groups): the track reachable from a boundary side without passing another boundary,
+across every connection at nodes. Networks without boundaries have no sections and ignore
+signals. Sections whose tracks cross without a node (a curve over another track, checked on the
+xz plane with 0.5 blocks of height tolerance) are linked: a train in one occupies all of them
+(Create's intersecting groups).
+
+**Occupancy and reservations.** A section is occupied while any part of a train covers it
+(trains report the stretch they cover). A train that is let past a signal *reserves* the section
+until it enters it (or asks again / stops navigating). For a train T, a section is occupied when
+another train is in it or in a linked section, or another train reserved it (Create's
+`isOccupiedUnless(train)`).
+
+**Signal types** (wrench right-click cycles the side's type: "-> Allow passage if section
+unoccupied" / "-> Allow passage if section fully traversable"; unbound: "Unable to switch mode of
+this Signal"):
+- *Entry signal*: the train may enter when the section is free; it reserves it.
+- *Cross signal*: the train may enter only when every section on its path up to and including
+  the one behind the next entry signal is free (chain signalling: consecutive cross signals
+  chain); all of them are reserved at once. Otherwise it waits at the first cross signal of the
+  chain, never inside the junction. A path that ends inside the chain, or leaves it through a
+  boundary without a signal for its direction, ends the chain.
+- A boundary side without a signal block doesn't stop trains (it still splits sections).
+- A redstone-powered signal is red for trains (forced red).
+
+**Signal state** (Create's tickState, every tick): red when forced by redstone or when the section
+is occupied by any train or reserved through another signal; for a cross signal, yellow when it
+would be green but a signal leading out of its section (on the way forward, no turns sharper
+than Create's 7/8 rule) is red; green otherwise; off when unbound. The block shows it with its
+lamp (`levitate:signal_state`, vanilla clients and the client mod alike). Comparators reading a
+signal output 15 while it is red, 0 otherwise. Redstone input sets `levitate:powered` (polled
+every 4 ticks, §8).
+
+**Track observers** (edge point type `levitate:observer`, never shared, can't be within 0.75 of
+another point): powered while a train covers its position, and for 8 ticks after (Create's
+`keepAlive`), with redstone 15 to all sides (`minecraft:redstone_producer` on the powered state;
+the circuit component's strength is set with the state change). The filter slot on
+top (U3 filter slot, "filter") limits it to trains carrying a matching item (in any carriage
+inventory) or fluid (any tank), asked through the trains' cargo provider; an empty filter
+matches every train. A display link on an observer offers "Observed Train Name" (Create's
+`observed_train_name` source, U24 contract): the name of the train it sees, empty otherwise.
+
+**Client mod** (Create's track overlay): an arrow is drawn on the track at every bound signal side
+(pointing the way of the trains it controls, in the signal's colour) and a square at every
+observer (lit while powered), from `signals.overlay` messages (U3 protocol, companions only, sent
+when the markers change and on join). Vanilla clients see the block lamps only.
+
+**Contract** (`feature/tracks/SignalsExt.h`, namespace `lv::feature::tracks::signals`), for U27
+trains and other units. Train ids are stable strings (Create: the train UUID).
+- `setTrainSpans(id, spans)` / `setTrainExtent(id, trailing, leading)`: the track the train
+  covers (spans: edge between two node locations, from/to blocks from the first node; extent:
+  found along the graph from the trailing to the leading point, both travelling the same way).
+  Call every tick the train moved, after assembly and after `tracks::onGraphChanged`. This
+  replaces Create's front/back signal listeners: a train enters a section when its covered track
+  first touches it and leaves it when it no longer does; observers see it while it covers them.
+- `removeTrain(id)`: disassembled / destroyed.
+- `checkAhead(id, front, pathEdges, lookahead)` → `Authority {clear, stopDistance, waitingFor,
+  waitingSide, reserved}`: Create's Navigation scan from the leading point along the path
+  (`PathResult::edges`); signals farther than `lookahead` are not checked yet (a started cross
+  chain is always followed to its end). The train's previous reservations are replaced by what
+  this call grants, so call it every tick while driving and stop within `stopDistance` when not
+  clear. `releaseReservations(id)` when the train stops following the path.
+- `signalsAhead(front, path, maxDistance)`: boundaries on the way (id, side entered, distance).
+- `pathPenalty(id, graph, edge)` for `PathQuery::edgePenalty`: Create's `RED_SIGNAL` 25 for a
+  signal into an occupied section, `REDSTONE_RED_SIGNAL` 400 for a redstone-powered one.
+- Queries: `sectionAt(location)`, `trainsIn(section)`, `signalState(pos)`, `observerPowered(pos)`.
+- Provided by trains: `setCargoProvider(fn(id, itemTest, fluidTest) -> bool)` (any carried item /
+  fluid passes the test); without it filtered observers never trigger.
+  `setTrainNameProvider(fn(id) -> name)` for the display source; `observedTrain(pos)`.
+
+Persistence: the blocks (target, bound point, side, cached type and power) in `lv:signals:blocks`;
+edge points are stored with the track graph (U5); observer filters in BlockData; sections,
+occupancy and reservations are rebuilt (trains report again after a load).
+
 ### 3.6.30 Ponder (U30)
 
 Checked against Create 6.0.10 (`AllCreatePonderScenes`, `AllCreatePonderTags`) and the Ponder
@@ -2758,6 +3047,12 @@ defaults; the push line uses U4's `maxChassisRange`). Stress (checked): pistons,
 pulleys 4; gantry shaft and carriage 0 (`gantry_shaft` 4 in the table above is wrong).
 `config/display.json` (U24): `displayLinkRange` 64 (Create's CLogistics).
 
+`config/stock.json` (U26): `factoryGaugeTimer` 100 (ticks between a gauge's requests, Create's
+CLogistics default, at least 5).
+`config/schematics.json` (U29, Create's CSchematics keys and defaults): `creativePrintIncludesAir`
+false, `maxSchematics` 10, `maxTotalSchematicSize` 256 (KB), `maxSchematicPacketSize` 1024 (bytes),
+`schematicIdleTimeout` 600 (ticks), `schematicannonDelay` 10 (ticks), `schematicannonShotsPerGunpowder` 400.
+
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
 
@@ -2823,6 +3118,7 @@ UI pass), `placeholderColour` (outline of unregistered blocks).
 | `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
 | `/create ponder [id]` (client mod; no id: the index; an entry or a tag id) | anyone | U30 |
 | `/create highlight <pos>` | op | U3 |
+| `/create schematic list` (the caller's stored schematics), `/create schematic give <file>` (op: a written schematic of one of them) | anyone / op | U29 |
 | `/create overlay` (overlay position screen, client mod) / `/create overlay reset` | anyone | U8 |
 | `/create pipes <pos>` (pressures, flows and transfers of a pipe) | op | U17 |
 | `/create steam <pos>` (tank / boiler goggle lines) / `steam <pos> fill <fluid> <mB>` (Levitate debug: fills, or drains when negative, through the fluid capability) | op | U18 |
@@ -2941,6 +3237,15 @@ matches Create's official Chinese translation wording).
 | Climbable ropes and magnets (U20) | data-driven blocks can't be climbable | they are thin solid blocks |
 | Native elevator contact screen (U20) | the native screen framework (U3) has no text field | the contact's form (floor identifier, description, door control) is used for every player |
 | Elevator door control acting on doors (U20) | the sliding / train doors are U10's | the mode is stored per contact (`data["pistons"]["door"]`) for U10 to apply |
+| Crafting blueprint as a hanging entity (U29) | custom entities need their own entity definitions and renderers; a block group behaves the same for clicks and breaking | each section is a thin, non-colliding `levitate:placed_crafting_blueprint` block; the 2x2 / 3x3 group is placed and removed together; the display items are not drawn on the blueprint (shown in its screen) |
+| Schematic files saved as Create `.nbt` (U29) | Bedrock block states have no lossless Java form | the quill saves Bedrock `.mcstructure`; Create `.nbt` files are read (uploads, `schematics/`) with best-effort Java→Bedrock state mapping, unmapped block types are reported and skipped |
+| Entities and vanilla block entity data in schematics (U29) | Bedrock entities and block actors can't be serialised / restored safely from a mod without the game's structure system | blocks, waterlogging and Levitate BlockData are saved; the cannon places blocks only (like Create's safe-NBT rule, data is not printed); creative Print restores Levitate BlockData; entities (item frames, armor stands) are not printed |
+| Schematic tools, ghost and quill outline for **vanilla** clients (U29) | no client-side input (Ctrl / Alt / scroll) or world rendering without the client mod | sprinting = Ctrl for mid-air corners; no face resizing; right-click a block deploys a schematic there, sneak-right-click opens a form for exact coordinates / rotation / mirror / Print; particle outlines of the selection and of the deployed bounds |
+| Picking local files at the schematic table for **vanilla** clients (U29) | the server can't read the player's disk | the form lists the player's schematics stored on the server (quill saves, earlier uploads) |
+| Ghost preview of exact block models (U29) | drawing every block model translucently needs the chunk tessellator | the client mod draws each block as a textured cube with its own face textures |
+| Animated schematicannon barrel (U29) | the barrel is part of the block model | static barrel; the client mod draws the launched blocks flying to their target, everyone sees smoke and placement particles |
+| Material checklist on a clipboard (U29) | the clipboard is U24's | a clipboard in the paper slot also gives a written book |
+| Text input in native screens (U29) | the screen framework sees key codes, not text | the quill prompt and the coordinates screen take letters, digits, space, `-`, `_`, `.`; other characters through the form fallback |
 | Sequenced gearshift distance limits on pistons / gantries (U20) | Create passes the sequence context through its kinetic block entities; the U2 contract has no such channel | pistons and gantries run until their end / collision |
 
 | Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer (U11) | Bedrock has no item renderer for vanilla clients, and the client framework has no world-space item renderer yet | the server shows each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick; for every client, the client mod included); with `displayItems` off nothing is shown |
@@ -2950,6 +3255,11 @@ matches Create's official Chinese translation wording).
 | Comparator output of depots / ejectors (U11) | custom blocks can't give a comparator signal | none |
 | Redstone input of the ejector (U11) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker) |
 | Belt connector selection preview line (U11) | Create draws it client-side every frame | server particles along the planned belt every 5 ticks while the connector is held |
+| Signal / observer track selection stored on the item (U28) | changing the held item's data from the server re-sends the slot and breaks the click flow; the glint isn't controllable | the selection is kept per player and per item id on the server (lost on relog); no glint, no outline of the selected track |
+| Signal lamp rendered toward the track, track overlay for vanilla clients (U28) | Bedrock block models are fixed per state and can't face an edge point | the lamp shows on all four sides of the signal head (block state); the client mod draws Create's arrows / squares on the track |
+| Redstone input of signals (U28) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker; diodes count only when facing the signal) |
+| Comparator output of signals (U28) | Bedrock asks only containers for analog signals | the signal's 15 / 0 is handed to the comparator's circuit component before it evaluates (ComparatorCapacitor hook, as U12's vault) |
+| Train occupancy by front/back signal listeners (U28) | not a limitation: trains report the track they cover | sections and observers follow the covered track (same results as Create's listeners, robust against skipped ticks) |
 | Display board text for **vanilla** clients (U24) | no client-side text rendering on blocks without the client mod | the lines as a name tag in front of a turning board (invisible entity, colours as § codes, no flap animation); the client mod draws the split flaps |
 | Nixie tube glyphs for **vanilla** clients (U24) | same | the two characters as a coloured name tag above each tube |
 | Display link / nixie tube redstone input (U24) | custom blocks get no redstone neighbour updates | polled every 2 ticks from the neighbours' states (wire, torches, levers, buttons, plates, repeaters, comparators, observers, redstone blocks); strong power through solid blocks is not seen |
@@ -2995,7 +3305,12 @@ matches Create's official Chinese translation wording).
 | Chromatic compound charge bar, stack size 1 when charged, absorbing light from belts / depots (U9) | durability bars and per-stack max sizes aren't data-driven; belts are another unit with no transported-item contract | the charge is kept in the item data (stacks of equal charge merge up to 16); placed light sources only |
 | Furnace cook times and xp of the unit's smelting recipes (U9) | Bedrock furnace recipes have fixed times / xp | Bedrock's 10 s / 5 s / 30 s, which equal Create's 200 / 100 / 600 ticks |
 | End rod particles of the block of experience (U9) | no data-driven block particles | none |
-
+| Stock link and redstone requester redstone input (U26) | custom blocks get no redstone neighbour update | polled (links every 4 ticks, requesters every tick so short pulses count); analog power comes from redstone wire, other sources count as 15 |
+| Redstone requester comparator output (U26) | custom blocks can't give a comparator signal | none (the last result is kept in the requester's data) |
+| Factory gauge item icons, counts and connection arrows drawn on the panel (U26) | no world-space item / text renderer | the client mod shows the panel's label and "in storage / target" next to the crosshair; the bulb is the block model |
+| "Click and hold" on a gauge panel / price tag for the amount board (U26) | the server only sees discrete clicks | Sneak + empty-hand click opens the board |
+| Gauge mechanical crafting arrangement ("Use Mechanical Crafting") and JEI recipe sync (U26) | no recipe viewer; Bedrock crafting recipes are not readable as patterns from a mod | panels send their inputs as plain orders |
+| Text fields in the stock screens (U26) | the native screen framework has no text field | the address / search / category name buttons open a form |
 Units add rows here in their PRs when they find something else impossible.
 ## 9. Work plan
 

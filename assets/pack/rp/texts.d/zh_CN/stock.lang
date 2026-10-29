@@ -1,0 +1,5 @@
+tile.levitate:stock_link.name=仓储链接站
+tile.levitate:stock_ticker.name=仓储发报机
+tile.levitate:factory_gauge.name=工厂仪表
+tile.levitate:redstone_requester.name=红石请求器
+item.levitate:shopping_list.name=采购清单

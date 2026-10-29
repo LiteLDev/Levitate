@@ -1,0 +1,36 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:stock_ticker"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "C",
+      "A",
+      "B"
+    ],
+    "key": {
+      "C": {
+        "item": "minecraft:glass"
+      },
+      "A": {
+        "item": "levitate:stock_link"
+      },
+      "B": {
+        "item": "minecraft:gold_ingot"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:glass"
+      }
+    ],
+    "result": {
+      "item": "levitate:stock_ticker",
+      "count": 1
+    }
+  }
+}

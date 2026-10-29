@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:stock_link"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "C",
+      "B"
+    ],
+    "key": {
+      "C": {
+        "item": "levitate:transmitter"
+      },
+      "B": {
+        "item": "levitate:item_vault"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:transmitter"
+      }
+    ],
+    "result": {
+      "item": "levitate:stock_link",
+      "count": 1
+    }
+  }
+}
