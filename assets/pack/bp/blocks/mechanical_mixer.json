@@ -18,13 +18,13 @@
         }
       },
       "minecraft:material_instances": {
-        "*": { "texture": "levitate_mechanical_mixer_side", "render_method": "opaque" },
-        "side": { "texture": "levitate_mechanical_mixer_side", "render_method": "opaque" },
-        "top": { "texture": "levitate_mechanical_mixer_top", "render_method": "opaque" },
-        "bottom": { "texture": "levitate_mechanical_mixer_bottom", "render_method": "opaque" },
-        "cog": { "texture": "levitate_mechanical_mixer_cog", "render_method": "opaque" },
+        "*": { "texture": "levitate_mechanical_mixer_side", "render_method": "alpha_test" },
+        "side": { "texture": "levitate_mechanical_mixer_side", "render_method": "alpha_test" },
+        "top": { "texture": "levitate_mechanical_mixer_top", "render_method": "alpha_test" },
+        "bottom": { "texture": "levitate_mechanical_mixer_bottom", "render_method": "alpha_test" },
+        "cog": { "texture": "levitate_mechanical_mixer_cog", "render_method": "alpha_test" },
         "whisk": { "texture": "levitate_mechanical_mixer_whisk", "render_method": "alpha_test" },
-        "pole": { "texture": "levitate_mechanical_mixer_pole", "render_method": "opaque" }
+        "pole": { "texture": "levitate_mechanical_mixer_pole", "render_method": "alpha_test" }
       },
       "minecraft:collision_box": { "origin": [-8, 0, -8], "size": [16, 16, 16] },
       "minecraft:selection_box": { "origin": [-8, 0, -8], "size": [16, 16, 16] },

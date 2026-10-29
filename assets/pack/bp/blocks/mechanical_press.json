@@ -5,7 +5,7 @@
       "identifier": "levitate:mechanical_press",
       "menu_category": { "category": "items" },
       "states": {
-        "levitate:axis": [0, 2],
+        "levitate:axis": [0, 1, 2],
         "levitate:rotor": [0, 1]
       }
     },

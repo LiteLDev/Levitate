@@ -385,7 +385,7 @@ void collectItemEntities(BlockSource& region, GlobalPos const& pos, BasinState& 
     auto bp = game::blockPos(pos);
     AABB box{
         Vec3{float(bp.x), float(bp.y), float(bp.z)},
-        Vec3{float(bp.x + 1), float(bp.y + 1.25f), float(bp.z + 1)}
+        Vec3{float(bp.x + 1), float(bp.y + 1.5f), float(bp.z + 1)}
     };
     bool any = false;
     for (auto* actor : region.getEntities(box, 0.f, ActorType::ItemEntity)) {

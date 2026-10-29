@@ -5,8 +5,8 @@
       "identifier": "levitate:lit_blaze_burner",
       "menu_category": { "category": "none" },
       "states": {
-        "levitate:facing": [3, 2, 4, 5],
-        "levitate:flame": [0, 1]
+        "levitate:facing": [0, 1, 2, 3, 4, 5],
+        "levitate:flame_type": [0, 1]
       }
     },
     "components": {
@@ -36,7 +36,7 @@
       { "condition": "q.block_state('levitate:facing') == 4", "components": { "minecraft:transformation": { "rotation": [0, 90, 0] } } },
       { "condition": "q.block_state('levitate:facing') == 5", "components": { "minecraft:transformation": { "rotation": [0, 270, 0] } } },
       {
-        "condition": "q.block_state('levitate:flame') == 1",
+        "condition": "q.block_state('levitate:flame_type') == 1",
         "components": {
           "minecraft:light_emission": 9,
           "minecraft:material_instances": {

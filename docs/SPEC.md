@@ -152,7 +152,7 @@ Bedrock blocks (details in §3.6.1):
   2..5 (where the blaze looks), `levitate:rotor` 0/1 (client mod: head drawn separately). Create's
   heat level *none* (no blaze) is the separate block `empty_blaze_burner` (`levitate:facing`), which
   is also the item Create calls "Empty Blaze Burner"; both drop themselves.
-- `lit_blaze_burner`: `levitate:facing`, `levitate:flame` 0 regular / 1 soul; drops the empty burner.
+- `lit_blaze_burner`: `levitate:facing`, `levitate:flame_type` 0 regular / 1 soul (read by U13 for haunting); drops the empty burner.
 - Recipes (Create 6.0.10): basin = andesite alloy `A A`/`AAA`; mechanical press = shaft / andesite
   casing / iron block; mechanical mixer = cogwheel / andesite casing / whisk; empty blaze burner =
   ` I `/`INI`/` I ` (iron sheet, netherrack). They need other units' items and wait in

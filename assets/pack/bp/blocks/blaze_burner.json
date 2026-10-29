@@ -5,8 +5,8 @@
       "identifier": "levitate:blaze_burner",
       "menu_category": { "category": "items" },
       "states": {
-        "levitate:blaze": [1, 2, 3, 4],
-        "levitate:facing": [3, 2, 4, 5],
+        "levitate:blaze": [0, 1, 2, 3, 4],
+        "levitate:facing": [0, 1, 2, 3, 4, 5],
         "levitate:rotor": [0, 1]
       }
     },

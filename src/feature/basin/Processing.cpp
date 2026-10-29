@@ -269,8 +269,12 @@ bool apply(BlockSource& region, GlobalPos const& basinPos, BasinState& b, BasinR
 std::vector<BasinRecipe const*> matching(BlockSource& region, GlobalPos const& basinPos, BasinState& b, bool press) {
     std::vector<BasinRecipe const*> out;
     if (basinops::isEmpty(b)) return out;
-    for (auto const& r : candidates(press))
+    int itemCount = 0;
+    for (int i = 0; i < 2 * cb::kSlotCount; ++i) itemCount += items::countOf(basinops::slot(b, i));
+    for (auto const& r : candidates(press)) {
+        if (r.ingredientCount > itemCount) continue; // can't match: fewer items than ingredients
         if (match(region, basinPos, b, r)) out.push_back(&r);
+    }
     std::stable_sort(out.begin(), out.end(), [](auto const* a, auto const* c) { return a->ingredientCount > c->ingredientCount; });
     return out;
 }
@@ -407,9 +411,19 @@ std::vector<ItemActor*> itemsIn(BlockSource& region, AABB const& box) {
     return out;
 }
 
+/// Create's `onGround()` for item entities: Bedrock item actors don't keep the flag up to date
+/// while lying still, so an item resting on a block top (no vertical travel) counts too.
+bool resting(ItemActor& e) {
+    if (e.isOnGround()) return true;
+    // lying still: no vertical travel (positions sit a little above the block top on Bedrock)
+    return std::abs(e.getPosDelta().y) < 0.01f;
+}
+
 AABB blockBox(BlockPos const& p, float deflate) {
     return AABB{
-        Vec3{p.x + deflate,      p.y + deflate,      p.z + deflate     },
+        // the query matches entity positions (feet), so the bottom isn't deflated: an item lying
+        // on the floor has its position exactly at the block's bottom
+        Vec3{p.x + deflate,      p.y - .01f,         p.z + deflate     },
         Vec3{p.x + 1.f - deflate, p.y + 1.f - deflate, p.z + 1.f - deflate}
     };
 }
@@ -417,7 +431,7 @@ AABB blockBox(BlockPos const& p, float deflate) {
 void spawnAt(BlockSource& region, Vec3 const& at, ItemStack const& stack) {
     auto level = ll::service::getLevel();
     if (!level || items::isEmpty(stack)) return;
-    level->getSpawner().spawnItem(region, stack, nullptr, at, 0);
+    level->getSpawner().spawnItem(region, stack, nullptr, at, 10);
 }
 
 /// Create's tryProcessInWorld (simulate: only whether a recipe exists).
@@ -460,7 +474,7 @@ void applyInWorld(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
     auto bp   = game::blockPos(pos);
     bool bulk = config::get<BasinConfig>().bulkPressing;
     for (auto* e : itemsIn(region, blockBox(offsetOf(bp, kDown), 0.f))) {
-        if (!e->isOnGround()) continue;
+        if (!resting(*e)) continue;
         s.scanCooldown = 0;
         tryProcessInWorld(region, pos, *e, false);
         if (!bulk) break;
@@ -581,7 +595,7 @@ void tickPress(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
             s.scanCooldown = cb::kPressEntityScan;
             if (id2 == kBasin) return;
             for (auto* e : itemsIn(region, blockBox(offsetOf(bp, kDown), .125f))) {
-                if (!e->isOnGround()) continue;
+                if (!resting(*e)) continue;
                 if (!tryProcessInWorld(region, pos, *e, true)) continue;
                 startPress(pos, s, cb::PressMode::World);
                 save(pos, s, true);

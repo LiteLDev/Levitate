@@ -50,7 +50,7 @@ inline constexpr char const* kFacingState = "levitate:facing";
 inline constexpr char const* kAxisState   = "levitate:axis";  ///< press: 0 x, 2 z
 inline constexpr char const* kRotorState  = "levitate:rotor"; ///< press / mixer: 0 full model, 1 static parts
 inline constexpr char const* kBlazeState  = "levitate:blaze"; ///< blaze burner heat 1..4
-inline constexpr char const* kFlameState  = "levitate:flame"; ///< lit burner: 0 regular, 1 soul
+inline constexpr char const* kFlameState  = "levitate:flame_type"; ///< lit burner: 0 regular, 1 soul
 
 enum class Kind : int { Basin = 0, Press = 1, Mixer = 2, Burner = 3, LitBurner = 4, EmptyBurner = 5 };
 [[nodiscard]] std::optional<Kind> kindOf(std::string_view blockId);

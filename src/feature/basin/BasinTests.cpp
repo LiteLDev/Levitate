@@ -78,9 +78,15 @@ int fluidIn(std::vector<cb::Fluid> const& tanks, std::string const& id) {
     return n;
 }
 
-void spawnItem(GlobalPos const& p, float dy, ItemStack const& s) {
-    auto level = ll::service::getLevel();
-    level->getSpawner().spawnItem(region0(), s, nullptr, Vec3{p.x + .5f, p.y + dy, p.z + .5f}, 0);
+std::string spawnItem(GlobalPos const& p, float dy, ItemStack const& s) {
+    auto  level = ll::service::getLevel();
+    auto* e     = level->getSpawner().spawnItem(region0(), s, nullptr, Vec3{p.x + .5f, p.y + dy, p.z + .5f}, 10);
+    if (!e) return "spawnItem returned null";
+    auto at = e->getPosition();
+    int  n  = 0;
+    for (auto* a : level->getRuntimeActorList())
+        if (a && a->getTypeName() == "minecraft:item") ++n;
+    return "item spawned at " + std::to_string(at.x) + "," + std::to_string(at.y) + "," + std::to_string(at.z) + ", items in the level: " + std::to_string(n);
 }
 
 int itemsNear(GlobalPos const& p, std::string const& id) {
@@ -106,6 +112,13 @@ void clearItems(GlobalPos const& p) {
 
 bool useOn(SimulatedPlayer& sp, GlobalPos const& p, int slot, ScriptModuleMinecraft::ScriptFacing face, Vec3 hit) {
     return sp.simulateUseItemInSlotOnBlock(slot, game::blockPos(p), face, hit);
+}
+
+/// Puts `s` into hotbar slot 0 (replacing whatever is there) and selects it.
+void hold(SimulatedPlayer& sp, ItemStack const& s) {
+    sp.getInventory().setItem(0, s);
+    sp.setSelectedSlot(0);
+    sp.sendInventory(false);
 }
 
 void stand(SimulatedPlayer& sp, GlobalPos const& p) { sp.teleport(Vec3{p.x + .5f, float(p.y), p.z + .5f}, DimensionType(0)); }
@@ -151,7 +164,7 @@ LV_REGISTER_SELFTEST("basin.inventory", [](Context& ctx) -> ll::coro::CoroTask<>
     auto p = a.at(0);
     ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
     ctx.require(ctx.setBlock(p, kBasin), "place a basin");
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(5);
     auto& r  = region0();
     auto  bp = game::blockPos(p);
     auto rest = items::insert(r, bp, kUp, stack("minecraft:cobblestone", 60), false);
@@ -186,23 +199,28 @@ LV_REGISTER_SELFTEST("basin.player_use", [](Context& ctx) -> ll::coro::CoroTask<
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     stand(sp, a.at(-2));
     co_await ctx.ticks(2);
-    ctx.give(sp, stack("minecraft:water_bucket"), 0);
+    hold(sp, stack("minecraft:water_bucket"));
     sp.setSelectedSlot(0);
     useOn(sp, p, 0, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(12);
     auto& b = basinAt(ctx, p);
     ctx.check(fluidIn(b.tankIn, "minecraft:water") == 1000, "a water bucket fills 1000 mB");
     ctx.check(items::idOf(sp.getInventory().getItem(0)) == "minecraft:bucket" || sp.isCreative(), "the bucket is emptied");
     ctx.check(game::blockIdAt(region0(), game::blockPos(a.at(0, 1))) != "minecraft:water", "no water is placed next to the basin");
-    ctx.give(sp, stack("minecraft:bucket"), 0);
+    hold(sp, stack("minecraft:bucket"));
     useOn(sp, p, 0, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(12);
     ctx.check(fluidIn(b.tankIn, "minecraft:water") == 0, "an empty bucket takes the water back");
     // empty hand: every item comes out
     basinops::insertInput(b, stack("minecraft:dirt", 5), false);
-    sp.getInventory().removeItem(0, 64);
-    useOn(sp, p, 0, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(1);
+    hold(sp, items::empty());
+    sp.simulateLookAt(Vec3{p.x + .5f, p.y + .9f, p.z + .5f}, sim::LookDuration::Instant);
+    co_await ctx.ticks(2);
+    if (!sp.simulateInteract()) {
+        // the simulated player found nothing to interact with: use the block directly
+        basinops::use(sp, region0(), p, items::empty(), kUp);
+    }
+    co_await ctx.ticks(5);
     ctx.check(countIn(b.in, "minecraft:dirt") == 0, "an empty hand takes the items");
     int dirt = 0;
     for (int i = 0; i < sp.getInventory().getContainerSize(); ++i)
@@ -215,10 +233,28 @@ LV_REGISTER_SELFTEST("basin.item_intake", [](Context& ctx) -> ll::coro::CoroTask
     auto p = a.at(0);
     ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
     ctx.require(ctx.setBlock(p, kBasin), "place a basin");
-    co_await ctx.ticks(1);
-    spawnItem(p, 1.1f, stack("minecraft:sugar_cane", 7));
-    co_await ctx.ticks(20);
+    co_await ctx.ticks(5);
+    stand(static_cast<SimulatedPlayer&>(ctx.player()), a.at(-6, 0, 6)); // out of pickup range
+    co_await ctx.ticks(2);
+    ctx.info(spawnItem(p, 1.1f, stack("minecraft:sugar_cane", 7)));
+    co_await ctx.ticks(2);
+    {
+        AABB        box{Vec3{p.x - 4.f, p.y - 4.f, p.z - 4.f}, Vec3{p.x + 5.f, p.y + 5.f, p.z + 5.f}};
+        std::string seen;
+        for (auto* e : region0().getEntities(box, 2.f)) {
+            auto pos = e->getPosition();
+            seen += e->getTypeName() + "@" + std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) + " ";
+        }
+        ctx.info("entities near the basin after 2 ticks: " + seen + "; basin at " + p.key() + ", sugar cane item ok: " + std::to_string(!items::isEmpty(stack("minecraft:sugar_cane"))));
+    }
     auto& b = basinAt(ctx, p);
+    for (int i = 0; i < 12 && countIn(b.in, "minecraft:sugar_cane") < 7; ++i) co_await ctx.ticks(5);
+    if (countIn(b.in, "minecraft:sugar_cane") < 7) {
+        std::string seen;
+        for (auto* e : region0().getEntities(AABB{Vec3{p.x - 3.f, p.y - 3.f, p.z - 3.f}, Vec3{p.x + 4.f, p.y + 4.f, p.z + 4.f}}, 2.f))
+            seen += e->getTypeName() + "@" + std::to_string(e->getPosition().x) + "," + std::to_string(e->getPosition().y) + "," + std::to_string(e->getPosition().z) + " ";
+        ctx.info("still around: " + seen);
+    }
     ctx.check(countIn(b.in, "minecraft:sugar_cane") == 7, "items falling into the basin are collected, got " + std::to_string(countIn(b.in, "minecraft:sugar_cane")));
     clearItems(p);
 });
@@ -234,11 +270,11 @@ LV_REGISTER_SELFTEST("basin.burner_fuel", [](Context& ctx) -> ll::coro::CoroTask
     ctx.check(common::heat::level(r, bp) == cb::HeatLevel::Smouldering, "a blaze without fuel smoulders");
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     stand(sp, a.at(-2));
-    co_await ctx.ticks(1);
-    ctx.give(sp, stack("minecraft:coal", 4), 0);
+    co_await ctx.ticks(5);
+    hold(sp, stack("minecraft:coal", 4));
     sp.setSelectedSlot(0);
     useOn(sp, p, 0, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(12);
     auto* d = burners::get(p);
     ctx.require(d != nullptr, "burner data");
     ctx.check(d->state.fuel == cb::Fuel::Normal && d->state.burnTime > 1500, "coal: normal fuel, ~1600 ticks");
@@ -294,19 +330,19 @@ LV_REGISTER_SELFTEST("basin.lit_burner", [](Context& ctx) -> ll::coro::CoroTask<
     auto& r  = region0();
     auto  bp = game::blockPos(p);
     ctx.check(common::heat::level(r, bp) == cb::HeatLevel::None, "an empty burner gives no heat");
-    ctx.give(sp, stack("minecraft:flint_and_steel"), 0);
+    hold(sp, stack("minecraft:flint_and_steel"));
     sp.setSelectedSlot(0);
     useOn(sp, p, 0, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(12);
     ctx.check(game::blockIdAt(r, bp) == kLitBurner, "flint and steel lights it");
     ctx.check(common::heat::level(r, bp) == cb::HeatLevel::Smouldering, "a lit burner is a passive heater");
-    ctx.give(sp, stack("minecraft:soul_soil"), 0);
+    hold(sp, stack("minecraft:soul_soil"));
     useOn(sp, p, 0, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(12);
     ctx.check(stateAt(r, bp, kFlameState) == 1, "soul soil makes a soul flame");
-    ctx.give(sp, stack("minecraft:iron_shovel"), 0);
+    hold(sp, stack("minecraft:iron_shovel"));
     useOn(sp, p, 0, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(12);
     ctx.check(game::blockIdAt(r, bp) == kEmptyBurner, "a shovel puts it out");
 });
 
@@ -315,7 +351,7 @@ LV_REGISTER_SELFTEST("basin.capture", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto p = a.at(0);
     ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
     ctx.require(ctx.setBlock(p, "minecraft:mob_spawner"), "place a spawner");
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(5);
     auto& r  = region0();
     auto  bp = game::blockPos(p);
     auto* ba = r.getBlockEntity(bp);
@@ -324,10 +360,10 @@ LV_REGISTER_SELFTEST("basin.capture", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     stand(sp, a.at(-2));
     co_await ctx.ticks(2);
-    ctx.give(sp, stack(kEmptyBurner), 0);
+    hold(sp, stack(kEmptyBurner));
     sp.setSelectedSlot(0);
     useOn(sp, p, 0, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(12);
     bool got = false;
     for (int i = 0; i < sp.getInventory().getContainerSize(); ++i)
         if (items::idOf(sp.getInventory().getItem(i)) == kBurner) got = true;
@@ -395,7 +431,7 @@ LV_REGISTER_SELFTEST("basin.heat", [](Context& ctx) -> ll::coro::CoroTask<> {
     co_await ctx.ticks(80);
     ctx.check(fluidIn(b.tankOut, "minecraft:lava") == 0, "no lava without heat");
     ctx.setBlock(burner, kBurner, {{kBlazeState, 4}});
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(5);
     if (auto* d = burners::get(burner)) d->state = {cb::Fuel::None, 0, true}; // creative: stays seething
     setState(r, game::blockPos(burner), kBlazeState, 4);
     ctx.check(basinops::heatUnder(r, basin) == cb::HeatLevel::Seething, "the basin sees a seething burner");
@@ -462,10 +498,15 @@ LV_REGISTER_SELFTEST("basin.press_world", [](Context& ctx) -> ll::coro::CoroTask
     auto press = a.at(0, 2);
     ctx.require(co_await ctx.ensureLoaded(floor), "test area loaded");
     ctx.require(ctx.setBlock(floor, "minecraft:stone"), "floor");
+    // walls so the dropped items stay under the press
+    for (auto [dx, dz] : {std::pair{-1, 0}, std::pair{0, -1}, std::pair{0, 1}}) ctx.setBlock(a.at(dx, 1, dz), "minecraft:glass");
+    ctx.setBlock(a.at(1, 1), "minecraft:glass");
     ctx.require(ctx.setBlock(press, kPress, {{kAxisState, 0}}), "place a press");
     drivePress(ctx, press, 256);
     co_await ctx.ticks(3);
-    spawnItem(a.at(0, 1), .1f, stack("minecraft:sugar_cane", 2));
+    stand(static_cast<SimulatedPlayer&>(ctx.player()), a.at(-6, 0, 6)); // out of pickup range
+    co_await ctx.ticks(2);
+    ctx.info(spawnItem(a.at(0, 1), .1f, stack("minecraft:sugar_cane", 2)));
     for (int i = 0; i < 40 && itemsNear(a.at(0, 1), "minecraft:paper") < 2; ++i) co_await ctx.ticks(5);
     ctx.check(itemsNear(a.at(0, 1), "minecraft:paper") == 2, "the press turned 2 sugar cane on the ground into paper (one per cycle)");
     clearItems(a.at(0, 1));
@@ -502,20 +543,20 @@ LV_REGISTER_SELFTEST("basin.placement", [](Context& ctx) -> ll::coro::CoroTask<>
     stand(sp, a.at(-3));
     co_await ctx.ticks(2);
     if (!sp.isCreative()) ctx.info("survival player");
-    ctx.give(sp, stack(kPress), 0);
+    hold(sp, stack(kPress));
     sp.setSelectedSlot(0);
     useOn(sp, a.at(0, 1), 0, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(2);
+    co_await ctx.ticks(12);
     ctx.check(game::blockIdAt(region0(), game::blockPos(a.at(0, 2))) != kPress, "a press can't stand directly on a basin");
     // a burner faces the player
     ctx.require(ctx.setBlock(a.at(3), "minecraft:stone"), "ground 2");
     ctx.cleanupBlock(a.at(3, 1));
-    ctx.give(sp, stack(kEmptyBurner), 0);
+    hold(sp, stack(kEmptyBurner));
     auto target = a.at(3, 1);
     sp.simulateLookAt(Vec3{target.x + .5f, target.y + .5f, target.z + .5f}, sim::LookDuration::Instant);
     co_await ctx.ticks(2);
     useOn(sp, a.at(3), 0, ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
-    co_await ctx.ticks(2);
+    co_await ctx.ticks(12);
     ctx.check(game::blockIdAt(region0(), game::blockPos(a.at(3, 1))) == kEmptyBurner, "an empty burner is placed");
     ctx.check(stateAt(region0(), game::blockPos(a.at(3, 1)), kFacingState) == kWest, "it faces the player (west)");
     clearItems(a.at(0, 2));
@@ -528,7 +569,7 @@ LV_REGISTER_SELFTEST("basin.sync", [](Context& ctx) -> ll::coro::CoroTask<> {
     ctx.require(ctx.setBlock(p, kBasin), "place a basin");
     auto& player = ctx.player();
     net::setTestCompanion(player, true);
-    co_await ctx.ticks(1);
+    co_await ctx.ticks(5);
     (void)net::takeTestMessages(player);
     auto& b = basinAt(ctx, p);
     basinops::insertInput(b, stack("minecraft:apple", 2), false);

@@ -9,6 +9,7 @@
 #include <cmath>
 #include <random>
 #include <set>
+#include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/world/BlockChangedEvent.h"
@@ -338,6 +339,11 @@ core::common::Vec localHit(BlockPos const& pos, Vec3 const& click) {
     return {click.x - pos.x, click.y - pos.y, click.z - pos.z};
 }
 
+std::unordered_map<std::int64_t, std::pair<GlobalPos, std::uint64_t>>& lastUse() {
+    static std::unordered_map<std::int64_t, std::pair<GlobalPos, std::uint64_t>> m;
+    return m;
+}
+
 InteractionResult handled() {
     InteractionResult r{};
     r.mSuccess = true;
@@ -370,43 +376,39 @@ LL_TYPE_INSTANCE_HOOK(
     auto         kind    = kindOf(target);
     bool         sneak   = player.isSneaking();
 
+    auto gp = game::globalPos(region, at);
+    // Bedrock repeats the use while the button is held (and SimulatedPlayers never send a "first"
+    // event): one action per click, repeats of a handled click are swallowed
+    auto  uid    = player.getOrCreateUniqueID().rawID;
+    auto& last   = lastUse()[uid];
+    bool  repeat = last.first == gp && now() - last.second < 4;
+    auto  done   = [&] {
+        last = {gp, now()};
+        player.sendInventory(false);
+        return handled();
+    };
+    if (kind) log().debug("basin: {} uses {} on {} at {}", player.getRealName(), held.empty() ? "an empty hand" : held, target, gp.key());
+    if (repeat && (kind || held == kEmptyBurner)) return handled();
+
     // blocks of the unit: Create's use() (sneaking with an item places / uses the item instead)
     if (kind && !(sneak && !held.empty())) {
-        auto gp = game::globalPos(region, at);
         if (*kind == Kind::Basin) {
             // the filter slot is U3's (value box interaction)
             if (common::filterslot::slotAt(*clicked, face, localHit(at, hit))) {
                 return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
             }
             if (held == kWrench) {
-                if (isFirstEvent) {
-                    if (auto* b = basinops::get(region, gp)) basinops::onWrenched(region, gp, *b, face);
-                }
-                return handled();
+                if (auto* b = basinops::get(region, gp)) basinops::onWrenched(region, gp, *b, face);
+                return done();
             }
-            if (!isFirstEvent) {
-                // a held button repeats the use: never let a bucket pour next to the basin
-                if (!held.empty() && !common::fluids::fluidInItem(item).empty()) return handled();
-                return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-            }
-            if (basinops::use(player, region, gp, item, face)) {
-                player.sendInventory(false);
-                return handled();
-            }
+            if (basinops::use(player, region, gp, item, face)) return done();
         } else if (*kind == Kind::Burner || *kind == Kind::EmptyBurner || *kind == Kind::LitBurner) {
-            if (!isFirstEvent) return origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-            if (burners::use(player, region, gp, item)) {
-                player.sendInventory(false);
-                return handled();
-            }
+            if (burners::use(player, region, gp, item)) return done();
         }
     }
     // the empty burner on a blaze spawner
-    if (held == kEmptyBurner && target == "minecraft:mob_spawner" && isFirstEvent) {
-        if (burners::captureFromSpawner(player, region, at)) {
-            player.sendInventory(false);
-            return handled();
-        }
+    if (held == kEmptyBurner && target == "minecraft:mob_spawner") {
+        if (burners::captureFromSpawner(player, region, at)) return done();
     }
     // placing a block of the unit: orient it afterwards (Create's getStateForPlacement)
     auto placing = kindOf(held);
