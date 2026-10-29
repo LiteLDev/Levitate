@@ -34,7 +34,7 @@
 
 namespace lv::feature::actors {
 
-namespace ext = ::lv::feature::contraption::ext;
+namespace ext = ::lv::feature::contraption::actors_ext;
 namespace bd  = ::lv::feature::common::blockdata;
 namespace fs  = ::lv::feature::common::filterslot;
 namespace it  = ::lv::feature::common::items;

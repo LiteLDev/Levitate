@@ -33,7 +33,7 @@
 
 namespace lv::feature::actors {
 
-namespace ext  = ::lv::feature::contraption::ext;
+namespace ext  = ::lv::feature::contraption::actors_ext;
 namespace caps = ::lv::feature::common;
 
 namespace {

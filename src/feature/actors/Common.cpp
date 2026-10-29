@@ -44,7 +44,7 @@ LV_REGISTER_CONFIG("actors", lv::feature::actors::Config);
 
 namespace lv::feature::actors {
 
-namespace ext = ::lv::feature::contraption::ext;
+namespace ext = ::lv::feature::contraption::actors_ext;
 
 // ---- blocks -----------------------------------------------------------------------------------
 

@@ -23,7 +23,7 @@ class Block;
 class BlockSource;
 class Player;
 
-namespace lv::feature::contraption::ext {
+namespace lv::feature::contraption::actors_ext {
 
 /// Name of the BlockData carrier ("blockdata").
 inline constexpr char kBlockDataCarrier[] = "blockdata";
@@ -53,4 +53,4 @@ void defer(std::function<void()> fn);
 /// `block` with `states` applied (unknown states ignored).
 [[nodiscard]] Block const* withStates(Block const& block, cc::States const& states);
 
-} // namespace lv::feature::contraption::ext
+} // namespace lv::feature::contraption::actors_ext

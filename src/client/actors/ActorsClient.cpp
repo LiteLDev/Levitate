@@ -50,7 +50,7 @@ namespace lv::client::actors {
 namespace {
 
 namespace fa  = ::lv::feature::actors;
-namespace ext = ::lv::feature::contraption::ext;
+namespace ext = ::lv::feature::contraption::actors_ext;
 namespace net = ::lv::feature::net;
 
 struct Spin {
