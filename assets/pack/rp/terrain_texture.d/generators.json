@@ -1,0 +1,98 @@
+{
+  "levitate_hand_crank": {
+    "textures": "textures/blocks/hand_crank"
+  },
+  "levitate_copper_valve_handle": {
+    "textures": "textures/blocks/copper_valve_handle"
+  },
+  "levitate_white_valve_handle": {
+    "textures": "textures/blocks/white_valve_handle"
+  },
+  "levitate_orange_valve_handle": {
+    "textures": "textures/blocks/orange_valve_handle"
+  },
+  "levitate_magenta_valve_handle": {
+    "textures": "textures/blocks/magenta_valve_handle"
+  },
+  "levitate_light_blue_valve_handle": {
+    "textures": "textures/blocks/light_blue_valve_handle"
+  },
+  "levitate_yellow_valve_handle": {
+    "textures": "textures/blocks/yellow_valve_handle"
+  },
+  "levitate_lime_valve_handle": {
+    "textures": "textures/blocks/lime_valve_handle"
+  },
+  "levitate_pink_valve_handle": {
+    "textures": "textures/blocks/pink_valve_handle"
+  },
+  "levitate_gray_valve_handle": {
+    "textures": "textures/blocks/gray_valve_handle"
+  },
+  "levitate_light_gray_valve_handle": {
+    "textures": "textures/blocks/light_gray_valve_handle"
+  },
+  "levitate_cyan_valve_handle": {
+    "textures": "textures/blocks/cyan_valve_handle"
+  },
+  "levitate_purple_valve_handle": {
+    "textures": "textures/blocks/purple_valve_handle"
+  },
+  "levitate_blue_valve_handle": {
+    "textures": "textures/blocks/blue_valve_handle"
+  },
+  "levitate_brown_valve_handle": {
+    "textures": "textures/blocks/brown_valve_handle"
+  },
+  "levitate_green_valve_handle": {
+    "textures": "textures/blocks/green_valve_handle"
+  },
+  "levitate_red_valve_handle": {
+    "textures": "textures/blocks/red_valve_handle"
+  },
+  "levitate_black_valve_handle": {
+    "textures": "textures/blocks/black_valve_handle"
+  },
+  "levitate_water_wheel_oak": {
+    "textures": "textures/blocks/water_wheel_oak"
+  },
+  "levitate_water_wheel_spruce": {
+    "textures": "textures/blocks/water_wheel_spruce"
+  },
+  "levitate_water_wheel_birch": {
+    "textures": "textures/blocks/water_wheel_birch"
+  },
+  "levitate_water_wheel_jungle": {
+    "textures": "textures/blocks/water_wheel_jungle"
+  },
+  "levitate_water_wheel_acacia": {
+    "textures": "textures/blocks/water_wheel_acacia"
+  },
+  "levitate_water_wheel_dark_oak": {
+    "textures": "textures/blocks/water_wheel_dark_oak"
+  },
+  "levitate_water_wheel_mangrove": {
+    "textures": "textures/blocks/water_wheel_mangrove"
+  },
+  "levitate_water_wheel_cherry": {
+    "textures": "textures/blocks/water_wheel_cherry"
+  },
+  "levitate_water_wheel_bamboo": {
+    "textures": "textures/blocks/water_wheel_bamboo"
+  },
+  "levitate_water_wheel_crimson": {
+    "textures": "textures/blocks/water_wheel_crimson"
+  },
+  "levitate_water_wheel_warped": {
+    "textures": "textures/blocks/water_wheel_warped"
+  },
+  "levitate_water_wheel_pale_oak": {
+    "textures": "textures/blocks/water_wheel_pale_oak"
+  },
+  "levitate_water_wheel_rotor": {
+    "textures": "textures/blocks/water_wheel_rotor"
+  },
+  "levitate_creative_motor": {
+    "textures": "textures/blocks/creative_motor"
+  }
+}

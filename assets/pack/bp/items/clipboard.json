@@ -1,0 +1,19 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:clipboard",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_clipboard",
+      "minecraft:max_stack_size": 1,
+      "minecraft:block_placer": {
+        "block": "levitate:clipboard",
+        "replace_block_item": true
+      }
+    }
+  }
+}

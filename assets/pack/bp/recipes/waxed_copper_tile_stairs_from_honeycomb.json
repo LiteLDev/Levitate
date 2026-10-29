@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:waxed_copper_tile_stairs_from_honeycomb"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:copper_tile_stairs"
+      },
+      {
+        "item": "minecraft:honeycomb"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:copper_tile_stairs"
+      }
+    ],
+    "result": {
+      "item": "levitate:waxed_copper_tile_stairs",
+      "count": 1
+    }
+  }
+}

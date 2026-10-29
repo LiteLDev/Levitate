@@ -1,0 +1,68 @@
+{
+  "levitate:hand_crank": {
+    "sound": "wood"
+  },
+  "levitate:copper_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:white_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:orange_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:magenta_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:light_blue_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:yellow_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:lime_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:pink_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:gray_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:light_gray_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:cyan_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:purple_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:blue_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:brown_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:green_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:red_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:black_valve_handle": {
+    "sound": "copper"
+  },
+  "levitate:water_wheel": {
+    "sound": "wood"
+  },
+  "levitate:large_water_wheel": {
+    "sound": "wood"
+  },
+  "levitate:water_wheel_structure": {
+    "sound": "wood"
+  },
+  "levitate:creative_motor": {
+    "sound": "metal"
+  }
+}

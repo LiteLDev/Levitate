@@ -1,0 +1,981 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.tunnel",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "roof",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                12,
+                -8
+              ],
+              "size": [
+                16,
+                4,
+                16
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "wall"
+                },
+                "south": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "wall"
+                },
+                "east": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "top"
+                },
+                "west": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "top"
+                },
+                "up": {
+                  "uv": [
+                    0.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    16,
+                    16
+                  ],
+                  "material_instance": "top"
+                },
+                "down": {
+                  "uv": [
+                    0.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    16,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "pillars",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -8,
+                -8,
+                -8
+              ],
+              "size": [
+                2,
+                20,
+                2
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "pillar"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "pillar"
+                }
+              }
+            },
+            {
+              "origin": [
+                6,
+                -8,
+                -8
+              ],
+              "size": [
+                2,
+                20,
+                2
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "pillar"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "pillar"
+                }
+              }
+            },
+            {
+              "origin": [
+                -8,
+                -8,
+                6
+              ],
+              "size": [
+                2,
+                20,
+                2
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "pillar"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "pillar"
+                }
+              }
+            },
+            {
+              "origin": [
+                6,
+                -8,
+                6
+              ],
+              "size": [
+                2,
+                20,
+                2
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "pillar"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "pillar"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "wall_n",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                -8,
+                -8
+              ],
+              "size": [
+                12,
+                20,
+                2
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "wall"
+                },
+                "south": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "wall"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "up": {
+                  "uv": [
+                    2.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    12,
+                    2
+                  ],
+                  "material_instance": "top"
+                },
+                "down": {
+                  "uv": [
+                    2.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    12,
+                    2
+                  ],
+                  "material_instance": "pillar"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "wall_s",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                -8,
+                6
+              ],
+              "size": [
+                12,
+                20,
+                2
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "wall"
+                },
+                "south": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "wall"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "pillar"
+                },
+                "up": {
+                  "uv": [
+                    2.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    12,
+                    2
+                  ],
+                  "material_instance": "top"
+                },
+                "down": {
+                  "uv": [
+                    2.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    12,
+                    2
+                  ],
+                  "material_instance": "pillar"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "flap_w",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -7.5,
+                -6,
+                -6
+              ],
+              "size": [
+                1,
+                17,
+                12
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    1,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    1,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    12
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    12
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "flap_e",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                6.5,
+                -6,
+                -6
+              ],
+              "size": [
+                1,
+                17,
+                12
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    1,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    1,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    12
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    12
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "flap_n",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                -6,
+                -7.5
+              ],
+              "size": [
+                12,
+                17,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    1,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    1,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    2.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    12,
+                    1
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    2.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    12,
+                    1
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "flap_s",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                -6,
+                6.5
+              ],
+              "size": [
+                12,
+                17,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    2.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    12,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    1,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    1,
+                    16
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    2.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    12,
+                    1
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    2.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    12,
+                    1
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

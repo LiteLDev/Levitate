@@ -1,0 +1,201 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.pulley_magnet",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "rod",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -2.0,
+                3.0,
+                -2.0
+              ],
+              "size": [
+                4.0,
+                13.0,
+                4.0
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    6,
+                    0
+                  ],
+                  "uv_size": [
+                    4.0,
+                    13.0
+                  ],
+                  "material_instance": "rope"
+                },
+                "south": {
+                  "uv": [
+                    6,
+                    0
+                  ],
+                  "uv_size": [
+                    4.0,
+                    13.0
+                  ],
+                  "material_instance": "rope"
+                },
+                "east": {
+                  "uv": [
+                    6,
+                    0
+                  ],
+                  "uv_size": [
+                    4.0,
+                    13.0
+                  ],
+                  "material_instance": "rope"
+                },
+                "west": {
+                  "uv": [
+                    6,
+                    0
+                  ],
+                  "uv_size": [
+                    4.0,
+                    13.0
+                  ],
+                  "material_instance": "rope"
+                },
+                "up": {
+                  "uv": [
+                    6,
+                    6
+                  ],
+                  "uv_size": [
+                    4.0,
+                    4.0
+                  ],
+                  "material_instance": "rope"
+                },
+                "down": {
+                  "uv": [
+                    6,
+                    6
+                  ],
+                  "uv_size": [
+                    4.0,
+                    4.0
+                  ],
+                  "material_instance": "rope"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "plate",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -5.0,
+                0.0,
+                -5.0
+              ],
+              "size": [
+                10.0,
+                3.0,
+                10.0
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    3,
+                    13
+                  ],
+                  "uv_size": [
+                    10.0,
+                    3.0
+                  ],
+                  "material_instance": "magnet"
+                },
+                "south": {
+                  "uv": [
+                    3,
+                    13
+                  ],
+                  "uv_size": [
+                    10.0,
+                    3.0
+                  ],
+                  "material_instance": "magnet"
+                },
+                "east": {
+                  "uv": [
+                    3,
+                    13
+                  ],
+                  "uv_size": [
+                    10.0,
+                    3.0
+                  ],
+                  "material_instance": "magnet"
+                },
+                "west": {
+                  "uv": [
+                    3,
+                    13
+                  ],
+                  "uv_size": [
+                    10.0,
+                    3.0
+                  ],
+                  "material_instance": "magnet"
+                },
+                "up": {
+                  "uv": [
+                    3,
+                    3
+                  ],
+                  "uv_size": [
+                    10.0,
+                    10.0
+                  ],
+                  "material_instance": "magnet"
+                },
+                "down": {
+                  "uv": [
+                    3,
+                    3
+                  ],
+                  "uv_size": [
+                    10.0,
+                    10.0
+                  ],
+                  "material_instance": "magnet"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

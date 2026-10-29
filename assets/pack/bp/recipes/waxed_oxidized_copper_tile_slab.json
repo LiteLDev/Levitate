@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:waxed_oxidized_copper_tile_slab"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "XXX"
+    ],
+    "key": {
+      "X": {
+        "item": "levitate:waxed_oxidized_copper_tiles"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:waxed_oxidized_copper_tiles"
+      }
+    ],
+    "result": {
+      "item": "levitate:waxed_oxidized_copper_tile_slab",
+      "count": 6
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:pink_table_cloth_from_gray_table_cloth"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:pink_dye"
+      },
+      {
+        "item": "levitate:gray_table_cloth"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:pink_dye"
+      }
+    ],
+    "result": {
+      "item": "levitate:pink_table_cloth",
+      "count": 1
+    }
+  }
+}

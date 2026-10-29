@@ -1,0 +1,14 @@
+{
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "item",
+          "name": "levitate:oxidized_copper_tile_stairs",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

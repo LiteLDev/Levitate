@@ -1,0 +1,11 @@
+tile.levitate:mechanical_piston.name=动力活塞
+tile.levitate:sticky_mechanical_piston.name=黏性动力活塞
+tile.levitate:piston_extension_pole.name=活塞杆
+tile.levitate:mechanical_piston_head.name=动力活塞头
+tile.levitate:rope_pulley.name=绳索滑轮
+tile.levitate:rope.name=绳索
+tile.levitate:pulley_magnet.name=滑轮磁铁
+tile.levitate:elevator_pulley.name=升降机滑轮
+tile.levitate:elevator_contact.name=升降机锚点
+tile.levitate:gantry_carriage.name=起重机取物器
+tile.levitate:gantry_shaft.name=起重机杆

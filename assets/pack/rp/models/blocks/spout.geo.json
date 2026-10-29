@@ -1,0 +1,263 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.spout",
+        "texture_width": 32,
+        "texture_height": 32,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "body",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -7,
+                6,
+                -7
+              ],
+              "size": [
+                14,
+                10,
+                14
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    1,
+                    0
+                  ],
+                  "uv_size": [
+                    14,
+                    10
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    1,
+                    0
+                  ],
+                  "uv_size": [
+                    14,
+                    10
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    1,
+                    0
+                  ],
+                  "uv_size": [
+                    14,
+                    10
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    1,
+                    0
+                  ],
+                  "uv_size": [
+                    14,
+                    10
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    17,
+                    1
+                  ],
+                  "uv_size": [
+                    14,
+                    14
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    17,
+                    17
+                  ],
+                  "uv_size": [
+                    14,
+                    14
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "nozzle",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -4,
+                2,
+                -4
+              ],
+              "size": [
+                8,
+                4,
+                8
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    16
+                  ],
+                  "uv_size": [
+                    8,
+                    4
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    0,
+                    16
+                  ],
+                  "uv_size": [
+                    8,
+                    4
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    0,
+                    16
+                  ],
+                  "uv_size": [
+                    8,
+                    4
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    0,
+                    16
+                  ],
+                  "uv_size": [
+                    8,
+                    4
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    0,
+                    24
+                  ],
+                  "uv_size": [
+                    8,
+                    8
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    0,
+                    24
+                  ],
+                  "uv_size": [
+                    8,
+                    8
+                  ]
+                }
+              }
+            },
+            {
+              "origin": [
+                -2,
+                0,
+                -2
+              ],
+              "size": [
+                4,
+                2,
+                4
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    8,
+                    16
+                  ],
+                  "uv_size": [
+                    4,
+                    2
+                  ]
+                },
+                "south": {
+                  "uv": [
+                    8,
+                    16
+                  ],
+                  "uv_size": [
+                    4,
+                    2
+                  ]
+                },
+                "east": {
+                  "uv": [
+                    8,
+                    16
+                  ],
+                  "uv_size": [
+                    4,
+                    2
+                  ]
+                },
+                "west": {
+                  "uv": [
+                    8,
+                    16
+                  ],
+                  "uv_size": [
+                    4,
+                    2
+                  ]
+                },
+                "up": {
+                  "uv": [
+                    8,
+                    20
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ]
+                },
+                "down": {
+                  "uv": [
+                    8,
+                    20
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

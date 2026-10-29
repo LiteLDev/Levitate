@@ -1,7 +1,7 @@
 #pragma once
 
 // Basin unit (U14) internals: basin, mechanical press, mechanical mixer, blaze burners.
-// Server thread only. See docs/SPEC.md §2.9 / §3.6.1.
+// Server thread only. See docs/SPEC.md §2.9 / §3.6.14.
 
 #include <array>
 #include <functional>

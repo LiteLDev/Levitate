@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:framed_glass_door_1"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:spruce_door"
+      },
+      {
+        "item": "levitate:framed_glass"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:spruce_door"
+      }
+    ],
+    "result": {
+      "item": "levitate:framed_glass_door",
+      "count": 1
+    }
+  }
+}

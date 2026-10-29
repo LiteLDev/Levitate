@@ -1,0 +1,8 @@
+{
+  "levitate_honey_bucket": {
+    "textures": "textures/items/honey_bucket"
+  },
+  "levitate_chocolate_bucket": {
+    "textures": "textures/items/chocolate_bucket"
+  }
+}
