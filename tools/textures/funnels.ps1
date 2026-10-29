@@ -285,7 +285,7 @@ foreach ($n in 'andesite', 'brass') {
         [ordered]@{ condition = "q.block_state('levitate:axis') == 2"; components = [ordered]@{ 'minecraft:transformation' = [ordered]@{ rotation = @(0, -90, 0) } } },
         [ordered]@{ condition = "q.block_state('levitate:shape') == 1"; components = [ordered]@{ 'minecraft:material_instances' = $winMats } }
     )
-    Block $id ([ordered]@{ 'levitate:axis' = @(0, 2); 'levitate:shape' = @(0, 1, 2, 3, 4, 5) }) $comp $perms
+    Block $id ([ordered]@{ 'levitate:axis' = @(0, 1, 2); 'levitate:shape' = @(0, 1, 2, 3, 4, 5) }) $comp $perms
 }
 
 # chute: facing (0 down, 2..5 diagonal), shape (0 intersection, 1 window, 2 normal, 3 encased)
@@ -364,7 +364,7 @@ foreach ($axis in 0, 2) { foreach ($len in 0..3) {
         $perms += [ordered]@{ condition = $cond; components = [ordered]@{ 'minecraft:material_instances' = $m } }
     }
 } }
-Block 'item_vault' ([ordered]@{ 'levitate:axis' = @(0, 2); 'levitate:len' = @(0, 1, 2, 3); 'levitate:u' = @(0, 1, 2, 3); 'levitate:v' = @(0, 1, 2, 3); 'levitate:large' = @(0, 1) }) $comp $perms
+Block 'item_vault' ([ordered]@{ 'levitate:axis' = @(0, 1, 2); 'levitate:len' = @(0, 1, 2, 3); 'levitate:u' = @(0, 1, 2, 3); 'levitate:v' = @(0, 1, 2, 3); 'levitate:large' = @(0, 1) }) $comp $perms
 
 # --- RP fragments ---------------------------------------------------------------------------------------------
 Save-Json (Join-Path $root 'assets/pack/rp/terrain_texture.d/funnels.json') $terrain

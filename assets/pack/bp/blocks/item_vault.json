@@ -9,6 +9,7 @@
       "states": {
         "levitate:axis": [
           0,
+          1,
           2
         ],
         "levitate:len": [

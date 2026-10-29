@@ -16,6 +16,11 @@ Send-Console 'setblock 7 -58 7 redstone_block'
 Wait-LogLine 'funnels: funnel at 0:7:-58:6 powered' 15 -Since $mark | Out-Null
 Send-Console 'setblock 7 -58 7 air'
 Wait-LogLine 'funnels: funnel at 0:7:-58:6 unpowered' 15 -Since $mark | Out-Null
+# a vault built with /fill forms one 2x2x3 structure
+$mark = Get-LogMark
+Send-Console 'fill 2 -58 9 3 -57 11 levitate:item_vault ["levitate:axis"=2]'
+Wait-LogLine 'funnels: item vault at 2 -58 9 formed \(2x2x3\)' 15 -Since $mark | Out-Null
+Send-Console 'fill 2 -58 9 3 -57 11 air'
 Send-Console 'setblock 7 -58 6 air'
 Send-Console 'setblock 6 -58 6 air'
 Send-Console 'tickingarea remove lv_funnels'

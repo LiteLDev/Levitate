@@ -119,7 +119,8 @@ void formAround(BlockSource& region, int dim, BlockPos const& start) {
             auto c = s.cell(i);
             vs().structures[{dim, c.x, c.y, c.z}] = shared;
             auto look = cf::vaultLook(s, c);
-            setStates(region, BlockPos{c.x, c.y, c.z}, {{kLen, look.len}, {kU, look.u}, {kV, look.v}, {kLarge, look.large ? 1 : 0}});
+            // (a vertical axis from a command is not a vault axis: it is shown and used as x)
+            setStates(region, BlockPos{c.x, c.y, c.z}, {{kAxis, s.axis}, {kLen, look.len}, {kU, look.u}, {kV, look.v}, {kLarge, look.large ? 1 : 0}});
         }
         if (s.size() > 1) log().info("funnels: item vault at {} {} {} formed ({}x{}x{})", s.origin.x, s.origin.y, s.origin.z, s.width, s.width, s.length);
     }

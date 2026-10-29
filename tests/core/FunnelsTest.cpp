@@ -154,6 +154,15 @@ TEST(Funnels, VaultFormation) {
         total += v.size();
     }
     EXPECT_EQ(total, 8);
+    // along z, negative y (a /fill in a flat world)
+    std::vector<VaultCell> zcells;
+    for (int x = 2; x <= 3; ++x)
+        for (int y = -58; y <= -57; ++y)
+            for (int z = 9; z <= 11; ++z) zcells.push_back({x, y, z});
+    auto zs = formVaults(zcells, [](VaultCell const&) { return std::optional<int>(2); });
+    ASSERT_EQ(zs.size(), 1u);
+    EXPECT_EQ(zs[0].width, 2);
+    EXPECT_EQ(zs[0].length, 3);
     // different axes don't join
     auto mixed = formVaults({{0, 0, 0}, {1, 0, 0}}, [](VaultCell const& c) { return std::optional<int>(c.x == 0 ? 0 : 2); });
     EXPECT_EQ(mixed.size(), 2u);
