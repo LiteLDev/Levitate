@@ -39,6 +39,8 @@ namespace {
 
 constexpr char const* kPortScreen = "packages.port";
 
+void setOpen(GlobalPos const& pos, bool open);
+
 std::map<GlobalPos, PortState>& states() {
     static std::map<GlobalPos, PortState> m;
     return m;
@@ -319,6 +321,7 @@ void tickPort(GlobalPos const& pos, Kind kind, bool lazy) {
     auto& s = port(pos);
     if (lazy) registerWithTarget(pos);
     if (kind == Kind::Postbox) {
+        if (s.openTicks > 0 && --s.openTicks == 0) setOpen(pos, false);
         if (!s.registered) {
             s.registered = true;
             updateFlag(pos, s);
@@ -457,6 +460,8 @@ std::optional<GlobalPos> contextPort(Player& player, Json const& ctx) {
 
 void setOpen(GlobalPos const& pos, bool open) {
     if (kindOf(idAt(pos)) != Kind::Postbox) return;
+    // native screens report no close: the lid shuts by itself after 3 s (re-opened while used)
+    port(pos).openTicks = open ? 60 : 0;
     if (setStates(pos, {{kOpen, open ? 1 : 0}})) playSound(pos.dim, centre(pos), open ? "random.barrel_open" : "random.barrel_close");
 }
 

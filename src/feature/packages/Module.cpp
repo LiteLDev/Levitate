@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
+#include "ll/api/event/player/PlayerPlaceBlockEvent.h"
 #include "ll/api/event/world/BlockChangedEvent.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
 #include "ll/api/memory/Hook.h"
@@ -70,6 +71,10 @@ struct ModuleState {
     std::uint64_t                      tick = 0;
     /// (dim, pos) broken by a creative player this tick (no chain drops, Create's playerWillDestroy)
     std::set<GlobalPos> creativeBroken;
+    /// positions placed (and set up) through the useItemOn hook this tick
+    std::set<GlobalPos> placedByHook;
+    /// positions set up by PlayerPlacedBlockEvent this tick (it fires inside the hook's origin call)
+    std::set<GlobalPos> placedByEvent;
     /// player -> tick of the start of a package use (throwing)
     std::unordered_map<std::int64_t, std::uint64_t> useStart;
     /// player -> (pos, tick) of the last handled click (Bedrock repeats use-on while held)
@@ -153,6 +158,8 @@ void tickAll() {
     tickRiders();
     if (s.tick % 4 == 0) syncConveyors();
     s.creativeBroken.clear();
+    s.placedByHook.clear();
+    s.placedByEvent.clear();
 }
 
 void onBlockChanged(ll::event::BlockChangedEvent& ev) {
@@ -409,7 +416,8 @@ LL_TYPE_INSTANCE_HOOK(
             }
             auto before = idAt(place);
             auto result = origin(item, at, face, hit, handSlot, targetBlock, isFirstEvent);
-            if (idAt(place) == heldId && before != heldId) {
+            if (idAt(place) == heldId && before != heldId && !S().placedByEvent.contains(place)) {
+                S().placedByHook.insert(place);
                 track(place, placedKind);
                 switch (placedKind) {
                 case Kind::Packager:
@@ -493,10 +501,127 @@ LL_TYPE_INSTANCE_HOOK(
     return origin(pos, face);
 }
 
+namespace {
+
+/// Network players' block-item clicks (chains, frogports, postboxes) reach the server as block
+/// placements, not through GameMode::useItemOn: handle the clicks on our blocks here.
+void onPlacing(ll::event::PlayerPlacingBlockEvent& ev) {
+    Player& player = ev.self();
+    if (!isServerPlayer(player)) return;
+    auto const& held   = player.getSelectedItem();
+    auto        heldId = items::idOf(held);
+    auto&       region = player.getDimensionBlockSource();
+    auto        placed = game::globalPos(region, ev.pos());
+    int         face   = std::clamp<int>(ev.face(), 0, 5);
+    // the clicked block: the placement position itself (replaceable target) or the one behind it
+    GlobalPos clicked = kindOf(idAt(placed)) != Kind::None ? placed : offsetFace(placed, oppositeFace(face));
+    auto      kind    = kindOf(idAt(clicked));
+    if (kind == Kind::ChainConveyor && isChainItem(held)) {
+        ev.cancel();
+        if (!debounced(player, clicked)) {
+            auto uid = player.getOrCreateUniqueID().rawID;
+            defer([uid, clicked] {
+                if (auto* p = playerById(uid)) useConveyorWithChain(*p, clicked);
+            });
+        }
+        return;
+    }
+    if (kind == Kind::ChainConveyor && heldId == kFrogportId) {
+        ev.cancel();
+        if (auto pick = pickChain(player, false, 8.0); pick && !debounced(player, clicked)) {
+            PendingTarget t;
+            t.target.type       = PortTarget::Type::Chain;
+            t.target.chainPos   = pick->chainPosition;
+            t.target.connection = pick->connection;
+            t.targetPos         = pick->conveyor;
+            t.exact             = pick->exact;
+            setPendingTarget(player, t);
+        }
+        return;
+    }
+    if (isPostboxId(heldId) && idAt(clicked) == kStationId) {
+        ev.cancel();
+        if (!debounced(player, clicked)) {
+            PendingTarget t;
+            t.target.type = PortTarget::Type::Station;
+            t.targetPos   = clicked;
+            t.exact       = centre(clicked);
+            t.postbox     = true;
+            setPendingTarget(player, t);
+        }
+        return;
+    }
+    if (kind == Kind::Packager || kind == Kind::Repackager || ((kind == Kind::Frogport || kind == Kind::Postbox) && !player.isSneaking())) {
+        // clicking our machines with a block uses them (Create), sneaking places
+        if (kind == Kind::Packager || kind == Kind::Repackager) {
+            if (player.isSneaking() || heldId == kFrogportId) return;
+            ev.cancel();
+            if (!debounced(player, clicked)) {
+                auto uid = player.getOrCreateUniqueID().rawID;
+                defer([uid, clicked] {
+                    if (auto* p = playerById(uid); p && isPackager(clicked)) usePackager(*p, clicked);
+                });
+            }
+        } else {
+            ev.cancel();
+            if (!debounced(player, clicked)) {
+                auto uid = player.getOrCreateUniqueID().rawID;
+                defer([uid, clicked, kind] {
+                    if (auto* p = playerById(uid); p && kindOf(idAt(clicked)) == kind) usePort(*p, clicked, kind);
+                });
+            }
+        }
+        return;
+    }
+    auto placedKind = kindOf(heldId);
+    if (placedKind == Kind::ChainConveyor && conveyorPlacementBlocked(placed)) ev.cancel();
+    if ((placedKind == Kind::Packager || placedKind == Kind::Repackager) && !packagerPlacementFacing(player, placed, false)) ev.cancel();
+}
+
+void onPlaced(ll::event::PlayerPlacedBlockEvent& ev) {
+    Player& player = ev.self();
+    if (!isServerPlayer(player)) return;
+    auto kind = kindOf(game::blockId(ev.placedBlock()));
+    if (kind == Kind::None) return;
+    auto pos = game::globalPos(player.getDimensionBlockSource(), ev.pos());
+    if (S().placedByHook.contains(pos)) return; // already set up by the useItemOn hook
+    S().placedByEvent.insert(pos);
+    track(pos, kind);
+    switch (kind) {
+    case Kind::Packager:
+    case Kind::Repackager:
+        if (auto f = packagerPlacementFacing(player, pos, kind == Kind::Repackager)) onPackagerPlaced(pos, *f);
+        break;
+    case Kind::Frogport: onPortPlaced(&player, pos, kind); break;
+    case Kind::Postbox:
+        onPortPlaced(&player, pos, kind);
+        setStates(pos, {{kDirection, game::opposite(game::playerFacing(player))}});
+        break;
+    default: break;
+    }
+    log().info("packages: {} placed at {} by {}", kindName(kind), pos.key(), player.getRealName());
+}
+
+} // namespace
+
 class PackagesModule {
 public:
     void install() {
         auto& bus = ll::event::EventBus::getInstance();
+        mListeners.push_back(bus.emplaceListener<ll::event::PlayerPlacingBlockEvent>([](ll::event::PlayerPlacingBlockEvent& ev) {
+            try {
+                onPlacing(ev);
+            } catch (std::exception const& e) {
+                log().error("packages: placing failed: {}", e.what());
+            }
+        }));
+        mListeners.push_back(bus.emplaceListener<ll::event::PlayerPlacedBlockEvent>([](ll::event::PlayerPlacedBlockEvent& ev) {
+            try {
+                onPlaced(ev);
+            } catch (std::exception const& e) {
+                log().error("packages: placed failed: {}", e.what());
+            }
+        }));
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { tickAll(); }));
         mListeners.push_back(bus.emplaceListener<ll::event::BlockChangedEvent>([](ll::event::BlockChangedEvent& ev) {
             try {

@@ -319,7 +319,6 @@ public:
         mSend({{"op", "insert"}, {"slot", slot}});
     }
 
-    void onClose() override { mSend({{"op", "close"}}); }
 
 private:
     screen::SendFn             mSend;

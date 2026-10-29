@@ -16,7 +16,7 @@ Start-Sleep -Milliseconds 800
 
 # --- the port screen ---------------------------------------------------------------------------
 Invoke-Chat '/setblock 5 -60 -3 levitate:package_frogport'
-Invoke-Chat '/tp @s 5.5 -60 0.5 facing 5.5 -59.6 -2.5'
+Invoke-Chat '/tp @s 5.5 -60 0.5 180 25'
 Press-Key '9'                      # an empty hotbar slot
 Start-Sleep -Milliseconds 800
 $mark = Get-LogMark
@@ -32,7 +32,8 @@ if ($vanilla) {
 Wait-LogLine 'screen packages\.port opened for .* \(native\)' 20 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 1200
 Save-Screenshot 'port-screen' | Out-Null
-Close-Screen
+Press-Key E                        # the inventory key closes native screens (Esc goes to the host scene)
+Start-Sleep -Milliseconds 800
 Invoke-Chat '/setblock 5 -60 -3 air'
 
 # --- chain conveyors -------------------------------------------------------------------------------
@@ -41,26 +42,43 @@ Invoke-Chat '/setblock 11 -60 6 levitate:chain_conveyor'
 Invoke-Chat '/setblock 3 -61 6 levitate:kinetics_test_source ["levitate:axis"=1]'
 Invoke-Chat '/give @s iron_chain 16'
 Invoke-Chat '/give @s levitate:cardboard_package_12x12 1'
-Press-Key '1'
+# a package first (a plain item), then the chains (a block item)
+Press-Key '2'
 Start-Sleep -Milliseconds 600
 $mark = Get-LogMark
-Invoke-Chat '/tp @s 7.5 -60 1.5 facing 3.5 -59.5 6.5'
-Start-Sleep -Milliseconds 600
-Click 0.5 0.5 -Relative -Right
-Wait-LogLine 'packages: .* selected the chain conveyor at 0:3:-60:6' 20 -Since $mark | Out-Null
-Invoke-Chat '/tp @s 7.5 -60 1.5 facing 11.5 -59.5 6.5'
-Start-Sleep -Milliseconds 600
-Click 0.5 0.5 -Relative -Right
-Wait-LogLine 'packages: chain conveyors at 0:3:-60:6 and 0:11:-60:6 connected' 20 -Since $mark | Out-Null
-
-# hang a package on the first conveyor's loop
-Press-Key '2'
-Invoke-Chat '/tp @s 3.5 -60 2.5 facing 3.5 -59.6 6.5'
-Start-Sleep -Milliseconds 600
+Invoke-Chat '/tp @s 3.5 -60 2.5 0 17'
+Start-Sleep -Milliseconds 1200
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'packages: .* hung a package for .* on the chain conveyor at 0:3:-60:6' 20 -Since $mark | Out-Null
+# placing a block item by hand (the frogport, with no target selected)
+Invoke-Chat '/give @s levitate:package_frogport 1'
+Press-Key '3'
+Invoke-Chat '/tp @s 0.5 -60 0.5 180 45'
+Start-Sleep -Milliseconds 1200
+Click 0.5 0.5 -Relative -Right
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'frogport-placed' | Out-Null
+Wait-LogLine 'packages: frogport placed at' 10 -Since $mark | Out-Null
+Press-Key '1'
+Start-Sleep -Milliseconds 600
+Invoke-Chat '/tp @s 3.5 -60 2.5 0 17'
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'aim-first' | Out-Null
+Click 0.5 0.5 -Relative -Right
+Start-Sleep -Milliseconds 1000
+Save-Screenshot 'after-first' | Out-Null
+Wait-LogLine 'packages: .* selected the chain conveyor at 0:3:-60:6' 20 -Since $mark | Out-Null
+Invoke-Chat '/tp @s 11.5 -60 2.5 0 17'
+Start-Sleep -Milliseconds 1500
+$connected = $false
+for ($try = 0; $try -lt 3 -and -not $connected; $try++) {
+    Click 0.5 0.5 -Relative -Right
+    try { Wait-LogLine 'packages: chain conveyors at 0:3:-60:6 and 0:11:-60:6 connected' 6 -Since $mark | Out-Null; $connected = $true } catch { Save-Screenshot "aim-second-$try" | Out-Null }
+}
+if (-not $connected) { throw 'the chain conveyors did not connect' }
 
-Invoke-Chat '/tp @s 7.5 -57 0.5 facing 7.5 -59.5 6.5'
+
+Invoke-Chat '/tp @s 7.5 -57 0.5 0 34'
 Wait-LogLine 'packages: rendering chain conveyors' 30 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 2500
 Save-Screenshot 'chains' | Out-Null
