@@ -1,4 +1,5 @@
 {
+  "create.generic.range": "Range",
   "create.gui.filter.allow_list": "Allow-List",
   "create.gui.filter.allow_list.description": "Items pass if they match any of the above. An empty Allow-List rejects everything.",
   "create.gui.filter.deny_list": "Deny-List",

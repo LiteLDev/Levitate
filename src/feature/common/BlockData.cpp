@@ -34,7 +34,10 @@ struct Store {
     std::set<ChunkId>          index; ///< chunks that have a document in the DB or in memory
     std::map<ChunkId, Chunk>   loaded;
     std::vector<EraseListener> listeners;
-    bool                       indexed = false;
+    std::vector<WriteBackFn>   writeBacks;
+    std::vector<PutListener>   putListeners;
+    bool                       indexed   = false;
+    bool                       writingBack = false;
 };
 Store& store() {
     static Store s;
@@ -107,7 +110,22 @@ bool eraseImpl(GlobalPos const& pos, std::string const& prev, bool notify) {
     return true;
 }
 
+void writeBack(GlobalPos const* pos) {
+    auto& s = store();
+    if (s.writingBack) return; // an owner's write-back touched BlockData again
+    s.writingBack = true;
+    for (auto const& fn : s.writeBacks) {
+        try {
+            fn(pos);
+        } catch (std::exception const& e) {
+            log().error("block data write-back failed: {}", e.what());
+        }
+    }
+    s.writingBack = false;
+}
+
 void saveDirty() {
+    writeBack(nullptr);
     auto& s = store();
     for (auto& [id, c] : s.loaded) {
         if (!c.dirty) continue;
@@ -165,6 +183,7 @@ bool erase(GlobalPos const& pos) { return eraseImpl(pos, {}, true); }
 bool has(GlobalPos const& pos) { return get(pos) != nullptr; }
 
 std::optional<Json> take(GlobalPos const& pos) {
+    writeBack(&pos);
     auto id = chunkIdOf(pos);
     auto* c = chunkIfAny(id);
     if (!c) return std::nullopt;
@@ -176,7 +195,21 @@ std::optional<Json> take(GlobalPos const& pos) {
     return doc;
 }
 
-void put(GlobalPos const& pos, Json value) { set(pos, std::move(value)); }
+void put(GlobalPos const& pos, Json value) {
+    if (value.is_null()) return;
+    set(pos, std::move(value));
+    auto const* doc = get(pos);
+    if (!doc) return;
+    Json copy      = *doc; // listeners may edit
+    auto listeners = store().putListeners;
+    for (auto const& fn : listeners) {
+        try {
+            fn(pos, copy);
+        } catch (std::exception const& e) {
+            log().error("block data put listener failed at {}: {}", pos.key(), e.what());
+        }
+    }
+}
 
 void forEachInChunk(int dim, int cx, int cz, std::function<void(GlobalPos const&, Json const&)> const& fn) {
     auto* c = chunkIfAny({dim, cx, cz});
@@ -194,6 +227,10 @@ void forEach(std::function<void(GlobalPos const&, Json const&)> const& fn) {
 void onErase(EraseListener fn) { store().listeners.push_back(std::move(fn)); }
 
 void flush() { saveDirty(); }
+
+void onWriteBack(WriteBackFn fn) { store().writeBacks.push_back(std::move(fn)); }
+
+void onPut(PutListener fn) { store().putListeners.push_back(std::move(fn)); }
 
 class BlockDataModule {
 public:

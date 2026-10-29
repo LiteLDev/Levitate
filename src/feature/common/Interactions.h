@@ -1,0 +1,121 @@
+#pragma once
+
+// Shared, additive dispatch of player interactions (U32, SPEC §3.2).
+//
+// Every unit that reacts to right-clicks, item uses or block breaking registers a handler here
+// instead of hooking GameMode itself (with separate hooks the first hook wins and the others never
+// see the click). One hook per GameMode action calls the matching handlers by priority (higher
+// first, then registration order) until one returns something other than `Pass`.
+//
+//     namespace ia = lv::feature::common::interactions;
+//     ia::onUseOn({.block = "levitate:chassis"}, [](ia::UseOnContext const& c) {
+//         if (!c.sneaking) return ia::Result::Pass;
+//         ...;
+//         return ia::Result::Consume;
+//     });
+//     ia::onWrench("levitate:belt", [](ia::UseOnContext const& c) { ...; return ia::Result::Consume; });
+//     ia::onUse("levitate:filter", [](ia::UseContext const& c) { ...; return ia::Result::Consume; });
+//
+// - Server thread only; called for server players (network players and SimulatedPlayers alike),
+//   never for the client's own prediction.
+// - `Consume`: handled; vanilla does not run (no placement, no item use), the arm swings and the
+//   player's inventory is resent (it undoes the client's prediction). `Deny`: like Consume
+//   without the success (refused action). `Pass`: the next handler, then vanilla.
+// - Bedrock repeats use-on while the button is held (`firstEvent == false` for the repeats):
+//   handlers that act once per click return `Consume` for the repeats too, without acting.
+// - Handlers may edit the world directly (unlike a cancelled PlayerInteractBlockEvent, nothing
+//   is rolled back), but must not keep `Player&` past the call.
+// - Wrench: `onWrench(blockId, fn)` is `onUseOn({blockId, kWrenchId}, fn)`; Create's
+//   IWrenchable#onWrenched / onSneakWrenched are the handler with `sneaking` false / true. The
+//   generic wrench behaviour (rotate / pick up, U8) registers for any block (`""`) with
+//   `priority::Fallback`; value boxes (U3) open before it with `priority::Highest`.
+
+#include <functional>
+#include <string>
+
+#include "core/GlobalPos.h"
+#include "core/common/ValueSettings.h"
+
+class Block;
+class ItemStack;
+class Player;
+
+namespace lv::feature::common::interactions {
+
+using core::GlobalPos;
+using core::common::Vec;
+
+inline constexpr char const* kWrenchId = "levitate:wrench";
+
+enum class Result { Pass, Consume, Deny };
+
+namespace priority {
+inline constexpr int Highest  = 1000; ///< value boxes and filter slots (U3)
+inline constexpr int High     = 100;
+inline constexpr int Normal   = 0;
+inline constexpr int Low      = -100;
+inline constexpr int Fallback = -1000; ///< generic behaviour (e.g. the wrench's rotate / pick up)
+} // namespace priority
+
+/// Which interactions a handler wants; an empty id matches anything ("" item = also an empty hand).
+struct Match {
+    std::string block; ///< block id ("levitate:chassis")
+    std::string item;  ///< held item id ("levitate:wrench"); use `emptyHand` for an empty hand only
+    bool        emptyHand = false; ///< only when the hand is empty
+};
+
+/// Right-click on a block (GameMode::useItemOn).
+struct UseOnContext {
+    Player&            player;
+    ItemStack const&   item;   ///< the held stack (may be empty)
+    std::string const& itemId; ///< "" for an empty hand
+    Block const&       block;
+    std::string const& blockId;
+    GlobalPos          pos;
+    int                face; ///< FacingID: 0 down, 1 up, 2 north, 3 south, 4 west, 5 east
+    Vec                hit;  ///< block-local click position (0..1)
+    bool               sneaking;
+    bool               firstEvent; ///< false for the repeats while the button is held
+};
+
+/// Right-click in the air (GameMode::useItem).
+struct UseContext {
+    Player&            player;
+    ItemStack const&   item;
+    std::string const& itemId;
+    bool               sneaking;
+};
+
+/// A player breaks a block (GameMode::destroyBlock). `Consume` / `Deny` keep the block.
+struct DestroyContext {
+    Player&            player;
+    ItemStack const&   item;
+    std::string const& itemId;
+    Block const&       block;
+    std::string const& blockId;
+    GlobalPos          pos;
+    int                face;
+    bool               sneaking;
+};
+
+using UseOnHandler   = std::function<Result(UseOnContext const&)>;
+using UseHandler     = std::function<Result(UseContext const&)>;
+using DestroyHandler = std::function<Result(DestroyContext const&)>;
+using HandlerId      = int;
+
+HandlerId onUseOn(Match match, UseOnHandler fn, int priority = priority::Normal);
+/// `itemId` "" = any item (an empty hand never uses an item in the air).
+HandlerId onUse(std::string itemId, UseHandler fn, int priority = priority::Normal);
+HandlerId onDestroy(Match match, DestroyHandler fn, int priority = priority::Normal);
+/// Wrench right-click on `blockId` ("" = any block).
+HandlerId onWrench(std::string blockId, UseOnHandler fn, int priority = priority::Normal);
+/// Removes a handler (selftests, uninstall).
+void remove(HandlerId id);
+
+/// Runs the use-on handlers as the hook does (selftests, other entry points). Returns the result
+/// of the handler that took it, `Pass` if none did.
+Result dispatchUseOn(UseOnContext const& ctx);
+Result dispatchUse(UseContext const& ctx);
+Result dispatchDestroy(DestroyContext const& ctx);
+
+} // namespace lv::feature::common::interactions

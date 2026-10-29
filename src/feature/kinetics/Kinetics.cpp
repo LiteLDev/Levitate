@@ -1,6 +1,7 @@
 // Kinetic network on the server: keeps the solver (src/core/kinetics) in step with the world,
-// applies its effects (breaking blocks, listeners, sync), persists it in the world DB and loads
-// the stress table from `config/kinetics.json`.
+// applies its effects (breaking blocks, listeners, sync), persists it in U3's BlockData
+// (`data["kinetics"]` = the block's NodeRecord, written back before every save and before a
+// contraption takes the block) and loads the stress table from `config/kinetics.json`.
 
 #include "feature/kinetics/Kinetics.h"
 
@@ -24,6 +25,7 @@
 #include "mc/world/level/dimension/Dimension.h"
 
 #include "core/kinetics/SyncCodec.h"
+#include "feature/common/BlockData.h"
 #include "feature/kinetics/KineticsConfig.h"
 #include "feature/kinetics/KineticsInternal.h"
 #include "game/Blocks.h"
@@ -36,22 +38,17 @@ LV_REGISTER_CONFIG("kinetics", lv::feature::kinetics::KineticsConfig);
 
 namespace lv::feature::kinetics {
 
-namespace k = core::kinetics;
+namespace k  = core::kinetics;
+namespace bd = common::blockdata;
 
 namespace {
 
-constexpr char const* kChunkPrefix = "lv:kinetics:c:";
+/// Wave-1 storage (one array of records per chunk), migrated into BlockData on world load.
+constexpr char const* kLegacyChunkPrefix = "lv:kinetics:c:";
+/// The top-level key of the kinetic record in a BlockData document.
+constexpr char const* kDataKey = "kinetics";
 /// Ticks between two world checks of the same kinetic block (block still there?).
 constexpr int kWorldCheckTicks = 100;
-
-struct ChunkKey {
-    int dim, cx, cz;
-    friend auto operator<=>(ChunkKey const&, ChunkKey const&) = default;
-};
-ChunkKey chunkOf(GlobalPos const& p) { return {p.dim, k::sync::chunkOf(p.x), k::sync::chunkOf(p.z)}; }
-std::string dbKey(ChunkKey const& c) {
-    return std::string(kChunkPrefix) + std::to_string(c.dim) + ":" + std::to_string(c.cx) + ":" + std::to_string(c.cz);
-}
 
 /// The stress table value of `key` (config `kinetics.json`), else `fallback`.
 double tableValue(std::map<std::string, double> const& table, std::string const& key, double fallback) {
@@ -110,9 +107,11 @@ public:
         if (!registered) {
             registered = true;
             game::db::onWorldReady([this] { loadWorld(); });
-            game::db::onWorldSave([this] { saveDirty(); });
             game::db::onWorldClosed([this] { closeWorld(); });
             config::onReload([this] { mSolver.setConfig(solverConfig()); });
+            // BlockData saves (and contraptions take) our records: write them back first
+            bd::onWriteBack([this](GlobalPos const* pos) { writeBack(pos); });
+            bd::onPut([this](GlobalPos const& pos, nlohmann::json const& doc) { adopt(pos, doc); });
         }
         mInstalled = true;
         if (game::db::available()) loadWorld(); // BDS: the world exists before mods are enabled
@@ -122,7 +121,7 @@ public:
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
-        if (mLoaded) saveDirty();
+        if (mLoaded) writeBack(nullptr);
         mInstalled = false;
     }
 
@@ -173,10 +172,18 @@ public:
             mSolver.remove(pos);
         } else {
             auto snap = detail::snapshot(*block, *spec);
-            if (mSolver.contains(pos)) mSolver.update(pos, std::move(snap));
-            else mSolver.add(pos, std::move(snap));
+            if (mSolver.contains(pos)) {
+                mSolver.update(pos, std::move(snap));
+            } else {
+                mSolver.add(pos, std::move(snap));
+                // a block a contraption put back brings its record (generated speed, overrides)
+                if (auto const* doc = bd::get(pos); doc && doc->contains(kDataKey)) {
+                    auto rec = (*doc)[kDataKey];
+                    adoptRecord(pos, rec);
+                }
+            }
         }
-        mDirtyChunks.insert(chunkOf(pos));
+        mDirty.insert(pos);
     }
 
     void refresh(GlobalPos const& pos) {
@@ -190,7 +197,7 @@ public:
     void collect() {
         for (auto& d : mSolver.takeDestroyed()) {
             log().info("kinetics: {} at {} broke ({})", d.state.id, posText(d.pos), k::reasonName(d.reason));
-            mDirtyChunks.insert(chunkOf(d.pos));
+            mDirty.insert(d.pos);
             mBreaks.push_back(d);
             mBreakPending[d.pos] = d.state.id;
             BreakEvent ev{d.pos, d.state.id, k::reasonName(d.reason)};
@@ -208,7 +215,7 @@ public:
         }
         auto changes = mSolver.takeChanges();
         if (changes.empty()) return;
-        for (auto const& c : changes) mDirtyChunks.insert(chunkOf(c.pos));
+        for (auto const& c : changes) mDirty.insert(c.pos);
         detail::syncChanges(changes);
         mPendingChanges.insert(mPendingChanges.end(), changes.begin(), changes.end());
     }
@@ -318,33 +325,62 @@ public:
     }
 
     // ---- persistence ---------------------------------------------------------------------------------------------
-    void loadWorld() {
-        if (!mInstalled) return;
-        detail::clearBlockCaches(); // block types are registered again for every world
-        mSolver.clear();
-        mSolver.setConfig(solverConfig());
-        mQueue.clear();
-        mBreaks.clear();
-        mBreakPending.clear();
-        mDirtyChunks.clear();
-        mPendingChanges.clear();
-        mCheckOrder.clear();
-        mCheckCursor = 0;
+    /// Moves the wave-1 records (`lv:kinetics:c:<dim>:<cx>:<cz>`, one array per chunk) into BlockData once.
+    void migrateLegacy() {
         std::vector<std::string> keys;
-        game::db::forEachKey(kChunkPrefix, [&](std::string_view suffix) { keys.emplace_back(suffix); });
+        game::db::forEachKey(kLegacyChunkPrefix, [&](std::string_view suffix) { keys.emplace_back(suffix); });
+        if (keys.empty()) return;
         std::size_t count = 0;
         for (auto const& suffix : keys) {
-            auto data = game::db::load(kChunkPrefix + suffix);
+            auto data = game::db::load(kLegacyChunkPrefix + suffix);
             if (!data || !data->is_array()) continue;
             for (auto const& j : *data) {
                 try {
-                    mSolver.restore(j.get<k::NodeRecord>());
+                    auto r                    = j.get<k::NodeRecord>();
+                    bd::edit(r.pos)[kDataKey] = j;
                     ++count;
                 } catch (std::exception const& e) {
                     log().warn("kinetics: skipped an unreadable block record in {}: {}", suffix, e.what());
                 }
             }
         }
+        bd::flush(); // the records are in the world DB before the old keys go
+        for (auto const& suffix : keys) game::db::erase(kLegacyChunkPrefix + suffix);
+        log().info("kinetics: moved {} block records from {} chunks into block data", count, keys.size());
+    }
+
+    void loadWorld() {
+        if (!mInstalled) return;
+        mLoaded = false; // no write-backs of the old network while loading
+        detail::clearBlockCaches(); // block types are registered again for every world
+        mSolver.clear();
+        mSolver.setConfig(solverConfig());
+        mQueue.clear();
+        mBreaks.clear();
+        mBreakPending.clear();
+        mDirty.clear();
+        mPendingChanges.clear();
+        mCheckOrder.clear();
+        mCheckCursor = 0;
+        migrateLegacy();
+        std::size_t count = 0;
+        bd::forEach([&](GlobalPos const& pos, nlohmann::json const& doc) {
+            auto it = doc.find(kDataKey);
+            if (it == doc.end()) return;
+            try {
+                auto r = it->get<k::NodeRecord>();
+                if (r.pos != pos) { // carried here by a contraption: re-attach from scratch
+                    r.pos   = pos;
+                    r.speed = 0;
+                    r.source.reset();
+                    r.network.reset();
+                }
+                mSolver.restore(r);
+                ++count;
+            } catch (std::exception const& e) {
+                log().warn("kinetics: skipped an unreadable block record at {}: {}", pos.key(), e.what());
+            }
+        });
         mSolver.finishRestore();
         mLoaded = true;
         collect();
@@ -353,19 +389,62 @@ public:
         log().info("kinetics: loaded {} kinetic blocks", count);
     }
 
-    void saveDirty() {
-        if (!mLoaded || mDirtyChunks.empty()) return;
-        std::map<ChunkKey, nlohmann::json> out;
-        for (auto const& c : mDirtyChunks) out[c] = nlohmann::json::array();
-        mSolver.forEachNode([&](NodeInfo const& n) {
-            auto it = out.find(chunkOf(n.pos));
-            if (it != out.end()) it->second.push_back(mSolver.record(n.pos));
-        });
-        for (auto const& [c, arr] : out) {
-            if (arr.empty()) game::db::erase(dbKey(c));
-            else game::db::save(dbKey(c), arr);
+    /// Writes the record of `pos` into its BlockData document (or drops it when the node is gone).
+    void writeRecord(GlobalPos const& pos) {
+        auto const* doc = bd::get(pos);
+        if (mSolver.contains(pos)) {
+            nlohmann::json rec = mSolver.record(pos);
+            if (doc && doc->contains(kDataKey) && (*doc)[kDataKey] == rec) return;
+            bd::edit(pos)[kDataKey] = std::move(rec);
+        } else if (doc && doc->contains(kDataKey)) {
+            auto rest = *doc;
+            rest.erase(kDataKey);
+            bd::set(pos, rest.empty() ? nlohmann::json() : std::move(rest));
         }
-        mDirtyChunks.clear();
+    }
+
+    /// BlockData write-back: every changed record (nullptr, before a save) or one position
+    /// (before a contraption takes the block).
+    void writeBack(GlobalPos const* pos) {
+        if (!mLoaded) return;
+        flush(); // blocks broken since the last tick must not get a record
+        if (pos) {
+            writeRecord(*pos);
+            mDirty.erase(*pos);
+            return;
+        }
+        auto dirty = std::move(mDirty);
+        mDirty.clear();
+        for (auto const& p : dirty) writeRecord(p);
+    }
+
+    /// Takes over the generated speed and stress overrides of a record carried to `pos`.
+    void adoptRecord(GlobalPos const& pos, nlohmann::json const& j) {
+        try {
+            auto r = j.get<k::NodeRecord>();
+            if (r.generated != 0) mSolver.setGeneratedSpeed(pos, r.generated);
+            if (r.impactOverride) mSolver.setImpactOverride(pos, r.impactOverride);
+            if (r.capacityOverride) mSolver.setCapacityOverride(pos, r.capacityOverride);
+        } catch (std::exception const& e) {
+            log().warn("kinetics: unreadable carried record at {}: {}", pos.key(), e.what());
+        }
+        mDirty.insert(pos);
+    }
+
+    /// BlockData put listener: a contraption placed a block with its document.
+    void adopt(GlobalPos const& pos, nlohmann::json const& doc) {
+        if (!mLoaded) return;
+        auto it = doc.find(kDataKey);
+        if (it == doc.end()) return;
+        bool known = mSolver.contains(pos);
+        flush(); // the block placed just before is added here (and adopts the record itself)
+        if (!known && mSolver.contains(pos)) {
+            collect();
+            return;
+        }
+        if (!mSolver.contains(pos)) return;
+        adoptRecord(pos, *it);
+        collect();
     }
 
     void closeWorld() {
@@ -375,14 +454,14 @@ public:
         mQueue.clear();
         mBreaks.clear();
         mBreakPending.clear();
-        mDirtyChunks.clear();
+        mDirty.clear();
         mPendingChanges.clear();
         mCheckOrder.clear();
         mCheckCursor = 0;
         detail::syncReset();
     }
 
-    void markDirty(GlobalPos const& pos) { mDirtyChunks.insert(chunkOf(pos)); }
+    void markDirty(GlobalPos const& pos) { mDirty.insert(pos); }
 
     // ---- listeners -----------------------------------------------------------------------------------------------
     ListenerId addListener(Listener l) {
@@ -404,7 +483,7 @@ private:
     std::vector<Pending>                mQueue;
     std::vector<k::Destroyed>           mBreaks;
     std::map<GlobalPos, std::string>    mBreakPending;
-    std::set<ChunkKey>                  mDirtyChunks;
+    std::set<GlobalPos>                 mDirty; ///< records to write back into BlockData
     std::vector<k::Change>              mPendingChanges;
     std::vector<GlobalPos>              mCheckOrder;
     std::size_t                         mCheckCursor = 0;
@@ -511,12 +590,11 @@ BlockSource* regionOf(int dim) {
 
 void saveNow() {
     mod().flush();
-    mod().saveDirty();
+    bd::flush(); // writes our records back first
 }
 
 void reloadFromDb() {
-    mod().flush();
-    mod().saveDirty();
+    saveNow();
     mod().loadWorld();
 }
 

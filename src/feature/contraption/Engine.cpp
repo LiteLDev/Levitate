@@ -1080,9 +1080,26 @@ LL_TYPE_STATIC_HOOK(
     origin(entity, owner, onLand);
 }
 
+// Crash safety: display entities are never written to the world. Contraptions are saved in our
+// own DB and their displays are spawned again after a load, so a world saved while blocks were
+// moving (autosave, or the last save before a crash) holds no falling blocks that could land in a
+// world opened without Levitate. (Displays in a chunk that unloads simply vanish with it.)
+LL_TYPE_INSTANCE_HOOK(
+    DisplaySaveHook,
+    ll::memory::HookPriority::Normal,
+    ::Actor,
+    &::Actor::save,
+    bool,
+    CompoundTag& entityTag
+) {
+    if (!isClientSide() && getEntityTypeId() == ActorType::FallingBlock && detail::isDisplayActor(*this)) return false;
+    return origin(entityTag);
+}
+
 class EngineModule {
 public:
     void install() {
+        DisplaySaveHook::hook();
         DisplayTickHook::hook();
         DisplaySystemHook::hook();
         DisplayActorTickHook::hook();
@@ -1093,6 +1110,7 @@ public:
         DisplayActorTickHook::unhook();
         DisplaySystemHook::unhook();
         DisplayTickHook::unhook();
+        DisplaySaveHook::unhook();
     }
 };
 

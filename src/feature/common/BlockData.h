@@ -65,4 +65,14 @@ void onErase(EraseListener fn);
 /// Writes dirty chunks now (also done on every world save).
 void flush();
 
+/// Owners that keep their part of a document cached elsewhere (e.g. the kinetic network keeps
+/// `data["kinetics"]` in its solver) write it back here: `fn(nullptr)` runs before every save /
+/// `flush()`, `fn(&pos)` before `take(pos)` (so a contraption carries the current data).
+using WriteBackFn = std::function<void(GlobalPos const* pos)>;
+void onWriteBack(WriteBackFn fn);
+/// Listener run after `put()` stored a moved document (contraption disassembly): owners with a
+/// cache adopt the data at its new position.
+using PutListener = std::function<void(GlobalPos const& pos, Json const& doc)>;
+void onPut(PutListener fn);
+
 } // namespace lv::feature::common::blockdata

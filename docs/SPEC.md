@@ -652,13 +652,14 @@ place:
 | deployer | 4 | | |
 | mechanical_arm | 2 | | |
 | mechanical_crafter | 2 | | |
-| mechanical_bearing / clockwork / piston / pulleys / gantry | 4 | | |
+| mechanical_bearing / clockwork / piston / rope and elevator pulleys | 4 | | |
+| gantry_shaft | 0 | | |
 | turntable | 4 | | |
 | belt / depot / gearbox / shaft / cogs | 0 | | |
-| speed controller / sequenced gearshift / chain drives | 0 / 0 / 0 ⚠ | | |
+| speed controller / sequenced gearshift / chain drives | 0 / 0 / 0 | | |
 | mechanical_pump | 4 | | |
 | hose_pulley | 4 | | |
-| chain_conveyor | 1 ⚠ | | |
+| chain_conveyor | 1 | | |
 
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
@@ -667,7 +668,7 @@ keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlock
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
 `mediumCapacity` (256), `highCapacity` (1024), `impact` {block path: SU per RPM} and `capacity`
 {block path: SU per RPM} (the table above, plus `cuckoo_clock` 1, `weighted_ejector` 2, backtanks 4,
-`elevator_pulley` 4 ⚠, `gantry_shaft` 4 ⚠ and 0 for the transmission blocks), `syncToClients` (true).
+`elevator_pulley` 4, `gantry_shaft` 0 and 0 for the transmission blocks), `syncToClients` (true).
 A block without a table entry uses its spec's `impact` / `capacity`. The generated RPM column is the
 generators' own behaviour (U7, U18, U21), not a config value.
 

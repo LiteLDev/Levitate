@@ -1,7 +1,8 @@
 // Chassis (linear, secondary linear, radial) and stickers: placement orientation, sticky faces
-// (slime ball / super glue / sneaking empty hand), chassis ranges (carried with contraptions),
-// sticker power; plus the player events of the unit (super glue item, chassis use) and the
-// deferred world edits.
+// (slime ball / super glue / sneaking empty hand), chassis ranges (U3 BlockData
+// `data["chassis"]["range"]`, edited with the wrench on a value box, carried with contraptions
+// by the BlockData carrier), sticker power; plus the player interactions of the unit (super glue
+// item, chassis use; through common/Interactions.h) and the deferred world edits.
 
 #include <cmath>
 #include <map>
@@ -9,8 +10,6 @@
 #include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
-#include "ll/api/event/player/PlayerDestroyBlockEvent.h"
-#include "ll/api/event/player/PlayerInteractBlockEvent.h"
 #include "ll/api/event/player/PlayerPlaceBlockEvent.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
 #include "ll/api/service/Bedrock.h"
@@ -25,10 +24,14 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/common/BlockData.h"
+#include "feature/common/Interactions.h"
+#include "feature/common/ValueBox.h"
 #include "feature/contraption/Internal.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
 #include "mod/Config.h"
+#include "mod/I18n.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
 
@@ -36,14 +39,17 @@ namespace lv::feature::contraption {
 
 namespace {
 
+namespace bd = common::blockdata;
+namespace ia = common::interactions;
+namespace vb = common::valuebox;
+
+/// Wave-1 storage of the ranges (one array for the world), migrated into BlockData on load.
 constexpr char kDbChassis[]  = "lv:contraption:chassis";
 constexpr char kDbStickers[] = "lv:contraption:stickers";
+/// Wave-1 data carrier of the ranges: contraptions saved with it still restore it.
 constexpr char kRangeCarrier[] = "contraption:chassis_range";
-
-std::map<int, std::map<cc::Pos, int>>& ranges() {
-    static std::map<int, std::map<cc::Pos, int>> r;
-    return r;
-}
+/// BlockData key of a chassis (`{"range": n}`).
+constexpr char kDataKey[] = "chassis";
 std::set<std::pair<int, cc::Pos>>& stickers() {
     static std::set<std::pair<int, cc::Pos>> s;
     return s;
@@ -53,13 +59,7 @@ std::vector<std::function<void()>>& deferred() {
     return d;
 }
 
-void persistRanges() {
-    if (!game::db::available()) return;
-    nlohmann::json j = nlohmann::json::array();
-    for (auto const& [dim, m] : ranges())
-        for (auto const& [p, r] : m) j.push_back({dim, p.x, p.y, p.z, r});
-    game::db::save(kDbChassis, j);
-}
+void storeRange(core::GlobalPos const& pos, int range) { bd::edit(pos)[kDataKey]["range"] = range; }
 void persistStickers() {
     if (!game::db::available()) return;
     nlohmann::json j = nlohmann::json::array();
@@ -67,6 +67,7 @@ void persistStickers() {
     game::db::save(kDbStickers, j);
 }
 
+int maxRange() { return std::max(1, config::get<Config>().maxChassisRange); }
 int defaultRange() { return std::max(1, config::get<Config>().maxChassisRange / 2); }
 int clampRange(int r) { return std::clamp(r, 1, std::max(1, config::get<Config>().maxChassisRange)); }
 
@@ -126,11 +127,18 @@ cc::Dir nearestLooking(Player const& player) {
 struct ChassisLifecycle {
     ChassisLifecycle() {
         game::db::onWorldReady([] {
-            ranges().clear();
             stickers().clear();
             if (auto j = game::db::load(kDbChassis); j && j->is_array()) {
-                for (auto const& e : *j)
-                    if (e.is_array() && e.size() == 5) ranges()[e[0].get<int>()][{e[1].get<int>(), e[2].get<int>(), e[3].get<int>()}] = e[4].get<int>();
+                // one-time migration of the wave-1 range list into BlockData
+                int count = 0;
+                for (auto const& e : *j) {
+                    if (!e.is_array() || e.size() != 5) continue;
+                    storeRange({e[0].get<int>(), e[1].get<int>(), e[2].get<int>(), e[3].get<int>()}, e[4].get<int>());
+                    ++count;
+                }
+                bd::flush();
+                game::db::erase(kDbChassis);
+                log().info("contraption: moved {} chassis ranges into block data", count);
             }
             if (auto j = game::db::load(kDbStickers); j && j->is_array()) {
                 for (auto const& e : *j)
@@ -138,24 +146,16 @@ struct ChassisLifecycle {
             }
         });
         game::db::onWorldClosed([] {
-            ranges().clear();
             stickers().clear();
             deferred().clear();
         });
-        // chassis ranges travel with the blocks (Create keeps them in the chassis block entity)
+        // chassis ranges travel with the blocks in BlockData (Create keeps them in the chassis
+        // block entity); contraptions saved by wave 1 still carry them under the old carrier
         registerDataCarrier({
             kRangeCarrier,
-            [](BlockSource& region, core::GlobalPos const& gp) -> std::optional<nlohmann::json> {
-                cc::Pos p{gp.x, gp.y, gp.z};
-                if (detail::chassisKind(blockIdAt(region, p)) == cc::ChassisKind::None) return std::nullopt;
-                int  r  = detail::storedChassisRange(gp.dim, p);
-                auto it = ranges().find(gp.dim);
-                if (it != ranges().end() && it->second.erase(p)) persistRanges();
-                return nlohmann::json{{"range", r}};
-            },
+            nullptr,
             [](BlockSource&, core::GlobalPos const& gp, nlohmann::json const& data) {
-                ranges()[gp.dim][{gp.x, gp.y, gp.z}] = clampRange(data.value("range", defaultRange()));
-                persistRanges();
+                storeRange(gp, clampRange(data.value("range", defaultRange())));
             },
             nullptr,
         });
@@ -177,10 +177,12 @@ cc::ChassisKind chassisKind(std::string_view id) {
 }
 
 int storedChassisRange(int dim, cc::Pos const& p) {
-    auto it = ranges().find(dim);
-    if (it == ranges().end()) return defaultRange();
-    auto r = it->second.find(p);
-    return r == it->second.end() ? defaultRange() : clampRange(r->second);
+    auto const* doc = bd::get({dim, p.x, p.y, p.z});
+    if (!doc) return defaultRange();
+    auto c = doc->find(kDataKey);
+    if (c == doc->end() || !c->is_object()) return defaultRange();
+    auto r = c->find("range");
+    return r == c->end() || !r->is_number_integer() ? defaultRange() : clampRange(r->get<int>());
 }
 
 bool chassisUse(Player& player, int dim, cc::Pos const& pos, cc::Dir face, std::string const& heldId, bool sneaking) {
@@ -276,10 +278,9 @@ void setChassisRange(core::GlobalPos const& pos, int range) {
         if (!seen.insert(p).second) continue;
         auto info = query(p);
         if (info.chassis == cc::ChassisKind::None) continue;
-        ranges()[pos.dim][p] = range;
+        storeRange({pos.dim, p.x, p.y, p.z}, range);
         for (auto const& n : cc::attachedChassis(p, info, query)) frontier.push_back(n);
     }
-    persistRanges();
     log().info("chassis range at {} {} {} set to {}", pos.x, pos.y, pos.z, range);
 }
 
@@ -289,9 +290,8 @@ class SupportModule {
 public:
     void install() {
         auto& bus = ll::event::EventBus::getInstance();
-        mListeners.push_back(bus.emplaceListener<ll::event::PlayerInteractBlockEvent>([this](ll::event::PlayerInteractBlockEvent& e) {
-            onInteract(e);
-        }));
+        // chassis faces first (slime ball and super glue both make faces sticky), then super glue
+        mHandlers.push_back(ia::onUseOn({}, [this](ia::UseOnContext const& c) { return onUseOn(c); }, ia::priority::High));
         mListeners.push_back(bus.emplaceListener<ll::event::PlayerPlacingBlockEvent>([this](ll::event::PlayerPlacingBlockEvent& e) {
             mLastFace[e.self().getRealName()] = static_cast<cc::Dir>(std::clamp<int>(e.face(), 0, 5));
         }));
@@ -309,20 +309,51 @@ public:
                 if (player && region) detail::orientPlaced(*region, p, face, *player);
             });
         }));
-        mListeners.push_back(bus.emplaceListener<ll::event::PlayerDestroyBlockEvent>([](ll::event::PlayerDestroyBlockEvent& e) {
-            auto& player = e.self();
-            if (player.getSelectedItem().isNull() || player.getSelectedItem().getTypeName() != kSuperGlue) return;
-            if (detail::glueAttack(player, detail::toPos(e.pos()))) e.cancel();
+        // hitting a block with super glue removes its glue regions (the block stays)
+        mHandlers.push_back(ia::onDestroy({.item = std::string(kSuperGlue)}, [](ia::DestroyContext const& c) {
+            return detail::glueAttack(c.player, {c.pos.x, c.pos.y, c.pos.z}) ? ia::Result::Consume : ia::Result::Pass;
         }));
+        registerRangeBoxes();
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([this](auto&) { tick(); }));
     }
     void uninstall() {
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
+        for (auto id : mHandlers) ia::remove(id);
+        mHandlers.clear();
+        for (auto id : {kLinearChassis, kSecondaryChassis, kRadialChassis}) vb::unregisterBox(std::string(id), "range");
     }
 
 private:
+    /// Create's chassis range: a bulk scroll value on every face (CenteredSideValueBoxTransform),
+    /// wrench only, 1..maxChassisRange, shared by the connected chassis group.
+    static void registerRangeBoxes() {
+        for (auto id : {kLinearChassis, kSecondaryChassis, kRadialChassis}) {
+            bool radial = id == kRadialChassis;
+            vb::registerBox(std::string(id), {
+                .id            = "range",
+                .label         = radial ? "create.contraptions.chassis.radius" : "create.contraptions.chassis.range",
+                .labelFallback = radial ? "Radius when Sticky" : "Range of Sticky Sides",
+                .board         = [](Block const&) {
+                    return core::common::plainBoard(maxRange(), 10, tr("create.generic.range", "Range"));
+                },
+                .centre = [](Block const&, int face) -> std::optional<core::common::Vec> {
+                    return core::common::faceLocalPoint(face, 8, 8, 0.5);
+                },
+                .scale = 0.5,
+                .get   = [](core::GlobalPos const& p) {
+                    return core::common::plainToSettings(chassisRange(p));
+                },
+                .set = [](core::GlobalPos const& p, core::common::ValueSettings v, Player&) {
+                    setChassisRange(p, core::common::plainFromSettings(v, 1, maxRange()));
+                },
+                .format         = {},
+                .requiresWrench = true,
+            });
+        }
+    }
+
     static Player* playerById(std::int64_t uid) {
         auto level = ll::service::getLevel();
         if (!level) return nullptr;
@@ -331,40 +362,30 @@ private:
         return level->getPlayer(id);
     }
 
-    void onInteract(ll::event::PlayerInteractBlockEvent& e) {
-        auto&       player = e.self();
-        auto const& item   = e.item();
-        std::string held   = item.isNull() ? "" : item.getTypeName();
-        cc::Pos     pos    = detail::toPos(e.blockPos());
-        int         dim    = static_cast<int>(player.getDimensionId());
-        auto        uid    = player.getOrCreateUniqueID().rawID;
-        auto        face   = static_cast<cc::Dir>(std::clamp<int>(static_cast<int>(e.face()), 0, 5));
-        bool        sneak  = player.isSneaking();
-        auto*       region = detail::regionOf(dim);
-        if (!region) return;
-        std::string target = region->getBlock(e.blockPos()).getTypeName();
+    ia::Result onUseOn(ia::UseOnContext const& c) {
+        auto&              player = c.player;
+        std::string const& held   = c.itemId;
+        cc::Pos            pos{c.pos.x, c.pos.y, c.pos.z};
+        int                dim   = c.pos.dim;
+        auto               uid   = player.getOrCreateUniqueID().rawID;
+        auto               face  = static_cast<cc::Dir>(std::clamp(c.face, 0, 5));
+        bool               sneak = c.sneaking;
+        auto*              region = detail::regionOf(dim);
+        if (!region) return ia::Result::Pass;
 
         // chassis faces first (slime ball and super glue both make faces sticky)
-        auto kind = detail::chassisKind(target);
+        auto kind = detail::chassisKind(c.blockId);
         if (kind != cc::ChassisKind::None && (held == "minecraft:slime_ball" || held == kSuperGlue || (held.empty() && sneak))
             && glueableState(kind, chassisAxisAt(*region, pos), face)) {
-            if (cooldown(uid)) {
-                e.cancel();
-                return;
-            }
-            e.cancel();
-            detail::defer([=] {
-                if (auto* p = playerById(uid)) detail::chassisUse(*p, dim, pos, face, held, sneak);
-            });
-            return;
+            if (cooldown(uid)) return ia::Result::Consume;
+            detail::chassisUse(player, dim, pos, face, held, sneak);
+            return ia::Result::Consume;
         }
         if (held == kSuperGlue) {
-            e.cancel();
-            if (cooldown(uid)) return;
-            detail::defer([=] {
-                if (auto* p = playerById(uid)) detail::glueClick(*p, pos, sneak);
-            });
+            if (!cooldown(uid)) detail::glueClick(player, pos, sneak);
+            return ia::Result::Consume;
         }
+        return ia::Result::Pass;
     }
 
     /// Bedrock repeats the interaction while the button is held: one action per 5 ticks.
@@ -405,6 +426,7 @@ private:
     }
 
     std::vector<ll::event::ListenerPtr>             mListeners;
+    std::vector<ia::HandlerId>                      mHandlers;
     std::unordered_map<std::string, cc::Dir>        mLastFace;
     std::unordered_map<std::int64_t, std::uint64_t> mLastUse;
     std::uint64_t                                   mTicks = 0;

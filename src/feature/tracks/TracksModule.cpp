@@ -3,7 +3,6 @@
 #include <cmath>
 
 #include "ll/api/event/EventBus.h"
-#include "ll/api/event/player/PlayerJoinEvent.h"
 #include "ll/api/event/world/BlockChangedEvent.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
 #include "ll/api/service/Bedrock.h"
@@ -21,6 +20,7 @@
 #include "mc/world/level/block/BlockType.h"
 #include "mc/world/level/dimension/Dimension.h"
 
+#include "feature/net/Net.h"
 #include "feature/tracks/Tracks.h"
 #include "feature/tracks/TracksInternal.h"
 #include "game/Blocks.h"
@@ -413,9 +413,11 @@ public:
         mListeners.push_back(bus.emplaceListener<ll::event::BlockChangedEvent>([](ll::event::BlockChangedEvent& ev) {
             onBlockChanged(ev);
         }));
-        mListeners.push_back(bus.emplaceListener<ll::event::PlayerJoinEvent>([](ll::event::PlayerJoinEvent& ev) {
-            syncAllTo(ev.self());
-        }));
+        static bool joinRegistered = false; // the protocol has no removal of join listeners
+        if (!joinRegistered) {
+            joinRegistered = true;
+            net::onCompanionJoined([](Player& player) { syncAllTo(player); }); // after the handshake
+        }
         installHooks();
     }
 

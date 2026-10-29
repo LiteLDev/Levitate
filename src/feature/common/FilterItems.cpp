@@ -7,7 +7,6 @@
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/player/PlayerDisconnectEvent.h"
-#include "ll/api/event/player/PlayerUseItemEvent.h"
 #include "ll/api/form/CustomForm.h"
 #include "ll/api/form/SimpleForm.h"
 
@@ -17,6 +16,7 @@
 
 #include "core/common/FilterLogic.h"
 #include "feature/common/Filter.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "mod/I18n.h"
@@ -337,29 +337,28 @@ public:
             .action = attributeAction,
             .form   = attributeForm,
         });
-        mListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerUseItemEvent>(
-            [](ll::event::PlayerUseItemEvent& ev) {
-                auto& player = ev.self();
-                auto const& item = ev.item();
-                bool list = isListFilter(item), attr = isAttributeFilter(item);
-                if (!list && !attr) return;
-                Json ctx{{"slot", player.getSelectedItemSlot()}};
-                if (attr) references().erase(player.getOrCreateUniqueID().rawID);
-                screens::open(player, list ? kListScreen : kAttributeScreen, ctx);
-            }
-        );
+        // right-click in the air with a filter opens its screen
+        mHandler = interactions::onUse({}, [](interactions::UseContext const& c) {
+            auto& player = c.player;
+            bool  list = isListFilter(c.item), attr = isAttributeFilter(c.item);
+            if (!list && !attr) return interactions::Result::Pass;
+            Json ctx{{"slot", player.getSelectedItemSlot()}};
+            if (attr) references().erase(player.getOrCreateUniqueID().rawID);
+            screens::open(player, list ? kListScreen : kAttributeScreen, ctx);
+            return interactions::Result::Consume;
+        });
         mLeave = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerDisconnectEvent>(
             [](ll::event::PlayerDisconnectEvent& ev) { references().erase(ev.self().getOrCreateUniqueID().rawID); }
         );
     }
     void uninstall() {
-        ll::event::EventBus::getInstance().removeListener(mListener);
+        interactions::remove(mHandler);
         ll::event::EventBus::getInstance().removeListener(mLeave);
     }
 
 private:
-    ll::event::ListenerPtr mListener;
-    ll::event::ListenerPtr mLeave;
+    interactions::HandlerId mHandler = 0;
+    ll::event::ListenerPtr  mLeave;
 };
 
 } // namespace lv::feature::common::filter
