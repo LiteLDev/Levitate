@@ -23,6 +23,8 @@
 #include "glm/gtc/type_ptr.hpp"
 
 #include "mc/client/game/ClientInstance.h"
+#include "mc/client/player/LocalPlayer.h"
+#include "mc/world/level/BlockSource.h"
 #include "mc/client/gui/screens/ScreenContext.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
 #include "mc/client/renderer/SupplementaryFieldAutoGenerationMode.h"
@@ -56,6 +58,7 @@
 #include "client/ponder/PonderConfig.h"
 #include "client/screen/Screen.h"
 #include "core/kinetics/RotorModel.h"
+#include "core/ponder/BlockModel.h"
 #include "feature/common/Items.h"
 #include "feature/kinetics/KineticsInternal.h"
 #include "game/Blocks.h"
@@ -85,6 +88,10 @@ struct Cache {
     std::map<std::string, BlockInfo>                   blocks;
     std::set<std::string>                              loggedMissing;
     std::map<std::string, std::unique_ptr<mce::Mesh>> rotorMeshes;
+    std::map<Block const*, std::unique_ptr<mce::Mesh>> blockMeshes;
+    std::map<std::string, std::unique_ptr<mce::Mesh>> modelMeshes; ///< by block key (id + states)
+    std::unique_ptr<BlockTessellator>                  tessellator; ///< our own: the game's is shared with item icons
+    void const*                                        tessRegion = nullptr;
 };
 Cache& cache() {
     static Cache c;
@@ -116,6 +123,68 @@ BlockInfo const& infoOf(cp::BlockDef const& def) {
     }
     return info;
 }
+
+// ---- Levitate block models (the pack's own block files and geometry) ----------------------------
+
+struct Models {
+    std::map<std::string, cp::BlockFile> blocks;     ///< by block id
+    std::map<std::string, cp::Geometry>  geometries; ///< by geometry identifier
+};
+
+Models const& models() {
+    static Models m = [] {
+        Models out;
+        auto   mod = lv::Mod::getInstance().getSelf().getModDir();
+        auto   read = [](std::filesystem::path const& p) {
+            std::ifstream in(p);
+            return nlohmann::json::parse(in, nullptr, false, true);
+        };
+        std::error_code ec;
+        for (auto const& e : std::filesystem::directory_iterator(mod / "behavior_packs" / "Levitate_BP" / "blocks", ec)) {
+            if (auto f = cp::parseBlockFile(read(e.path()))) out.blocks[f->id] = std::move(*f);
+        }
+        for (auto const& e : std::filesystem::directory_iterator(mod / "resource_packs" / "Levitate_RP" / "models" / "blocks", ec)) {
+            out.geometries.merge(cp::parseGeometries(read(e.path())));
+        }
+        log().info("ponder: {} block models, {} geometries", out.blocks.size(), out.geometries.size());
+        return out;
+    }();
+    return m;
+}
+
+/// A Levitate block drawn from its block file and geometry (custom geometry, bone visibility,
+/// material instances and transformations as the game resolves them); nullptr for other blocks.
+mce::Mesh* modelMesh(Tessellator& tess, cp::BlockDef const& def) {
+    auto const& m  = models();
+    auto        bf = m.blocks.find(def.id);
+    if (bf == m.blocks.end()) return nullptr;
+    auto  key = keyOf(def);
+    auto& c   = cache().modelMeshes;
+    if (auto it = c.find(key); it != c.end()) return it->second.get();
+    auto& slot     = c[key];
+    auto  resolved = cp::resolve(bf->second, def.states);
+    auto  states   = bf->second.defaults;
+    for (auto const& [k, v] : def.states) states[k] = v;
+    cp::Geometry const* geo = nullptr;
+    if (resolved.geometry == "minecraft:geometry.full_block") geo = &cp::fullBlock();
+    else if (auto g = m.geometries.find(resolved.geometry); g != m.geometries.end()) geo = &g->second;
+    if (!geo) return nullptr;
+    auto quads = cp::buildQuads(resolved, *geo, states);
+    tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
+    for (auto const& q : quads) {
+        auto  tex = BlockGraphics::getTextureUVCoordinateSet(q.texture, 0, 0);
+        float u0 = tex._u0, v0 = tex._v0, u1 = tex._u1, v1 = tex._v1;
+        auto  uv = [&](cp::V2 const& t) { return Vec2{u0 + (u1 - u0) * t[0], v0 + (v1 - v0) * t[1]}; };
+        auto  at = [](cp::V3 const& p) { return Vec3{p[0], p[1], p[2]}; };
+        tess.color(q.shade, q.shade, q.shade, 1.f);
+        // both windings: the UI pass does not know which side faces the camera
+        tess.simpleQuad(at(q.pos[0]), uv(q.uv[0]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[3]), uv(q.uv[3]));
+        tess.simpleQuad(at(q.pos[3]), uv(q.uv[3]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[0]), uv(q.uv[0]));
+    }
+    slot = std::make_unique<mce::Mesh>(tess.end(Tessellator::UploadMode::Buffered, "levitate_ponder_model", SupplementaryFieldAutoGenerationMode::None));
+    return slot.get();
+}
+
 
 // ---- rotor meshes (U2's rotor geometry, as the kinetics renderer draws it) ---------------------
 
@@ -158,6 +227,34 @@ mce::Mesh* rotorMesh(Tessellator& tess, fk::KineticSpec const& spec, std::string
     }
     slot = std::make_unique<mce::Mesh>(tess.end(Tessellator::UploadMode::Buffered, "levitate_ponder_rotor", SupplementaryFieldAutoGenerationMode::None));
     return slot.get();
+}
+
+/// The block's own geometry, tessellated by the game into our tessellator (same vertex format as
+/// the rotor meshes, drawn with the block atlas).
+mce::Mesh* blockMesh(Tessellator& tess, BlockTessellator& bt, Block const& block) {
+    auto& c = cache().blockMeshes;
+    if (auto it = c.find(&block); it != c.end()) return it->second.get();
+    auto& slot = c[&block];
+    tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
+    tess.color(1.f, 1.f, 1.f, 1.f);
+    bt.appendTessellatedBlock(tess, block);
+    slot = std::make_unique<mce::Mesh>(tess.end(Tessellator::UploadMode::Buffered, "levitate_ponder_block", SupplementaryFieldAutoGenerationMode::None));
+    return slot.get();
+}
+
+/// A block tessellator of our own (tessellating with the game's shared one disturbs the item
+/// icons it also draws), bound to the local player's region.
+BlockTessellator* ponderTessellator() {
+    auto& c      = cache();
+    auto* player = currentPlayer();
+    if (!player) return nullptr;
+    auto& region = player->getDimensionBlockSource();
+    if (!c.tessellator || c.tessRegion != &region) {
+        c.blockMeshes.clear();
+        c.tessellator = std::make_unique<BlockTessellator>(&region);
+        c.tessRegion  = &region;
+    }
+    return c.tessellator.get();
 }
 
 // ---- 2D helpers ----------------------------------------------------------------------------------
@@ -220,12 +317,53 @@ void resetRenderCache() {
     auto& c = cache();
     c.blocks.clear();
     c.rotorMeshes.clear();
+    c.blockMeshes.clear();
+    c.modelMeshes.clear();
+    c.tessellator.reset();
+    c.tessRegion = nullptr;
 }
 
 std::string itemName(std::string const& id) {
     auto stack = feature::common::items::make(id);
     if (!stack) return {};
     return stack->getName();
+}
+
+bool drawIcon(Canvas& c, std::string const& id, float x, float y, float size) {
+    auto* client = currentClient();
+    if (!client) return false;
+    auto const& m = models();
+    if (!m.blocks.contains(id)) {
+        // items and vanilla blocks: the game's item renderer
+        auto stack = feature::common::items::make(id);
+        if (!stack) return false;
+        c.item(*stack, x + (size - 16) / 2, y + (size - 16) / 2);
+        return true;
+    }
+    cp::BlockDef def{id, {}};
+    auto const&  info = infoOf(def);
+    if (!info.block) return false;
+    auto&                  uiCtx = c.context();
+    ScreenContext&         sc    = uiCtx.mScreenContext;
+    Tessellator&           tess  = sc.tessellator;
+    BaseActorRenderContext rc(sc, *client, client->getMinecraftGame());
+    BlockActorRenderDispatcher& dispatcher = rc.mBlockEntityRenderDispatcher;
+    auto* moving = static_cast<MovingBlockActorRenderer*>(dispatcher.mRenderers->operator[](BlockActorRendererId::MovingBlock).get());
+    if (!moving) return false;
+    auto* mesh = modelMesh(tess, def);
+    if (!mesh) return false;
+    // an item-icon view of the block: from the south-west, 30 degrees from above
+    cp::View v;
+    v.center  = {0.5f, 0.5f, 0.5f};
+    v.scale   = size * 0.58f;
+    v.screenX = c.originX() + x + size / 2;
+    v.screenY = c.originY() + y + size / 2;
+    std::variant<std::monostate, mce::TexturePtr, mce::ClientTexture, mce::ServerTexture> texture{moving->mAtlasTexture.get()};
+    auto& worldMat    = sc.camera.worldMatrixStack.get();
+    auto  ref         = worldMat.push(false);
+    ref.mat->_m.get() = ref.mat->_m.get() * toGlm(v.matrix(v.scale * config().depthScale));
+    mesh->renderMesh(sc, moving->mBlockMaterials[static_cast<int>(BlockRenderLayer::RenderlayerAlphatest)].get(), texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+    return true;
 }
 
 DrawResult drawScene(
@@ -292,7 +430,9 @@ DrawResult drawScene(
         material = &moving->mBlockMaterials[static_cast<int>(BlockRenderLayer::RenderlayerAlphatest)].get();
         texture  = moving->mAtlasTexture.get();
     }
-    auto&     blockTess = client->getBlockTessellator();
+    auto*     ownTess   = ponderTessellator();
+    if (!ownTess) return res;
+    auto&     blockTess = *ownTess;
     auto&     worldMat  = sc.camera.worldMatrixStack.get();
     glm::mat4 camera    = toGlm(view.matrix(view.scale * cfg.depthScale));
 
@@ -300,6 +440,11 @@ DrawResult drawScene(
         auto ref          = worldMat.push(false);
         ref.mat->_m.get() = ref.mat->_m.get() * camera * model;
         mesh.renderMesh(sc, *material, texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+    };
+
+    auto meshOf = [&](cp::BlockDef const& def, Block const& block) -> mce::Mesh* {
+        if (auto* m = modelMesh(tess, def)) return m;
+        return blockMesh(tess, blockTess, block);
     };
 
     std::vector<k::RotorPart> parts;
@@ -328,7 +473,9 @@ DrawResult drawScene(
         bool turning = b.rpm != 0.f && info.spec;
         if (turning && info.statics) {
             // static part + rotor bones (as the kinetics renderer)
-            drawMesh(blockTess.getMeshForBlock(tess, *info.statics), model);
+            auto statics = b.block;
+            statics.states[info.spec->rotorState] = 1;
+            if (auto* m = meshOf(statics, *info.statics)) drawMesh(*m, model);
             k::RenderView rv{&info.snap, b.rpm, std::nullopt};
             parts.clear();
             info.spec->rotorParts(rv, parts);
@@ -350,10 +497,10 @@ DrawResult drawScene(
             glm::mat4 m = glm::translate(model, glm::vec3(0.5f));
             m           = glm::rotate(m, glm::radians(b.angle), axisVec(*axis));
             m              = glm::translate(m, glm::vec3(-0.5f));
-            drawMesh(blockTess.getMeshForBlock(tess, *info.block), m);
+            if (auto* bm = meshOf(b.block, *info.block)) drawMesh(*bm, m);
             continue;
         }
-        drawMesh(blockTess.getMeshForBlock(tess, *info.block), model);
+        if (auto* bm = meshOf(b.block, *info.block)) drawMesh(*bm, model);
     }
 
     // ---- overlays ----
@@ -383,10 +530,10 @@ DrawResult drawScene(
         }
     }
     for (auto const& item : st.items) {
-        auto p     = view.project(item.pos);
-        auto stack = feature::common::items::make(item.id);
-        if (stack) c.item(*stack, p.x - c.originX() - 8, p.y - c.originY() - 8);
-        else c.text(p.x - c.originX(), p.y - c.originY() - 4, "?", cfg.placeholderColour, Align::Centre);
+        auto p = view.project(item.pos);
+        if (!drawIcon(c, item.id, p.x - c.originX() - 8, p.y - c.originY() - 8, 16)) {
+            c.text(p.x - c.originX(), p.y - c.originY() - 4, "?", cfg.placeholderColour, Align::Centre);
+        }
     }
     for (auto const& in : st.inputs) {
         float a = std::min({1.f, in.age / 4.f, in.left / 4.f});
@@ -417,8 +564,7 @@ DrawResult drawScene(
         else if (in.action == "scroll") c.fill({x + 4, by + 5, 2, 4}, withAlpha(0xFFFFC040, a));
         x += 14;
         if (!in.item.empty()) {
-            if (auto stack = feature::common::items::make(in.item)) c.item(*stack, x, by + 3);
-            else c.text(x + 8, by + 7, "?", cfg.placeholderColour, Align::Centre);
+            if (!drawIcon(c, in.item, x, by + 3, 16)) c.text(x + 8, by + 7, "?", cfg.placeholderColour, Align::Centre);
         }
     }
     if (picked) {

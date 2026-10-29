@@ -1,49 +1,335 @@
 {
   "id": "factory_gauge_links",
-  "size": [7, 5],
+  "size": [
+    7,
+    5
+  ],
   "blocks": [
-    {"at": [1, 1, 2], "id": "minecraft:chest"},
-    {"at": [2, 1, 2], "id": "levitate:packager", "states": {"levitate:facing": 5}},
-    {"at": [2, 2, 2], "id": "levitate:factory_gauge", "states": {"levitate:facing": 1}},
-    {"at": [4, 1, 1], "id": "levitate:redstone_link", "states": {"levitate:facing": 1}},
-    {"at": [5, 1, 1], "id": "minecraft:redstone_lamp"},
-    {"at": [4, 1, 3], "id": "levitate:display_link", "states": {"levitate:facing": 1}},
-    {"area": [[5, 1, 4], [6, 2, 4]], "id": "levitate:display_board", "states": {"levitate:facing": 3}}
+    {
+      "at": [
+        1,
+        1,
+        2
+      ],
+      "id": "minecraft:chest"
+    },
+    {
+      "at": [
+        2,
+        1,
+        2
+      ],
+      "id": "levitate:packager",
+      "states": {
+        "levitate:facing": 5
+      }
+    },
+    {
+      "at": [
+        2,
+        2,
+        2
+      ],
+      "id": "levitate:factory_gauge",
+      "states": {
+        "levitate:facing": 1
+      }
+    },
+    {
+      "at": [
+        4,
+        1,
+        1
+      ],
+      "id": "levitate:redstone_link",
+      "states": {
+        "levitate:facing": 1
+      }
+    },
+    {
+      "at": [
+        5,
+        1,
+        1
+      ],
+      "id": "minecraft:redstone_lamp"
+    },
+    {
+      "at": [
+        4,
+        1,
+        3
+      ],
+      "id": "levitate:display_link"
+    },
+    {
+      "area": [
+        [
+          5,
+          1,
+          4
+        ],
+        [
+          6,
+          2,
+          4
+        ]
+      ],
+      "id": "levitate:display_board",
+      "states": {
+        "levitate:facing": 3
+      }
+    }
   ],
   "timeline": [
-    {"show": "base", "from": "up"},
-    {"idle": 10},
-    {"show": {"union": [[1, 1, 2], [2, 1, 2]]}, "from": "down"},
-    {"idle": 5},
-    {"show": [2, 2, 2], "from": "down"},
-    {"idle": 15},
-    {"input": [2.5, 2.2, 2.5], "action": "right", "ticks": 40},
-    {"idle": 10},
-    {"text": 1, "at": [2.5, 2.2, 2.5], "ticks": 70, "keyframe": true},
-    {"idle": 80},
-    {"show": [4, 1, 1], "from": "down"},
-    {"idle": 5},
-    {"show": [4, 1, 3], "from": "down"},
-    {"idle": 15},
-    {"outline": {"union": [[2, 2, 2], [4, 1, 1]]}, "color": "input", "ticks": 70},
-    {"outline": {"union": [[2, 2, 2], [4, 1, 3]]}, "color": "input", "ticks": 70},
-    {"text": 2, "at": [4.5, 1.3, 2.0], "ticks": 70, "keyframe": true},
-    {"idle": 80},
-    {"show": [5, 1, 1], "from": "down"},
-    {"idle": 10},
-    {"redstone": [4, 1, 1], "ticks": 70},
-    {"set": [5, 1, 1], "id": "minecraft:lit_redstone_lamp"},
-    {"text": 3, "at": [4.5, 1.3, 1.5], "ticks": 70, "keyframe": true},
-    {"idle": 80},
-    {"set": [5, 1, 1], "id": "minecraft:redstone_lamp"},
-    {"input": [4.5, 1.3, 1.5], "action": "right", "item": "levitate:wrench", "ticks": 40},
-    {"idle": 10},
-    {"outline": [4, 1, 1], "color": "red", "ticks": 70},
-    {"text": 4, "at": [4.5, 1.3, 1.5], "ticks": 70, "color": "red", "keyframe": true},
-    {"idle": 80},
-    {"show": [[5, 1, 4], [6, 2, 4]], "from": "down"},
-    {"idle": 15},
-    {"text": 5, "at": [5.5, 2.0, 4.5], "ticks": 70, "keyframe": true},
-    {"idle": 80}
+    {
+      "show": "base",
+      "from": "up"
+    },
+    {
+      "idle": 10
+    },
+    {
+      "show": {
+        "union": [
+          [
+            1,
+            1,
+            2
+          ],
+          [
+            2,
+            1,
+            2
+          ]
+        ]
+      },
+      "from": "down"
+    },
+    {
+      "idle": 5
+    },
+    {
+      "show": [
+        2,
+        2,
+        2
+      ],
+      "from": "down"
+    },
+    {
+      "idle": 15
+    },
+    {
+      "input": [
+        2.5,
+        2.2,
+        2.5
+      ],
+      "action": "right",
+      "ticks": 40
+    },
+    {
+      "idle": 10
+    },
+    {
+      "text": 1,
+      "at": [
+        2.5,
+        2.2,
+        2.5
+      ],
+      "ticks": 70,
+      "keyframe": true
+    },
+    {
+      "idle": 80
+    },
+    {
+      "show": [
+        4,
+        1,
+        1
+      ],
+      "from": "down"
+    },
+    {
+      "idle": 5
+    },
+    {
+      "show": [
+        4,
+        1,
+        3
+      ],
+      "from": "down"
+    },
+    {
+      "idle": 15
+    },
+    {
+      "outline": {
+        "union": [
+          [
+            2,
+            2,
+            2
+          ],
+          [
+            4,
+            1,
+            1
+          ]
+        ]
+      },
+      "color": "input",
+      "ticks": 70
+    },
+    {
+      "outline": {
+        "union": [
+          [
+            2,
+            2,
+            2
+          ],
+          [
+            4,
+            1,
+            3
+          ]
+        ]
+      },
+      "color": "input",
+      "ticks": 70
+    },
+    {
+      "text": 2,
+      "at": [
+        4.5,
+        1.3,
+        2.0
+      ],
+      "ticks": 70,
+      "keyframe": true
+    },
+    {
+      "idle": 80
+    },
+    {
+      "show": [
+        5,
+        1,
+        1
+      ],
+      "from": "down"
+    },
+    {
+      "idle": 10
+    },
+    {
+      "redstone": [
+        4,
+        1,
+        1
+      ],
+      "ticks": 70
+    },
+    {
+      "set": [
+        5,
+        1,
+        1
+      ],
+      "id": "minecraft:lit_redstone_lamp"
+    },
+    {
+      "text": 3,
+      "at": [
+        4.5,
+        1.3,
+        1.5
+      ],
+      "ticks": 70,
+      "keyframe": true
+    },
+    {
+      "idle": 80
+    },
+    {
+      "set": [
+        5,
+        1,
+        1
+      ],
+      "id": "minecraft:redstone_lamp"
+    },
+    {
+      "input": [
+        4.5,
+        1.3,
+        1.5
+      ],
+      "action": "right",
+      "item": "levitate:wrench",
+      "ticks": 40
+    },
+    {
+      "idle": 10
+    },
+    {
+      "outline": [
+        4,
+        1,
+        1
+      ],
+      "color": "red",
+      "ticks": 70
+    },
+    {
+      "text": 4,
+      "at": [
+        4.5,
+        1.3,
+        1.5
+      ],
+      "ticks": 70,
+      "color": "red",
+      "keyframe": true
+    },
+    {
+      "idle": 80
+    },
+    {
+      "show": [
+        [
+          5,
+          1,
+          4
+        ],
+        [
+          6,
+          2,
+          4
+        ]
+      ],
+      "from": "down"
+    },
+    {
+      "idle": 15
+    },
+    {
+      "text": 5,
+      "at": [
+        5.5,
+        2.0,
+        4.5
+      ],
+      "ticks": 70,
+      "keyframe": true
+    },
+    {
+      "idle": 80
+    }
   ]
 }

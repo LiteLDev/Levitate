@@ -44,13 +44,16 @@ namespace lv::client::ponder {
 
 namespace {
 
-constexpr int kVkW = 0x57; ///< Create's default Ponder key
+constexpr int kVkW      = 0x57; ///< Create's default Ponder key
+constexpr int kVkEscape = 0x1B;
 
 struct State {
     std::mutex                          mutex;   ///< hovered item (set from UI callbacks)
     std::string                         hovered; ///< item id under the pointer in a container screen
+    std::string                         hoveredSlot; ///< "<collection>#<index>" of that slot
     // client thread
     bool                                keyDown   = false;
+    bool                                afterSeen = false;
     bool                                leftDown  = false;
     float                               progress  = 0;
     float                               tickAcc   = 0;
@@ -63,10 +66,18 @@ State& state() {
     return s;
 }
 
-void setHovered(std::string id) {
-    auto&           s = state();
-    std::lock_guard lock(s.mutex);
-    s.hovered = std::move(id);
+/// `slot` = "<collection>#<index>"; an unhover only clears its own slot (the game may report the
+/// new slot before it leaves the old one).
+void setHovered(std::string id, std::string slot = {}) {
+    auto& s = state();
+    {
+        std::lock_guard lock(s.mutex);
+        s.hoveredSlot = std::move(slot);
+        if (s.hovered == id) return;
+        s.hovered = id;
+    }
+    // one line per hovered entry (e2e scenarios find the slot with it)
+    if (!id.empty() && library().has(id)) log().info("ponder: hovering {}", id);
 }
 
 std::string hovered() {
@@ -119,6 +130,36 @@ void drawHoldHint(MinecraftUIRenderContext& ctx, std::string const& id, float pr
     (void)id;
 }
 
+/// Per UI layer: advances the hold progress with the clock (several layers per frame don't speed
+/// it up) and draws the hint (after the layer when the game reports it, else before).
+void holdFrame(MinecraftUIRenderContext& ctx, bool after) {
+    auto& s = state();
+    if (screen::current()) {
+        s.progress = 0;
+        return;
+    }
+    auto id = hovered();
+    if (id.empty() || !library().has(id)) {
+        s.progress = 0;
+        s.last     = {};
+        return;
+    }
+    auto  now = std::chrono::steady_clock::now();
+    float dt  = s.last.time_since_epoch().count() == 0 ? 0.f : std::chrono::duration<float>(now - s.last).count();
+    s.last    = now;
+    s.tickAcc += std::min(dt, 0.25f) * 20.f * config().holdSpeed;
+    while (s.tickAcc >= 1.f) {
+        s.tickAcc -= 1.f;
+        s.progress = cp::holdProgressStep(s.progress, s.keyDown);
+    }
+    if (after || !s.afterSeen) drawHoldHint(ctx, id, s.progress);
+    if (s.progress >= 1.f) {
+        s.progress = 0;
+        log().info("ponder: held W over {}", id);
+        clearHistory();
+        defer([id] { openComponent(id); });
+    }
+}
 } // namespace
 
 cp::Library const& library() {
@@ -162,7 +203,7 @@ LL_TYPE_INSTANCE_HOOK(
     auto r = origin(collectionName, index);
     try {
         auto const& stack = this->_getVisualItemStack(collectionName, index);
-        setHovered(stack.isNull() ? std::string{} : stack.getTypeName());
+        setHovered(stack.isNull() ? std::string{} : stack.getTypeName(), collectionName + "#" + std::to_string(index));
     } catch (...) {}
     return r;
 }
@@ -179,7 +220,7 @@ LL_TYPE_INSTANCE_HOOK(
     auto r = origin(collectionName, index);
     try {
         auto const& stack = this->_getVisualItemStack(collectionName, index);
-        setHovered(stack.isNull() ? std::string{} : stack.getTypeName());
+        setHovered(stack.isNull() ? std::string{} : stack.getTypeName(), collectionName + "#" + std::to_string(index));
     } catch (...) {}
     return r;
 }
@@ -193,7 +234,14 @@ LL_TYPE_INSTANCE_HOOK(
     std::string const& collectionName,
     int                index
 ) {
-    setHovered({});
+    {
+        auto&           s = state();
+        std::lock_guard lock(s.mutex);
+        if (s.hoveredSlot == collectionName + "#" + std::to_string(index)) {
+            s.hovered.clear();
+            s.hoveredSlot.clear();
+        }
+    }
     return origin(collectionName, index);
 }
 
@@ -213,8 +261,18 @@ public:
             [](ll::event::KeyInputEvent& ev) {
                 auto& s  = state();
                 int   vk = ev.keyCode();
-                if (vk == kVkW) s.keyDown = ev.isDown();
+                if (vk == kVkW) {
+                    if (ev.isDown() && !s.keyDown && !screen::current()) {
+                        auto id = hovered();
+                        if (!id.empty() && library().has(id)) log().info("ponder: holding W over {}", id);
+                    }
+                    s.keyDown = ev.isDown();
+                }
                 if (ev.isDown() && screen::current() && ponderKey(vk)) ev.cancel();
+                if (vk == kVkEscape && ev.isDown() && ponderScreenOpen()) {
+                    deferUi([] { screen::close(); });
+                    ev.cancel();
+                }
             },
             ll::event::EventPriority::High
         ));
@@ -225,49 +283,22 @@ public:
             ll::event::EventPriority::High
         ));
         mListeners.push_back(bus.emplaceListener<ll::event::BeforeUIRenderEvent>(
-            [](ll::event::BeforeUIRenderEvent&) {
+            [](ll::event::BeforeUIRenderEvent& ev) {
                 auto& s = state();
                 while (!s.deferred.empty()) {
                     auto fn = std::move(s.deferred.front());
                     s.deferred.pop_front();
                     fn();
                 }
+                holdFrame(ev.uiRenderContext(), false);
             },
             ll::event::EventPriority::High
         ));
         mListeners.push_back(bus.emplaceListener<ll::event::AfterUIRenderEvent>([](ll::event::AfterUIRenderEvent& ev) {
-            auto& s = state();
-            if (screen::current()) {
-                s.progress = 0;
-                return;
-            }
-            auto id = hovered();
-            if (id.empty() || !library().has(id)) {
-                s.progress = 0;
-                return;
-            }
-            // draw once per frame: on the top scene only
-            auto* client = currentClient();
-            if (!client) return;
-            auto stack = client->getClientSceneStack();
-            if (ev.screenView().getScreenName() != stack->getScreenName()) return;
-            auto now = std::chrono::steady_clock::now();
-            float dt = s.last.time_since_epoch().count() == 0 ? 0.f : std::chrono::duration<float>(now - s.last).count();
-            s.last   = now;
-            s.tickAcc += std::min(dt, 0.25f) * 20.f * config().holdSpeed;
-            while (s.tickAcc >= 1.f) {
-                s.tickAcc -= 1.f;
-                s.progress = cp::holdProgressStep(s.progress, s.keyDown);
-            }
-            drawHoldHint(ev.uiRenderContext(), id, s.progress);
-            if (s.progress >= 1.f) {
-                s.progress = 0;
-                log().info("ponder: held W over {}", id);
-                clearHistory();
-                defer([id] { openComponent(id); });
-            }
-        }));
-        mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
+            state().afterSeen = true;
+
+            holdFrame(ev.uiRenderContext(), true);
+        }));        mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             setHovered({});
             state().history.clear();
             state().deferred.clear();

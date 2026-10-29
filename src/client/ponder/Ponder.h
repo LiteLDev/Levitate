@@ -45,6 +45,8 @@ bool openTag(std::string const& tag);
 [[nodiscard]] bool leftMouseDown();
 /// A key went down while a Ponder screen is open (Windows virtual-key code). Returns true when used.
 bool ponderKey(int vk);
+/// A Ponder screen is the current screen.
+[[nodiscard]] bool ponderScreenOpen();
 /// Goes back to the previous Ponder screen ("Think Back"); false when there is none.
 bool thinkBack();
 [[nodiscard]] bool canThinkBack();
@@ -75,6 +77,10 @@ DrawResult drawScene(
 
 /// Draws the text bubbles of `state` (on top of everything).
 void drawTexts(screen::Canvas& c, cp::Scene const& scene, cp::SceneState const& state, cp::View const& view, float screenW, bool slow);
+
+/// Draws the icon of an item / block id in a size square at (x, y) (Levitate blocks from their model,
+/// others with the game's item renderer). Returns false when the id does not exist.
+bool drawIcon(screen::Canvas& c, std::string const& id, float x, float y, float size = 16);
 
 /// Drops cached block lookups (a new world registers block states again).
 void resetRenderCache();

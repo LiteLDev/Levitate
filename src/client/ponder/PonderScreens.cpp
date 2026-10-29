@@ -15,6 +15,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <set>
 
 #include "mc/world/item/ItemStack.h"
 
@@ -49,7 +50,7 @@ constexpr Icon kIconSlow{"          ", "  ####### ", "  #     ##", "  #     # ",
 constexpr Icon kIconReplay{"   #####  ", "  #     # ", " #     ###", " #      # ", " #        ", " #      # ", "  #    #  ", "   ####   ", "          ", "          "};
 constexpr Icon kIconBack{"   #      ", "  ##      ", " ######## ", "  ##    # ", "   #    # ", "        # ", "        # ", "  ######  ", "          ", "          "};
 
-void drawIcon(Canvas& c, Icon const& icon, float x, float y, unsigned argb) {
+void drawPixelIcon(Canvas& c, Icon const& icon, float x, float y, unsigned argb) {
     for (int r = 0; r < 10; ++r)
         for (int col = 0; col < 10; ++col)
             if (icon[static_cast<std::size_t>(r)][col] == '#') c.fill({x + static_cast<float>(col), y + static_cast<float>(r), 1, 1}, argb);
@@ -71,7 +72,7 @@ void drawButton(Canvas& c, UiButton const& b, float mx, float my) {
     c.fill(b.r, bg);
     c.frame(b.r, hover ? 0xFFFFFFFF : b.lit ? 0xFF7FCDE0 : 0xFF505050);
     unsigned fg = !b.enabled ? 0xFF404040 : hover ? 0xFFFFFFFF : 0xFFC0C0C0;
-    if (b.icon) drawIcon(c, *b.icon, b.r.x + (b.r.w - 10) / 2, b.r.y + (b.r.h - 10) / 2, fg);
+    if (b.icon) drawPixelIcon(c, *b.icon, b.r.x + (b.r.w - 10) / 2, b.r.y + (b.r.h - 10) / 2, fg);
 }
 
 /// Swallows the mouse wheel over the whole screen and forwards it.
@@ -89,23 +90,30 @@ private:
     std::function<void(int)> mFn;
 };
 
-std::shared_ptr<ItemStack> stackOf(std::string const& id) {
-    auto s = feature::common::items::make(id);
-    return s ? std::make_shared<ItemStack>(*s) : nullptr;
-}
-
 std::string tagTitle(std::string const& id) { return ctr("create.ponder.tag." + id, id); }
 std::string tagDescription(std::string const& id) { return ctr("create.ponder.tag." + id + ".description", ""); }
 
 // ---- the scene player ------------------------------------------------------------------------
 
+std::set<screen::Screen const*>& ours() {
+    static std::set<screen::Screen const*> s;
+    return s;
+}
+
+/// Base of every Ponder screen (Esc closes them, keys are routed to them).
+class PonderScreen : public screen::Screen {
+public:
+    PonderScreen(std::string t, float w, float h) : Screen(std::move(t), w, h) { ours().insert(this); }
+    ~PonderScreen() override { ours().erase(this); }
+};
+
 class PonderUI;
 PonderUI* gActive = nullptr;
 
-class PonderUI : public screen::Screen {
+class PonderUI : public PonderScreen {
 public:
     PonderUI(std::string component, int sceneIndex)
-    : Screen("Ponder", 0, 0),
+    : PonderScreen("Ponder", 0, 0),
       mComponent(std::move(component)),
       mIndex(sceneIndex) {
         auto [w, h] = screen::guiSize();
@@ -164,6 +172,10 @@ public:
             c.text(width / 2, height / 2, ctr("lv.ponder.unknown", "There is nothing to ponder about {0}.", mComponent), 0xFFFFFFFF, Align::Centre);
             return;
         }
+        // item icons first: the block pass leaves the item renderer's lighting dark
+        drawHeader(c, *s, mx, my);
+        drawTimeline(c, *s, mx, my);
+        drawTags(c, mx, my);
         auto st  = cp::evaluate(*s, mTime);
         auto res = drawScene(c, *s, st, mView, mIdentify, mx, my);
         if (!mLoggedDraw) {
@@ -171,9 +183,6 @@ public:
             log().info("ponder: scene {} drawn ({} blocks, {} placeholders)", s->id, res.drawnBlocks, res.missingBlocks);
         }
         drawTexts(c, *s, st, mView, width, mSlow);
-        drawHeader(c, *s, mx, my);
-        drawTimeline(c, *s, mx, my);
-        drawTags(c, mx, my);
         layoutButtons();
         std::vector<std::string> tip;
         for (auto const& b : mButtons) {
@@ -193,6 +202,12 @@ public:
                 tip       = {name.empty() ? res.hoveredBlock : name};
                 if (name.empty()) tip.push_back(ctr("lv.ponder.missing_block", "Not available yet: {0}", res.hoveredBlock));
             }
+        }
+        // the scene is over: Create shows what comes next above the "next" button
+        if (mTime >= static_cast<float>(s->length()) && mIndex + 1 < static_cast<int>(mScenes.size())) {
+            auto const* next = mScenes[static_cast<std::size_t>(mIndex + 1)];
+            c.text(width / 2 + 26, height - 52, ctr("ponder.ui.next_up", "Up Next:"), 0xFFA0A0A0, Align::Centre);
+            c.text(width / 2 + 26, height - 42, translateClient(next->headerKey(), next->id), 0xFFFFFFFF, Align::Centre);
         }
         if (!mTagTip.empty()) tip = mTagTip;
         if (mSubjectHover) tip = {ctr("ponder.ui.subject", "Subject of this scene"), itemName(mComponent)};
@@ -245,7 +260,7 @@ private:
         mIdentify   = false;
         mLoggedDraw = false;
         if (auto const* s = scene()) {
-            mView = cp::View::fit(*s, width / 2, height / 2 + 14, width * 0.62f, height * 0.62f);
+            mView = cp::View::fit(*s, width / 2, height / 2 + 16, width * 0.8f, height * 0.72f);
             log().info("ponder: scene {} ({}/{}) of {}", s->id, mIndex + 1, mScenes.size(), mComponent);
         }
     }
@@ -254,8 +269,7 @@ private:
         Rect icon{8, 8, 24, 24};
         c.fill(icon, 0xE0101010);
         c.frame(icon, 0xFF505050);
-        if (!mSubject) mSubject = stackOf(mComponent);
-        if (mSubject) c.item(*mSubject, icon.x + 4, icon.y + 4);
+        drawIcon(c, mComponent, icon.x + 2, icon.y + 2, 20);
         mSubjectHover = icon.contains(mx, my);
         c.text(38, 9, ctr("ponder.ui.pondering", "Pondering about..."), 0xFFA0A0A0);
         c.text(38, 20, translateClient(s.headerKey(), s.id), 0xFFFFFFFF);
@@ -307,7 +321,7 @@ private:
             c.fill(r, 0xE0101010);
             bool h = r.contains(mx, my);
             c.frame(r, h ? 0xFFFFFFFF : 0xFF505050);
-            if (auto st = stackOf(list[static_cast<std::size_t>(i)]->icon)) c.item(*st, r.x + 3, r.y + 3);
+            drawIcon(c, list[static_cast<std::size_t>(i)]->icon, r.x + 2, r.y + 2, 18);
             if (h) mTagTip = {tagTitle(list[static_cast<std::size_t>(i)]->id), tagDescription(list[static_cast<std::size_t>(i)]->id)};
         }
     }
@@ -356,10 +370,32 @@ private:
     bool                            mDragging = false, mSubjectHover = false;
     std::vector<UiButton>           mButtons;
     std::vector<std::string>        mTagTip;
-    std::shared_ptr<ItemStack>      mSubject;
 };
 
 // ---- entry grids -------------------------------------------------------------------------------
+
+/// An entry of a grid: the item's icon (Levitate blocks drawn from their model), greyed out when
+/// it has no scenes.
+class EntrySlot : public screen::Widget {
+public:
+    EntrySlot(Rect r, std::string id, bool active, std::function<void()> fn) : Widget(r), mId(std::move(id)), mActive(active), mFn(std::move(fn)) {}
+    void render(Canvas& c, float mx, float my) override {
+        c.bevel(rect, color::kSlot, color::kSlotDark, color::kSlotLight, true);
+        drawIcon(c, mId, rect.x + 1, rect.y + 1, rect.w - 2);
+        if (!mActive) c.fill(rect.inset(1), 0x90303030);
+        else if (hovered(mx, my)) c.fill(rect.inset(1), color::kHover);
+    }
+    bool click(float mx, float my, Button b, bool) override {
+        if (!hovered(mx, my) || b != Button::Left) return false;
+        if (mActive && mFn) mFn();
+        return true;
+    }
+
+private:
+    std::string           mId;
+    bool                  mActive;
+    std::function<void()> mFn;
+};
 
 constexpr float kCell = 18;
 
@@ -368,20 +404,16 @@ void addEntryGrid(screen::Screen& s, float x, float y, int columns, std::vector<
     for (int i = 0; i < static_cast<int>(ids.size()); ++i) {
         auto const& id   = ids[static_cast<std::size_t>(i)];
         bool        has  = library().has(id);
-        auto&       slot = s.add<screen::Slot>(lv::core::common::gridCell(x, y, columns, kCell, i), [id, has, onClick](Button b, bool) {
-            if (b == Button::Left && has) onClick(id);
-        });
-        slot.stack = stackOf(id);
-        auto name  = itemName(id);
+        auto& slot = s.add<EntrySlot>(lv::core::common::gridCell(x, y, columns, kCell, i), id, has, [id, onClick] { onClick(id); });
+        auto  name = itemName(id);
         slot.tooltip = {name.empty() ? id : name};
         if (!has) slot.tooltip.push_back("-");
-        slot.enabled = has;
     }
 }
 
-class TagScreen : public screen::Screen {
+class TagScreen : public PonderScreen {
 public:
-    explicit TagScreen(std::string tag) : Screen(tagTitle(tag), 0, 0), mTag(std::move(tag)) {}
+    explicit TagScreen(std::string tag) : PonderScreen(tagTitle(tag), 0, 0), mTag(std::move(tag)) {}
     void init() override {
         auto const* t = library().tag(mTag);
         auto        items = t ? t->items : std::vector<std::string>{};
@@ -407,9 +439,9 @@ private:
     std::string mTag;
 };
 
-class IndexScreen : public screen::Screen {
+class IndexScreen : public PonderScreen {
 public:
-    IndexScreen() : Screen(ctr("ponder.ui.index_title", "Ponder Index"), 0, 0) {}
+    IndexScreen() : PonderScreen(ctr("ponder.ui.index_title", "Ponder Index"), 0, 0) {}
     void init() override {
         auto comps = library().components();
         int  cols  = 18;
@@ -428,9 +460,9 @@ public:
     }
 };
 
-class TagIndexScreen : public screen::Screen {
+class TagIndexScreen : public PonderScreen {
 public:
-    TagIndexScreen() : Screen(ctr("ponder.ui.welcome", "Welcome to Ponder"), 0, 0) {}
+    TagIndexScreen() : PonderScreen(ctr("ponder.ui.welcome", "Welcome to Ponder"), 0, 0) {}
     void init() override {
         std::vector<cp::Tag const*> tags;
         for (auto const& t : library().tags())
@@ -444,12 +476,10 @@ public:
         for (int i = 0; i < static_cast<int>(tags.size()); ++i) {
             auto id   = tags[static_cast<std::size_t>(i)]->id;
             auto r    = lv::core::common::gridCell(gx, 32, cols, 26, i);
-            auto& slot = add<screen::Slot>(Rect{r.x + 2, r.y + 2, 22, 22}, [id](Button b, bool) {
-                if (b != Button::Left) return;
+            auto& slot = add<EntrySlot>(Rect{r.x + 2, r.y + 2, 22, 22}, tags[static_cast<std::size_t>(i)]->icon, true, [id] {
                 pushHistory([] { openIndex(); });
                 openTag(id);
             });
-            slot.stack   = stackOf(tags[static_cast<std::size_t>(i)]->icon);
             slot.tooltip = {tagTitle(id), tagDescription(id)};
         }
         auto& all = add<screen::IconButton>(Rect{width / 2 - 50, height - 22, 100, 16}, ctr("ponder.ui.index_title", "Ponder Index"), [] {
@@ -468,7 +498,9 @@ public:
 
 } // namespace
 
-bool ponderKey(int vk) { return gActive && gActive->key(vk); }
+bool ponderKey(int vk) { return gActive && screen::current() == gActive && gActive->key(vk); }
+
+bool ponderScreenOpen() { return screen::current() && ours().contains(screen::current()); }
 
 bool openComponent(std::string const& component, std::string const& scene) {
     auto const& lib    = library();
