@@ -20,3 +20,6 @@ tile.levitate:green_seat.name=Green Seat
 tile.levitate:red_seat.name=Red Seat
 tile.levitate:black_seat.name=Black Seat
 entity.levitate:seat.name=Seat
+action.hint.exit.levitate:seat=Press Sneak to leave the Seat
+entity.levitate:player_seat.name=Seat
+action.hint.exit.levitate:player_seat=Press Sneak to leave the Seat

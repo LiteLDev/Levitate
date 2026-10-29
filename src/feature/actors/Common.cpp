@@ -236,7 +236,7 @@ void damageEntities(con::MovementContext& ctx, GlobalPos const& pos, bool hurt, 
     cc::Vec3d lo = cc::Vec3d::of(cc::Pos{pos.x, pos.y, pos.z});
     for (auto* a : entitiesIn(*region, lo, lo + cc::Vec3d{1, 1, 1})) {
         if (!a || !a->isAlive() || isContraptionDisplay(*a) || a->getEntityTypeId() == ActorType::ItemEntity) continue;
-        if (a->getTypeName() == kSeatEntity) continue;
+        if (isSeatEntityId(a->getTypeName())) continue;
         if (hurt) {
             float damage = std::clamp(6.f * static_cast<float>(std::pow(speed, 0.4)) + 1.f, 2.f, 10.f);
             a->hurtByCause(damage, roller ? SharedTypes::Legacy::ActorDamageCause::Contact : SharedTypes::Legacy::ActorDamageCause::Override);

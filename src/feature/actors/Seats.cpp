@@ -49,7 +49,7 @@ constexpr double kSeatEntityY = 0.3;
 /// Height of carried riders above a seat block on a contraption.
 constexpr double kCarriedHeight = 0.5;
 
-bool isSeatEntity(Actor const& a) { return a.getTypeName() == kSeatEntity; }
+bool isSeatEntity(Actor const& a) { return isSeatEntityId(a.getTypeName()); }
 
 std::string dyeColourOf(std::string const& itemId) {
     if (!itemId.starts_with("minecraft:") || !itemId.ends_with("_dye")) return {};
@@ -65,11 +65,11 @@ std::vector<Actor*> seatEntitiesAt(BlockSource& region, GlobalPos const& pos) {
     return out;
 }
 
-Actor* spawnSeatEntity(BlockSource& region, GlobalPos const& pos) {
+Actor* spawnSeatEntity(BlockSource& region, GlobalPos const& pos, bool forPlayer) {
     auto level = ll::service::getLevel();
     if (!level) return nullptr;
     Vec3 at{float(pos.x + .5), float(pos.y + kSeatEntityY), float(pos.z + .5)};
-    auto owner = level->getActorFactory().createSpawnedActor(ActorDefinitionIdentifier(std::string(kSeatEntity)), nullptr, at, Vec2{0, 0});
+    auto owner = level->getActorFactory().createSpawnedActor(ActorDefinitionIdentifier(std::string(forPlayer ? kPlayerSeatEntity : kSeatEntity)), nullptr, at, Vec2{0, 0});
     if (!owner) return nullptr;
     return level->addEntity(region, std::move(owner));
 }
@@ -107,7 +107,7 @@ bool sitDown(Actor& entity, GlobalPos const& pos) {
     auto* region = regionOf(pos.dim);
     if (!region) return false;
     if (entity.getVehicle()) entity.stopRiding(true, false, false, false);
-    auto* seat = spawnSeatEntity(*region, pos);
+    auto* seat = spawnSeatEntity(*region, pos, entity.isPlayer());
     if (!seat) return false;
     if (!entity.startRiding(*seat, true)) {
         seat->remove();

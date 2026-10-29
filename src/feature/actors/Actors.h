@@ -39,6 +39,9 @@ inline constexpr std::string_view kRoller    = "levitate:mechanical_roller";
 inline constexpr std::string_view kPsi       = "levitate:portable_storage_interface";
 inline constexpr std::string_view kControls  = "levitate:contraption_controls";
 inline constexpr std::string_view kSeatEntity = "levitate:seat";
+/// The seat entity players ride (another rider offset: Bedrock places a riding player lower).
+inline constexpr std::string_view kPlayerSeatEntity = "levitate:player_seat";
+[[nodiscard]] inline bool isSeatEntityId(std::string_view id) { return id == kSeatEntity || id == kPlayerSeatEntity; }
 inline constexpr char             kFacing[]  = "levitate:facing";
 
 /// Create's 16 dye colours in their order (white first).

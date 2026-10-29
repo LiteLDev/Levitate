@@ -448,7 +448,7 @@ LV_REGISTER_SELFTEST("actors.seat", [](Context& ctx) -> ll::coro::CoroTask<> {
     ctx.check(seatUse(player, seat, ItemStack::EMPTY_ITEM()), "sat down");
     co_await ctx.ticks(2);
     auto* vehicle = player.getVehicle();
-    ctx.check(vehicle && vehicle->getTypeName() == kSeatEntity, "riding the seat entity");
+    ctx.check(vehicle && isSeatEntityId(vehicle->getTypeName()), "riding the seat entity");
     ctx.check(seatedAt(seat) == &player, "seated at the seat");
     // the seat entity goes with its block
     ctx.setBlock(seat, "minecraft:air");
