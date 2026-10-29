@@ -82,15 +82,17 @@ Press-Key 1
 Invoke-Chat '/tp @s ~2 ~ ~-5'
 Invoke-Chat '/tp @s ~ ~ ~ -146 23' # at the controller rail (2 east, 3 north, below the eyes)
 Start-Sleep -Milliseconds 800
+# the plank on the assembler in front of the player, before and after the cart took it away: if
+# the structure didn't move on the client, the plank would still be drawn where it was
+$before = Save-Screenshot 'cart-placing'
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'minecart placed on levitate:controller_rail' 20 -Since $mark | Out-Null
-Invoke-Chat '/tp @s ~ ~1 ~ facing ~12 ~ ~-3'
-# pictures while it runs (taken at once: the log is read with some delay)
-$shots = foreach ($i in 1..3) { Save-Screenshot "cart-moving-$i"; Start-Sleep -Milliseconds 400 }
 Wait-LogLine 'cart assembler at .* assembled contraption #\d+ on minecart' 30 -Since $mark | Out-Null
-Assert-ContraptionMoved $shots[0] $shots[2] 'the minecart contraption'
-Invoke-Chat '/tp @s ~-2 ~-1 ~5'
+Start-Sleep -Milliseconds 1500
+$after = Save-Screenshot 'cart-gone'
+Assert-ContraptionMoved $before $after 'the minecart contraption'
+Invoke-Chat '/tp @s ~-2 ~ ~5'
 Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.5 ~'
 
 if (-not $vanilla) {

@@ -56,6 +56,7 @@ struct Block {
 struct Known {
     int                                       dim = 0, axis = 1, quarter = 0;
     std::vector<Block>                        blocks;
+    std::vector<Block>                        retiring; ///< replaced displays the server removes soon
     std::map<std::tuple<int, int, int>, Json> visuals;
     cc::MotionBuffer                          motion; ///< not ready: a server without motion sync
     bool                                      moved = false; ///< logged once
@@ -63,6 +64,7 @@ struct Known {
 struct DisplayOf {
     std::uint64_t contraption = 0;
     cc::Pos       local;
+    int           quarter = 0; ///< the quarter turns its block shows
 };
 
 std::map<std::uint64_t, Known>& known() {
@@ -134,12 +136,15 @@ void placeAll(Known const& k) {
     auto  dim   = playerDim();
     if (!level || !dim || k.dim != *dim || !k.motion.ready()) return;
     for (auto const& b : k.blocks) placeDisplay(*level, k, b);
+    for (auto const& b : k.retiring) placeDisplay(*level, k, b);
 }
 
 void forget(std::uint64_t id, Known const& k) {
-    for (auto const& b : k.blocks) {
-        auto it = displays().find(b.display);
-        if (it != displays().end() && it->second.contraption == id) displays().erase(it);
+    for (auto const* list : {&k.blocks, &k.retiring}) {
+        for (auto const& b : *list) {
+            auto it = displays().find(b.display);
+            if (it != displays().end() && it->second.contraption == id) displays().erase(it);
+        }
     }
 }
 
@@ -154,7 +159,15 @@ void onBlocks(Json const& msg) {
     for (auto const& b : msg.value("blocks", Json::array())) {
         if (!b.is_array() || b.size() != 5) continue;
         k.blocks.push_back({b[0].get<std::int64_t>(), posOf(b, 1), b[4].get<std::string>()});
-        displays()[k.blocks.back().display] = {id, k.blocks.back().local};
+        displays()[k.blocks.back().display] = {id, k.blocks.back().local, k.quarter};
+    }
+    // the old displays of blocks spawned again stay where the new ones are until the server
+    // removes them (a new falling block is drawn only some frames after it appears)
+    k.retiring.clear();
+    for (auto const& b : msg.value("retiring", Json::array())) {
+        if (!b.is_array() || b.size() != 6) continue;
+        k.retiring.push_back({b[0].get<std::int64_t>(), posOf(b, 1), b[4].get<std::string>()});
+        displays()[k.retiring.back().display] = {id, k.retiring.back().local, b[5].get<int>()};
     }
     k.visuals.clear();
     for (auto const& v : msg.value("visuals", Json::array())) {
@@ -230,7 +243,7 @@ bool displayPose(Actor const& actor, float partialTick, DisplayPose& out) {
     auto        t     = k.motion.at(partialTick);
     auto        from = feetOf(k.motion.previous(), local), to = feetOf(k.motion.current(), local);
     out.axis    = static_cast<int>(t.axis);
-    out.degrees = static_cast<float>(std::remainder(t.angle - k.quarter * 90.0, 360.0));
+    out.degrees = static_cast<float>(std::remainder(t.angle - d->second.quarter * 90.0, 360.0));
     out.shift   = feetOf(t, local) - (from + (to - from) * partialTick);
     return true;
 }
