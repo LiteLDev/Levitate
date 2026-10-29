@@ -217,12 +217,12 @@ LV_REGISTER_SELFTEST("pistons.rope_pulley", [](Context& ctx) -> ll::coro::CoroTa
     ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
     clearBox(ctx, o, -1, -8, -1, 1, 0, 1);
     put(ctx, at(o, 0, -8, 0), "minecraft:stone"); // the floor
-    put(ctx, o, kRopePulley, {{kAxis, 0}});
+    put(ctx, o, kRopePulley, {{kAxis, 2}}); // z: integer states must read their value, not an index
     put(ctx, at(o, 0, -1, 0), kRope);
     put(ctx, at(o, 0, -2, 0), kMagnet);
     put(ctx, at(o, 0, -3, 0), "minecraft:oak_planks");
-    auto source = at(o, 1, 0, 0);
-    put(ctx, source, kSource, {{"levitate:axis", 0}});
+    auto source = at(o, 0, 0, 1);
+    put(ctx, source, kSource, {{"levitate:axis", 2}});
     Cleanup cleanup{{o}};
     co_await Context::ticks(3);
     kinetics::setGeneratedSpeed(source, 128);
