@@ -260,6 +260,7 @@ void conditionForm(Player& p, int slot, int entry, int column, int index) {
         );
     } else if (c.id == ids::kRedstoneLink) {
         form.appendToggle("inverted", trP(p, "create.schedule.condition.redstone_link.unpowered", "Link Off"), d.value("Inverted", 0) != 0);
+        form.appendToggle("frequency", trP(p, "lv.trains.frequency_from_hands", "Use the items in your off hand and main hand as the frequency"), false);
     }
     form.appendToggle("remove", trP(p, "create.gui.schedule.rmb_remove", "Right-Click to Remove"), false);
     form.sendTo(p, [slot, entry, column, index](Player& pl, ll::form::CustomFormResult const& r, ll::form::FormCancelReason) {
@@ -296,6 +297,11 @@ void conditionForm(Player& p, int slot, int entry, int column, int index) {
         if (r->contains("count")) d["Count"] = resultOr<int>(r, "count", 1);
         if (r->contains("exact")) d["Exact"] = resultOr<int>(r, "exact", 0);
         if (r->contains("inverted")) d["Inverted"] = resultOr<int>(r, "inverted", 0);
+        if (resultOr<int>(r, "frequency", 0)) {
+            auto const& off  = pl.getOffhandSlot();
+            auto const& main = pl.getSelectedItem();
+            d["Frequency"]   = ct::Json::array({off.isNull() ? ct::Json() : items::toJson(off), main.isNull() ? ct::Json() : items::toJson(main)});
+        }
         if (resultOr<int>(r, "offhand", 0)) {
             auto const& off = pl.getOffhandSlot();
             d[c.id == ids::kItemThreshold ? "Item" : "Bucket"] = off.isNull() ? ct::Json() : items::toJson(off);

@@ -32,6 +32,7 @@
 #include "feature/contraption/PistonsExt.h"
 #include "feature/display/Display.h"
 #include "feature/packages/Packages.h"
+#include "feature/redstone/RedstoneLink.h"
 #include "feature/tracks/Tracks.h"
 #include "feature/tracks/TrainsExt.h"
 #include "feature/trains/Trains.h"
@@ -489,7 +490,12 @@ public:
             if (auto* con = contraption::find(c.contraption)) total += con->storage().drain(fluid, 1 << 30, true).second;
         return total;
     }
-    bool linkPowered(Json const&) const override { return false; } // U23's redstone links (not present)
+    bool linkPowered(Json const& frequency) const override {
+        // Create's RedstoneLinkCondition: anything transmits on the pair (hasAnyLoadedPower)
+        if (!frequency.is_array() || frequency.size() < 2) return false;
+        auto a = common::items::fromJson(frequency[0]), b = common::items::fromJson(frequency[1]);
+        return redstone::link::anyPower(redstone::link::keyOf(a, b));
+    }
     int  seatedPlayers() const override {
         int n = 0;
         auto level = ll::service::getLevel();

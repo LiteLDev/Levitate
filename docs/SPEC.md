@@ -2720,12 +2720,15 @@ trains coast to a stop at `a`; derailed trains lose 2/3 of their speed per tick.
 (name filter, `*` = any text, everything else literal, whole name; the lowest A* cost wins: distance +
 penalties: passing a station 50, a station with another train 300, other trains on an edge half their
 penalty (manual 200, idle 700, scheduled 25); stations in assembly mode can't be passed), *Update
-Schedule Title*, *Limit Max Speed* (5..100 % in 5 % steps), *Deliver / Retrieve Package* (need U25:
-report `no_package_target`). Conditions (columns OR, conditions of a column AND, in order): Scheduled
+Schedule Title*, *Limit Max Speed* (5..100 % in 5 % steps), *Deliver Package* (the first package in
+cargo whose address a postbox of some station accepts: travel there; no packages: carry on with the
+conditions; none accepted: `no_package_target`), *Retrieve Package* (a station whose postbox holds an
+outgoing package addressed to the filter). At a station with postboxes (U25's `postboxesForStation`)
+every 20 ticks packages addressed to a postbox leave the train and outgoing packages board it. Conditions (columns OR, conditions of a column AND, in order): Scheduled
 Delay (`Value` 0..120, unit ticks / seconds / minutes, default 5 s), Time of Day (hour, minute,
 rotation every day … every 0:15; met within 40 ticks after the time), Item / Fluid Cargo (more / less /
-exactly, threshold, items or stacks, filter = item or bucket), Redstone Link (needs U23: never
-powered until then), Players Seated (exactly / or above, 0..20), Cargo Inactivity (no cargo change
+exactly, threshold, items or stacks, filter = item or bucket), Redstone Link (U23's link networks: any
+transmitter on the frequency pair; the form takes the pair from the player's hands), Players Seated (exactly / or above, 0..20), Cargo Inactivity (no cargo change
 for the duration, checked every 20 ticks), Chunk Unloaded, Station Powered. A failed instruction
 waits 40 ticks; status messages go to the train's owner (`create.train.status.*`, each failure once
 until it changes); non-cyclic schedules pause when done. New entries: travel + wait 5 s.
@@ -3059,7 +3062,6 @@ matches Create's official Chinese translation wording).
 | Removing a train without placing its blocks (`/create train remove`, U27) | the contraption API only disassembles | `/create killtrain` places the carriages back as blocks where they stand |
 | Wrench relocation of derailed trains (U27) | needs U8's wrench and Create's client-side placement preview | derailed trains re-attach when the track under their front returns; otherwise disassemble them with `/create killtrain` |
 | Text fields in the native station / schedule screens (U27) | the native screen framework has no text input | the name / filter buttons open the server's form for that field |
-| Package delivery / retrieval instructions and redstone link conditions (U27) | U25 / U23 aren't available yet | the instructions report `no_package_target`; links count as unpowered |
 Units add rows here in their PRs when they find something else impossible.
 
 | Items drawn inside chutes by a block entity renderer (U12) | custom blocks have no block entity renderers | client-only display item entities (packets only, never a server entity, so nobody can pick them up) follow each moving stack; vanilla clients and the client mod see the same |

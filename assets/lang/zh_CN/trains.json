@@ -229,5 +229,6 @@
   "lv.trains.loop_on": "开",
   "lv.trains.loop_off": "关",
   "lv.trains.edit": "编辑",
-  "lv.trains.arrivals": "即将到站的列车"
+  "lv.trains.arrivals": "即将到站的列车",
+  "lv.trains.frequency_from_hands": "使用副手和主手中的物品作为频率"
 }
