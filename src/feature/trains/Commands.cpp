@@ -8,6 +8,8 @@
 
 #include "mc/world/actor/player/Player.h"
 
+#include "core/tracks/Shape.h"
+#include "feature/contraption/Contraption.h"
 #include "feature/tracks/Tracks.h"
 #include "game/Blocks.h"
 #include "feature/trains/Trains.h"
@@ -70,6 +72,35 @@ LV_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
         t->testConductor = true;
         t->runtime.setSchedule(s, false);
         output.success("Train #" + std::to_string(*id) + " heading to Demo B");
+    });
+    // Levitate demo (e2e, U37): a straight line east of the player (x + 2 .. x + 60), station
+    // "Demo Manual" at x + 8 with a one-carriage train (controls and a steam whistle glued on its
+    // bogey at x + 7) and no schedule, to be driven by hand.
+    cmd.overload().text("trains").text("demo_manual").execute([](Origin& origin, CommandOutput& output) {
+        if (!commands::isAdmin(origin)) return output.error(tr("lv.trains.need_op", "You need operator permission."));
+        auto* player = commands::playerOf(origin);
+        if (!player) return output.error("players only");
+        int  dim   = int(player->getDimensionId());
+        auto feet  = game::blockPosOf(player->getFeetPos());
+        int  shape = int(core::tracks::Shape::XO);
+        for (int x = 2; x <= 60; ++x)
+            setBlockAt({dim, feet.x + x, feet.y, feet.z}, tracks::kTrackId, {{tracks::kShapeState, shape % 16}, {tracks::kShapeHiState, shape / 16}, {tracks::kTurnState, 0}});
+        GlobalPos track{dim, feet.x + 8, feet.y, feet.z}, block{dim, feet.x + 8, feet.y, feet.z + 1};
+        setBlockAt(block, kStation);
+        std::string err;
+        if (!createStation(block, track, 1, 0, &err)) return output.error("station: " + err);
+        stationAt(block)->name = "Demo Manual";
+        refreshStationPoints();
+        auto& st = *stationAt(block);
+        setAssembling(st, true, player);
+        GlobalPos bogey{dim, track.x - 1, track.y + 1, track.z};
+        useCasingOnTrack(nullptr, {dim, track.x - 1, track.y, track.z}, true);
+        setBlockAt({dim, bogey.x, bogey.y + 1, bogey.z}, kControls, {{"levitate:facing", 4}});
+        setBlockAt({dim, bogey.x, bogey.y + 2, bogey.z}, "levitate:steam_whistle");
+        contraption::addGlue(dim, {{bogey.x, bogey.y, bogey.z}, {bogey.x, bogey.y + 2, bogey.z}});
+        auto id = assemble(st, player);
+        if (!id) return output.error("assembly: " + st.lastError.dump());
+        output.success("Train #" + std::to_string(*id) + " stands at Demo Manual");
     });
     cmd.overload().text("trains").text("screen").execute([](Origin& origin, CommandOutput& output) {
         if (!commands::isAdmin(origin)) return output.error(tr("lv.trains.need_op", "You need operator permission."));

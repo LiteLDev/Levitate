@@ -177,14 +177,21 @@ LV_REGISTER_SELFTEST("gaps.sequence_limit_gantry", [](Context& ctx) -> ll::coro:
     ctx.setBlock(carriage, std::string(ps::kGantryCarriage), {{ps::kFacing, int(core::contraption::Dir::Up)}, {ps::kAxisFirst, 0}});
     ctx.setBlock(at(o, 4, 2), "minecraft:oak_planks");
     auto source = at(o, -1);
-    ctx.setBlock(source, kSource, {{"levitate:axis", 0}});
-    kn::setStressCapacity(source, 4096); // the shafts' table impact (U2) would overstress the test source
-    co_await ctx.ticks(3);
-    // a "turn to move 2 blocks" instruction reaching the shaft line (set at the source: the
-    // gearshift does the same for what it drives)
+    // a "turn to move 2 blocks" instruction reaching the shaft line, declared at the source before
+    // it turns (the gearshift does the same for what it drives)
     using SC = kn::SequenceContext;
+    struct Clear {
+        GlobalPos p;
+        ~Clear() {
+            kn::setSequenceContext(p, std::nullopt);
+            kn::setStressCapacity(p, std::nullopt);
+        }
+    } clear{source};
     kn::setSequenceContext(source, SC{SC::Kind::MoveDistance, 2});
-    kn::setGeneratedSpeed(source, 128); // the carriage runs west towards the start of the line
+    ctx.setBlock(source, kSource, {{"levitate:axis", 0}});
+    kn::refresh(source);
+    kn::setStressCapacity(source, 4096); // the shafts' table impact (U2) would overstress the test source
+    kn::setGeneratedSpeed(source, 128);  // the carriage runs west towards the start of the line
     co_await ctx.ticks(40);
     auto ids = ps::gantryContraptions();
     ctx.require(ids.size() == 1, "the gantry assembled and holds (" + std::to_string(ids.size()) + " moving)");
@@ -196,7 +203,6 @@ LV_REGISTER_SELFTEST("gaps.sequence_limit_gantry", [](Context& ctx) -> ll::coro:
     co_await ctx.ticks(4);
     ctx.check(ps::idAt(at(o, 2, 1)) == ps::kGantryCarriage, "the carriage is placed 2 blocks west");
     ctx.check(ps::idAt(at(o, 2, 2)) == "minecraft:oak_planks", "with its load");
-    kn::setStressCapacity(source, std::nullopt);
     for (auto id : ps::gantryContraptions()) cn::disassemble(id);
 });
 
