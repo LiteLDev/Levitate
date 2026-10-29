@@ -5,6 +5,7 @@
 // Selftest positions: testPos dx 3780..3799 (U37).
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <deque>
 #include <map>
@@ -184,11 +185,31 @@ struct Listener {
 /// KineticBlockEntity.tickAudio for every rotating block near a listener: the kinetic hum for
 /// every block, the cog sound for cogwheels (small / large / encased) and gearboxes.
 void collectSources(std::vector<Listener>& listeners) {
+    // listeners by 32-block cell: a node only checks the listeners of its cell and the neighbours
+    // (the range is 16 blocks), so one pass costs nodes + listeners, not nodes x listeners
+    constexpr int kCell = 32;
+    using Cell          = std::array<int, 4>;
+    auto cellOf         = [](GlobalPos const& p) {
+        auto div = [](int v) { return v >= 0 ? v / kCell : (v - kCell + 1) / kCell; };
+        return Cell{p.dim, div(p.x), div(p.y), div(p.z)};
+    };
+    std::map<Cell, std::vector<Listener*>> cells;
+    for (auto& l : listeners) cells[cellOf(l.block)].push_back(&l);
+    std::vector<Listener*> near;
     detail::solver().forEachNode([&](core::kinetics::NodeInfo const& n) {
         if (n.speed == 0) return;
+        near.clear();
+        auto c = cellOf(n.pos);
+        for (int dx = -1; dx <= 1; ++dx)
+            for (int dy = -1; dy <= 1; ++dy)
+                for (int dz = -1; dz <= 1; ++dz)
+                    if (auto it = cells.find(Cell{c[0], c[1] + dx, c[2] + dy, c[3] + dz}); it != cells.end())
+                        near.insert(near.end(), it->second.begin(), it->second.end());
+        if (near.empty()) return;
         KineticSpec const* spec = nullptr;
         float              pitch = 0;
-        for (auto& l : listeners) {
+        for (auto* lp : near) {
+            auto& l = *lp;
             if (!fb::inAmbientRange(n.pos, l.block)) continue;
             if (!spec) {
                 spec  = specOf(n.state.id);

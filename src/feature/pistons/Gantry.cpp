@@ -171,14 +171,18 @@ void tryAssemble(GlobalPos const& carriage) {
     if (!c) return;
     // Create's limitMovement: a sequenced gearshift's "turn to move" instruction reaching the shaft
     // stops the gantry after exactly that distance (sequencedOffsetLimit, -1: none)
-    double limit = -1;
-    if (auto context = kinetics::sequenceContextAt(shaft); context && context->kind == kinetics::SequenceContext::Kind::MoveDistance)
-        limit = context->value;
+    double        limit   = -1;
+    std::uint64_t serial  = 0;
+    if (auto context = kinetics::sequenceContextAt(shaft)) {
+        serial = context->serial;
+        if (context->kind == kinetics::SequenceContext::Kind::MoveDistance) limit = context->value;
+    }
     c->anchorData()["gantry"] = {
         {"facing", int(facing)  },
         {"axis",   int(shaftDir)},
         {"ticks",  0            },
-        {"seq",    limit        }
+        {"seq",    limit        },
+        {"seqId",  serial       }
     };
     st().moving.insert(*r.id);
     sound(carriage, "open.wooden_trapdoor", 0.5f, 0.5f);
@@ -232,6 +236,12 @@ void tickGantry(ct::Id id) {
     if (stateOr(shaft, kPowered, 0) != 0 || pinion == 0) {
         disassembleGantry(*c, pinion == 0 ? "stopped" : "powered");
         return;
+    }
+    // a new instruction at an unchanged speed (Create detaches the network between two steps, which
+    // places and re-assembles the gantry with the new limit)
+    if (auto context = kinetics::sequenceContextAt(shaft); context && context->serial != g.value("seqId", std::uint64_t{0})) {
+        g["seqId"] = context->serial;
+        g["seq"]   = context->kind == kinetics::SequenceContext::Kind::MoveDistance ? context->value : -1.0;
     }
     double limit = g.value("seq", -1.0);
     if (limit >= 0) pinion = static_cast<float>(std::clamp<double>(pinion, -limit, limit));

@@ -263,17 +263,9 @@ void onTray(Json const& msg) {
 
 using screen::Button;
 using screen::Rect;
+using screen::iconOf;
 namespace color = screen::color;
 
-/// A render-only icon built from item JSON on the client thread (never a copy of a game-owned
-/// stack, as Screen::setCursorItem).
-std::shared_ptr<ItemStack> stackOf(Json const& j) {
-    if (!j.is_object()) return nullptr;
-    auto icon = std::make_shared<ItemStack>();
-    *icon     = items::fromJson(j);
-    if (icon->isNull()) return nullptr;
-    return icon;
-}
 
 std::vector<std::string> addressTips() {
     return {ctr("create.gui.package_port.catch_packages_wildcard", "Use * as a text wildcard"),
@@ -318,7 +310,7 @@ public:
         if (!mAddress->focused()) mAddress->text = data.value("address", std::string{});
         auto inv       = data.value("inventory", Json::array());
         for (std::size_t i = 0; i < mSlots.size(); ++i) {
-            mSlots[i]->stack   = i < inv.size() ? stackOf(inv[i]) : nullptr;
+            mSlots[i]->stack   = i < inv.size() ? iconOf(inv[i]) : nullptr;
             mSlots[i]->tooltip = mSlots[i]->stack ? std::vector<std::string>{mSlots[i]->stack->getName()} : std::vector<std::string>{};
         }
         bool accepts         = data.value("accepts", true);

@@ -318,8 +318,8 @@ LL_TYPE_INSTANCE_HOOK(
     auto* player = thisFor<NetEventCallback>()->_getServerPlayer(source, packet.mSenderSubId);
     if (!player) return;
     // the client mod sends Create's controls input on "trains.interact" (its key capture keeps the
-    // movement keys out of this packet)
-    if (net::isCompanion(*player)) return;
+    // movement keys out of this packet); until its first key message the packet still drives
+    if (net::isCompanion(*player) && drivesByChannel(*player)) return;
     auto uuid = uuidOf(*player);
     bool controlling = false;
     for (auto const& [id, t] : state().trains) controlling = controlling || t.controller == uuid;

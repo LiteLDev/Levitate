@@ -56,7 +56,9 @@ Run load(GlobalPos const& pos) {
 }
 
 void store(GlobalPos const& pos, Run const& r) {
-    blockdata::edit(pos)[kKey] = Json{
+    auto&         slot   = blockdata::edit(pos)[kKey];
+    std::uint64_t serial = slot.is_object() ? slot.value("serial", std::uint64_t{0}) : 0; // declareContext's
+    slot                 = Json{
         {"instructions", ct::instructionsToJson(r.instructions)},
         {"current",      r.current                            },
         {"duration",     r.duration                           },
@@ -64,6 +66,7 @@ void store(GlobalPos const& pos, Run const& r) {
         {"timer",        r.timer                              },
         {"powered",      r.poweredPreviously                  },
     };
+    if (serial != 0) slot["serial"] = serial;
 }
 
 /// Last seen redstone power per position (Create reacts to neighbour updates, i.e. changes).
@@ -86,15 +89,19 @@ std::unordered_set<GlobalPos, ck::GlobalPosHash>& withContext() {
 /// machines downstream, which stop exactly there. Kinetics scales the value by the speed ratio
 /// between this block (its input speed) and the machine, so the output modifier is divided out
 /// here (Create: relativeValue = value / (speed * modifier)).
-void declareContext(GlobalPos const& pos, ct::Instruction const* instr) {
+/// `serial`: the instruction's saved number when it is declared again after a load (0: new).
+void declareContext(GlobalPos const& pos, ct::Instruction const* instr, std::uint64_t serial = 0) {
     using SC = kinetics::SequenceContext;
     std::optional<SC> context;
     if (instr && (instr->type == ct::Instr::TurnAngle || instr->type == ct::Instr::TurnDistance)) {
         int    modifier = std::abs(ct::instructionSpeedModifier(*instr));
         double value    = modifier == 0 ? 0.0 : static_cast<double>(instr->value) / modifier;
-        context         = SC{instr->type == ct::Instr::TurnAngle ? SC::Kind::TurnAngle : SC::Kind::MoveDistance, value};
+        context         = SC{instr->type == ct::Instr::TurnAngle ? SC::Kind::TurnAngle : SC::Kind::MoveDistance, value, serial};
     }
     kinetics::setSequenceContext(pos, context);
+    // saved with the run: machines that already counted part of this instruction keep their limit
+    if (context && serial == 0)
+        if (auto own = kinetics::sequenceContextAt(pos)) blockdata::edit(pos)[kKey]["serial"] = own->serial;
     if (instr) withContext().insert(pos); // declared for this instruction (maybe none)
     else withContext().erase(pos);
 }
@@ -171,7 +178,8 @@ void sequencerTick(BlockSource& region, GlobalPos const& pos) {
     auto const* d = blockdata::get(pos);
     if (!d || !d->contains(kKey) || (*d)[kKey].value("current", -1) == -1) return;
     Run r = load(pos);
-    if (!withContext().contains(pos)) declareContext(pos, instructionAt(r, r.current)); // after a load
+    if (!withContext().contains(pos)) // after a load: the same instruction, with its saved number
+        declareContext(pos, instructionAt(r, r.current), (*d)[kKey].value("serial", std::uint64_t{0}));
     if (r.duration < 0) return;
     if (r.timer < r.duration) {
         ++r.timer;

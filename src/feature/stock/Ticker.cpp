@@ -17,6 +17,7 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/phys/AABB.h"
 
+#include "core/common/Utf8.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
@@ -33,19 +34,7 @@ namespace screens = common::screens;
 
 namespace {
 
-/// The first `chars` UTF-8 characters of `s` (never splits a character: a cut one would make the
-/// JSON sent back to the screen invalid).
-std::string utf8Prefix(std::string const& s, std::size_t chars) {
-    std::size_t i = 0, n = 0;
-    while (i < s.size() && n < chars) {
-        auto        c   = static_cast<unsigned char>(s[i]);
-        std::size_t len = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 1;
-        if (i + len > s.size()) break;
-        i += len;
-        ++n;
-    }
-    return s.substr(0, i);
-}
+using core::utf8Prefix;
 constexpr char kRequestScreen[]  = "stock.request";
 constexpr char kCategoryScreen[] = "stock.categories";
 constexpr int  kPaymentSlots     = 27;

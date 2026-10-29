@@ -698,9 +698,12 @@ command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kin
   speed turns half the angle). Machines read it when their speed changes and stop after turning (bearings,
   turntables: degrees) or moving (pistons, pulleys, gantries: blocks) that far, as Create's
   `sequencedAngleLimit` / `sequencedOffsetLimit`. Not persisted (the gearshift sets it again).
-  Every `setSequenceContext` call stamps a new `serial` (U37): a machine also takes a new
-  instruction that arrives at an unchanged speed (two equal steps in a row), and reads each one once
-  (a speed change reported after it already read the instruction doesn't restart the limit).
+  Every instruction carries a `serial` (U37; stamped by `setSequenceContext` when 0, starting at
+  the wall clock so numbers never repeat across restarts): a machine also takes a new instruction
+  that arrives at an unchanged speed (two equal steps in a row), and reads each one once (a speed
+  change reported after it already read the instruction doesn't restart the limit). The gearshift
+  saves the serial with its run and declares the same one again after a load, so machines keep the
+  limit they had counted down (saved with them).
 - **Command**: `/create kinetics <pos>` dumps the block and its network; `/create kinetics <pos>
   speed <rpm>` (Levitate debug) sets a generator's speed.
 - **Client** (client mod only): a kinetic block with a `rotorState` (int state, e.g.
@@ -1905,7 +1908,8 @@ pinion speed `clamp(-rpm/512, ±0.49)` along the shaft's facing. It moves until 
 gone, powered or stopped, or until it passes the centre of a shaft that wouldn't let it assemble, or
 hits the world; then it is placed (grid aligned). A `MoveDistance` sequence context reaching the
 shaft when the carriage assembles limits the gantry to that distance (Create's limitMovement): it
-then holds until its shaft stops. A powered shaft drives the carriage as a gear instead
+then holds until its shaft stops; a new instruction reaching the shaft at an unchanged speed sets a
+new limit (Create places and re-assembles the gantry between two steps). A powered shaft drives the carriage as a gear instead
 (Create's pinion ratio). Nested gantries work through the world (an inner carriage starts when its
 shaft turns after the outer one stops). Stress impact 0 (Create: setNoImpact; the kinetics table in
 `config/kinetics.json` still lists `gantry_shaft` 4 and must become 0).
@@ -3391,8 +3395,10 @@ every 5 ticks while held, {honk: false} when released; the server follows Create
 plays the steam whistle tone (U18; the large whistle's low tone) at the train's first whistle with
 its pitch (2^(−semitones / 12)), restarted every 10 ticks; trains without a whistle have no horn
 (Create's lowHonk null). An empty-hand right-click into the air sends `trains.interact` {} (vanilla
-clients send nothing for it): it toggles the controls looked at, as the item-use path. Companions'
-PlayerAuthInputPacket is ignored for driving. The server sends the controlling companion
+clients send nothing for it): it toggles the controls looked at, as the item-use path. Once a
+companion's client mod sent key input, its PlayerAuthInputPacket is ignored for driving until it
+stops controlling. Keys are only taken while no screen (ours, chat, inventory, pause) is over the
+HUD, and a key's release is only taken when its press was. The server sends the controlling companion
 `trains.hud` {speed, target, top, throttle, name, approach} every 5 ticks; the HUD draws a bar above
 the hotbar filled to speed / top speed with a gold marker at the throttle and "Throttle: n%" (or
 "Approaching station..." while holding Space towards a station).

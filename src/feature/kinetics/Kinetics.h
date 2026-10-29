@@ -94,8 +94,10 @@ struct SequenceContext {
     enum class Kind { TurnAngle, MoveDistance };
     Kind   kind  = Kind::TurnAngle;
     double value = 0; ///< degrees / blocks, as given at the block that set it
-    /// Set by `setSequenceContext` (every call a new number): consumers see a new instruction even
-    /// when the speed they are driven at doesn't change (two equal steps in a row). Added by U37.
+    /// Identifies the instruction (added by U37): consumers see a new one even when the speed they
+    /// are driven at doesn't change (two equal steps in a row), and read each one once. 0: the
+    /// call stamps a new number (unique across restarts: it starts at the wall clock); the owner
+    /// passes the one it saved to declare the same instruction again after a load.
     std::uint64_t serial = 0;
 };
 /// A block (the sequenced gearshift) declares the instruction it is running for everything it

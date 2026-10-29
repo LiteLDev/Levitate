@@ -19,6 +19,7 @@
 #include "ll/api/event/input/MouseInputEvent.h"
 #include "ll/api/event/render/UIRenderEvent.h"
 
+#include "mc/client/game/ClientInstance.h"
 #include "mc/client/gui/screens/ScreenView.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/world/item/ItemStack.h"
@@ -204,22 +205,26 @@ public:
         // window thread: flags only
         mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>(
             [](ll::event::KeyInputEvent& ev) {
-                auto& in = input();
-                if (!in.active || in.screenOpen) return;
-                int key = ev.keyCode();
+                auto& in   = input();
+                int   key  = ev.keyCode();
+                bool  down = ev.isDown();
+                // presses are taken only while controlling in the world (no screen, chat or menu);
+                // a release is taken only for a press we took, so the game never keeps a key down
+                bool take = in.active && !in.screenOpen;
                 if (key == kEsc) {
-                    if (ev.isDown()) in.esc = true;
+                    if (down && take) in.esc = true;
                     return;
                 }
-                if (key == kCtrl) {
-                    in.sprint = ev.isDown();
-                    ev.cancel(); // Create: the sprint key is the horn while controlling
-                    return;
+                std::atomic<bool>* flag = nullptr;
+                if (key == kCtrl) flag = &in.sprint; // Create: the sprint key is the horn while controlling
+                else if (int i = controlOf(key); i >= 0) flag = &in.pressed[static_cast<std::size_t>(i)];
+                if (!flag) return;
+                if (down && take) {
+                    *flag = true;
+                    ev.cancel(); // Create sets the movement keys up: the player doesn't walk
+                } else if (!down && flag->exchange(false)) {
+                    ev.cancel();
                 }
-                int i = controlOf(key);
-                if (i < 0) return;
-                in.pressed[static_cast<std::size_t>(i)] = ev.isDown();
-                ev.cancel(); // Create sets the movement keys up: the player doesn't walk
             },
             ll::event::EventPriority::High
         ));
@@ -243,12 +248,14 @@ public:
             // client thread, every frame: the controls run at game tick rate (50 ms)
             static auto last = std::chrono::steady_clock::now();
             auto        now  = std::chrono::steady_clock::now();
+            auto&       in   = input();
+            // any screen over the HUD (ours, chat, inventory, pause) keeps the keys for itself
+            auto* client  = currentClient();
+            in.screenOpen = current() != nullptr || (client && client->getTopScreenName() != "hud_screen");
             if (now - last >= std::chrono::milliseconds(50) && inLevel()) {
-                last          = now;
-                auto& in      = input();
-                in.screenOpen = current() != nullptr;
+                last = now;
                 if (in.screenOpen) {
-                    // a screen takes the keys: their releases never reach us
+                    // held keys stop counting while a screen is open
                     for (auto& p : in.pressed) p = false;
                     in.sprint = false;
                 }

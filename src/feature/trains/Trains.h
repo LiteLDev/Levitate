@@ -270,6 +270,9 @@ void uninstallHooks();
 // ---- client mod controls (Controls.cpp) ----------------------------------------------------------
 /// Create's ControlsInputPacket: held keys [forward, back, left, right, jump, sneak].
 void controlsInput(Player& player, Json const& pressed);
+/// The player's client mod drives the train it controls (key input arrived on the channel): its
+/// PlayerAuthInputPacket is then ignored for driving.
+[[nodiscard]] bool drivesByChannel(Player const& player);
 /// Create's ControlsStopControllingPacket.
 void controlsStop(Player& player);
 /// Create's TrainHUDUpdatePacket (throttle 1/18 .. 1).

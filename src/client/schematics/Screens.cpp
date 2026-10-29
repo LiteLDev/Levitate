@@ -126,15 +126,6 @@ bool numberChar(char32_t c) { return (c >= U'0' && c <= U'9') || c == U'-'; }
 
 // ---- schematic table ---------------------------------------------------------------------------------
 
-/// A render-only icon built from item JSON on the client thread (never a copy of a game-owned
-/// stack, as Screen::setCursorItem).
-std::shared_ptr<ItemStack> stackOf(Json const& j) {
-    if (!j.is_object()) return nullptr;
-    auto icon = std::make_shared<ItemStack>();
-    *icon     = items::fromJson(j);
-    if (icon->isNull()) return nullptr;
-    return icon;
-}
 
 class TableScreen : public Screen {
 public:
@@ -166,8 +157,8 @@ public:
     }
     void onData(Json const& data) override {
         mData       = data;
-        mIn->stack  = stackOf(data.value("input", Json()));
-        mOut->stack = stackOf(data.value("output", Json()));
+        mIn->stack  = iconOf(data.value("input", Json()));
+        mOut->stack = iconOf(data.value("output", Json()));
         mUpload->enabled = mIn->stack && data.value("uploading", std::string{}).empty() && uploadState().first.empty();
     }
     void renderExtra(Canvas& c, float, float) override {
@@ -264,7 +255,7 @@ public:
     void onData(Json const& data) override {
         mData   = data;
         auto inv = data.value("inv", Json::array());
-        for (std::size_t i = 0; i < 5; ++i) mSlots[i]->stack = i < inv.size() ? stackOf(inv[i]) : nullptr;
+        for (std::size_t i = 0; i < 5; ++i) mSlots[i]->stack = i < inv.size() ? iconOf(inv[i]) : nullptr;
         auto state       = data.value("state", std::string("STOPPED"));
         mPlay->toggled   = state == "RUNNING";
         mPause->toggled  = state == "PAUSED";
@@ -443,7 +434,7 @@ public:
     void onData(Json const& data) override {
         mData   = data;
         auto it = data.value("items", Json::array());
-        for (std::size_t i = 0; i < 11; ++i) mSlots[i]->stack = i < it.size() ? stackOf(it[i]) : nullptr;
+        for (std::size_t i = 0; i < 11; ++i) mSlots[i]->stack = i < it.size() ? iconOf(it[i]) : nullptr;
         bool inferred       = data.value("inferred", false);
         mSlots[9]->tooltip = {ctr("create.crafting_blueprint.display_slot", "Display Slot"),
                               inferred ? ctr("create.crafting_blueprint.inferred", "Inferred from recipe") : ctr("create.crafting_blueprint.manually_assigned", "Manually assigned")};

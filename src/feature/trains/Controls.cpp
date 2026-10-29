@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 #include <unordered_map>
 
 #include "mc/world/actor/player/Player.h"
@@ -42,6 +43,12 @@ struct Honk {
 std::map<std::uint64_t, Honk>& honks() {
     static std::map<std::uint64_t, Honk> m;
     return m;
+}
+
+/// Controllers (UUID) whose client mod sent key input in this controlling session.
+std::set<std::string>& channelDrivers() {
+    static std::set<std::string> s;
+    return s;
 }
 
 Train* controlledBy(Player const& player) {
@@ -109,8 +116,11 @@ void controlsInput(Player& player, Json const& pressed) {
     auto held = [&](std::size_t i) { return i < pressed.size() && pressed[i].is_boolean() && pressed[i].get<bool>(); };
     int  keys  = (held(0) ? 1 : 0) - (held(1) ? 1 : 0);
     int  steer = (held(2) ? 1 : 0) - (held(3) ? 1 : 0); // +1: left (A), as the auth input path
+    if (controlledBy(player)) channelDrivers().insert(uuidOf(player));
     setInput(player, keys, steer, held(4), held(5));
 }
+
+bool drivesByChannel(Player const& player) { return channelDrivers().contains(uuidOf(player)); }
 
 void controlsStop(Player& player) {
     if (auto* t = controlledBy(player)) stopControlling(*t);
@@ -148,6 +158,7 @@ int honkTicksOf(std::uint64_t trainId) {
 
 void controlsChanged(Train const& t, Player* player, bool active) {
     if (!active) honks().erase(t.id);
+    if (player) channelDrivers().erase(uuidOf(*player));
     if (!player || !net::isCompanion(*player)) return;
     net::send(*player, "trains.controls", {{"active", active}, {"throttle", t.throttle}, {"name", t.name}});
     if (active) sendHud(*player, t);
@@ -185,6 +196,9 @@ void tickControls() {
     }
 }
 
-void resetControls() { honks().clear(); }
+void resetControls() {
+    honks().clear();
+    channelDrivers().clear();
+}
 
 } // namespace lv::feature::trains

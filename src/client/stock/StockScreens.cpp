@@ -8,6 +8,8 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <optional>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/client/ClientExitLevelEvent.h"
@@ -37,15 +39,6 @@ using namespace lv::client::screen;
 namespace items = lv::feature::common::items;
 namespace net   = lv::feature::net;
 
-/// A render-only icon built from item JSON on the client thread (never a copy of a game-owned
-/// stack, as Screen::setCursorItem).
-std::shared_ptr<ItemStack> stackOf(Json const& j) {
-    if (!j.is_object()) return nullptr;
-    auto icon = std::make_shared<ItemStack>();
-    *icon     = items::fromJson(j);
-    if (icon->isNull()) return nullptr;
-    return icon;
-}
 
 /// Puts server text into a field unless the player is typing in it.
 void syncField(TextField& field, std::string const& text) {
@@ -93,8 +86,13 @@ public:
         // Create's search box filters the stock as the player types
         mSearch              = &add<TextField>(Rect{12, 15, 140, 14}, mData.value("search", std::string{}));
         mSearch->placeholder = ctr("create.gui.stock_keeper.search_items", "Search Items");
-        mSearch->onChange    = [this](std::string const& text) { mSend({{"op", "search"}, {"text", text}}); };
-        mSearch->onSubmit    = [this](std::string const& text) {
+        // (sent once typing pauses for 250 ms, or on Enter: one server answer per search, not per key)
+        mSearch->onChange = [this](std::string const& text) {
+            mPendingSearch = text;
+            mSearchAt      = std::chrono::steady_clock::now();
+        };
+        mSearch->onSubmit = [this](std::string const& text) {
+            sendSearch(text);
             if (!text.empty()) log().info("stock keeper search typed: '{}'", text);
         };
         // the address the order is sent to (kept on the ticker as the last used one)
@@ -128,7 +126,7 @@ public:
             // a category starts on a new row
             while (mEntries.size() % kCols) mEntries.push_back({});
             mHeaders.push_back({static_cast<int>(mEntries.size() / kCols), g.value("name", std::string{}), g.value("index", -1)});
-            for (auto const& e : list) mEntries.push_back({stackOf(e.value("item", Json())), e.value("count", 0)});
+            for (auto const& e : list) mEntries.push_back({iconOf(e.value("item", Json())), e.value("count", 0)});
         }
         bool program        = data.value("program", false);
         mSendBtn->symbol    = program ? "P" : ">";
@@ -162,8 +160,16 @@ public:
 
     bool clickBackground(float, float, Button, bool) override { return false; }
 
+    void tick() override {
+        if (mPendingSearch && std::chrono::steady_clock::now() - mSearchAt >= std::chrono::milliseconds(250)) sendSearch(*mPendingSearch);
+    }
+    void sendSearch(std::string const& text) {
+        mPendingSearch.reset();
+        if (text == mSentSearch) return;
+        mSentSearch = text;
+        mSend({{"op", "search"}, {"text", text}});
+    }
     // the grid scrolls with the wheel (rows)
-    void tick() override {}
     bool scrollGrid(int delta) {
         mScroll = std::clamp(mScroll - delta, 0, maxScroll());
         refreshGrid();
@@ -279,6 +285,9 @@ private:
     IconButton *                                             mSendBtn{}, *mLock{};
     TextField *                                              mSearch{}, *mAddress{};
     int                                                      mScroll = 0;
+    std::optional<std::string>                               mPendingSearch; ///< typed, not sent yet
+    std::chrono::steady_clock::time_point                    mSearchAt;
+    std::string                                              mSentSearch = mData.value("search", std::string{});
 };
 
 /// Forwards the wheel over the item grid to the request screen.
@@ -340,7 +349,7 @@ public:
             for (Widget* w : {static_cast<Widget*>(mRows[i].slot), static_cast<Widget*>(mRows[i].up), static_cast<Widget*>(mRows[i].down), static_cast<Widget*>(mRows[i].name), static_cast<Widget*>(mRows[i].del)})
                 w->visible = has;
             if (!has) continue;
-            mRows[i].slot->stack = stackOf(cats[i].value("filter", Json()));
+            mRows[i].slot->stack = iconOf(cats[i].value("filter", Json()));
             mNames[i]            = cats[i].value("name", std::string{});
             syncField(*mRows[i].name, mNames[i]);
         }
@@ -401,7 +410,7 @@ public:
         auto ol = data.value("order", Json::array());
         for (std::size_t i = 0; i < mSlots.size(); ++i) {
             auto& s = *mSlots[i];
-            s.stack = i < ol.size() ? stackOf(ol[i].value("item", Json())) : nullptr;
+            s.stack = i < ol.size() ? iconOf(ol[i].value("item", Json())) : nullptr;
             s.count = i < ol.size() ? ol[i].value("count", 1) : 0;
             s.tooltip = s.stack ? std::vector<std::string>{s.stack->getName() + " x" + std::to_string(s.count), ctr("create.gui.factory_panel.scroll_to_change_amount", "Scroll to change amount")}
                                 : std::vector<std::string>{};
@@ -505,14 +514,14 @@ public:
             if (data.value("address", std::string{}).empty())
                 mAddress->tooltip.push_back(ctr("create.gui.factory_panel.address_missing", "Inactive: missing a target address"));
         }
-        mItem->stack = stackOf(data.value("item", Json()));
+        mItem->stack = iconOf(data.value("item", Json()));
         auto inputs  = data.value("inputs", Json::array());
         for (std::size_t i = 0; i < mInputs.size(); ++i) {
             auto& s   = *mInputs[i];
             bool  has = i < inputs.size() && !mData.value("restocker", false);
             s.visible = has;
             if (!has) continue;
-            s.stack   = stackOf(inputs[i].value("item", Json()));
+            s.stack   = iconOf(inputs[i].value("item", Json()));
             s.count   = inputs[i].value("amount", 1);
             s.tooltip = {s.stack ? s.stack->getName() + " x" + std::to_string(s.count) : std::string{}, ctr("create.gui.factory_panel.scroll_to_change_amount", "Scroll to change amount"),
                          ctr("create.gui.factory_panel.left_click_disconnect", "Left-Click to disconnect") + " (Shift)"};
