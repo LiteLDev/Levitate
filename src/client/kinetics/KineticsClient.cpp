@@ -206,13 +206,19 @@ mce::Mesh* rotorMesh(Tessellator& tess, KineticSpec const& spec, std::string con
     );
     return slot.get();
 }
-void resetLevelState(bool dropTracked) {
+/// `leftLevel`: the client left the level (speeds and tracked blocks go); otherwise a new level
+/// object was seen while rendering: the speeds stay (the server may have synced them before the
+/// first frame of the level), block-state caches go.
+void resetLevelState(bool leftLevel) {
+    bool dropTracked = leftLevel;
     auto&           s = state();
     std::lock_guard lock(s.mutex);
-    s.synced     = false;
     s.dim        = -1;
     s.loggedDraw = false;
-    s.speeds.clear();
+    if (leftLevel) {
+        s.synced = false;
+        s.speeds.clear();
+    }
     s.infos.clear();
     if (dropTracked) s.tracked.clear();
     meshCache().clear();

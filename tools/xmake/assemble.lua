@@ -132,6 +132,28 @@ local function merge_texts(src, dst)
     json.savefile(path.join(dst, "texts", "languages.json"), locales)
 end
 
+-- Bedrock reads a list-valued integer block state by the value's POSITION in the list, so a state
+-- declared [2,3,4,5] reads back 0..3. Every integer state list must be 0..n in order.
+local function check_block_states(bpsrc)
+    for _, file in ipairs(os.files(path.join(bpsrc, "blocks", "**.json"))) do
+        local doc = json.loadfile(file)
+        local block = doc and doc["minecraft:block"]
+        local states = block and block.description and block.description.states
+        if type(states) == "table" then
+            for name, values in pairs(states) do
+                if type(values) == "table" and #values > 0 and type(values[1]) == "number" then
+                    for i, v in ipairs(values) do
+                        if type(v) ~= "number" or v ~= i - 1 then
+                            raise("block state '%s' in %s must list the integers 0..%d in order (Bedrock reads integer states by position), got %s at index %d",
+                                name, file, #values - 1, tostring(v), i - 1)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- Processing recipes (Create's recipe types) for the U3 loader: copied as they are, the
 -- previous copy is replaced so deleted recipes disappear.
 local function copy_recipes(projectdir, outdir)
@@ -176,6 +198,7 @@ function main(target, target_type)
     local rpsrc = path.join(projectdir, "assets", "pack", "rp")
     local bpdst = path.join(outdir, "behavior_packs", "Levitate_BP")
     local rpdst = path.join(outdir, "resource_packs", "Levitate_RP")
+    check_block_states(bpsrc)
     copy_pack(bpsrc, bpdst, version)
     copy_pack(rpsrc, rpdst, version)
     merge_atlas(rpsrc, rpdst, "item_texture.d", "item_texture.json", "atlas.items")

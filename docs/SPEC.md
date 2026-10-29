@@ -304,10 +304,14 @@ command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kin
   a cloud puff when it recovers; one log line per change. Usage levels for goggles/gauges
   (`stressLevel`): > 1 overstressed, > .75 high, > .5 medium, else low. Impact / capacity per block
   come from the stress table (§5) or a per-block override (`setStressImpact` / `setStressCapacity`).
-- **Persistence**: the network state (block, states, speed, source, network, generated speed,
-  overrides) is saved per chunk in the world DB under `lv:kinetics:c:<dim>:<cx>:<cz>` (until U3's
-  `BlockData` exists) and restored when the world loads, then re-attached as Create's block entities
-  do on load. A slow world check re-reads blocks that changed without an event.
+- **Persistence**: the network state of each block (block, states, speed, source, network,
+  generated speed, overrides) is its `NodeRecord` in U3's BlockData (`data["kinetics"]`), written
+  back from the solver before every save and before a contraption takes the block
+  (`blockdata::onWriteBack`), restored when the world loads, then re-attached as Create's block
+  entities do on load. Worlds saved by wave 1 (`lv:kinetics:c:<dim>:<cx>:<cz>`) are migrated once on
+  load (log `kinetics: moved N block records from M chunks into block data`). A block a contraption
+  puts back keeps its generated speed and stress overrides (`blockdata::onPut`). A slow world
+  check re-reads blocks that changed without an event.
 - **API for machines**: `speedAt`, `theoreticalSpeedAt`, `nodeAt`, `networkAt`, `networkMembers`,
   `isOverstressed`, `stressImpactOf` / `stressCapacityOf`, `onSpeedChanged(blockId, fn)` (batched
   once per tick), `onBreak(fn)`.
@@ -320,11 +324,12 @@ command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kin
   each rotating part every frame at Create's angle `(ticks + partialTicks)·speed·0.3 + offset`
   degrees, where offset is 22.5° when the sum of the block's coordinates off the axis is even, else
   0 (11.25 for large cogs), plus the spec's `angleOffset` — so meshing cogs interlock.
-- **Speed sync** (client mod only): a minimal channel over Bedrock's `ScriptMessagePacket`, isolated
-  in `KineticsSync.cpp` / `client/kinetics/` for U3's companion protocol to absorb: the client says
-  hello (`levitate:kinetics/hello`, protocol 1), the server acks and sends a full sync of the
-  player's dimension (again after each dimension change), then once per tick the changed speeds per
-  chunk (`core/kinetics/SyncCodec.h`).
+- **Speed sync** (client mod only): U3's companion protocol, channel `kinetics.sync`
+  `{"batches": [...]}` (one `core/kinetics/SyncCodec.h` batch per chunk, ≤ 48 KiB of batches per
+  message). After the handshake the server sends a full sync of the player's dimension (again after
+  each dimension change; the first batch resets the client's copy), then once per tick the changed
+  speeds. Vanilla clients get nothing. Client units read the speeds with
+  `client/kinetics/KineticsClient.h` (`syncedSpeed`, `onSync`).
 - **Not yet**: Create's ambient cog/kinetic sound scapes and the coloured rotation-indicator
   particles need original sound / particle assets: U8 (goggles, overlays) or a later U2 PR.
 ### 3.2 Block data, capabilities, filters, value boxes (U3)
@@ -337,7 +342,15 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   JSON keyed `"x,y,z"`), loaded lazily, written on every world save. Erased automatically when the
   block at the position changes to another block *type* (break, replace, explosion, vanilla
   piston); state changes keep it. `onErase(fn)` lets owners drop contents first. Contraptions (U4)
-  move it with `take(pos)` (before removing the block) and `put(pos, doc)`.
+  move every document with `take(pos)` (before removing the block) and `put(pos, doc)` (the
+  `blockdata` data carrier, so units need no carrier for what they keep here). Owners that cache
+  their part elsewhere write it back in `onWriteBack(fn)` (before every save and before `take`) and
+  adopt moved data in `onPut(fn)` (U2's kinetic records do both).
+- **Interactions** (`Interactions.h`, U32): one hook per GameMode action (`useItemOn`, `useItem`,
+  `destroyBlock`) dispatches to handlers registered per block / item id with a priority
+  (`onUseOn`, `onUse`, `onDestroy`, `onWrench`); the first handler that returns `Consume` / `Deny`
+  wins (vanilla is skipped and the player's inventory resent), `Pass` goes on. Value boxes and filter
+  slots use `priority::Highest`, the wrench's generic rotate / pick up (U8) `priority::Fallback`.
 - **Item capability** (`Capabilities.h`, `items::`): handlers per block id (`registerBlock`) or
   generic providers, with `slots`, `getSlot`, `insert(stack, simulate) -> remainder`,
   `extract(predicate, amount, simulate) -> stack`; `face` is the accessed side (Create's
@@ -378,7 +391,8 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
 - **Value boxes** (`valuebox::`): `registerBox(blockId, {id, label, board, centre, scale, get,
   set, format})`. Create 6 edits values on a *value settings board*: rows (e.g. the creative
   motor's ⟳ / ⟲) × columns 0..max with milestone ticks (`core/common/ValueSettings.h`: plain,
-  signed and option boards). A box is hit when the click is within `scale / 2` (default 0.25)
+  signed and option boards; `requiresWrench` as Create's: only the wrench opens it). A box is hit
+  when the click is within `scale / 2` (default 0.25)
   blocks of its centre (Create's ValueBoxTransform.testHit). Client mod: right-click with the
   wrench or an empty hand opens the board (pointer picks row and value, wheel ±1, Shift+wheel
   jumps milestones, click confirms, right-click / Esc cancels); looking at a box or filter slot
@@ -403,8 +417,9 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   non-companions, so vanilla clients never receive our packets; messages from non-companions
   are ignored. Protocol version 1; the server accepts `kMinProtocolVersion..kProtocolVersion`.
   Units use `net::on(channel, fn)` / `net::send(player, channel, json)` on the server and
-  `net::client::on` / `net::client::send` on the client. Typed channels so far:
-  `screen.open/update/close/action`, `valuebox.open/set`, `common.hover`.
+  `net::client::on` / `net::client::send` on the client; `net::onCompanionJoined` sends a player
+  the full state after the handshake. Typed channels so far: `screen.open/update/close/action`,
+  `valuebox.open/set`, `common.hover`, `kinetics.sync` (§3.1), `tracks.curves` (§3.5).
 - **Screens** (server side `src/feature/common/Screens.h`): `screens::registerType({id, data,
   action, form})`, `screens::open(player, type, context)` → native screen for companions
   (`screen.open {type, context, data}`), the form for vanilla players. Native actions come back
@@ -446,7 +461,11 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   in each axis); glued regions render as faint outlines with the client mod; removed by hitting with
   glue / breaking.
 - **Chassis**: linear (sticky faces via slime ball, range by scroll value), secondary linear, radial
-  (range radius); stickers stick the block in front when powered.
+  (range radius); stickers stick the block in front when powered. The range is a U3 value box on
+  every face of the chassis, opened with the wrench only (Create's `requiresWrench`), 1..
+  `maxChassisRange` with milestones every 10, labelled "Range of Sticky Sides" (radial: "Radius when
+  Sticky"); a value set on one chassis goes to its connected group. Stored in BlockData
+  (`data["chassis"]["range"]`; wave-1 worlds' `lv:contraption:chassis` list is migrated once).
 - **Client**: the client mod renders contraption blocks at their interpolated transform, including
   rotating kinetic parts and actors' animations.
 
@@ -476,8 +495,9 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   Create. Errors (world untouched): `create.gui.assembly.exception.unmovableBlock` (a forced
   neighbour or a start block), `.chunkNotLoaded`, `.structureTooLarge` (> `maxBlocksMoved`).
 - **Carried data**: block NBT (`name` + states) and block entity NBT (chests keep their pair);
-  `registerDataCarrier({name, capture, restore, rotate})` moves other units' per-block data (U3's
-  BlockData plugs in here; chassis ranges use it). Merged storage: vanilla chests, trapped chests,
+  `registerDataCarrier({name, capture, restore, rotate})` moves other units' per-block data; the
+  `blockdata` carrier moves every BlockData document (restore merges with what other carriers put
+  back first), chassis ranges included. Merged storage: vanilla chests, trapped chests,
   barrels, shulker boxes, hoppers, dispensers and droppers (`Storage::insertItem/extractItem/slot`);
   tanks through `registerFluidStorage(blockId, {read, write})` on the carried data.
 - **Movement each tick**: the anchor's transform or the motion; actors (`registerActor(blockId,
@@ -498,9 +518,12 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
 - **Display**: each block is a vanilla falling-block entity (never falls, never lands; orphans from a
   saved world vanish) at the block's rotated center showing the block rotated by the nearest quarter
   turn; its own rotation carries the axis (pitch) and the remaining angle (yaw), so the client mod
-  turns it by the exact angle about its center. Persistence: `lv:contraption:c:<id>` (blocks,
-  transform, motion, glue, seats, anchor data), `lv:contraption:glue`, `lv:contraption:chassis`,
-  `lv:contraption:stickers`.
+  turns it by the exact angle about its center. Display entities are never written to the world
+  (`Actor::save` refuses them): contraptions live in our DB and spawn their displays again after a
+  load, so a world saved mid-move (autosave, or the last save before a crash) holds no falling
+  blocks that could land when it is opened without Levitate (§8). Persistence:
+  `lv:contraption:c:<id>` (blocks, transform, motion, glue, seats, anchor data),
+  `lv:contraption:glue`, `lv:contraption:stickers`.
 
 ### 3.5 Tracks (U5)
 
@@ -573,8 +596,9 @@ no U-turns, Create's 7/8 direction rule at junctions), edge points (`addPoint` /
 `onPointInvalidated`: points survive rebuilds of their edge, owners re-add them when it is gone),
 `onGraphChanged`.
 
-**Client**: curves are drawn by the client mod (ties and rails along the curve segments) from
-`levitate:tracks` script messages the server sends on join and on every change (see §8).
+**Client**: curves are drawn by the client mod (ties and rails along the curve segments) from the
+companion protocol's `tracks.curves` messages: every curve of every dimension after the handshake
+(`reset` first), then each change (see §8). Vanilla clients get nothing.
 
 ### 3.6 Feature mechanics
 
@@ -701,6 +725,7 @@ matches Create's official Chinese translation wording).
 | JEI/EMI recipe viewers, Create's config GUI | no such mods on Bedrock | recipes visible in Ponder/tooltips; JSON configs + `/create reload` |
 | Create's mod-compat crushed ores for absent mods | no such mods | items exist (as Create registers them), with the vanilla-only recipes |
 | Contraption blocks drawn as one rotating model on **vanilla** clients (U4) | a vanilla client draws a falling-block entity axis-aligned and can't be told to turn it | each block is its own falling-block entity at its exact rotated position, showing the block turned by the nearest quarter turn; the client mod turns each block by the remaining angle so the structure looks exact |
+| Contraption blocks while moving in a world opened **without** Levitate (U4, U32) | the moving blocks are vanilla falling-block entities (so vanilla clients see them); a custom entity type would be dropped by a world without our behavior pack, but vanilla clients can't draw a custom entity as an arbitrary block | display entities are never saved with the world; the blocks of a contraption that was moving when the world was last saved live only in Levitate's DB, so without the mod they are missing (with the mod they come back as the contraption). Falling blocks saved by an older build vanish on load with the mod |
 | Contraption collision computed by the client (U4) | Bedrock clients only collide with real blocks and a few entity types | the server pushes players out of the contraption and carries them (teleports); with lag this is less smooth than Create's client-side collision |
 | Glue region outlines (U4) | no client-side line rendering without a client renderer for it | particles along the edges of nearby regions for players holding super glue (client mod and vanilla) |
 | Redstone input of the sticker (U4) | custom blocks get no redstone neighbour update | the sticker polls the redstone power of its neighbours every 4 ticks (redstone blocks, wire, torches, levers, buttons, repeaters, comparators, observers, anything with `redstone_signal`) |

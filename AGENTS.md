@@ -79,6 +79,21 @@ Registrations live in .cpp files linked directly into the DLL, so they are never
   `co_await ctx.ticks(n)`, `co_await ctx.ensureLoaded(pos)`, `ctx.check/require/fail/info`.
   `/create selftest` (no glob) and the server scenario `full` run every unit's tests together:
   keep them passing there.
+- **Interactions** (`feature/common/Interactions.h`): never hook `GameMode::$useItemOn / $useItem /
+  $destroyBlock` (or use the LeviLamina interact / use / destroy events) for gameplay: with separate
+  hooks the first one wins. Register `interactions::onUseOn({block, item}, fn, priority)`, `onUse(item,
+  fn)`, `onDestroy({block, item}, fn)` and, for the wrench, `onWrench(blockId, fn)` (Create's
+  `onWrenched` / `onSneakWrenched` = `ctx.sneaking`). Handlers return `Pass` / `Consume` / `Deny`;
+  the first non-`Pass` by priority wins (value boxes and filter slots run at `priority::Highest`, the
+  generic wrench rotate / pick up of U8 at `priority::Fallback` for block `""`). Handlers may edit the
+  world directly (no rollback); use `ctx.firstEvent` to act once per click.
+- **Client sync** (`feature/net/Net.h`): server → client-mod data goes over the companion protocol
+  only (`net::send`, `net::onCompanionJoined` for the full state, `net::client::on`), never over
+  private `ScriptMessagePacket`s. A channel has one client handler: other units read kinetic speeds
+  with `client/kinetics/KineticsClient.h` (`syncedSpeed`, `onSync`), not channel `kinetics.sync`.
+- **Block data** (`feature/common/BlockData.h`): per-block state lives in BlockData under your unit's
+  key; contraptions carry the whole document automatically (no carrier needed). If you cache your
+  part elsewhere, write it back in `blockdata::onWriteBack` and adopt moved data in `onPut`.
 
 ## Build, test, run
 
