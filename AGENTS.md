@@ -97,8 +97,14 @@ Registrations live in .cpp files linked directly into the DLL, so they are never
   told about changes with `redstone::watch(pos, fn)` (polled centrally every 2 ticks) instead of
   polling neighbours in your unit. Output (comparator signals) is U12's ComparatorCapacitor hook.
 - **Block data** (`feature/common/BlockData.h`): per-block state lives in BlockData under your unit's
-  key; contraptions carry the whole document automatically (no carrier needed). If you cache your
-  part elsewhere, write it back in `blockdata::onWriteBack` and adopt moved data in `onPut`.
+  key; contraptions carry the whole document automatically: new units register no
+  `contraption::registerDataCarrier` for it (a unit that keeps its own carrier for a key declares
+  `blockdata::ownCarrier(key)`, so it is not carried twice). Direction-dependent values turn with
+  the block through `blockdata::onRotate(key, fn)`. If you cache your part elsewhere, write it back
+  in `blockdata::onWriteBack` and adopt moved data in `onPut`. On a moving contraption, write a
+  block's carried data with `Contraption::blockData(local)` / `actorData(local)` (never
+  `const_cast` `blocks()`), and send actor animation state to the client mod with
+  `contraption::setActorVisual`; client units draw actors with `client/contraption/ContraptionClient.h`.
 
 ## Build, test, run
 

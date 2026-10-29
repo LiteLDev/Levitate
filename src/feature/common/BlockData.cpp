@@ -1,5 +1,6 @@
 #include "feature/common/BlockData.h"
 
+#include <algorithm>
 #include <map>
 #include <set>
 #include <tuple>
@@ -240,6 +241,20 @@ std::map<std::string, RotateFn>& rotations() {
 } // namespace
 
 void onRotate(std::string key, RotateFn fn) { rotations()[std::move(key)] = std::move(fn); }
+
+namespace {
+std::vector<std::string>& ownedKeys() {
+    static std::vector<std::string> k;
+    return k;
+}
+} // namespace
+
+void ownCarrier(std::string key) {
+    auto& k = ownedKeys();
+    if (std::find(k.begin(), k.end(), key) == k.end()) k.push_back(std::move(key));
+}
+
+std::vector<std::string> ownCarriedKeys() { return ownedKeys(); }
 
 void rotate(Json& doc, int axis, int quarterTurns) {
     if (!doc.is_object() || ((quarterTurns % 4) + 4) % 4 == 0) return;

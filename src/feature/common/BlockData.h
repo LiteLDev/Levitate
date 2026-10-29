@@ -23,6 +23,8 @@
 
 #include <functional>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "nlohmann/json.hpp"
 
@@ -81,5 +83,12 @@ using RotateFn = std::function<void(Json& value, int axis, int quarterTurns)>;
 void onRotate(std::string key, RotateFn fn);
 /// Applies the registered rotations to a whole document (the contraption carrier calls it).
 void rotate(Json& doc, int axis, int quarterTurns);
+/// Contraptions carry every document automatically (the generic "blockdata" carrier): new units
+/// need no carrier of their own. A unit that still moves top-level key `key` with its own
+/// `contraption::registerDataCarrier` declares it here so the generic carrier leaves that key to
+/// it (no double carrying, whichever carrier runs first).
+void ownCarrier(std::string key);
+/// Keys declared with `ownCarrier`.
+[[nodiscard]] std::vector<std::string> ownCarriedKeys();
 
 } // namespace lv::feature::common::blockdata

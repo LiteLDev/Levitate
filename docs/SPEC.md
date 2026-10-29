@@ -714,7 +714,14 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
 - **Carried data**: block NBT (`name` + states) and block entity NBT (chests keep their pair);
   `registerDataCarrier({name, capture, restore, rotate})` moves other units' per-block data; the
   `blockdata` carrier moves every BlockData document (restore merges with what other carriers put
-  back first), chassis ranges included. Merged storage: vanilla chests, trapped chests,
+  back first), chassis ranges included; keys a unit carries itself are declared with
+  `blockdata::ownCarrier`, direction-dependent ones turn through `blockdata::onRotate`. While
+  moving, `Contraption::blockData(local)` / `actorData(local)` are the writable carried data
+  (persisted with the contraption). Client mod: companions get `contraption.blocks` (display entity
+  → contraption, local position, block id, quarter turns) whenever displays are spawned,
+  `contraption.visual` (actor animation state from `setActorVisual`) and `contraption.remove`;
+  `client/contraption/ContraptionClient.h` (`forEachBlock`) gives client units each block's
+  interpolated world centre and rotation per frame for actor animations. Merged storage: vanilla chests, trapped chests,
   barrels, shulker boxes, hoppers, dispensers and droppers (`Storage::insertItem/extractItem/slot`);
   tanks through `registerFluidStorage(blockId, {read, write})` on the carried data.
 - **Movement each tick**: the anchor's transform or the motion; actors (`registerActor(blockId,

@@ -21,7 +21,21 @@ struct BlockDataCarrier {
     BlockDataCarrier() {
         registerDataCarrier({
             "blockdata",
-            [](BlockSource&, core::GlobalPos const& pos) -> std::optional<nlohmann::json> { return bd::take(pos); },
+            [](BlockSource&, core::GlobalPos const& pos) -> std::optional<nlohmann::json> {
+                auto doc = bd::take(pos);
+                if (!doc || !doc->is_object()) return doc;
+                // keys a unit moves with its own carrier stay for it (bd::ownCarrier)
+                nlohmann::json left = nlohmann::json::object();
+                for (auto const& key : bd::ownCarriedKeys()) {
+                    if (auto it = doc->find(key); it != doc->end()) {
+                        left[key] = std::move(*it);
+                        doc->erase(key);
+                    }
+                }
+                if (!left.empty()) bd::set(pos, std::move(left));
+                if (doc->empty()) return std::nullopt;
+                return doc;
+            },
             [](BlockSource&, core::GlobalPos const& pos, nlohmann::json const& carried) {
                 if (!carried.is_object()) return;
                 // other carriers may have restored keys already: theirs stay, ours fill the rest

@@ -243,6 +243,53 @@ LV_REGISTER_SELFTEST("integration.contraption_blockdata", [](Context& ctx) -> ll
     ctx.check(shaft && shaft->speed == 24, "and turns again at the generator's speed");
 });
 
+LV_REGISTER_SELFTEST("integration.contraption_client", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = ctx.testPos(3230);
+    p.y += 1;
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    auto& player = ctx.player();
+    ctx.setBlock(p, "minecraft:stone");
+    ctx.setBlock(at(p, 1), "minecraft:gold_block");
+    ct::addGlue(p.dim, core::contraption::GlueBox::of({p.x, p.y, p.z}, {p.x + 1, p.y, p.z}));
+    net::setTestCompanion(player, true);
+    CompanionGuard guard{player};
+    ContraptionGuard g;
+    ct::AssembleOptions o;
+    o.anchor        = p;
+    o.includeAnchor = true;
+    auto r          = ct::assemble(o);
+    ctx.require(r.ok(), "assembled: " + r.errorText);
+    g.id = r.id;
+    co_await ctx.ticks(3);
+    auto msgs   = net::takeTestMessages(player);
+    auto blocks = std::find_if(msgs.begin(), msgs.end(), [](auto const& m) { return m.channel == "contraption.blocks"; });
+    ctx.require(blocks != msgs.end(), "companions learn which display shows which block");
+    ctx.check(blocks->payload.value("blocks", nlohmann::json::array()).size() == 2, "both blocks are listed");
+
+    ct::setActorVisual(*r.id, {1, 0, 0}, {{"speed", 12}});
+    msgs     = net::takeTestMessages(player);
+    bool vis = std::any_of(msgs.begin(), msgs.end(), [](auto const& m) {
+        return m.channel == "contraption.visual" && m.payload["visual"].value("speed", 0) == 12;
+    });
+    ctx.check(vis, "actor visuals reach companions");
+
+    auto* c    = ct::find(*r.id);
+    auto* data = c ? c->blockData({1, 0, 0}) : nullptr;
+    ctx.require(data != nullptr, "the carried data of a block is writable");
+    (*data)["integration"] = {{"on", true}};
+    ct::detail::reloadAll(); // saved with the contraption
+    c = ct::find(*r.id);
+    ctx.require(c != nullptr, "reloaded");
+    auto const* again = c->blockData({1, 0, 0});
+    ctx.check(again && again->contains("integration"), "carried data written on the move is persisted");
+    ctx.require(ct::disassemble(*r.id), "disassembled");
+    g.id.reset();
+    msgs        = net::takeTestMessages(player);
+    bool remove = std::any_of(msgs.begin(), msgs.end(), [](auto const& m) { return m.channel == "contraption.remove"; });
+    ctx.check(remove, "companions hear about the disassembly");
+    ct::clearGlue(p.dim, {p.x, p.y, p.z}, 3);
+});
+
 LV_REGISTER_SELFTEST("integration.chassis_value_box", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto p = ctx.testPos(3240);
     p.y += 1;
