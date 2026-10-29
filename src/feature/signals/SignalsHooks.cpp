@@ -34,6 +34,7 @@ constexpr double kMaxDistance = 16;
 void deny(Player& player, std::string const& key, std::string const& fallback) {
     actionbar(player, key, fallback, 'c');
     playSound(player, "levitate.tracks.deny", 1, 1);
+    log().info("signals: {} was refused: {}", player.getRealName(), key);
 }
 
 } // namespace

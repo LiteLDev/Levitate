@@ -61,8 +61,12 @@ inline constexpr std::string_view kObserverPointType = "levitate:observer";
 
 /// Block states of `levitate:track_signal` (Create's SignalBlock TYPE / POWERED + the lamp).
 inline constexpr std::string_view kTypeState    = "levitate:signal_type";  ///< SignalType
-inline constexpr std::string_view kLampState    = "levitate:signal_state"; ///< SignalState
+inline constexpr std::string_view kLampState    = "levitate:signal_state"; ///< lampValue(SignalState)
 inline constexpr std::string_view kPoweredState = "levitate:powered";      ///< redstone (signal: input, observer: output)
+
+/// Value of `kLampState` for a state: 0 off (Invalid, the default of a fresh block), 1 red,
+/// 2 yellow, 3 green.
+[[nodiscard]] constexpr int lampValue(SignalState s) { return s == SignalState::Invalid ? 0 : int(s) + 1; }
 
 /// Create's Train.Penalties used by signals in path finding.
 inline constexpr double kRedSignalPenalty         = 25;

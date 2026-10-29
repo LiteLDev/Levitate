@@ -288,7 +288,7 @@ void applySides() {
 Block const* signalBlock(int type, cs::SignalState lamp, bool powered) {
     return game::blockWith(
         api::kSignalId,
-        {{api::kTypeState, type & 1}, {api::kLampState, int(lamp)}, {api::kPoweredState, powered ? 1 : 0}}
+        {{api::kTypeState, type & 1}, {api::kLampState, api::lampValue(lamp)}, {api::kPoweredState, powered ? 1 : 0}}
     );
 }
 
@@ -303,20 +303,24 @@ void pushBlockStates() {
         Block const& block = region->getBlock(bp);
         if (kindOf(block) != r.kind) continue;
         if (r.kind == Kind::Signal) {
-            int lamp = int(lampOf(r));
-            if (game::intState(block, api::kLampState).value_or(-1) == lamp
+            auto lamp = lampOf(r);
+            if (game::intState(block, api::kLampState).value_or(-1) == api::lampValue(lamp)
                 && game::intState(block, api::kTypeState).value_or(-1) == r.type
                 && game::intState(block, api::kPoweredState).value_or(-1) == int(r.powered))
                 continue;
-            if (auto const* b = signalBlock(r.type, cs::SignalState(lamp), r.powered)) game::setBlock(*region, bp, *b);
+            if (auto const* b = signalBlock(r.type, lamp, r.powered)) game::setBlock(*region, bp, *b);
         } else {
             bool on = false;
             if (auto it = s.observers.find(r.point); it != s.observers.end()) on = it->second.activated > 0;
-            if (game::intState(block, api::kPoweredState).value_or(-1) == int(on)) continue;
-            if (auto const* b = game::blockWith(api::kObserverId, {{api::kPoweredState, on ? 1 : 0}})) {
-                game::setBlock(*region, bp, *b);
-                log().info("signals: track observer at {} {}", pos.key(), on ? "powered" : "unpowered");
+            if (game::intState(block, api::kPoweredState).value_or(-1) != int(on)) {
+                if (auto const* b = game::blockWith(api::kObserverId, {{api::kPoweredState, on ? 1 : 0}})) {
+                    game::setBlock(*region, bp, *b);
+                    log().info("signals: track observer at {} {}", pos.key(), on ? "powered" : "unpowered");
+                }
             }
+            // the powered state's redstone producer (minecraft:redstone_producer): make sure the
+            // circuit component follows the state change
+            if (auto* circuit = region->getDimension().mCircuitSystem.get()) circuit->setStrength(bp, on ? 15 : 0);
         }
     }
 }
@@ -372,17 +376,23 @@ void tickObservers() {
     }
 }
 
-/// The comparator's rear (input) neighbour, from its cardinal direction.
-std::optional<BlockPos> comparatorRear(Block const& b, BlockPos const& at) {
-    std::string const& id = b.getTypeName();
-    if (id != "minecraft:unpowered_comparator" && id != "minecraft:powered_comparator") return std::nullopt;
-    std::string dir;
+/// A string block state ("" when absent).
+std::string strState(Block const& b, char const* name) {
     auto const& nbt = b.mSerializationId.get();
-    if (nbt.contains("states", Tag::Type::Compound)) {
-        auto const& st = nbt["states"].get<CompoundTag>();
-        if (st.contains("minecraft:cardinal_direction", Tag::Type::String)) dir = std::string(st["minecraft:cardinal_direction"].get<StringTag>());
-    }
-    // Bedrock's cardinal direction of a comparator points from its output to its input
+    if (!nbt.contains("states", Tag::Type::Compound)) return {};
+    auto const& st = nbt["states"].get<CompoundTag>();
+    if (!st.contains(name, Tag::Type::String)) return {};
+    return std::string(st[name].get<StringTag>());
+}
+
+/// The input neighbour of a comparator (or, with `repeaters`, a repeater) at `at`.
+std::optional<BlockPos> comparatorRear(Block const& b, BlockPos const& at, bool repeaters = false) {
+    std::string const& id = b.getTypeName();
+    bool comparator = id == "minecraft:unpowered_comparator" || id == "minecraft:powered_comparator";
+    bool repeater   = id == "minecraft:unpowered_repeater" || id == "minecraft:powered_repeater";
+    if (!comparator && !(repeaters && repeater)) return std::nullopt;
+    std::string dir = strState(b, "minecraft:cardinal_direction");
+    // Bedrock's cardinal direction of a diode points from its output to its input
     if (dir == "north") return BlockPos{at.x, at.y, at.z - 1};
     if (dir == "south") return BlockPos{at.x, at.y, at.z + 1};
     if (dir == "west") return BlockPos{at.x - 1, at.y, at.z};
@@ -610,12 +620,7 @@ cs::SignalState lampOf(BlockRec const& rec) {
 }
 
 bool poweredAt(BlockSource& region, BlockPos const& pos) {
-    // our block is a redstone consumer: the circuit system knows its input strength
-    if (auto const* circuit = region.getDimension().mCircuitSystem.get()) {
-        auto const& all = circuit->mSceneGraph->mAllComponents;
-        if (auto it = all.find(pos); it != all.end() && it->second) return it->second->getStrength() > 0;
-    }
-    // otherwise look at the neighbours (as the sticker of U4)
+    // custom blocks get no redstone updates: look at the neighbours (as the sticker of U4)
     static int const d[6][3] = {
         {0, -1, 0},
         {0, 1,  0},
@@ -624,15 +629,39 @@ bool poweredAt(BlockSource& region, BlockPos const& pos) {
         {-1, 0, 0},
         {1, 0,  0}
     };
+    CircuitSystem* circuit = region.getDimension().mCircuitSystem.get();
     for (auto const& o : d) {
         BlockPos n{pos.x + o[0], pos.y + o[1], pos.z + o[2]};
         if (!region.hasChunksAt(n, 0, false)) continue;
         Block const& b = region.getBlock(n);
         if (b.isAir()) continue;
         std::string const& id = b.getTypeName();
-        if (id == "minecraft:redstone_block" || id == "minecraft:redstone_torch" || id == "minecraft:powered_repeater"
-            || id == "minecraft:powered_comparator")
-            return true;
+        if (id == "minecraft:redstone_block") return true;
+        if (id == "minecraft:redstone_torch") {
+            // a torch powers every neighbour but the block it is attached to
+            std::string t = strState(b, "torch_facing_direction");
+            BlockPos    support{n.x, n.y - 1, n.z};
+            if (t == "north") support = {n.x, n.y, n.z + 1};
+            else if (t == "south") support = {n.x, n.y, n.z - 1};
+            else if (t == "west") support = {n.x + 1, n.y, n.z};
+            else if (t == "east") support = {n.x - 1, n.y, n.z};
+            if (support != pos) return true;
+            continue;
+        }
+        if (id == api::kObserverId && game::intState(b, api::kPoweredState).value_or(0)) return true;
+        // solid blocks powered by levers, buttons, diodes, ... (Create's hasNeighborSignal)
+        if (circuit) {
+            auto const& all = circuit->mSceneGraph->mAllComponents;
+            if (auto it = all.find(n); it != all.end() && it->second
+                && it->second->getCircuitComponentType() == CircuitComponentType::PoweredBlockComponent
+                && it->second->getStrength() > 0)
+                return true;
+        }
+        if (id == "minecraft:powered_repeater" || id == "minecraft:powered_comparator") {
+            // diodes power the block in front of them only (opposite their input)
+            if (auto rear = comparatorRear(b, n, true); rear && BlockPos{2 * n.x - rear->x, n.y, 2 * n.z - rear->z} == pos) return true;
+            continue;
+        }
         if (game::intState(b, "redstone_signal").value_or(0) > 0) return true;
         if (id == "minecraft:lever" && game::intState(b, "open_bit").value_or(0)) return true;
         if (game::intState(b, "button_pressed_bit").value_or(0)) return true;
@@ -697,8 +726,8 @@ void onBlockChanged(ll::event::BlockChangedEvent& ev) {
     if (ev.layer() != 0) return;
     auto& region = ev.blockSource();
     if (region.getLevel().isClientSide()) return;
-    auto& s      = state();
-    auto  before = kindOf(ev.previousBlock());
+    auto& s = state();
+    auto before = kindOf(ev.previousBlock());
     auto  after  = kindOf(ev.newBlock());
     if (before == after) return; // our own state updates, or unrelated blocks
     GlobalPos pos = game::globalPos(region, ev.pos());
@@ -831,6 +860,7 @@ bool setTrainExtent(
         auto path      = rail.findPath(q);
         if (!path) return false;
         auto const* e0 = g->edge(trailing.node1, trailing.node2);
+        if (!e0) return false;
         spans.push_back({nodeLoc(trailing.node1), nodeLoc(trailing.node2), trailing.position, g->edgeLength(*e0)});
         for (size_t i = 0; i < path->edges.size(); ++i) {
             auto const& st = path->edges[i];
