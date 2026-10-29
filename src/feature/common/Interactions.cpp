@@ -14,6 +14,9 @@
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
+#include "mc/network/MinecraftPacketIds.h"
+#include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/UpdateBlockPacket.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorHurtResult.h"
 #include "mc/world/actor/player/Player.h"
@@ -235,6 +238,20 @@ BlockPos stepOf(BlockPos const& p, int face) {
     return {p.x + dx[face], p.y + dy[face], p.z + dz[face]};
 }
 
+/// The client predicted a placement (a block, a bucket's fluid) next to the clicked block: send it
+/// the real blocks there once a handler took the click.
+void resendBlock(Player& player, BlockSource& region, BlockPos const& pos) {
+    if (pos.y < region.getMinHeight() || pos.y >= region.getMaxHeight() || !region.hasChunksAt(pos, 0, false)) return;
+    auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::UpdateBlock);
+    if (!packet) return;
+    auto& pkt        = static_cast<UpdateBlockPacket&>(*packet);
+    pkt.mPos         = pos;
+    pkt.mLayer       = 0;
+    pkt.mUpdateFlags = 0b1011; // neighbours | network | priority
+    pkt.mRuntimeId   = region.getBlock(pos).mNetworkId;
+    pkt.sendTo(player);
+}
+
 struct UseOnDepth {
     UseOnDepth() { ++registry().inUseOn; }
     ~UseOnDepth() { --registry().inUseOn; }
@@ -314,7 +331,13 @@ LL_TYPE_INSTANCE_HOOK(
         }
         return result;
     }
-    if (isFirstEvent) player.sendInventory(false); // undo the client's predicted use (once per click)
+    if (isFirstEvent) {
+        player.sendInventory(false); // undo the client's predicted use (once per click)
+        if (!item.isNull()) {
+            resendBlock(player, region, at);
+            resendBlock(player, region, stepOf(at, face));
+        }
+    }
     InteractionResult result{};
     if (r == Result::Consume) {
         result.mSuccess = true;
