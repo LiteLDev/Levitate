@@ -60,30 +60,37 @@ Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.5 ~'
 
 $mark = Get-LogMark
 Invoke-Chat '/create kinetics ~9 ~2 ~ speed 0'
+# (the game sometimes drops a chat command typed right after a teleport: send it again then)
+try { Wait-LogLine 'Generator at -?\d+ -?\d+ -?\d+ now turns at 0 ' 10 -Since $mark | Out-Null }
+catch { Invoke-Chat '/create kinetics ~9 ~2 ~ speed 0' }
 if (-not $vanilla) { Wait-LogLine 'mechanical_bearing at .* disassembled' 30 -Since $mark | Out-Null }
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'placed' | Out-Null
 
-# a minecart contraption (U21): a powered controller rail sends a cart east over a powered cart
-# assembler, which puts the plank above it on the cart; the cart rolls on along the rails
-Invoke-Chat '/tp @s ~ ~ ~ facing ~8 ~ ~-8'
+# a minecart contraption (U21): a minecart placed on a powered controller rail is sent east over
+# a powered cart assembler, which puts the plank above it on the cart and sends it on along the
+# rails
 Invoke-Chat '/setblock ~4 ~ ~-8 levitate:controller_rail ["levitate:rail_axis"=1,"levitate:backwards"=1,"levitate:power"=15]'
 Invoke-Chat '/setblock ~4 ~ ~-9 redstone_block'
 Invoke-Chat '/setblock ~5 ~ ~-8 levitate:cart_assembler ["levitate:rail_axis"=1,"levitate:rail_type"=0,"levitate:powered"=1]'
 Invoke-Chat '/setblock ~5 ~ ~-9 redstone_block'
 Invoke-Chat '/setblock ~5 ~1 ~-8 oak_planks'
 Invoke-Chat '/fill ~6 ~ ~-8 ~18 ~ ~-8 rail ["rail_direction"=1]'
-Start-Sleep -Seconds 1
+Invoke-Chat '/give @s minecart 1'
+Press-Key 1
+# stand south-west of the controller rail and place the cart on it, as a player does
+Invoke-Chat '/tp @s ~2 ~ ~-5'
+Invoke-Chat '/tp @s ~ ~ ~ -146 23' # at the controller rail (2 east, 3 north, below the eyes)
+Start-Sleep -Milliseconds 800
 $mark = Get-LogMark
-Invoke-Chat '/summon minecart ~4.5 ~ ~-7.5'
-Start-Sleep -Milliseconds 300
-Save-Screenshot 'cart-summoned' | Out-Null
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'minecart placed on levitate:controller_rail' 20 -Since $mark | Out-Null
+Invoke-Chat '/tp @s ~ ~1 ~ facing ~12 ~ ~-3'
+# pictures while it runs (taken at once: the log is read with some delay)
+$shots = foreach ($i in 1..3) { Save-Screenshot "cart-moving-$i"; Start-Sleep -Milliseconds 400 }
 Wait-LogLine 'cart assembler at .* assembled contraption #\d+ on minecart' 30 -Since $mark | Out-Null
-Start-Sleep -Milliseconds 300
-$a = Save-Screenshot 'cart-moving'
-Start-Sleep -Milliseconds 500
-$b = Save-Screenshot 'cart-moving-later'
-Assert-ContraptionMoved $a $b 'the minecart contraption'
+Assert-ContraptionMoved $shots[0] $shots[2] 'the minecart contraption'
+Invoke-Chat '/tp @s ~-2 ~-1 ~5'
 Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.5 ~'
 
 if (-not $vanilla) {
