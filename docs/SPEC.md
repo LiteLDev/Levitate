@@ -168,7 +168,23 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
 `mechanical_piston`, `sticky_mechanical_piston`, `piston_extension_pole`, `mechanical_piston_head`,
 `rope_pulley`, `rope`, `pulley_magnet`, `elevator_pulley`, `elevator_contact`, `gantry_carriage`,
-`gantry_shaft`.
+`gantry_shaft`. Mechanics in §3.6.20.
+
+- States: pistons `levitate:facing` 0..5, `levitate:axis_first` (Create's AXIS_ALONG_FIRST_COORDINATE),
+  `levitate:state` 0 retracted / 1 moving / 2 extended, `levitate:rotor`; pole `levitate:facing`; head
+  `levitate:facing`, `levitate:sticky`; rope pulley `levitate:axis` 0 (x) / 2 (z) (1 unused: Bedrock integer states need contiguous values), `levitate:running`,
+  `levitate:rotor`; elevator pulley `levitate:facing` (horizontal values only), `levitate:running`, `levitate:rotor`; elevator
+  contact `levitate:facing`, `levitate:calling`, `levitate:powering`, `levitate:powered`; gantry shaft
+  `levitate:facing`, `levitate:part` 0 start / 1 middle / 2 end / 3 single, `levitate:powered`,
+  `levitate:rotor`; gantry carriage `levitate:facing`, `levitate:axis_first`, `levitate:rotor`.
+- Drops: the head drops a pole; rope and magnet drop nothing; the elevator contact drops a
+  `redstone_contact` (U23) and has no item of its own (it is a redstone contact converted by an elevator).
+- Recipes (Create 6.0.10): sticky mechanical piston = slime ball over mechanical piston (shipped);
+  mechanical piston = wooden slab / andesite casing / extension pole; 8 extension poles = plank /
+  andesite alloy / plank; rope pulley = andesite casing / wool / iron sheet; elevator pulley = brass
+  casing / dried kelp block / iron sheet; gantry carriage = wooden slab / andesite casing / cogwheel;
+  8 gantry shafts = andesite alloy / redstone / andesite alloy (in `assets/pending_recipes/pistons/`
+  until U9 / U10 / U6 land their ingredients).
 
 ### 2.16 Rotating contraptions (U21)
 
@@ -604,6 +620,103 @@ the details and numbers it implemented. Short reminders of the less obvious ones
 - **Ponder (U30)**: hold W over an item to open Ponder (client mod only), index of all scenes,
   animated scenes built from our blocks.
 
+### 3.6.20 Linear contraptions (U20)
+
+Checked against Create 6.0.10 (LinearActuatorBlockEntity, MechanicalPiston*, PistonContraption,
+PulleyBlock*, PulleyContraption, ElevatorPulleyBlockEntity, ElevatorContraption, ElevatorColumn,
+ElevatorContact*, GantryShaft*, GantryCarriage*, GantryContraptionEntity, ContraptionCollider).
+Code: `src/core/pistons/` (maths, gtest), `src/feature/pistons/`, `src/client/pistons/` (ropes);
+contract addition `src/feature/contraption/PistonsExt.h` (movement checks, dry-run assembly, world
+collision of translating structures, terrain pass-through registry for block-breaking actors).
+Per-block state lives in BlockData `data["pistons"]` (and travels with contraptions).
+
+**Linear actuators** (pistons, rope pulleys, elevator pulleys; Create's LinearActuatorBlockEntity):
+- Speed: `rpm / 512` blocks per tick clamped to ±0.49 (256 RPM → 0.49). Pistons: a positive speed
+  extends a piston facing south, west or down and retracts one facing north, east or up (Create's
+  movement modifier); the offset stays in 0..extension length. Pulleys: positive speed lowers.
+- A speed change (and an empty-hand right-click, not sneaking, not on the value box) schedules
+  *assemble next tick*: running + speed 0 → stop (movement mode decides), running + speed → continue,
+  stopped + speed → assemble. A reversal while moving snaps the offset like Create
+  (`Math.round(offset * 16) / 16`, integer division).
+- Each tick: the structure moves by the speed; the leading blocks are tested one step ahead against
+  the world (solid, non-replaceable blocks, unloaded chunks; block-breaking actors registered with
+  `ext::registerTerrainPassThrough` pass) and against other piston / pulley structures. A collision
+  rounds the offset to the grid and stops (pistons that were extending try to assemble again next
+  tick). A contraption stalled by an actor doesn't advance the offset.
+- End of range / stop: Create's movement mode value box (`create.contraptions.movement_mode`, on the
+  piston's side faces off the extension and shaft axes, 2 px towards the back; on the rope pulley's
+  top): *Always Place when Stopped* (default) places the blocks; *Place only in Starting Position*
+  places only at the initial offset, otherwise keeps the contraption until it returns; *Place only
+  when Anchor Destroyed* keeps it until the actuator is broken. Breaking a running actuator always
+  places the structure.
+- Sounds: assembly = wooden trapdoor open (0.5, 0.5); placement = wooden trapdoor close (0.35, 0.75).
+
+**Mechanical piston**: extension poles in a straight line behind the piston (and, when extended, the
+poles and head in front) define the range (`maxPistonPoles` 64; more → `tooManyPistonPoles`; none →
+`noPistonPoles`). The pole line becomes part of the contraption: the head (or a pole) stands for the
+piston's own block, back poles slide through the piston, and at placement whatever lands on the
+piston's block becomes the piston again (retracted when the head is there, else extended). Push line
+(Create's addToInitialFrontier): up to `maxChassisRange` blocks in front of the head, stopping at
+blocks that don't need moving, brittle blocks (carpets excepted), an opposing piston head or a block
+not supportive on that side; an unmovable block in the line stops assembly with `unmovableBlock`.
+Retracting: only sticky pistons take the block directly in front (silently skipped if it can't move or
+is push-only). Then Create's structure search with the movement direction forced (poles and heads
+carry nothing sideways). Assembly is refused silently when the first step would collide or the piston
+is already at the end. Moving pistons are unmovable; extended / retracted pistons can be carried.
+Slime ball on the front of a retracted normal piston makes it sticky (consumed in survival). Breaking
+the piston breaks the pole line in front (to its head) and behind; breaking the head breaks the poles
+back to the piston (retracted); breaking a pole between a piston and its head breaks the line (drops
+unless creative). Pole / gantry shaft items used on a pole / shaft extend the line at the end nearer
+to the click (Create's PoleHelper). Placement: facing away from the player (sneaking: towards),
+`axis_first` from neighbouring shafts as Create's DirectionalAxisKineticBlock. Stress impact 4.
+
+**Rope pulley**: rope and magnet blocks below count as the current offset; range `maxRopeLength` 384
+(and the world bottom). The structure below the magnet assembles without a forced direction (the rope
+column is anchoring); ropes and magnet are removed while running. Without a structure the rope
+lowers on its own until a block that needs moving is below, which it then picks up (Create's
+visitNewPosition). Placed back: magnet above the structure, ropes up to the pulley (blocks in the way
+break, dropping only when they have no collision). Rope pulleys above other top blocks of the
+structure mirror the pulley (multi-rope): they hang their own rope down and place it when the main
+pulley stops. Breaking a rope or magnet breaks the whole column and resets the pulley; breaking the
+pulley breaks the rope below. Ropes and magnets are brittle and unmovable. Stress impact 4.
+
+**Elevator pulley** (Create 6 elevators): right-click with an empty hand assembles / disassembles
+(speed only drives the motion). The cabin is the first solid block below; it needs exactly one
+horizontal `redstone_contact` (U23) on it (`no_contacts`, `too_many_contacts`); the column is the x/z in
+front of that contact, with the contact's facing reversed; an active column refuses a second cabin
+(`column_conflict`). Assembly converts the redstone contacts of the column (same x/z, facing back)
+into elevator contacts and targets the current floor. Motion: Create's elevator curve (speed limit
+`rpm·2/512` ≤ 1.99, acceleration `lerp(|limit|, 0.0075, 0.0175)` per tick, deceleration
+`sqrt(2·|diff|·acc)`); arrived within half a block, then the cabin eases onto the floor (a quarter
+of the rest per tick). The cabin always stays a contraption (Place only when Anchor Destroyed). On
+arrival (and every 3 ticks while it stands there) the floor's contact powers (redstone 15, light 10)
+until another floor is called; elevator contacts call the cabin on a rising redstone edge (they show
+*calling*), and a contact facing a redstone contact powers too. Floors: right-click a contact (not with
+the wrench) to set the floor identifier (4 chars), description (30 chars) and door control (stored for
+U10's sliding doors); blank identifiers are numbered from their neighbours (Create's initNames). The
+wrench turns a contact; facing away from its column it becomes a redstone contact again.
+Contraption controls (U22) integrate through the cabin's `anchorData()["elevator"]`:
+`floors` [[contact y, short, long]], `version`, `column`, `contactY`, `target`, `current`; writing
+`request` = contact y calls that floor. Contacts keep `data["pistons"]["floor"]` = the identifier of the
+current floor for display links (U24). Stress impact 4.
+
+**Gantries**: gantry shafts (`levitate:part` from same-facing neighbours along the axis; placement
+facing away, continuing a neighbouring line, sneaking reverses; a line is powered as a whole by
+redstone, polled) carry carriages placed on them (facing the clicked face; the carriage breaks
+without a shaft behind it). A carriage assembles its structure (the shaft is anchoring) when its
+shaft turns and allows it (unpowered; start: speed > 0, end: speed < 0, middle: any; single: never):
+pinion speed `clamp(-rpm/512, ±0.49)` along the shaft's facing. It moves until the shaft under it is
+gone, powered or stopped, or until it passes the centre of a shaft that wouldn't let it assemble, or
+hits the world; then it is placed (grid aligned). A powered shaft drives the carriage as a gear instead
+(Create's pinion ratio). Nested gantries work through the world (an inner carriage starts when its
+shaft turns after the outer one stops). Stress impact 0 (Create: setNoImpact; the kinetics table in
+`config/kinetics.json` still lists `gantry_shaft` 4 and must become 0).
+
+**Client mod**: pistons, pulleys and gantries rotate their shaft / pinion with the kinetic renderer
+(`levitate:rotor`); running pulleys draw their rope (elevators: belt) and magnet from the pulley to the
+structure (`pistons.rope` messages, every 3 ticks, extrapolated in between); contraption blocks are
+drawn by U4's display entities.
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -660,6 +773,10 @@ place:
 | hose_pulley | 4 | | |
 | chain_conveyor | 1 ⚠ | | |
 
+`config/pistons.json` (U20): `maxPistonPoles` 64, `maxRopeLength` 384 (Create's CKinetics keys and
+defaults; the push line uses U4's `maxChassisRange`). Stress (checked): pistons, rope and elevator
+pulleys 4; gantry shaft and carriage 0 (`gantry_shaft` 4 in the table above is wrong).
+
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
 
@@ -710,6 +827,13 @@ matches Create's official Chinese translation wording).
 | Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
 | Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
+
+| Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
+| Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
+| Climbable ropes and magnets (U20) | data-driven blocks can't be climbable | they are thin solid blocks |
+| Native elevator contact screen (U20) | the native screen framework (U3) has no text field | the contact's form (floor identifier, description, door control) is used for every player |
+| Elevator door control acting on doors (U20) | the sliding / train doors are U10's | the mode is stored per contact (`data["pistons"]["door"]`) for U10 to apply |
+| Sequenced gearshift distance limits on pistons / gantries (U20) | Create passes the sequence context through its kinetic block entities; the U2 contract has no such channel | pistons and gantries run until their end / collision |
 
 Units add rows here in their PRs when they find something else impossible.
 
