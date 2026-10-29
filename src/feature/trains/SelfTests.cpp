@@ -1,0 +1,396 @@
+// Selftests of the trains unit (U27, testPos dx 2700..2799).
+//
+// Layout: an east-west line of track (x = base .. base + 79) with station A (marker at x + 20)
+// and station B (marker at x + 60), both facing east; the assembly area of A runs west of it.
+
+#include <cmath>
+
+#include "mc/deps/core/math/Vec3.h"
+#include "mc/world/actor/player/Inventory.h"
+#include "mc/world/actor/player/Player.h"
+#include "mc/world/item/ItemStack.h"
+#include "mc/world/level/BlockPos.h"
+#include "mc/world/level/BlockSource.h"
+#include "mc/world/level/block/Block.h"
+
+#include "core/tracks/Shape.h"
+#include "feature/common/Items.h"
+#include "feature/contraption/Contraption.h"
+#include "feature/tracks/Tracks.h"
+#include "feature/tracks/TrainsExt.h"
+#include "feature/trains/Trains.h"
+#include "game/Blocks.h"
+#include "selftest/SelfTest.h"
+
+namespace {
+
+using lv::core::GlobalPos;
+using lv::selftest::Context;
+namespace tn = lv::feature::trains;
+namespace tr = lv::feature::tracks;
+namespace cn = lv::feature::contraption;
+namespace ct = lv::core::trains;
+
+GlobalPos at(GlobalPos b, int dx, int dy = 0, int dz = 0) { return {b.dim, b.x + dx, b.y + dy, b.z + dz}; }
+
+std::vector<std::pair<std::string, int>> xo() {
+    int s = int(lv::core::tracks::Shape::XO);
+    return {{std::string(tr::kShapeState), s % 16}, {std::string(tr::kShapeHiState), s / 16}, {std::string(tr::kTurnState), 0}};
+}
+
+/// Clears blocks (and carriages / stations) in a box without drops.
+void clearBox(GlobalPos a, GlobalPos b) {
+    auto* region = tn::regionOf(a.dim);
+    auto const* air = lv::game::blockWith("minecraft:air");
+    if (!region || !air) return;
+    for (int x = std::min(a.x, b.x); x <= std::max(a.x, b.x); ++x)
+        for (int y = std::min(a.y, b.y); y <= std::max(a.y, b.y); ++y)
+            for (int z = std::min(a.z, b.z); z <= std::max(a.z, b.z); ++z) {
+                BlockPos bp{x, y, z};
+                if (!region->getBlock(bp).isAir()) lv::game::setBlock(*region, bp, *air);
+            }
+}
+
+void removeTrainsNear(GlobalPos base) {
+    std::vector<std::uint64_t> ids;
+    for (auto const& [id, t] : tn::state().trains) {
+        auto p = ct::positionOf(tr::railways(), t.body.front);
+        if (!p || (std::abs(p->x - base.x - 40) < 80 && std::abs(p->z - base.z) < 8)) ids.push_back(id);
+    }
+    for (auto id : ids) tn::removeTrain(id);
+}
+
+struct Line {
+    GlobalPos base, stationA, stationB, trackA, trackB;
+};
+
+/// Builds the line and both stations (A "U27 Station A" at x + 20, B at x + 60).
+ll::coro::CoroTask<bool> buildLine(Context& ctx, Line& l, int dx, std::string const& suffix) {
+    l.base = ctx.testPos(dx);
+    if (!co_await ctx.ensureLoaded(l.base)) co_return false;
+    if (!co_await ctx.ensureLoaded(at(l.base, 79))) co_return false;
+    if (!co_await ctx.ensureLoaded(at(l.base, 40))) co_return false;
+    clearBox(at(l.base, -1, 0, -2), at(l.base, 80, 4, 2));
+    co_await ctx.ticks(2);
+    for (int x = 0; x < 80; ++x) ctx.setBlock(at(l.base, x), std::string(tr::kTrackId), xo());
+    co_await ctx.ticks(3);
+    l.trackA   = at(l.base, 20);
+    l.trackB   = at(l.base, 60);
+    l.stationA = at(l.base, 20, 0, 1);
+    l.stationB = at(l.base, 60, 0, 1);
+    ctx.setBlock(l.stationA, std::string(tn::kStation));
+    ctx.setBlock(l.stationB, std::string(tn::kStation));
+    co_await ctx.ticks(2);
+    std::string err;
+    bool        okA = tn::createStation(l.stationA, l.trackA, 1, 0, &err);
+    bool        okB = tn::createStation(l.stationB, l.trackB, 1, 0, &err);
+    if (!okA || !okB) {
+        ctx.info("station creation failed: " + err);
+        co_return false;
+    }
+    tn::stationAt(l.stationA)->name = "U27 Station A" + suffix;
+    tn::stationAt(l.stationB)->name = "U27 Station B" + suffix;
+    tn::refreshStationPoints();
+    co_return true;
+}
+
+void teardown(Line const& l) {
+    removeTrainsNear(l.base);
+    cn::clearGlue(l.base.dim, {l.base.x + 40, l.base.y, l.base.z}, 60);
+    tn::removeStation(l.stationA);
+    tn::removeStation(l.stationB);
+    clearBox(at(l.base, -1, 0, -2), at(l.base, 80, 4, 2));
+}
+
+/// A one-bogey carriage at A's station marker: bogey, forward controls above it and (double
+/// ended) backward controls on top, glued together.
+std::optional<std::uint64_t> assembleTrain(Context& ctx, Line const& l, bool doubleEnded) {
+    auto* s = tn::stationAt(l.stationA);
+    if (!s) return std::nullopt;
+    tn::setAssembling(*s, true, nullptr);
+    auto track0 = at(l.trackA, -1);
+    auto msg    = tn::useCasingOnTrack(nullptr, track0, true);
+    ctx.check(msg.starts_with("+"), "train casing creates a bogey (" + msg + ")");
+    auto bogey = at(track0, 0, 1);
+    // controls: forward ones face the assembly direction (west, levitate:facing 4)
+    ctx.setBlock(at(bogey, 0, 1), std::string(tn::kControls), {{"levitate:facing", 4}});
+    if (doubleEnded) {
+        ctx.setBlock(at(bogey, 0, 2), std::string(tn::kControls), {{"levitate:facing", 5}});
+        cn::addGlue(l.base.dim, {{bogey.x, bogey.y, bogey.z}, {bogey.x, bogey.y + 2, bogey.z}});
+    }
+    auto id = tn::assemble(*s, nullptr);
+    if (!id) ctx.info("assembly error: " + s->lastError.dump());
+    return id;
+}
+
+ct::Schedule twoStops(std::string const& suffix, int waitTicks) {
+    ct::Schedule sch;
+    for (auto const* name : {"U27 Station B", "U27 Station A"}) {
+        auto e = ct::Entry::makeDefault();
+        e.instruction.data["Text"]          = std::string(name) + suffix;
+        e.conditions[0][0].data["Value"]    = waitTicks;
+        e.conditions[0][0].data["TimeUnit"] = 0;
+        sch.entries.push_back(e);
+    }
+    return sch;
+}
+
+} // namespace
+
+LV_REGISTER_SELFTEST("trains.blocks", [](Context& ctx) {
+    for (auto id : {tn::kStation, tn::kSmallBogey, tn::kLargeBogey, tn::kControls})
+        ctx.check(lv::game::blockWith(id) != nullptr, std::string(id) + " is registered");
+    auto item = tn::makeScheduleItem(twoStops("", 20));
+    ctx.require(!item.isNull(), "the schedule item exists");
+    auto back = tn::scheduleOf(item);
+    ctx.require(back.has_value(), "the schedule reads back from the item");
+    ctx.check(back->entries.size() == 2, "both entries are stored");
+    ctx.check(back->entries[0].instruction.data.value("Text", std::string()) == "U27 Station B", "the destination is stored");
+});
+
+LV_REGISTER_SELFTEST("trains.station_and_assembly_rules", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Line l;
+    ctx.require(co_await buildLine(ctx, l, 2700, " rules"), "line and stations built");
+    auto* s = tn::stationAt(l.stationA);
+    ctx.require(s && s->point().has_value(), "station A is an edge point on the graph");
+    ctx.check(tn::bogeysOf(*s).empty(), "no bogeys yet");
+    // outside assembly mode the track isn't an assembly area
+    ctx.check(tn::useCasingOnTrack(nullptr, at(l.trackA, -1), true).empty(), "no assembly area while not assembling");
+    tn::setAssembling(*s, true, nullptr);
+    ctx.check(tn::intStateAt(l.stationA, tn::kAssemblingState).value_or(0) == 1, "the station block shows assembly mode");
+    ctx.check(!tn::assemble(*s, nullptr), "assembly without bogeys fails");
+    ctx.check(s->lastError.value("key", std::string()) == "create.train_assembly.no_bogeys", "error: no bogeys");
+    // a bogey 2 blocks in is not allowed, one at the marker is; clicking next to it cycles its size
+    ctx.check(tn::useCasingOnTrack(nullptr, at(l.trackA, -3), true) == "!", "no bogey 2 blocks in");
+    ctx.check(tn::useCasingOnTrack(nullptr, at(l.trackA, -2), true).starts_with("+") == false, "bogey placement at 1 is refused");
+    auto first = tn::useCasingOnTrack(nullptr, at(l.trackA, -1), true);
+    ctx.check(first.starts_with("+"), "bogey created at the station marker");
+    ctx.check(tn::idAt(at(l.trackA, -1, 1)) == tn::kSmallBogey, "a small bogey sits on the track");
+    tn::useCasingOnTrack(nullptr, at(l.trackA, -1), true);
+    ctx.check(tn::idAt(at(l.trackA, -1, 1)) == tn::kLargeBogey, "clicking again makes it large");
+    tn::useCasingOnTrack(nullptr, at(l.trackA, -1), true);
+    ctx.check(tn::bogeysOf(*s).size() == 1, "one bogey on the assembly track");
+    // nothing attached
+    ctx.check(!tn::assemble(*s, nullptr), "a lone bogey doesn't assemble");
+    ctx.check(s->lastError.value("key", std::string()) == "create.train_assembly.nothing_attached", "error: nothing attached");
+    // sideways controls
+    ctx.setBlock(at(l.trackA, -1, 2), std::string(tn::kControls), {{"levitate:facing", 2}});
+    ctx.check(!tn::assemble(*s, nullptr), "sideways controls don't assemble");
+    ctx.check(s->lastError.value("key", std::string()) == "create.train_assembly.sideways_controls", "error: sideways controls");
+    // backwards only
+    ctx.setBlock(at(l.trackA, -1, 2), std::string(tn::kControls), {{"levitate:facing", 5}});
+    ctx.check(!tn::assemble(*s, nullptr), "backward controls alone don't assemble");
+    ctx.check(s->lastError.value("key", std::string()) == "create.train_assembly.no_controls", "error: no controls");
+    tn::setAssembling(*s, false, nullptr);
+    teardown(l);
+    co_await ctx.ticks(2);
+});
+
+LV_REGISTER_SELFTEST("trains.schedule_round_trip", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Line l;
+    ctx.require(co_await buildLine(ctx, l, 2700, ""), "line and stations built");
+    auto id = assembleTrain(ctx, l, true);
+    ctx.require(id.has_value(), "the train assembles");
+    auto* t = tn::findTrain(*id);
+    ctx.require(t != nullptr, "the train exists");
+    ctx.check(t->carriages.size() == 1, "one carriage");
+    ctx.check(t->doubleEnded, "controls both ways make it double ended");
+    ctx.check(cn::find(t->carriages[0].contraption) != nullptr, "the carriage is a contraption");
+    ctx.check(tn::idAt(at(l.trackA, -1, 1)) != tn::kSmallBogey, "the bogey left the world");
+    ctx.check(tn::trainAt(*tn::stationAt(l.stationA)) == t, "the train waits at station A");
+    auto startX = cn::find(t->carriages[0].contraption)->transform().offset.x;
+
+    t->testConductor = true;
+    t->runtime.setSchedule(twoStops("", 10), false);
+    bool atB = false, backAtA = false;
+    for (int i = 0; i < 1500 && !(atB && backAtA); ++i) {
+        co_await ctx.ticks(1);
+        t = tn::findTrain(*id);
+        if (!t) break;
+        if (!atB && t->currentStation == l.stationB.key()) {
+            atB = true;
+            ctx.info("arrived at B after " + std::to_string(i) + " ticks");
+            auto* con = cn::find(t->carriages[0].contraption);
+            ctx.check(con && std::abs(con->transform().offset.x - startX - 40) < 0.6, "the carriage moved 40 blocks east");
+        }
+        if (atB && t->currentStation == l.stationA.key()) backAtA = true;
+    }
+    ctx.check(atB, "the schedule drove the train to station B");
+    ctx.check(backAtA, "and back to station A (reversing, double ended)");
+    t = tn::findTrain(*id);
+    ctx.require(t != nullptr, "the train still exists");
+    ctx.check(!tn::canDisassemble(*tn::stationAt(l.stationA)), "reversed in, its front isn't at A's marker: no disassembly");
+    // one more trip forward to B, then disassemble there
+    ct::Schedule once;
+    auto         e = ct::Entry::makeDefault();
+    e.instruction.data["Text"] = "U27 Station B";
+    once.entries.push_back(e);
+    once.cyclic = false;
+    t->runtime.setSchedule(once, false);
+    for (int i = 0; i < 1500; ++i) {
+        co_await ctx.ticks(1);
+        t = tn::findTrain(*id);
+        if (!t || (t->currentStation == l.stationB.key() && t->runtime.completed)) break;
+    }
+    ctx.require(t && t->currentStation == l.stationB.key(), "the train is back at B");
+    std::string name = t->name;
+    ctx.check(tn::canDisassemble(*tn::stationAt(l.stationB)), "the train can be disassembled at B");
+    ctx.check(tn::disassemble(*tn::stationAt(l.stationB), nullptr), "disassembly starts");
+    co_await ctx.ticks(6);
+    ctx.check(!tn::findTrain(*id), "the train is gone");
+    ctx.check(tn::idAt(at(l.trackB, -1, 1)) == tn::kSmallBogey, "the bogey stands at B's station marker");
+    ctx.check(tn::idAt(at(l.trackB, -1, 2)) == tn::kControls, "the controls are back on it");
+    ctx.check(tn::idAt(at(l.trackB, -1, 3)) == tn::kControls, "and the second controls on top");
+    ctx.check(tn::stationAt(l.stationB)->lastTrainName == name, "station B remembers the train's name");
+    teardown(l);
+    co_await ctx.ticks(2);
+});
+
+LV_REGISTER_SELFTEST("trains.manual_controls", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Line l;
+    ctx.require(co_await buildLine(ctx, l, 2700, " manual"), "line and stations built");
+    auto id = assembleTrain(ctx, l, false);
+    ctx.require(id.has_value(), "the train assembles");
+    auto& player = ctx.player();
+    auto* t      = tn::findTrain(*id);
+    // stand next to the controls (a driver must stay within 8 blocks)
+    player.teleport(Vec3{float(l.trackA.x - 1) + .5f, float(l.trackA.y + 2), float(l.trackA.z) + 2.5f}, player.getDimensionId());
+    co_await ctx.ticks(2);
+    t = tn::findTrain(*id);
+    tn::startControlling(player, *t, 0, t->carriages[0].controls[0].first, 1);
+    ctx.check(t->controller == tn::uuidOf(player), "the player controls the train");
+    double startX = ct::positionOf(tr::railways(), t->body.front)->x;
+    for (int i = 0; i < 60; ++i) {
+        tn::setInput(player, 1, 0, false, false);
+        co_await ctx.ticks(1);
+    }
+    t = tn::findTrain(*id);
+    ctx.require(t != nullptr, "the train exists");
+    double x = ct::positionOf(tr::railways(), t->body.front)->x;
+    ctx.check(t->speed > 0.2, "holding forward accelerates (" + std::to_string(t->speed) + ")");
+    ctx.check(t->speed <= 1.4 * 0.75 + 1e-9, "manual speed is capped by manualTrainSpeedModifier");
+    ctx.check(x > startX + 5, "the train moved east");
+    ctx.check(t->currentStation.empty(), "it left the station");
+    // braking: backwards brakes at twice the acceleration
+    double before = t->speed;
+    tn::setInput(player, -1, 0, false, false);
+    co_await ctx.ticks(1);
+    t = tn::findTrain(*id);
+    ctx.check(t && t->speed < before, "pulling back brakes");
+    tn::setInput(player, 0, 0, false, true);
+    co_await ctx.ticks(1);
+    t = tn::findTrain(*id);
+    ctx.check(t && t->controller.empty(), "sneaking stops controlling");
+    // coasting stops it
+    for (int i = 0; i < 200 && t && t->speed > 0; ++i) {
+        co_await ctx.ticks(1);
+        t = tn::findTrain(*id);
+    }
+    ctx.check(t && t->speed == 0, "an unguided train coasts to a stop");
+    teardown(l);
+    co_await ctx.ticks(2);
+});
+
+LV_REGISTER_SELFTEST("trains.derail_and_collide", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Line l;
+    ctx.require(co_await buildLine(ctx, l, 2700, " crash"), "line and stations built");
+    auto first = assembleTrain(ctx, l, false);
+    ctx.require(first.has_value(), "the first train assembles");
+    auto* t1 = tn::findTrain(*first);
+    // park it 12 blocks east of A
+    t1->body.move(tr::railways(), 12, {});
+    t1->currentStation.clear();
+    tn::placeCarriages(*t1);
+    co_await ctx.ticks(3);
+    auto second = assembleTrain(ctx, l, false);
+    ctx.require(second.has_value(), "a second train assembles behind it");
+    auto* t2 = tn::findTrain(*second);
+    t2->currentStation.clear();
+    t2->speed = 0.6;
+    bool crashed = false;
+    for (int i = 0; i < 60 && !crashed; ++i) {
+        co_await ctx.ticks(1);
+        t1 = tn::findTrain(*first);
+        t2 = tn::findTrain(*second);
+        crashed = t1 && t2 && t1->derailed && t2->derailed;
+    }
+    ctx.check(crashed, "running into the other train derails both");
+    ctx.check(t2 && t2->speed <= 0, "the moving train bounces back");
+    ctx.check(tn::idAt(at(l.base, 30)) == tr::kTrackId, "the collision broke no blocks");
+    tn::removeTrain(*second);
+    // the other: the track beneath it disappears
+    tn::removeTrain(*first);
+    co_await ctx.ticks(3);
+    auto third = assembleTrain(ctx, l, false);
+    ctx.require(third.has_value(), "a third train assembles");
+    auto* t3 = tn::findTrain(*third);
+    // remove the track under its bogey
+    clearBox(at(l.trackA, -1), at(l.trackA, 0));
+    co_await ctx.ticks(4);
+    t3 = tn::findTrain(*third);
+    ctx.check(t3 && t3->derailed, "removing the track beneath it derails the train");
+    teardown(l);
+    co_await ctx.ticks(2);
+});
+
+LV_REGISTER_SELFTEST("trains.ext_and_commands", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Line l;
+    ctx.require(co_await buildLine(ctx, l, 2700, " ext"), "line and stations built");
+    auto id = assembleTrain(ctx, l, false);
+    ctx.require(id.has_value(), "the train assembles");
+    auto infos = tr::trains::all();
+    bool found = false;
+    for (auto const& i : infos) found = found || (i.id == *id && i.station == "U27 Station A ext");
+    ctx.check(found, "TrainsExt lists the train at its station");
+    bool listed = false;
+    for (auto const& s : tr::trains::stations()) listed = listed || (s.name == "U27 Station A ext" && !s.presentTrain.empty());
+    ctx.check(listed, "TrainsExt lists station A with its train");
+    // a pass check holding the train at an edge point
+    lv::core::tracks::EdgePoint p;
+    auto* g    = tr::railways().graphAt(tn::stationAt(l.stationA)->point()->from);
+    ctx.require(g != nullptr, "graph");
+    auto pt    = *tn::stationAt(l.stationA)->point();
+    p.id       = "u27test:hold";
+    p.type     = "levitate:u27test";
+    p.node1    = pt.from;
+    p.node2    = pt.to;
+    p.position = pt.pos + 10;
+    if (p.position > ct::edgeLength(tr::railways(), pt)) p.position = ct::edgeLength(tr::railways(), pt) - 1;
+    ctx.require(tr::railways().addPoint(p), "the test edge point is on the graph");
+    ctx.info("hold point at " + std::to_string(p.position) + " of " + std::to_string(ct::edgeLength(tr::railways(), pt)) + ", station at " + std::to_string(pt.pos));
+    static int  entered    = 0;
+    static bool registered = false;
+    entered                = 0;
+    if (!registered) {
+        registered = true;
+        tr::trains::onPointEntered([](std::uint64_t, lv::core::tracks::EdgePoint const& e) {
+            if (e.id == "u27test:hold") ++entered;
+        });
+    }
+    tr::trains::setPassCheck([](std::uint64_t, lv::core::tracks::EdgePoint const& e) { return e.id != "u27test:hold"; });
+    auto* t = tn::findTrain(*id);
+    t->testConductor = true;
+    ct::Schedule s;
+    auto         e = ct::Entry::makeDefault();
+    e.instruction.data["Text"] = "U27 Station B ext";
+    s.entries.push_back(e);
+    t->runtime.setSchedule(s, false);
+    for (int i = 0; i < 400; ++i) co_await ctx.ticks(1);
+    t = tn::findTrain(*id);
+    if (t) ctx.info("after 400 ticks: speed " + std::to_string(t->speed) + " at x " + std::to_string(ct::positionOf(tr::railways(), t->body.front)->x) + ", point exists: " + std::to_string(tr::railways().point("u27test:hold") != nullptr));
+    ctx.check(t && t->currentStation.empty() && t->nav.has_value(), "the train is held before the point");
+    ctx.check(entered == 0, "it never passed the held point");
+    tr::trains::setPassCheck({});
+    for (int i = 0; i < 600 && t && t->currentStation.empty(); ++i) {
+        co_await ctx.ticks(1);
+        t = tn::findTrain(*id);
+    }
+    ctx.check(entered >= 1, "released, it enters the point");
+    ctx.check(t && t->currentStation == l.stationB.key(), "and arrives at B");
+    tr::railways().removePoint("u27test:hold");
+    tn::removeTrain(*id);
+    co_await ctx.ticks(2);
+    ctx.check(!tn::findTrain(*id), "removing a train (killtrain) works");
+    teardown(l);
+    co_await ctx.ticks(2);
+});

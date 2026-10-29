@@ -11,7 +11,8 @@
 // An edge point is "occupied" by a train while it lies between the train's front and back
 // points. The pass check is asked for points ahead of a moving train that face it (the point's
 // `facingNode2` side): `false` makes the train brake and wait in front of the point (Create's
-// navigation waiting for a signal; manual trains stop too). Stations are never asked.
+// navigation waiting for a signal; as in Create, manually driven trains are not held). Stations
+// are never asked.
 //
 // Server thread only. Implemented in src/feature/trains/.
 

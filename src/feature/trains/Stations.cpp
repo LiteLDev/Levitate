@@ -452,6 +452,11 @@ bool canDisassemble(Station const& s) {
     auto* t = trainAt(s);
     if (!t || t->disassembling || std::abs(t->speed) > 1e-6 || t->derailed) return false;
     if (!trackOk(s)) return false;
+    // the front must stand at the station marker (a train that reversed in has its back there)
+    auto p = s.point();
+    auto a = p ? ct::positionOf(tracks::railways(), *p) : std::nullopt;
+    auto f = ct::positionOf(tracks::railways(), t->body.front);
+    if (!a || !f || a->distanceTo(*f) > 0.75) return false;
     for (auto const& c : t->carriages) {
         auto* con = contraption::find(c.contraption);
         if (!con) return false;

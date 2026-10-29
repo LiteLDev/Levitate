@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <unordered_set>
 
 #include "ll/api/service/Bedrock.h"
@@ -339,10 +340,7 @@ ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual, std
         if (s.assembling) continue;
         if (!onlyStation.empty() || true) {
             if (key == t.currentStation && std::abs(t.speed) < 1e-6) {
-                if (!manual) {
-                    log().info("trains: train #{} '{}' is already at station '{}'", t.id, t.name, s.name);
-                    return ct::StartResult::AlreadyThere;
-                }
+                if (!manual) return ct::StartResult::AlreadyThere;
                 continue;
             }
         }
@@ -364,7 +362,10 @@ ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual, std
     std::optional<ct::Path> fw, bw;
     if (canForward) fw = ct::findPath(rail(), t.body.front, dests, penalty);
     if (canBack) {
-        if (auto back = t.body.pointAt(rail(), t.body.length())) bw = ct::findPath(rail(), ct::reverse(rail(), *back), dests, penalty);
+        // reversing: the back point arrives, travelling against the station's direction
+        std::vector<ct::TrackPos> reversed;
+        for (auto const& d : dests) reversed.push_back(ct::reverse(rail(), d));
+        if (auto back = t.body.pointAt(rail(), t.body.length())) bw = ct::findPath(rail(), ct::reverse(rail(), *back), reversed, penalty);
     }
     if (!fw && !bw) return ct::StartResult::NoPath;
     bool useBack = false;
@@ -646,6 +647,12 @@ void collideWithOtherTrains(Train& t) {
     }
 }
 
+std::map<std::int64_t, std::uint64_t>& hitCooldown() {
+    static std::map<std::int64_t, std::uint64_t> m;
+    if (m.size() > 512) m.clear();
+    return m;
+}
+
 void damageEntities(Train& t, Vec3d const& motion) {
     if (!config().trainsCauseDamage || motion.length() <= 0.35) return;
     auto* region = regionOf(t.dim);
@@ -689,11 +696,15 @@ void damageEntities(Train& t, Vec3d const& motion) {
                 }
             }
             if (!inside || standing) continue;
+            auto  uid  = a->getOrCreateUniqueID().rawID;
+            auto& last = hitCooldown()[uid];
+            if (last != 0 && state().tick - last < 10) continue; // invulnerability frames
             auto pd  = a->getPosDelta();
             auto hit = ct::entityHit(motion, {pd.x, pd.y, pd.z}, a->hasCategory(ActorCategory::Monster));
             if (!hit) continue;
             ActorDamageSource source(SharedTypes::Legacy::ActorDamageCause::EntityAttack, "");
             HurtParameters    params{};
+            last = state().tick;
             a->hurt(source, float(hit->damage), params);
             a->lerpMotion(Vec3{float(hit->motion.x), float(hit->motion.y), float(hit->motion.z)});
             playSound(t.dim, {f.x, f.y, f.z}, "game.player.attack.strong", 1, 0.75f);
@@ -807,11 +818,17 @@ void tickTrain(Train& t) {
             double dir = nav.behind ? -1 : 1;
             auto   lead = nav.behind ? t.body.pointAt(r, t.body.length()).transform([&](ct::TrackPos const& p) { return ct::reverse(r, p); })
                                      : std::optional<ct::TrackPos>(t.body.front);
-            double target = nav.distance;
+            double target  = nav.distance;
+            double blocker = -1;
             if (lead) {
-                ct::Path ahead   = nav.path; // looking ahead must not advance the real path
-                double   blocker = distanceToBlocker(t, *lead, ahead.chooser(), std::min(nav.distance, ct::brakingDistance(t.speed, stats.acceleration) + 4));
-                if (blocker >= 0) target = std::min(target, std::max(0.0, blocker - 0.5));
+                ct::Path ahead = nav.path; // looking ahead must not advance the real path
+                blocker = distanceToBlocker(t, *lead, ahead.chooser(), std::min(nav.distance, ct::brakingDistance(t.speed, stats.acceleration) + 4));
+                // Create waits in front of the signal (no overshoot past it)
+                if (blocker >= 0) target = std::min(target, std::max(0.0, blocker - 0.75));
+            }
+            if (blocker >= 0 && blocker < 1.0) {
+                t.speed = 0; // holding at the point
+                return;
             }
             ct::NavigationInput in;
             in.distanceToTarget    = std::max(0.0, target);
@@ -876,6 +893,7 @@ void tickTrain(Train& t) {
     if (t.nav) {
         destStation = stationByKey(t.nav->stationPos);
         if (destStation) dest = destStation->point();
+        if (dest && t.nav->behind) dest = ct::reverse(r, *dest);
     }
     bool arrived = false;
     auto before  = ct::positionOf(r, t.body.front);
