@@ -85,9 +85,16 @@ Block const* animated(Block const& base, int step) {
 }
 
 /// Create's harvester / roller speed: the block's movement (degrees per block travelled).
-double advance(Actor& entity, std::string const& id) {
+double advance(Actor& entity, std::string const& id, Vec3 const& renderPos, Vec3 const& cameraTarget) {
     auto& spin = state().spins[static_cast<std::int64_t>(entity.getRuntimeID().rawID)];
-    Vec3  pos  = entity.getInterpolatedPosition(0.f);
+    // where it is drawn (the display entity's own position lags behind the drawn one): the render
+    // position, camera relative when it is far from the entity
+    Vec3 base = entity.getPosition();
+    Vec3 pos  = renderPos;
+    double far = std::abs(pos.x - base.x) + std::abs(pos.y - base.y) + std::abs(pos.z - base.z);
+    if (far > 24) pos = Vec3{renderPos.x + cameraTarget.x, renderPos.y + cameraTarget.y, renderPos.z + cameraTarget.z};
+    if (!std::isfinite(pos.x) || !std::isfinite(pos.y) || !std::isfinite(pos.z)) pos = base;
+    if (!std::isfinite(pos.x) || !std::isfinite(pos.y) || !std::isfinite(pos.z)) return spin.angle;
     if (++spin.frames == 300 || spin.frames == 3000) {
         log().info("actors client: {} at {:.2f} {:.2f} {:.2f}, turned {:.1f} degrees", id, pos.x, pos.y, pos.z, spin.angle);
     }
@@ -140,7 +147,7 @@ LL_TYPE_INSTANCE_HOOK(
         log().info("actors client: display entity shows {}", base ? base->getTypeName() : std::string("?"));
     }
     if (!base || !isAnimated(base->getTypeName())) return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
-    double angle = advance(entity, base->getTypeName());
+    double angle = advance(entity, base->getTypeName(), pos, cameraTargetPos);
     if (!state().loggedTrack) {
         state().loggedTrack = true;
         auto const* probe   = animated(*base, 1);

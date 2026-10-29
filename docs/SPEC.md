@@ -872,9 +872,13 @@ Actors:
   the engine carries seated entities (assembled riders stay seated); a moving seat picks up mobs it
   touches, a solid block (or a bottom slab) moving into it puts its rider on top; at disassembly
   riders sit down on the placed seat again. Right-clicking a seat on a contraption sits the player.
-- **Client mod**: on moving contraptions the harvester's blades turn by 50° per block travelled
-  (Create: animation speed / 20 per tick) and the roller's drum rolls on the ground; shown by
-  swapping the display entity's block for the animation step while it is drawn.
+- **Client mod**: on moving contraptions the harvester's blades should turn by 50° per block
+  travelled (Create: animation speed / 20 per tick) and the roller's drum roll on the ground,
+  shown by swapping the display entity's block for the animation step (`levitate:anim`) while it
+  is drawn. Not working yet: the display entity's position read in the render hook does not
+  follow the drawn movement, so the step stays 0 (follow-up).
+- **Client mod**: an empty-hand right-click into the air is sent as `actors.use`, so contraption
+  controls and seats on a contraption can be used without an item.
 - Config `config/actors.json`, log lines `actors: ...` (harvested / broke / tilled / paved,
   psi connected / disconnected / holds, controls toggled, seat sat down / dyed).
 ### 3.6.1 Generators (U7)
