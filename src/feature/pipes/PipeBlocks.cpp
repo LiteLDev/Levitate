@@ -292,7 +292,7 @@ void orientPlaced(BlockSource& region, BlockPos const& pos, PlaceContext const& 
         break;
     }
     case BlockKind::Smart: {
-        auto s = cp::smartPipePlacement(look, horizontal, pipes);
+        auto s = cp::smartPipePlacement(look, horizontal, ctx.lookX, ctx.lookZ, pipes);
         next   = withStates(block, {{"levitate:face", static_cast<int>(s.face)}, {"levitate:facing", horizontalToState(s.facing)}});
         break;
     }

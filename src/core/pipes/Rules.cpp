@@ -29,7 +29,8 @@ FaceMask updatePipeConnections(
         for (Face f : kFaces)
             if (has(next, f)) return static_cast<FaceMask>(next | bit(opposite(f)));
     }
-    // no connection at all: keep a previously straight pipe, else open along the preferred direction
+    // no connection at all: keep a previous two-way pipe (Create keeps any state with two open faces),
+    // else open along the preferred direction
     if (count(previous) == 2) return previous;
     Face p = preferred.value_or(Face::Up);
     return static_cast<FaceMask>(bit(p) | bit(opposite(p)));
@@ -57,20 +58,22 @@ bool cornerOrEnd(FaceMask open) { return !straightAxis(open) && !drawsCasing(ope
 std::optional<Axis> wrenchGlassAxis(FaceMask open, Face clicked, double hitX, double hitY, double hitZ) {
     auto axis = straightAxis(open);
     if (!axis) {
+        // Create: the direction whose neighbouring block centre is nearest to the click
         double closest = std::numeric_limits<double>::max();
-        for (Axis a : kAxes) {
-            if (axisOf(clicked) == a) continue;
-            double d = std::abs(a == Axis::X ? hitX : a == Axis::Y ? hitY : hitZ);
+        for (Face f : kFaces) {
+            if (axisOf(clicked) == axisOf(f)) continue;
+            auto   n  = normal(f);
+            double dx = n[0] - hitX, dy = n[1] - hitY, dz = n[2] - hitZ;
+            double d  = dx * dx + dy * dy + dz * dz;
             if (d < closest) {
                 closest = d;
-                axis    = a;
+                axis    = axisOf(f);
             }
         }
     }
     if (!axis || axisOf(clicked) == *axis) return std::nullopt;
     return axis;
 }
-
 FaceMask regularPipeFromAxis(Axis axis, std::array<bool, 6> const& canConnect) {
     Face side = faceOf(axis, true);
     return updatePipeConnections(axisMask(axis), canConnect, side, std::nullopt);
@@ -126,7 +129,7 @@ Face pumpPlacement(Face nearestLook, bool sneaking, std::optional<Face> kineticP
         if (!pipeAt[static_cast<int>(d)]) continue;
         auto   n        = normal(d);
         double distance = std::sqrt(double((n[0] - t[0]) * (n[0] - t[0]) + (n[1] - t[1]) * (n[1] - t[1]) + (n[2] - t[2]) * (n[2] - t[2])));
-        if (distance >= bestDistance) continue;
+        if (distance > bestDistance) continue; // ties: the later direction wins, as Create
         bestDistance = distance;
         best         = d;
     }
@@ -216,7 +219,7 @@ ValvePlacement valveWrenched(ValvePlacement state, Face clicked) {
 
 Axis smartPipeAxis(SmartPipeState s) { return s.face == AttachFace::Wall ? Axis::Y : axisOf(s.facing); }
 
-SmartPipeState smartPipePlacement(Face nearestLook, Face horizontalLook, std::array<bool, 6> const& pipeAt) {
+SmartPipeState smartPipePlacement(Face nearestLook, Face horizontalLook, double lookX, double lookZ, std::array<bool, 6> const& pipeAt) {
     SmartPipeState s;
     if (axisOf(nearestLook) == Axis::Y) {
         s.face   = nearestLook == Face::Up ? AttachFace::Ceiling : AttachFace::Floor;
@@ -243,8 +246,8 @@ SmartPipeState smartPipePlacement(Face nearestLook, Face horizontalLook, std::ar
     if (s.face == AttachFace::Wall) s.face = AttachFace::Floor;
     // the last matching entry of the nearest-looking list wins: the end less aligned with the look,
     // so the pipe faces along the look
-    Face positive = faceOf(*preferredAxis, true);
-    s.facing      = (axisOf(horizontalLook) == *preferredAxis) ? horizontalLook : positive;
+    double along = *preferredAxis == Axis::X ? lookX : lookZ;
+    s.facing     = faceOf(*preferredAxis, along >= 0);
     return s;
 }
 

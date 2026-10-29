@@ -103,6 +103,6 @@ struct SmartPipeState {
 /// Create's placement: the face-attached default from the look, then aligned to neighbours that
 /// would connect (`pipeAt`).
 [[nodiscard]] SmartPipeState
-smartPipePlacement(Face nearestLook, Face horizontalLook, std::array<bool, 6> const& pipeAt);
+smartPipePlacement(Face nearestLook, Face horizontalLook, double lookX, double lookZ, std::array<bool, 6> const& pipeAt);
 
 } // namespace lv::core::pipes

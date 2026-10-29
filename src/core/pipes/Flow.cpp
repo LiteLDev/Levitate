@@ -239,7 +239,7 @@ void Model::distributePressureTo(GlobalPos const& pump, Face side) {
                 BlockFace blockFace{current, face};
                 GlobalPos connected = blockFace.connected();
                 if (!mHost.loaded(connected)) continue;
-                if (connected == pump) continue; // the face pointing back at the pump
+                if (current == start.connected() && face == opposite(side)) continue; // the start face itself
                 if (hasReachedValidEndpoint(blockFace, pull)) {
                     nodeAt(current, distance)[face] = pull;
                     targets.insert(blockFace);
@@ -511,8 +511,22 @@ void Model::tick(std::int64_t gameTime) {
         tickPump(pump);
     }
     std::vector<GlobalPos> active;
-    for (auto const& [pos, n] : mNodes)
-        if (!mPumps.contains(pos) && n.active()) active.push_back(pos);
+    bool                   prune = gameTime % 20 == 0;
+    for (auto it = mNodes.begin(); it != mNodes.end();) {
+        auto const& [pos, n] = *it;
+        if (mPumps.contains(pos) || n.active()) {
+            if (!mPumps.contains(pos)) active.push_back(pos);
+            ++it;
+            continue;
+        }
+        // idle pipes are forgotten (rebuilt on demand) unless an open end still buffers fluid
+        bool buffered = false;
+        for (auto const& con : n.connections)
+            for (auto const* s : {con ? &con->source : nullptr, con ? &con->previousSource : nullptr})
+                if (s && *s && (*s)->kind == SourceKind::OpenEnd && !(*s)->openEnd.tank.empty()) buffered = true;
+        if (prune && !buffered) it = mNodes.erase(it);
+        else ++it;
+    }
     for (auto const& pos : active) {
         if (!mHost.loaded(pos)) continue;
         auto* n = node(pos);

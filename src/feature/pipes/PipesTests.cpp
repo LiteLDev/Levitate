@@ -183,7 +183,7 @@ LV_REGISTER_SELFTEST("pipes.connect", [](Context& ctx) -> ll::coro::CoroTask<> {
     ctx.check(rimA == 0 && rimB == 4, "the second pipe has a rim on its open east end only");
     // a test tank connects
     tank(ctx, a.at(2, 0, 1), {});
-    ctx.setBlock(a.at(2), kFluidPipe, faces(kX));
+    ctx.setBlock(a.at(2), kFluidPipe); // unoriented: connects to its neighbours like a placed pipe
     co_await ctx.ticks(3);
     ctx.check(cp::has(connections(blockAt(a.at(2))), Face::South), "pipes connect to fluid handlers");
     ctx.check(canConnectTo(region(), toBlockPos(a.at(1)), Face::East), "canConnectTo sees the next pipe");

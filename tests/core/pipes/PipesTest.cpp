@@ -153,9 +153,10 @@ TEST(PipeRules, WrenchMakesGlassAlongAxis) {
     // straight along x: clicking a side face makes a glass pipe, clicking an end passes
     EXPECT_EQ(wrenchGlassAxis(kX, Face::Up, 0, .5, 0), Axis::X);
     EXPECT_FALSE(wrenchGlassAxis(kX, Face::East, .5, 0, 0));
-    // a corner: the axis nearest to the click, not the clicked face's axis
+    // a corner: the axis of the neighbour nearest to the click, not the clicked face's axis
     FaceMask corner = bit(Face::East) | bit(Face::Up);
-    EXPECT_EQ(wrenchGlassAxis(corner, Face::North, .3, .05, -.5), Axis::Y);
+    EXPECT_EQ(wrenchGlassAxis(corner, Face::North, .3, .05, -.5), Axis::X);
+    EXPECT_EQ(wrenchGlassAxis(corner, Face::North, .05, .4, -.5), Axis::Y);
 }
 
 TEST(PipeRules, RegularPipeFromGlass) {
@@ -201,16 +202,21 @@ TEST(PipeRules, ValveAxes) {
 
 TEST(PipeRules, SmartPipePlacement) {
     std::array<bool, 6> none{};
-    auto                floor = smartPipePlacement(Face::Down, Face::East, none);
+    auto                floor = smartPipePlacement(Face::Down, Face::East, 1, 0, none);
     EXPECT_EQ(floor.face, AttachFace::Floor);
     EXPECT_EQ(smartPipeAxis(floor), Axis::X);
-    auto wall = smartPipePlacement(Face::North, Face::North, none);
+    auto wall = smartPipePlacement(Face::North, Face::North, 0, -1, none);
     EXPECT_EQ(wall.face, AttachFace::Wall);
     EXPECT_EQ(smartPipeAxis(wall), Axis::Y);
     std::array<bool, 6> zPipe{};
     zPipe[int(Face::South)] = true;
-    auto aligned            = smartPipePlacement(Face::North, Face::North, zPipe);
+    auto aligned            = smartPipePlacement(Face::North, Face::North, 0, -1, zPipe);
     EXPECT_EQ(smartPipeAxis(aligned), Axis::Z);
+    std::array<bool, 6> xPipe{};
+    xPipe[int(Face::East)] = true;
+    // looking mostly north, slightly west: the pipe faces west (the end along the look)
+    auto west = smartPipePlacement(Face::North, Face::North, -.2, -.9, xPipe);
+    EXPECT_EQ(west.facing, Face::West);
 }
 
 // ---- flow model -----------------------------------------------------------------------------------------

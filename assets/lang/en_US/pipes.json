@@ -1,9 +1,10 @@
 {
-  "lv.pipes.cmd.none": "No pipe at {0}.",
   "lv.pipes.cmd.block": "{0} at {1}",
-  "lv.pipes.cmd.idle": "No pressure.",
-  "lv.pipes.cmd.pressure": "pressure in {0} / out {1}",
   "lv.pipes.cmd.flow": "{0} flowing {1} ({2}%)",
+  "lv.pipes.cmd.idle": "No pressure.",
+  "lv.pipes.cmd.need_op": "You need operator permission.",
   "lv.pipes.cmd.network": "moving {0} mB/t to {1} targets",
+  "lv.pipes.cmd.none": "No pipe at {0}.",
+  "lv.pipes.cmd.pressure": "pressure in {0} / out {1}",
   "lv.pipes.fluid.milk": "Milk"
 }

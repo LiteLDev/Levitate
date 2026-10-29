@@ -167,7 +167,7 @@ public:
         if (canProvideFluidWithoutCapability(nb)) return true;
         if (nb.canProvideFullSupport(static_cast<uchar>(back))) return false;
         if (common::fluids::find(common::Access{*r, n, static_cast<int>(back)})) return false;
-        if (!game::replaceable(*r, n) && nb.getBlockType().getDestroySpeed() >= 0) return false;
+        if (!game::replaceable(*r, n)) return false;
         return true;
     }
 
@@ -393,6 +393,10 @@ void onBlockChanged(ll::event::BlockChangedEvent& ev) {
         }
     }
 
+    // display-only changes of our own blocks (glass fluid, rims, rotor, valve pointer) don't concern neighbours
+    if (kb != BlockKind::None && kb == ka && flowSignature(before) == flowSignature(after)
+        && game::intState(before, "levitate:bracket") == game::intState(after, "levitate:bracket"))
+        return;
     // neighbours (Create's updateShape / neighborChanged)
     for (Face f : cp::kFaces) {
         auto     o = cp::offsetOf(f);
@@ -488,6 +492,15 @@ bool pipesInteract(Player& player, ItemStack& item, BlockPos const& at, uchar fa
     bool wrenchUse = held == kWrench && !player.isSneaking();
     bool casing    = held == kCopperCasing && (k == BlockKind::Pipe || k == BlockKind::Glass);
     bool bracket   = (held == kMetalBracket || held == kWoodBracket) && (k == BlockKind::Pipe || k == BlockKind::Glass);
+    if (wrenchUse) {
+        // Create passes when the wrench does nothing here
+        auto& region = player.getDimensionBlockSource();
+        if (k == BlockKind::Pipe && bracketOf(game::globalPos(region, at)).empty()
+            && !cp::wrenchGlassAxis(connections(target), side, hit.x - .5, hit.y - .5, hit.z - .5))
+            wrenchUse = false;
+        if (k == BlockKind::Smart && cp::axisOf(side) != Axis::Y) wrenchUse = false;
+    }
+    if (bracket && k == BlockKind::Pipe && !cp::straightAxis(connections(target))) bracket = false;
     if (!wrenchUse && !casing && !bracket) return false;
     if (cooldown(player)) return true;
     int  dim = static_cast<int>(player.getDimensionId());
@@ -700,7 +713,7 @@ std::vector<std::string> describe(GlobalPos const& pos) {
 LV_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
     cmd.overload<PipesCommandParams>().text("pipes").required("pos").execute(
         [](CommandOrigin const& origin, CommandOutput& output, PipesCommandParams const& params) {
-            if (!commands::isAdmin(origin)) return output.error("You need operator permission.");
+            if (!commands::isAdmin(origin)) return output.error(tr("lv.pipes.cmd.need_op", "You need operator permission."));
             Vec3  v   = params.pos.getPosition(INT_MAX, origin, Vec3{0.f, 0.f, 0.f});
             auto* dim = origin.getDimension();
             auto  pos = game::globalPos(dim ? static_cast<int>(dim->getDimensionId()) : 0, game::blockPosOf(v));
