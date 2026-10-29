@@ -24,7 +24,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/equipment/Equipment.h"
-#include "feature/equipment/RedstoneLinkBus.h"
+#include "feature/redstone/RedstoneLink.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "mod/I18n.h"
@@ -35,6 +35,7 @@ namespace lv::feature::equipment {
 namespace ce    = core::equipment;
 namespace items = common::items;
 namespace bd    = common::blockdata;
+namespace rl    = feature::redstone::link;
 
 namespace {
 
@@ -48,7 +49,20 @@ struct User {
     std::array<std::uint64_t, 6> lastSeen{};
     std::optional<GlobalPos> bindLink;            ///< bind mode: the link to copy
     bool                     fromClient = false;  ///< presses come from the client mod
+    std::array<rl::LinkId, 6>  nodes{};           ///< U23 link transmitters of the pressed buttons (0: none)
+    std::array<rl::LinkKey, 6> keys{};
+    std::array<GlobalPos, 6>   nodePos{};
 };
+
+void releaseButton(User& u, int b) {
+    auto& id = u.nodes[static_cast<std::size_t>(b)];
+    if (!id) return;
+    rl::remove(id);
+    id = 0;
+}
+void releaseAll(User& u) {
+    for (int b = 0; b < 6; ++b) releaseButton(u, b);
+}
 std::map<std::int64_t, User>& users() {
     static std::map<std::int64_t, User> m;
     return m;
@@ -59,23 +73,52 @@ std::map<GlobalPos, std::int64_t>& lecternUsers() {
     return m;
 }
 
-std::array<std::pair<std::string, std::string>, 6> frequencies(ItemStack const& controller) {
-    std::array<std::pair<std::string, std::string>, 6> out{};
+/// A frequency slot: an item (Create's Frequency), stored as item JSON (or an item id).
+using Freq = std::pair<ItemStack, ItemStack>;
+
+ItemStack slotItem(Json const& j) {
+    if (j.is_string()) {
+        auto id = j.get<std::string>();
+        if (id.empty()) return items::empty();
+        auto s = items::make(id, 1);
+        return s ? *s : items::empty();
+    }
+    if (j.is_object()) return items::withCount(items::fromJson(j), 1);
+    return items::empty();
+}
+Json slotJson(ItemStack const& s) { return items::isEmpty(s) ? Json(nullptr) : items::toJson(items::withCount(s, 1)); }
+
+std::array<Freq, 6> frequencies(ItemStack const& controller) {
+    std::array<Freq, 6> out{};
+    for (auto& f : out) f = {items::empty(), items::empty()};
     auto j = items::getData(controller, kControllerData);
     auto f = j.is_object() ? j.value("freq", Json::array()) : Json::array();
     for (std::size_t i = 0; i < 6 && i < f.size(); ++i) {
         if (!f[i].is_array() || f[i].size() != 2) continue;
-        out[i] = {f[i][0].get<std::string>(), f[i][1].get<std::string>()};
+        out[i] = {slotItem(f[i][0]), slotItem(f[i][1])};
     }
     return out;
 }
 
-void setFrequency(ItemStack& controller, int button, std::pair<std::string, std::string> const& freq) {
+void setFrequency(ItemStack& controller, int button, Freq const& freq) {
     auto f = frequencies(controller);
     f[static_cast<std::size_t>(button)] = freq;
     Json arr = Json::array();
-    for (auto const& [a, b] : f) arr.push_back(Json::array({a, b}));
+    for (auto const& [a, b] : f) arr.push_back(Json::array({slotJson(a), slotJson(b)}));
     items::setData(controller, kControllerData, {{"freq", arr}});
+}
+
+/// The frequency of a redstone link block (U23 keeps its two slots in BlockData `data["redstone"]`).
+std::optional<Freq> linkFrequency(GlobalPos const& pos) {
+    auto const* d = bd::get(pos);
+    if (!d || !d->contains("redstone")) return Freq{items::empty(), items::empty()};
+    auto const& r = (*d)["redstone"];
+    return Freq{slotItem(r.value("first", Json())), slotItem(r.value("last", Json()))};
+}
+
+std::string freqName(Freq const& f) {
+    auto name = [](ItemStack const& s) { return items::isEmpty(s) ? std::string("-") : items::idOf(s); };
+    return name(f.first) + " + " + name(f.second);
 }
 
 std::string keyName(Player const& p, int b) {
@@ -102,7 +145,7 @@ void setActive(Player& p, bool on, std::optional<GlobalPos> lectern) {
     u.lectern = on ? lectern : std::nullopt;
     if (!on) {
         u.pressed.fill(false);
-        linkbus::releaseOwner(uidOf(p));
+        releaseAll(u);
         for (auto it = lecternUsers().begin(); it != lecternUsers().end();)
             it = it->second == uidOf(p) ? lecternUsers().erase(it) : std::next(it);
     } else if (lectern) lecternUsers()[*lectern] = uidOf(p);
@@ -125,7 +168,7 @@ void openForm(Player& player, int slot) {
         if (!id.empty() && std::find(ids.begin(), ids.end(), id) == ids.end()) ids.push_back(id);
     }
     for (auto const& [a, b] : freqs) {
-        for (auto const& id : {a, b})
+        for (auto const& id : {items::idOf(a), items::idOf(b)})
             if (std::find(ids.begin(), ids.end(), id) == ids.end()) ids.push_back(id);
     }
     std::vector<std::string> names;
@@ -137,7 +180,7 @@ void openForm(Player& player, int slot) {
     ll::form::CustomForm form(trFor(player, "item.levitate:linked_controller.name", "Linked Controller"));
     for (int b = 0; b < 6; ++b)
         for (int k = 0; k < 2; ++k) {
-            auto const& cur = k == 0 ? freqs[static_cast<std::size_t>(b)].first : freqs[static_cast<std::size_t>(b)].second;
+            auto        cur = items::idOf(k == 0 ? freqs[static_cast<std::size_t>(b)].first : freqs[static_cast<std::size_t>(b)].second);
             auto        idx = std::find(ids.begin(), ids.end(), cur) - ids.begin();
             auto        key = k == 0 ? "create.linked_controller.frequency_slot_1" : "create.linked_controller.frequency_slot_2";
             auto        fb  = k == 0 ? "Keybind: {}, Freq. #1" : "Keybind: {}, Freq. #2";
@@ -149,7 +192,7 @@ void openForm(Player& player, int slot) {
         auto  s   = inv.getItem(slot);
         if (items::idOf(s) != kLinkedController) return;
         for (int b = 0; b < 6; ++b) {
-            std::pair<std::string, std::string> f;
+            Freq f{items::empty(), items::empty()};
             for (int k = 0; k < 2; ++k) {
                 auto it = r->find("f" + std::to_string(b * 2 + k));
                 std::size_t idx = 0;
@@ -157,7 +200,7 @@ void openForm(Player& player, int slot) {
                     if (auto const* v = std::get_if<uint64>(&it->second)) idx = static_cast<std::size_t>(*v);
                 }
                 auto id = idx < ids.size() ? ids[idx] : std::string();
-                (k == 0 ? f.first : f.second) = id;
+                (k == 0 ? f.first : f.second) = slotItem(Json(id));
             }
             setFrequency(s, b, f);
         }
@@ -177,10 +220,8 @@ void registerScreen() {
             Json rows  = Json::array();
             for (int b = 0; b < 6; ++b) {
                 Json row = Json::array();
-                for (auto const& id : {freqs[static_cast<std::size_t>(b)].first, freqs[static_cast<std::size_t>(b)].second}) {
-                    auto it = id.empty() ? std::nullopt : items::make(id, 1);
-                    row.push_back(it ? items::toJson(*it) : Json(nullptr));
-                }
+                row.push_back(slotJson(freqs[static_cast<std::size_t>(b)].first));
+                row.push_back(slotJson(freqs[static_cast<std::size_t>(b)].second));
                 rows.push_back({{"key", keyName(p, b)}, {"items", row}});
             }
             return Json{{"title", trFor(p, "item.levitate:linked_controller.name", "Linked Controller")}, {"rows", rows}};
@@ -195,9 +236,8 @@ void registerScreen() {
                 int b = action.value("button", -1), k = action.value("slot", 0);
                 if (b < 0 || b > 5) return;
                 auto f     = frequencies(s)[static_cast<std::size_t>(b)];
-                auto item  = action.contains("item") && !action["item"].is_null() ? items::fromJson(action["item"]) : items::empty();
-                std::string id = items::isEmpty(item) ? std::string() : items::idOf(item);
-                (k == 0 ? f.first : f.second) = id;
+                auto item = action.contains("item") ? slotItem(action["item"]) : items::empty();
+                (k == 0 ? f.first : f.second) = item;
                 setFrequency(s, b, f);
                 inv.setItem(slot, s);
                 p.sendInventory(false);
@@ -264,7 +304,7 @@ void controllerButtons(Player& player, std::array<bool, 6> const& pressed, std::
         if (now && !was) {
             // bind mode: the first pressed control takes the link's frequency
             if (u.bindLink && !lectern) {
-                auto f = linkbus::frequencyAt(std::string(kRedstoneLink), *u.bindLink);
+                auto f = idAt(*u.bindLink) == kRedstoneLink ? linkFrequency(*u.bindLink) : std::nullopt;
                 if (f) {
                     int  slot = items::idOf(player.getSelectedItem()) == kLinkedController ? player.getSelectedItemSlot() : -1;
                     if (slot >= 0) {
@@ -278,8 +318,7 @@ void controllerButtons(Player& player, std::array<bool, 6> const& pressed, std::
                         player.setOffhandSlot(s);
                     }
                     actionBar(player, trFor(player, "create.linked_controller.key_bound", "Frequency bound to {}", keyName(player, b)));
-                    log().info("equipment: {} bound controller button {} to {}", player.getRealName(), ce::controllerButtonName(b),
-                               ce::frequencyKey(f->first, f->second));
+                    log().info("equipment: {} bound controller button {} to {}", player.getRealName(), ce::controllerButtonName(b), freqName(*f));
                 }
                 u.bindLink.reset();
                 u.pressed[static_cast<std::size_t>(b)] = now;
@@ -289,9 +328,21 @@ void controllerButtons(Player& player, std::array<bool, 6> const& pressed, std::
             sound(pos.dim, pos2.x, pos2.y, pos2.z, "random.click", .3f, .75f);
             log().info("equipment: {} pressed controller button {}", player.getRealName(), ce::controllerButtonName(b));
         }
-        auto const& f = freqs[static_cast<std::size_t>(b)];
-        if (now && (!f.first.empty() || !f.second.empty())) linkbus::transmit({uid, b}, ce::frequencyKey(f.first, f.second), pos, 15);
-        if (!now && was) linkbus::release({uid, b});
+        auto const& f   = freqs[static_cast<std::size_t>(b)];
+        auto        key = rl::keyOf(f.first, f.second);
+        auto        i   = static_cast<std::size_t>(b);
+        if (now && !(key.first.empty() && key.last.empty())) {
+            // a transmitter on the button's frequency at the player (Create's ManualFrequencyEntry)
+            if (!u.nodes[i]) {
+                u.nodes[i]   = rl::add({.pos = pos, .key = key, .listening = false, .transmit = 15});
+                u.keys[i]    = key;
+                u.nodePos[i] = pos;
+            } else {
+                if (!(u.keys[i] == key)) rl::setKey(u.nodes[i], u.keys[i] = key);
+                if (u.nodePos[i] != pos) rl::move(u.nodes[i], u.nodePos[i] = pos);
+            }
+        }
+        if (!now && was) releaseButton(u, b);
         u.pressed[static_cast<std::size_t>(b)] = now;
     }
 }
@@ -379,7 +430,7 @@ void tickControllers() {
         auto* p = playerById(it->first);
         auto& u = it->second;
         if (!p) {
-            linkbus::releaseOwner(it->first);
+            releaseAll(u);
             std::erase_if(lecternUsers(), [&](auto const& e) { return e.second == it->first; });
             it = users().erase(it);
             continue;
@@ -402,7 +453,7 @@ void tickControllers() {
             for (int b = 0; b < 6; ++b) {
                 if (u.pressed[static_cast<std::size_t>(b)] && now - u.lastSeen[static_cast<std::size_t>(b)] > kKeepAlive) {
                     u.pressed[static_cast<std::size_t>(b)] = false;
-                    linkbus::release({it->first, b});
+                    releaseButton(u, b);
                 }
             }
         }
@@ -411,9 +462,8 @@ void tickControllers() {
 }
 
 void resetControllers() {
-    users().clear();
+    users().clear(); // U23 drops every link node when the world closes
     lecternUsers().clear();
-    linkbus::reset();
 }
 
 void installControllers() {

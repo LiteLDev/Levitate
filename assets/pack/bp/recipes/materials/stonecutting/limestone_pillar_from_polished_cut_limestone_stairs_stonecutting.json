@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:limestone_pillar_from_polished_cut_limestone_stairs_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:polished_cut_limestone_stairs"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:polished_cut_limestone_stairs"
+      }
+    ],
+    "result": {
+      "item": "levitate:limestone_pillar",
+      "count": 1
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:brass_hand"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " A ",
+      "BBB",
+      " B "
+    ],
+    "key": {
+      "A": {
+        "item": "levitate:andesite_alloy"
+      },
+      "B": {
+        "item": "levitate:brass_sheet"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_alloy"
+      }
+    ],
+    "result": {
+      "item": "levitate:brass_hand",
+      "count": 1
+    }
+  }
+}

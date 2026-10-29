@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:copper_shingle_slab"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "XXX"
+    ],
+    "key": {
+      "X": {
+        "item": "levitate:copper_shingles"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:copper_shingles"
+      }
+    ],
+    "result": {
+      "item": "levitate:copper_shingle_slab",
+      "count": 6
+    }
+  }
+}

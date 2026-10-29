@@ -1,0 +1,271 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.mechanical_mixer_rotor",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 4,
+        "visible_bounds_height": 4,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "rotor",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                6,
+                -6
+              ],
+              "size": [
+                12,
+                4,
+                12
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    2.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    12,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "south": {
+                  "uv": [
+                    2.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    12,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "east": {
+                  "uv": [
+                    2.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    12,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "west": {
+                  "uv": [
+                    2.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    12,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "up": {
+                  "uv": [
+                    2.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    12,
+                    12
+                  ],
+                  "material_instance": "cog"
+                },
+                "down": {
+                  "uv": [
+                    2.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    12,
+                    12
+                  ],
+                  "material_instance": "cog"
+                }
+              }
+            },
+            {
+              "origin": [
+                -8,
+                6,
+                -2
+              ],
+              "size": [
+                16,
+                4,
+                4
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "south": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "east": {
+                  "uv": [
+                    6.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "west": {
+                  "uv": [
+                    6.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "up": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "down": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "cog"
+                }
+              }
+            },
+            {
+              "origin": [
+                -2,
+                6,
+                -8
+              ],
+              "size": [
+                4,
+                4,
+                16
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    6.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "south": {
+                  "uv": [
+                    6.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    4,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "east": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "west": {
+                  "uv": [
+                    0.0,
+                    6.0
+                  ],
+                  "uv_size": [
+                    16,
+                    4
+                  ],
+                  "material_instance": "cog"
+                },
+                "up": {
+                  "uv": [
+                    6.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ],
+                  "material_instance": "cog"
+                },
+                "down": {
+                  "uv": [
+                    6.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    4,
+                    16
+                  ],
+                  "material_instance": "cog"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:chromatic_compound",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "levitate_chromatic_compound",
+      "minecraft:display_name": {
+        "value": "item.levitate:chromatic_compound.name"
+      },
+      "minecraft:max_stack_size": 16,
+      "minecraft:rarity": "uncommon"
+    }
+  }
+}

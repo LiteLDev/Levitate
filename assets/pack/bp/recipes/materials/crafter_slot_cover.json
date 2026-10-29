@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:crafter_slot_cover"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "AAA"
+    ],
+    "key": {
+      "A": {
+        "item": "levitate:brass_nugget"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:brass_nugget"
+      }
+    ],
+    "result": {
+      "item": "levitate:crafter_slot_cover",
+      "count": 1
+    }
+  }
+}

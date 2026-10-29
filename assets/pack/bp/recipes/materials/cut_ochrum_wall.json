@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:cut_ochrum_wall"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "XXX",
+      "XXX"
+    ],
+    "key": {
+      "X": {
+        "item": "levitate:cut_ochrum"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:cut_ochrum"
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_ochrum_wall",
+      "count": 6
+    }
+  }
+}

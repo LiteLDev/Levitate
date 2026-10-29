@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:cut_asurine_slab"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "XXX"
+    ],
+    "key": {
+      "X": {
+        "item": "levitate:cut_asurine"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:cut_asurine"
+      }
+    ],
+    "result": {
+      "item": "levitate:cut_asurine_slab",
+      "count": 6
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:layered_asurine_from_polished_cut_asurine_stairs_stonecutting"
+    },
+    "tags": [
+      "stonecutter"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:polished_cut_asurine_stairs"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:polished_cut_asurine_stairs"
+      }
+    ],
+    "result": {
+      "item": "levitate:layered_asurine",
+      "count": 1
+    }
+  }
+}

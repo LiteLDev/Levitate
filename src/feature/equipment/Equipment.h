@@ -75,7 +75,6 @@ struct Config {
     int maxExtendoGripActions = 1000; ///< Create: maxExtendoGripActions (0: unbreakable)
     int maxPotatoCannonShots  = 200;  ///< Create: maxPotatoCannonShots (0: unbreakable)
     int maxSymmetryWandRange  = 50;   ///< Create: maxSymmetryWandRange
-    int linkRange             = 256;  ///< Create (CLogistics): linkRange, used by the controller's transmissions
 };
 [[nodiscard]] Config const& config();
 

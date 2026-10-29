@@ -1,0 +1,56 @@
+{
+  "levitate:shaft": {
+    "sound": "metal"
+  },
+  "levitate:cogwheel": {
+    "sound": "wood"
+  },
+  "levitate:large_cogwheel": {
+    "sound": "wood"
+  },
+  "levitate:andesite_encased_shaft": {
+    "sound": "stone"
+  },
+  "levitate:brass_encased_shaft": {
+    "sound": "metal"
+  },
+  "levitate:andesite_encased_cogwheel": {
+    "sound": "stone"
+  },
+  "levitate:brass_encased_cogwheel": {
+    "sound": "metal"
+  },
+  "levitate:andesite_encased_large_cogwheel": {
+    "sound": "stone"
+  },
+  "levitate:brass_encased_large_cogwheel": {
+    "sound": "metal"
+  },
+  "levitate:gearbox": {
+    "sound": "stone"
+  },
+  "levitate:clutch": {
+    "sound": "stone"
+  },
+  "levitate:gearshift": {
+    "sound": "stone"
+  },
+  "levitate:encased_chain_drive": {
+    "sound": "stone"
+  },
+  "levitate:adjustable_chain_gearshift": {
+    "sound": "stone"
+  },
+  "levitate:sequenced_gearshift": {
+    "sound": "metal"
+  },
+  "levitate:rotation_speed_controller": {
+    "sound": "metal"
+  },
+  "levitate:speedometer": {
+    "sound": "stone"
+  },
+  "levitate:stressometer": {
+    "sound": "stone"
+  }
+}

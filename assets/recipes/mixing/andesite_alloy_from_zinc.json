@@ -1,0 +1,16 @@
+{
+  "type": "levitate:mixing",
+  "ingredients": [
+    {
+      "item": "minecraft:andesite"
+    },
+    {
+      "tag": "c:nuggets/zinc"
+    }
+  ],
+  "results": [
+    {
+      "id": "levitate:andesite_alloy"
+    }
+  ]
+}

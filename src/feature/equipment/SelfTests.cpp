@@ -30,7 +30,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/equipment/Equipment.h"
-#include "feature/equipment/RedstoneLinkBus.h"
+#include "feature/redstone/RedstoneLink.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
@@ -508,41 +508,57 @@ LV_REGISTER_SELFTEST("equipment.sand_paper_and_fertilizer", [](Context& ctx) -> 
 });
 
 LV_REGISTER_SELFTEST("equipment.linked_controller", [](Context& ctx) -> ll::coro::CoroTask<> {
+    namespace rl = lv::feature::redstone::link;
     auto base = at(ctx.testPos(3180), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& p = ctx.player();
     clearInventory(p);
     auto controller = item(ctx, "levitate:linked_controller");
-    auto pair = [](std::string a, std::string b) { return nlohmann::json::array({a, b}); };
-    nlohmann::json freq = nlohmann::json::array(
-        {pair("minecraft:redstone", "minecraft:diamond"), pair("", ""), pair("", ""), pair("", ""), pair("minecraft:gold_ingot", ""), pair("", "")}
-    );
+    auto j          = [&](char const* id) { return items::toJson(item(ctx, id)); };
+    auto pair       = [](nlohmann::json a, nlohmann::json b) { return nlohmann::json::array({a, b}); };
+    nlohmann::json none = nullptr;
+    nlohmann::json freq = nlohmann::json::array({pair(j("minecraft:redstone"), j("minecraft:diamond")), pair(none, none), pair(none, none),
+                                                 pair(none, none), pair(j("minecraft:gold_ingot"), none), pair(none, none)});
     items::setData(controller, eq::kControllerData, nlohmann::json{{"freq", freq}});
     p.getInventory().setItem(p.getSelectedItemSlot(), controller);
     p.teleport(Vec3{base.x + .5f, float(base.y), base.z + .5f}, DimensionType(0));
     co_await ctx.ticks(2);
-    auto key = ce::frequencyKey("minecraft:redstone", "minecraft:diamond");
+    auto key  = rl::keyOf(item(ctx, "minecraft:redstone"), item(ctx, "minecraft:diamond"));
+    auto gold = rl::keyOf(item(ctx, "minecraft:gold_ingot"), items::empty());
     eq::controllerButtons(p, {true, false, false, false, false, false}, std::nullopt);
-    ctx.check(eq::linkbus::powerAt(key, base, 256) == 15, "button forward transmits on its frequency");
-    ctx.check(eq::linkbus::powerAt(key, at(base, 300, 0, 0), 256) == 0, "out of link range: no signal");
+    ctx.check(rl::powerAt(base, key) == 15, "button forward transmits on its frequency (U23 link network)");
+    ctx.check(rl::powerAt(at(base, rl::range() + 50, 0, 0), key) == 0, "out of link range: no signal");
     eq::controllerButtons(p, {false, false, false, false, true, false}, std::nullopt);
-    ctx.check(eq::linkbus::powerAt(key, base, 256) == 0, "releasing the button stops the signal");
-    ctx.check(eq::linkbus::powerAt(ce::frequencyKey("minecraft:gold_ingot", ""), base, 256) == 15, "jump transmits on its own frequency");
+    ctx.check(rl::powerAt(base, key) == 0, "releasing the button stops the signal");
+    ctx.check(rl::powerAt(base, gold) == 15, "jump transmits on its own frequency");
     eq::controllerButtons(p, {false, false, false, false, false, false}, std::nullopt);
-    // a frequency source registered by the redstone links (U23) lets the controller bind
-    eq::linkbus::registerFrequencySource("levitate:redstone_link", [](GlobalPos const&) {
-        return std::optional<std::pair<std::string, std::string>>{{"minecraft:emerald", "minecraft:emerald"}};
-    });
-    ctx.check(eq::linkbus::frequencyAt("levitate:redstone_link", base).has_value(), "frequency source");
+    ctx.check(rl::powerAt(base, gold) == 0, "and stops");
+    // bind mode: right-click a redstone link, then press a button
+    auto link = at(base, 0, 0, 2);
+    ctx.require(ctx.setBlock(link, "levitate:redstone_link", {{"levitate:facing", 1}}), "redstone link");
+    auto& doc                 = lv::feature::common::blockdata::edit(link);
+    doc["redstone"]["first"]  = j("minecraft:emerald");
+    doc["redstone"]["last"]   = j("minecraft:lapis_lazuli");
+    auto held = p.getSelectedItem();
+    ctx.check(eq::controllerUseOn(p, held, link) && eq::controllerActive(p), "right-clicking a link enters bind mode");
+    eq::controllerButtons(p, {false, true, false, false, false, false}, std::nullopt);
+    eq::controllerButtons(p, {false, false, false, false, false, false}, std::nullopt);
+    auto bound = items::getData(p.getSelectedItem(), eq::kControllerData)["freq"][1];
+    ctx.check(bound.is_array() && items::idOf(items::fromJson(bound[0])) == "minecraft:emerald", "the pressed button (back) took the link's frequency");
+    eq::controllerButtons(p, {false, true, false, false, false, false}, std::nullopt);
+    ctx.check(rl::powerAt(link, rl::keyOf(item(ctx, "minecraft:emerald"), item(ctx, "minecraft:lapis_lazuli"))) == 15, "the bound button powers that frequency");
+    eq::controllerButtons(p, {false, false, false, false, false, false}, std::nullopt);
+    held = p.getSelectedItem();
+    ctx.check(eq::controllerUse(p, held) && !eq::controllerActive(p), "right-click stops using it");
     // lectern: right-click a lectern with the controller
     auto lectern = at(base, 2, 0, 0);
     ctx.require(ctx.setBlock(lectern, "minecraft:lectern"), "lectern");
-    auto held = p.getSelectedItem();
+    held = p.getSelectedItem();
     ctx.check(eq::lecternUse(p, held, lectern), "the controller goes on the lectern");
     ctx.check(eq::idAt(lectern) == "levitate:lectern_controller", "a lectern controller");
     ctx.check(eq::lecternUse(p, held, lectern) && eq::controllerActive(p), "right-clicking it starts using it");
     eq::controllerButtons(p, {true, false, false, false, false, false}, lectern);
-    ctx.check(eq::linkbus::powerAt(key, lectern, 1) == 15, "the lectern transmits from its own position");
+    ctx.check(rl::powerAt(lectern, key) == 15, "the lectern transmits from its own position");
     eq::controllerButtons(p, {false, false, false, false, false, false}, lectern);
     ctx.check(eq::lecternUse(p, held, lectern) && !eq::controllerActive(p), "right-click again stops");
     (void)lv::feature::common::blockdata::take(lectern); // no controller drop when the test area is cleared

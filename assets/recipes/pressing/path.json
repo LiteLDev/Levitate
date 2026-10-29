@@ -1,0 +1,27 @@
+{
+  "type": "levitate:pressing",
+  "ingredients": [
+    [
+      {
+        "item": "minecraft:dirt"
+      },
+      {
+        "item": "minecraft:coarse_dirt"
+      },
+      {
+        "item": "minecraft:dirt_with_roots"
+      },
+      {
+        "item": "minecraft:mycelium"
+      },
+      {
+        "item": "minecraft:podzol"
+      }
+    ]
+  ],
+  "results": [
+    {
+      "id": "minecraft:grass_path"
+    }
+  ]
+}

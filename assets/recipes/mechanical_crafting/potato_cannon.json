@@ -1,7 +1,16 @@
 {
   "type": "create:mechanical_crafting",
+<<<<<<< HEAD
   "accept_mirrored": true,
   "key": {
+=======
+  "category": "misc",
+  "accept_mirrored": true,
+  "key": {
+    "C": {
+      "tag": "c:ingots/copper"
+    },
+>>>>>>> origin/main
     "L": {
       "item": "create:andesite_alloy"
     },
@@ -10,9 +19,12 @@
     },
     "S": {
       "item": "create:fluid_pipe"
+<<<<<<< HEAD
     },
     "C": {
       "tag": "c:ingots/copper"
+=======
+>>>>>>> origin/main
     }
   },
   "pattern": [
@@ -20,6 +32,10 @@
     "CC   "
   ],
   "result": {
+<<<<<<< HEAD
+=======
+    "count": 1,
+>>>>>>> origin/main
     "id": "create:potato_cannon"
   }
 }

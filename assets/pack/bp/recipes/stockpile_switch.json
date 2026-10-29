@@ -1,0 +1,36 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:stockpile_switch"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "R",
+      "B",
+      "I"
+    ],
+    "key": {
+      "R": {
+        "item": "levitate:electron_tube"
+      },
+      "B": {
+        "item": "levitate:brass_casing"
+      },
+      "I": {
+        "item": "minecraft:comparator"
+      }
+    },
+    "result": {
+      "item": "levitate:stockpile_switch",
+      "count": 1
+    },
+    "unlock": [
+      {
+        "item": "levitate:electron_tube"
+      }
+    ]
+  }
+}

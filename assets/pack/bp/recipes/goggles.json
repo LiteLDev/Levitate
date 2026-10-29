@@ -1,0 +1,17 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:goggles"
+    },
+    "tags": ["crafting_table"],
+    "pattern": [" S ", "GPG"],
+    "key": {
+      "S": { "item": "minecraft:string" },
+      "G": { "item": "minecraft:glass" },
+      "P": { "item": "levitate:golden_sheet" }
+    },
+    "unlock": [{ "item": "levitate:golden_sheet" }],
+    "result": { "item": "levitate:goggles" }
+  }
+}

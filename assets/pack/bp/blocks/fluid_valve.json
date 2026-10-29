@@ -1,0 +1,128 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:fluid_valve",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:along_first": [
+          0,
+          1
+        ],
+        "levitate:enabled": [
+          0,
+          1
+        ],
+        "levitate:rotor": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.fluid_valve",
+        "bone_visibility": {
+          "valve_down_0": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:along_first') == 0",
+          "handle_open_down_0": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_down_0": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 0",
+          "shaft_down_0": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:rotor') != 1",
+          "valve_down_1": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:along_first') == 1",
+          "handle_open_down_1": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_down_1": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 0",
+          "shaft_down_1": "q.block_state('levitate:facing') == 0 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:rotor') != 1",
+          "valve_up_0": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:along_first') == 0",
+          "handle_open_up_0": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_up_0": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 0",
+          "shaft_up_0": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:rotor') != 1",
+          "valve_up_1": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:along_first') == 1",
+          "handle_open_up_1": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_up_1": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 0",
+          "shaft_up_1": "q.block_state('levitate:facing') == 1 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:rotor') != 1",
+          "valve_north_0": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:along_first') == 0",
+          "handle_open_north_0": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_north_0": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 0",
+          "shaft_north_0": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:rotor') != 1",
+          "valve_north_1": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:along_first') == 1",
+          "handle_open_north_1": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_north_1": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 0",
+          "shaft_north_1": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:rotor') != 1",
+          "valve_south_0": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:along_first') == 0",
+          "handle_open_south_0": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_south_0": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 0",
+          "shaft_south_0": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:rotor') != 1",
+          "valve_south_1": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:along_first') == 1",
+          "handle_open_south_1": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_south_1": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 0",
+          "shaft_south_1": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:rotor') != 1",
+          "valve_west_0": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:along_first') == 0",
+          "handle_open_west_0": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_west_0": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 0",
+          "shaft_west_0": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:rotor') != 1",
+          "valve_west_1": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:along_first') == 1",
+          "handle_open_west_1": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_west_1": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 0",
+          "shaft_west_1": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:rotor') != 1",
+          "valve_east_0": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:along_first') == 0",
+          "handle_open_east_0": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_east_0": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:enabled') == 0",
+          "shaft_east_0": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:along_first') == 0 && q.block_state('levitate:rotor') != 1",
+          "valve_east_1": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:along_first') == 1",
+          "handle_open_east_1": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 1",
+          "handle_closed_east_1": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:enabled') == 0",
+          "shaft_east_1": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:along_first') == 1 && q.block_state('levitate:rotor') != 1"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_fluid_valve",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -5.0,
+          3.0,
+          -5.0
+        ],
+        "size": [
+          10.0,
+          10.0,
+          10.0
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -5.0,
+          3.0,
+          -5.0
+        ],
+        "size": [
+          10.0,
+          10.0,
+          10.0
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#c56d43",
+      "minecraft:loot": "loot_tables/blocks/fluid_valve.json"
+    }
+  }
+}

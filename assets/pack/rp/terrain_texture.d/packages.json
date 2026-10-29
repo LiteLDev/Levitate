@@ -1,0 +1,74 @@
+{
+  "levitate_packager_side": {
+    "textures": "textures/blocks/packager_side"
+  },
+  "levitate_packager_front": {
+    "textures": "textures/blocks/packager_front"
+  },
+  "levitate_packager_back": {
+    "textures": "textures/blocks/packager_back"
+  },
+  "levitate_repackager_side": {
+    "textures": "textures/blocks/repackager_side"
+  },
+  "levitate_repackager_front": {
+    "textures": "textures/blocks/repackager_front"
+  },
+  "levitate_repackager_back": {
+    "textures": "textures/blocks/repackager_back"
+  },
+  "levitate_chain_conveyor": {
+    "textures": "textures/blocks/chain_conveyor"
+  },
+  "levitate_package_frogport": {
+    "textures": "textures/blocks/package_frogport"
+  },
+  "levitate_white_postbox": {
+    "textures": "textures/blocks/white_postbox"
+  },
+  "levitate_orange_postbox": {
+    "textures": "textures/blocks/orange_postbox"
+  },
+  "levitate_magenta_postbox": {
+    "textures": "textures/blocks/magenta_postbox"
+  },
+  "levitate_light_blue_postbox": {
+    "textures": "textures/blocks/light_blue_postbox"
+  },
+  "levitate_yellow_postbox": {
+    "textures": "textures/blocks/yellow_postbox"
+  },
+  "levitate_lime_postbox": {
+    "textures": "textures/blocks/lime_postbox"
+  },
+  "levitate_pink_postbox": {
+    "textures": "textures/blocks/pink_postbox"
+  },
+  "levitate_gray_postbox": {
+    "textures": "textures/blocks/gray_postbox"
+  },
+  "levitate_light_gray_postbox": {
+    "textures": "textures/blocks/light_gray_postbox"
+  },
+  "levitate_cyan_postbox": {
+    "textures": "textures/blocks/cyan_postbox"
+  },
+  "levitate_purple_postbox": {
+    "textures": "textures/blocks/purple_postbox"
+  },
+  "levitate_blue_postbox": {
+    "textures": "textures/blocks/blue_postbox"
+  },
+  "levitate_brown_postbox": {
+    "textures": "textures/blocks/brown_postbox"
+  },
+  "levitate_green_postbox": {
+    "textures": "textures/blocks/green_postbox"
+  },
+  "levitate_red_postbox": {
+    "textures": "textures/blocks/red_postbox"
+  },
+  "levitate_black_postbox": {
+    "textures": "textures/blocks/black_postbox"
+  }
+}
