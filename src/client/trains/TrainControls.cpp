@@ -1,0 +1,269 @@
+// Train controls of the client mod (Create's ControlsHandler + TrainHUD, SPEC §3.6.27): while the
+// server says we control a train ("trains.controls"), the movement keys go to the train instead of
+// the player (W / S throttle and brake, A / D steer, Space approach, Shift stop, Esc stop), the
+// mouse wheel sets the throttle and the sprint key sounds the horn. They are sent on
+// "trains.interact" / "trains.throttle"; the HUD bar shows speed and throttle. A right-click with an
+// empty hand in the air sends "trains.interact" (vanilla clients send nothing for it).
+
+#ifdef LV_CLIENT
+
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <cmath>
+
+#include "ll/api/event/EventBus.h"
+#include "ll/api/event/client/ClientExitLevelEvent.h"
+#include "ll/api/event/input/KeyInputEvent.h"
+#include "ll/api/event/input/MouseInputEvent.h"
+#include "ll/api/event/render/UIRenderEvent.h"
+#include "ll/api/event/world/ClientLevelTickEvent.h"
+
+#include "mc/client/gui/screens/ScreenView.h"
+#include "mc/client/player/LocalPlayer.h"
+#include "mc/world/item/ItemStack.h"
+
+#include "client/Client.h"
+#include "client/screen/Screen.h"
+#include "feature/net/Net.h"
+#include "mod/Log.h"
+#include "mod/Module.h"
+
+namespace lv::client::trains {
+
+namespace {
+
+namespace net = lv::feature::net;
+using namespace lv::client::screen;
+
+constexpr int kEsc = 27, kCtrl = 17;
+
+/// Create's ControlsUtil.getControls order: forward, back, left, right, jump, sneak.
+int controlOf(int key) {
+    switch (key) {
+    case 87: return 0; // W
+    case 83: return 1; // S
+    case 65: return 2; // A
+    case 68: return 3; // D
+    case 32: return 4; // Space
+    case 16: return 5; // Shift
+    default: return -1;
+    }
+}
+
+/// Written by the window thread (input events), read on the client thread.
+struct Input {
+    std::atomic<bool>                active{false}; ///< controlling a train (client thread sets it)
+    std::atomic<bool>                screenOpen{false};
+    std::array<std::atomic<bool>, 6> pressed{};
+    std::atomic<bool>                sprint{false};
+    std::atomic<int>                 scroll{0};
+    std::atomic<bool>                esc{false};
+    std::atomic<bool>                rightClick{false};
+};
+Input& input() {
+    static Input in;
+    return in;
+}
+
+/// Client thread only.
+struct Controls {
+    std::array<bool, 6> sent{};
+    int                 keepAlive = 0;
+    bool                honking   = false;
+    int                 honkCooldown = 0;
+    double              throttle  = 1; ///< Create's editedThrottle
+    bool                throttleDirty = false;
+    int                 throttleCooldown = 0;
+    Json                hud;
+    std::string         name;
+};
+Controls& controls() {
+    static Controls c;
+    return c;
+}
+
+void release() {
+    auto& in = input();
+    in.active = false;
+    for (auto& p : in.pressed) p = false;
+    in.sprint = false;
+    in.scroll = 0;
+    in.esc    = false;
+    auto& c   = controls();
+    c         = Controls{};
+}
+
+void sendPressed(std::array<bool, 6> const& keys) {
+    Json p = Json::array();
+    for (bool b : keys) p.push_back(b);
+    net::client::send("trains.interact", {{"pressed", p}});
+}
+
+/// Create's ControlsHandler.tick / TrainHUD.tick.
+void tick() {
+    auto& in = input();
+    auto& c  = controls();
+    if (in.rightClick.exchange(false)) {
+        auto* player = currentPlayer();
+        if (player && player->getSelectedItem().isNull()) net::client::send("trains.interact", Json::object());
+    }
+    if (!in.active) return;
+    if (in.esc.exchange(false)) {
+        net::client::send("trains.interact", {{"stop", true}});
+        log().info("trains client: stopped controlling (Esc)");
+        release();
+        return;
+    }
+    std::array<bool, 6> keys{};
+    bool                any = false;
+    for (std::size_t i = 0; i < keys.size(); ++i) {
+        keys[i] = !in.screenOpen && in.pressed[i];
+        any     = any || keys[i];
+    }
+    // key packets on every change and every 5 ticks while held (the server forgets keys after 30)
+    ++c.keepAlive;
+    if (keys != c.sent || (any && c.keepAlive % 5 == 0)) {
+        c.sent = keys;
+        sendPressed(keys);
+    }
+    // the mouse wheel edits the throttle in 18 steps; sent at most every 5 ticks
+    if (int delta = in.scroll.exchange(0); delta != 0) {
+        c.throttle      = std::clamp(c.throttle + delta / 18.0, 1 / 18.0, 1.0);
+        c.throttleDirty = true;
+    }
+    if (c.throttleCooldown > 0) --c.throttleCooldown;
+    if (c.throttleDirty && c.throttleCooldown == 0) {
+        c.throttleDirty    = false;
+        c.throttleCooldown = 5;
+        net::client::send("trains.throttle", {{"throttle", c.throttle}});
+    }
+    // the horn: the sprint key, repeated every 5 ticks while held
+    bool sprint = in.sprint && !in.screenOpen;
+    if (c.honkCooldown > 0) --c.honkCooldown;
+    if (sprint && c.honkCooldown == 0) {
+        net::client::send("trains.throttle", {{"honk", true}});
+        c.honkCooldown = 5;
+        c.honking      = true;
+    } else if (!sprint && c.honking) {
+        net::client::send("trains.throttle", {{"honk", false}});
+        c.honkCooldown = 0;
+        c.honking      = false;
+    }
+}
+
+/// Create's TrainHUD: a bar above the hotbar, filled to the speed (of the top speed) with a marker
+/// at the throttle.
+void drawHud(MinecraftUIRenderContext& ctx) {
+    auto const& c = controls();
+    if (!input().active || c.hud.is_null()) return;
+    auto [sw, sh] = guiSize();
+    Canvas cv(ctx);
+    double top      = std::max(1e-6, c.hud.value("top", 1.4));
+    double speed    = std::abs(c.hud.value("speed", 0.0));
+    double throttle = std::clamp(c.throttleDirty ? c.throttle : c.hud.value("throttle", c.throttle), 0.0, 1.0);
+    float  w = 120, h = 8, x = sw / 2 - w / 2, y = sh - 52;
+    cv.bevel({x - 2, y - 2, w + 4, h + 4}, 0xC0303030, 0xFF6E5F4C, 0xFF1A140F, true);
+    cv.fill({x, y, static_cast<float>(w * std::clamp(speed / top, 0.0, 1.0)), h}, 0xFF7FB8E0);
+    float mx = x + static_cast<float>(w * throttle);
+    cv.fill({mx - 1, y - 3, 2, h + 6}, color::kTextGold);
+    auto label = ctr("lv.trains.hud.throttle", "Throttle: {0}%", static_cast<int>(std::lround(throttle * 100)));
+    if (c.hud.value("approach", false)) label = ctr("lv.trains.hud.approaching", "Approaching station...");
+    cv.text(sw / 2, y - 12, c.name.empty() ? label : c.name + "  " + label, color::kText, Align::Centre);
+}
+
+} // namespace
+
+class TrainControlsModule {
+public:
+    // Client input / render listeners are added at mod load (see screen/Screen.cpp).
+    void install() {}
+    void load() {
+        net::client::on("trains.controls", [](Json const& msg) {
+            bool active = msg.value("active", false);
+            if (!active) {
+                if (input().active) log().info("trains client: stopped controlling");
+                release();
+                return;
+            }
+            release();
+            auto& c    = controls();
+            c.throttle = std::clamp(msg.value("throttle", 1.0), 1 / 18.0, 1.0);
+            c.name     = msg.value("name", std::string{});
+            input().active = true;
+            log().info("trains client: controlling '{}'", c.name);
+        });
+        net::client::on("trains.hud", [](Json const& msg) {
+            if (input().active) controls().hud = msg;
+        });
+
+        auto& bus = ll::event::EventBus::getInstance();
+        // window thread: flags only
+        mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>(
+            [](ll::event::KeyInputEvent& ev) {
+                auto& in = input();
+                if (!in.active || in.screenOpen) return;
+                int key = ev.keyCode();
+                if (key == kEsc) {
+                    if (ev.isDown()) in.esc = true;
+                    return;
+                }
+                if (key == kCtrl) {
+                    in.sprint = ev.isDown();
+                    ev.cancel(); // Create: the sprint key is the horn while controlling
+                    return;
+                }
+                int i = controlOf(key);
+                if (i < 0) return;
+                in.pressed[static_cast<std::size_t>(i)] = ev.isDown();
+                ev.cancel(); // Create sets the movement keys up: the player doesn't walk
+            },
+            ll::event::EventPriority::High
+        ));
+        mListeners.push_back(bus.emplaceListener<ll::event::MouseInputEvent>(
+            [](ll::event::MouseInputEvent& ev) {
+                auto& in   = input();
+                char  id   = ev.actionButtonId();
+                auto  data = ev.buttonData();
+                if (in.screenOpen) return;
+                if (id == 4 && data != 0 && in.active) {
+                    in.scroll += data > 0 ? 1 : -1;
+                    ev.cancel(); // TrainHUD.onScroll: the wheel doesn't change the hotbar slot
+                    return;
+                }
+                if (id == 2 && data == 1) in.rightClick = true;
+            },
+            ll::event::EventPriority::High
+        ));
+        mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) {
+            auto& in      = input();
+            in.screenOpen = current() != nullptr;
+            if (in.screenOpen) {
+                // a screen takes the keys: their releases never reach us
+                for (auto& p : in.pressed) p = false;
+                in.sprint = false;
+            }
+            if (!net::client::connected()) return;
+            tick();
+        }));
+        mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) { release(); }));
+        mListeners.push_back(bus.emplaceListener<ll::event::AfterUIRenderEvent>([](ll::event::AfterUIRenderEvent& ev) {
+            if (!input().active || current() || ev.screenView().getScreenName() != "hud_screen") return;
+            drawHud(ev.uiRenderContext());
+        }));
+    }
+    void uninstall() {
+        auto& bus = ll::event::EventBus::getInstance();
+        for (auto& l : mListeners) bus.removeListener(l);
+        mListeners.clear();
+    }
+
+private:
+    std::vector<ll::event::ListenerPtr> mListeners;
+};
+
+} // namespace lv::client::trains
+
+LV_REGISTER_MODULE(lv::client::trains::TrainControlsModule);
+
+#endif // LV_CLIENT

@@ -698,6 +698,9 @@ command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kin
   speed turns half the angle). Machines read it when their speed changes and stop after turning (bearings,
   turntables: degrees) or moving (pistons, pulleys, gantries: blocks) that far, as Create's
   `sequencedAngleLimit` / `sequencedOffsetLimit`. Not persisted (the gearshift sets it again).
+  Every `setSequenceContext` call stamps a new `serial` (U37): a machine also takes a new
+  instruction that arrives at an unchanged speed (two equal steps in a row), and reads each one once
+  (a speed change reported after it already read the instruction doesn't restart the limit).
 - **Command**: `/create kinetics <pos>` dumps the block and its network; `/create kinetics <pos>
   speed <rpm>` (Levitate debug) sets a generator's speed.
 - **Client** (client mod only): a kinetic block with a `rotorState` (int state, e.g.
@@ -1639,7 +1642,9 @@ its angle (value box "Rotation when used", `create.kinetics.valve_handle.rotated
 180 with milestones every 45, rows ⟳ (negative) / ⟲, min 1°, default 45° ⟲): it generates
 ±32 RPM for `ceil(angle / 9.6) + 2` ticks, clockwise when the angle is negative, reversed when
 sneaking; it does nothing while its network already turns (theoretical speed ≠ 0), while turning,
-or for 4 ticks after a turn. A dye of another colour dyes the handle (the block becomes
+or for 4 ticks after a turn. While it turns it declares a `TurnAngle` sequence context of |angle|
+(Create's ValveHandleBlockEntity): bearings it drives stop after exactly that angle (scaled by the
+speed ratio). A dye of another colour dyes the handle (the block becomes
 `<colour>_valve_handle`, facing kept, the dye is not used; Create's ValveHandleBlock.clicked); its
 angle resets to 45° as Create's new block entity. Players who may not build (adventure) can't use
 it. The value box sits on the handle's front (4.5 px out from the mounting face); a click with an
@@ -1698,7 +1703,10 @@ the bearing's state (running, angle, contraption ids, mode) lives in its BlockDa
   still. Assembly errors (`create.gui.assembly.exception.*`) are shown to the clicking player and
   kept in the BlockData (goggles, U8). It turns about the facing axis by `speed · 0.3`° per tick
   (right-hand rule, the same sense as its shaft; 0 while overstressed; held while an actor stalls
-  it). When the speed changes sign the angle is rounded to a whole degree. When the speed drops to 0
+  it). A sequenced gearshift's / valve handle's `TurnAngle` context reaching the bearing (read on a
+  speed change or a new instruction; windmills never) limits the turn: each tick's step is clamped
+  to the degrees left (`sequencedAngleLimit`, saved in the BlockData), so it stops at exactly the
+  angle. When the speed changes sign the angle is rounded to a whole degree. When the speed drops to 0
   the structure is placed depending on the **Movement Mode** value box (side faces, 2 px towards the
   back): Always Place when Stopped / Only Place near Initial Angle (|angle| < 45° or > 315°) / Only
   Place when Anchor Destroyed. A right-click while running places it at once (rounded to the
@@ -1787,6 +1795,10 @@ Per-block state lives in BlockData `data["pistons"]` (and travels with contrapti
   *assemble next tick*: running + speed 0 → stop (movement mode decides), running + speed → continue,
   stopped + speed → assemble. A reversal while moving snaps the offset like Create
   (`Math.round(offset * 16) / 16`, integer division).
+- Sequenced gearshift (U6) `MoveDistance` context: pistons and rope pulleys (not mirrored pulleys,
+  not elevators) take its value as `sequencedOffsetLimit` on a speed change or a new instruction;
+  each step is clamped to what is left and the limit counts down, so the structure stops at exactly
+  that distance and waits until the speed changes (Create's getMovementSpeed / tick).
 - Each tick: the structure moves by the speed; the leading blocks are tested one step ahead against
   the world (solid, non-replaceable blocks, unloaded chunks; block-breaking actors registered with
   `ext::registerTerrainPassThrough` pass) and against other piston / pulley structures. A collision
@@ -1856,7 +1868,9 @@ without a shaft behind it). A carriage assembles its structure (the shaft is anc
 shaft turns and allows it (unpowered; start: speed > 0, end: speed < 0, middle: any; single: never):
 pinion speed `clamp(-rpm/512, ±0.49)` along the shaft's facing. It moves until the shaft under it is
 gone, powered or stopped, or until it passes the centre of a shaft that wouldn't let it assemble, or
-hits the world; then it is placed (grid aligned). A powered shaft drives the carriage as a gear instead
+hits the world; then it is placed (grid aligned). A `MoveDistance` sequence context reaching the
+shaft when the carriage assembles limits the gantry to that distance (Create's limitMovement): it
+then holds until its shaft stops. A powered shaft drives the carriage as a gear instead
 (Create's pinion ratio). Nested gantries work through the world (an inner carriage starts when its
 shaft turns after the outer one stops). Stress impact 0 (Create: setNoImpact; the kinetics table in
 `config/kinetics.json` still lists `gantry_shaft` 4 and must become 0).
@@ -2788,6 +2802,13 @@ SpeedControllerBlock(Entity), GaugeBlock, Speed/StressGaugeBlockEntity). Pure ru
   `ceil(m / (speed·mod/512)) + 2`, delay as set; Await continues on the next rising edge; End or
   the last instruction stop (the state stays until the power goes). A speed change re-times the
   running instruction, a stop ends the sequence. Changing the instructions resets the sequence.
+  While a turn instruction runs, the gearshift declares Create's `SequenceContext`
+  (`SequenceContext.fromGearshift`): Turn by angle → `TurnAngle`, Turn to move → `MoveDistance`,
+  the value divided by |modifier| (kinetics scales by the speed ratio to the gearshift's *input*,
+  Create's relative value is `value / (speed · modifier)`); delays, awaits and the end clear it.
+  The network is re-read in the same tick, so the driven machines see the new speed and the
+  instruction together. The machines stop exactly at the value (bearings, pistons, pulleys,
+  gantries below) while the instruction's time (2 ticks longer) runs out.
   Comparator output = `levitate:state`. One log line per instruction step.
 - **Rotation speed controller**: value box (board ⟳ / ⟲, 1..`maxRotationSpeed`, milestones 32) on
   the two side faces at 8 / 11 px; default 16 RPM; label "Targeted Speed in RPM". Changing it
@@ -3299,14 +3320,32 @@ back (`removed_from_train`, auto-schedules are discarded); empty schedule: `no_s
 **Manual driving.** Right-click a train's controls (also through any block behind them, or in the
 air holding an item) starts controlling ("Now controlling: <train>", the schedule pauses:
 `paused_for_manual`); again, sneaking, leaving 8 blocks or the dimension stops ("Stopped controlling
-contraption"). Movement keys from the player's input (every client sends them in
-PlayerAuthInputPacket; held keys time out after 30 ticks): W / S throttle (target `top ·
+contraption"). Movement keys from the player's input (vanilla clients: PlayerAuthInputPacket; the client mod:
+Create's controls packets, below; held keys time out after 30 ticks): W / S throttle (target `top ·
 manualTrainSpeedModifier 0.75 · throttle`, the turning speed on curves, a quarter backwards on single
 ended trains; braking against the motion at 2a), A / D pick the left / right branch at junctions,
 Space at a station shows "Arrived at <station>", elsewhere approaches the nearest station between
 0.75 and max(32, 1.5) braking distances ahead (releasing Space cancels). Leaving a station:
 "Departing from <station>". Fuel: any burnable item from the carriages' chests / barrels (lava buckets
 leave the bucket) while driving.
+
+**Client mod controls** (Create's ControlsHandler / TrainHUD, U37). Starting / stopping to control
+sends the companion `trains.controls` {active, throttle, name}. While active, the client mod takes
+W / S / A / D / Space / Shift from the player (they don't move the player, as Create sets the keys
+up) and sends `trains.interact` {pressed: [forward, back, left, right, jump, sneak]} on every change
+and every 5 ticks while one is held; Esc sends {stop: true}. The mouse wheel changes the throttle by
+1/18 (1/18 .. 1, Create's editedThrottle) and sends `trains.throttle` {throttle} at most every
+5 ticks (one log line per change on the server). The sprint key (Ctrl) is the horn: {honk: true}
+every 5 ticks while held, {honk: false} when released; the server follows Create's HonkPacket
+(`honkTicks` = 20 for a new honk, 13 while held, 6 or 0 on release) and, while it counts down,
+plays the steam whistle tone (U18; the large whistle's low tone) at the train's first whistle with
+its pitch (2^(−semitones / 12)), restarted every 10 ticks; trains without a whistle have no horn
+(Create's lowHonk null). An empty-hand right-click into the air sends `trains.interact` {} (vanilla
+clients send nothing for it): it toggles the controls looked at, as the item-use path. Companions'
+PlayerAuthInputPacket is ignored for driving. The server sends the controlling companion
+`trains.hud` {speed, target, top, throttle, name, approach} every 5 ticks; the HUD draws a bar above
+the hotbar filled to speed / top speed with a gold marker at the throttle and "Throttle: n%" (or
+"Approaching station..." while holding Space towards a station).
 
 **Arrival / departure.** A train arrives when its leading point passes the station marker in the
 station's direction (reversing double-ended trains: their back point, against it); speed 0, the
@@ -3567,7 +3606,6 @@ matches Create's official Chinese translation wording).
 | Press on a moving belt (U14) | no belt contract to hold an item under the press | items on a depot or belt below are pressed through the item capability (one per cycle) |
 | Sequenced-assembly pressing steps, potion brewing in the mixer (U14) | they need U15's sequenced assembly and U19's potion fluids | plain pressing / mixing; added with those units |
 | Basin spout checks of the funnel facing and the belt direction (U14) | funnel and belt states are U12's / U11's, without a contract | a funnel beside the basin never blocks a spout; a belt below takes outputs whatever its direction |
-| Valve handle turning its network by an exact angle (Create's sequenced `TURN_ANGLE` context makes bearings / pistons stop after exactly that angle) (U7) | the kinetics contract has no sequence context yet | the valve generates 32 RPM for `ceil(angle / 9.6) + 2` ticks as in Create; receivers move for that time |
 | Valve handle: short click turns, holding opens the angle board (U7) | the server only sees discrete clicks (U3's value box row) | a click turns the handle; the wrench on the handle's front opens the board (form for vanilla players) |
 | Re-dyeing a dyed valve handle in the crafting grid (Create's `#create:valve_handles` + dye) (U7) | custom block items have no item tags for recipe ingredients | copper valve handle + dye in the crafting grid; any handle is re-dyed in the world by right-clicking it with a dye (as Create) |
 | Large water wheel as one 3×3 model for **vanilla** clients (U7) | a Bedrock block model may be at most 30 px wide | the wheel and its 8 structure blocks each show their own cell of the wheel; the client mod spins the whole wheel |
@@ -3580,7 +3618,6 @@ matches Create's official Chinese translation wording).
 | Furnace minecart contraptions and the chest minecart contraption item (U21) | Bedrock has no furnace minecart; a chest minecart's own inventory can't travel in the item | contraptions ride rideable and chest minecarts; only rideable carts are picked up (`minecart_contraption`) |
 | Picking up a minecart contraption (U21) | the engine has no "discard" | the structure is placed and its blocks removed again silently (refused when something is in the way: `lv.bearings.pickup_blocked`); the item carries the engine's own record of the structure |
 | Coupling chains drawn between carts (U21) | no client-side line rendering for entities | couplings work but aren't drawn |
-| Sequenced gearshift angle limits on bearings (U21) | the kinetic contract has no sequence context | bearings turn at their speed; the gearshift's own timing still applies |
 | Crushing wheel controller letting only the crushed entity through (U13) | Bedrock block collision can't depend on the entity | the controller keeps Create's 13 px slab for everyone; the item being crushed is moved through it by the server; mobs are hurt where they stand on it |
 | Create's crushing death messages, looting 2 for crushed mobs, fan damage types (U13) | Bedrock has no data-driven damage types or per-kill looting | crushing uses the contact cause, fans fire / lava / drowning causes; drops are the mob's plain loot; the strings exist in the lang files |
 | Fan processing state kept on the item entity (U13) | Bedrock item entities can't change their item for clients and carry no free data | a processed item entity is replaced by a new one with the same motion; the processing state lives in the server's memory (restarts after a reload) |
@@ -3627,7 +3664,6 @@ matches Create's official Chinese translation wording).
 | Animated schematicannon barrel (U29) | the barrel is part of the block model | static barrel; the client mod draws the launched blocks flying to their target, everyone sees smoke and placement particles |
 | Material checklist on a clipboard (U29) | the clipboard is U24's | a clipboard in the paper slot also gives a written book |
 | Text input in native screens (U29) | the screen framework sees key codes, not text | the quill prompt and the coordinates screen take letters, digits, space, `-`, `_`, `.`; other characters through the form fallback |
-| Sequenced gearshift distance limits on pistons / gantries (U20) | Create passes the sequence context through its kinetic block entities; the U2 contract has no such channel | pistons and gantries run until their end / collision |
 
 | Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer, for **vanilla** clients (U11) | Bedrock has no item renderer for vanilla clients | the client mod draws each stack (display items, U33: lying, half size, a pile for bigger stacks, interpolated between ticks) and does not draw the fallback; vanilla players see each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick); with `displayItems` off they see nothing |
 | Sloped belt collision shape (U11) | a custom block has one collision box | slopes collide as a half slab; entities are carried up / down by the belt code |
@@ -3652,7 +3688,7 @@ matches Create's official Chinese translation wording).
 | Wheels turning on bogeys (U27) | carriage blocks are display entities showing a block model; the client framework has no per-part animation for them yet | bogeys are drawn still (client mod and vanilla) |
 | Opening train doors at stations (U27) | the contraption API can't change a carried block's state | the station's door control setting is stored and shown; doors stay as assembled |
 | Station comparator output and flag animation (U27) | custom blocks can't give a comparator signal; the flag is a block state | the station's texture shows assembly mode; no comparator output |
-| Train HUD (speed bar, throttle by mouse wheel) and the horn (U27) | needs a client HUD renderer | action-bar prompts; throttle from schedules (and `trains.throttle` from the client mod) |
+| Train HUD, mouse-wheel throttle and horn for **vanilla** clients (U27) | the server can't see the mouse wheel or the sprint key, nor draw a HUD | action-bar prompts; throttle from schedules; the client mod has Create's HUD, throttle and horn (§3.6.27) |
 | Train map colours / map markers (U27) | no map mods on Bedrock | none |
 | Removing a train without placing its blocks (`/create train remove`, U27) | the contraption API only disassembles | `/create killtrain` places the carriages back as blocks where they stand |
 | Wrench relocation of derailed trains (U27) | needs U8's wrench and Create's client-side placement preview | derailed trains re-attach when the track under their front returns; otherwise disassemble them with `/create killtrain` |
@@ -3684,7 +3720,6 @@ Units add rows here in their PRs when they find something else impossible.
 | Comparator reading a gauge / sequenced gearshift (U6) | `getComparatorSignal` of custom blocks can't be overridden (a folded function) | a hook on the comparator's evaluation feeds it the block's output when its rear (directly or through a solid block) is one of ours |
 | Smooth gauge needle for **vanilla** clients (U6) | block models are static per state; cube rotations are limited to 22.5° steps | the needle state snaps to the nearest 22.5°; the client mod draws the eased needle |
 | Gauge dial particles (U6) | Create's coloured dust particles need a client particle with a colour parameter | not shown yet |
-| Sequenced gearshift stopping a bearing / piston exactly (U6) | Create passes a "sequence context" through the kinetic network to the driven machine; the wave-1 kinetics contract has no such channel | the instructions run for Create's durations (which overshoot by two ticks); exact stops need a kinetics contract extension |
 | Wrench on transmission blocks (encased cog shaft toggling, removing casings) (U6) | the wrench (U8) has no per-block hook in the wave-1 contracts | left to U8's wrench (rotate / pick up); the shaft ends of encased cogs are set when encasing |
 | Integrated-cog placement helpers (cogs placed against mixers / crafters) (U6) | those blocks are other units' | plain placement rules apply |
 

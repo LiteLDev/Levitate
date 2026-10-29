@@ -232,6 +232,7 @@ void runTick() {
         s.graphVersion = tracks::railways().version(); // re-adding points bumps it
     }
     tickTrains();
+    tickControls();
     // stations change rarely: write them soon after a change (trains are saved with the world)
     if (s.stationsDirty && s.tick % 100 == 0) saveAll();
 }
@@ -309,6 +310,7 @@ struct WorldHooks {
             s.targets.clear();
             s.pendingStations.clear();
             s.deferred.clear();
+            resetControls();
         });
     }
 } const gWorldHooks;

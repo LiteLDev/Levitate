@@ -267,4 +267,21 @@ void markStationsDirty();
 void installHooks();
 void uninstallHooks();
 
+// ---- client mod controls (Controls.cpp) ----------------------------------------------------------
+/// Create's ControlsInputPacket: held keys [forward, back, left, right, jump, sneak].
+void controlsInput(Player& player, Json const& pressed);
+/// Create's ControlsStopControllingPacket.
+void controlsStop(Player& player);
+/// Create's TrainHUDUpdatePacket (throttle 1/18 .. 1).
+void setThrottle(Player& player, double throttle);
+/// Create's HonkPacket: the horn of the controlled train (its first steam whistle).
+void setHonk(Player& player, bool honk);
+/// Remaining honk ticks of a train (selftests).
+[[nodiscard]] int honkTicksOf(std::uint64_t trainId);
+/// A player started / stopped controlling `t`: tells the client mod (key capture, HUD).
+void controlsChanged(Train const& t, Player* player, bool active);
+/// Horn sounds and the controlling companions' HUD data (every tick).
+void tickControls();
+void resetControls();
+
 } // namespace lv::feature::trains
