@@ -943,8 +943,10 @@ loaded (`lv:redstone:blocks`); settings live in BlockData `data["redstone"]`.
   (U4 actor) it powers the world contact it passes (active area .65 blocks in front, not on the
   first movement) until it moves on / stops.
 
-Config `config/redstone.json`: `linkRange` (256). Log lines: one per placement, mode toggle,
-frequency change, lever change, inversion, latch switch, contact / observer / switch change.
+Config `config/redstone.json`: `linkRange` (256). Log lines: one per player action (placement,
+mode toggle, frequency change, lever change, inversion, latch click, threshold settings, a
+contact powered by a contraption); circuit-driven state changes are not logged.
+
 #### 3.6.16 Crafting tools (U16)
 
 Checked against Create 6.0.10 (MechanicalCrafterBlock / BlockEntity, RecipeGridHandler,
