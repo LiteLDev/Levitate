@@ -149,7 +149,23 @@ fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
 ### 2.11 Crafting tools (U16)
 
-`mechanical_crafter`, `mechanical_saw`, `mechanical_drill`.
+`mechanical_crafter`, `mechanical_saw`, `mechanical_drill` (behaviour in §3.6 "Crafting tools").
+
+- `mechanical_crafter`: states `levitate:facing` 2..5 (the front, horizontal), `levitate:pointing`
+  0..3 (Create's Pointing in its order: up, left, down, right; the arrow on the front),
+  `levitate:covered` (a slot cover is on). Full block, brass casing look, the arrow is drawn on
+  the front's frame. Kinetic: a small cog turning about the facing axis with shaft ends on the
+  front and back (crafter grids mesh like cogs), impact 2.
+- `mechanical_saw`: states `levitate:facing` 0..5, `levitate:axis_along_first` (Create's
+  AXIS_ALONG_FIRST_COORDINATE), `levitate:rotor` (client mod). A 12 px casing with the blade
+  sticking out of the front. Kinetic: shaft along DirectionalAxisKineticBlock's axis, impact 4.
+- `mechanical_drill`: states `levitate:facing` 0..5, `levitate:rotor`. A 10 px casing with the
+  drill head in front. Kinetic: shaft on the back only, impact 4.
+- All three: hardness ~ 2.5 s to mine by hand ⚠, explosion resistance 6, drop themselves. Recipes
+  (Create 6.0.10): crafter ×3 = electron tube / brass casing / crafting table (column); saw =
+  iron sheet, iron sheet + iron ingot + iron sheet, andesite casing (" A ", "AIA", " C "); drill =
+  the same with andesite alloy. Their ingredients are U9 / U10 items: the recipes wait in
+  `assets/pending_recipes/crafter/`.
 
 ### 2.12 Fluid transport (U17)
 
@@ -604,6 +620,108 @@ the details and numbers it implemented. Short reminders of the less obvious ones
 - **Ponder (U30)**: hold W over an item to open Ponder (client mod only), index of all scenes,
   animated scenes built from our blocks.
 
+#### 3.6.1 Crafting tools (U16)
+
+Checked against Create 6.0.10 (MechanicalCrafterBlock / BlockEntity, RecipeGridHandler,
+ConnectedInputHandler, EdgeInteractionHandler, SawBlock / SawBlockEntity, TreeCutter, DrillBlock,
+BlockBreakingKineticBlockEntity, BlockBreakingMovementBehaviour). Pure logic in
+`src/core/crafter/` (gtest), game side in `src/feature/crafter/`, items drawn by
+`src/client/crafter/`. Per-block state in BlockData (`crafter`, `saw`); tracked positions in
+`lv:crafter:crafters` / `lv:crafter:machines` (machines also join when the kinetic network sees
+them, whatever placed them).
+
+**Mechanical crafter.**
+- *Placing* (getStateForPlacement): against another crafter (not sneaking) it copies that
+  crafter's facing and its arrow points back at the clicked crafter; otherwise it faces the
+  player and, when placed on a face other than its front, its arrow points at the clicked block.
+- *Arrow* (getTargetDirection): the face the grid's items leave through; up / down, or the
+  viewer's left / right as seen looking at the front. The wrench on the front cycles the arrow
+  (up → left → down → right).
+- *Slot* (1 item): right-click the front with an item (idle crafter) inserts into the crafter's
+  connected input; with an empty hand takes the item back (or the cover off); the same item as
+  the slot's also takes it; any item while it works ejects the whole grid. `crafter_slot_cover`
+  (U9 item) on an empty front covers the slot (taken in survival; given back when removed).
+  Insertion sound: item frame add, volume .25, pitch .5. A covered crafter accepts nothing but
+  counts as a filled (empty) cell. The item capability inserts only (one item per slot, idle,
+  uncovered), extraction is refused.
+- *Connected inputs* (EdgeInteractionHandler, wrench, not sneaking): a click within 3/16 of an
+  edge of any face but the front toggles the connection with the neighbour behind that edge
+  (same facing, not along the facing axis); sound item frame add .25 / .1. A group shares one
+  input filled top row first, then left to right as seen from the front. Disconnecting splits
+  the group by adjacency; a removed crafter leaves its group.
+- *Starting*: when an item arrives in an idle crafter (and every 20 ticks), if the network turns,
+  the chain of crafters linked by arrows (each pointing at the next, same facing) starts when
+  every crafter has an item or a cover; a rising redstone edge starts it with at least one item
+  (incomplete crafts; Bedrock: power is polled, §8). Loops never start.
+- *Phases* (countdown speed = clamp(|RPM|, 4, 250) per tick): crafters without a preceding one
+  assemble (1), then export (1000; 0 when they carry only empty cells) into the crafter they
+  point at — the grid is merged with the arrow's offset, click sound (pitch 0.5 + cells/16) —
+  and wait; a crafter whose predecessors all wait assembles next. The last crafter (no target
+  crafter) applies the recipe: the game's crafting table recipes first (grid ≤ 3×3,
+  `allowRegularCraftingInCrafter`, firework rockets at most `maxFireworkIngredientsInCrafter`
+  items), then Create's `mechanical_crafting` recipes (`assets/recipes/mechanical_crafting/`, up
+  to 9×9, `accept_mirrored`). Grid rows read top (highest crafter) to bottom, empty outer rows /
+  columns are trimmed. No recipe: every crafter of the chain ejects. Then it crafts (2000; at
+  1000 a click at pitch 2 and the craft sound; crit particles in front), and inserts the result
+  (plus crafting remainders such as buckets, one cell to the right each) into the block its arrow
+  points at (any item handler, belts every tick, others every 20 ticks while items wait);
+  nothing there: everything pops out of the front (centre + facing × .75, default pickup delay).
+- *Removing* a crafter drops its cover and ejects the whole chain's items (not when a
+  contraption moves it).
+- Sounds: Create's crafter_click = wooden button click (.25) + trapdoor open (.125); crafter_craft
+  = item break (.5, pitch .75) (Bedrock names `random.click`, `random.door_open`, `random.break`).
+- Client mod: the slot item on the front (half a block), the grouped grid spread over the front
+  half a block apart, sliding one block along the arrow while exporting, the result growing while
+  crafting. Vanilla clients see the blocks and the particles only (§8).
+
+**Mechanical saw.**
+- *Placing* (DirectionalAxisKineticBlock): faces the player (sneaking: away); vertical saws take
+  the blade along the player's horizontal look, horizontal saws prefer a shaft above / below or
+  beside them.
+- *Processing* (facing up only): one item at a time (`bulkCutting`: whole stacks) from item
+  entities resting on it, belts / funnels / arms through the item capability. Recipes: Create's
+  `cutting` recipes (`assets/recipes/cutting/`: the generated wood cutting — log / wood →
+  stripped (50 ticks), stripped → 6 planks, bamboo block → stripped → 3 planks ⚠, bamboo planks →
+  mosaic (20), andesite alloy → 6 shafts (200)) and the game's stonecutter recipes
+  (`allowStonecuttingOnSaw`), cutting first; the recipe filter slot (on top, 3 px beside the
+  blade; U3 filter slot) keeps the recipes whose first result matches; several recipes cycle per
+  item. Time = recipe time (50 for stonecutting) × max(1, count / 5), counted down by
+  clamp(|RPM| / 24, 1, 128) per tick; below 5 the results are rolled (once per input item, merged),
+  then 20 more; no recipe: 10 ticks, the item passes through. Output: along the item movement
+  (±x when not along first, ∓z otherwise; sign of the speed) into a Levitate block that takes
+  direct input (belts, depots, saws, crafters…; §8), else ejected (centre + move × .5 + (0, .5, 0),
+  motion move × .0625 + (0, .125, 0)).
+- *Cutting* (facing sideways): breaks the block in front when sawable (logs, wood, stems,
+  leaves, mangrove roots, bamboo, melons, pumpkins, cactus, sugar cane, kelp, chorus plant; never
+  saplings), then fells the tree (TreeCutter: the trunk must be freed by the cut; logs / roots
+  found upwards in 3×2×3 steps, leaves by increasing leaf distance — computed on Bedrock as the
+  vanilla distance through leaves —, mushroom blocks / wart blocks / weeping vines within their
+  horizontal reach, attachments: bee nests, cocoa, vines, moss carpets, shroomlights ⚠; bamboo,
+  cactus, sugar cane, kelp: everything above; chorus: the connected plant). Felled drops fly
+  from their block away from the saw (motion (cut − saw) × distance / 20). It resumes the next
+  tick.
+- Entities inside the block (but items) are hurt like by the drill.
+- Contraption actor: breaks sawable blocks in its path (stalling the contraption), fells their
+  trees (not for leaves), drops into the contraption's storage first (`moveItemsToStorage`).
+
+**Mechanical drill.**
+- *Placing* (DirectionalKineticBlock): away from a single neighbour with a shaft towards it,
+  else facing the player (sneaking: away).
+- *Breaking* (both machines): every hit adds clamp((int)(speed / hardness), 1, 10 − progress)
+  (speed = |RPM| / 100), then waits (int)(hardness / speed) ticks; at 10 the block breaks with
+  its normal drops (no tool) at its centre, then the drill resumes on its next lazy tick
+  (10 ticks). Never: air, liquids, unbreakable blocks, Create's non-breakable list. Hit sound
+  .25, cracks shown while breaking.
+- Entities (not items) inside its block lose min(s/16, 2) + min(s/32, 4) + min(s/64, 4) health
+  per hit (s = |RPM|).
+- Contraption actor (BlockBreakingMovementBehaviour): visits the block at its centre + facing ×
+  .65, hurts entities there (clamp(6·|motion|^0.4 + 1, 2, 10)) and throws them, stalls while
+  breaking blocks with collision (no tracks) at speed clamp(|animation speed| / 500, 1/128, 16),
+  falling blocks above are broken top-down and re-visited after 10 ticks; inactive while moving
+  backwards; drops go to the contraption's storage first.
+- Client mod: the blade and the drill head turn with the kinetic renderer (`rotor` bones; the
+  drill uses a mirrored bone for negative facings). Vanilla clients see the static blade / head.
+
 ## 4. Screens
 
 Each screen: native (client mod) + form fallback (vanilla). Owner unit in brackets.
@@ -663,6 +781,10 @@ place:
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
 
+`config/crafter.json` (U16, Create's CRecipes / CKinetics keys and defaults):
+`allowRegularCraftingInCrafter` (true), `maxFireworkIngredientsInCrafter` (9),
+`allowStonecuttingOnSaw` (true), `bulkCutting` (false), `moveItemsToStorage` (true).
+
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
 `mediumCapacity` (256), `highCapacity` (1024), `impact` {block path: SU per RPM} and `capacity`
@@ -710,6 +832,12 @@ matches Create's official Chinese translation wording).
 | Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
 | Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
+| Redstone input of the mechanical crafter (U16) | custom blocks get no redstone neighbour update | the crafter polls the power of its neighbours every tick (same sources as the sticker) |
+| Crafter items for **vanilla** clients (U16) | Create renders the slot / grid items on the crafter's face client-side | the client mod draws them; vanilla clients see the blocks, the crit particles and the result popping out |
+| Saw output only into blocks with Create's DirectBeltInputBehaviour (U16) | the item capability doesn't say whether a block takes "direct belt input" | the saw (and its belt neighbours) hands its items to Levitate blocks with an item handler except vaults; vanilla containers next to a saw are skipped as in Create |
+| Sequenced assembly steps on the saw (U16) | the sequenced assembly state belongs to U15 | the saw cuts plain `cutting` recipes; U15 adds the sequenced cutting step |
+| Block break sounds of the drill / saw per block sound type (U16) | the server can't name a block's hit sound for a PlaySound packet | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone` by the block id |
+| Saw / drill damage source names (U16) | Bedrock has no custom damage causes | contact damage (death message of a cactus-like cause) |
 
 Units add rows here in their PRs when they find something else impossible.
 

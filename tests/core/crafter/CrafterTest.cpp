@@ -138,7 +138,7 @@ TEST(Breaking, Numbers) {
     EXPECT_DOUBLE_EQ(drillDamage(32), 2 + 1 + 0.5);
     EXPECT_DOUBLE_EQ(drillDamage(256), 10);
     EXPECT_DOUBLE_EQ(movingDamage(0), 2);
-    EXPECT_FLOAT_EQ(animationSpeed(0.1), -100);
+    EXPECT_FLOAT_EQ(animationSpeed(0.1), -200); // Create: (int)(length * 1000 + 100 * sign) / 100 * 100
     EXPECT_FLOAT_EQ(animationSpeed(0.001), 0);
     EXPECT_FLOAT_EQ(movingBreakSpeed(-100), 0.2f);
 }
