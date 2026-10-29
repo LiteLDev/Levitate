@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:green_postbox_from_light_gray_postbox"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:green_dye"
+      },
+      {
+        "item": "levitate:light_gray_postbox"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:light_gray_postbox"
+      }
+    ],
+    "result": {
+      "item": "levitate:green_postbox",
+      "count": 1
+    }
+  }
+}

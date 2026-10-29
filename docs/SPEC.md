@@ -239,6 +239,21 @@ The recipes use U9's materials (andesite alloy, brass, sheets, electron tube): t
 `basin`, `mechanical_press`, `mechanical_mixer`, `blaze_burner` (states `blaze` none/smouldering/
 fading/kindled/seething), `empty_blaze_burner`, `lit_blaze_burner`.
 
+Bedrock blocks (details in §3.6.14):
+- `basin`: `levitate:facing` 0 (no spout) / 2..5 (spout side, Bedrock face). Drops itself and its contents.
+- `mechanical_press`: `levitate:axis` 0 (x) / 2 (z) (Create's horizontal facing; only the axis is
+  visible), `levitate:rotor` 0/1 (kinetic rotor state, §3.1).
+- `mechanical_mixer`: `levitate:rotor` 0/1.
+- `blaze_burner`: `levitate:blaze` 1..4 = smouldering, fading, kindled, seething, `levitate:facing`
+  2..5 (where the blaze looks), `levitate:rotor` 0/1 (client mod: head drawn separately). Create's
+  heat level *none* (no blaze) is the separate block `empty_blaze_burner` (`levitate:facing`), which
+  is also the item Create calls "Empty Blaze Burner"; both drop themselves.
+- `lit_blaze_burner`: `levitate:facing`, `levitate:flame_type` 0 regular / 1 soul (read by U13 for haunting); drops the empty burner.
+- Recipes (Create 6.0.10): basin = andesite alloy `A A`/`AAA`; mechanical press = shaft / andesite
+  casing / iron block; mechanical mixer = cogwheel / andesite casing / whisk; empty blaze burner =
+  ` I `/`INI`/` I ` (iron sheet, netherrack). They need other units' items and wait in
+  `assets/pending_recipes/basin/`.
+
 ### 2.10 Assembly (U15)
 
 `deployer`, `mechanical_arm`. Create 6.0.10's sequenced assembly intermediates are
@@ -376,7 +391,7 @@ night vision); emptying recipes: honey bottle, builder's tea.
 `mechanical_bearing`, `windmill_bearing`, `clockwork_bearing`, `sail_frame`, `white_sail` +
 `<colour>_sail`, `cart_assembler`, `minecart_coupling` (item), `controller_rail`, `turntable`,
 `minecart_contraption` (item; listed under §2.25 too, made by U21 as the pickup of a cart contraption).
-Mechanics in §3.6.1.
+Mechanics in §3.6.25.
 
 - Bearings: states `levitate:facing` 0..5 (down, up, north, south, west, east: the turning face) and
   `levitate:rotor` (kinetic render state, §3.1). Placed as Create's DirectionalKineticBlock: facing
@@ -435,7 +450,24 @@ Mechanics in §3.6.1.
 ### 2.18 Contraption actors (U22)
 
 `mechanical_harvester`, `mechanical_plough`, `mechanical_roller`, `portable_storage_interface`,
-`contraption_controls`, `<colour>_seat` (16).
+`contraption_controls`, `<colour>_seat` (16, Create's dye order: white, orange, magenta, light_blue,
+yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, black). Behaviour in §3.6.22.
+
+- States: `levitate:facing` 0..5 (Bedrock facing order, the front). Harvester, plough and roller
+  (Create's AttachedActorBlock): placed on a side face they face away from it (on another of
+  these actors: its facing), placed on a top / bottom face they face the player; they hang on the
+  block behind them (moved with it). Harvester and roller also have `levitate:anim` 0..3 (the
+  animation step the client mod shows on contraptions; always 0 in the world). Portable storage
+  interface: faces the player (the nearest look direction, 6 ways; sneaking: away), plus
+  `levitate:extended` (shown while connected). Contraption controls: faces the player
+  (horizontal), plus `levitate:disabled` (the indicator). Seats: no states, 8 px high.
+- Drops: themselves. Mining time 2.5 s (actors), 1 s (seats).
+- Recipes (Create 6.0.10): harvester = andesite alloy, iron sheet, andesite alloy ×2 rows / _
+  andesite casing _; plough = iron sheet ×3 / andesite alloy ×3 / _ andesite casing _; roller =
+  electron tube / andesite casing / crushing wheel; portable storage interface = andesite casing +
+  chute (shapeless); contraption controls = button / andesite casing / electron tube; seat =
+  `<colour>_wool` + any wooden slab (shapeless, in the BP). The actor recipes need other units'
+  items and wait in `assets/pending_recipes/actors/`.
 
 ### 2.19 Redstone (U23)
 
@@ -473,8 +505,21 @@ Mechanics in §3.6.1.
 
 ### 2.21 Packages (U25)
 
-`packager`, `repackager`, `cardboard_package_*` (box styles), `package_frogport`, `chain_conveyor`,
-`<wood>_postbox`, `package_filter`, `filter` + `attribute_filter` are U3.
+`packager`, `repackager`, `package_frogport`, `chain_conveyor`, `<colour>_postbox` (16 dye colours,
+white … black; Create's postboxes are dyed, not wooden), the package items `cardboard_package_12x12`,
+`cardboard_package_10x12`, `cardboard_package_10x8`, `cardboard_package_12x10` ("Cardboard Package")
+and `rare_<creeper|darcy|evan|jinx|kryppers|simi|starlotte|thunder|up|vector>_package` ("Rare
+Package"), `package_filter`. `filter` + `attribute_filter` are U3. Mechanics in §3.6.25.
+
+- Packages stack to 1; the package filter to 64. Packager / re-packager / frogport / chain conveyor /
+  postboxes drop themselves; a broken packager drops its held and queued packages, a port its 18
+  packages, a chain conveyor its packages and (not in creative) the chains of its connections.
+- Recipes (Create 6.0.10): `packager` = iron ingot top / iron, cardboard block, iron / redstone, iron,
+  redstone; `packager` ↔ `repackager` (shapeless conversions); `chain_conveyor` ×2 = andesite casing
+  in a plus around a large cogwheel; `package_frogport` = slime ball / item vault / andesite alloy;
+  `<colour>_postbox` = dye / barrel / andesite alloy, and any postbox + dye → that colour;
+  `package_filter` = zinc nugget, wool, zinc nugget; `package_filter` alone clears its address. The
+  ones with other units' ingredients wait in `assets/pending_recipes/packages/`.
 
 ### 2.22 Stock network (U26)
 
@@ -863,6 +908,7 @@ the details and numbers it implemented. Short reminders of the less obvious ones
   engines at Create's rpm/capacity; whistles pitch by size and height.
 - **Packages (U25/U26)**: Create 6.0 logistics: packagers box items with addresses, frogports and
   chain conveyors route them, postboxes receive via trains, stock tickers request by address.
+  U25's part is §3.6.25.
 - **Trains (U27/U28)**: assembly at a station from bogeys + casing, controls drive manually,
   schedules automate (instructions/conditions as Create), signals split the graph into sections,
   trains brake for red signals, derailment/collision behaviour as Create.
@@ -871,6 +917,98 @@ the details and numbers it implemented. Short reminders of the less obvious ones
   from attached inventories.
 - **Ponder (U30)**: hold W over an item to open Ponder (client mod only), index of all scenes,
   animated scenes built from our blocks.
+
+#### 3.6.22 Contraption actors (U22)
+
+Implemented in `src/feature/actors/` (client part `src/client/actors/`); every actor is a
+`contraption::registerActor` behaviour (Create's MovementBehaviour). An actor's *active area* is
+a point ahead of its centre (rotated with the contraption); whenever that point enters a new
+block, the actor *visits* it. Common rules (Create's MovementBehaviour / BlockBreakingMovementBehaviour):
+
+- **Items** an actor collects go into contraption storage when `moveItemsToStorage` (default
+  true); the rest drops at the actor with velocity `(motion + (0, 0.5, 0)) · random[0, 0.3)`.
+- **Breaking** (plough, roller): a breakable block (not air / liquid / unbreakable) stalls the
+  contraption until broken. Speed = `|animation speed| / 500` clamped to [1/128, 16] (roller × 1.5),
+  animation speed = `⌊(|motion| · 1000 + 100) / 100⌋ · 100` (blocks per tick); every step adds
+  `clamp(⌊speed / hardness⌋, 1, 10 − progress)` to a progress of 10 and waits `⌊hardness / speed⌋`
+  ticks, playing the hit sound (0.25 volume); progress only advances while the contraption tries
+  to move. Breaking is cancelled when the actor stops.
+- **Entities** in a visited block (unless it is a solid full block) are thrown: the motion plus a
+  quarter of its length upwards, capped at 4 blocks per tick (players get the motion packet).
+  The roller also hurts them: `clamp(6 · |motion|^0.4 + 1, 2, 10)`. Items, display entities and
+  seat entities are left alone.
+- **Contraption controls** can disable an actor type (below); a disabled actor does nothing.
+
+Actors:
+
+- **Mechanical harvester**: area 0.45 ahead; inactive while moving towards its back. Visited:
+  crops (wheat, carrots, potatoes, beetroot, torchflower crop, melon / pumpkin stems, nether wart,
+  sweet berry bush, cocoa) are harvested when fully grown (`harvestPartiallyGrown`: any age above 0
+  when replanting, berries above 1; cocoa always needs full age) and replanted at age 0 (berry bush
+  age 1) when `harvesterReplants`, one seed (the crop's own item) taken from the drops; sugar cane,
+  kelp, weeping / twisting / cave vines and bush-type plants (grass, ferns, flowers, saplings,
+  roots, fungi, seagrass, dead bush, ...; not mushrooms) are cut to air (water for kelp and
+  seagrass); leaves are sheared (each drop with 45 % chance). Cactus, bamboo, melons and pumpkins
+  are not harvested (as Create). No stationary effect.
+- **Mechanical plough**: area 0.45 ahead; inactive while moving towards its back. Breaks blocks
+  without a collision shape (grass, flowers, torches, rails, redstone, snow layers — dropped as with
+  an iron shovel) and Create's tracks, never liquids, fake tracks or anything standing on farmland;
+  throws entities (no damage); then uses a hoe on the block below each visited block (vanilla:
+  grass / dirt / dirt path → farmland, coarse / rooted dirt → dirt, rooted dirt drops hanging roots;
+  needs air above). No stationary effect.
+- **Mechanical roller**: active only while moving towards its front (not on pulleys); area 0.45
+  ahead and 2 blocks down. Settings on its top face (shared along a row of rollers facing the same
+  way, up to 99 each side; a placed roller copies its neighbour's): *Paving Material* (filter slot,
+  a full-cube block without block entity, not stairs / slabs) and *Roller Mode* (value box):
+  *Clear Blocks and Pave* (default), *Straight Fill Below*, *Sloped Fill Below*. Visiting a block:
+  hurts and throws entities; in tunnel mode it breaks the blocks with a collision shape 1..2 blocks
+  above the visited block (0..2 when the material is in storage; the material itself is kept),
+  hardest first, the others at once (drops: nothing from blocks that need a tool, otherwise each
+  drop 50 % into storage, the rest is lost); then it paves the visited block's column: layer by
+  layer from depth 0 down to `rollerFillDepth` (12), straight = one block, sloped = a diamond of
+  radius `⌊(depth + 1) / 2⌋`, tunnel = depth 0 only; a position already holding the material passes,
+  a solid non-replaceable one (or a portal) fails, a replaceable one (or leaves) takes one item
+  from storage; a layer with a placement stops (falling blocks keep going), an all-failed layer
+  below the first stops. After a placement the roller waits 2 ticks (stalled) and fills the same
+  column again.
+- **Portable storage interface**: a carried PSI's area is 1.85 ahead of its front; a stationary
+  PSI there or one block further that faces back at it and is not powered connects (Create's
+  timer: connecting sets 14, connected while 4 ≤ timer ≤ `psiTimeout` + 4, a transfer sets
+  `psiTimeout` + 4, it counts down every tick, at 0 or when powered it disconnects; the carried PSI
+  keeps it alive every tick, 2 ticks after the contraption left it retracts). While connected the
+  stationary PSI exposes the contraption's merged inventories through the item capability (funnels,
+  chutes, arms ...), and vanilla hoppers next to it work as with a container (one item per 8 ticks
+  from a hopper pointing into it, into a hopper below it). A moving contraption is held once the
+  carried PSI's active point passes the stationary PSI's centre, until its timer drops to 4
+  (`psiTimeout` = 60 ticks after the last transfer). It also connects when the contraption stands
+  still. Block state `levitate:extended` shows the connection.
+- **Contraption controls**: on a contraption, right-click (empty hand into the air needs the client
+  mod; with an item, or when a world block is behind it, any client) toggles the actors its filter
+  targets (Create's disabled-actor list; empty filter: all actors): message "All Actors: On/Off" /
+  "<item> Actors: On/Off" (action bar), click sound pitch 1.5 on / 0.8 off. Toggling one type
+  while everything is off switches every other type off one by one. Stationary: right-click
+  toggles it, a change of redstone power sets disabled = powered (polled every 2 ticks); filter
+  slot on its top (Targeted Component). Assembled while disabled, its target starts disabled; when
+  the contraption stops it remembers whether its target is disabled (indicator). Actors of every
+  unit can be disabled (their block item is the type); the controls themselves cannot.
+- **Seats**: right-click sits the player (an invisible rideable `levitate:seat` entity, as Create's
+  SeatEntity; sneak to leave), or a mob the player leads on a leash within 10 blocks; a mob already
+  sitting there is ejected for the player, a player there keeps the seat. A dye of another colour
+  recolours it (the dye stays). A living mob (not a shulker / armor stand; hostile ones only with
+  `seatHostileMobs`) standing on a free seat sits down (checked every 2 ticks); the seat entity
+  disappears when its seat or rider is gone and puts a mob rider half a block up. On a contraption
+  the engine carries seated entities (assembled riders stay seated); a moving seat picks up mobs it
+  touches, a solid block (or a bottom slab) moving into it puts its rider on top; at disassembly
+  riders sit down on the placed seat again. Right-clicking a seat on a contraption sits the player.
+- **Client mod**: on moving contraptions the harvester's blades should turn by 50° per block
+  travelled (Create: animation speed / 20 per tick) and the roller's drum roll on the ground,
+  shown by swapping the display entity's block for the animation step (`levitate:anim`) while it
+  is drawn. Not working yet: the display entity's position read in the render hook does not
+  follow the drawn movement, so the step stays 0 (follow-up).
+- **Client mod**: an empty-hand right-click into the air is sent as `actors.use`, so contraption
+  controls and seats on a contraption can be used without an item.
+- Config `config/actors.json`, log lines `actors: ...` (harvested / broke / tilled / paved,
+  psi connected / disconnected / holds, controls toggled, seat sat down / dyed).
 
 #### 3.6.16 Crafting tools (U16)
 
@@ -1060,6 +1198,208 @@ pipe block entities; the phase restarts after a load), valve pointers alongside,
 `data["pipes"]["bracket"]`. **Client**: glass pipes show the fluid inside through `levitate:fluid`
 (every client, mod or not); pumps' cogs and valves' shafts rotate through the kinetic renderer (U2).
 **Command** `/create pipes <pos>` (op): pressures, flows and transfers of a pipe.
+### 3.6.25 Packages (U25)
+
+Contract for other units: `src/feature/packages/Packages.h` (package item helpers, address matching,
+packager requests and unpacking handlers for U26, postbox access for U27); pure logic in
+`src/core/packages/` (`Address.h` globs, `Chain.h` chain geometry / routing table / repacking).
+
+- **Addresses** (Create's `PackageItem.matchAddress`): a blank port / filter address only matches
+  blank box addresses; `*` on either side matches everything; equal strings match; otherwise either
+  string used as a glob must match the other. Globs (catnip's `Glob.toRegexPattern`): `*`, `?`,
+  `[a-z]` / `[!a-z]` classes, `{a,b}` alternatives, `{!a,b}` "not starting with" (after a `*`:
+  "not ending with"), `\x` literal; case sensitive; a malformed glob (`[]`, missing `]`, nested or
+  unclosed `{`, trailing `\`) matches only the empty string.
+- **Package item**: 9 content slots, address, order data (`order_id`, `link_index`,
+  `is_final_link`, `fragment_index`, `is_final`, optional order context = Create's
+  `PackageOrderWithCrafts` as JSON), all in the item's user data `lv:package`. A new package picks a
+  random style: one of the 4 cardboard sizes, or with a 1 in 7500 chance one of the 10 rare styles.
+  Lore: `→ address` (gold), the first 3 content lines "Name xN", then "and N more...". Sneak +
+  right-click opens it into the inventory ("Package breaks" sound); holding right-click and
+  releasing throws it with the bow's power curve (`(t² + 2t) / 3`, t = seconds held, capped at 1,
+  thrown only from 0.1; speed 2 × power, snowball sound at volume 0.5, pitch 0.5); right-click on a
+  block puts it down there. Packages, shulker boxes and bundles don't fit into packages.
+- **Packager** (`levitate:facing` 0–5 = the side the tray faces, the inventory is behind it;
+  `levitate:powered`; `levitate:linked`): placed facing away from the first neighbour with an
+  inventory in the player's look order (Java's `orderedByNearest`), otherwise towards the player
+  (sneaking: away); refused with "Packagers cannot interface with Portable Storage directly" when a
+  portable storage interface is behind. A rising redstone edge (polled every tick, see §8) boxes the
+  inventory: up to 9 slots stacked as `insertItemStacked` (a non-fitting item such as a package or
+  shulker box is packed alone; a package found in the inventory is sent as it is); the address is
+  the text of an adjacent sign (non-blank lines of its first non-blank side, joined by spaces; the
+  last sign in Down, Up, North, South, West, East order wins). While powered it repeats every 10
+  ticks (Create's lazy tick); a 40-tick button cooldown stops a button from sending twice. The
+  packager holds one finished package (20-tick tray animation; further packages queue) until a
+  frogport above, a funnel / any item capability or a player (right-click) takes it. Packages put in
+  (right-click with a package, or the item capability) are unpacked into the inventory when all
+  their items fit (unpacking handlers per target block for U14 basins, U16 crafters, creative
+  crates). Linked packagers (U26's stock link) ignore redstone; U26 sends requests through
+  `attemptToSend` (one package per call, order fragments numbered as Create; busy at 50 / 20 / 10
+  queued packages for player / redstone / restock requests).
+- **Re-packager**: same block behaviour; unpacking puts the package itself into the inventory; on
+  redstone it either takes a non-order package out unchanged or, once every fragment of an order is
+  in the inventory (links 0..final, fragments 0..final), merges them into the final packages:
+  crafting-pattern packages first (when the order context has crafts), then the ordered stacks in
+  order, then the rest, 9 slots per package, all with the order's address and order id, the last one
+  carrying the order context.
+- **Chain conveyor** (kinetic, vertical axis, shafts up and down, 1 SU per RPM — verified): right-click
+  two conveyors with chains to connect them (status messages `create.chain_conveyor.*`; sneak or
+  clicking another block clears the selection). Rules: shorter than `maxChainConveyorLength` (32),
+  at least 2.5 blocks apart, horizontal distance − 1.5 > 0, slope (|dy| / that distance) ≤ 1, at
+  most `maxChainConveyorConnections` (4) each; costs max(round(length / 2.5), 1) chains (survival);
+  no conveyor within the 8 neighbours at the same height. Connected conveyors share their rotation
+  (ratio 1). Packages loop around the wheel (radius 0.875, 6 px up) at speed / (π · 1.5) · 360 / 360
+  degrees per tick and travel along chains at |speed| / 360 blocks per tick; a box leaves the loop
+  towards the connection the routing table picks for its address (Create's
+  ChainConveyorRoutingTable: ports advertise their filter, entries spread with distance + 1, expire
+  after 100 ticks, port entries after 20, `*` ports rank last at distance 1000) and enters the next
+  conveyor's loop at the chain's tangent angle + 180 ± 70°. A conveyor carries at most
+  `chainConveyorCapacity` (20) boxes (Create counts the loop's boxes plus the chains carrying boxes).
+  Reversing the rotation moves boxes on chains to the opposite chain. Breaking a conveyor drops its
+  boxes and the chains (not in creative); sneak-wrenching refunds the chains into the inventory.
+  With a wrench: right-click a chain to ride it (sneak or let go of the wrench to dismount; on the
+  loop the player leaves towards the chain they look along), sneak-right-click a chain to remove it
+  (chains refunded). Right-click a chain with a package to hang it there; right-click a hanging box to
+  take it.
+- **Frogport**: right-click a chain (loop or chain position) with the frogport item to select its
+  target, then place it within `packagePortRange` (5) blocks, not below the target ("Can Connect ✔",
+  "Too far away", "Cannot connect downward", "No target selected"). It catches boxes whose address
+  matches its filter ("Catch packages addressed to...", empty = unaddressed only) when they pass its
+  position (the tongue reaches out 4 ticks of travel ahead), unless it is busy or its 18 slots are
+  full; every 10 ticks it pushes caught packages into the inventory below (hint "Contains Packages"
+  when that fails) and sends packages not addressed to it — from its own slots or the inventory below
+  (any package from a packager) — onto the chain, if the conveyor turns and has room. The animation
+  takes 10 ticks; a sent box is hung at 0.6. "Only send packages" disables catching. Goggles can be
+  put on it (right-click with goggles). Automation (item capability) can insert only packages not
+  addressed to the port and extract only packages addressed to it.
+- **Postbox**: the same port inventory and address; it targets a train station (right-click the
+  station with the postbox, then place it within 5 blocks, below is allowed). `levitate:flag` is up
+  while it holds packages, `levitate:open` while its screen is open (barrel sounds). U27's trains use
+  `postboxesForStation` / `insertIntoPort` / `extractFromPort`.
+- **Package filter**: right-click sets its address (a form); in filter slots it lets packages whose
+  address matches through (an empty one behaves like a plain item). Lore `-> address`.
+- **Screens**: the port screen (address, send-and-receive / send-only, the 18 package slots: click
+  one to take it, click a package in the inventory to put it in) is native for companions with the
+  address typed in a form; vanilla clients get one form (address, mode, take a package, put my
+  packages in). The package filter's address is a form for everyone (§8).
+- **Client mod**: draws both strands of every chain, the boxes hanging on chains (interpolated
+  between the 4-tick updates), the frogport's tongue with the box it catches or sends, and the
+  packager's tray sliding in and out; the wheel turns as a kinetic rotor.
+- **Log lines** (e2e): `packages: packager at <pos> activated by redstone`, `... packed a package
+  for '<address>' (<n> stacks)`, `... unpacked a package ...`, `chain conveyors at A and B
+  connected`, `frogport at <pos> caught a package for '<address>'`, `... sent a package ...`,
+  `<player> opened a package (<n> stacks)`, `<player> threw a package ...`.
+
+### 3.6.14 Basin processing (U14)
+
+Checked against Create 6.0.10 (BasinBlock, BasinBlockEntity, BasinInventory, BasinRecipe,
+BasinOperatingBlockEntity, MechanicalPressBlockEntity, PressingBehaviour, MechanicalMixerBlockEntity,
+BlazeBurnerBlock(Entity), LitBlazeBurnerBlock, BlazeBurnerBlockItem, CRecipes). Pure numbers in
+`src/core/basin/` (gtest), game side in `src/feature/basin/`, client animation in `src/client/basin/`.
+Contents live in BlockData (`data["basin"]`, `["press"]`, `["mixer"]`, `["burner"]`); the unit's
+blocks are listed in `lv:basin:machines` and ticked while loaded.
+
+**Basin.** 9 input slots and 9 output slots (64 per slot, one stack per item kind, the first free
+slot otherwise), 2 input and 2 output tanks of 1000 mB with enforced variety (one tank per fluid).
+- Item capability (Create's CombinedInvWrapper): slots 0–8 inputs, 9–17 outputs; insertion only
+  into the inputs, extraction from any slot (first matching slot, then more of the same kind).
+  Fluid capability (CombinedTankWrapper(output, input)): fill only the input tanks, drain output
+  tanks first.
+- Right-click: an empty hand takes every item (pickup sound, the operator above stops); a filled
+  bucket / water bottle pours into the input tanks if the whole amount fits (the container comes
+  back empty; creative keeps it); an empty bucket or glass bottle takes a fluid it can hold (bucket
+  1000 mB of water / lava / milk / powder snow / honey / chocolate, bottle 250 mB water); a sponge
+  drains the first fluid. A bucket never pours next to the basin. Wrench: Create's onWrenched
+  (preferred / disabled spout sides). The filter slot (`filter`, on every side 12 px up, U3's
+  filter slot) filters recipes by their first output (a fluid output for fluid-only recipes).
+- Item entities that fall on / into the basin are taken into the inputs (every tick by default,
+  `basinIntakeInterval`).
+- Spout (Create's updateSpoutput, every 10 ticks): a side can be output to when the neighbour has no
+  collision (or is a funnel) and the block below it accepts items from that side and is one of
+  Create's direct belt inputs (belt, depot, weighted ejector, basin, item drain, crushing wheel
+  controller, tunnels; through U3's item capability). The last such side in Create's order south,
+  west, north, east wins unless disabled; the preferred side wins when possible. When spouting,
+  outputs (and the output buffers when the spout opens) go into a spout buffer that is pushed into
+  the target every tick (fluids into its fluid capability, else they stay in the output tanks);
+  processing waits while the buffer isn't empty. Basins spouting into a basin wake its operator.
+- Every 200 ticks a non-empty basin wakes its operator (Create's recipeBackupCheck).
+- Breaking drops inputs, outputs and the spout buffer. A basin can't be placed directly under a
+  press / mixer and vice versa (the placed block pops).
+
+**Basin recipes** (Create's BasinRecipe.apply): ingredients are taken one item per ingredient from
+the combined slots in order; fluid ingredients need a tank with at least the amount; heat
+(`heat_requirement`) is tested against the block under the basin (U3's heat capability: heated =
+fading or hotter, superheated = seething). Outputs are rolled once (chance), plus containers left
+by consumed items (milk / water / lava / powder snow / honey / chocolate buckets → bucket, honey
+bottle → glass bottle), and must all fit (spout or output buffers) or nothing happens. Candidates
+are sorted by ingredient count, most first; the first one starts.
+- Mixer: `mixing` recipes plus every shapeless crafting-table recipe with 2+ ingredients that is not a
+  compression (`allowShapelessInMixer`). Press: `compacting` recipes plus every crafting-table recipe
+  (shaped or shapeless) with 4 or 9 identical ingredients (`allowShapedSquareInPress`). Recipe ids
+  ending in `_manual_only` are ignored. Create's potion brewing in the mixer needs U19's potion
+  fluids (`allowBrewingInMixer`, not yet: §8).
+- Recipes (`assets/recipes/`, Create 6.0.10 data, non-compat): pressing iron / gold / copper / brass
+  ingot → sheets, sugar cane → paper, pulp → cardboard, dirt / coarse dirt / rooted dirt / mycelium /
+  podzol and grass block → dirt path; mixing andesite alloy (andesite + iron or zinc nugget), brass
+  (copper + zinc → 2, heated), cardboard pulp, chocolate (heated), chocolate melting, dough,
+  honey (honey block, heated), lava from cobblestone (50 mB, superheated), mud, builder's tea
+  (heated); compacting andesite / diorite / granite from flint (+100 mB lava), blaze cake base,
+  bar of chocolate, honey block, ice (9 snow blocks). Tags in `assets/recipes/tags/basin.json`.
+
+**Mechanical press** (8 SU/RPM, horizontal shaft; placed along a neighbouring shaft, else across the
+look direction). Cycle of 240 running ticks advancing `lerp(clamp(|speed| / 512), 1, 60)` per
+tick; the work happens at tick 120, then the head returns. Head travel: 1 block in the world,
+19/16 on belts / depots, 22/16 in a basin; head offset `(t / 240 · 2)³` going down, `(240 − t) / 240 ·
+3` going up. Modes:
+- *World*: every 10 ticks (moving) it looks for item entities on the ground in the block below
+  (deflated by 1/8) with a `pressing` recipe; at the half cycle it presses the first one (Bedrock
+  lists entities in another order than Java, so items without a recipe are skipped): a single
+  item (or the whole stack with `bulkPressing`) becomes the results, otherwise one item of the
+  stack is pressed and the results drop beside it.
+- *Belt / depot*: a pressable item on `levitate:depot` / `levitate:belt` two blocks below (U3 item
+  capability) starts a cycle; one item is extracted and its results inserted back (left-overs drop).
+- *Basin*: Create's BasinOperatingBlockEntity on the basin two blocks below: when the basin changes
+  (or the speed changes) and the press is idle and turning, the first matching recipe starts a cycle;
+  after the cycle, the same recipe repeats while it still matches.
+Sounds: anvil + item break (wool + item break over a belt), pitch `.75 + |speed| / 1024`.
+
+**Mechanical mixer** (4 SU/RPM, a small cog around Y without shaft ends; needs medium speed ≥ 30
+RPM). Running ticks 0–40: the whisk lowers until tick 20, waits there for
+`max(⌊log2(int(512 / |speed|))⌋ · ⌈processing_time / 100 · 15⌉ + 1, 1)` ticks (processing time
+defaults to 100), applies the recipe, and comes back up; it keeps going while the recipe still matches
+(Create's continueWithPreviousRecipe). Losing speed reverses the motion. Bubble sound when the basin
+holds fluid, a mixing sound while the whisk is down. Head offset 7/16 at rest, up to 1 7/16 blocks;
+whisk speed: half the shaft speed idle, ×2 between ticks 15 and 20.
+
+**Blaze burners.**
+- Empty blaze burner (item and block): right-click a blaze to capture it (the blaze despawns; flame,
+  hurt and fizz effects) or a mob spawner containing blazes (the spawner stays); either gives a blaze
+  burner (one empty burner used unless creative). Flint and steel lights it (`lit_blaze_burner`,
+  damages the flint and steel); on a lit burner a shovel puts it out (empty again), soul sand / soul
+  soil turns the flame to soul fire. Lit burners give smouldering heat (passive heater), light 12 /
+  9, comparator 1 / 2 ⚠ (§8).
+- Blaze burner: smouldering without fuel (light 8, 15 when burning). Fuel (Create's tryUpdateFuel):
+  the blaze cake is special fuel (3200 ticks, seething), any furnace fuel is normal fuel (its furnace
+  burn time, kindled; fading when < 125 ticks remain); special fuel can't be replaced by normal fuel;
+  the same kind adds up when ≤ 500 ticks remain, else players (not automation) top normal fuel up to
+  10000 ticks. When special fuel runs out, 5000 ticks of normal fuel follow. Fuel containers come back
+  (lava bucket → bucket). The creative blaze cake isn't consumed and cycles smouldering → kindled →
+  seething → smouldering (the burner then stays creative). Goggles on / empty hand off (shown by the
+  client mod). Arms / deployers / funnels feed fuel through the item capability without overflow.
+  Shopkeeper role: U26.
+- Particles and sounds (server side so every client sees them): smoke and flames (soul flames when
+  seething) 1 tick in 4, campfire crackle 1 in 10; lit burners smoke and drip lava / soul particles.
+- Client mod: the blaze head looks at the player and turns to the burner's facing while heating a
+  basin or tank above, bobbing (Create's BlazeBurnerRenderer offsets).
+
+**Client mod** (`basin.machines` messages, 96 blocks): press head and mixer whisk animated with
+Create's offsets (the client runs the cycle between messages, waiting at the work point for the
+server), blaze heads, the fluid surface in the basin (height `2/16 + 12/16 · (1 − (1 − f)²)`, f =
+mB / 2000, the last fluid's colour). Vanilla clients see the static models (head at rest, whisk at
+rest, no fluid).
+
+**Command**: `/create basin demo` (op, Levitate debug) builds a mixer, a press and burners in front of
+the player for screenshots.
 ### 3.6.1 Generators (U7)
 
 Checked against Create 6.0.10 (HandCrankBlock(Entity), ValveHandleBlock(Entity), WaterWheelBlock(Entity),
@@ -2331,7 +2671,7 @@ Each screen: native (client mod) + form fallback (vanilla). Owner unit in bracke
 | Clipboard | right-click | U24 |
 | Display link configuration | right-click | U24 |
 | Redstone requester / factory gauge / stock ticker / shopping list | right-click | U26 |
-| Packager address, frogport address, postbox | right-click | U25 |
+| Package port (frogport, postbox), package filter address (packagers take their address from signs, as Create) | right-click | U25 |
 | Train schedule editor | right-click with schedule | U27 |
 | Station (name, assemble/disassemble, door control) | right-click station | U27 |
 | Crafting blueprint | right-click | U29 |
@@ -2371,6 +2711,9 @@ place:
 | hose_pulley | 4 | | |
 | chain_conveyor | 1 ⚠ | | |
 
+`config/packages.json` (U25): `packagePortRange` 5, `chainConveyorCapacity` 20 (Create's CLogistics),
+`maxChainConveyorLength` 32, `maxChainConveyorConnections` 4 (Create's CKinetics).
+
 `config/pistons.json` (U20): `maxPistonPoles` 64, `maxRopeLength` 384 (Create's CKinetics keys and
 defaults; the push line uses U4's `maxChassisRange`). Stress (checked): pistons, rope and elevator
 pulleys 4; gantry shaft and carriage 0 (`gantry_shaft` 4 in the table above is wrong).
@@ -2382,6 +2725,9 @@ CLogistics default, at least 5).
 `config/contraption.json` (U4): `maxBlocksMoved` 2048, `maxChassisRange` 16 (Create's CKinetics
 keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlocks` (extra unmovable ids).
 
+`config/actors.json` (U22): `harvestPartiallyGrown` false, `harvesterReplants` true,
+`moveItemsToStorage` true, `rollerFillDepth` 12 (Create's CKinetics), `psiTimeout` 60,
+`seatHostileMobs` true (Create's CLogistics).
 `config/crafter.json` (U16, Create's CRecipes / CKinetics keys and defaults):
 `allowRegularCraftingInCrafter` (true), `maxFireworkIngredientsInCrafter` (9),
 `allowStonecuttingOnSaw` (true), `bulkCutting` (false), `moveItemsToStorage` (true).
@@ -2393,6 +2739,9 @@ keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlock
 `config/pipes.json` (U17): `mechanicalPumpRange` (16), `pipesPlaceFluidSourceBlocks` (true) (Create's
 CFluids keys and defaults), `waterSourceConversion` (true) and `lavaSourceConversion` (false) (Java's game
 rules of the same names, which decide whether a drained source refills).
+`config/basin.json` (U14): Create's CRecipes `bulkPressing` (false), `allowShapelessInMixer` (true),
+`allowShapedSquareInPress` (true), `allowBrewingInMixer` (true, no effect until U19's potion fluids);
+Levitate: `basinIntakeInterval` (1 tick), `burnerParticles` (true).
 `config/belts.json` (U11): `maxBeltLength` 20, `maxEjectorDistance` 32 (Create's CKinetics keys and
 defaults), `displayItems` true (show items on belts / depots / in flight as item entities, §8).
 `config/fluids.json` (U19, Create's CFluids and CLogistics defaults): `hosePulleyBlockThreshold`
@@ -2467,12 +2816,34 @@ matches Create's official Chinese translation wording).
 | Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
 | Filter slot items rendered on the block face | no item rendering hooks for vanilla clients; the client mod has no world-space item renderer yet | the hover label (client mod) names the filter's item; vanilla players see it in the form / action messages (U3) |
 | Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
+| PSI comparator output (U22) | a data-driven block can't give a comparator signal (the block type's comparator virtuals are folded game functions that can't be hooked per block) | the `levitate:extended` state shows the connection |
+| Actors dropping off when the block behind them goes (U22) | data-driven blocks get no neighbour updates and placement filters can't follow a facing state | they stay; they still move with the block behind them |
+| Seats halving fall damage, mobs bouncing on seats (U22) | no fall-damage or bounce hook for data-driven blocks | normal landing; mobs that land on a free seat sit down |
+| Right-clicking contraption blocks with an empty hand into the air on **vanilla** clients (U22) | a vanilla client sends nothing for an empty-hand click into the air, and display entities can't be clicked | with an item in hand, or with a world block behind, the server casts the look itself; the client mod sends the click |
+| Seat dyeing recipe (seat + dye) (U22) | Bedrock recipes can't use an item tag of our seats | dye a placed seat with a right-click (as Create) |
+| Riders sitting on moving contraption seats (U22) | the engine (U4) carries riders by teleporting them | they stand on the seat while it moves and sit down again on the placed seat |
 | Redstone input of the mechanical crafter (U16) | custom blocks get no redstone neighbour update | the crafter polls the power of its neighbours every tick (same sources as the sticker) |
 | Crafter items on the crafter's face (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it, and the client mod's attempt (the GUI item renderer in the world's block entity pass) draws nothing visible yet | every client sees the blocks, the crit particles, the sounds and the result popping out; the client mod already tracks the animation state, a world-space item renderer is still to be done |
 | Saw output only into blocks with Create's DirectBeltInputBehaviour (U16) | the item capability doesn't say whether a block takes "direct belt input" | the saw (and its belt neighbours) hands its items to Levitate blocks with an item handler except vaults; vanilla containers next to a saw are skipped as in Create |
 | Sequenced assembly steps on the saw (U16) | the sequenced assembly state belongs to U15 | the saw cuts plain `cutting` recipes; U15 adds the sequenced cutting step |
 | Block break sounds of the drill / saw per block sound type (U16) | the server can't name a block's hit sound for a PlaySound packet | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone` by the block id |
 | Saw / drill damage source names (U16) | Bedrock has no custom damage causes | contact damage (death message of a cactus-like cause) |
+| Comparator output of packagers (0 / 15), frogports and postboxes (U25) | custom blocks without a block entity can't give comparators a signal | none; read the port / packager state with other means (display links, U24) |
+| Packages as physical entities (thrown, put down, on the ground) (U25) | Create's PackageEntity is a custom entity with its own model and physics | thrown / put-down packages are item entities (same velocity); breaking or opening is done with the item |
+| Typing an address into a native screen (frogport, postbox, package filter) (U25) | the native screen framework has no text field | the address is typed into a form (all clients); the rest of the port screen is native |
+| Chains, hanging packages, frogport tongue and packager tray for **vanilla** clients (U25) | no client-side rendering without the client mod | the client mod draws them; vanilla clients see the static conveyor, frogport and packager models and the postbox flag / lid states |
+| The chain conveyor wheel's size (U25) | Bedrock block geometry is limited to 30 px per axis | the wheel is 28 px across instead of Create's 2.5 blocks; the chains still start 1.25 blocks from the centre |
+| Riding chains is client-side in Create (U25) | the server can't move a vanilla client smoothly | the server moves the rider every tick (teleport towards the chain point, as Create's 0.25 pull) |
+| Create's own sounds (packager, package pop, frogport) (U25) | no original audio assets | levitate.packages.* sound events mapped to vanilla sounds |
+| Package filters in U3's filter slots (U25) | `filter::matches` (U3) only knows list / attribute filters | `packages::filterMatches` implements Create's rule; U3's matcher must delegate `levitate:package_filter` to it (follow-up, called out in the U25 PR) |
+| Spawn eggs inside opened packages spawn their mob (U25) | the server would need the egg's spawn logic | the egg is given to the player like any item |
+| Adding a port's address to a held clipboard (U25) | the clipboard and its data are U24's | no-op until U24 exposes clipboard pages |
+| Items floating in the basin (U14) | the client mod has no world-space item renderer yet | the fluid surface is drawn; the items are taken out with an empty hand or seen by funnels; a later U14 PR draws them once an item renderer exists |
+| Basin / blaze burner comparator output (U14) | custom blocks can't provide a comparator signal | none yet (Create: basin inputs fill level; burner heat − 1; lit burner 1 / 2) |
+| Hollow basin collision (U14) | a custom block has a single collision box | full-block collision; item entities resting on top are collected as if they fell in |
+| Press on a moving belt (U14) | no belt contract to hold an item under the press | items on a depot or belt below are pressed through the item capability (one per cycle) |
+| Sequenced-assembly pressing steps, potion brewing in the mixer (U14) | they need U15's sequenced assembly and U19's potion fluids | plain pressing / mixing; added with those units |
+| Basin spout checks of the funnel facing and the belt direction (U14) | funnel and belt states are U12's / U11's, without a contract | a funnel beside the basin never blocks a spout; a belt below takes outputs whatever its direction |
 | Valve handle turning its network by an exact angle (Create's sequenced `TURN_ANGLE` context makes bearings / pistons stop after exactly that angle) (U7) | the kinetics contract has no sequence context yet | the valve generates 32 RPM for `ceil(angle / 9.6) + 2` ticks as in Create; receivers move for that time |
 | Valve handle: short click turns, holding opens the angle board (U7) | the server only sees discrete clicks (U3's value box row) | a click turns the handle; the wrench on the handle's front opens the board (form for vanilla players) |
 | Re-dyeing a dyed valve handle in the crafting grid (Create's `#create:valve_handles` + dye) (U7) | custom block items have no item tags for recipe ingredients | copper valve handle + dye in the crafting grid; any handle is re-dyed in the world by right-clicking it with a dye (as Create) |
@@ -2579,7 +2950,6 @@ matches Create's official Chinese translation wording).
 | Gauge mechanical crafting arrangement ("Use Mechanical Crafting") and JEI recipe sync (U26) | no recipe viewer; Bedrock crafting recipes are not readable as patterns from a mod | panels send their inputs as plain orders |
 | Text fields in the stock screens (U26) | the native screen framework has no text field | the address / search / category name buttons open a form |
 Units add rows here in their PRs when they find something else impossible.
-
 ## 9. Work plan
 
 Unit U<n> owns selftest `testPos` dx range `100n..100n+99`, selftest prefix `<unit>.*`, config

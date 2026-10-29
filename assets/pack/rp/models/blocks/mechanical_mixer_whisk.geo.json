@@ -1,0 +1,201 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.mechanical_mixer_whisk",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 4,
+        "visible_bounds_height": 4,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "pole",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -1,
+                -5,
+                -1
+              ],
+              "size": [
+                2,
+                11,
+                2
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    10.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "pole"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    10.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "pole"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    10.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "pole"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    10.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "pole"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "pole"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    2
+                  ],
+                  "material_instance": "pole"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "whisk",
+          "pivot": [
+            0,
+            8,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -4,
+                -12,
+                -4
+              ],
+              "size": [
+                8,
+                7,
+                8
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    4.0,
+                    5.0
+                  ],
+                  "uv_size": [
+                    8,
+                    7
+                  ],
+                  "material_instance": "whisk"
+                },
+                "south": {
+                  "uv": [
+                    4.0,
+                    5.0
+                  ],
+                  "uv_size": [
+                    8,
+                    7
+                  ],
+                  "material_instance": "whisk"
+                },
+                "east": {
+                  "uv": [
+                    4.0,
+                    5.0
+                  ],
+                  "uv_size": [
+                    8,
+                    7
+                  ],
+                  "material_instance": "whisk"
+                },
+                "west": {
+                  "uv": [
+                    4.0,
+                    5.0
+                  ],
+                  "uv_size": [
+                    8,
+                    7
+                  ],
+                  "material_instance": "whisk"
+                },
+                "up": {
+                  "uv": [
+                    4.0,
+                    4.0
+                  ],
+                  "uv_size": [
+                    8,
+                    8
+                  ],
+                  "material_instance": "whisk"
+                },
+                "down": {
+                  "uv": [
+                    4.0,
+                    4.0
+                  ],
+                  "uv_size": [
+                    8,
+                    8
+                  ],
+                  "material_instance": "whisk"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
