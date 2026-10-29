@@ -376,7 +376,7 @@ night vision); emptying recipes: honey bottle, builder's tea.
 `mechanical_bearing`, `windmill_bearing`, `clockwork_bearing`, `sail_frame`, `white_sail` +
 `<colour>_sail`, `cart_assembler`, `minecart_coupling` (item), `controller_rail`, `turntable`,
 `minecart_contraption` (item; listed under §2.25 too, made by U21 as the pickup of a cart contraption).
-Mechanics in §3.6.1.
+Mechanics in §3.6.25.
 
 - Bearings: states `levitate:facing` 0..5 (down, up, north, south, west, east: the turning face) and
   `levitate:rotor` (kinetic render state, §3.1). Placed as Create's DirectionalKineticBlock: facing
@@ -473,8 +473,21 @@ Mechanics in §3.6.1.
 
 ### 2.21 Packages (U25)
 
-`packager`, `repackager`, `cardboard_package_*` (box styles), `package_frogport`, `chain_conveyor`,
-`<wood>_postbox`, `package_filter`, `filter` + `attribute_filter` are U3.
+`packager`, `repackager`, `package_frogport`, `chain_conveyor`, `<colour>_postbox` (16 dye colours,
+white … black; Create's postboxes are dyed, not wooden), the package items `cardboard_package_12x12`,
+`cardboard_package_10x12`, `cardboard_package_10x8`, `cardboard_package_12x10` ("Cardboard Package")
+and `rare_<creeper|darcy|evan|jinx|kryppers|simi|starlotte|thunder|up|vector>_package` ("Rare
+Package"), `package_filter`. `filter` + `attribute_filter` are U3. Mechanics in §3.6.25.
+
+- Packages stack to 1; the package filter to 64. Packager / re-packager / frogport / chain conveyor /
+  postboxes drop themselves; a broken packager drops its held and queued packages, a port its 18
+  packages, a chain conveyor its packages and (not in creative) the chains of its connections.
+- Recipes (Create 6.0.10): `packager` = iron ingot top / iron, cardboard block, iron / redstone, iron,
+  redstone; `packager` ↔ `repackager` (shapeless conversions); `chain_conveyor` ×2 = andesite casing
+  in a plus around a large cogwheel; `package_frogport` = slime ball / item vault / andesite alloy;
+  `<colour>_postbox` = dye / barrel / andesite alloy, and any postbox + dye → that colour;
+  `package_filter` = zinc nugget, wool, zinc nugget; `package_filter` alone clears its address. The
+  ones with other units' ingredients wait in `assets/pending_recipes/packages/`.
 
 ### 2.22 Stock network (U26)
 
@@ -850,6 +863,7 @@ the details and numbers it implemented. Short reminders of the less obvious ones
   engines at Create's rpm/capacity; whistles pitch by size and height.
 - **Packages (U25/U26)**: Create 6.0 logistics: packagers box items with addresses, frogports and
   chain conveyors route them, postboxes receive via trains, stock tickers request by address.
+  U25's part is §3.6.25.
 - **Trains (U27/U28)**: assembly at a station from bogeys + casing, controls drive manually,
   schedules automate (instructions/conditions as Create), signals split the graph into sections,
   trains brake for red signals, derailment/collision behaviour as Create.
@@ -1047,6 +1061,98 @@ pipe block entities; the phase restarts after a load), valve pointers alongside,
 `data["pipes"]["bracket"]`. **Client**: glass pipes show the fluid inside through `levitate:fluid`
 (every client, mod or not); pumps' cogs and valves' shafts rotate through the kinetic renderer (U2).
 **Command** `/create pipes <pos>` (op): pressures, flows and transfers of a pipe.
+### 3.6.25 Packages (U25)
+
+Contract for other units: `src/feature/packages/Packages.h` (package item helpers, address matching,
+packager requests and unpacking handlers for U26, postbox access for U27); pure logic in
+`src/core/packages/` (`Address.h` globs, `Chain.h` chain geometry / routing table / repacking).
+
+- **Addresses** (Create's `PackageItem.matchAddress`): a blank port / filter address only matches
+  blank box addresses; `*` on either side matches everything; equal strings match; otherwise either
+  string used as a glob must match the other. Globs (catnip's `Glob.toRegexPattern`): `*`, `?`,
+  `[a-z]` / `[!a-z]` classes, `{a,b}` alternatives, `{!a,b}` "not starting with" (after a `*`:
+  "not ending with"), `\x` literal; case sensitive; a malformed glob (`[]`, missing `]`, nested or
+  unclosed `{`, trailing `\`) matches only the empty string.
+- **Package item**: 9 content slots, address, order data (`order_id`, `link_index`,
+  `is_final_link`, `fragment_index`, `is_final`, optional order context = Create's
+  `PackageOrderWithCrafts` as JSON), all in the item's user data `lv:package`. A new package picks a
+  random style: one of the 4 cardboard sizes, or with a 1 in 7500 chance one of the 10 rare styles.
+  Lore: `→ address` (gold), the first 3 content lines "Name xN", then "and N more...". Sneak +
+  right-click opens it into the inventory ("Package breaks" sound); holding right-click and
+  releasing throws it with the bow's power curve (`(t² + 2t) / 3`, t = seconds held, capped at 1,
+  thrown only from 0.1; speed 2 × power, snowball sound at volume 0.5, pitch 0.5); right-click on a
+  block puts it down there. Packages, shulker boxes and bundles don't fit into packages.
+- **Packager** (`levitate:facing` 0–5 = the side the tray faces, the inventory is behind it;
+  `levitate:powered`; `levitate:linked`): placed facing away from the first neighbour with an
+  inventory in the player's look order (Java's `orderedByNearest`), otherwise towards the player
+  (sneaking: away); refused with "Packagers cannot interface with Portable Storage directly" when a
+  portable storage interface is behind. A rising redstone edge (polled every tick, see §8) boxes the
+  inventory: up to 9 slots stacked as `insertItemStacked` (a non-fitting item such as a package or
+  shulker box is packed alone; a package found in the inventory is sent as it is); the address is
+  the text of an adjacent sign (non-blank lines of its first non-blank side, joined by spaces; the
+  last sign in Down, Up, North, South, West, East order wins). While powered it repeats every 10
+  ticks (Create's lazy tick); a 40-tick button cooldown stops a button from sending twice. The
+  packager holds one finished package (20-tick tray animation; further packages queue) until a
+  frogport above, a funnel / any item capability or a player (right-click) takes it. Packages put in
+  (right-click with a package, or the item capability) are unpacked into the inventory when all
+  their items fit (unpacking handlers per target block for U14 basins, U16 crafters, creative
+  crates). Linked packagers (U26's stock link) ignore redstone; U26 sends requests through
+  `attemptToSend` (one package per call, order fragments numbered as Create; busy at 50 / 20 / 10
+  queued packages for player / redstone / restock requests).
+- **Re-packager**: same block behaviour; unpacking puts the package itself into the inventory; on
+  redstone it either takes a non-order package out unchanged or, once every fragment of an order is
+  in the inventory (links 0..final, fragments 0..final), merges them into the final packages:
+  crafting-pattern packages first (when the order context has crafts), then the ordered stacks in
+  order, then the rest, 9 slots per package, all with the order's address and order id, the last one
+  carrying the order context.
+- **Chain conveyor** (kinetic, vertical axis, shafts up and down, 1 SU per RPM — verified): right-click
+  two conveyors with chains to connect them (status messages `create.chain_conveyor.*`; sneak or
+  clicking another block clears the selection). Rules: shorter than `maxChainConveyorLength` (32),
+  at least 2.5 blocks apart, horizontal distance − 1.5 > 0, slope (|dy| / that distance) ≤ 1, at
+  most `maxChainConveyorConnections` (4) each; costs max(round(length / 2.5), 1) chains (survival);
+  no conveyor within the 8 neighbours at the same height. Connected conveyors share their rotation
+  (ratio 1). Packages loop around the wheel (radius 0.875, 6 px up) at speed / (π · 1.5) · 360 / 360
+  degrees per tick and travel along chains at |speed| / 360 blocks per tick; a box leaves the loop
+  towards the connection the routing table picks for its address (Create's
+  ChainConveyorRoutingTable: ports advertise their filter, entries spread with distance + 1, expire
+  after 100 ticks, port entries after 20, `*` ports rank last at distance 1000) and enters the next
+  conveyor's loop at the chain's tangent angle + 180 ± 70°. A conveyor carries at most
+  `chainConveyorCapacity` (20) boxes (Create counts the loop's boxes plus the chains carrying boxes).
+  Reversing the rotation moves boxes on chains to the opposite chain. Breaking a conveyor drops its
+  boxes and the chains (not in creative); sneak-wrenching refunds the chains into the inventory.
+  With a wrench: right-click a chain to ride it (sneak or let go of the wrench to dismount; on the
+  loop the player leaves towards the chain they look along), sneak-right-click a chain to remove it
+  (chains refunded). Right-click a chain with a package to hang it there; right-click a hanging box to
+  take it.
+- **Frogport**: right-click a chain (loop or chain position) with the frogport item to select its
+  target, then place it within `packagePortRange` (5) blocks, not below the target ("Can Connect ✔",
+  "Too far away", "Cannot connect downward", "No target selected"). It catches boxes whose address
+  matches its filter ("Catch packages addressed to...", empty = unaddressed only) when they pass its
+  position (the tongue reaches out 4 ticks of travel ahead), unless it is busy or its 18 slots are
+  full; every 10 ticks it pushes caught packages into the inventory below (hint "Contains Packages"
+  when that fails) and sends packages not addressed to it — from its own slots or the inventory below
+  (any package from a packager) — onto the chain, if the conveyor turns and has room. The animation
+  takes 10 ticks; a sent box is hung at 0.6. "Only send packages" disables catching. Goggles can be
+  put on it (right-click with goggles). Automation (item capability) can insert only packages not
+  addressed to the port and extract only packages addressed to it.
+- **Postbox**: the same port inventory and address; it targets a train station (right-click the
+  station with the postbox, then place it within 5 blocks, below is allowed). `levitate:flag` is up
+  while it holds packages, `levitate:open` while its screen is open (barrel sounds). U27's trains use
+  `postboxesForStation` / `insertIntoPort` / `extractFromPort`.
+- **Package filter**: right-click sets its address (a form); in filter slots it lets packages whose
+  address matches through (an empty one behaves like a plain item). Lore `-> address`.
+- **Screens**: the port screen (address, send-and-receive / send-only, the 18 package slots: click
+  one to take it, click a package in the inventory to put it in) is native for companions with the
+  address typed in a form; vanilla clients get one form (address, mode, take a package, put my
+  packages in). The package filter's address is a form for everyone (§8).
+- **Client mod**: draws both strands of every chain, the boxes hanging on chains (interpolated
+  between the 4-tick updates), the frogport's tongue with the box it catches or sends, and the
+  packager's tray sliding in and out; the wheel turns as a kinetic rotor.
+- **Log lines** (e2e): `packages: packager at <pos> activated by redstone`, `... packed a package
+  for '<address>' (<n> stacks)`, `... unpacked a package ...`, `chain conveyors at A and B
+  connected`, `frogport at <pos> caught a package for '<address>'`, `... sent a package ...`,
+  `<player> opened a package (<n> stacks)`, `<player> threw a package ...`.
+
 ### 3.6.1 Generators (U7)
 
 Checked against Create 6.0.10 (HandCrankBlock(Entity), ValveHandleBlock(Entity), WaterWheelBlock(Entity),
@@ -2232,7 +2338,7 @@ Each screen: native (client mod) + form fallback (vanilla). Owner unit in bracke
 | Clipboard | right-click | U24 |
 | Display link configuration | right-click | U24 |
 | Redstone requester / factory gauge / stock ticker / shopping list | right-click | U26 |
-| Packager address, frogport address, postbox | right-click | U25 |
+| Package port (frogport, postbox), package filter address (packagers take their address from signs, as Create) | right-click | U25 |
 | Train schedule editor | right-click with schedule | U27 |
 | Station (name, assemble/disassemble, door control) | right-click station | U27 |
 | Crafting blueprint | right-click | U29 |
@@ -2271,6 +2377,9 @@ place:
 | mechanical_pump | 4 | | |
 | hose_pulley | 4 | | |
 | chain_conveyor | 1 ⚠ | | |
+
+`config/packages.json` (U25): `packagePortRange` 5, `chainConveyorCapacity` 20 (Create's CLogistics),
+`maxChainConveyorLength` 32, `maxChainConveyorConnections` 4 (Create's CKinetics).
 
 `config/pistons.json` (U20): `maxPistonPoles` 64, `maxRopeLength` 384 (Create's CKinetics keys and
 defaults; the push line uses U4's `maxChassisRange`). Stress (checked): pistons, rope and elevator
@@ -2371,6 +2480,16 @@ matches Create's official Chinese translation wording).
 | Sequenced assembly steps on the saw (U16) | the sequenced assembly state belongs to U15 | the saw cuts plain `cutting` recipes; U15 adds the sequenced cutting step |
 | Block break sounds of the drill / saw per block sound type (U16) | the server can't name a block's hit sound for a PlaySound packet | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone` by the block id |
 | Saw / drill damage source names (U16) | Bedrock has no custom damage causes | contact damage (death message of a cactus-like cause) |
+| Comparator output of packagers (0 / 15), frogports and postboxes (U25) | custom blocks without a block entity can't give comparators a signal | none; read the port / packager state with other means (display links, U24) |
+| Packages as physical entities (thrown, put down, on the ground) (U25) | Create's PackageEntity is a custom entity with its own model and physics | thrown / put-down packages are item entities (same velocity); breaking or opening is done with the item |
+| Typing an address into a native screen (frogport, postbox, package filter) (U25) | the native screen framework has no text field | the address is typed into a form (all clients); the rest of the port screen is native |
+| Chains, hanging packages, frogport tongue and packager tray for **vanilla** clients (U25) | no client-side rendering without the client mod | the client mod draws them; vanilla clients see the static conveyor, frogport and packager models and the postbox flag / lid states |
+| The chain conveyor wheel's size (U25) | Bedrock block geometry is limited to 30 px per axis | the wheel is 28 px across instead of Create's 2.5 blocks; the chains still start 1.25 blocks from the centre |
+| Riding chains is client-side in Create (U25) | the server can't move a vanilla client smoothly | the server moves the rider every tick (teleport towards the chain point, as Create's 0.25 pull) |
+| Create's own sounds (packager, package pop, frogport) (U25) | no original audio assets | levitate.packages.* sound events mapped to vanilla sounds |
+| Package filters in U3's filter slots (U25) | `filter::matches` (U3) only knows list / attribute filters | `packages::filterMatches` implements Create's rule; U3's matcher must delegate `levitate:package_filter` to it (follow-up, called out in the U25 PR) |
+| Spawn eggs inside opened packages spawn their mob (U25) | the server would need the egg's spawn logic | the egg is given to the player like any item |
+| Adding a port's address to a held clipboard (U25) | the clipboard and its data are U24's | no-op until U24 exposes clipboard pages |
 | Valve handle turning its network by an exact angle (Create's sequenced `TURN_ANGLE` context makes bearings / pistons stop after exactly that angle) (U7) | the kinetics contract has no sequence context yet | the valve generates 32 RPM for `ceil(angle / 9.6) + 2` ticks as in Create; receivers move for that time |
 | Valve handle: short click turns, holding opens the angle board (U7) | the server only sees discrete clicks (U3's value box row) | a click turns the handle; the wrench on the handle's front opens the board (form for vanilla players) |
 | Re-dyeing a dyed valve handle in the crafting grid (Create's `#create:valve_handles` + dye) (U7) | custom block items have no item tags for recipe ingredients | copper valve handle + dye in the crafting grid; any handle is re-dyed in the world by right-clicking it with a dye (as Create) |
@@ -2472,7 +2591,6 @@ matches Create's official Chinese translation wording).
 | End rod particles of the block of experience (U9) | no data-driven block particles | none |
 
 Units add rows here in their PRs when they find something else impossible.
-
 ## 9. Work plan
 
 Unit U<n> owns selftest `testPos` dx range `100n..100n+99`, selftest prefix `<unit>.*`, config
