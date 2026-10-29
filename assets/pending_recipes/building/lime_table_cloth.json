@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:lime_table_cloth"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:lime_wool"
+      },
+      {
+        "item": "levitate:andesite_alloy"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:lime_wool"
+      }
+    ],
+    "result": {
+      "item": "levitate:lime_table_cloth",
+      "count": 2
+    }
+  }
+}

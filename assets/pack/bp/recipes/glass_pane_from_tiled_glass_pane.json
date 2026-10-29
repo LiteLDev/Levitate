@@ -1,0 +1,13 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_furnace": {
+    "description": {
+      "identifier": "levitate:glass_pane_from_tiled_glass_pane"
+    },
+    "tags": [
+      "furnace"
+    ],
+    "input": "levitate:tiled_glass_pane",
+    "output": "minecraft:glass_pane"
+  }
+}

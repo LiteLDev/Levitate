@@ -1,0 +1,38 @@
+{
+  "levitate_mechanical_crafter_side": {
+    "textures": "textures/blocks/mechanical_crafter_side"
+  },
+  "levitate_mechanical_crafter_back": {
+    "textures": "textures/blocks/mechanical_crafter_back"
+  },
+  "levitate_mechanical_crafter_front_up": {
+    "textures": "textures/blocks/mechanical_crafter_front_up"
+  },
+  "levitate_mechanical_crafter_front_left": {
+    "textures": "textures/blocks/mechanical_crafter_front_left"
+  },
+  "levitate_mechanical_crafter_front_down": {
+    "textures": "textures/blocks/mechanical_crafter_front_down"
+  },
+  "levitate_mechanical_crafter_front_right": {
+    "textures": "textures/blocks/mechanical_crafter_front_right"
+  },
+  "levitate_mechanical_crafter_front_up_covered": {
+    "textures": "textures/blocks/mechanical_crafter_front_up_covered"
+  },
+  "levitate_mechanical_crafter_front_left_covered": {
+    "textures": "textures/blocks/mechanical_crafter_front_left_covered"
+  },
+  "levitate_mechanical_crafter_front_down_covered": {
+    "textures": "textures/blocks/mechanical_crafter_front_down_covered"
+  },
+  "levitate_mechanical_crafter_front_right_covered": {
+    "textures": "textures/blocks/mechanical_crafter_front_right_covered"
+  },
+  "levitate_mechanical_saw": {
+    "textures": "textures/blocks/mechanical_saw"
+  },
+  "levitate_mechanical_drill": {
+    "textures": "textures/blocks/mechanical_drill"
+  }
+}

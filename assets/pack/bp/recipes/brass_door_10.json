@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:brass_door_10"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:warped_door"
+      },
+      {
+        "item": "levitate:brass_casing"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:warped_door"
+      }
+    ],
+    "result": {
+      "item": "levitate:brass_door",
+      "count": 1
+    }
+  }
+}
