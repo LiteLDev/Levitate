@@ -96,8 +96,28 @@ Click $addX $addY -Relative
 Wait-LogLine 'attribute filter: .* added ' 20 -Since $mark2 | Out-Null
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'attribute-filter' | Out-Null
-Press-Key E
-Start-Sleep -Milliseconds 1000
+$mark3 = Get-LogMark
+Close-Screen                         # Esc closes native screens (and tells the server)
+Wait-LogLine 'screen common\.attribute_filter closed by' 20 -Since $mark3 | Out-Null
+
+# The text field: type into it, Enter submits; then Esc closes the screen.
+$mark = Get-LogMark
+Invoke-Chat '/create screentest'
+$line = Wait-LogLine 'screen opened: .* panel=' 20 -Since $mark
+if ($line -notmatch 'panel=([\d.]+),([\d.]+) inv=([\d.]+),([\d.]+) gui=([\d.]+)x([\d.]+)') { throw "no layout in '$line'" }
+$px = [double]$Matches[1]; $py = [double]$Matches[2]; $gw = [double]$Matches[5]; $gh = [double]$Matches[6]
+$fieldX = ($px + 8 + 80) / $gw; $fieldY = ($py + 20 + 8) / $gh
+Move-Mouse $fieldX $fieldY -Relative
+Start-Sleep -Milliseconds 300
+Click $fieldX $fieldY -Relative
+Start-Sleep -Milliseconds 400
+Type-Text 'Levitate 123'
+Start-Sleep -Milliseconds 400
+Save-Screenshot 'text-field' | Out-Null
+Press-Key ENTER
+Wait-LogLine "screen test: .* submitted 'Levitate 123'" 20 -Since $mark | Out-Null
+Close-Screen
+Wait-LogLine 'screen common\.text_test closed by' 20 -Since $mark | Out-Null
 # no crash while clicking items into the screens (the game asserts on ItemStack copies off its thread)
 $crashDir = Join-Path $script:VersionDir 'logs\crash'
 $crashes = @(Get-ChildItem $crashDir -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $crashStart })

@@ -79,8 +79,17 @@ public:
             if (t->action) t->action(player, context, msg.value("action", Json::object()));
             sendData(player, *t, context, "screen.update");
         });
+        net::on("screen.closed", [](Player& player, Json const& msg) {
+            auto const* t = typeOf(msg.value("type", std::string{}));
+            if (!t) return;
+            log().info("screen {} closed by {}", t->id, player.getRealName());
+            if (t->closed) t->closed(player, msg.value("context", Json::object()));
+        });
     }
-    void uninstall() { net::off("screen.action"); }
+    void uninstall() {
+        net::off("screen.action");
+        net::off("screen.closed");
+    }
 };
 
 } // namespace lv::feature::common::screens

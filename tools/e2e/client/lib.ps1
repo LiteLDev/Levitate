@@ -636,11 +636,59 @@ function Wait-GameReady([int]$TimeoutSeconds = 180, [switch]$WithoutMod) {
     Start-Sleep -Seconds 2
 }
 
+# Whether the title screen is showing: the green Play button at its place (headless runs read the
+# game's picture; without one, $null = unknown).
+function Test-TitleScreen {
+    if (-not (Get-Command Get-ClientBitmap -ErrorAction SilentlyContinue)) { return $null }
+    try { $bmp = Get-ClientBitmap } catch { return $null }
+    if (-not $bmp) { return $null }
+    try {
+        $green = 0
+        foreach ($fx in 0.42, 0.46, 0.54, 0.58) {
+            foreach ($fy in 0.455, 0.49) {
+                $c = $bmp.GetPixel([int]($bmp.Width * $fx), [int]($bmp.Height * $fy))
+                if ($c.G -gt 90 -and $c.G -gt 1.4 * $c.R -and $c.G -gt 1.4 * $c.B) { $green++ }
+            }
+        }
+        return $green -ge 6
+    } finally { $bmp.Dispose() }
+}
+
+# Clicks Play on the title screen until the title screen is gone. A click while the title screen
+# is still loading (or before the game has any mouse reading) is ignored by the game: runs on
+# busy machines used to stay on the title screen with Play highlighted.
+function Enter-PlayScreen([int]$Attempts = 6) {
+    # the title screen first (it takes a while after "enabled" on a busy machine)
+    $deadline = (Get-Date).AddSeconds(60)
+    while ((Test-TitleScreen) -eq $false -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
+    for ($i = 1; $i -le $Attempts; $i++) {
+        $title = Test-TitleScreen
+        if ($i -gt 1 -and $title -eq $false) { return }
+        if ($i % 2 -eq 0) {
+            # Play is highlighted (keyboard focus) when the game ignores the virtual mouse:
+            # Enter activates it; a small camera move first gives GameInput a fresh mouse reading
+            if (Get-Command Send-HeadlessRaw -ErrorAction SilentlyContinue) { try { Send-HeadlessRaw move -Dx 2 | Out-Null } catch {} }
+            Press-Key ENTER
+        } else {
+            Move-Mouse 0.498 0.474 -Relative
+            Start-Sleep -Milliseconds 300
+            Click 0.498 0.474 -Relative     # Play
+        }
+        Start-Sleep -Seconds 3
+        $title = Test-TitleScreen
+        if ($null -eq $title -or -not $title) { return }  # unknown (foreground runs) or left the title screen
+        Write-Step "still on the title screen after clicking Play (attempt $i/$Attempts); clicking again"
+    }
+    $state = try { Get-HeadlessState | ConvertTo-Json -Compress -Depth 4 } catch { "unavailable: $_" }
+    Write-Step "LeviHeadlessInput state: $state"
+    throw "the title screen ignored $Attempts clicks / Enter on Play (game input, not the mod; LeviHeadlessInput state above)"
+}
+
 function Enter-TestWorld([int]$LoadSeconds = 10, [int]$Attempts = 3) {
     for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         Focus-Game
         $mark = Get-LogMark
-        Click 0.498 0.474 -Relative     # Play
+        Enter-PlayScreen
         Start-Sleep -Seconds 4
         Click 0.173 0.43 -Relative      # first world thumbnail (LV-Test: LastPlayed = now)
         Start-Sleep -Seconds $LoadSeconds
@@ -723,7 +771,7 @@ function Enter-RemoteServer([int]$Attempts = 3) {
     for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         Focus-Game
         $mark = Get-LogMark
-        Click 0.498 0.474 -Relative      # Play
+        Enter-PlayScreen
         Start-Sleep -Seconds 4
         Save-Screenshot "join-1-play-$attempt" | Out-Null
         Click $script:ServersTab[0] $script:ServersTab[1] -Relative

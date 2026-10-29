@@ -220,6 +220,24 @@ private:
     std::vector<Json>        mOptions;
     std::vector<std::string> mLines;
 };
+// ---- text field test (/create screentest) --------------------------------------------------------
+
+class TextTestScreen : public Screen {
+public:
+    TextTestScreen(SendFn send) : Screen(ctr("lv.common.screentest.title", "Text Field Test"), 176, 46), mSend(std::move(send)) {}
+
+    void init() override {
+        auto& field = add<TextField>(Rect{8, 20, 160, 16}, "", [this](std::string const& text) {
+            mSend({{"op", "submit"}, {"text", text}});
+        });
+        field.placeholder = ctr("lv.common.screentest.label", "Text");
+        field.maxLength   = 32;
+    }
+
+private:
+    SendFn mSend;
+};
+
 } // namespace
 
 class FilterScreensModule {
@@ -231,6 +249,7 @@ public:
         registerServerScreen("common.attribute_filter", [](Json const& data, SendFn send) {
             return std::make_unique<AttributeFilterScreen>(data, std::move(send));
         });
+        registerServerScreen("common.text_test", [](Json const&, SendFn send) { return std::make_unique<TextTestScreen>(std::move(send)); });
     }
     void uninstall() {}
 };

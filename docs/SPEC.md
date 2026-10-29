@@ -755,8 +755,14 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   bevelled panel, optionally above the player's inventory (36 slots, clicking picks a ghost copy
   onto the cursor; Shift-click sends it straight to the screen). The framework pushes a vanilla
   host scene so the game frees the mouse, draws the screen instead of the host, routes mouse and
-  keyboard input, and closes with Esc or the inventory key. `registerServerScreen(type, factory)`
-  binds server-opened types.
+  keyboard input, and closes with Esc or the inventory key (a server screen then sends
+  `screen.closed {type, context}`; `ScreenType::closed` runs, log `screen <type> closed by <player>`).
+  `registerServerScreen(type, factory)` binds server-opened types. Clicks are queued from the
+  input thread and handled on the client thread; inventory stacks are only read, the ghost cursor
+  is item JSON (`Screen::cursorItem`) with a render-only icon. `TextField` (U32): a single-line
+  text box edited in place (focus on click, characters from the window's WM_CHAR so layouts and
+  IME text work, Backspace/Delete/arrows/Home/End, Ctrl+V pastes, Enter submits, Esc cancels,
+  `maxLength`, `filter`); `/create screentest` opens a test screen with one.
 - **Filter screens** (first users): list filter — 18 ghost slots (click with a ghost item sets,
   click with an empty cursor / right-click clears), Allow-List / Deny-List and Respect Data /
   Ignore Data buttons with Create's tooltips, reset. Attribute filter — reference slot, attribute
