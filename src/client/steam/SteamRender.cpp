@@ -132,6 +132,11 @@ void bar(std::vector<Quad>& out, V3 a, V3 b, double hw, float r, float g, float 
 
 void onTanks(Json const& msg) {
     std::lock_guard lock(gMutex);
+    static bool first = true;
+    if (first) {
+        first = false;
+        log().info("steam client: receiving tank contents");
+    }
     if (msg.value("reset", false)) gTanks.clear();
     int   dim  = msg.value("dim", 0);
     auto& tanks = gTanks[dim];
@@ -250,9 +255,14 @@ void drawSteam(BaseActorRenderContext& ctx) {
         for (auto const& v : q.v) tess.vertex(float(v.x - o.x), float(v.y - o.y), float(v.z - o.z));
     }
     MeshHelpers::renderMeshImmediately(sc, tess, material(), OffscreenCaptureDescription{});
-    if (!gLogged) {
+    static bool loggedEngines = false;
+    if (!gLogged && tankCount > 0) {
         gLogged = true;
-        log().info("steam client: drawing {} tank fluid(s) and {} engine(s)", tankCount, engineCount);
+        log().info("steam client: drawing {} tank fluid(s)", tankCount);
+    }
+    if (!loggedEngines && engineCount > 0) {
+        loggedEngines = true;
+        log().info("steam client: drawing {} engine(s)", engineCount);
     }
 }
 

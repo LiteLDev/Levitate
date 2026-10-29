@@ -91,8 +91,10 @@ std::optional<Json> tankEntry(GlobalPos const& ctrl) {
 void broadcast(std::string_view channel, Json const& payload) {
     auto level = ll::service::getLevel();
     if (!level) return;
+    static std::set<std::string> logged;
     level->forEachPlayer([&](Player& p) {
-        net::send(p, channel, payload);
+        if (net::send(p, channel, payload) && logged.insert(std::string(channel)).second)
+            log().info("steam: first {} message sent to {}", channel, p.getRealName());
         return true;
     });
 }

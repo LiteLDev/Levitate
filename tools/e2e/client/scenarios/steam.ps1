@@ -19,8 +19,9 @@ Start-Sleep -Milliseconds 500
 $mark = Get-LogMark
 # a 2x2x2 fluid tank 5 blocks ahead, half full of water
 foreach ($dy in 0, 1) { foreach ($dx in 5, 6) { foreach ($dz in -2, -1) { Invoke-Chat "/setblock ~$dx ~$dy ~$dz levitate:fluid_tank" } } }
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 2
 Invoke-Chat '/create steam ~5 ~ ~-2 fill water 32000'
+if (-not $vanilla) { Wait-LogLine 'steam: 32000 mB of minecraft:water moved' 30 -Since $mark | Out-Null }
 # a creative tank boiler (4 high) on a kindled test heater, an engine on its west side facing us
 Invoke-Chat '/setblock ~6 ~-1 ~2 levitate:steam_test_heater ["levitate:heat"=3]'
 foreach ($dy in 0..3) { Invoke-Chat "/setblock ~6 ~$dy ~2 levitate:creative_fluid_tank" }
@@ -36,7 +37,8 @@ Start-Sleep -Seconds 2
 if (-not $vanilla) {
     Wait-LogLine 'steam: tank at .* is now a boiler' 30 -Since $mark | Out-Null
     Wait-LogLine 'steam: powered shaft at .* turns at 64 RPM' 30 -Since $mark | Out-Null
-    Wait-LogLine 'steam client: drawing [1-9]\d* tank fluid\(s\) and [1-9]\d* engine\(s\)' 30 | Out-Null
+    Wait-LogLine 'steam client: drawing [1-9]\d* tank fluid\(s\)' 30 | Out-Null
+    Wait-LogLine 'steam client: drawing [1-9]\d* engine\(s\)' 30 | Out-Null
 }
 Start-Sleep -Seconds 1
 Save-Screenshot 'steam-a' | Out-Null
