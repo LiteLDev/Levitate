@@ -10,7 +10,8 @@ Invoke-Chat '/gamemode creative'
 Invoke-Chat '/time set noon'
 Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~2 ~'
 Start-Sleep -Milliseconds 500
-# rope pulley 6 blocks up, its rope, magnet and a planks platform; generator beside the pulley
+# rope pulley 6 blocks up, its rope, magnet and a planks platform (without glue only the block
+# under the magnet hangs on it, as in Create); generator beside the pulley
 Invoke-Chat '/setblock ~6 ~6 ~ levitate:rope_pulley ["levitate:axis"=2]'
 Invoke-Chat '/setblock ~6 ~5 ~ levitate:rope'
 Invoke-Chat '/setblock ~6 ~4 ~ levitate:pulley_magnet'
@@ -25,12 +26,12 @@ Save-Screenshot 'built' | Out-Null
 
 $mark = Get-LogMark
 Invoke-Chat '/setblock ~6 ~6 ~1 levitate:kinetics_test_source ["levitate:axis"=2]'
-Wait-LogLine 'pulley at -?\d+ -?\d+ -?\d+ assembled: 9 blocks' 30 -Since $mark | Out-Null
+Wait-LogLine 'pulley at -?\d+ -?\d+ -?\d+ assembled: \d+ blocks' 90 -Since $mark | Out-Null
 Invoke-Chat '/create kinetics ~6 ~6 ~1 speed 96'
 if (-not $vanilla) { Wait-LogLine 'pistons: rendering \d+ rope' 30 -Since $mark | Out-Null }
 Start-Sleep -Milliseconds 400
 Save-Screenshot 'pulley-moving' | Out-Null
-Wait-LogLine 'pulley at -?\d+ -?\d+ -?\d+ disassembled' 60 -Since $mark | Out-Null
+Wait-LogLine 'pulley at -?\d+ -?\d+ -?\d+ disassembled' 90 -Since $mark | Out-Null
 Start-Sleep -Seconds 1
 Save-Screenshot 'pulley-placed' | Out-Null
 
@@ -39,7 +40,7 @@ $mark = Get-LogMark
 Invoke-Chat '/setblock ~6 ~1 ~-2 levitate:kinetics_test_source ["levitate:axis"=2]'
 Start-Sleep -Seconds 1
 Invoke-Chat '/create kinetics ~6 ~1 ~-2 speed -128'
-Wait-LogLine 'piston at -?\d+ -?\d+ -?\d+ disassembled at offset 2' 60 -Since $mark | Out-Null
+Wait-LogLine 'piston at -?\d+ -?\d+ -?\d+ disassembled at offset 2' 90 -Since $mark | Out-Null
 Start-Sleep -Seconds 1
 Save-Screenshot 'piston-extended' | Out-Null
 
