@@ -1,6 +1,6 @@
 #pragma once
 
-// Chain conveyor maths and routing (U25, SPEC §3.6.1): Create 6.0.10's ChainConveyorBlockEntity
+// Chain conveyor maths and routing (U25, SPEC §3.6.25): Create 6.0.10's ChainConveyorBlockEntity
 // geometry, its loop / branch rules and ChainConveyorRoutingTable. Pure logic, unit-tested.
 
 #include <cmath>

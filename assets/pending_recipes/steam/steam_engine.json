@@ -1,0 +1,17 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:steam_engine"
+    },
+    "tags": ["crafting_table"],
+    "pattern": ["P", "A", "B"],
+    "key": {
+      "P": { "item": "levitate:golden_sheet" },
+      "A": { "item": "levitate:andesite_alloy" },
+      "B": { "item": "minecraft:copper_block" }
+    },
+    "unlock": [{ "item": "levitate:golden_sheet" }],
+    "result": { "item": "levitate:steam_engine" }
+  }
+}

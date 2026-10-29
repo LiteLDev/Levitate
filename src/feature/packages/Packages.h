@@ -1,6 +1,6 @@
 #pragma once
 
-// Package logistics contract (U25, SPEC §3.6.1). Other units (U26 stock network, U27 trains,
+// Package logistics contract (U25, SPEC §3.6.25). Other units (U26 stock network, U27 trains,
 // U12 funnels, U24 display links, ...) use this header to read and build packages, match
 // addresses, drive packagers and talk to postboxes. Server thread only.
 //

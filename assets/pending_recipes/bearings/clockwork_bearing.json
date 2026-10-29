@@ -1,0 +1,39 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:clockwork_bearing"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " B ",
+      "SCS",
+      " I "
+    ],
+    "key": {
+      "B": {
+        "tag": "minecraft:wooden_slabs"
+      },
+      "S": {
+        "item": "levitate:electron_tube"
+      },
+      "C": {
+        "item": "levitate:brass_casing"
+      },
+      "I": {
+        "item": "levitate:shaft"
+      }
+    },
+    "result": {
+      "item": "levitate:clockwork_bearing",
+      "count": 1
+    },
+    "unlock": [
+      {
+        "item": "levitate:brass_casing"
+      }
+    ]
+  }
+}

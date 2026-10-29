@@ -1,0 +1,31 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:copper_valve_handle"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "CCC",
+      " A "
+    ],
+    "key": {
+      "C": {
+        "item": "levitate:copper_sheet"
+      },
+      "A": {
+        "item": "levitate:andesite_alloy"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:copper_sheet"
+      }
+    ],
+    "result": {
+      "item": "levitate:copper_valve_handle"
+    }
+  }
+}

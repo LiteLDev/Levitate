@@ -1,0 +1,8 @@
+{
+  "levitate:fluid_tank": { "sound": "copper" },
+  "levitate:creative_fluid_tank": { "sound": "copper" },
+  "levitate:steam_engine": { "sound": "copper" },
+  "levitate:steam_whistle": { "sound": "copper" },
+  "levitate:steam_whistle_extension": { "sound": "copper" },
+  "levitate:powered_shaft": { "sound": "stone" }
+}

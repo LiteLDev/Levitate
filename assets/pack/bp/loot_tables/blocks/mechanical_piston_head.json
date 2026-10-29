@@ -1,0 +1,12 @@
+{
+  "pools": {
+    "rolls": 1,
+    "entries": [
+      {
+        "type": "item",
+        "name": "levitate:piston_extension_pole",
+        "weight": 1
+      }
+    ]
+  }
+}

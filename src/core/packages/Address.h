@@ -1,6 +1,6 @@
 #pragma once
 
-// Package addresses (U25, SPEC §3.6.1): Create's `PackageItem.matchAddress` and the glob dialect
+// Package addresses (U25, SPEC §3.6.25): Create's `PackageItem.matchAddress` and the glob dialect
 // it uses (catnip's `Glob.toRegexPattern`, a variant of the JDK's file-system globs).
 //
 // Glob syntax: `*` any run of characters, `?` one character, `[abc]` / `[a-z]` / `[!a-z]` a

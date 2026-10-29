@@ -1,0 +1,30 @@
+{
+  "levitate.steam.whistle_high": {
+    "category": "block",
+    "min_distance": 4.0,
+    "max_distance": 64.0,
+    "sounds": [{ "name": "sounds/levitate/steam_whistle", "pitch": 2.0, "volume": 0.4 }]
+  },
+  "levitate.steam.whistle_medium": {
+    "category": "block",
+    "min_distance": 4.0,
+    "max_distance": 64.0,
+    "sounds": [{ "name": "sounds/levitate/steam_whistle", "pitch": 1.0, "volume": 0.5 }]
+  },
+  "levitate.steam.whistle_low": {
+    "category": "block",
+    "min_distance": 4.0,
+    "max_distance": 64.0,
+    "sounds": [{ "name": "sounds/levitate/steam_whistle", "pitch": 0.5, "volume": 0.6 }]
+  },
+  "levitate.steam.whistle_chiff": {
+    "category": "block",
+    "min_distance": 4.0,
+    "max_distance": 64.0,
+    "sounds": [{ "name": "sounds/levitate/steam_chiff", "volume": 0.2 }]
+  },
+  "levitate.steam.engine": {
+    "category": "block",
+    "sounds": [{ "name": "sounds/levitate/steam_engine", "volume": 0.6 }]
+  }
+}

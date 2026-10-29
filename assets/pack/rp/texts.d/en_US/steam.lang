@@ -1,0 +1,7 @@
+tile.levitate:fluid_tank.name=Fluid Tank
+tile.levitate:creative_fluid_tank.name=Creative Fluid Tank
+tile.levitate:steam_engine.name=Steam Engine
+tile.levitate:steam_whistle.name=Steam Whistle
+tile.levitate:steam_whistle_extension.name=Steam Whistle Extension
+tile.levitate:powered_shaft.name=Powered Shaft
+tile.levitate:steam_test_heater.name=Steam Test Heater

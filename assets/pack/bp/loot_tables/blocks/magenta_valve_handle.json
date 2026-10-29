@@ -1,0 +1,12 @@
+{
+  "pools": {
+    "rolls": 1,
+    "entries": [
+      {
+        "type": "item",
+        "name": "levitate:magenta_valve_handle",
+        "weight": 1
+      }
+    ]
+  }
+}
