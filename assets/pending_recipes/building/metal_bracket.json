@@ -15,11 +15,11 @@
       "C": {
         "item": "levitate:andesite_alloy"
       },
-      "S": {
-        "item": "minecraft:iron_nugget"
-      },
       "P": {
         "item": "minecraft:iron_ingot"
+      },
+      "S": {
+        "item": "minecraft:iron_nugget"
       }
     },
     "unlock": [

@@ -12,16 +12,16 @@
       "CCC"
     ],
     "key": {
-      "P": {
-        "item": "levitate:iron_sheet"
-      },
       "C": {
         "item": "levitate:andesite_alloy"
+      },
+      "P": {
+        "item": "levitate:iron_sheet"
       }
     },
     "unlock": [
       {
-        "item": "levitate:iron_sheet"
+        "item": "levitate:andesite_alloy"
       }
     ],
     "result": {

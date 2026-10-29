@@ -43,9 +43,9 @@
       "minecraft:geometry": {
         "identifier": "geometry.levitate.trapdoor",
         "bone_visibility": {
-          "b2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:open') == 0 && q.block_state('levitate:top') == 0",
-          "t2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:open') == 0 && q.block_state('levitate:top') == 1",
-          "o2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:open') == 1",
+          "b2": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:open') == 0 && q.block_state('levitate:top') == 0",
+          "t2": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:open') == 0 && q.block_state('levitate:top') == 1",
+          "o2": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:open') == 1",
           "b3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:open') == 0 && q.block_state('levitate:top') == 0",
           "t3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:open') == 0 && q.block_state('levitate:top') == 1",
           "o3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:open') == 1",
@@ -95,7 +95,7 @@
         }
       },
       {
-        "condition": "q.block_state('levitate:open') == 1 && q.block_state('levitate:facing') == 2",
+        "condition": "q.block_state('levitate:open') == 1 && q.block_state('levitate:facing') <= 2",
         "components": {
           "minecraft:collision_box": {
             "origin": [

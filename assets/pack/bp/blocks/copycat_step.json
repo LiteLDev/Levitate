@@ -36,8 +36,8 @@
       "minecraft:geometry": {
         "identifier": "geometry.levitate.copycat_step",
         "bone_visibility": {
-          "f20": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:top') == 0",
-          "f21": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:top') == 1",
+          "f20": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:top') == 0",
+          "f21": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:top') == 1",
           "f30": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:top') == 0",
           "f31": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:top') == 1",
           "f40": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:top') == 0",
@@ -55,7 +55,7 @@
     },
     "permutations": [
       {
-        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:top') == 0",
+        "condition": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:top') == 0",
         "components": {
           "minecraft:collision_box": {
             "origin": [
@@ -84,7 +84,7 @@
         }
       },
       {
-        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:top') == 1",
+        "condition": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:top') == 1",
         "components": {
           "minecraft:collision_box": {
             "origin": [

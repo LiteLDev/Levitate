@@ -65,7 +65,7 @@ $BlockSounds = [ordered]@{}
 function Write-Json([string]$rel, $obj) {
     $path = Join-Path $root $rel
     New-Item -ItemType Directory -Force (Split-Path -Parent $path) | Out-Null
-    $json = $obj | ConvertTo-Json -Depth 64
+    $json = ($obj | ConvertTo-Json -Depth 64) -replace "`r`n", "`n"
     [System.IO.File]::WriteAllText($path, $json + "`n", [System.Text.UTF8Encoding]::new($false))
     $script:Generated.Add($rel.Replace('\', '/'))
 }

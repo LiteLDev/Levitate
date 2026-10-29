@@ -47,12 +47,12 @@
       "minecraft:geometry": {
         "identifier": "geometry.levitate.door_fold",
         "bone_visibility": {
-          "cl2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 0",
-          "rl2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
-          "ol2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
-          "cu2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 0",
-          "ru2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
-          "ou2": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
+          "cl2": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 0",
+          "rl2": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
+          "ol2": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
+          "cu2": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 0",
+          "ru2": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
+          "ou2": "q.block_state('levitate:facing') <= 2 && q.block_state('levitate:upper') == 1 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
           "cl3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 0",
           "rl3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 1",
           "ol3": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:upper') == 0 && q.block_state('levitate:open') == 1 && q.block_state('levitate:hinge') == 0",
