@@ -54,20 +54,27 @@ function Flip($part) { Part $part.p0 $part.p1 (-$part.q1) (-$part.q0) (-$part.r1
 # A Bedrock cube for `part` in the cell (a, b) of a wheel along `axis` ('x', 'y', 'z'); $null when
 # the part is outside the cell. $clip: cut axis-aligned parts at the cell's edges.
 function Cube($part, [string]$axis, [int]$a = 0, [int]$b = 0, [bool]$clip = $false, [int]$voff = 0) {
+    if ($part.rot -ne 0) {
+        # a turned part: the same box moved to its turned centre, turned about that centre (Bedrock
+        # checks a block model's boxes before their rotation, so they must stay near the cell)
+        $pc = ($part.p0 + $part.p1) / 2; $qc = ($part.q0 + $part.q1) / 2
+        $t = $part.rot * [math]::PI / 180
+        $dp = $pc * [math]::Cos($t) - $qc * [math]::Sin($t) - $pc; $dq = $pc * [math]::Sin($t) + $qc * [math]::Cos($t) - $qc
+        $part = Part ($part.p0 + $dp) ($part.p1 + $dp) ($part.q0 + $dq) ($part.q1 + $dq) $part.r0 $part.r1 $part.tex $part.rot
+    }
     $p0 = $part.p0 - 16 * $a; $p1 = $part.p1 - 16 * $a; $q0 = $part.q0 - 16 * $b; $q1 = $part.q1 - 16 * $b
     if ($clip) {
         if ($part.rot -eq 0) {
             $p0 = [math]::Max($p0, -8); $p1 = [math]::Min($p1, 8); $q0 = [math]::Max($q0, -8); $q1 = [math]::Min($q1, 8)
             if ($p1 - $p0 -lt 0.01 -or $q1 - $q0 -lt 0.01) { return $null }
         } else {
-            $pc = ($part.p0 + $part.p1) / 2; $qc = ($part.q0 + $part.q1) / 2
-            $t = $part.rot * [math]::PI / 180
-            $rp_ = $pc * [math]::Cos($t) - $qc * [math]::Sin($t); $rq = $pc * [math]::Sin($t) + $qc * [math]::Cos($t)
+            $rp_ = ($part.p0 + $part.p1) / 2; $rq = ($part.q0 + $part.q1) / 2
             if ([math]::Floor(($rp_ + 8) / 16) -ne $a -or [math]::Floor(($rq + 8) / 16) -ne $b) { return $null }
         }
     }
     $r0 = $part.r0; $r1 = $part.r1
-    $pp = -16 * $a; $pq = -16 * $b # the wheel centre in cell coordinates
+    # pivot of a turned part: its own centre in cell coordinates
+    $pp = ($p0 + $p1) / 2; $pq = ($q0 + $q1) / 2
     switch ($axis) {
         'y' { $X = @($p0, $p1); $Y = @(($r0 + 8), ($r1 + 8)); $Z = @($q0, $q1); $piv = @($pp, 8, $pq); $rot = @(0, $part.rot, 0) }
         'x' { $X = @($r0, $r1); $Y = @(($p0 + 8), ($p1 + 8)); $Z = @($q0, $q1); $piv = @(0, (8 + $pp), $pq); $rot = @($part.rot, 0, 0) }
@@ -244,7 +251,7 @@ foreach ($colour in $colours) {
 
 # creative motor
 $c = [ordered]@{
-    'minecraft:geometry'           = [ordered]@{ identifier = 'geometry.levitate.creative_motor'; bone_visibility = [ordered]@{ body = $true; shaft = "q.block_state('levitate:rotor') == 0" } }
+    'minecraft:geometry'           = [ordered]@{ identifier = 'geometry.levitate.creative_motor'; bone_visibility = [ordered]@{ body = "q.block_state('levitate:rotor') != 2"; shaft = "q.block_state('levitate:rotor') == 0" } }
     'minecraft:material_instances' = Material 'levitate_creative_motor'
 }
 foreach ($e in (Common 'creative_motor' 1.5 6 (Box @(-8, 0, -8) @(16, 16, 16)) (Box @(-8, 0, -8) @(16, 16, 16)) '#8a5fb8').GetEnumerator()) { $c[$e.Key] = $e.Value }
