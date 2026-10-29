@@ -50,6 +50,14 @@ namespace detail {
 BlockSource* regionOf(int dim);
 Player*      playerById(std::int64_t uniqueId);
 [[nodiscard]] std::uint64_t currentTick();
+/// Rate limit of per-action log lines (fast farms act every few ticks): true for the first action
+/// of `key` (e.g. "deployer.use@<pos>") and then at most once per 10 s; `suppressed` is the
+/// number of actions not logged since the last line.
+[[nodiscard]] bool logAction(std::string const& key, int& suppressed);
+/// " (+N similar)" for a rate-limited log line, "" when nothing was left out.
+[[nodiscard]] inline std::string similar(int suppressed) {
+    return suppressed > 0 ? " (+" + std::to_string(suppressed) + " similar)" : std::string{};
+}
 /// Runs `fn` at the start of the next server tick (world edits after an interaction).
 void defer(std::function<void()> fn);
 

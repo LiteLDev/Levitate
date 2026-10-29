@@ -1,5 +1,5 @@
 // Chutes and smart chutes (Create's ChuteBlock / SmartChuteBlock / ChuteBlockEntity,
-// SPEC §3.6 U12).
+// SPEC §3.6.12).
 //
 // A chute holds one stack that moves through it at Create's speed: gravity pulls items down at
 // 4 blocks per second; encased fans at the top or bottom (airflow hook, FunnelsExt.h) push them
@@ -21,6 +21,7 @@
 #include "feature/common/FunnelsExt.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
+#include "feature/contraption/Contraption.h"
 #include "feature/funnels/FunnelsInternal.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -81,17 +82,25 @@ Block const* chuteBlock(BlockSource& region, BlockPos const& p) {
 
 bool isSmart(Block const& b) { return b.getTypeName() == kSmartChute; }
 
+/// `levitate:facing` of a chute runs 0..4 (Bedrock integer states are 0..n): 0 = down, 1..4 =
+/// north / south / west / east (FacingID 2..5).
+int facingState(int facing) { return cf::isHorizontal(facing) ? facing - 1 : 0; }
+int chuteFacingOf(Block const& b) {
+    int s = std::clamp(state(b, kFacing, 0), 0, 4);
+    return s == 0 ? cf::kDown : s + 1;
+}
+
 /// Create's AbstractChuteBlock.getChuteFacing (-1 when not a chute).
 int chuteFacing(BlockSource& region, BlockPos const& p) {
     auto const* b = chuteBlock(region, p);
     if (!b) return -1;
     if (isSmart(*b)) return cf::kDown;
-    return state(*b, kFacing, cf::kDown);
+    return chuteFacingOf(*b);
 }
 
 bool isOpenChute(Block const& b) {
     if (isSmart(b)) return true;
-    return state(b, kFacing, cf::kDown) == cf::kDown || state(b, kShape) == static_cast<int>(cf::ChuteShape::Intersection);
+    return chuteFacingOf(b) == cf::kDown || state(b, kShape) == static_cast<int>(cf::ChuteShape::Intersection);
 }
 
 int funnelFacingAt(BlockSource& region, BlockPos const& p) {
@@ -219,7 +228,7 @@ ItemActor* dropOut(BlockSource& region, GlobalPos const& pos, ItemStack const& s
 /// Create's handleDownwardOutput.
 bool downwardOutput(BlockSource& region, GlobalPos const& pos, Block const& b, Runtime& r, bool simulate) {
     auto bp        = toBlockPos(pos);
-    int  direction = isSmart(b) ? cf::kDown : state(b, kFacing, cf::kDown);
+    int  direction = isSmart(b) ? cf::kDown : chuteFacingOf(b);
     if (!canActivate(b)) return false;
     float motion = motionAt(region, bp);
     if (hasCapability(region, bp, cf::kDown, motion)) {
@@ -399,7 +408,7 @@ void display(GlobalPos const& pos, Block const& b, Runtime const& r) {
     }
     float y  = std::clamp(r.itemPos, -3.f, 1.f);
     Vec3  at{pos.x + .5f, pos.y + y - .125f, pos.z + .5f};
-    int   facing = isSmart(b) ? cf::kDown : state(b, kFacing, cf::kDown);
+    int   facing = isSmart(b) ? cf::kDown : chuteFacingOf(b);
     if (cf::isHorizontal(facing) && y < .5f) {
         auto o = cf::faceOffset(cf::oppositeFace(facing));
         at.x += o[0] * (.5f - y);
@@ -475,7 +484,7 @@ bool useChute(Player& player, BlockSource& region, GlobalPos const& pos, Block c
     auto& r = rt(pos);
     if (!items::isEmpty(held)) {
         if (items::idOf(held) != kIndustrialIronBlock || isSmart(block)) return false;
-        auto shape = static_cast<cf::ChuteShape>(state(block, kShape, 2));
+        auto shape = static_cast<cf::ChuteShape>(state(block, kShape, static_cast<int>(cf::ChuteShape::Normal)));
         if (shape == cf::ChuteShape::Intersection || shape == cf::ChuteShape::Encased) return false;
         setStates(region, toBlockPos(pos), {{kShape, static_cast<int>(cf::ChuteShape::Encased)}});
         playSound(region, toBlockPos(pos), "hit.netherite", .5f, 1.05f);
@@ -491,8 +500,8 @@ bool useChute(Player& player, BlockSource& region, GlobalPos const& pos, Block c
 
 bool wrenchChute(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block) {
     if (isSmart(block)) return true;
-    auto shape = static_cast<cf::ChuteShape>(state(block, kShape, 2));
-    bool down  = state(block, kFacing, cf::kDown) == cf::kDown;
+    auto shape = static_cast<cf::ChuteShape>(state(block, kShape, static_cast<int>(cf::ChuteShape::Normal)));
+    bool down  = chuteFacingOf(block) == cf::kDown;
     if (shape == cf::ChuteShape::Intersection) return false;
     auto bp = toBlockPos(pos);
     if (shape == cf::ChuteShape::Encased) {
@@ -510,20 +519,20 @@ void updateChuteShape(BlockSource& region, GlobalPos const& pos) {
     auto        bp = toBlockPos(pos);
     auto const* b  = chuteBlock(region, bp);
     if (!b || isSmart(*b)) return;
-    int                 facing = state(*b, kFacing, cf::kDown);
-    auto                shape  = static_cast<cf::ChuteShape>(state(*b, kShape, 2));
+    int                 facing = chuteFacingOf(*b);
+    auto                shape  = static_cast<cf::ChuteShape>(state(*b, kShape, static_cast<int>(cf::ChuteShape::Normal)));
     std::array<bool, 6> inputs{};
     for (int h : cf::kHorizontals) {
         BlockPos    c  = offset(offset(bp, cf::kUp), h);
         auto const* cb = chuteBlock(region, c);
-        inputs[static_cast<std::size_t>(h)] = cb && !isSmart(*cb) && state(*cb, kFacing, cf::kDown) == h;
+        inputs[static_cast<std::size_t>(h)] = cb && !isSmart(*cb) && chuteFacingOf(*cb) == h;
     }
     bool targetIsChute = false;
     if (cf::isHorizontal(facing)) targetIsChute = chuteBlock(region, offset(offset(bp, cf::kDown), cf::oppositeFace(facing))) != nullptr;
     BlockPos above      = offset(bp, cf::kUp);
     bool     aboveDown  = chuteFacing(region, above) == cf::kDown || funnelFacingAt(region, above) == cf::kDown;
     auto [nf, ns]       = cf::updateChuteState(facing, shape, inputs, targetIsChute, aboveDown);
-    setStates(region, bp, {{kFacing, nf}, {kShape, static_cast<int>(ns)}});
+    setStates(region, bp, {{kFacing, facingState(nf)}, {kShape, static_cast<int>(ns)}});
 }
 
 void placeChute(Player* player, BlockSource& region, GlobalPos const& pos, int clickedFace, bool sneaking) {
@@ -536,7 +545,7 @@ void placeChute(Player* player, BlockSource& region, GlobalPos const& pos, int c
         return;
     }
     // Create: clicking the side of a block (not sneaking) makes the chute diagonal
-    if (cf::isHorizontal(clickedFace) && !sneaking) setStates(region, bp, {{kFacing, clickedFace}});
+    if (cf::isHorizontal(clickedFace) && !sneaking) setStates(region, bp, {{kFacing, facingState(clickedFace)}});
     updateChuteShape(region, pos);
 }
 
@@ -549,6 +558,22 @@ void installChutes() {
     for (char const* id : {kChute, kSmartChute}) common::items::registerBlock(id, capability());
     common::filterslot::registerSlot(kSmartChute, {"filter", smartFilterCentre, 0.5, nullptr});
     registerAmountBox(kSmartChute, smartAmountCentre);
+    // `levitate:facing` of a chute is not in facing order (0 down, 1..4 north..east): undo the
+    // common rotation, turn the real facing and keep the old one when it would leave the chute's
+    // set (down or horizontal), as Create's horizontal-only states
+    namespace ct = contraption;
+    ct::registerRotationHandler(kChute, [](ct::cc::States& s, ct::cc::Axis axis, int quarter) {
+        auto it = s.find(kFacing);
+        if (it == s.end() || !std::holds_alternative<std::int64_t>(it->second)) return;
+        auto v = std::get<std::int64_t>(it->second);
+        if (v < 0 || v > 5) return;
+        int  stored = static_cast<int>(ct::cc::rotate(static_cast<ct::cc::Dir>(v), axis, -quarter));
+        if (stored > 4) return;
+        auto before = stored == 0 ? ct::cc::Dir::Down : static_cast<ct::cc::Dir>(stored + 1);
+        auto after  = ct::cc::rotate(before, axis, quarter);
+        bool ok     = before == ct::cc::Dir::Down ? after == ct::cc::Dir::Down : ct::cc::axisOf(after) != ct::cc::Axis::Y;
+        it->second  = std::int64_t{facingState(static_cast<int>(ok ? after : before))};
+    });
 }
 
 } // namespace lv::feature::funnels::detail

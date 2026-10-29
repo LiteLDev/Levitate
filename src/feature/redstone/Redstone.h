@@ -1,6 +1,6 @@
 #pragma once
 
-// Redstone helpers of the redstone unit (U23, SPEC §3.6 "Redstone") that other units may use:
+// Redstone helpers of the redstone unit (U23, SPEC §3.6.23) that other units may use:
 // reading the vanilla redstone signal around a block (custom blocks get no redstone neighbour
 // callbacks), Create's funnel → smart observer notification and the threshold switch's
 // "observable" blocks (Create's ThresholdSwitchObservable). Server thread only.

@@ -1,4 +1,4 @@
-// Package ports (SPEC §2.21, §3.6.1): the package frogport (Create's FrogportBlockEntity) and the
+// Package ports (SPEC §2.21, §3.6.25): the package frogport (Create's FrogportBlockEntity) and the
 // postboxes (PostboxBlockEntity). Both hold 18 packages and an address filter; the frogport
 // catches packages for its address from a chain conveyor and sends the others onto it, the
 // postbox is where trains (U27) deliver and pick up packages at a station.
@@ -384,7 +384,7 @@ void anticipate(GlobalPos const& pos) {
 
 void setPendingTarget(Player& player, PendingTarget t) {
     pending()[player.getOrCreateUniqueID().rawID] = t;
-    actionBar(player, "§a" + trFor(player, "lv.packages.target_selected", "Target selected"));
+    actionBar(player, "§a" + trFor(player, "create.packager_link.set", "Target selected"));
     log().info("packages: {} selected a {} target at {}", player.getRealName(), t.postbox ? "station" : "chain", t.targetPos.key());
 }
 

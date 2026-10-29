@@ -173,7 +173,7 @@ void openForm(Player& player, int slot) {
     }
     std::vector<std::string> names;
     for (auto const& id : ids) {
-        if (id.empty()) names.push_back(trFor(player, "lv.equipment.controller.empty", "(empty)"));
+        if (id.empty()) names.push_back(trFor(player, "lv.common.filter.empty", "(empty)"));
         else if (auto it = items::make(id, 1)) names.push_back(items::displayName(*it));
         else names.push_back(id);
     }

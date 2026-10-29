@@ -1,7 +1,7 @@
 #pragma once
 
 // Internals of the item logistics unit (U12): funnels, tunnels, chutes, item vaults, creative
-// crate. See docs/SPEC.md §2.7 / §3.6 (U12). Server thread only.
+// crate. See docs/SPEC.md §2.7 / §3.6.12 (U12). Server thread only.
 
 #include <array>
 #include <cstdint>

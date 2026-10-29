@@ -137,11 +137,15 @@ void scanNew(con::Contraption const& c) {
 
 /// Create's stopMoving: the carried controls remember whether their target is disabled (also
 /// right after a toggle, so a contraption disassembled while standing still keeps it).
-void rememberDisabled(con::Contraption const& c) {
-    for (auto const& b : c.blocks()) {
-        if (b.id != kControls) continue;
-        // the engine owns the carried blocks; their carried data is ours to update
-        auto& data = const_cast<con::CarriedBlock&>(b).data;
+void rememberDisabled(con::Contraption& c) {
+    std::vector<cc::Pos> controls;
+    for (auto const& b : c.blocks())
+        if (b.id == kControls) controls.push_back(b.local);
+    for (auto const& local : controls) {
+        // the carried data the engine persists with the contraption (U32's writable accessor)
+        auto* carried = c.blockData(local);
+        if (!carried) continue;
+        auto& data = *carried;
         auto& doc  = data[ext::kBlockDataCarrier];
         if (!doc.is_object()) doc = Json::object();
         if (!doc["actors"].is_object()) doc["actors"] = Json::object();

@@ -2,7 +2,7 @@
 #   local / remote-mod: the companion handshake, then the native list filter screen: open it with a
 #                       right-click, pick stone from the hotbar and put it into the first slot.
 #   remote-vanilla:     no handshake; the same right-click opens the form fallback.
-# Screenshots: out/common/{filter-open,filter-set}.png or filter-form.png
+# Screenshots: out/common/{filter-open,filter-set,filter-hover}.png or filter-form.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 if (-not $vanilla) {
     Wait-LogLine 'companion: server accepted the handshake' 90 | Out-Null
@@ -123,6 +123,17 @@ $crashDir = Join-Path $script:VersionDir 'logs\crash'
 $crashes = @(Get-ChildItem $crashDir -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $crashStart })
 if ($crashes) { throw "the game wrote $($crashes.Count) crash file(s) in $crashDir while using the filter screens" }
 if (-not (Get-GameProcess)) { throw 'the game is gone after using the filter screens' }
+
+# The hover label of an empty filter slot (a smart chute's, east of the player at eye level): the
+# server sends "§7(empty)"; the label shows it grey, without the colour code (out/common/filter-hover.png)
+$mark = Get-LogMark
+Invoke-Chat '/fill 1 -59 -1 4 -58 1 air'
+Invoke-Chat '/setblock 3 -59 0 levitate:smart_chute ["levitate:powered"=0]'
+Invoke-Chat '/tp @s 0.5 -60 0.5 -90 -1.5'   # east, level: the crosshair is on the west face's filter slot
+Wait-LogLine 'valuebox client: hover label .*\(empty\)' 20 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 800
+Save-Screenshot 'filter-hover' | Out-Null
+Invoke-Chat '/setblock 3 -59 0 air'
 
 if ($script:Mode -eq 'local') {
     $r = Invoke-SelfTest 'common.*'

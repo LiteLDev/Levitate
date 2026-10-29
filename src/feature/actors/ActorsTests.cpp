@@ -203,6 +203,10 @@ LV_REGISTER_SELFTEST("actors.plough", [](Context& ctx) -> ll::coro::CoroTask<> {
     ctx.require(co_await ctx.ensureLoaded(g0), "test area loaded");
     clearBox(ctx, at(g0, -1, 1, -1), at(g0, 7, 4, 1));
     fillBox(ctx, at(g0, 2, 0, 0), at(g0, 5, 0, 0), "minecraft:grass_block");
+    // water beside the row keeps the new farmland moist: dry farmland without a crop turns back
+    // into dirt on a random tick (made the test flaky in long runs)
+    for (auto const& p : {at(g0, 2, 0, 1), at(g0, 4, 0, 1), at(g0, 3, 0, 2), at(g0, 3, -1, 1)}) ctx.setBlock(p, "minecraft:stone");
+    ctx.setBlock(at(g0, 3, 0, 1), "minecraft:water");
     ctx.setBlock(at(g0, 3, 1, 0), "minecraft:short_grass");
     ctx.setBlock(at(g0, 4, 1, 0), "minecraft:torch");
     auto  rig = buildRig(ctx, at(g0, 1, 1, 0), std::string(kPlough));

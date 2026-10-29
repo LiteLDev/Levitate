@@ -1,4 +1,4 @@
-// Items moving through chutes (SPEC §3.6 U12, §8).
+// Items moving through chutes (SPEC §3.6.12, §8).
 //
 // Create draws the item inside a chute with its block entity renderer:
 // - players with the client mod get a display item (feature/itemrender): the stack drawn by the

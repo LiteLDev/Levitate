@@ -116,8 +116,8 @@ void warn(Player& player, int before, int after) {
     if (w == 0) return;
     auto pos = player.getPosition();
     int  dim = static_cast<int>(player.getDimensionId());
-    if (w == 2) subtitle(player, "§c" + trFor(player, "create.backtank.depleted", "⚠ Backtank pressure depleted"));
-    else subtitle(player, "§6" + trFor(player, "create.backtank.low", "⚠ Backtank pressure low"));
+    if (w == 2) subtitle(player, "§c⚠ " + trFor(player, "create.backtank.depleted", "Backtank pressure depleted"));
+    else subtitle(player, "§6⚠ " + trFor(player, "create.backtank.low", "Backtank pressure low"));
     sound(dim, pos.x, pos.y, pos.z, "note.bass", 1.f, 1.25f);
     sound(dim, pos.x, pos.y, pos.z, "random.fizz", .5f, .5f);
     log().info("equipment: backtank of {} is {}", player.getRealName(), w == 2 ? "depleted" : "low");

@@ -1,4 +1,4 @@
-// Andesite and brass tunnels (Create's BeltTunnelBlock / BrassTunnelBlockEntity, SPEC §3.6 U12).
+// Andesite and brass tunnels (Create's BeltTunnelBlock / BrassTunnelBlockEntity, SPEC §3.6.12).
 //
 // A tunnel sits on a belt (the segment below it, beltlink in FunnelsExt.h). Belt items crossing
 // into its segment are reported by the belt (beltlink::itemEntering): an andesite tunnel with

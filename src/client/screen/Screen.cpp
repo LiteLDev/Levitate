@@ -488,7 +488,9 @@ void Canvas::text(float x, float y, std::string const& s, unsigned argb, Align a
     auto  font = client->getFontHandle();
     float w    = textWidth(s);
     float left = align == Align::Left ? x : align == Align::Centre ? x - w / 2 : x - w;
-    TextMeasureData  measure{1.0f, 0.0f, shadow, true, false, ui::TextAlignment::Left};
+    // showColorSymbol off: "§7" etc. colour the text (server lines carry Create's colours)
+    // instead of being drawn as characters
+    TextMeasureData  measure{1.0f, 0.0f, shadow, false, false, ui::TextAlignment::Left};
     CaretMeasureData caret{-1, false};
     auto             col = toColor(argb);
     mCtx.drawText(font.getFont(), area(mX + left, mY + y, w + 4, kFontHeight + 2), std::string(s), col, col.a, ui::TextAlignment::Left, measure, caret);

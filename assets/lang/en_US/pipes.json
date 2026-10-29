@@ -5,6 +5,5 @@
   "lv.pipes.cmd.need_op": "You need operator permission.",
   "lv.pipes.cmd.network": "moving {0} mB/t to {1} targets",
   "lv.pipes.cmd.none": "No pipe at {0}.",
-  "lv.pipes.cmd.pressure": "pressure in {0} / out {1}",
-  "lv.pipes.fluid.milk": "Milk"
+  "lv.pipes.cmd.pressure": "pressure in {0} / out {1}"
 }

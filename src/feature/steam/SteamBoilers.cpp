@@ -15,6 +15,7 @@
 #include "core/common/ValueSettings.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
+#include "feature/common/FluidRegistry.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "feature/kinetics/Kinetics.h"
@@ -268,7 +269,7 @@ std::vector<std::string> boilerLines(BoilerRuntime const& rt, int size, Player c
     else if (d.level == 0) levelText = text(viewer, "create.boiler.idle", "Idle");
     else if (d.level == cs::kMaxBoilerLevel) levelText = text(viewer, "create.boiler.max_lvl", "Max");
     else levelText = text(viewer, "create.boiler.lvl", "Lvl {0}", d.level);
-    out.push_back(text(viewer, "create.boiler.status", "Boiler Status: {0}", std::string("§a") + levelText + "§r"));
+    out.push_back(text(viewer, "create.boiler.status", "Boiler Status:  {0}", std::string("§a") + levelText + "§r"));
     auto line = [&](char const* label, char const* fallback, char const* dots, char const* dotsFallback, int level) {
         std::string s = "  §7" + text(viewer, std::string("create.boiler.") + label, fallback) + "§8"
                       + text(viewer, std::string("create.boiler.") + dots, dotsFallback);
@@ -296,20 +297,7 @@ std::vector<std::string> boilerLines(BoilerRuntime const& rt, int size, Player c
 }
 
 std::string fluidName(std::string const& fluid, Player const* viewer) {
-    auto colon = fluid.find(':');
-    auto path  = colon == std::string::npos ? fluid : fluid.substr(colon + 1);
-    std::string pretty;
-    bool        upper = true;
-    for (char ch : path) {
-        if (ch == '_') {
-            pretty += ' ';
-            upper = true;
-            continue;
-        }
-        pretty += upper ? static_cast<char>(std::toupper(static_cast<unsigned char>(ch))) : ch;
-        upper = false;
-    }
-    return text(viewer, "lv.steam.fluid." + path, pretty);
+    return common::fluidtypes::displayName(fluid, viewer ? localeOf(*viewer) : std::string{});
 }
 
 } // namespace
@@ -832,7 +820,7 @@ std::vector<std::string> describe(GlobalPos const& pos, Player const* viewer) {
     if (rt->boiler.isActive()) return boilerLines(*rt, info->width * info->width * info->height, viewer);
     // Create's IHaveGoggleInformation.containedFluidTooltip
     auto mb = text(viewer, "create.generic.unit.millibuckets", "mB");
-    out.push_back(text(viewer, "create.gui.goggles.fluid_container", "Fluid Container Info"));
+    out.push_back(text(viewer, "create.gui.goggles.fluid_container", "Fluid Container Info:"));
     if (!info->fluid.empty() && info->amount > 0) {
         out.push_back("  §7" + fluidName(info->fluid, viewer));
         out.push_back("  §6" + number(static_cast<double>(info->amount)) + mb + "§7 / §8" + number(static_cast<double>(info->capacity)) + mb);

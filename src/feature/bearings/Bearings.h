@@ -2,7 +2,7 @@
 
 // Rotating contraptions (U21): mechanical / windmill / clockwork bearings, sails, turntables,
 // cart assemblers, controller rails, minecart couplings and minecart contraptions.
-// Internal header of the unit (not a contract for other units). See docs/SPEC.md §2.16, §3.6.1.
+// Internal header of the unit (not a contract for other units). See docs/SPEC.md §2.16, §3.6.21.
 
 #include <cstdint>
 #include <functional>

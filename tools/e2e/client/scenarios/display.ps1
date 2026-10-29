@@ -21,7 +21,7 @@ Invoke-Chat '/setblock 0 -60 6 levitate:kinetics_test_source ["levitate:axis"=2]
 Start-Sleep -Milliseconds 600
 $mark = Get-LogMark
 Invoke-Chat '/create kinetics 0 -60 6 speed 64'
-# nixie tubes on the floor, the row running west to east (facing south rotated: see SPEC §3.6)
+# nixie tubes on the floor, the row running west to east (facing south rotated: see SPEC §3.6.24)
 Invoke-Chat '/setblock -3 -60 3 levitate:nixie_tube ["levitate:facing"=3]'
 Invoke-Chat '/setblock -2 -60 3 levitate:nixie_tube ["levitate:facing"=3]'
 Start-Sleep -Milliseconds 600
