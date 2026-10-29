@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include "ll/api/event/EventBus.h"
+#include "ll/api/memory/Hook.h"
 #include "ll/api/event/client/ClientExitLevelEvent.h"
 #include "ll/api/event/input/KeyInputEvent.h"
 #include "ll/api/event/input/MouseInputEvent.h"
@@ -41,8 +42,6 @@
 #include "mod/Module.h"
 
 #include <windows.h>
-#include <commctrl.h>
-#pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "user32.lib")
 
 namespace lv::client::screen {
@@ -268,43 +267,69 @@ std::string clipboardText() {
 
 HWND gameWindow();
 
-/// Character messages of the game window go to the focused text field (and not to the game).
-LRESULT CALLBACK textInputProc(HWND h, UINT msg, WPARAM w, LPARAM l, UINT_PTR, DWORD_PTR) {
+/// The game's own window procedure (the window class's), detoured: every character message
+/// reaches it, whether it comes from the system, from a subclass in front of it or straight from
+/// a tool that calls it directly (LeviHeadlessInput's injected text).
+WNDPROC gGameWndProc = nullptr;
+
+/// A character for the focused text field (window thread); false when no field is focused.
+bool takeChar(WPARAM w) {
     auto& s = state();
-    if (msg == WM_CHAR && s.textFocus) {
-        auto     unit = static_cast<char16_t>(w);
-        char32_t ch   = unit;
-        if (unit >= 0xD800 && unit <= 0xDBFF) { // first half of a surrogate pair
-            s.highSurrogate = unit;
-            return 0;
-        }
-        if (unit >= 0xDC00 && unit <= 0xDFFF) {
-            if (!s.highSurrogate) return 0;
-            ch              = 0x10000 + ((static_cast<char32_t>(s.highSurrogate) - 0xD800) << 10) + (unit - 0xDC00);
-            s.highSurrogate = 0;
-        }
-        if (ch >= 32 && ch != 127) {
-            PendingInput in;
-            in.kind = PendingInput::Kind::Char;
-            in.ch   = ch;
-            std::lock_guard lock(s.inputMutex);
-            s.pendingInput.push_back(std::move(in));
-        }
-        return 0;
+    if (!s.textFocus) return false;
+    auto     unit = static_cast<char16_t>(w);
+    char32_t ch   = unit;
+    if (unit >= 0xD800 && unit <= 0xDBFF) { // first half of a surrogate pair
+        s.highSurrogate = unit;
+        return true;
     }
-    return DefSubclassProc(h, msg, w, l);
+    if (unit >= 0xDC00 && unit <= 0xDFFF) {
+        if (!s.highSurrogate) return true;
+        ch              = 0x10000 + ((static_cast<char32_t>(s.highSurrogate) - 0xD800) << 10) + (unit - 0xDC00);
+        s.highSurrogate = 0;
+    }
+    if (ch >= 32 && ch != 127) {
+        PendingInput in;
+        in.kind = PendingInput::Kind::Char;
+        in.ch   = ch;
+        std::lock_guard lock(s.inputMutex);
+        s.pendingInput.push_back(std::move(in));
+    }
+    return true;
+}
+
+LRESULT CALLBACK textInputWndProc(HWND h, UINT msg, WPARAM w, LPARAM l) {
+    if (msg == WM_CHAR && takeChar(w)) return 0; // the field takes it, the game doesn't see it
+    return gGameWndProc(h, msg, w, l);
 }
 
 std::atomic<bool> gTextInputInstalled{false};
 bool              textInputInstalled() { return gTextInputInstalled; }
 
-/// Subclasses the game window once; must run on the window's thread (the input events do).
+/// Detours the game window's class procedure once (any thread; called from the input events).
 void installTextInput() {
-    auto& installed = gTextInputInstalled;
-    if (installed) return;
+    static std::mutex m;
+    if (gTextInputInstalled) return;
+    std::lock_guard lock(m);
+    if (gTextInputInstalled) return;
     HWND w = gameWindow();
-    if (!w || GetWindowThreadProcessId(w, nullptr) != GetCurrentThreadId()) return;
-    if (SetWindowSubclass(w, textInputProc, 0x4C565446 /* "LVTF" */, 0)) installed = true;
+    if (!w || GetWindowThreadProcessId(w, nullptr) != GetCurrentThreadId()) return; // the window thread only
+    auto proc = reinterpret_cast<WNDPROC>(GetClassLongPtrW(w, GCLP_WNDPROC));
+    if (!proc) return;
+    void* original = nullptr;
+    if (ll::memory::hook(
+            reinterpret_cast<ll::memory::FuncPtr>(proc),
+            reinterpret_cast<ll::memory::FuncPtr>(&textInputWndProc),
+            reinterpret_cast<ll::memory::FuncPtr*>(&original),
+            ll::memory::HookPriority::Normal,
+            false // no thread pause (it can deadlock a running game); only this (window) thread runs the procedure
+        )
+        != 0) {
+        log().warn("text fields: could not hook the game's window procedure; typing uses key presses");
+        gTextInputInstalled = false;
+        return;
+    }
+    gGameWndProc        = reinterpret_cast<WNDPROC>(original);
+    gTextInputInstalled = true;
 }
 } // namespace
 
@@ -597,11 +622,14 @@ std::pair<float, float> guiSize() {
 
 void open(std::unique_ptr<Screen> screen) {
     auto& s    = state();
-    auto  host = s.hostScene;
-    if (s.screen) closeNow(false, false); // keep the host for the new screen
+    auto  host      = s.hostScene;
+    bool  hadScreen = s.screen != nullptr;
+    if (hadScreen) closeNow(false, false); // keep the host for the new screen
     s.pendingClose = false;
-    s.hostScene   = host;
-    bool needHost = s.hostScene.empty();
+    s.hostScene    = host;
+    // one host scene per screen: a screen replaced before its first frame (e.g. opened twice)
+    // keeps the host already pushed for it, which is still being learned
+    bool needHost = !hadScreen && s.hostScene.empty();
     s.screen      = std::move(screen);
     s.screen->init();
     s.closing = false;

@@ -1102,6 +1102,67 @@ bool isDisplayActor(::Actor const& actor) {
 
 // ---- display entity hook: our falling blocks never fall; orphans (from a saved world) vanish --
 
+// ---- client side: display entities glide ------------------------------------------------------
+// The falling block tick is skipped on the client too (it would make the block fall and land),
+// but that tick is also where the actor follows the movement the server sends (lerpTo). So the
+// last target of each display entity is kept here and applied once per client tick: the previous
+// position becomes the old one, so rendering interpolates between them (smooth, one tick behind,
+// as any moving entity).
+namespace {
+struct ClientMove {
+    Vec3 pos;
+    Vec2 rot;
+};
+std::unordered_map<std::int64_t, ClientMove>& clientMoves() {
+    static std::unordered_map<std::int64_t, ClientMove> m;
+    return m;
+}
+bool isClientDisplay(::Actor const& a) {
+    return a.isClientSide() && a.getEntityTypeId() == ActorType::FallingBlock && displayAxis(a.getRotation().x) >= 0;
+}
+void rememberClientMove(::Actor& a, Vec3 const& pos, Vec2 const& rot) {
+    auto& m = clientMoves();
+    if (m.size() > 65536) m.clear();
+    m[a.getOrCreateUniqueID().rawID] = {pos, rot};
+}
+void applyClientMove(::Actor& a) {
+    auto& m  = clientMoves();
+    auto  it = m.find(a.getOrCreateUniqueID().rawID);
+    auto& sv = *a.mBuiltInComponents->mStateVectorComponent;
+    if (it == m.end()) {
+        sv.mPosPrev = sv.mPos.get(); // standing still: no interpolation left over
+        return;
+    }
+    auto move = it->second;
+    m.erase(it);
+    sv.mPosPrev = sv.mPos.get();
+    a._setPos(move.pos);
+    auto& rc = *a.mBuiltInComponents->mActorRotationComponent;
+    rc.mRotPrev = rc.mRot.get();
+    rc.mRot     = move.rot;
+}
+} // namespace
+
+LL_TYPE_INSTANCE_HOOK(DisplayLerpHook, ll::memory::HookPriority::Normal, ::Actor, &::Actor::lerpTo, void, Vec3 const& pos, Vec2 const& rot, int steps) {
+    if (isClientDisplay(*this)) rememberClientMove(*this, pos, rot);
+    origin(pos, rot, steps);
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    DisplayLerpYawHook,
+    ll::memory::HookPriority::Normal,
+    ::Actor,
+    static_cast<void (::Actor::*)(Vec3 const&, Vec2 const&, float, int)>(&::Actor::lerpTo),
+    void,
+    Vec3 const& pos,
+    Vec2 const& rot,
+    float       headYaw,
+    int         steps
+) {
+    if (isClientDisplay(*this)) rememberClientMove(*this, pos, rot);
+    origin(pos, rot, headYaw, steps);
+}
+
 LL_TYPE_INSTANCE_HOOK(
     DisplayTickHook,
     ll::memory::HookPriority::Normal,
@@ -1111,7 +1172,8 @@ LL_TYPE_INSTANCE_HOOK(
     ITickDelegate& delegate
 ) {
     if (isClientSide() ? displayAxis(getRotation().x) >= 0 : detail::isDisplayActor(*this)) {
-        if (!isClientSide() && !detail::ownsDisplay(getOrCreateUniqueID().rawID)) remove();
+        if (isClientSide()) applyClientMove(*this);
+        else if (!detail::ownsDisplay(getOrCreateUniqueID().rawID)) remove();
         return;
     }
     origin(delegate);
@@ -1147,7 +1209,8 @@ LL_TYPE_STATIC_HOOK(
     std::unique_ptr<::Actor>& ownerPtr = owner.mActor;
     ::Actor*                  actor    = ownerPtr.get();
     if (actor && (actor->isClientSide() ? displayAxis(actor->getRotation().x) >= 0 : detail::isDisplayActor(*actor))) {
-        if (!actor->isClientSide() && !detail::ownsDisplay(actor->getOrCreateUniqueID().rawID)) actor->remove();
+        if (actor->isClientSide()) applyClientMove(*actor);
+        else if (!detail::ownsDisplay(actor->getOrCreateUniqueID().rawID)) actor->remove();
         return;
     }
     origin(entity, owner, onLand);
@@ -1173,6 +1236,8 @@ class EngineModule {
 public:
     void install() {
         DisplaySaveHook::hook();
+        DisplayLerpHook::hook();
+        DisplayLerpYawHook::hook();
         DisplayTickHook::hook();
         DisplaySystemHook::hook();
         DisplayActorTickHook::hook();
@@ -1183,6 +1248,8 @@ public:
         DisplayActorTickHook::unhook();
         DisplaySystemHook::unhook();
         DisplayTickHook::unhook();
+        DisplayLerpYawHook::unhook();
+        DisplayLerpHook::unhook();
         DisplaySaveHook::unhook();
     }
 };
