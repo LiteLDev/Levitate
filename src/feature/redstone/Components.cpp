@@ -157,7 +157,9 @@ void leverUse(BlockSource& region, GP const& pos, Block const& block, bool back)
     int  next = cr::analogLeverNext(prev, back);
     if (next != prev) {
         setStates(region, bp, {{sLeverState, next}});
-        dataFor(pos)["lastChange"] = cr::kAnalogLeverDelay; // neighbours see it 15 ticks after the last click
+        // neighbours see it 15 ticks after the last click
+        if (auto* rt = runtimeAt(pos)) counterOf(pos, *rt) = cr::kAnalogLeverDelay;
+        else dataFor(pos)["counter"] = cr::kAnalogLeverDelay;
     }
     playSound(pos.dim, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, "random.click", 0.2f, cr::analogLeverPitch(next));
     if (next > 0) spawnParticle(pos.dim, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, "minecraft:redstone_ore_dust_particle");
@@ -166,14 +168,12 @@ void leverUse(BlockSource& region, GP const& pos, Block const& block, bool back)
 
 namespace {
 
-void tickLever(BlockSource& region, GP const& pos, Block const& block) {
-    auto const* d    = dataOf(pos);
-    int         left = d ? d->value("lastChange", 0) : 0;
-    int         handle = state(block, sLeverState);
+void tickLever(BlockSource& region, GP const& pos, Block const& block, Runtime& rt) {
+    int& left   = counterOf(pos, rt);
+    int  handle = state(block, sLeverState);
     if (left > 0) {
-        dataFor(pos)["lastChange"] = --left;
-        if (left == 0) setStates(region, game::blockPos(pos), {{sPower, handle}});
-    } else if (state(block, sPower) != handle && !(d && d->contains("lastChange"))) {
+        if (--left == 0) setStates(region, game::blockPos(pos), {{sPower, handle}});
+    } else if (state(block, sPower) != handle) {
         // placed or set without a click (commands): follow the handle
         setStates(region, game::blockPos(pos), {{sPower, handle}});
     }
@@ -187,30 +187,27 @@ void tickLever(BlockSource& region, GP const& pos, Block const& block) {
 // ---- brass diodes ------------------------------------------------------------------------------
 
 void tickBrassDiode(BlockSource& region, GP const& pos, Block const& block, Runtime& rt) {
-    auto bp     = game::blockPos(pos);
-    int  facing = state(block, sFacing, kNorth);
-    bool input  = signalFrom(region, bp, facing) > 0;
+    auto bp      = game::blockPos(pos);
+    bool input   = rt.inBack;
     bool powered = state(block, sPowered) != 0;
     if (cr::advanceSchedule(rt.sched, powered != input, cr::kBrassDiodeInputDelay)) {
         powered = cr::diodeInputTick(powered, input, rt.sched, cr::kBrassDiodeInputDelay);
     }
     int            delay = diodeDelay(pos, rt.kind);
-    auto const*    d     = dataOf(pos);
-    cr::DiodeState s{d ? d->value("state", 0) : 0, state(block, sPowering) != 0};
-    int            before = s.state;
+    int&           count = counterOf(pos, rt);
+    cr::DiodeState s{count, state(block, sPowering) != 0};
     cr::tickDiode(diodeKind(rt.kind), delay, powered, s);
-    if (s.state != before) dataFor(pos)["state"] = s.state;
+    count = s.state;
     setStates(region, bp, {{sPowered, powered ? 1 : 0}, {sPowering, s.powering ? 1 : 0}});
 }
 
 // ---- latches -----------------------------------------------------------------------------------
 
 void tickLatch(BlockSource& region, GP const& pos, Block const& block, Runtime& rt) {
-    auto bp     = game::blockPos(pos);
-    int  facing = state(block, sFacing, kNorth);
-    bool back   = signalFrom(region, bp, facing) > 0;
+    auto bp   = game::blockPos(pos);
+    bool back = rt.inBack;
     if (rt.kind == Kind::PoweredLatch) {
-        bool           side = signalFrom(region, bp, clockwise(facing)) > 0 || signalFrom(region, bp, counterClockwise(facing)) > 0;
+        bool           side = rt.inSide;
         cr::LatchState s{state(block, sPowered) != 0, state(block, sPoweredSide) != 0, state(block, sPowering) != 0};
         if (cr::advanceSchedule(rt.sched, cr::poweredLatchNeedsTick(s, back, side), cr::kLatchInputDelay)) {
             s = cr::poweredLatchTick(s, back, side);
@@ -220,10 +217,8 @@ void tickLatch(BlockSource& region, GP const& pos, Block const& block, Runtime& 
     }
     cr::ToggleLatchState s{state(block, sPowered) != 0, state(block, sPowering) != 0};
     if (cr::advanceSchedule(rt.sched, s.powered != back, cr::kLatchInputDelay)) {
-        bool was = s.powering;
-        s        = cr::toggleLatchTick(s, back, rt.sched);
+        s = cr::toggleLatchTick(s, back, rt.sched);
         setStates(region, bp, {{sPowered, s.powered}, {sPowering, s.powering}});
-        if (was != s.powering) log().info("toggle latch at {} {}", posText(pos), s.powering ? "on" : "off");
     }
 }
 
@@ -237,13 +232,47 @@ void tickContact(BlockSource& region, GP const& pos, Block const& block, Runtime
     }
     if (!recheck || rt.contraptionContact) return;
     bool valid = hasValidContact(region, game::blockPos(pos), state(block, sFacing, kUp));
-    if ((state(block, sPowered) != 0) != valid) {
-        setStates(region, game::blockPos(pos), {{sPowered, valid ? 1 : 0}});
-        log().info("redstone contact at {} {}", posText(pos), valid ? "powered" : "unpowered");
-    }
+    if ((state(block, sPowered) != 0) != valid) setStates(region, game::blockPos(pos), {{sPowered, valid ? 1 : 0}});
 }
 
 } // namespace
+
+char const* counterKey(Kind kind) {
+    switch (kind) {
+    case Kind::Lever: return "lastChange";
+    case Kind::SmartObserver: return "turnOff";
+    default: return "state";
+    }
+}
+
+int& counterOf(GP const& pos, Runtime& rt) {
+    if (!rt.counterLoaded) {
+        auto const* d    = dataOf(pos);
+        rt.counter       = d ? d->value(counterKey(rt.kind), d->value("counter", 0)) : 0;
+        rt.counterLoaded = true;
+    }
+    return rt.counter;
+}
+
+void persistCounter(GP const& pos, Runtime const& rt) {
+    if (!rt.counterLoaded) return;
+    auto const* d = dataOf(pos);
+    if (!d && rt.counter == 0) return;
+    if (d && d->value(counterKey(rt.kind), -1) == rt.counter) return;
+    dataFor(pos)[counterKey(rt.kind)] = rt.counter;
+}
+
+void readInputs(BlockSource& region, GP const& pos, Block const& block, Runtime& rt) {
+    auto bp = game::blockPos(pos);
+    if (isDiodeShaped(rt.kind)) {
+        int facing = state(block, sFacing, kNorth);
+        rt.inBack  = signalFrom(region, bp, facing) > 0;
+        rt.inSide  = rt.kind == Kind::PoweredLatch
+               && (signalFrom(region, bp, clockwise(facing)) > 0 || signalFrom(region, bp, counterClockwise(facing)) > 0);
+    } else if (rt.kind == Kind::Link && !state(block, sReceiver)) {
+        rt.inLink = linkInput(region, bp, state(block, sFacing, kUp));
+    }
+}
 
 bool hasValidContact(BlockSource& region, BlockPos const& pos, int facing) {
     auto n = step(pos, facing);
@@ -269,6 +298,7 @@ void setDiodeDelay(GP const& pos, int ticks) {
     d["delay"] = ticks;
     // Create's onMaxDelayChanged: the counter stays within the new delay
     if (d.value("state", 0) > ticks) d["state"] = ticks;
+    if (auto* rt = runtimeAt(pos); rt && rt->counterLoaded && rt->counter > ticks) rt->counter = ticks;
 }
 
 void registerValueBoxes() {
@@ -313,7 +343,7 @@ void registerValueBoxes() {
 void tickBlock(BlockSource& region, GP const& pos, Block const& block, Runtime& rt) {
     switch (rt.kind) {
     case Kind::Link: tickLink(region, pos, block, rt); break;
-    case Kind::Lever: tickLever(region, pos, block); break;
+    case Kind::Lever: tickLever(region, pos, block, rt); break;
     case Kind::PulseRepeater:
     case Kind::PulseExtender:
     case Kind::PulseTimer: tickBrassDiode(region, pos, block, rt); break;

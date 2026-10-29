@@ -267,6 +267,11 @@ int& lookupMode() {
     return m;
 }
 
+std::uint64_t& cacheGeneration() {
+    static std::uint64_t g = 1;
+    return g;
+}
+
 struct ScanIndex {
     std::uint64_t                                          tick = ~0ull;
     std::unordered_map<std::uint64_t, BaseCircuitComponent*> map;
@@ -289,10 +294,18 @@ BaseCircuitComponent* componentAt(BlockSource& region, BlockPos const& pos) {
     auto& all = system->mSceneGraph->mAllComponents;
     if (all.empty()) return nullptr;
     auto& mode = lookupMode();
-    if (mode == 0) {
-        auto const& [key, value] = *all.begin();
-        auto it                  = all.find(key);
-        mode                     = it != all.end() && it->second.get() == value.get() ? 1 : 2;
+    if (mode == 0 && all.size() >= 8) {
+        // every probed key must be found in its own bucket: one lucky hit proves nothing
+        int checked = 0;
+        mode        = 1;
+        for (auto const& [key, value] : all) {
+            auto it = all.find(key);
+            if (it == all.end() || it->second.get() != value.get()) {
+                mode = 2;
+                break;
+            }
+            if (++checked >= 32) break;
+        }
         log().info("redstone: circuit components found by {}", mode == 1 ? "lookup" : "scan");
     }
     BaseCircuitComponent* comp = nullptr;
@@ -300,10 +313,12 @@ BaseCircuitComponent* componentAt(BlockSource& region, BlockPos const& pos) {
         auto it = all.find(pos);
         if (it != all.end()) comp = it->second.get();
     } else {
+        // undecided (too few components to tell) or a different hash: scan into an index that
+        // lives until the circuit may have changed (next tick, or a player's action)
         static std::unordered_map<int, ScanIndex> indexes;
         auto& index = indexes[static_cast<int>(region.getDimensionId())];
-        if (index.tick != tickCounter()) {
-            index.tick = tickCounter();
+        if (index.tick != cacheGeneration()) {
+            index.tick = cacheGeneration();
             index.map.clear();
             for (auto const& [p, c] : all) index.map.emplace(packPos(p), c.get());
         }
@@ -358,6 +373,8 @@ int componentSignal(BlockSource& region, BlockPos const& n, Block const& block, 
 } // namespace
 
 std::uint64_t& gameTickCounter() { return tickCounter(); }
+
+void invalidateCircuitCache() { ++cacheGeneration(); }
 
 std::string circuitDebug(BlockSource& region, BlockPos const& pos) {
     if (!loadedAt(region, pos)) return "not loaded";

@@ -163,7 +163,27 @@ struct Runtime {
     bool                     neighbour  = true; ///< a neighbour changed (checked next tick)
     bool                     loaded     = false;
     bool                     contraptionContact = false; ///< contact powered by a passing contraption
+    /// Create's per-tick counter (diode state, lever lastChange, observer turnOff), kept in
+    /// memory and written to BlockData on world save.
+    int  counter       = 0;
+    bool counterLoaded = false;
+    /// Inputs read for this tick before any block changes (so the order blocks tick in doesn't
+    /// matter): back / side of diodes and latches, a transmitter's strength.
+    bool inBack = false;
+    bool inSide = false;
+    int  inLink = 0;
 };
+
+/// The block's counter (loaded from BlockData on first use).
+int& counterOf(GP const& pos, Runtime& rt);
+/// Writes the counter to BlockData when it changed.
+void persistCounter(GP const& pos, Runtime const& rt);
+/// Reads the block's redstone inputs for this tick (before any block of the unit ticks).
+void readInputs(BlockSource& region, GP const& pos, Block const& block, Runtime& rt);
+/// A transmitter's input strength (Create's RedstoneLinkBlock.getPower).
+[[nodiscard]] int linkInput(BlockSource& region, BlockPos const& pos, int facing);
+/// Forgets cached circuit lookups (call when components may have changed).
+void invalidateCircuitCache();
 
 std::map<GP, Runtime>& tracked();
 Runtime*               runtimeAt(GP const& pos);

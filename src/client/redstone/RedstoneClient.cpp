@@ -58,8 +58,13 @@ public:
         mUpper->tooltip = {ctr("create.gui.threshold_switch.upper_threshold", "...at or above:")};
         mLower->tooltip = {ctr("create.gui.threshold_switch.lower_threshold", "...at or below:")};
         mMeasure = &add<ScrollInput>(Rect{132, 34, 60, 12}, "", 0, 1, 0, [this](int) {
+            // the stored thresholds are raw amounts: keep them, only the unit shown changes
             mStacks = mMeasure->value == 1;
-            changed(true);
+            int s   = step();
+            if (mMax > mMin) std::tie(mOff, mOn) = cr::clampThresholds(mOff / s * s, mOn / s * s, mMin, mMax, s, true);
+            refreshInputs();
+            mDirty    = true;
+            mLastEdit = std::chrono::steady_clock::now();
         });
         mMeasure->options = {mData.value("unitItems", std::string("Items")), mData.value("unitStacks", std::string("Stacks"))};
         mMeasure->tooltip = {ctr("lv.redstone.threshold.item_measure", "Item Measure")};

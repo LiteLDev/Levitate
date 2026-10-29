@@ -94,27 +94,22 @@ void registerFilterSlots() {
 // ---- smart observer ----------------------------------------------------------------------------
 
 void activateObserver(BlockSource& region, GP const& pos, int ticks) {
-    dataFor(pos)["turnOff"] = ticks;
+    if (auto* rt = runtimeAt(pos)) counterOf(pos, *rt) = ticks;
+    else dataFor(pos)["turnOff"] = ticks;
     auto bp = game::blockPos(pos);
     if (state(region.getBlock(bp), sPowered)) return;
     setStates(region, bp, {{sPowered, 1}});
-    log().info("smart observer at {} activated", posText(pos));
 }
 
 void tickSmartObserver(BlockSource& region, GP const& pos, Block const& block, Runtime& rt) {
     auto bp = game::blockPos(pos);
     // scheduled block tick: switch off
     if (rt.blockTick >= 0 && --rt.blockTick < 0) {
-        if (state(region.getBlock(bp), sPowered)) {
-            setStates(region, bp, {{sPowered, 0}});
-            log().info("smart observer at {} deactivated", posText(pos));
-        }
+        if (state(region.getBlock(bp), sPowered)) setStates(region, bp, {{sPowered, 0}});
     }
-    auto const* d       = dataOf(pos);
-    int         turnOff = d ? d->value("turnOff", 0) : 0;
+    int& turnOff = counterOf(pos, rt);
     if (turnOff > 0) {
-        dataFor(pos)["turnOff"] = --turnOff;
-        if (turnOff == 0) rt.blockTick = 1;
+        if (--turnOff == 0) rt.blockTick = 1;
     }
 
     int  target = targetDirection(block);
@@ -227,9 +222,7 @@ void updatePowerAfterDelay(BlockSource& region, GP const& pos) {
     bool        inverted = d && d->value("inverted", false);
     bool        powered  = on != inverted;
     dataFor(pos)["poweredAfterDelay"] = powered;
-    if (setStates(region, game::blockPos(pos), {{sPowered, powered ? 1 : 0}})) {
-        log().info("threshold switch at {} {}", posText(pos), powered ? "powered" : "unpowered");
-    }
+    setStates(region, game::blockPos(pos), {{sPowered, powered ? 1 : 0}});
 }
 
 std::string formatValue(std::string const& type, int value, bool stacks, std::string const& locale, BlockSource* region, BlockPos const* target) {
@@ -287,7 +280,7 @@ void configureThreshold(GP const& pos, int offBelow, int onAbove, bool inverted,
     int         min  = d ? std::max(0, d->value("min", 0)) : 0;
     int         max  = d ? d->value("max", 0) : 0;
     int         step = cr::thresholdStep(type == "fluid", type == "item" && inStacks);
-    if (max > min) std::tie(offBelow, onAbove) = cr::clampThresholds(offBelow, onAbove, min, max + step, step, true);
+    if (max > min) std::tie(offBelow, onAbove) = cr::clampThresholds(offBelow, onAbove, min, max, step, true);
     else onAbove = std::max(onAbove, offBelow + 1);
     bool wasInverted = d && d->value("inverted", false);
     auto& w          = dataFor(pos);
@@ -404,7 +397,7 @@ void screenForm(Player& player, Json const& ctx) {
             stacks ? 1 : 0
         );
     }
-    int top = std::max(1, (max + step - 1) / step);
+    int top = std::max(1, max / step); // the scroll inputs never go past the capacity
     form.appendSlider(
         "onAbove",
         trFor(player, "create.gui.threshold_switch.power_on_when", "Power on when...") + " " + trFor(player, "create.gui.threshold_switch.upper_threshold", "...at or above:"),

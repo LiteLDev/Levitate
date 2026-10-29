@@ -37,7 +37,9 @@ void deliver(std::vector<cr::Delivery> const& out) {
     for (auto const& d : out) {
         l.received[d.id] = d.power;
         auto it = l.callbacks.find(d.id);
-        if (it != l.callbacks.end() && it->second) it->second(d.power);
+        if (it == l.callbacks.end() || !it->second) continue;
+        auto fn = it->second; // the callback may add / remove nodes (and so change the map)
+        fn(d.power);
     }
 }
 
@@ -242,7 +244,7 @@ void tickLink(BlockSource& region, GP const& pos, Block const& block, Runtime& r
     auto bp       = game::blockPos(pos);
     bool receiver = state(block, sReceiver) != 0;
     if (!receiver) {
-        int  power  = linkInput(region, bp, state(block, sFacing, kUp));
+        int  power  = rt.inLink;
         auto const* d = dataOf(pos);
         int  stored = d ? d->value("transmit", 0) : 0;
         setStates(region, bp, {{sPowered, power > 0 ? 1 : 0}, {sPower, 0}});

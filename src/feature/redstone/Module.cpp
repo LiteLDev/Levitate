@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <set>
+#include <tuple>
 #include <vector>
 
 #include "ll/api/event/EventBus.h"
@@ -28,6 +29,7 @@
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/BlockChangeContext.h"
 
+#include "feature/common/BlockData.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
@@ -68,7 +70,10 @@ std::string posText(GP const& p) { return std::to_string(p.x) + " " + std::to_st
 
 void save() {
     auto& u = unit();
-    if (!u.ready || !u.dirty || !game::db::available()) return;
+    if (!u.ready || !game::db::available()) return;
+    for (auto const& [p, rt] : u.tracked) persistCounter(p, rt);
+    common::blockdata::flush(); // BlockData may have saved before us this round
+    if (!u.dirty) return;
     Json j = Json::array();
     for (auto const& [p, rt] : u.tracked) j.push_back({p.dim, p.x, p.y, p.z, static_cast<int>(rt.kind)});
     game::db::save(kDbBlocks, j);
@@ -269,9 +274,11 @@ LL_TYPE_INSTANCE_HOOK(
                    && (common::filterslot::slotAt(clicked, face, local)
                        || (tool && common::valuebox::boxAt(clicked, face, local)));
         if (!forCommon) {
-            // Bedrock repeats the use while the button is held: one action per click
+            // Bedrock repeats the use while the button is held (isFirstEvent false): drop those
+            // repeats, never a new click
+            invalidateCircuitCache();
             auto& last = unit().lastUse[player.getOrCreateUniqueID().rawID];
-            if (last.first == pos && gameTickCounter() - last.second < 5) {
+            if (!isFirstEvent && last.first == pos && gameTickCounter() - last.second < 5) {
                 InteractionResult r{};
                 r.mSuccess = true;
                 return r;
@@ -357,14 +364,25 @@ public:
             auto& u   = unit();
             if (now && now != prev) u.added.push_back(pos);
             else if (prev && !now) u.removed.push_back(pos);
-            u.changed.insert(pos);
+            // only changes next to (or of) our blocks matter
+            bool near = now || prev;
+            for (int d = 0; d < 6 && !near; ++d) near = u.tracked.contains(step(pos, d));
+            if (near) u.changed.insert(pos);
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([this](auto&) { tick(); }));
         net::on("redstone.hover", [](Player& player, Json const& msg) {
             auto p   = msg.value("pos", Json());
             auto hit = msg.value("hit", Json::array());
             if (!p.is_array() || p.size() != 4 || !hit.is_array() || hit.size() != 3) return;
-            GP                pos{p[0].get<int>(), p[1].get<int>(), p[2].get<int>(), p[3].get<int>()};
+            for (auto const& v : p)
+                if (!v.is_number_integer()) return;
+            for (auto const& v : hit)
+                if (!v.is_number()) return;
+            GP pos{p[0].get<int>(), p[1].get<int>(), p[2].get<int>(), p[3].get<int>()};
+            // only blocks within reach (as the value boxes): no remote frequency snooping
+            auto const& at = player.getPosition();
+            double dx = at.x - (pos.x + 0.5), dy = at.y - (pos.y + 0.5), dz = at.z - (pos.z + 0.5);
+            if (dx * dx + dy * dy + dz * dz > 64.0) return;
             core::common::Vec h{hit[0].get<double>(), hit[1].get<double>(), hit[2].get<double>()};
             auto              out = hoverLines(player, pos, msg.value("face", 0), h);
             out["pos"]            = p;
@@ -407,10 +425,20 @@ private:
             touch(pos);
         }
 
-        std::vector<GP> gone;
+        invalidateCircuitCache();
+        std::vector<GP>                          gone;
         std::vector<std::pair<GP, BlockSource*>> pop;
+        std::vector<std::tuple<GP, Runtime*, BlockSource*>> active;
+        std::map<int, BlockSource*>              regions;
+        auto regionFor = [&](int dim) {
+            auto it = regions.find(dim);
+            if (it == regions.end()) it = regions.emplace(dim, regionOf(dim)).first;
+            return it->second;
+        };
+        // pass 1: what is loaded, what must go, and every input before anything changes (so
+        // the order blocks tick in can't add a tick of delay in one direction)
         for (auto& [pos, rt] : u.tracked) {
-            auto* region = regionOf(pos.dim);
+            auto* region = regionFor(pos.dim);
             auto  bp     = game::blockPos(pos);
             if (!region || !loadedAt(*region, bp)) {
                 if (rt.loaded) onUnloaded(pos, rt);
@@ -431,10 +459,17 @@ private:
                 pop.emplace_back(pos, region);
                 continue;
             }
+            readInputs(*region, pos, block, rt);
+            active.emplace_back(pos, &rt, region);
+        }
+        // pass 2: Create's block entity ticks
+        for (auto& [pos, rt, region] : active) {
+            auto const& block = region->getBlock(game::blockPos(pos));
+            if (kindOf(block.getTypeName()) != rt->kind) continue;
             try {
-                tickBlock(*region, pos, block, rt);
+                tickBlock(*region, pos, block, *rt);
             } catch (std::exception const& e) {
-                log().error("redstone: tick of {} at {} failed: {}", idOf(rt.kind), posText(pos), e.what());
+                log().error("redstone: tick of {} at {} failed: {}", idOf(rt->kind), posText(pos), e.what());
             }
         }
         for (auto const& pos : gone) untrack(pos);
