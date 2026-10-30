@@ -11,6 +11,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/common/Items.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "feature/redstone/Internal.h"
 #include "feature/redstone/Redstone.h"
 #include "feature/redstone/RedstoneLink.h"
@@ -182,11 +183,38 @@ void setFrequency(GP const& pos, bool first, ItemStack const& stack) {
     if (common::items::isEmpty(copy)) d.erase(first ? "first" : "last");
     else d[first ? "first" : "last"] = common::items::toJson(copy);
     if (!changed) return;
+    itemrender::refresh(pos); // the client mod draws the new frequency item
     if (auto* rt = runtimeAt(pos); rt && rt->link) {
         auto [na, nb] = frequencies(pos);
         link::setKey(*rt->link, link::keyOf(na, nb));
     }
 }
+
+namespace {
+/// Create's LinkRenderer: both frequency items on the link's front, in their slots (filter slot
+/// size), facing out. Client mod only (display items); vanilla keeps the action-bar message.
+void linkDisplay(GP const& pos, Block const& block, std::vector<std::pair<std::int64_t, itemrender::DisplayItem>>& out) {
+    static constexpr int kNormal[6][3]{{0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}};
+    int  facing = std::clamp(state(block, sFacing, kUp), 0, 5);
+    auto freq   = frequencies(pos);
+    for (bool first : {true, false}) {
+        auto const& stack = first ? freq.first : freq.second;
+        if (common::items::isEmpty(stack)) continue;
+        auto                    c = frequencySlotCentre(facing, first);
+        itemrender::DisplayItem d;
+        d.stack    = stack;
+        d.at       = itemrender::facingFace(facing);
+        d.at.x     = pos.x + c[0] + kNormal[facing][0] * .01;
+        d.at.y     = pos.y + c[1] + kNormal[facing][1] * .01;
+        d.at.z     = pos.z + c[2] + kNormal[facing][2] * .01;
+        d.at.scale = static_cast<float>(kFrequencySlotScale) * .5f;
+        out.emplace_back(first ? 0 : 1, std::move(d));
+    }
+}
+struct LinkItems {
+    LinkItems() { itemrender::registerProvider(kLink, linkDisplay); }
+} const gLinkItems;
+} // namespace
 
 int linkInput(BlockSource& region, BlockPos const& pos, int facing) {
     // Create's RedstoneLinkBlock.getPower: the signal from every side, plus (except from the
