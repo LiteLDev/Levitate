@@ -223,9 +223,11 @@ bool useOnContraption(Player& player, ContraptionHit const& target) {
                 if (!a || a == &player || a->getEntityTypeId() == ActorType::FallingBlock || a->getEntityTypeId() == ActorType::ItemEntity) continue;
                 if (a->isPlayer()) return true;
                 c->unseat(a->getOrCreateUniqueID().rawID);
+                leaveSeat(*a);
             }
         }
         if (c->seat(hit->local, player.getOrCreateUniqueID().rawID)) {
+            mountOnContraptionSeat(*c, hit->local, player);
             logAction(player.getRealName() + " sat down on a seat of contraption #" + std::to_string(c->id()));
         }
         return true;
@@ -323,6 +325,7 @@ public:
     }
     void uninstall() {
         net::off("actors.use");
+        seatsUninstall();
         ll::event::EventBus::getInstance().removeListener(mTick);
         ll::event::EventBus::getInstance().removeListener(mChanged);
         for (auto id : mHandlers) ia::remove(id);

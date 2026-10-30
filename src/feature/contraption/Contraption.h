@@ -190,6 +190,9 @@ public:
     /// Seats `actorUniqueId` on the seat at `local` (false if no free seat there).
     bool seat(cc::Pos const& local, std::int64_t actorUniqueId);
     void unseat(std::int64_t actorUniqueId);
+    /// The seated entities (seat block, ActorUniqueID). A rider that rides a vehicle (a seat
+    /// entity) is carried by moving that vehicle, so it stays mounted.
+    [[nodiscard]] std::vector<std::pair<cc::Pos, std::int64_t>> const& seated() const { return mSeated; }
     /// Writable carried data (carrier name -> data) of the block at `local`, persisted with the
     /// contraption (e.g. contraption controls toggling actors); nullptr when no block is there.
     [[nodiscard]] nlohmann::json* blockData(cc::Pos const& local) {

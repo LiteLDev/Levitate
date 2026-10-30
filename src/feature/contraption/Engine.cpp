@@ -734,14 +734,17 @@ public:
             });
         }
         std::unordered_set<::Actor*> seen;
+        // seated entities and the seat entities they ride move with their seat, not as passengers
+        for (auto const& s : c.mSeated) {
+            if (auto* rider = fetchActor(s.second)) {
+                seen.insert(rider);
+                if (auto* v = rider->getVehicle()) seen.insert(v);
+            }
+        }
         for (auto* a : candidates) {
             if (!seen.insert(a).second) continue;
             if (!a || !a->isAlive()) continue;
             if (a->getEntityTypeId() == ActorType::FallingBlock && detail::isDisplayActor(*a)) continue;
-            if (std::any_of(c.mSeated.begin(), c.mSeated.end(), [&](auto const& s) {
-                    return s.second == a->getOrCreateUniqueID().rawID;
-                }))
-                continue;
             out.push_back(a);
         }
         return out;
@@ -891,7 +894,10 @@ public:
             for (auto const& b : c.mBlocks)
                 if (b.local == it->first) h = detail::seatHeight(b.id).value_or(0.5);
             cc::Vec3d seatFeet = c.mTransform.toWorld(cc::Vec3d::of(it->first) + cc::Vec3d{0.5, h, 0.5});
-            moveActorBy(*a, seatFeet - ccVec(a->getFeetPos()));
+            // a rider sitting on a seat entity stays mounted: the vehicle moves and carries it
+            // (teleporting the rider would make it dismount)
+            if (auto* vehicle = a->getVehicle()) moveActorBy(*vehicle, seatFeet - ccVec(a->getFeetPos()));
+            else moveActorBy(*a, seatFeet - ccVec(a->getFeetPos()));
             ++it;
         }
         syncDisplays(c, *region);
@@ -1003,6 +1009,8 @@ public:
             cc::Pos wp = b.local + anchor;
             for (auto* a : region->getEntities(AABB{mcVec(cc::Vec3d::of(wp)), mcVec(cc::Vec3d::of(wp) + cc::Vec3d{1, 1, 1})}, 0.0f)) {
                 if (!a || a->getEntityTypeId() == ActorType::FallingBlock) continue;
+                if (a->hasPassenger()) continue; // the seat entity: its rider is the seated one
+
                 if (game::blockPosOf(a->getFeetPos()) != detail::toBlockPos(wp)) continue;
                 c->mSeated.emplace_back(b.local, a->getOrCreateUniqueID().rawID);
                 break;

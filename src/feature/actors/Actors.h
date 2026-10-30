@@ -180,7 +180,13 @@ bool sitDown(Actor& entity, GlobalPos const& pos);
 /// Whether an entity sits on the seat block at `pos`.
 [[nodiscard]] Actor* seatedAt(GlobalPos const& pos);
 void seatsTick(std::uint64_t tick);
+/// Puts a rider seated on a contraption seat on a seat entity there (the engine moves it with
+/// the seat, so the rider stays seated while the contraption moves).
+void mountOnContraptionSeat(con::Contraption& c, cc::Pos const& local, Actor& rider);
+/// Gets an entity off the seat entity it rides (removing that seat entity).
+void leaveSeat(Actor& rider);
 void seatsInstall();
+void seatsUninstall();
 
 // ---- roller (Roller.cpp) ----------------------------------------------------------------------
 
