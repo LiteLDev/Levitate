@@ -99,7 +99,7 @@ LV_REGISTER_SELFTEST("contraptionmotion.sync", [](Context& ctx) -> ll::coro::Cor
     for (auto const& m : net::takeTestMessages(player)) {
         if (m.channel != "contraption.blocks" || m.payload.value("id", Id{0}) != *guard.id) continue;
         auto t    = m.payload.value("transform", nlohmann::json());
-        sawBlocks = t.is_array() && t.size() == 8 && std::abs(t[3].get<double>() - p.y) < 1e-6;
+        sawBlocks = t.is_array() && t.size() == 10 && std::abs(t[3].get<double>() - p.y) < 1e-6;
     }
     ctx.check(sawBlocks, "contraption.blocks carries the transform");
 
@@ -113,7 +113,7 @@ LV_REGISTER_SELFTEST("contraptionmotion.sync", [](Context& ctx) -> ll::coro::Cor
     for (auto const& m : net::takeTestMessages(player)) {
         if (m.channel != "contraption.motion") continue;
         for (auto const& e : m.payload.value("m", nlohmann::json::array())) {
-            if (!e.is_array() || e.size() != 9 || e[0].get<Id>() != *guard.id) continue;
+            if (!e.is_array() || e.size() != 11 || e[0].get<Id>() != *guard.id) continue;
             ++updates;
             lastY = e[4].get<double>();
         }

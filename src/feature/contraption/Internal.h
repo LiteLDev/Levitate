@@ -2,6 +2,7 @@
 
 // Internals of the contraption unit shared by its .cpp files (not a contract for other units).
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -16,6 +17,7 @@ class BlockPos;
 class BlockSource;
 class Player;
 class Vec3;
+class AABB;
 
 namespace lv::feature::contraption {
 
@@ -120,6 +122,11 @@ void saveAll();
 void reloadAll();
 /// Whether a display entity with this id belongs to a live contraption.
 [[nodiscard]] bool ownsDisplay(std::int64_t uniqueId);
+/// Adds the world boxes of contraption blocks in dimension `dim` that intersect `query` (entity
+/// movement collides with them: Create's contraption colliders, approximated per block).
+void appendCollision(int dim, AABB const& query, std::vector<AABB>& out);
+/// The same boxes with the carried block of each (nullptr if unknown).
+void forEachCollision(int dim, AABB const& query, std::function<void(AABB const&, Block const*)> const& fn);
 /// Server side: the falling block is one of our display entities (owned or orphaned).
 [[nodiscard]] bool isDisplayActor(::Actor const& actor);
 /// Selftests: behave as if a player without the client mod were in every dimension (displays

@@ -328,8 +328,12 @@ public:
     }
     json blocksMessage(Contraption const& c) const {
         json blocks = json::array();
-        for (auto const& b : c.mBlocks)
-            if (b.display) blocks.push_back(json::array({b.display, b.local.x, b.local.y, b.local.z, b.id}));
+        for (auto const& b : c.mBlocks) {
+            if (!b.display) continue;
+            // [display, x, y, z, id, collision box (local, relative to the block) or null]
+            json box = b.collision ? json::array({b.collision->min.x, b.collision->min.y, b.collision->min.z, b.collision->max.x, b.collision->max.y, b.collision->max.z}) : json();
+            blocks.push_back(json::array({b.display, b.local.x, b.local.y, b.local.z, b.id, std::move(box)}));
+        }
         json old = json::array();
         for (auto const& r : retiring)
             if (r.contraption == c.mId) old.push_back(json::array({r.display, r.local.x, r.local.y, r.local.z, r.id, r.quarter}));
@@ -583,7 +587,9 @@ public:
     }
 
     void clear() {
+        collisionCache.clear();
         live.clear();
+
         displays.clear();
         displaysChanged.clear();
         visuals.clear();
@@ -787,7 +793,10 @@ public:
         if (!retiring.empty())
             for (Id id : removeRetiring([&](Retiring const& r) { return r.removeAt <= tickCount; }))
                 if (live.contains(id)) displaysChanged.insert(id);
-        if (live.empty()) return;
+        if (live.empty()) {
+            collisionCache.clear();
+            return;
+        }
         vanillaDims.clear();
         if (auto level = ll::service::getLevel()) {
             level->forEachPlayer([&](Player& p) {
@@ -797,6 +806,7 @@ public:
         }
         if (forceVanilla)
             for (auto const& [id, c] : live) vanillaDims.insert(c->mDim);
+        collisionCache.clear();
         std::vector<Id> ids;
         for (auto const& [id, c] : live) ids.push_back(id);
         for (Id id : ids) {
@@ -808,7 +818,51 @@ public:
                 log().error("contraption #{} tick failed: {}", id, e.what());
             }
         }
+        rebuildCollisionCache();
         syncClients();
+    }
+
+    // -- block collision for entity movement (Create: contraption colliders) --
+    struct CollisionEntry {
+        int                  dim = 0;
+        AABB                 bounds;
+        std::vector<AABB>    boxes; ///< world boxes (the bounding box of each turned block box)
+        std::vector<Block const*> blocks; ///< the carried block of each box
+    };
+    std::vector<CollisionEntry> collisionCache;
+
+    static AABB worldBox(cc::Transform const& t, cc::Box const& b) {
+        cc::Vec3d lo{1e18, 1e18, 1e18}, hi{-1e18, -1e18, -1e18};
+        for (int i = 0; i < 8; ++i) {
+            cc::Vec3d corner{i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z};
+            auto      w = t.toWorld(corner);
+            lo          = {std::min(lo.x, w.x), std::min(lo.y, w.y), std::min(lo.z, w.z)};
+            hi          = {std::max(hi.x, w.x), std::max(hi.y, w.y), std::max(hi.z, w.z)};
+        }
+        return AABB{mcVec(lo), mcVec(hi)};
+    }
+
+    void rebuildCollisionCache() {
+        collisionCache.clear();
+        for (auto const& [id, c] : live) {
+            if (c->mBoxes.empty()) continue;
+            CollisionEntry e;
+            e.dim    = c->mDim;
+            e.bounds = worldBounds(*c, 0.0);
+            e.boxes.reserve(c->mBoxes.size());
+            for (auto const& b : c->mBoxes) e.boxes.push_back(worldBox(c->mTransform, b));
+            for (auto const& b : c->mBlocks)
+                if (b.collision) e.blocks.push_back(detail::blockFromSnbt(b.block));
+            collisionCache.push_back(std::move(e));
+        }
+    }
+
+    void forEachCollision(int dim, AABB const& query, std::function<void(AABB const&, Block const*)> const& fn) const {
+        for (auto const& e : collisionCache) {
+            if (e.dim != dim || !e.bounds.intersects(query)) continue;
+            for (std::size_t i = 0; i < e.boxes.size(); ++i)
+                if (e.boxes[i].intersects(query)) fn(e.boxes[i], i < e.blocks.size() ? e.blocks[i] : nullptr);
+        }
     }
 
     void tickOne(Contraption& c) {
@@ -1214,6 +1268,7 @@ public:
         std::erase_if(visuals, [id = c.mId](auto const& e) { return std::get<0>(e.first) == id; });
         displaysChanged.erase(c.mId);
         live.erase(it);
+        rebuildCollisionCache(); // its blocks stop colliding at once
     }
 
     /// Puts the carried items into the placed container when the block entity didn't take them.
@@ -1329,6 +1384,13 @@ void reloadAll() {
     Engine::get().loadAll();
 }
 bool ownsDisplay(std::int64_t uniqueId) { return Engine::get().displays.contains(uniqueId); }
+void appendCollision(int dim, AABB const& query, std::vector<AABB>& out) {
+    Engine::get().forEachCollision(dim, query, [&](AABB const& box, Block const*) { out.push_back(box); });
+}
+void forEachCollision(int dim, AABB const& query, std::function<void(AABB const&, Block const*)> const& fn) {
+    Engine::get().forEachCollision(dim, query, fn);
+}
+
 void forceVanillaViewers(bool on) { Engine::get().forceVanilla = on; }
 bool isDisplayActor(::Actor const& actor) {
     return ownsDisplay(actor.getOrCreateUniqueID().rawID) || actor.hasTag(kDisplayTag);

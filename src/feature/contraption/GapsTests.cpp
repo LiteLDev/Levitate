@@ -3,7 +3,14 @@
 
 #include "ll/api/service/Bedrock.h"
 
+#include "mc/deps/core/math/Vec2.h"
+#include "mc/deps/core/math/Vec3.h"
 #include "mc/server/SimulatedPlayer.h"
+#include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorDefinitionIdentifier.h"
+#include "mc/world/actor/ActorFactory.h"
+#include "mc/world/level/Level.h"
+#include "mc/world/phys/AABB.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
@@ -177,6 +184,42 @@ LV_REGISTER_SELFTEST("contraption.actors_paused", [](Context& ctx) -> ll::coro::
     if ((c = find(*r.id))) c->stop();
     co_await ctx.ticks(2);
     discard(*r.id);
+});
+
+// R12: entities collide with contraption blocks through the game's own collision (a pig lands on
+// a lifted block and stands on it: on ground, not pushed up by the engine each tick)
+LV_REGISTER_SELFTEST("contraption.collision_shapes", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = co_await area(ctx, 8);
+    p.y += 3;
+    ctx.setBlock(p, "minecraft:stone");
+    AssembleOptions o;
+    o.anchor        = p;
+    o.includeAnchor = true;
+    auto r          = assemble(o);
+    ctx.require(r.ok(), "assembled: " + r.errorText);
+    Guard g;
+    g.ids.push_back(*r.id);
+    co_await ctx.ticks(2);
+    std::vector<AABB> boxes;
+    detail::appendCollision(p.dim, AABB{Vec3{float(p.x), float(p.y + 0.5f), float(p.z)}, Vec3{float(p.x + 1), float(p.y + 1.5f), float(p.z + 1)}}, boxes);
+    ctx.check(boxes.size() == 1, "the lifted block collides: " + std::to_string(boxes.size()));
+    auto level = ll::service::getLevel();
+    auto owner = level->getActorFactory().createSpawnedActor(ActorDefinitionIdentifier("minecraft:pig"), nullptr, Vec3{p.x + .5f, p.y + 3.f, p.z + .5f}, Vec2{0, 0});
+    ctx.require(static_cast<bool>(owner), "pig created");
+    auto* pig = level->addEntity(ctx.player().getDimensionBlockSource(), std::move(owner));
+    ctx.require(pig != nullptr, "pig spawned");
+    auto uid = pig->getOrCreateUniqueID();
+    co_await ctx.ticks(30);
+    pig = level->fetchEntity(uid, false);
+    ctx.require(pig != nullptr, "pig there");
+    ctx.check(std::abs(pig->getFeetPos().y - (p.y + 1)) < 0.05f, "it stands on the block: y " + std::to_string(pig->getFeetPos().y - p.y));
+    ctx.check(pig->isOnGround(), "on ground (the block's shape held it)");
+    pig->remove();
+    discard(*r.id);
+    co_await ctx.ticks(1);
+    boxes.clear();
+    detail::appendCollision(p.dim, AABB{Vec3{float(p.x), float(p.y), float(p.z)}, Vec3{float(p.x + 1), float(p.y + 1), float(p.z + 1)}}, boxes);
+    ctx.check(boxes.empty(), "a discarded contraption collides no more");
 });
 
 } // namespace lv::feature::contraption

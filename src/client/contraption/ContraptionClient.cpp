@@ -49,9 +49,10 @@ using Json = nlohmann::json;
 namespace cc = core::contraption;
 
 struct Block {
-    std::int64_t display = 0;
-    cc::Pos      local;
-    std::string  id;
+    std::int64_t           display = 0;
+    cc::Pos                local;
+    std::string            id;
+    std::optional<cc::Box> collision; ///< relative to the block (null: walk through)
 };
 struct Known {
     int                                       dim = 0, axis = 1, quarter = 0;
@@ -162,8 +163,13 @@ void onBlocks(Json const& msg) {
     k.quarter = msg.value("quarter", 0);
     k.blocks.clear();
     for (auto const& b : msg.value("blocks", Json::array())) {
-        if (!b.is_array() || b.size() != 5) continue;
-        k.blocks.push_back({b[0].get<std::int64_t>(), posOf(b, 1), b[4].get<std::string>()});
+        if (!b.is_array() || b.size() < 5) continue;
+        std::optional<cc::Box> box;
+        if (b.size() > 5 && b[5].is_array() && b[5].size() == 6) {
+            auto const& c = b[5];
+            box = cc::Box{{c[0].get<double>(), c[1].get<double>(), c[2].get<double>()}, {c[3].get<double>(), c[4].get<double>(), c[5].get<double>()}};
+        }
+        k.blocks.push_back({b[0].get<std::int64_t>(), posOf(b, 1), b[4].get<std::string>(), box});
         displays()[k.blocks.back().display] = {id, k.blocks.back().local, k.quarter};
     }
     // the old displays of blocks spawned again stay where the new ones are until the server
@@ -256,7 +262,29 @@ bool displayPose(Actor const& actor, float partialTick, DisplayPose& out) {
     return true;
 }
 
+void appendCollision(int dim, cc::Box const& query, std::vector<std::pair<cc::Box, std::string>>& out) {
+    for (auto const& [id, k] : known()) {
+        if (k.dim != dim || !k.motion.ready()) continue;
+        // the latest transform: the local player moves before the frame interpolates
+        auto const& t = k.motion.current();
+        for (auto const& b : k.blocks) {
+            if (!b.collision) continue;
+            auto      local = b.collision->moved(cc::Vec3d::of(b.local));
+            cc::Vec3d lo{1e18, 1e18, 1e18}, hi{-1e18, -1e18, -1e18};
+            for (int i = 0; i < 8; ++i) {
+                cc::Vec3d corner{i & 1 ? local.max.x : local.min.x, i & 2 ? local.max.y : local.min.y, i & 4 ? local.max.z : local.min.z};
+                auto      w = t.toWorld(corner);
+                lo          = {std::min(lo.x, w.x), std::min(lo.y, w.y), std::min(lo.z, w.z)};
+                hi          = {std::max(hi.x, w.x), std::max(hi.y, w.y), std::max(hi.z, w.z)};
+            }
+            cc::Box world{lo, hi};
+            if (world.intersects(query)) out.emplace_back(world, b.id);
+        }
+    }
+}
+
 void forEachBlock(std::string const& blockId, float partialTicks, std::function<void(BlockView const&)> const& fn) {
+
     auto* level = clientLevel();
     auto  dim   = playerDim();
     if (!level || !dim || known().empty()) return;

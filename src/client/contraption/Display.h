@@ -4,6 +4,10 @@
 
 #ifdef LV_CLIENT
 
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "core/contraption/Geometry.h"
 
 class Actor;
@@ -25,6 +29,10 @@ struct DisplayPose {
 
 /// False when the actor isn't a display of a contraption whose motion is known.
 [[nodiscard]] bool displayPose(Actor const& actor, float partialTick, DisplayPose& out);
+
+/// Adds the world boxes (bounding boxes of the turned block boxes) of the known contraption
+/// blocks in dimension `dim` that intersect `query`: the local player collides with them.
+void appendCollision(int dim, core::contraption::Box const& query, std::vector<std::pair<core::contraption::Box, std::string>>& out);
 
 } // namespace lv::client::contraption
 
