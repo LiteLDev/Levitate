@@ -13,7 +13,11 @@
 #include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
 #include "mc/network/MinecraftPacketIds.h"
 #include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/LevelSoundEventPacket.h"
 #include "mc/network/packet/PlaySoundPacket.h"
+#include "mc/world/actor/ActorDamageSource.h"
+#include "mc/world/actor/ActorHurtResult.h"
+#include "mc/world/actor/HurtParameters.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/item/ItemActor.h"
@@ -211,7 +215,25 @@ void setItem(Actor& itemEntity, ItemStack const& stack) {
 
 void discard(Actor& a) { a.remove(); }
 
-void hurt(Actor& a, float damage) { a.hurtByCause(damage, SharedTypes::Legacy::ActorDamageCause::Contact); }
+void hurt(Actor& a, float damage, std::string const& deathMessage) {
+    ActorDamageSource source(SharedTypes::Legacy::ActorDamageCause::Contact, deathMessage);
+    HurtParameters    params{};
+    a.hurt(source, damage, params);
+}
+
+void playHitSound(GlobalPos const& pos, Block const& block) {
+    auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::LevelSoundEvent);
+    if (!packet) return;
+    auto& pkt           = static_cast<LevelSoundEventPacket&>(*packet);
+    pkt.mSoundEvent->mSound = SharedTypes::Legacy::LevelSoundEvent::Hit;
+    pkt.mPos            = Vec3{float(pos.x) + .5f, float(pos.y) + .5f, float(pos.z) + .5f};
+    pkt.mData           = static_cast<int>(block.mNetworkId);
+    pkt.mActorIdentifier = std::string();
+    pkt.mActor          = ActorUniqueID(-1);
+    pkt.mIsGlobal       = false;
+    pkt.mIsBaby         = false;
+    pkt.sendTo(game::blockPos(pos), DimensionType(pos.dim));
+}
 
 void push(Actor& a, double vx, double vy, double vz) {
     auto v = a.getVelocity();
@@ -289,9 +311,7 @@ void give(Player& player, ItemStack const& stack) {
 }
 
 bool acceptsDirectInput(std::string const& id) {
-    if (!id.starts_with("levitate:")) return false;
-    if (endsWith(id, "item_vault") || endsWith(id, "creative_crate")) return false;
-    return true;
+    return id == "levitate:chute" || id == "levitate:smart_chute" || id == "levitate:item_drain";
 }
 
 } // namespace world

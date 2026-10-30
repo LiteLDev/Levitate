@@ -8,13 +8,16 @@
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/block/Block.h"
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/common/ValueBox.h"
 #include "feature/display/Display.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "feature/net/Net.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
@@ -293,8 +296,31 @@ LV_REGISTER_SELFTEST("stock.gauge_restock", [](Context& ctx) -> ll::coro::CoroTa
     stock::useGauge(p, gauge, 0, false);
     ctx.check(items::idOf(items::fromJson(stock::gaugeInfo(gauge, 0).value("filter", JsonT()))) == "minecraft:coal", "clicking with an item sets the monitored item");
     ctx.check(stock::gaugeInfo(gauge, 0).value("restocker", false), "a gauge on a packager restocks");
+    ctx.check(lv::feature::itemrender::itemsOf(gauge).size() == 1, "the client mod draws the monitored item on the panel (U42)");
     ctx.check(lv::feature::common::valuebox::apply(p, gauge, "panel0", {0, 20}), "the target amount is set on the board");
     net::setTestCompanion(p, true);
+    {
+        // client mod: click and hold (U42): a short click opens the panel screen, holding the board
+        p.setSelectedItem(items::empty());
+        auto lastToken = [&] {
+            std::uint64_t t = 0;
+            for (auto const& m : net::takeTestMessages(p)) {
+                if (m.channel == "valuebox.hold") t = m.payload.value("token", std::uint64_t{0});
+                if (m.channel == "screen.open" || m.channel == "valuebox.open") t = ~std::uint64_t{0};
+            }
+            return t;
+        };
+        (void)net::takeTestMessages(p);
+        stock::useGauge(p, gauge, 0, false);
+        auto token = lastToken();
+        ctx.check(token != 0 && token != ~std::uint64_t{0}, "an empty-hand click waits for the hold");
+        net::injectFromClient(p, "valuebox.release", {{"token", token}, {"state", "short"}});
+        ctx.check(lastToken() == ~std::uint64_t{0}, "a short click opens the panel screen");
+        stock::useGauge(p, gauge, 0, false);
+        token = lastToken();
+        net::injectFromClient(p, "valuebox.release", {{"token", token}, {"state", "hold"}});
+        ctx.check(lastToken() == ~std::uint64_t{0}, "holding opens the target amount board");
+    }
     net::injectFromClient(p, "screen.action", {{"type", "stock.gauge"}, {"context", {{"pos", stock::posJson(gauge)}, {"slot", 0}}}, {"action", {{"op", "set"}, {"address", "Furnace"}}}});
     net::setTestCompanion(p, false);
     (void)net::takeTestMessages(p);
@@ -445,4 +471,46 @@ LV_REGISTER_SELFTEST("stock.packager", [](Context& ctx) -> ll::coro::CoroTask<> 
     ctx.check(stock::summaryOf(network, true).countOf(item(ctx, "minecraft:iron_ingot")) == 8, "the packager boxed the ordered items");
     co_await ctx.ticks(30);
     ctx.check(stock::stateOr(packager, "levitate:linked", 0) == 1, "the packager shows that it is linked");
+});
+
+LV_REGISTER_SELFTEST("stock.table_cloth_helper", [](Context& ctx) -> ll::coro::CoroTask<> {
+    namespace ia = lv::feature::common::interactions;
+    auto base = at(ctx.testPos(4230), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    for (int dx = -1; dx <= 1; ++dx)
+        for (int dz = -1; dz <= 1; ++dz) ctx.cleanupBlock(at(base, dx, 0, dz));
+    ctx.require(ctx.setBlock(base, "levitate:white_table_cloth"), "place a table cloth");
+    auto& p = ctx.player();
+    p.setSelectedItem(item(ctx, "levitate:red_table_cloth", 4));
+    auto click = [&](double hx, double hz) {
+        auto&       region  = p.getDimensionBlockSource();
+        auto const& block   = region.getBlock(lv::game::blockPos(base));
+        std::string blockId = block.getTypeName();
+        auto const& held    = p.getSelectedItem();
+        std::string itemId  = items::idOf(held);
+        ia::UseOnContext c{p, held, itemId, block, blockId, base, 1, {hx, 1.0, hz}, false, true};
+        return ia::dispatchUseOn(c);
+    };
+    ctx.check(click(0.95, 0.5) == ia::Result::Consume, "a table cloth in hand on a table cloth is taken");
+    ctx.check(lv::game::blockIdAt(p.getDimensionBlockSource(), lv::game::blockPos(at(base, 1, 0, 0))) == "levitate:red_table_cloth",
+              "the cloth extends towards the clicked edge (east)");
+    co_await ctx.ticks(6);
+    click(0.5, 0.05);
+    ctx.check(lv::game::blockIdAt(p.getDimensionBlockSource(), lv::game::blockPos(at(base, 0, 0, -1))) == "levitate:red_table_cloth",
+              "and north for a click near the north edge");
+    for (int dx = -1; dx <= 1; ++dx)
+        for (int dz = -1; dz <= 1; ++dz) ctx.cleanupBlock(at(base, dx, 0, dz));
+});
+LV_REGISTER_SELFTEST("stock.gauge_crafting", [](Context& ctx) {
+    auto planks = item(ctx, "minecraft:oak_planks");
+    auto sticks = stock::craftingArrangement(item(ctx, "minecraft:stick"), {planks});
+    ctx.check(sticks.has_value(), "sticks are crafted from planks");
+    if (sticks) {
+        int cells = 0;
+        for (int i : sticks->pattern) cells += i == 0;
+        ctx.check(cells == 2 && sticks->resultCount == 4, "two planks in the pattern, 4 sticks out, got " + std::to_string(cells) + " / " + std::to_string(sticks->resultCount));
+        ctx.check(sticks->pattern[0] == 0 && sticks->pattern[3] == 0, "the planks stand in one column of the 3x3 grid");
+    }
+    ctx.check(!stock::craftingArrangement(item(ctx, "minecraft:stick"), {planks, item(ctx, "minecraft:dirt")}), "every input must be used");
+    ctx.check(!stock::craftingArrangement(item(ctx, "minecraft:diamond"), {planks}), "no recipe: no arrangement");
 });

@@ -1,4 +1,5 @@
-// Selftests of the bulk processing unit (U13): testPos dx 1300..1399 (x = column, dz 0..4).
+// Selftests of the bulk processing unit (U13): testPos dx 1300..1399 (x = column, dz 0..4); U39
+// additions dx 3950..3989.
 // Machines are driven by U2's test generator (levitate:kinetics_test_source).
 
 #include <filesystem>
@@ -8,7 +9,20 @@
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
+#include "mc/safety/RedactableString.h"
+#include "mc/scripting/modules/minecraft/ScriptFacing.h"
+#include "mc/server/SimulatedPlayer.h"
+#include "mc/server/sim/LookDuration.h"
+#include "mc/world/actor/animal/Horse.h"
+#include "mc/deps/core/math/Vec2.h"
+#include "mc/deps/ecs/gamerefs_entity/EntityContext.h"
+#include "mc/deps/ecs/gamerefs_entity/GameRefsEntity.h"
+#include "mc/world/actor/ActorFactory.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorDamageSource.h"
+#include "mc/world/actor/player/Inventory.h"
+#include "mc/world/level/dimension/DimensionType.h"
 #include "mc/world/actor/ActorDefinitionIdentifier.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
@@ -29,6 +43,7 @@
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
 #include "mod/Config.h"
+#include "mod/Log.h"
 #include "mod/Main.h"
 #include "selftest/SelfTest.h"
 
@@ -46,11 +61,16 @@ constexpr char const* kShaft  = "levitate:kinetics_test_shaft";
 constexpr int         X = 0, Y = 1, Z = 2;
 constexpr int         kDown = 0, kUp = 1, kNorth = 2, kSouth = 3, kWest = 4, kEast = 5;
 
+/// testPos puts dx 39xx 150 blocks south, outside the run's ticking area (z ±64): the U39 tests
+/// with entities move 205 blocks north, to rows no unit uses (z -55..-51).
+constexpr int kU39Shift = -205;
+
 struct Area {
     Context& ctx;
     int      col;
+    int      zShift = 0; ///< extra dz (U39 tests: into the run's ticking area)
     GlobalPos at(int dx, int dy = 0, int dz = 0) const {
-        auto p = ctx.testPos(1300 + col + dx, dz);
+        auto p = ctx.testPos(1300 + col + dx, dz + zShift);
         p.y += dy;
         return p;
     }
@@ -511,6 +531,288 @@ LV_REGISTER_SELFTEST("bulk.placement", [](Context& ctx) -> ll::coro::CoroTask<> 
     co_await ctx.ticks(3);
     ctx.check(idAt(region, toBlockPos(nozzle)) != kNozzle, "a nozzle needs a fan");
     removeItems(region, around(a.at(1, 1, 2), 4));
+});
+
+// ---- U39 (processing gaps): dx 3950..3984 (Area col 2650..2684) ------------------------------------------
+
+namespace {
+
+/// Wheels along z at `a.at(1, dy, 0)` / `a.at(1, dy, 2)` pulling down through the controller between.
+ll::coro::CoroTask<GlobalPos> downCrusher(Context& ctx, Area const& a, int dy, float rpm = 256) {
+    auto w1 = a.at(1, dy, 0), w2 = a.at(1, dy, 2), ctrl = a.at(1, dy, 1);
+    ctx.setBlock(a.at(0, dy, 0), kSource, {{"levitate:axis", X}});
+    ctx.setBlock(a.at(0, dy, 2), kSource, {{"levitate:axis", X}});
+    ctx.setBlock(w1, std::string(kWheel), {{"levitate:axis", X}});
+    ctx.setBlock(w2, std::string(kWheel), {{"levitate:axis", X}});
+    ctx.cleanupBlock(ctrl);
+    co_await ctx.ticks(2);
+    float s = cb::controllerFacing(cb::Axis::X, cb::Face::South, 64) == cb::Face::Down ? rpm : -rpm;
+    kinetics::setGeneratedSpeed(a.at(0, dy, 0), s);
+    kinetics::setGeneratedSpeed(a.at(0, dy, 2), -s);
+    // wait for the network and the controller (a busy server may take a few ticks)
+    auto& region = overworld(ctx);
+    for (int i = 0; i < 60; ++i) {
+        co_await ctx.ticks(1);
+        if (idAt(region, toBlockPos(ctrl)) == kController && stateOf(region.getBlock(toBlockPos(ctrl)), "levitate:valid")
+            && crushingSpeedAt(region, ctrl) > 0)
+            break;
+    }
+    co_return ctrl;
+}
+
+/// Temporarily different crushing damage.
+struct CrushDamage {
+    int saved;
+    explicit CrushDamage(int d) : saved(config::mut<BulkConfig>().crushingDamage) { config::mut<BulkConfig>().crushingDamage = d; }
+    ~CrushDamage() { config::mut<BulkConfig>().crushingDamage = saved; }
+};
+
+/// The U39 rows (dx 39xx) lie outside the run's ticking area: the test player watches from
+/// nearby (spectator) so entities there tick.
+ll::coro::CoroTask<> watchFrom(Context& ctx, GlobalPos const& p) {
+    static_cast<SimulatedPlayer&>(ctx.player()).teleport(Vec3{p.x + .5f, float(p.y + 4), p.z - 4.5f}, DimensionType(0));
+    co_await ctx.ticks(20); // the chunks around the player start ticking
+}
+
+Actor* spawnMob(BlockSource& region, char const* id, cb::Vec3d const& at) {
+    auto level = ll::service::getLevel();
+    if (!level) return nullptr;
+    // the actor factory: a spawned mob, without the spawner's spawn rules
+    auto owner = level->getActorFactory().createSpawnedActor(ActorDefinitionIdentifier(id), nullptr, Vec3{float(at.x), float(at.y), float(at.z)}, Vec2{0, 0});
+    if (!owner) return nullptr;
+    auto* mob = level->addEntity(region, std::move(owner));
+    if (mob) mob->setPersistent(); // never despawned while the test runs
+    return mob;
+}
+
+} // namespace
+
+LV_REGISTER_SELFTEST("bulk.crusher_pass_through", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // R64: the entity being crushed has no collision with the controller and goes through
+    Area a{ctx, 2650, kU39Shift};
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
+    auto& region = overworld(ctx);
+    CrushDamage none(0);
+    co_await watchFrom(ctx, a.at(1, 3, 1));
+    auto ctrl = co_await downCrusher(ctx, a, 3);
+    ctx.require(stateOf(region.getBlock(toBlockPos(ctrl)), "levitate:facing") == kDown, "the controller pulls down");
+    auto* pig = spawnMob(region, "minecraft:pig", {ctrl.x + .5, ctrl.y + 1.2, ctrl.z + .5});
+    ctx.require(pig != nullptr, "spawn a pig above the crusher");
+    auto id   = idOf(*pig);
+    bool        went = false;
+    std::string path;
+    for (int i = 0; i < 40 && !went; ++i) {
+        co_await ctx.ticks(2);
+        auto* e = entityById(id);
+        if (i < 8) path += e ? std::to_string(feetOf(*e).y - ctrl.y).substr(0, 5) + (e->isAlive() ? " " : "(dead) ") : "- ";
+        if (e && feetOf(*e).y < ctrl.y - .2) went = true;
+    }
+    if (!went) ctx.info("pig y relative to the controller: " + path);
+    if (!went) {
+        auto* e = entityById(id);
+        ctx.info(e ? "pig at y " + std::to_string(feetOf(*e).y) + ", controller at y " + std::to_string(ctrl.y) + ", taken "
+                         + std::to_string(controllerAt(ctrl).entity == id)
+                   : std::string("pig gone"));
+    }
+    ctx.check(went, "the pig was pulled through the controller");
+    if (auto* e = entityById(id)) e->remove();
+});
+
+LV_REGISTER_SELFTEST("bulk.crusher_kills", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // R65: Create's crush damage type: its death message, looting II for the drops
+    {
+        ActorDamageSource src(SharedTypes::Legacy::ActorDamageCause::Contact, "death.attack.create.crush");
+        auto              msg = src.getDeathMessage("Pig", nullptr);
+        ctx.info("death message: " + msg.first);
+        ctx.check(msg.first == "death.attack.create.crush", "the death message is Create's: " + msg.first);
+    }
+    Area a{ctx, 2655, kU39Shift};
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
+    auto& region = overworld(ctx);
+    CrushDamage lethal(100);
+    co_await watchFrom(ctx, a.at(1, 3, 1));
+    auto ctrl   = co_await downCrusher(ctx, a, 3);
+    int  before = lootingBoosts();
+    auto* pig   = spawnMob(region, "minecraft:pig", {ctrl.x + .5, ctrl.y + 1.2, ctrl.z + .5});
+    ctx.require(pig != nullptr, "spawn a pig above the crusher");
+    auto id = idOf(*pig);
+    for (int i = 0; i < 40 && (entityById(id) || lootingBoosts() == before); ++i) co_await ctx.ticks(2);
+    auto* left = entityById(id);
+    ctx.check(!left || !left->isAlive(), "the crusher killed the pig");
+    if (lootingBoosts() == before) ctx.info("crushing speed " + std::to_string(crushingSpeedAt(region, ctrl)) + ", pig " + (left ? "alive" : "gone"));
+    ctx.check(lootingBoosts() > before, "its drops rolled with looting (" + std::to_string(lootingBoosts() - before) + " functions)");
+    removeItems(region, around(ctrl, 5));
+});
+
+LV_REGISTER_SELFTEST("bulk.placement_veto", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // R68: a nozzle without its fan is not placed at all (Create's canSurvive at placement)
+    Area a{ctx, 2660, kU39Shift};
+    ctx.require(co_await ctx.ensureLoaded(a.at(1)), "test area loaded");
+    auto& region = overworld(ctx);
+    auto& sp     = static_cast<SimulatedPlayer&>(ctx.player());
+    auto floor = a.at(1, 0, 2);
+    ctx.require(ctx.setBlock(floor, "minecraft:stone"), "a stone floor");
+    ctx.cleanupBlock(a.at(1, 1, 2));
+    sp.teleport(Vec3{floor.x - 2.5f, float(floor.y + 1), floor.z + .5f}, DimensionType(0));
+    co_await ctx.ticks(2);
+    sp.getInventory().setItem(0, stack(ctx, "levitate:nozzle", 2));
+    sp.setSelectedSlot(0);
+    sp.sendInventory(false);
+    sp.simulateLookAt(Vec3{floor.x + .5f, floor.y + 1.f, floor.z + .5f}, sim::LookDuration::Instant);
+    co_await ctx.ticks(2);
+    sp.simulateUseItemInSlotOnBlock(0, toBlockPos(floor), ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
+    co_await ctx.ticks(12);
+    ctx.check(idAt(region, toBlockPos(a.at(1, 1, 2))) != kNozzle, "no nozzle was placed on plain stone");
+    ctx.check(items::countOf(sp.getInventory().getItem(0)) == 2, "the nozzle stays in the hand");
+    // on top of an upward fan it is placed
+    ctx.require(ctx.setBlock(floor, std::string(kFan), {{"levitate:facing", kUp}}), "an upward fan");
+    co_await ctx.ticks(2);
+    sp.simulateUseItemInSlotOnBlock(0, toBlockPos(floor), ScriptModuleMinecraft::ScriptFacing::Up, Vec3{.5f, 1.f, .5f});
+    co_await ctx.ticks(12);
+    ctx.check(idAt(region, toBlockPos(a.at(1, 1, 2))) == kNozzle, "a nozzle in front of its fan is placed");
+    sp.getInventory().setItem(0, ItemStack());
+    sp.sendInventory(false);
+});
+
+LV_REGISTER_SELFTEST("bulk.fan_state_tag", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // R66: the fan processing state of an item entity is kept on the entity (survives saving)
+    struct Slow {
+        int saved;
+        Slow() : saved(config::mut<BulkConfig>().fanProcessingTime) { config::mut<BulkConfig>().fanProcessingTime = 400; }
+        ~Slow() { config::mut<BulkConfig>().fanProcessingTime = saved; }
+    } slow;
+    Area a{ctx, 2665, kU39Shift};
+    ctx.require(co_await loadArea(ctx, a.at(10)), "test area loaded");
+    auto& region = overworld(ctx);
+    auto  fan    = a.at(1, 0, 0);
+    ctx.setBlock(a.at(0, 0, 0), kSource, {{"levitate:axis", X}});
+    ctx.setBlock(fan, std::string(kFan), {{"levitate:facing", kEast}});
+    co_await ctx.ticks(2);
+    kinetics::setGeneratedSpeed(a.at(0, 0, 0), cb::fanPushing(cb::Face::East, 64) ? 64 : -64);
+    ctx.setBlock(a.at(2, 0, 0), "minecraft:campfire");
+    co_await watchFrom(ctx, a.at(4, 0, 0));
+    co_await ctx.ticks(40);
+    auto at = a.at(4, 0, 0);
+    auto id = spawnItem(region, stack(ctx, "minecraft:beef"), {at.x + .5, at.y + .1, at.z + .5}, {});
+    std::string tag;
+    for (int i = 0; i < 40 && tag.empty(); ++i) {
+        co_await ctx.ticks(2);
+        if (auto* e = entityById(id); e && e->hasTags())
+            for (auto const& t : e->getTags())
+                if (t.starts_with("lv_fan:")) tag = t;
+    }
+    ctx.check(!tag.empty(), "the item carries its processing state");
+    ctx.check(tag.starts_with("lv_fan:" + std::to_string(int(cb::FanType::Smoking)) + ":"), "smoking, time left: " + tag);
+    cb::Box area{
+        {fan.x + 1., fan.y - 1., fan.z - 1.},
+        {fan.x + 30., fan.y + 2., fan.z + 2.}
+    };
+    removeItems(region, area);
+});
+
+LV_REGISTER_SELFTEST("bulk.haunted_horse", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // R67: a haunted horse becomes a skeleton horse with its name, owner, taming and saddle
+    Area a{ctx, 2670, kU39Shift};
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
+    auto& region = overworld(ctx);
+    auto  at     = a.at(1, 0, 2);
+    co_await watchFrom(ctx, at);
+    co_await ctx.ticks(2);
+    auto* horse  = spawnMob(region, "minecraft:horse", {at.x + .5, at.y + .1, at.z + .5});
+    ctx.require(horse != nullptr, "spawn a horse");
+    horse->setNameTag("Haunted Test");
+    auto hid = idOf(*horse);
+    co_await ctx.ticks(2);
+    horse = entityById(hid);
+    ctx.require(horse != nullptr, "the horse is still there");
+    static_cast<Horse*>(horse)->tameToPlayer(ctx.player(), false);
+    co_await ctx.ticks(2);
+    horse = entityById(hid);
+    ctx.require(horse != nullptr, "the horse is still there after taming");
+    ctx.info(std::string("horse tame: ") + (horse->isTame() ? "yes" : "no"));
+    for (int i = 0; i <= 101; ++i) {
+        auto* h = entityById(hid);
+        if (!h) break;
+        affectEntity(*h, cb::FanType::Haunting, 0);
+    }
+    co_await ctx.ticks(2);
+    Actor* skeleton = nullptr;
+    for (auto* e : entitiesIn(region, around(at, 3)))
+        if (e->getTypeName() == "minecraft:skeleton_horse") skeleton = e;
+    ctx.require(skeleton != nullptr, "a skeleton horse took the horse's place");
+    ctx.check(skeleton->getNameTag() == "Haunted Test", "it keeps the name: " + skeleton->getNameTag());
+    ctx.check(skeleton->isTame(), "it is tamed");
+    ctx.check(skeleton->getOwnerId() == ctx.player().getOrCreateUniqueID(), "it has the horse's owner");
+    skeleton->remove();
+    removeItems(region, around(at, 4));
+});
+
+LV_REGISTER_SELFTEST("bulk.fan_multibox", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // R71: the current reaches into blocks made of several boxes as far as Create's test points go
+    Area a{ctx, 2675, kU39Shift};
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
+    auto fan = a.at(1, 4, 2);
+    co_await watchFrom(ctx, a.at(1, 1, 2));
+    ctx.setBlock(a.at(1, 5, 2), kSource, {{"levitate:axis", Y}});
+    ctx.setBlock(fan, std::string(kFan), {{"levitate:facing", kDown}});
+    for (int dy = 1; dy < 4; ++dy) ctx.cleanupBlock(a.at(1, dy, 2));
+    // bottom stairs: under the step the current stops at its top, elsewhere at the half
+    ctx.require(ctx.setBlock(a.at(1, 1, 2), "minecraft:oak_stairs", {{"weirdo_direction", 0}, {"upside_down_bit", 0}}), "stairs below the fan");
+    co_await ctx.ticks(2);
+    kinetics::setGeneratedSpeed(a.at(1, 5, 2), cb::fanPushing(cb::Face::Down, 64) ? 64 : -64);
+    co_await ctx.ticks(40);
+    auto f = fanAt(fan);
+    ctx.require(f.has_value(), "the fan's current");
+    ctx.info("current length " + std::to_string(f->current.maxDistance));
+    ctx.check(std::abs(f->current.maxDistance - (2.5f + 1 / 32.f)) < .01f, "the current goes half into the stairs: " + std::to_string(f->current.maxDistance));
+});
+
+LV_REGISTER_SELFTEST("bulk.soundscapes", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // R69: a millstone with an input plays Create's milling soundscape to the players near it
+    Area a{ctx, 2680, kU39Shift};
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
+    auto& region = overworld(ctx);
+    auto  mill   = a.at(1, 1, 2);
+    ctx.setBlock(a.at(1, 0, 2), kSource, {{"levitate:axis", Y}});
+    ctx.setBlock(mill, std::string(kMillstone));
+    co_await ctx.ticks(2);
+    kinetics::setGeneratedSpeed(a.at(1, 0, 2), 64);
+    static_cast<SimulatedPlayer&>(ctx.player()).teleport(Vec3{mill.x + 2.5f, float(mill.y), mill.z + .5f}, DimensionType(0));
+    co_await ctx.ticks(3);
+    int before = soundPlays();
+    (void)common::items::insert(region, toBlockPos(mill), kUp, stack(ctx, "minecraft:wheat", 16), false);
+    co_await ctx.ticks(10);
+    ctx.check(soundPlays() > before, "milling sounds were sent, " + std::to_string(soundPlays() - before));
+    co_await ctx.ticks(200);
+    removeItems(region, around(mill, 3));
+});
+
+LV_REGISTER_SELFTEST("bulk.nozzle_overload", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // R70: a pulling nozzle holding more than 256 entities explodes and the entities are gone
+    Area a{ctx, 2685, kU39Shift};
+    ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
+    auto& region = overworld(ctx);
+    auto  fan = a.at(2, 0, 2), nozzle = a.at(2, 1, 2);
+    co_await watchFrom(ctx, a.at(-8, 0, 2));
+    ctx.setBlock(a.at(2, -1, 2), kSource, {{"levitate:axis", Y}});
+    ctx.setBlock(fan, std::string(kFan), {{"levitate:facing", kUp}});
+    ctx.setBlock(nozzle, std::string(kNozzle), {{"levitate:facing", kUp}});
+    co_await ctx.ticks(2);
+    kinetics::setGeneratedSpeed(a.at(2, -1, 2), cb::fanPushing(cb::Face::Up, 256) ? -256 : 256);
+    co_await ctx.ticks(5);
+    // 260 sticks with different names (they don't merge) on a grid above the nozzle
+    for (int i = 0; i < 260; ++i) {
+        auto s = stack(ctx, "minecraft:stick");
+        s.setCustomName(Bedrock::Safety::RedactableString("stick " + std::to_string(i)));
+        spawnItem(region, s, {nozzle.x + .5 + (i % 13 - 6) * .3, nozzle.y + 3.0 + (i / 13) * .1, nozzle.z + .5 + (i % 7 - 3) * .3}, {});
+    }
+    bool gone = false;
+    for (int i = 0; i < 30 && !gone; ++i) {
+        co_await ctx.ticks(2);
+        gone = countItems(region, around(nozzle, 8), "minecraft:stick") < 10;
+    }
+    ctx.check(gone, "the nozzle exploded and the sticks are gone, " + std::to_string(countItems(region, around(nozzle, 8), "minecraft:stick")) + " left");
+    removeItems(region, around(nozzle, 10));
 });
 
 } // namespace lv::feature::bulk

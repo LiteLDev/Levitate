@@ -106,6 +106,8 @@ void                           setHeld(GlobalPos const& pos, ItemStack const& st
 [[nodiscard]] ca::DeployerState      state(GlobalPos const& pos);
 /// Activates a deployer once now, as when its hand reaches out (selftests).
 void activateNow(GlobalPos const& pos);
+/// Fist bumps so far (Create's triggerFistBump; selftests).
+[[nodiscard]] int fistBumps();
 /// Recipe lookup on an item (depots, belts, contraption deployers): outputs for one item.
 [[nodiscard]] std::optional<std::vector<ItemStack>> deployOnItem(ItemStack const& item, ItemStack& held, bool simulate);
 } // namespace deployer
@@ -116,6 +118,11 @@ namespace fakeplayer {
 /// nullptr while it can't exist (no level / still joining).
 [[nodiscard]] SimulatedPlayer* get(int dim);
 [[nodiscard]] bool isFake(Player const& player);
+/// Whether `uniqueId` is a deployer player's.
+[[nodiscard]] bool isFakeId(std::int64_t uniqueId);
+/// Player list, selectors, sleeping and experience hooks.
+void install();
+void uninstall();
 void forget();
 void removeAll();
 } // namespace fakeplayer

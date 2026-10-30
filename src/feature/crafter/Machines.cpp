@@ -24,6 +24,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
+#include "feature/belts/BeltApi.h"
 #include "feature/crafter/Internal.h"
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
@@ -205,15 +206,26 @@ void tickSaw(GlobalPos const& pos, MachineInfo const& info, float speed) {
     if (s.remainingTime > 0) return;
     s.remainingTime = 0;
 
-    // the next block takes the items when it accepts direct (belt) input
+    // the next block takes the items when it has Create's DirectBeltInputBehaviour (belts, depots,
+    // ejectors, basins, saws, crushing wheels, ... registered with the belts unit; chutes and item
+    // drains through their item capability until they register)
     GlobalPos next{pos.dim, pos.x + move.x, pos.y + move.y, pos.z + move.z};
     auto*     region = world::loadedRegion(pos);
-    if (region && world::loadedRegion(next) && world::acceptsDirectInput(world::idAt(next))
-        && ci::has(*region, game::blockPos(next), static_cast<int>(k::opposite(moveFacing)))) {
+    bool      direct = region && world::loadedRegion(next) && belts::hasDirectInput(next);
+    bool      viaCap = !direct && region && world::loadedRegion(next) && world::acceptsDirectInput(world::idAt(next))
+              && ci::has(*region, game::blockPos(next), static_cast<int>(k::opposite(moveFacing)));
+    if (direct || viaCap) {
         bool changed = false;
         for (auto& stack : s.inv) {
             if (ci::isEmpty(stack)) continue;
-            auto rest = common::items::insert(*region, game::blockPos(next), static_cast<int>(k::opposite(moveFacing)), stack, false);
+            ItemStack rest;
+            if (direct) {
+                belts::TransportedItem t;
+                t.stack = stack;
+                rest    = belts::insertDirect(next, t, static_cast<int>(moveFacing), false);
+            } else {
+                rest = common::items::insert(*region, game::blockPos(next), static_cast<int>(k::opposite(moveFacing)), stack, false);
+            }
             if (ci::countOf(rest) == ci::countOf(stack)) continue;
             stack   = rest;
             changed = true;
@@ -239,16 +251,6 @@ void tickSaw(GlobalPos const& pos, MachineInfo const& info, float speed) {
 }
 
 // ---- block breaking ---------------------------------------------------------------------------------
-
-std::string hitSound(std::string_view id) {
-    if (id.find("log") != std::string_view::npos || id.find("wood") != std::string_view::npos || id.find("planks") != std::string_view::npos
-        || id.find("stem") != std::string_view::npos)
-        return "hit.wood";
-    if (id.find("leaves") != std::string_view::npos || id.find("grass") != std::string_view::npos) return "hit.grass";
-    if (id.find("dirt") != std::string_view::npos || id.find("gravel") != std::string_view::npos) return "hit.gravel";
-    if (id.find("sand") != std::string_view::npos) return "hit.sand";
-    return "hit.stone";
-}
 
 bool canBreak(MachineInfo const& info, Block const& target) {
     if (!world::breakable(target)) return false;
@@ -298,7 +300,7 @@ void tickBreaker(GlobalPos const& pos, MachineInfo const& info, float speed, std
     }
     float breakSpeed = cr::stationaryBreakSpeed(speed);
     b.destroyProgress += cr::progressStep(breakSpeed, hardness, b.destroyProgress);
-    world::playSound(target, hitSound(block->getTypeName()), .25f, 1.f);
+    world::playHitSound(target, *block);
     if (b.destroyProgress >= 10) {
         onBlockBroken(pos, info, target);
         b.destroyProgress        = 0;
@@ -317,7 +319,7 @@ void tickEntities(GlobalPos const& pos, MachineInfo const& info, float speed) {
     // Create's entityInside: anything but items inside the block (deflated by .1) gets hurt
     for (auto* a : world::entitiesIn(pos.dim, pos.x + .1, pos.y + .1, pos.z + .1, pos.x + .9, pos.y + .9, pos.z + .9)) {
         if (world::isItemEntity(*a)) continue;
-        world::hurt(*a, static_cast<float>(cr::drillDamage(speed)));
+        world::hurt(*a, static_cast<float>(cr::drillDamage(speed)), isSaw(info.id) ? kSawDeath : kDrillDeath);
     }
     if (sawCanProcess(info)) {
         // items landing on an upward saw (updateEntityAfterFallOn)
@@ -514,6 +516,13 @@ void install() {
         for (auto const& st : s.inv)
             if (!ci::isEmpty(st)) world::dropItem(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, st);
         saws().erase(pos);
+    });
+    // Create's SawBlockEntity has a DirectBeltInputBehaviour (belt ends, other saws hand it items)
+    belts::registerDirectInput(std::string(kSaw), belts::DirectInput{
+        .canInsertFromSide = [](GlobalPos const&, int) { return true; },
+        .insert = [](GlobalPos const& pos, belts::TransportedItem const& item, int, bool simulate) {
+            return sawInsert(pos, item.stack, simulate);
+        },
     });
     common::items::registerBlock(std::string(kSaw), common::items::Handler{
         [](common::Access const&) { return kSawSlots; },

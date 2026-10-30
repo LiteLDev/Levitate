@@ -24,6 +24,7 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/belts/BeltApi.h"
 #include "feature/bulk/Bulk.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Interactions.h"
@@ -93,6 +94,7 @@ void resetWorld() {
     s.dirty = false;
     clearFans();
     clearCrushers();
+    clearSounds();
 }
 
 /// Create's nearest looking direction.
@@ -124,6 +126,23 @@ std::optional<cb::Face> preferredFacing(BlockSource& region, int dim, BlockPos c
         preferred = side;
     }
     return preferred;
+}
+
+/// Create's CrushingWheelBlock (RotatedPillarKineticBlock) getStateForPlacement: the axis.
+cb::Axis wheelPlacementAxis(int dim, BlockPos const& p, PlaceIntent const& in) {
+    std::optional<cb::Axis> preferred;
+    bool                    conflict = false;
+    for (auto side : k::kFaces) {
+        auto node = kinetics::nodeAt(toGlobal(dim, offset(p, side)));
+        if (!node) continue;
+        auto const* spec = kinetics::specOf(node->state.id);
+        if (!spec || !spec->shaftTowards(node->state, k::opposite(side))) continue;
+        if (preferred && *preferred != k::axisOf(side)) conflict = true;
+        preferred = k::axisOf(side);
+    }
+    if (conflict) preferred.reset();
+    if (preferred && !in.sneaking) return *preferred;
+    return preferred && in.sneaking ? k::axisOf(faceOf(in.face)) : k::axisOf(nearestLooking(in.look));
 }
 
 /// Create's getStateForPlacement of the fan, nozzle and crushing wheel, then their survival checks.
@@ -162,24 +181,7 @@ void onPlaced(int dim, BlockPos p, Kind kind) {
         break;
     }
     case Kind::Wheel: {
-        if (fresh) {
-            auto const&           in = intent->second;
-            std::optional<cb::Axis> preferred;
-            bool                  conflict = false;
-            for (auto side : k::kFaces) {
-                auto node = kinetics::nodeAt(toGlobal(dim, offset(p, side)));
-                if (!node) continue;
-                auto const* spec = kinetics::specOf(node->state.id);
-                if (!spec || !spec->shaftTowards(node->state, k::opposite(side))) continue;
-                if (preferred && *preferred != k::axisOf(side)) conflict = true;
-                preferred = k::axisOf(side);
-            }
-            if (conflict) preferred.reset();
-            cb::Axis axis;
-            if (preferred && !in.sneaking) axis = *preferred;
-            else axis = preferred && in.sneaking ? k::axisOf(faceOf(in.face)) : k::axisOf(nearestLooking(in.look));
-            setStates(*region, p, {{"levitate:axis", int(axis)}});
-        }
+        if (fresh) setStates(*region, p, {{"levitate:axis", int(wheelPlacementAxis(dim, p, intent->second))}});
         // Create checks this when a player places the wheel (commands bypass it)
         if (fresh && !wheelCanSurvive(*region, p)) {
             log().info("crushing wheel at {} {} {}: no room next to another wheel / controller, dropped", p.x, p.y, p.z);
@@ -251,6 +253,18 @@ void recordPlacement(Player& player, BlockPos const& clicked, int face) {
         PlaceIntent{{look.x, look.y, look.z}, player.isSneaking(), std::clamp(face, 0, 5), state().tick};
 }
 
+bool placementSurvives(Player& player, BlockPos const& clicked, int face, Kind kind) {
+    auto&    region = player.getDimensionBlockSource();
+    BlockPos at     = clicked;
+    if (!game::replaceable(region, clicked)) at = offset(clicked, faceOf(face));
+    if (!loaded(region, at) || !game::replaceable(region, at)) return true; // vanilla refuses it anyway
+    auto look = player.getViewVector();
+    PlaceIntent in{{look.x, look.y, look.z}, player.isSneaking(), std::clamp(face, 0, 5), state().tick};
+    if (kind == Kind::Wheel) return wheelCanSurvive(region, at, int(wheelPlacementAxis(int(player.getDimensionId()), at, in)));
+    if (kind == Kind::Nozzle) return nozzleCanSurvive(region, at, faceOf(in.face));
+    return true;
+}
+
 bool useOnMillstone(Player& player, BlockPos const& at) {
     if (cooldown(player.getOrCreateUniqueID().rawID)) return true;
     return millstoneTakeOut(player, toGlobal(int(player.getDimensionId()), at));
@@ -275,6 +289,19 @@ ia::Result onUseOn(ia::UseOnContext const& c) {
         if (kind && (*kind == Kind::Fan || *kind == Kind::Nozzle || *kind == Kind::Wheel)) recordPlacement(c.player, at, c.face);
     }
     return ia::Result::Pass;
+}
+
+/// Create's canSurvive is checked before the block is placed (BlockItem.place fails): a crushing
+/// wheel without room next to another wheel, a nozzle without its fan behind are not placed. Low
+/// priority: blocks that take the click (their own handlers, vanilla interactive blocks) go first.
+ia::Result vetoPlacement(ia::UseOnContext const& c) {
+    auto kind = kindOf(c.itemId);
+    if (!kind || (*kind != Kind::Wheel && *kind != Kind::Nozzle)) return ia::Result::Pass;
+    if (!c.sneaking && c.block.getBlockType().isInteractiveBlock()) return ia::Result::Pass;
+    BlockPos at{c.pos.x, c.pos.y, c.pos.z};
+    if (placementSurvives(c.player, at, c.face, *kind)) return ia::Result::Pass;
+    if (c.firstEvent || c.player.isSimulatedPlayer()) lv::log().info("{} at {}: can't be placed there (canSurvive)", c.itemId, c.pos.key());
+    return ia::Result::Deny;
 }
 
 class BulkModule {
@@ -342,7 +369,25 @@ public:
         }();
         (void)once;
         registerCapabilities();
+        // Create's CrushingWheelControllerBlockEntity has a DirectBeltInputBehaviour that takes
+        // items travelling the way the wheels pull (or from anywhere when they pull down)
+        lv::feature::belts::registerDirectInput(std::string(kController), lv::feature::belts::DirectInput{
+            .canInsertFromSide = [](GlobalPos const& pos, int side) {
+                auto* region = regionOf(pos.dim);
+                if (!region) return false;
+                auto const& block = region->getBlock(toBlockPos(pos));
+                if (!stateOf(block, "levitate:valid")) return false;
+                int facing = stateOf(block, "levitate:facing");
+                return facing == int(cb::Face::Down) || facing == side;
+            },
+            .insert = [](GlobalPos const& pos, lv::feature::belts::TransportedItem const& item, int, bool simulate) {
+                return controller_cap::insert(pos, item.stack, simulate);
+            },
+        });
         mUseOn = ia::onUseOn({}, onUseOn);
+        mVeto  = ia::onUseOn({}, vetoPlacement, ia::priority::Low);
+        installCrusherCollision();
+        installLootingHook();
         if (lv::game::db::available()) {
             resetWorld();
             loadIndex();
@@ -351,6 +396,9 @@ public:
 
     void uninstall() {
         ia::remove(mUseOn);
+        ia::remove(mVeto);
+        uninstallCrusherCollision();
+        uninstallLootingHook();
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
@@ -411,6 +459,7 @@ private:
                 lv::log().error("bulk: tick at {} {} {} failed: {}", pos.x, pos.y, pos.z, e.what());
             }
         }
+        tickSounds();
         if (s.tick % 100 == 0) {
             pruneBypass();
             pruneFanState();
@@ -420,6 +469,7 @@ private:
 
     std::vector<ll::event::ListenerPtr> mListeners;
     ia::HandlerId                       mUseOn = 0;
+    ia::HandlerId                       mVeto  = 0;
     lv::kinetics::ListenerId                mWheelListener = 0;
     lv::kinetics::ListenerId                mFanListener   = 0;
 };

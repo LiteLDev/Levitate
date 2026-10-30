@@ -10,6 +10,7 @@
 // the current are processed through the item capability.
 
 #include <algorithm>
+#include <cstdio>
 #include <cmath>
 #include <map>
 #include <set>
@@ -20,7 +21,18 @@
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
+#include "mc/entity/components_json_legacy/ContainerComponent.h"
+#include "mc/world/Container.h"
+#include "mc/deps/core/math/Vec2.h"
+#include "mc/deps/ecs/gamerefs_entity/EntityContext.h"
+#include "mc/deps/ecs/gamerefs_entity/GameRefsEntity.h"
+#include "mc/world/actor/ActorFactory.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/attribute/AttributeInstance.h"
+#include "mc/world/attribute/AttributeInstanceConstRef.h"
+#include "mc/world/attribute/BaseAttributeMap.h"
+#include "mc/world/attribute/SharedAttributes.h"
+#include "mc/world/actor/animal/Horse.h"
 #include "mc/world/actor/ActorDefinitionIdentifier.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/player/Player.h"
@@ -98,6 +110,8 @@ std::unordered_map<std::int64_t, int>& hauntingProgress() {
     return m;
 }
 
+constexpr std::size_t kNozzleEntityLimit = 256;
+
 struct NozzleState {
     float                     range   = 0;
     bool                      pushing = true;
@@ -143,19 +157,33 @@ cb::FlowBlock flowBlockAt(BlockSource& region, BlockPos const& p) {
     if (!loaded(region, p)) return {cb::FlowBlock::Kind::Unloaded};
     auto const& block = region.getBlock(p);
     if (block.isAir() || fanTransparent(block.getTypeName())) return {};
-    AABB shape = block.getBlockType().getCollisionShape(block, region, p, nullptr);
-    double lo[3] = {shape.min.x - p.x, shape.min.y - p.y, shape.min.z - p.z};
-    double hi[3] = {shape.max.x - p.x, shape.max.y - p.y, shape.max.z - p.z};
-    if (hi[0] - lo[0] <= 1e-6 || hi[1] - lo[1] <= 1e-6 || hi[2] - lo[2] <= 1e-6) return {};
-    bool full = true;
-    for (int i = 0; i < 3; ++i)
-        if (lo[i] > 1e-4 || hi[i] < 1 - 1e-4) full = false;
-    if (full) return {cb::FlowBlock::Kind::Full};
+    // every box of the collision shape (Create's VoxelShape: stairs, walls, ... have several)
+    std::vector<AABB> shapes;
+    block.getBlockType().addCollisionShapes(block, region, p, nullptr, shapes, {});
     cb::FlowBlock b{cb::FlowBlock::Kind::Partial};
-    for (int i = 0; i < 3; ++i) {
-        b.min[i] = std::clamp(lo[i], 0.0, 1.0);
-        b.max[i] = std::clamp(hi[i], 0.0, 1.0);
+    bool          first = true;
+    for (auto const& shape : shapes) {
+        double lo[3] = {shape.min.x - p.x, shape.min.y - p.y, shape.min.z - p.z};
+        double hi[3] = {shape.max.x - p.x, shape.max.y - p.y, shape.max.z - p.z};
+        if (hi[0] - lo[0] <= 1e-6 || hi[1] - lo[1] <= 1e-6 || hi[2] - lo[2] <= 1e-6) continue;
+        bool full = true;
+        for (int i = 0; i < 3; ++i)
+            if (lo[i] > 1e-4 || hi[i] < 1 - 1e-4) full = false;
+        if (full) return {cb::FlowBlock::Kind::Full};
+        cb::FlowBlock::Box box;
+        for (int i = 0; i < 3; ++i) {
+            box.min[i] = std::clamp(lo[i], 0.0, 1.0);
+            box.max[i] = std::clamp(hi[i], 0.0, 1.0);
+        }
+        if (first) {
+            b.min = box.min;
+            b.max = box.max;
+            first = false;
+        } else {
+            b.more.push_back(box);
+        }
     }
+    if (first) return {}; // no collision: the current passes
     return b;
 }
 
@@ -323,25 +351,53 @@ void rebuild(BlockSource& region, GlobalPos const& pos, cb::Face facing, FanStat
 
 // ---- item entities ---------------------------------------------------------------------------------------------------
 
-bool canProcessEntity(std::int64_t id, ItemStack const& stack, FanType type) {
-    if (auto it = itemProcessing().find(id); it != itemProcessing().end()) {
-        if (it->second.type != type) return canFanProcess(stack, type);
-        if (it->second.time >= 0) return true;
-        if (it->second.time == -1) return false;
+// Create keeps "CreateData.Processing" {Type, Time} in the item entity's persistent data, so it
+// survives saving and chunk unloading: Levitate mirrors it in an entity tag "lv_fan:<type>:<time>"
+// (written when the type changes, when it is done and every second while it counts down).
+constexpr std::string_view kProcessingTag = "lv_fan:";
+
+void writeProcessingTag(Actor& e, ItemProcessing const& st) {
+    if (e.hasTags())
+        for (auto const& t : e.getTags())
+            if (t.starts_with(kProcessingTag)) e.removeTag(t);
+    if (st.type != FanType::None) e.addTag(std::string(kProcessingTag) + std::to_string(int(st.type)) + ":" + std::to_string(st.time));
+}
+
+ItemProcessing& processingOf(Actor& e) {
+    auto id = idOf(e);
+    if (auto it = itemProcessing().find(id); it != itemProcessing().end()) return it->second;
+    ItemProcessing st;
+    if (e.hasTags()) {
+        for (auto const& t : e.getTags()) {
+            if (!t.starts_with(kProcessingTag)) continue;
+            int type = 0, time = 0;
+            if (std::sscanf(t.c_str() + kProcessingTag.size(), "%d:%d", &type, &time) == 2) st = {static_cast<FanType>(type), time};
+        }
     }
-    return canFanProcess(stack, type);
+    return itemProcessing()[id] = st;
+}
+
+bool canProcessEntity(Actor& e, ItemStack const& stack, FanType type) {
+    auto const& st = processingOf(e);
+    if (st.type == FanType::None || st.type != type) return canFanProcess(stack, type);
+    if (st.time >= 0) return true;
+    return false;
 }
 
 bool applyProcessing(BlockSource& region, GlobalPos const& fan, Actor& entity, FanType type) {
     auto* stack = itemOf(entity);
     if (!stack) return false;
     auto  id = idOf(entity);
-    auto& st = itemProcessing()[id];
+    auto& st = processingOf(entity);
     if (st.type != type) {
         st.type = type;
         st.time = cb::fanProcessingTime(items::countOf(*stack), config().fanProcessingTime);
+        writeProcessingTag(entity, st);
     }
-    if (--st.time != 0) return false;
+    if (--st.time != 0) {
+        if (st.time % 20 == 0) writeProcessingTag(entity, st);
+        return false;
+    }
     auto results = fanProcess(*stack, type);
     if (!results) return false;
     auto input = items::idOf(*stack);
@@ -360,7 +416,10 @@ bool applyProcessing(BlockSource& region, GlobalPos const& fan, Actor& entity, F
     bool first = true;
     for (auto const& s : *results) {
         auto nid = spawnItem(region, s, feet, motion);
-        if (first && nid) itemProcessing()[nid] = {type, -1};
+        if (first && nid) {
+            itemProcessing()[nid] = {type, -1};
+            if (auto* fresh = entityById(nid)) writeProcessingTag(*fresh, {type, -1});
+        }
         first = false;
     }
     log().info(
@@ -449,13 +508,14 @@ void tickEntities(BlockSource& region, GlobalPos const& pos, FanState& st) {
         auto m    = cb::pushedMotion(motionOf(*e), st.current, st.speed, isSneaking(*e), (feet - centre).length());
         setMotion(*e, m);
         e->setFallDistance(0);
+        if (e->isPlayer()) addWindListener(*e, st.speed, float(m.length()));
         double  distance = cb::alignedDistanceToFace(feet, pos.x, pos.y, pos.z, st.current.direction);
         FanType type     = st.current.typeAt(float(distance));
         if (type == FanType::None) continue;
         if (isItem(*e)) {
             processingParticles(pos.dim, feet, type);
             auto* stack = itemOf(*e);
-            if (stack && canProcessEntity(idOf(*e), *stack, type)) applyProcessing(region, pos, *e, type);
+            if (stack && canProcessEntity(*e, *stack, type)) applyProcessing(region, pos, *e, type);
             continue;
         }
         affectEntity(*e, type, pos.dim);
@@ -543,6 +603,47 @@ std::optional<std::vector<ItemStack>> fanProcess(ItemStack const& stack, FanType
     }
 }
 
+/// Create's haunting copies the horse's saved data (all but its UUID) onto the skeleton horse and
+/// drops its armor: Levitate copies what a horse's data holds that a skeleton horse can keep
+/// (name, health / speed / jump attributes, tame state and owner, saddle).
+void copyHorse(Actor& horse, Actor& skeleton, BlockSource& region) {
+    if (auto const& name = horse.getNameTag(); !name.empty()) skeleton.setNameTag(name);
+    for (auto const* attr : {&SharedAttributes::HEALTH(), &SharedAttributes::MOVEMENT_SPEED(), &SharedAttributes::JUMP_STRENGTH()}) {
+        AttributeInstance const* from = horse.getAttribute(*attr).mPtr;
+        if (!from) continue;
+        auto* to = const_cast<BaseAttributeMap*>(&*skeleton.getAttributes());
+        (void)to->setMaxValue(*attr, from->mCurrentMaxValue);
+        (void)to->setCurrentValue(*attr, from->mCurrentValue);
+    }
+    // a tamed or named horse stays (Create copies PersistenceRequired)
+    if (horse.isTame() || !horse.getNameTag().empty()) skeleton.setPersistent();
+    if (horse.isTame()) {
+        // Bedrock tames a horse to a player (Horse::tameToPlayer, the game's horse class covers the
+        // skeleton horse too); an owner who is offline only becomes the owner
+        auto  level = ll::service::getLevel();
+        auto* owner = level ? level->getPlayer(horse.getOwnerId()) : nullptr;
+        if (owner) static_cast<Horse&>(skeleton).tameToPlayer(*owner, false);
+        skeleton.setOwner(horse.getOwnerId());
+    }
+    auto from = horse.getEntityContext().tryGetComponent<ContainerComponent>();
+    auto to   = skeleton.getEntityContext().tryGetComponent<ContainerComponent>();
+    if (!from) return;
+    auto& in    = *from->mContainer;
+    auto  feet  = feetOf(horse);
+    Vec3  at{float(feet.x), float(feet.y), float(feet.z)};
+    for (int slot = 0; slot < in.getContainerSize(); ++slot) {
+        ItemStack stack = in.getItem(slot);
+        if (items::isEmpty(stack)) continue;
+        // slot 0 saddle (kept), 1 armor (dropped: a skeleton horse wears none)
+        if (slot == 0 && to && to->mContainer->getContainerSize() > 0) {
+            to->mContainer->setItem(0, stack);
+            continue;
+        }
+        dropStacks(region, BlockPos{int(std::floor(at.x)), int(std::floor(at.y)), int(std::floor(at.z))}, {stack});
+    }
+    in.removeAllItems();
+}
+
 void affectEntity(Actor& e, FanType type, int dim) {
     switch (type) {
     case FanType::Splashing: {
@@ -558,13 +659,13 @@ void affectEntity(Actor& e, FanType type, int dim) {
     case FanType::Smoking:
         if (!e.isFireImmune()) {
             e.setOnFire(2);
-            e.hurtByCause(2, SharedTypes::Legacy::ActorDamageCause::Fire);
+            hurtBy(e, 2, int(SharedTypes::Legacy::ActorDamageCause::Fire), "death.attack.create.fan_fire");
         }
         break;
     case FanType::Blasting:
         if (!e.isFireImmune()) {
             e.setOnFire(10);
-            e.hurtByCause(4, SharedTypes::Legacy::ActorDamageCause::Lava);
+            hurtBy(e, 4, int(SharedTypes::Legacy::ActorDamageCause::Lava), "death.attack.create.fan_lava");
         }
         break;
     case FanType::Haunting: {
@@ -595,7 +696,12 @@ void affectEntity(Actor& e, FanType type, int dim) {
             auto level = ll::service::getLevel();
             if (!level) return;
             auto& region = e.getDimensionBlockSource();
-            level->getSpawner().spawnMob(region, ActorDefinitionIdentifier("minecraft:skeleton_horse"), nullptr, Vec3{float(feet.x), float(feet.y), float(feet.z)}, false, false, false);
+            // the actor factory (not the spawner, whose spawn rules may refuse it): Create's addFreshEntity
+            Actor* skeleton = nullptr;
+            if (auto owner = level->getActorFactory().createSpawnedActor(ActorDefinitionIdentifier("minecraft:skeleton_horse"), nullptr,
+                                                                         Vec3{float(feet.x), float(feet.y), float(feet.z)}, Vec2{0, 0}))
+                skeleton = level->addEntity(region, std::move(owner));
+            if (skeleton) copyHorse(e, *skeleton, region);
             e.remove();
             log().info("encased fan: haunted a horse into a skeleton horse at {:.1f} {:.1f} {:.1f}", feet.x, feet.y, feet.z);
         }
@@ -674,7 +780,10 @@ std::optional<FanView> fanAt(GlobalPos const& pos) {
 // ---- nozzle -----------------------------------------------------------------------------------------------------------------
 
 bool nozzleCanSurvive(BlockSource& region, BlockPos const& p) {
-    auto facing = faceOf(stateOf(region.getBlock(p), "levitate:facing"));
+    return nozzleCanSurvive(region, p, faceOf(stateOf(region.getBlock(p), "levitate:facing")));
+}
+
+bool nozzleCanSurvive(BlockSource& region, BlockPos const& p, cb::Face facing) {
     auto behind = offset(p, opposite(facing));
     if (idAt(region, behind) != kFan) return false;
     return stateOf(region.getBlock(behind), "levitate:facing") == int(facing);
@@ -760,6 +869,20 @@ void tickNozzle(BlockSource& region, GlobalPos const& pos) {
             continue;
         }
         if (std::find(st.entities.begin(), st.entities.end(), id) == st.entities.end()) st.entities.push_back(id);
+    }
+    // Create's lazyTick: a pulling nozzle holding more than 256 entities explodes (power 2, no
+    // block damage) and the entities are gone (players stay: Bedrock can't discard them)
+    std::erase_if(st.entities, [](std::int64_t id) {
+        auto* e = entityById(id);
+        return !e || !e->isAlive();
+    });
+    if (!st.pushing && st.entities.size() > kNozzleEntityLimit) {
+        if (auto level = ll::service::getLevel())
+            level->explode(region, nullptr, Vec3{float(centre.x), float(centre.y), float(centre.z)}, 2.f, false, false, 0.f, false);
+        log().info("nozzle at {} {} {}: {} entities, exploded", pos.x, pos.y, pos.z, st.entities.size());
+        for (auto id : st.entities)
+            if (auto* e = entityById(id); e && !e->isPlayer()) e->remove();
+        st.entities.clear();
     }
 }
 

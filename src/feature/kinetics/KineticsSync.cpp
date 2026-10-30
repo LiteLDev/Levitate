@@ -21,6 +21,7 @@
 #include "mc/world/level/Level.h"
 
 #include "core/kinetics/SyncCodec.h"
+#include "feature/kinetics/Kinetics.h"
 #include "feature/kinetics/KineticsConfig.h"
 #include "feature/kinetics/KineticsInternal.h"
 #include "feature/net/Net.h"
@@ -173,6 +174,19 @@ public:
             net::onCompanionJoined([](Player& player) {
                 state().companions[player.getOrCreateUniqueID().rawID] = -1; // full sync on the next tick
                 log().info("kinetics: syncing speeds to {}", player.getRealName());
+                // Create syncs the server's stress config: the client mod's item tooltips use it
+                net::send(player, "kinetics.stress", stressTablesJson());
+            });
+            // `/create reload`: companions get the new stress tables
+            config::onReload([] {
+                auto level = ll::service::getLevel();
+                if (!level) return;
+                auto tables = stressTablesJson();
+                for (auto const& [uid, dim] : state().companions) {
+                    ActorUniqueID id;
+                    id.rawID = uid;
+                    if (auto* p = level->getPlayer(id)) net::send(*p, "kinetics.stress", tables);
+                }
             });
         }
         mDisconnect = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerDisconnectEvent>(

@@ -497,6 +497,15 @@ public:
         if (!restocker) {
             auto& conn   = add<IconButton>(Rect{134, 120, 18, 18}, "+", [this] { mSend({{"op", "connect"}}); });
             conn.tooltip = {ctr("create.gui.factory_panel.connect_input", "Add new connection")};
+            // Create's 3x3 button: shown when the inputs make the item at a crafting table
+            mCrafting = &add<IconButton>(Rect{112, 120, 18, 18}, "#", [this] {
+                bool on = !mData.value("crafting", false);
+                mSend({{"op", "set"}, {"crafting", on}});
+                log().info("factory gauge mechanical crafting {}", on ? "on" : "off");
+            });
+            mCrafting->tooltip = {ctr("create.gui.factory_panel.activate_crafting", "Use Mechanical Crafting"),
+                                  "§7" + ctr("create.gui.factory_panel.crafting_input_tip", "Inputs will be sent in a pattern"),
+                                  "§7" + ctr("create.gui.factory_panel.crafting_input_tip_1", "suitable for mechanical crafters")};
         }
         auto& reset   = add<IconButton>(Rect{156, 120, 18, 18}, "x", [this] { mSend({{"op", "set"}, {"reset", true}}); close(); });
         reset.tooltip = {ctr("create.gui.factory_panel.reset", "Reset all settings")};
@@ -528,6 +537,10 @@ public:
         }
         mOutput->value = data.value("output", 1);
         mExpiry->value = data.value("promiseInterval", -1);
+        if (mCrafting) {
+            mCrafting->visible = data.value("craftable", false) || data.value("crafting", false);
+            mCrafting->toggled = data.value("crafting", false);
+        }
     }
 
     void renderExtra(Canvas& c, float, float) override {
@@ -561,6 +574,7 @@ private:
     std::vector<CountSlot*> mInputs;
     ScrollInput *           mOutput{}, *mExpiry{};
     TextField*              mAddress{};
+    IconButton*             mCrafting{};
 };
 
 class GaugeItemScreen : public Screen {

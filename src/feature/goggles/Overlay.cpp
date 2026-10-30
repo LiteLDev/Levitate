@@ -286,9 +286,12 @@ std::string formattedSpeed(Player const& viewer, float speed, bool overstressed)
                       : level == SpeedLevel::Medium ? fmt::kAqua
                       : level == SpeedLevel::Fast   ? fmt::kPurple
                                                     : fmt::kDarkGray;
-    return std::string(color) + core::goggles::progressBar(3, static_cast<int>(level))
+    // Create strikes the text through when overstressed; Bedrock text has no strikethrough, so the
+    // client mod draws a line through the span between two `§~` markers (only companions get them)
+    std::string mark = overstressed && net::isCompanion(viewer) ? "§~" : "";
+    return std::string(color) + mark + core::goggles::progressBar(3, static_cast<int>(level))
          + trFor(viewer, std::string("create.tooltip.speedRequirement.") + speedLevelName(level), speedLevelEnglish(level)) + " ("
-         + number(std::fabs(speed)) + " " + trFor(viewer, "create.generic.unit.rpm", "RPM") + ") ";
+         + number(std::fabs(speed)) + " " + trFor(viewer, "create.generic.unit.rpm", "RPM") + ")" + mark + " ";
 }
 
 std::string formattedStress(Player const& viewer, double percent) {

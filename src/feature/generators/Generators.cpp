@@ -625,6 +625,18 @@ void orientPlaced(Player& player, GlobalPos const& pos, Face clickedFace) {
     log().info("{} placed at {} facing {} by {}", b->getTypeName(), posText(pos), k::faceName(facing), player.getRealName());
 }
 
+/// LargeWaterWheelBlockItem.place without room: the status message, and Create's red Outliner
+/// box around the 3x3 the wheel needs (drawn by the client mod).
+void noRoom(Player& player, GlobalPos const& at, Axis axis) {
+    actionBar(player, "§c" + trFor(player, "create.large_water_wheel.not_enough_space", "Clear Blocks for Placement"));
+    log().info("large water wheel at {}: not enough space", posText(at));
+    int    a = static_cast<int>(axis);
+    double lo[3]{at.x - 1.0, at.y - 1.0, at.z - 1.0}, hi[3]{at.x + 2.0, at.y + 2.0, at.z + 2.0};
+    lo[a] += 1;
+    hi[a] -= 1;
+    net::send(player, "generators.room", {{"lo", {lo[0], lo[1], lo[2]}}, {"hi", {hi[0], hi[1], hi[2]}}});
+}
+
 bool placeLargeWheel(Player& player, ItemStack& held, GlobalPos const& placement, Face clickedFace) {
     auto* region = regionOf(placement.dim);
     if (!region) return false;
@@ -646,15 +658,13 @@ bool placeLargeWheel(Player& player, ItemStack& held, GlobalPos const& placement
     if (!fits(at, axis)) {
         // LargeWaterWheelBlockItem.place: one block further along the clicked face
         if (k::axisOf(clickedFace) == axis) {
-            actionBar(player, "§c" + trFor(player, "create.large_water_wheel.not_enough_space", "Clear Blocks for Placement"));
-            log().info("large water wheel at {}: not enough space", posText(at));
+            noRoom(player, at, axis);
             return false;
         }
         at   = shifted(placement, k::offsetOf(clickedFace));
         axis = axisAt(at);
         if (!fits(at, axis)) {
-            actionBar(player, "§c" + trFor(player, "create.large_water_wheel.not_enough_space", "Clear Blocks for Placement"));
-            log().info("large water wheel at {}: not enough space", posText(placement));
+            noRoom(player, at, axis);
             return false;
         }
     }
