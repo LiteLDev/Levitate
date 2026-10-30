@@ -923,7 +923,7 @@ void runTick() {
             s.depots.erase(it);
         }
     }
-    connectorPreview();
+    if (s.tick % 5 == 0) connectorPreview(); // the client mod draws its own every tick
     s.playerBroke.clear();
     s.placeIntents.clear();
 }

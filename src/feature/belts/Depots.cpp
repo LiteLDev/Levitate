@@ -424,7 +424,7 @@ void tickDepot(Depot& d) {
                 int         before = citems::countOf(out);
                 PassContext ctx{d.pos, above, 0, 1, 1, true, .5f, true, t};
                 (*fn)(ctx);
-                if (citems::countOf(t.stack) != before || (citems::isEmpty(t.stack) && before > 0)) {
+                if (citems::countOf(t.stack) != before) {
                     out      = t.stack;
                     exported = true;
                     break;

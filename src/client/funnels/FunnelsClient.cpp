@@ -105,6 +105,7 @@ struct State {
     // client thread only
     std::unordered_map<BlockPos, Flap, PosHash, PosEq> flaps;
     void const*                                      level    = nullptr;
+    int                                              dim      = -1;
     std::uint64_t                                    lastTick = 0;
     bool                                             logged   = false;
     std::map<std::string, std::unique_ptr<mce::Mesh>> meshes;
@@ -174,33 +175,45 @@ float yRotation(int facing) {
     }
 }
 
-mce::Mesh* meshFor(Tessellator& tess, std::string const& geo, std::string const& bone, std::string const& material, std::string const& texture) {
-    auto  key = geo + "|" + bone + "|" + material + "|" + texture;
-    auto& s   = state();
+/// One mesh for some bones of a funnel model, every material with its own texture (all of them
+/// live in the terrain atlas): the body (plate + hood) or one flap strip.
+mce::Mesh* meshFor(Tessellator& tess, std::string const& geo, std::vector<std::string> const& bones, Block const& block) {
+    std::string key = geo + "|" + textureOf(block, "back") + "|" + textureOf(block, "side");
+    for (auto const& b : bones) key += "|" + b;
+    auto& s = state();
     if (auto it = s.meshes.find(key); it != s.meshes.end()) return it->second.get();
     auto& slot   = s.meshes[key];
     auto* models = funnelModels();
     if (!models) return nullptr;
-    auto m = models->find(material);
-    if (m == models->end()) return nullptr;
-    auto g = m->second.find(geo);
-    if (g == m->second.end()) return nullptr;
-    auto b = g->second.bones.find(bone);
-    if (b == g->second.bones.end() || b->second.empty()) return nullptr;
-    auto  tex = BlockGraphics::getTextureUVCoordinateSet(texture, 0, 0);
-    float u0 = tex._u0, v0 = tex._v0, u1 = tex._u1, v1 = tex._v1;
-    auto  uv = [&](std::array<float, 2> const& t) { return Vec2{u0 + (u1 - u0) * t[0], v0 + (v1 - v0) * t[1]}; };
-    auto  at = [](std::array<float, 3> const& p) { return Vec3{p[0], p[1], p[2]}; };
+    auto at = [](std::array<float, 3> const& p) { return Vec3{p[0], p[1], p[2]}; };
     tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
     tess.color(1.f, 1.f, 1.f, 1.f);
-    for (auto const& q : b->second) {
-        tess.simpleQuad(at(q.pos[0]), uv(q.uv[0]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[3]), uv(q.uv[3]));
-        tess.simpleQuad(at(q.pos[3]), uv(q.uv[3]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[0]), uv(q.uv[0]));
+    int quads = 0;
+    for (char const* material : kMaterials) {
+        auto m = models->find(material);
+        if (m == models->end()) continue;
+        auto g = m->second.find(geo);
+        if (g == m->second.end()) continue;
+        auto  tex = BlockGraphics::getTextureUVCoordinateSet(textureOf(block, material), 0, 0);
+        float u0 = tex._u0, v0 = tex._v0, u1 = tex._u1, v1 = tex._v1;
+        auto  uv = [&](std::array<float, 2> const& t) { return Vec2{u0 + (u1 - u0) * t[0], v0 + (v1 - v0) * t[1]}; };
+        for (auto const& bone : bones) {
+            auto b = g->second.bones.find(bone);
+            if (b == g->second.bones.end()) continue;
+            for (auto const& q : b->second) {
+                tess.simpleQuad(at(q.pos[0]), uv(q.uv[0]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[3]), uv(q.uv[3]));
+                tess.simpleQuad(at(q.pos[3]), uv(q.uv[3]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[0]), uv(q.uv[0]));
+                ++quads;
+            }
+        }
+    }
+    if (quads == 0) {
+        tess.clear();
+        return nullptr;
     }
     slot = std::make_unique<mce::Mesh>(tess.end(Tessellator::UploadMode::Buffered, "levitate_funnel", SupplementaryFieldAutoGenerationMode::None));
     return slot.get();
 }
-
 /// Create's FunnelRenderer: the angle (degrees) of flap strip `segment` for flap value `f`.
 float flapAngle(int segment, float f) {
     float intensity = segment == 3 ? 1.5f : float(segment + 1);
@@ -235,10 +248,12 @@ void resetLevel(bool dropTracked) {
     s.flaps.clear();
     s.meshes.clear();
     s.lastTick = 0;
+    s.dim      = -1;
     s.logged   = false;
 }
 
 void onFlap(Json const& msg) {
+    if (msg.value("dim", -1) != state().dim) return; // a funnel of another dimension
     auto p = msg.value("pos", Json::array());
     if (!p.is_array() || p.size() != 3) return;
     auto& f    = state().flaps[BlockPos{p[0].get<int>(), p[1].get<int>(), p[2].get<int>()}];
@@ -257,6 +272,10 @@ void renderFunnels(BaseActorRenderContext& ctx) {
         s.level = level;
     }
     if (!level || !player) return;
+    if (int dim = int(player->getDimensionId()); dim != s.dim) {
+        s.flaps.clear();
+        s.dim = dim;
+    }
     tickFlaps(static_cast<std::uint64_t>(level->getCurrentTick().tickID));
     std::vector<BlockPos> positions;
     {
@@ -299,29 +318,26 @@ void renderFunnels(BaseActorRenderContext& ctx) {
         float dy    = shape == 0 ? 0.f : -3.f;
         float pz    = (shape == 2 ? -8.f : -2.f) + .5f;
         glm::vec3 pivot{.5f, (13.f + dy) / 16.f, (pz + 8.f) / 16.f};
-        for (int bi = 0; bi < 6; ++bi) {
-            std::string bone   = kBones[bi];
-            int         strip  = bi - 2;
-            float       angle  = strip >= 0 ? flapAngle(strip, f) : 0.f;
-            for (char const* mat : kMaterials) {
-                auto* mesh = meshFor(tess, geo, bone, mat, textureOf(block, mat));
-                if (!mesh) continue;
-                auto      ref = world.push(false);
-                glm::mat4 m{1.f};
-                m = glm::translate(m, glm::vec3{p.x - cam.x, p.y - cam.y, p.z - cam.z});
-                m = glm::translate(m, glm::vec3{.5f, .5f, .5f});
-                m = glm::rotate(m, glm::radians(yRot), glm::vec3{0.f, 1.f, 0.f});
-                m = glm::translate(m, glm::vec3{-.5f, -.5f, -.5f});
-                if (angle != 0) {
-                    m = glm::translate(m, pivot);
-                    m = glm::rotate(m, glm::radians(-angle), glm::vec3{1.f, 0.f, 0.f});
-                    m = glm::translate(m, -pivot);
-                }
-                ref.mat->_m.get() = ref.mat->_m.get() * m;
-                mesh->renderMesh(screen, material, texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+        // the body, then each strip turned by its angle around the strips' top edge
+        static std::vector<std::string> const kBody{"plate", "hood"};
+        for (int part = -1; part < 4; ++part) {
+            auto* mesh = part < 0 ? meshFor(tess, geo, kBody, block) : meshFor(tess, geo, {kBones[2 + part]}, block);
+            if (!mesh) continue;
+            float     angle = part < 0 ? 0.f : flapAngle(part, f);
+            auto      ref   = world.push(false);
+            glm::mat4 m{1.f};
+            m = glm::translate(m, glm::vec3{p.x - cam.x, p.y - cam.y, p.z - cam.z});
+            m = glm::translate(m, glm::vec3{.5f, .5f, .5f});
+            m = glm::rotate(m, glm::radians(yRot), glm::vec3{0.f, 1.f, 0.f});
+            m = glm::translate(m, glm::vec3{-.5f, -.5f, -.5f});
+            if (angle != 0) {
+                m = glm::translate(m, pivot);
+                m = glm::rotate(m, glm::radians(-angle), glm::vec3{1.f, 0.f, 0.f});
+                m = glm::translate(m, -pivot);
             }
-        }
-        ++drawn;
+            ref.mat->_m.get() = ref.mat->_m.get() * m;
+            mesh->renderMesh(screen, material, texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+        }        ++drawn;
     }
     if (!stale.empty()) {
         std::lock_guard lock(s.mutex);

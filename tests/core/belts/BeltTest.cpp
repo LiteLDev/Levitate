@@ -304,4 +304,9 @@ TEST(BeltPreview, VerticalShaftsOnlyStraight) {
     ASSERT_TRUE(l.has_value());
     EXPECT_EQ(l->step, (Vec3i{0, 0, -1}));
     EXPECT_FALSE(previewLine({0, 0, 0}, {0, 0, 0}, Axis::X).has_value());
+    // the height difference doesn't count for a vertical shaft
+    auto h = previewLine({0, 0, 0}, {1, 1, 0}, Axis::Y);
+    ASSERT_TRUE(h.has_value());
+    EXPECT_EQ(h->step, (Vec3i{1, 0, 0}));
+    EXPECT_FLOAT_EQ(h->length, 1.f);
 }

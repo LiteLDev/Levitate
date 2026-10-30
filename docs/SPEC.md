@@ -1546,8 +1546,8 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   the face looked at; the component along the axis dropped and the direction snapped to straight /
   45 degrees; one particle per 1/16 block with a chance of 1/10; green when the shafts can be
   connected, red when not; looking at nothing, the shaft sparkles now and then). The client mod
-  draws it itself (`belts.connector` tells it the selection); other players get the same particles
-  from the server, sent to them only.
+  draws it itself (`belts.connector` tells it the selection); other players get the particles from
+  the server every 5 ticks, sent to them only.
 - **Kinetics**: a belt is a kinetic block (stress 0): pulley segments (start, end, pulley) have shaft
   ends on both faces of the rotation axis (the axis 90 degrees from the facing; sideways: y); all
   segments of one belt turn together, sloped ones through their diagonal neighbours.

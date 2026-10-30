@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 
 #include "ll/api/memory/Hook.h"
 
@@ -61,7 +62,14 @@ LL_TYPE_INSTANCE_HOOK(
     ::std::vector<::AABB>&                             inoutBoxes,
     ::optional_ref<::GetCollisionShapeInterface const> entity
 ) {
-    if (getTypeName() != kBeltId) return origin(block, region, pos, intersectTestBox, inoutBoxes, entity);
+    // the belt's block type, remembered once seen; other types fail the name compare at its first
+    // character ("minecraft:..."). A new world may register the belt type anew: compared again.
+    static std::atomic<BlockType const*> beltType{nullptr};
+    BlockType const*                     self = this;
+    if (self != beltType.load(std::memory_order_relaxed)) {
+        if (getTypeName() != kBeltId) return origin(block, region, pos, intersectTestBox, inoutBoxes, entity);
+        beltType.store(self, std::memory_order_relaxed);
+    }
     auto seg = segmentOf(block);
     if (!seg) return origin(block, region, pos, intersectTestBox, inoutBoxes, entity);
     auto boxes = slopeCollision(*seg);

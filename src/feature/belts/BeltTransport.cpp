@@ -201,6 +201,8 @@ public:
         int  upcoming = int(nextOffset);
         if (!positive && nextOffset == 0) upcoming = -1;
         if (current == upcoming) return false;
+        // Create's getTunnelOnSegment: tunnels sit on horizontal belts only
+        if (mState.slope != cb::Slope::Horizontal || upcoming < 0 || upcoming >= mBelt.length) return false;
         GlobalPos seg    = segmentPos(mBelt, mState, upcoming);
         auto*     region = regionOf(seg.dim);
         if (!region) return false;

@@ -185,6 +185,7 @@ std::optional<PreviewLine> previewLine(Vec3i const& first, Vec3i const& selected
     Vec3i actual = selected - first;
     Vec3i diff   = actual;
     if (axis == Axis::X) diff.x = 0;
+    if (axis == Axis::Y) diff.y = 0;
     if (axis == Axis::Z) diff.z = 0;
     double x = std::abs(diff.x), y = std::abs(diff.y), z = std::abs(diff.z);
     double length = std::max(x, std::max(y, z));

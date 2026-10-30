@@ -427,9 +427,10 @@ std::optional<ConnectorPreview> connectorPreviewFor(Player& player, GlobalPos co
 }
 
 void connectorPreview() {
-    // Create's BeltConnectorHandler: dust along the planned belt every tick while the connector is
-    // held with a shaft selected. The client mod draws it for its player; the others get the
-    // particles from the server (sent to that player only, as Create's client-side particles).
+    // Create's BeltConnectorHandler: dust along the planned belt while the connector is held with a
+    // shaft selected. The client mod draws it for its player every tick; the others get the
+    // particles from the server every 5 ticks (sent to that player only, as Create's client-side
+    // particles; a fifth of Create's rate keeps the packets down).
     auto& s = state();
     if (s.connector.empty()) return;
     auto level = ll::service::getLevel();

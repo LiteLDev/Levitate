@@ -143,15 +143,11 @@ LL_TYPE_INSTANCE_HOOK(
 // explosions: remember which positions were blown up, so the belt segments among them drop their
 // loot (Create's explosion drops; players and commands are told apart in BeltEdit.cpp)
 LL_TYPE_INSTANCE_HOOK(BeltsExplosionHook, ll::memory::HookPriority::Normal, Explosion, &Explosion::explode, bool, ::IRandom& random) {
-    bool result = origin(random);
-    try {
-        BlockSource& region = mRegion;
-        if (mBreaking && !region.getLevel().isClientSide()) {
-            int dim = static_cast<int>(region.getDimensionId());
-            for (auto const& p : mAffectedBlocks.get()) state().exploded[GlobalPos{dim, p.x, p.y, p.z}] = mRadius;
-        }
-    } catch (...) {
-    }
+    // belt segments that disappear while the explosion runs were blown up
+    auto&       s      = state();
+    std::size_t before = s.removals.size();
+    bool        result = origin(random);
+    for (std::size_t i = before; i < s.removals.size(); ++i) s.exploded[s.removals[i].pos] = mRadius;
     return result;
 }
 
