@@ -5,7 +5,9 @@
 #include "nlohmann/json.hpp"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorDamageSource.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/Container.h"
 #include "mc/world/actor/player/Player.h"
@@ -14,6 +16,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "core/crafter/Breaking.h"
+#include "feature/belts/BeltApi.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
@@ -370,6 +373,43 @@ LV_REGISTER_SELFTEST("crafter.drill_contraption", [](Context& ctx) -> ll::coro::
     co_await ctx.ticks(1);
     if (auto* reg = world::regionOf(p.dim))
         if (auto container = reg->tryGetContainer(game::blockPos(at(chest, dx, 0, 0)))) container->removeAllItems();
+});
+
+// ---- U39 (processing gaps): dx 3990..3999 -------------------------------------------------------------
+
+LV_REGISTER_SELFTEST("crafter.saw_direct_input", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // R85: the saw hands its outputs to the block with Create's DirectBeltInputBehaviour next to it
+    // (a depot, through the belts unit's direct input)
+    auto p = co_await area(ctx, 3990);
+    ctx.require(ctx.setBlock(p, std::string(kSaw), {{kFacing, 1}, {kAlongFirst, 0}}), "saw placed");
+    auto src = at(p, 0, 0, -1);
+    ctx.require(ctx.setBlock(src, kSource, {{"levitate:axis", 2}}), "source placed");
+    kinetics::refresh(src);
+    kinetics::setGeneratedSpeed(src, 64);
+    std::vector<GlobalPos> depots{at(p, 1, 0, 0), at(p, -1, 0, 0), at(p, 0, 0, 1)};
+    for (auto const& d : depots) ctx.require(ctx.setBlock(d, "levitate:depot"), "a depot beside the saw");
+    co_await ctx.ticks(3);
+    auto rest = ci::insert(region(ctx, p), game::blockPos(p), 0, item(ctx, "minecraft:oak_log"), false);
+    ctx.require(ci::isEmpty(rest), "the saw takes the log");
+    auto onDepots = [&] {
+        int n = 0;
+        for (auto const& d : depots)
+            for (auto const& t : belts::itemsAt(d))
+                if (ci::idOf(t.stack) == "minecraft:stripped_oak_log") n += ci::countOf(t.stack);
+        return n;
+    };
+    bool done = co_await waitFor(200, [&] { return onDepots() > 0; });
+    ctx.check(done, "the stripped log went onto the depot the items move to");
+    ctx.check(itemsAround(ctx, p, "minecraft:stripped_oak_log", 3, false) == 0, "nothing was dropped as an item entity");
+    for (auto const& d : depots) (void)ci::extract(region(ctx, d), game::blockPos(d), 1, ci::any(), 64, false);
+    itemsAround(ctx, p, "", 4);
+});
+
+LV_REGISTER_SELFTEST("crafter.saw_damage_source", [](Context& ctx) {
+    // R88: Create's damage types of the saw and the drill name the death message
+    ActorDamageSource saw(SharedTypes::Legacy::ActorDamageCause::Contact, kSawDeath);
+    auto              msg = saw.getDeathMessage("Pig", nullptr);
+    ctx.check(msg.first.find("mechanical_saw") != std::string::npos, "the saw's death message: " + msg.first);
 });
 
 } // namespace lv::feature::crafter
