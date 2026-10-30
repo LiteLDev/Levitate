@@ -181,6 +181,15 @@ Pos Transform::placeBlock(Pos const& p) const {
     return {int(std::floor(c.x + 1e-6)), int(std::floor(c.y + 1e-6)), int(std::floor(c.z + 1e-6))};
 }
 
+std::pair<Axis, double> pitchTilt(int ax, int az, Vec3d const& dir) {
+    double flat  = std::sqrt(dir.x * dir.x + dir.z * dir.z);
+    double pitch = std::atan2(dir.y, flat) * 180.0 / 3.14159265358979323846;
+    if (std::abs(pitch) < 1e-4) pitch = 0;
+    // (1,0,0) turned about Z rises with a positive angle; (0,0,1) turned about X sinks
+    if (ax != 0) return {Axis::Z, ax > 0 ? pitch : -pitch};
+    return {Axis::X, az > 0 ? -pitch : pitch};
+}
+
 bool Box::intersects(Box const& o, double eps) const {
     return min.x < o.max.x - eps && max.x > o.min.x + eps && min.y < o.max.y - eps && max.y > o.min.y + eps
         && min.z < o.max.z - eps && max.z > o.min.z + eps;

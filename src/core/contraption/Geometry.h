@@ -18,6 +18,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace lv::core::contraption {
 
@@ -122,6 +123,10 @@ struct Transform {
     [[nodiscard]] int  placeQuarterTurns() const { return normQuarter(quarterTurnsOf(angle)); }
     [[nodiscard]] Pos  originBlock() const;
 };
+
+/// The tilt that pitches a structure built along the horizontal local direction (ax, 0, az) up to
+/// the slope of `dir` (a train carriage between its bogeys): {tiltAxis, degrees} for Transform.
+[[nodiscard]] std::pair<Axis, double> pitchTilt(int ax, int az, Vec3d const& dir);
 
 /// An axis-aligned box in double coordinates.
 struct Box {

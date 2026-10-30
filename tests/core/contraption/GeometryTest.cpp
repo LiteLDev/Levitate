@@ -1,4 +1,6 @@
 #include <cmath>
+#include <tuple>
+#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -90,6 +92,23 @@ TEST(ContraptionGeometry, TiltedCarriage) {
     EXPECT_EQ(t.placeBlock({3, 1, 0}), level.placeBlock({3, 1, 0}));
     // the client interpolates the tilt too
     EXPECT_NEAR(lerp(level, t, 0.5).tilt, 15, 1e-9);
+}
+
+TEST(ContraptionGeometry, PitchTiltFollowsTheSlope) {
+    // whatever the assembly direction, the tilted and yawed carriage axis points along the slope
+    for (auto [ax, az] : {std::pair{1, 0}, std::pair{-1, 0}, std::pair{0, 1}, std::pair{0, -1}}) {
+        for (Vec3d dir : {Vec3d{3, 1, 0}, Vec3d{0, -2, 4}, Vec3d{-2, 0.5, -2}}) {
+            Transform t;
+            t.pivot = {0, 0, 0};
+            // the yaw that turns (ax, az) into the horizontal direction of dir
+            double from = std::atan2(-double(az), double(ax)), to = std::atan2(-dir.z, dir.x);
+            t.angle            = (to - from) * 180 / 3.14159265358979323846;
+            std::tie(t.tiltAxis, t.tilt) = pitchTilt(ax, az, dir);
+            auto   u   = t.rotateVector({double(ax), 0, double(az)});
+            double len = dir.length();
+            expectNear(u, dir * (1 / len), 1e-9);
+        }
+    }
 }
 
 TEST(ContraptionGeometry, PlacementRoundsToTheGrid) {
