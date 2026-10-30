@@ -5,6 +5,19 @@
 #                       stream with its nozzle squeezing (log "fluids: spout nozzle squeezes ...")
 #   remote-vanilla:     static blocks; the spout's drops and splash (particles) and the filling
 # Screenshots: out/fluids/{blocks,hose,spout-a,spout-b,spout-c}.png
+# a chat line typed while the game is busy can get lost (remote clients more often): send the speed
+# command again, up to three times, until the generator reports it
+function Set-TestSpeed([string]$command) {
+    $m = Get-LogMark
+    Invoke-Chat $command
+    foreach ($attempt in 1..3) {
+        try { Wait-LogLine 'kinetics: Generator at .* now turns at 64 RPM' 10 -Since $m | Out-Null; return } catch {
+            Write-Step "no speed change after '$command', sending it again"
+            Invoke-Chat $command
+        }
+    }
+    Wait-LogLine 'kinetics: Generator at .* now turns at 64 RPM' 20 -Since $m | Out-Null
+}
 $mark = Get-LogMark
 $withMod = $script:Mode -ne 'remote-vanilla'
 
@@ -45,21 +58,22 @@ Save-Screenshot 'hose' | Out-Null
 if ($withMod) { Wait-LogLine 'fluids: rendering \d+ quads' 20 -Since $mark | Out-Null }
 
 # a spout over a depot north of the player, fed from a cauldron of water by a pump (U17) east of it
-Invoke-Chat '/fill ~-1 ~-2 ~-7 ~9 ~4 ~-2 air'
-Invoke-Chat '/setblock ~3 ~-1 ~-4 levitate:depot'
-Invoke-Chat '/setblock ~3 ~1 ~-4 levitate:spout'
-Invoke-Chat '/setblock ~4 ~1 ~-4 levitate:fluid_pipe ["levitate:east"=1,"levitate:west"=1]'
-Invoke-Chat '/setblock ~6 ~1 ~-4 levitate:fluid_pipe ["levitate:east"=1,"levitate:west"=1]'
-Invoke-Chat '/setblock ~7 ~1 ~-4 cauldron ["fill_level"=6,"cauldron_liquid"="water"]'
-Invoke-Chat '/setblock ~6 ~1 ~-3 levitate:kinetics_test_source ["levitate:axis"=0]'
-Invoke-Chat '/setblock ~5 ~1 ~-3 levitate:kinetics_test_cog ["levitate:axis"=0]'
-if ($withMod) { Invoke-Chat '/create kinetics ~6 ~1 ~-3 speed 64' }
+Invoke-Chat '/fill ~-1 ~ ~-7 ~9 ~4 ~-2 air'
+Invoke-Chat '/setblock ~3 ~ ~-4 levitate:depot'
+Invoke-Chat '/setblock ~3 ~2 ~-4 levitate:spout'
+Invoke-Chat '/setblock ~4 ~2 ~-4 levitate:fluid_pipe ["levitate:east"=1,"levitate:west"=1]'
+Invoke-Chat '/setblock ~6 ~2 ~-4 levitate:fluid_pipe ["levitate:east"=1,"levitate:west"=1]'
+Invoke-Chat '/setblock ~7 ~2 ~-4 cauldron ["fill_level"=6,"cauldron_liquid"="water"]'
+Invoke-Chat '/setblock ~6 ~2 ~-3 levitate:kinetics_test_source ["levitate:axis"=0]'
+Invoke-Chat '/setblock ~5 ~2 ~-3 levitate:kinetics_test_cog ["levitate:axis"=0]'
+if ($withMod) { Set-TestSpeed '/create kinetics ~6 ~2 ~-3 speed 64' }
 Start-Sleep -Milliseconds 500
-Invoke-Chat '/setblock ~5 ~1 ~-4 levitate:mechanical_pump ["levitate:facing"=4]'
-# the cauldron's bucket goes into the spout (1000 mB: four bottles)
+Invoke-Chat '/setblock ~5 ~2 ~-4 levitate:mechanical_pump ["levitate:facing"=4]'
+# the cauldron's bucket goes into the spout (1000 mB: four bottles); facing coordinates count from
+# the eyes: aim at the depot's middle
 Start-Sleep -Seconds 4
 Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 glass_bottle 4'
-Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~-0.5 ~-4'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~-1.2 ~-4'
 Start-Sleep -Milliseconds 800
 $spoutMark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
