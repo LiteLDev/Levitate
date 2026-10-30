@@ -18,6 +18,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <random>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -46,6 +47,7 @@
 #include "mc/deps/core/math/Matrix.h"
 #include "mc/deps/core/math/Vec2.h"
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/core/string/HashedString.h"
 #include "mc/deps/core_graphics/enums/PrimitiveMode.h"
 #include "mc/deps/minecraft_renderer/renderer/MaterialPtr.h"
 #include "mc/deps/minecraft_renderer/renderer/Mesh.h"
@@ -62,8 +64,11 @@
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/BlockRenderLayer.h"
 #include "mc/world/level/block/actor/BlockActorRendererId.h"
+#include "mc/world/level/dimension/Dimension.h"
+#include "mc/world/phys/HitResult.h"
 
 #include "client/Client.h"
+#include "client/kinetics/KineticsClient.h"
 #include "core/belts/Belt.h"
 #include "core/kinetics/RotorModel.h"
 #include "core/kinetics/Solver.h"
@@ -104,6 +109,12 @@ struct State {
     int                                                  frame = 0;
     bool                                                 logged = false;
     std::map<std::string, std::unique_ptr<mce::Mesh>>    meshes;
+    // belt connector selection ("belts.connector"), for the preview
+    std::optional<BlockPos>                              connectorFirst;
+    int                                                  connectorDim = 0;
+    int                                                  connectorMax = 20;
+    std::uint64_t                                        previewTick  = 0;
+    bool                                                 previewLogged = false;
 };
 
 State& state() {
@@ -136,12 +147,14 @@ std::vector<std::string> visibleBones(cb::SegmentState const& s) {
     case cb::Slope::Upward:
     case cb::Slope::Downward:
         out.push_back("slope");
+        if (s.casing != cb::Casing::None) out.push_back("casing_slope");
         break;
     case cb::Slope::Vertical: {
         out.insert(out.end(), {"v_front", "v_back"});
         bool up = s.facing == 0 || s.facing == 3;
         if ((s.part == cb::Part::Start && up) || (s.part == cb::Part::End && !up)) out.push_back("v_cap_bottom");
         if ((s.part == cb::Part::End && up) || (s.part == cb::Part::Start && !up)) out.push_back("v_cap_top");
+        if (s.casing != cb::Casing::None) out.push_back("casing_vertical");
         break;
     }
     case cb::Slope::Sideways:
@@ -167,11 +180,11 @@ std::string textureOf(std::string const& bone, cb::SegmentState const& s) {
     static constexpr char const* kColors[] = {"white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
                                               "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"};
     if (bone == "pulley" || bone == "pulley_y") return "levitate_belt_pulley";
-    if (bone == "casing") return s.casing == cb::Casing::Brass ? "levitate_belt_casing_brass" : "levitate_belt_casing_andesite";
+    if (bone == "casing" || bone == "casing_slope" || bone == "casing_vertical") return s.casing == cb::Casing::Brass ? "levitate_belt_casing_brass" : "levitate_belt_casing_andesite";
     return s.color >= 0 ? std::string("levitate_belt_") + kColors[s.color & 15] : "levitate_belt";
 }
 
-bool isBand(std::string const& bone) { return bone != "pulley" && bone != "pulley_y" && bone != "casing"; }
+bool isBand(std::string const& bone) { return bone != "pulley" && bone != "pulley_y" && !bone.starts_with("casing"); }
 
 k::RotorModel const* beltModel() {
     static std::optional<k::RotorModel> model = []() -> std::optional<k::RotorModel> {
@@ -278,6 +291,86 @@ void onSpeeds(Json const& msg) {
     }
 }
 
+std::optional<cb::Axis> shaftAxisOf(BlockSource& region, BlockPos const& p) {
+    if (!region.hasChunksAt(p, 0, false)) return std::nullopt;
+    auto const& b  = region.getBlock(p);
+    auto const& id = b.getTypeName();
+    if (id != "levitate:shaft" && id != "levitate:kinetics_test_shaft") return std::nullopt;
+    return cb::Axis(std::clamp(game::intState(b, "levitate:axis").value_or(0), 0, 2));
+}
+
+/// Create's BeltConnectorHandler.tick on the client: dust along the planned belt (green when the
+/// shafts can be connected, red when not), once per game tick while the connector is held.
+void connectorPreview(Level& level, LocalPlayer& player) {
+    auto& s = state();
+    if (!s.connectorFirst) return;
+    auto tick = static_cast<std::uint64_t>(level.getCurrentTick().tickID);
+    if (tick == s.previewTick) return;
+    s.previewTick = tick;
+    auto const& held = player.getSelectedItem();
+    if (held.isNull() || held.getTypeName() != "levitate:belt_connector") return;
+    if (int(player.getDimensionId()) != s.connectorDim) return;
+    auto&    region = player.getDimensionBlockSource();
+    BlockPos first  = *s.connectorFirst;
+    auto     axis   = shaftAxisOf(region, first);
+    if (!axis) return;
+    static std::mt19937 rng{std::random_device{}()};
+    // client-side particles (Level::addParticleEffect reaches the level renderer; spawnParticleEffect
+    // would go to the server particle manager)
+    static HashedString const kValid{"levitate:belt_connector_valid"}, kInvalid{"levitate:belt_connector_invalid"};
+    auto dust = [&](double x, double y, double z, bool valid) {
+        static_cast<ILevel&>(level).addParticleEffect(valid ? kValid : kInvalid, Vec3{float(x), float(y), float(z)});
+    };
+    auto& hit = level.getHitResult();
+    if (hit.mType != HitResultType::Tile) {
+        std::uniform_real_distribution<double> jitter(-.25, .25);
+        if (rng() % 50 == 0) dust(first.x + .5 + jitter(rng), first.y + .5 + jitter(rng), first.z + .5 + jitter(rng), true);
+        return;
+    }
+    BlockPos selected = hit.mBlock;
+    if (!region.hasChunksAt(selected, 0, false) || game::replaceable(region, selected)) return;
+    if (!shaftAxisOf(region, selected)) {
+        auto n   = cb::faceNormal(hit.mFacing);
+        selected = BlockPos{selected.x + n.x, selected.y + n.y, selected.z + n.z};
+    }
+    cb::Vec3i a{first.x, first.y, first.z}, b{selected.x, selected.y, selected.z};
+    if (!((b - a).distSqr() < 1LL * s.connectorMax * s.connectorMax)) return;
+    cb::ConnectWorld w;
+    w.loaded    = [&](cb::Vec3i const& p) { return region.hasChunksAt(BlockPos{p.x, p.y, p.z}, 0, false); };
+    w.shaftAxis = [&](cb::Vec3i const& p) { return shaftAxisOf(region, BlockPos{p.x, p.y, p.z}); };
+    w.speed     = [&](cb::Vec3i const& p) {
+        auto sp = lv::client::kinetics::syncedSpeed(s.connectorDim, p.x, p.y, p.z);
+        return sp ? sp->speed : 0.f;
+    };
+    w.replaceable = [&](cb::Vec3i const& p) { return game::replaceable(region, BlockPos{p.x, p.y, p.z}); };
+    bool valid    = shaftAxisOf(region, selected) && cb::canConnect(w, a, b, s.connectorMax) == cb::ConnectError::None;
+    auto line     = cb::previewLine(a, b, *axis);
+    if (!line) return;
+    if (!s.previewLogged) {
+        s.previewLogged = true;
+        log().info("belts client: connector preview towards {} {} {} ({} blocks, {})", selected.x, selected.y, selected.z, line->length, valid ? "valid" : "invalid");
+    }
+    for (float f = 0; f < line->length; f += 1 / 16.f) {
+        if (rng() % 10 != 0) continue;
+        dust(first.x + .5 + line->step.x * f, first.y + .5 + line->step.y * f, first.z + .5 + line->step.z * f, valid);
+    }
+}
+
+void onConnector(Json const& msg) {
+    auto& s = state();
+    if (msg.value("clear", false)) {
+        s.connectorFirst.reset();
+        return;
+    }
+    auto p = msg.value("pos", Json::array());
+    if (!p.is_array() || p.size() != 3) return;
+    s.connectorFirst = BlockPos{p[0].get<int>(), p[1].get<int>(), p[2].get<int>()};
+    s.previewLogged  = false;
+    s.connectorDim   = msg.value("dim", 0);
+    s.connectorMax   = msg.value("max", 20);
+    log().info("belts client: connector preview from {} {} {}", p[0].get<int>(), p[1].get<int>(), p[2].get<int>());
+}
+
 void renderBelts(BaseActorRenderContext& ctx) {
     auto* ci = lv::client::currentClient();
     if (!ci) return;
@@ -289,6 +382,10 @@ void renderBelts(BaseActorRenderContext& ctx) {
         s.level = level;
     }
     if (!level || !player) return;
+    try {
+        connectorPreview(*level, *player);
+    } catch (...) {
+    }
     int dim = int(player->getDimensionId());
     if (dim != s.dim) {
         s.speeds.clear();
@@ -436,9 +533,11 @@ public:
         BeltsExtractHook::hook();
         BeltsRenderHook::hook();
         feature::net::client::on("belts.speed", [](Json const& msg) { onSpeeds(msg); });
+        feature::net::client::on("belts.connector", [](Json const& msg) { onConnector(msg); });
         mExit = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             resetLevel(true);
             state().level = nullptr;
+            state().connectorFirst.reset();
         });
     }
     void uninstall() {

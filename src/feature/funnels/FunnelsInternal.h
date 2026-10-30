@@ -58,6 +58,13 @@ inline constexpr char kU[]          = "levitate:u";
 inline constexpr char kV[]          = "levitate:v";
 inline constexpr char kLarge[]      = "levitate:large";
 
+// belt funnels (Create's BeltFunnelBlock.Shape) in a funnel's `levitate:shape`
+inline constexpr int kNotOnBelt     = 0;
+inline constexpr int kBeltRetracted = 1;
+inline constexpr int kBeltExtended  = 2;
+inline constexpr int kBeltPushing   = 3;
+inline constexpr int kBeltPulling   = 4;
+
 enum class Kind { None, AndesiteFunnel, BrassFunnel, AndesiteTunnel, BrassTunnel, Chute, SmartChute, Vault, Crate };
 [[nodiscard]] Kind kindOf(std::string_view id);
 [[nodiscard]] inline bool isFunnel(Kind k) { return k == Kind::AndesiteFunnel || k == Kind::BrassFunnel; }
@@ -141,6 +148,14 @@ void placeFunnel(Player* player, BlockSource& region, GlobalPos const& pos, bool
 /// Inserts into the inventory a funnel is attached to (Create's FunnelBlock.tryInsert).
 [[nodiscard]] ItemStack funnelInsert(BlockSource& region, GlobalPos const& pos, ItemStack const& stack, bool simulate);
 void                    forgetFunnel(GlobalPos const& pos);
+/// The belt funnel shape of a funnel (kNotOnBelt for plain funnels).
+[[nodiscard]] int beltShapeOf(Block const& block);
+/// Create's BeltFunnelBlock.isOnValidBelt: a belt carrying items, a depot or an ejector below.
+[[nodiscard]] bool onValidBelt(BlockSource& region, GlobalPos const& pos);
+/// Create's BeltFunnelBlock.getShapeForPosition.
+[[nodiscard]] int beltShapeFor(BlockSource& region, GlobalPos const& pos, int facing, bool extracting);
+/// Create's FunnelBlock / BeltFunnelBlock.updateShape after the block below changed.
+void updateFunnelShape(BlockSource& region, GlobalPos const& pos);
 // chutes
 void installChutes();
 void beginChuteTick();

@@ -3,7 +3,10 @@
 #                       magnet down to it), a piston pushes a block out; the selftests pass on the
 #                       (integrated) server.
 #   remote-vanilla:     the same blocks without the client mod: static models, no errors.
-# Screenshots: out/pistons/{built,pulley-moving-1..4,pulley-placed,piston-extended,gantry-moving-1..5,gantry-placed}.png
+#   elevator contact:   right-click opens Create's native contact screen (type an identifier,
+#                       confirm); remote-vanilla gets the form.
+# Screenshots: out/pistons/{built,pulley-moving-1..4,pulley-placed,piston-extended,gantry-moving-1..5,gantry-placed,
+#              contact-screen|contact-form}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 # Sets a test generator's speed and waits for the server to confirm it. The game sometimes loses
 # a typed command or resolves its position oddly: then the chat is pictured and the command sent
@@ -97,8 +100,36 @@ Wait-LogLine 'gantry contraption #\d+ stops at' 90 -Since $mark | Out-Null
 Start-Sleep -Seconds 1
 Save-Screenshot 'gantry-placed' | Out-Null
 
+# the elevator contact's settings (U40): Create's native screen for the client mod (type a floor
+# identifier, confirm), the form for vanilla clients
+Invoke-Chat '/setblock 40 -60 40 levitate:elevator_contact ["levitate:facing"=3]'
+Invoke-Chat '/tp @s 40.5 -60 43.5 180 25'
+Press-Key '9'
+Start-Sleep -Milliseconds 1000
+$mark = Get-LogMark
+Click 0.5 0.5 -Relative -Right
+if ($vanilla) {
+    Wait-LogLine 'screen pistons\.elevator_contact opened for .* \(form\)' 20 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 1500
+    Save-Screenshot 'contact-form' | Out-Null
+    Close-Screen
+} else {
+    Wait-LogLine 'screen pistons\.elevator_contact opened for .* \(native\)' 20 -Since $mark | Out-Null
+    $line = Wait-LogLine 'screen opened: .* panel=' 20 -Since $mark
+    if ($line -notmatch 'panel=([\d.]+),([\d.]+) inv=([\d.]+),([\d.]+) gui=([\d.]+)x([\d.]+)') { throw "no layout in '$line'" }
+    $px = [double]$Matches[1]; $py = [double]$Matches[2]; $gw = [double]$Matches[5]; $gh = [double]$Matches[6]
+    Start-Sleep -Milliseconds 800
+    Click (($px + 33) / $gw) (($py + 37) / $gh) -Relative   # the floor identifier box
+    Type-Text 'L4'
+    Start-Sleep -Milliseconds 400
+    Save-Screenshot 'contact-screen' | Out-Null
+    Click (($px + 159) / $gw) (($py + 100) / $gh) -Relative # confirm
+    Wait-LogLine "elevator contact at 40 -60 40 named 'L4'" 20 -Since $mark | Out-Null
+}
+Invoke-Chat '/setblock 40 -60 40 air'
+
 if (-not $vanilla) {
     $r = Invoke-SelfTest 'pistons.*'
-    if ($r.Pass -lt 12) { throw "expected at least 12 pistons selftests to pass, got $($r.Pass)" }
+    if ($r.Pass -lt 14) { throw "expected at least 14 pistons selftests to pass, got $($r.Pass)" }
 }
 Assert-NoErrors

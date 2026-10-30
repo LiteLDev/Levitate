@@ -146,7 +146,16 @@
       },
       "minecraft:light_dampening": 0,
       "minecraft:map_color": "#c56d43",
-      "minecraft:loot": "loot_tables/blocks/glass_fluid_pipe.json"
+      "minecraft:loot": "loot_tables/blocks/glass_fluid_pipe.json",
+      "minecraft:liquid_detection": {
+        "detection_rules": [
+          {
+            "liquid_type": "water",
+            "can_contain_liquid": true,
+            "on_liquid_touches": "no_reaction"
+          }
+        ]
+      }
     },
     "permutations": [
       {

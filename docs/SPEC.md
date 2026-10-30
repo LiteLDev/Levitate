@@ -1630,7 +1630,13 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   replaceable blocks or same-axis shafts in between. One connector is used (survival), wool sound.
   Shafts in between become pulleys; vertical shafts make a sideways belt, a vertical line a vertical
   belt. Sneak + use (block or air) clears the selection; any second click clears it. While a shaft
-  is selected, particles show the planned belt towards the shaft looked at (green: valid, red: not).
+  is selected and the connector held, dust shows the planned belt every tick (Create's
+  BeltConnectorHandler: from the selected shaft towards the shaft looked at, or the block in front of
+  the face looked at; the component along the axis dropped and the direction snapped to straight /
+  45 degrees; one particle per 1/16 block with a chance of 1/10; green when the shafts can be
+  connected, red when not; looking at nothing, the shaft sparkles now and then). The client mod
+  draws it itself (`belts.connector` tells it the selection); other players get the particles from
+  the server every 5 ticks, sent to them only.
 - **Kinetics**: a belt is a kinetic block (stress 0): pulley segments (start, end, pulley) have shaft
   ends on both faces of the rotation axis (the axis 90 degrees from the facing; sideways: y); all
   segments of one belt turn together, sloped ones through their diagonal neighbours.
@@ -1639,11 +1645,18 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   block apart, stop 0.45 before a blocked end (solid block), 0.25 before a block that takes items
   (another belt, depot, ejector, other units' direct inputs) and fall off an open end (thrown along the
   belt at max(speed, 1/8) plus 1/8 up). Vertical and sideways belts carry nothing (items fall off).
-  Belt-to-belt: the end inserts into the block after it (for slopes also the block level with the
+  Belt-to-belt: the end inserts into the block after it (any direct input: belts, depots, ejectors,
+  chutes, upward inserting funnels; for slopes also the block level with the
   last segment) with the movement direction as side; a belt refuses insertion against its movement,
-  side insertions start 0.35 off-centre and slide to the middle. Dropped item entities landing on a
+  side insertions start 0.35 off-centre and slide to the middle (a distributing brass tunnel above
+  the segment takes them instead). Items crossing into another segment are reported to the block
+  above it (tunnels, `beltlink::itemEntering`; a stuck item waits at .99 / .01 of its segment);
+  belt funnels above the segments take the items crossing their entry (Create's checkForFunnels).
+  Dropped item entities landing on a
   belt are taken whole at their segment (Create's item handler: one stack per segment until it moved
-  on). Right-click with an empty hand takes the stacks within 0.55 of that segment's centre.
+  on), except under a tunnel. Right-click with an empty hand takes the stacks within 0.55 of that
+  segment's centre. Sloped segments collide as eight 2 px steps following the band (server and client
+  mod; vanilla clients are corrected by the server).
 - **Entities** (BeltMovementHandler): mobs, items and players standing on a moving belt (|rpm| >= 1)
   move at `rpm / 480` along it, are pulled to the middle (not while walking), climb / descend slopes;
   sneaking or flying players are not carried.
@@ -1658,7 +1671,7 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   pulley's side its shaft comes out.
 - **Breaking** a segment destroys the whole belt: items drop, pulleys become shafts again, the other
   segments vanish; a survival player gets one belt connector plus a shaft if the broken segment had a
-  pulley.
+  pulley; each segment blown up by an explosion drops that loot with a chance of 1 / radius each.
 - **Depot** (DepotBehaviour): holds one stack (max stack size) and an 8-slot output buffer.
   Comparator output (depot and ejector, U36): f = (held + output buffer counts) / max stack size
   (64, the ejector's stack size setting when set); floor(14·f) + (f > 0).
@@ -1668,13 +1681,14 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   BeltProcessingBehaviour, unless the block between has a collision box), outputs go to the buffer.
   Item capability: 9 slots (0 held, 1..8 outputs), insert only into an empty depot, extract outputs
   first, the held stack when it isn't being processed. Sounds: Create's depot slide / plop (sand break
-  0.125 / 1.5, item frame add 0.25 / 1.25).
+  0.125 / 1.5, item frame add 0.25 / 1.25). A pulling belt funnel on top takes the outputs, then the
+  centred held stack (one transfer per tick; on an ejector not against its launch direction).
 - **Weighted ejector**: a depot with a launch plate; kinetic (impact 2 SU/RPM, shaft on the sides).
   Target: sneak + right-click a block with the ejector item ("Target Selected"), then place it: it
   faces the target and throws there if the target is in line with it, not straight above / below and
   within `maxEjectorDistance` (32) ("Ejecting to [x,y,z]"), else ("Target was not Valid") the block in
   front; placed without a selection it faces away from the player. Launches when charged, turning, not
-  powered by redstone (polled every 4 ticks), and an entity stands on the plate or the held stack is
+  powered by redstone (the shared redstone watch), and an entity stands on the plate or the held stack is
   centred and (stack size value box 0 = any) at least the configured size and the targeted block can take
   it. The stack flies on Create's arc (gravity 0.08, drag 0.98 / 0.91 per tick, apex 1 + 0.3 x distance
   blocks above the higher end) and is inserted into the target's belt input or dropped there; entities
@@ -1691,7 +1705,8 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   holds `items`; `depot` {held, incoming, outputs, stackSize, target, airborne, ...}; the index of
   controllers / depots / ejectors in `lv:belts:index`.
 - **Client mod**: belts are left out of the chunk mesh and drawn every frame from the same geometry:
-  the band texture scrolls at the surface speed (1 px steps), pulleys turn at Create's kinetic angle;
+  the band texture scrolls at the surface speed (1 px steps), pulleys turn at Create's kinetic angle,
+  the casing is drawn on horizontal, sloped and vertical segments (the static model shows it too);
   speeds over `belts.query` / `belts.speed`. The ejector's shaft turns through U2's rotor rendering.
 
 #### 3.6.12 Item logistics (U12)
@@ -1721,7 +1736,22 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
     above it (item capability on the funnel, Create's DirectBeltInputBehaviour).
   - Flaps: horizontal funnels flap (block state `levitate:flap` for 4 ticks, visible on every
     client) with Create's funnel flap sound (item frame turn + wool).
-  - On a belt (belt funnels, pushing / pulling by belt direction): pending U11's belt (beltlink).
+  - On a belt (Create's BeltFunnelBlock): a horizontal funnel on a belt carrying items, a depot or
+    an ejector is a belt funnel, `levitate:shape` 1 retracted / 2 extended (along the belt), 3
+    pushing / 4 pulling (across it; placed normally: pushing, sneaking: pulling). It becomes one
+    when placed there or when the block below changes, and turns back into a plain funnel
+    (pushing -> extracting) when the belt goes. Wrench: pulling <-> pushing, retracted <->
+    extended (sloped belts: retracted only). Pushing (and a retracted / extended funnel the belt
+    moves away from) extracts every `defaultExtractionTimer` ticks what the block below takes from
+    the funnel's side (andesite 1, brass the amount setting); pulling (or one the belt moves
+    towards) takes belt items crossing its entry (the segment centre; extended: the segment edge)
+    into its inventory: the whole stack (*up to*) or exactly the amount; one facing against the
+    movement holds back what it can't take (powered, filtered out, full). Belt funnels don't
+    collect item entities and aren't used by hand; the back plate follows the mode. Filter slot
+    and amount box: on the front (extended: on top).
+  - Flaps on the client mod: Create's four strips swinging after each transfer ("funnels.flap"
+    {dim, pos, inward}; damped as Create's LerpedFloat, .05 per tick); horizontal funnels are left
+    out of the chunk mesh and drawn every frame.
 - **Tunnels** (Create's BeltTunnelBlock / BrassTunnelBlockEntity) sit on a belt segment (beltlink).
   Shape: a T on each side with an output (a belt running across, or a Levitate block taking items
   from that side), cross for both; a straight tunnel between two tunnels gets a window (wrench:
@@ -1754,7 +1784,10 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
   downward funnel; upward: the inventory above an open chute, the fastest input chute, or out of
   the top. A diagonal chute is made by clicking the side of a block (not sneaking); shapes update
   with the chutes around (intersection when fed diagonally). Wrench: normal ↔ window, encased →
-  normal; industrial iron block: encase. Empty-hand right-click takes the stack out.
+  normal; industrial iron block: encase. Empty-hand right-click takes the stack out. Belts work
+  through the item capability (a chute below a belt pulls the items on that segment; a chute above
+  drops onto it) and belt ends / ejectors / tunnels insert into an open chute from any side while
+  it can pick items up (Create's DirectBeltInputBehaviour of the chute).
 - **Smart chutes**: a chute with a filter slot on each side (8, 11 px) and the "Extracted
   Amount" setting (default 64; shown while it pulls from an inventory); redstone power stops it.
 - **Item vaults** (Create's ItemVaultBlock / ConnectivityHandler): vault blocks of the same
@@ -1775,7 +1808,12 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
   `EncasedFanBlockEntity.getSpeed()`), read by chutes; `beltlink::registerSegment(blockId,
   query)` — a belt segment's movement facing, speed, slope and casing, read by tunnels; and
   `beltlink::itemEntering(region, beltPos, stack, movementFacing)` — the belt calls it when an
-  item crosses into a segment (Continue / Stuck / Taken), so the tunnel above can take or split it.
+  item crosses into a segment (Continue / Stuck / Taken), so the tunnel above can take or split it;
+  `beltlink::hasAbove` (dropped items don't land under a tunnel) and
+  `beltlink::registerAboveSideInput` / `sideInputAbove` (a distributing brass tunnel takes items
+  inserted into its segment from a side), added by U41. The belt registers `levitate:belt` as a
+  segment; funnels register as the belt's above-interactors and, like chutes, as direct inputs
+  (`belts::registerDirectInput`; `belts::canInsertDirect` added by U41).
   Items going *into* belts, depots, funnels and chutes use the item capability with `face` = the
   side they come from.
 
@@ -2281,16 +2319,30 @@ first), simulated first so nothing is lost. 64 RPM: 32 mB/t; 256 RPM: 128 mB/t.
 a cauldron or beehive (not towards a pipe, a pump on that axis, a sturdy face or a fluid handler).
 Pulling drains a source block (1000 mB; water keeps its source when two neighbouring water sources
 and a solid block or source below would refill it — Java's `waterSourceConversion`, config; lava only
-with `lavaSourceConversion`), a full cauldron (1000 mB) or a full beehive (250 mB of honey). Pushing
+with `lavaSourceConversion`), a full cauldron (1000 mB), a full beehive (250 mB of honey) or the water
+of a waterlogged block (1000 mB; the block stays, dry). A waterloggable block (Java's `WATERLOGGED`
+property: on Bedrock the block's water detection rule, vanilla blocks and custom blocks with
+`minecraft:liquid_detection`) without a sturdy face towards the pipe is an open end too. Pushing
 fills the buffer and places the fluid's source block once it holds 1000 mB (not on a source, not when
-`pipesPlaceFluidSourceBlocks` is off; water evaporates in the Nether with the fizz sound); fluids
+`pipesPlaceFluidSourceBlocks` is off; water evaporates in the Nether with the fizz sound); in front of
+a waterloggable block only water goes out, waterlogging it (not when it already is); fluids
 without a world block (milk, potions, tea, and honey / chocolate until U19 gives them blocks) are used
 up 1 mB per transfer while their effect applies. Pouring into another fluid reacts (water on a lava
 source: obsidian, on flowing lava: cobblestone; lava on a water source: stone, on flowing water:
 cobblestone). Effects on the block in front and one below (two when the pipe faces down): water every
 5 ticks puts out burning entities, fire, campfires and candles; lava every 5 ticks sets non-immune
 entities on fire for 3 s; milk every 5 ticks clears the effects of living entities; tea every 5 ticks
-gives Haste I for 21 ticks (hidden); potions apply the potion's effects on every transfer.
+gives Haste I for 21 ticks (hidden); potions apply the potion's effects on every transfer, instant ones
+(healing, harming) at half strength (`MobEffect::applyInstantaneousEffect` with scale 0.5, Create's
+PotionEffectHandler). Fluid pipes, glass pipes, pumps, valves and smart pipes are waterloggable
+(`minecraft:liquid_detection`): placed in water they keep it. Logs: `pipes: drained the water of the
+waterlogged <block> at ...`, `pipes: waterlogged the <block> at ...`.
+
+**Particles** (Create's PipeConnection / FluidFX, for every client: the server spawns the resource
+pack particles `levitate:fluid_particle` and `levitate:fluid_drip`, tinted with the fluid's colour,
+for the players within 20 blocks): every tick each pipe face with a flow pours one particle out of an
+open end (sucked in towards the face when pulling), or drips one at its rim with a chance of 1/1000;
+a flow that just started splashes once (a rim drip, at open ends the stream).
 
 **Valves**: a kinetic shaft on the axis that is neither its facing nor its pipe axis. Positive speed
 moves the pointer towards open, zero or negative towards closed, at `min(|RPM| / 320, 1)` per tick; it
@@ -2303,7 +2355,11 @@ redistributes the network.
 **Persistence**: pressures, flows and open end buffers in `lv:pipes:model` (Create saves them in the
 pipe block entities; the phase restarts after a load), valve pointers alongside, brackets in BlockData
 `data["pipes"]["bracket"]`. **Client**: glass pipes show the fluid inside through `levitate:fluid`
-(every client, mod or not); pumps' cogs and valves' shafts rotate through the kinetic renderer (U2).
+(vanilla clients); the client mod draws Create's flow fronts instead (TransparentStraightPipeRenderer:
+per face with a flow, a 6 px wide column of the fluid growing `progress / 2` blocks from the face
+(inbound) or from the centre (outbound), advanced every tick at the flow's speed; the server sends the
+flows of glass pipes over `pipes.glass` when they change, chunk meshes leave the static fluid out);
+pumps' cogs and valves' shafts rotate through the kinetic renderer (U2).
 **Command** `/create pipes <pos>` (op): pressures, flows and transfers of a pipe.
 
 #### 3.6.18 Fluid tanks, boilers, steam engines and whistles (U18)
@@ -2380,8 +2436,8 @@ the other way the engine flips its own setting. The powered shaft generates `dir
 (1 + (e ≥ 1 ? 3 : min(2, ⌊4e⌋)))` RPM (64 at full, 48 / 32 / 16 below) with a capacity of `e · 1024 /
 modifier` su per RPM (= e · 16384 su: a full engine 16384 su, a passive one 2048 su); no tank, no
 shaft or efficiency 0: speed 0. Value box "Rotation Direction" (Clockwise / Counter-Clockwise) on the
-engine's four side faces. Puffs of steam (sound `levitate.steam.engine`, evaporation particles) twice
-per shaft turn while it runs.
+engine's four side faces. Puffs of steam (sound `levitate.steam.engine`, a `levitate:steam_jet`
+particle out of the cylinder's front) twice per shaft turn while it runs.
 
 **Whistle** (WhistleBlock / BlockEntity). Pitch = 2 semitones per full extension above it, 1 for a
 half (single) one at the top (`updatePitch`, up to 25). Using a whistle item on a whistle or an
@@ -2390,17 +2446,33 @@ else a half extension is added on the next free block; the item is not used up; 
 2^(−2i/12)). Wrench: the next size (small → medium → large → small) for the whole column; sneaking
 with the wrench on the top extension shortens it by half a block. Extensions without a whistle or
 extension below vanish. Powered by redstone (polled, §8) on a boiler with heat (passive or active) it
-sounds: the `levitate.steam.whistle_chiff` hiss when it starts, then the tone: one original sample
-played at `octave · 2^(−pitch/12)` (sounds `whistle_high` / `whistle_medium` / `whistle_low` are the
-same sample at pitch 2 / 1 / .5; restarted every 10 ticks, heard up to 64 blocks), steam particles out
-of the mouth every 8 ticks. One log line when it starts / stops.
+sounds: the `levitate.steam.whistle_chiff` hiss when it starts (per player at volume
+`.175 · (64 − distance) / 64`, pitch `f + .75` for small whistles), then the tone as one looping
+sound instance per whistle (Create's WhistleSoundInstance): one original sample played at
+`f = octave · 2^(−pitch/12)` (sounds `whistle_high` / `whistle_medium` / `whistle_low` are the same
+sample at pitch 2 / 1 / .5). The server gives the instance a sound handle and plays it looping
+(PlaySoundPacket loop count −1 + server sound handle) on the clients of the players within 64 blocks;
+a player coming into range gets it, one leaving it (68 blocks) gets Stop; a pitch change (a longer
+or shorter column) is sent to the playing clients as SetPitch (ClientboundUpdateSoundDataPacket), a
+size change starts a new instance, and a whistle that stops (unpowered, no steam, removed, chunk
+unloaded) fades out over 4 ticks (Create: −.25 volume per tick) and then stops. Every client plays it
+with the game's own sound engine (no client mod needed). A `levitate:steam_jet` particle (Create's
+SteamJetParticle: a grey-white puff that grows, rises and fades) leaves the mouth when it starts and
+every 8 ticks, up and out of the mouth. One log line when it starts / stops and one when the looping
+instance starts.
 
 **Client** (client mod): the server sends tank contents (`steam.tanks`: controller, size, fluid,
-amount, capacity, windows, boiler) and engines (`steam.engines`: position, facing, shaft speed and
-axis) to companions; the client draws the fluid inside windowed tanks as Create's renderer (1/4
-caps, a 1/16 puddle, inset by the hull, the level easing towards the real one) in the fluid's colour,
-and each running engine's piston rod, crosshead and connecting rod following Create's
-`(1 − sin a) / 4 · 24/16` stroke on a crank pin turning with the shaft.
+amount, capacity, windows, boiler, and for boilers the gauge target `g` and the hidden sides `occ`)
+and engines (`steam.engines`: position, facing, shaft speed and axis) to companions; the client draws
+the fluid inside windowed tanks as Create's renderer (1/4 caps, a 1/16 puddle, inset by the hull, the
+level easing towards the real one) in the fluid's colour, and each running engine's piston rod,
+crosshead and connecting rod following Create's `(1 − sin a) / 4 · 24/16` stroke on a crank pin
+turning with the shaft. **Boiler gauges** (Create's FluidTankRenderer.renderAsBoiler): a boiler draws
+no fluid but a brass gauge in the middle of every side of its bottom layer, the needle pivot 6/16 up,
+the needle turning `145° · gauge` from its rest position; the gauge chases (Create's `chase(target,
+.125, EXP)`) the target `1/8` for a passive boiler, else `level / size limit` (Create's
+BoilerData.read); a side whose gauge position has a block with a collision box in front of it
+(Create's updateOcclusion) shows none. Vanilla clients see the tank only (§8).
 
 **Persistence**: tank parts in BlockData (`data["steam"]`: controller, width, height, window,
 fluid, amount), engines' value box there too; the engine / whistle / powered shaft index in
@@ -2427,15 +2499,25 @@ contraptions (data carrier `fluids`). Every machine exposes the U3 fluid capabil
   `len × loops` steps one result is picked by weight (Create's rollResult).
 - **Spout**: 1000 mB tank, filled from every side but the nozzle (bottom). It processes the item two
   blocks below (the block between must have no collision, funnels excepted: Create's
-  BeltProcessingBehaviour). The item is the slot 0 seen from the top through the item capability of
-  a **Levitate** block (depots, belts; vanilla containers have no processing behaviour). Filling
-  takes 20 ticks (FILLING_TIME); the item is filled 15 ticks in, one item per cycle; the result goes
-  back through the capability (leftovers drop). With too little fluid it waits. A cauldron two
-  blocks below is filled with a whole bucket (water, lava, powder snow). Sounds: start / fill.
+  BeltProcessingBehaviour). Belts and depots (U11) hold the item through their processing behaviour
+  (`belts::registerProcessor`, Create's onItemReceived / whenItemHeld): an item that can be filled
+  stops at the centre of the segment under the spout (also with an empty tank), is filled one at a
+  time (the filled one moves on, the rest of the stack stays held) and an item the fluid can't fill
+  passes. Other **Levitate** blocks exposing the item as slot 0 from the top through the item
+  capability are filled through it (the result goes back, leftovers drop; vanilla containers have no
+  processing behaviour). Filling takes 20 ticks (FILLING_TIME); the item is filled 15 ticks in, one
+  item per cycle. With too little fluid it waits. A cauldron two blocks below is filled with a whole
+  bucket (water, lava, powder snow). Sounds: start / fill. Particles for every client (U17's
+  `levitate:fluid_particle`): a drop leaves the nozzle every tick from 20 to 8 ticks left, 20 drops
+  splash off the item when it is filled. Client mod: the stream (its width follows Create's
+  `((2p − 1)² − 1) / 32`) and the nozzle drawn in three bits (top, middle, bottom) that squeeze
+  together (Create's squeeze: the stream's curve, −1 from 10 to 2 ticks left, then back; each bit
+  `3/32 · squeeze` above the one before), the chunk mesh leaving them out (`levitate:nozzle` 1).
   Logs: `spout at x y z filled <in> into <out>`, `... filled a cauldron with <fluid>`.
 - **Item drain**: 1500 mB tank, pipes extract on every side, nothing is inserted from outside.
   Items enter through the item capability (one at a time when they hold fluid, otherwise the whole
-  stack), from item entities landing on top, and travel at 1/8 block per tick away from the side
+  stack), as a direct belt input (U11's `registerDirectInput`, Create's DirectBeltInputBehaviour:
+  belt ends, saws, chutes hand items in; not travelling upwards), from item entities landing on top, and travel at 1/8 block per tick away from the side
   they came from (from above: down, starting at the centre). At the centre an item that can be
   emptied is held for 20 ticks; 15 ticks in it is emptied if all of its fluid fits (otherwise it
   waits). At the far edge it goes into the next Levitate block (belt, depot, chute, funnel, drain:
@@ -2542,7 +2624,7 @@ visitNewPosition). Placed back: magnet above the structure, ropes up to the pull
 break, dropping only when they have no collision). Rope pulleys above other top blocks of the
 structure mirror the pulley (multi-rope): they hang their own rope down and place it when the main
 pulley stops. Breaking a rope or magnet breaks the whole column and resets the pulley; breaking the
-pulley breaks the rope below. Ropes and magnets are brittle and unmovable. Stress impact 4.
+pulley breaks the rope below. Ropes and magnets are brittle and unmovable, and climbable like ladders (Create's `minecraft:climbable` tag: their block types get the Climbable property on the server and in the client mod). Stress impact 4.
 
 **Elevator pulley** (Create 6 elevators): right-click with an empty hand assembles / disassembles
 (speed only drives the motion). The cabin is the first solid block below; it needs exactly one
@@ -2556,7 +2638,7 @@ of the rest per tick). The cabin always stays a contraption (Place only when Anc
 arrival (and every 3 ticks while it stands there) the floor's contact powers (redstone 15, light 10)
 until another floor is called; elevator contacts call the cabin on a rising redstone edge (they show
 *calling*), and a contact facing a redstone contact powers too. Floors: right-click a contact (not with
-the wrench) to set the floor identifier (4 chars), description (30 chars) and door control (stored for
+the wrench) to open Create's contact screen (native for the client mod, `pistons.elevator_contact`, saved when confirmed or closed; a form for vanilla clients) with the floor identifier (4 chars), description (30 chars) and door control (stored for
 U10's sliding doors); blank identifiers are numbered from their neighbours (Create's initNames). The
 wrench turns a contact; facing away from its column it becomes a redstone contact again.
 Contraption controls (U22) integrate through the cabin's `anchorData()["elevator"]`:
@@ -3894,17 +3976,12 @@ matches Create's official Chinese translation wording).
 | Door / trapdoor redstone input (U10) | custom blocks get no neighbour updates | polled every 2 ticks from adjacent power sources (wire, levers, buttons, torches, repeaters, comparators, observers, plates, placards, blocks strongly powered by them); read with `Redstone.h` `power` (U36: wire and diodes only into the blocks they point at) |
 | Item on the placard, copycat material, brackets drawn on **vanilla** clients (U10) | a block model can't show another item / block | the data and every behaviour exist on both; the client mod draws the placard's item (display item, U33), the copycat in its material (Create's cropped panel / step models) and the bracket on its shaft or cogwheel; vanilla clients see the placard frame, the copycat base and the plain shaft |
 | Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer, for **vanilla** clients (U11) | Bedrock has no item renderer for vanilla clients | the client mod draws each stack (display items, U33: lying, half size, a pile for bigger stacks, interpolated between ticks) and does not draw the fallback; vanilla players see each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick); with `displayItems` off they see nothing |
-| Sloped belt collision shape (U11) | a custom block has one collision box | slopes collide as a half slab; entities are carried up / down by the belt code |
-| Casing drawn on sloped / vertical belts (U11) | the sloped casing would leave the block geometry bounds | the casing state is kept (and removable with the wrench) but only horizontal belts draw it |
-| Belt drops when exploded or removed by commands (U11) | the server can't tell an explosion from a command removing the block | the connector / shaft drops only for survival players breaking the belt; items on it always drop |
-| Redstone input of the ejector (U11) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker) |
-| Belt connector selection preview line (U11) | Create draws it client-side every frame | server particles along the planned belt every 5 ticks while the connector is held |
+| Belt drops when removed by `/setblock ... destroy` (U11) | the block change the server sees carries no cause: a command's destroy mode looks like a replace | survival players breaking a segment and explosions (each segment with Create's 1 / radius survival chance) drop the connector / shaft; command removals drop nothing but the items on the belt |
 | Items drawn inside chutes by a block entity renderer, for **vanilla** clients (U12) | custom blocks have no block entity renderers | the client mod draws the moving stack (display item, U33, interpolated); vanilla clients get client-only item entities (packets only, never a server entity, so nobody can pick them up) that follow each moving stack |
-| Smooth (lerped) funnel flaps (U12) | no per-frame block animation for custom blocks without a renderer | the flap is a block state shown for 4 ticks after a transfer (both kinds of clients) |
-| Editing a filter's amount by *holding* the filter slot (U12) | the server sees no held click (see the value box row) | brass funnels and smart chutes have a separate "Extracted Amount" value box next to the filter slot |
+| Smooth (lerped) funnel flaps for **vanilla** clients (U12) | no per-frame block animation for custom blocks without a renderer | the flap is a block state shown for 4 ticks after a transfer; the client mod draws Create's four swinging strips |
+| Editing a filter's amount by *holding* the filter slot, for **vanilla** clients (U12) | the server sees no held click from a vanilla client (the client mod reports it: `valuebox.release`) | companions hold the slot to open the "Extracted Amount" board (`SlotSpec::onHold`); vanilla players use a separate "Extracted Amount" value box next to the filter slot |
 | Funnel / smart chute redstone input by neighbour updates (U12) | custom blocks get no redstone neighbour update | polled every 2 ticks like the sticker (same sources) |
 | Comparators reading a vault (U12) | Bedrock only asks container blocks for analog signals | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
-| Belt funnels, tunnels on belts, chutes pulling from belts (U12) | waiting for U11's belt | the hooks exist (`beltlink`, FunnelsExt.h); tunnels already work with any registered segment |
 | Items floating in the basin for **vanilla** clients (U14) | no item rendering hooks for vanilla clients | the client mod draws the stacks inside (Create's ring around the centre, tilted, slowly turning, bobbing on the fluid, one more copy per 8 items) with the world item renderer (U33) and the fluid surface; vanilla clients see the basin; the items are taken out with an empty hand or seen by funnels |
 | Deployer fake player (U15) | Bedrock has no fake players: a player that acts in the world must be a real (simulated) server player | one simulated player per dimension ("Deployer", invisible, invulnerable, survival) acts for every deployer: it is moved into the hand for each action and waits above the build limit in between. Like Create's fake player it is no player for the others: it is taken out of every client's player list, command selectors don't find it, it doesn't count for sleeping through the night and its kills drop no experience |
 | Redstone input of the deployer and the arm (U15) | custom blocks get no neighbour updates | power is polled every tick (same sources as the sticker) |
@@ -3914,23 +3991,15 @@ matches Create's official Chinese translation wording).
 | Crafter items on the crafter's face for **vanilla** clients (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it | the client mod draws the slot item, the grouped grid, the exported grid sliding to the next crafter and the growing result with the world item renderer (U33); every client sees the blocks, the crit particles, the sounds and the result popping out |
 | Block break sounds of the moving drill per block sound type (U22) | the contraption actor (`actors/`) names the hit sound by the block id | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone`; the saw, the stationary drill and the crafter unit's moving saw / drill play the block's own hit sound (LevelSoundEvent `Hit` with its runtime id) |
 | Drill damage source name of the `actors/` drill (U22) | that actor hurts with the plain contact cause | contact damage (death message of a cactus-like cause); the saw and the drill of the crafter unit use Create's `create.mechanical_saw` / `create.mechanical_drill` death messages |
-| Fluid moving through glass pipes drawn by a block entity renderer, with the flow front advancing (U17) | custom blocks have no block entity renderer on Bedrock | the glass pipe's `levitate:fluid` state shows the fluid filling the pipe as soon as a flow starts (all clients, with or without the mod); the front's progress is not drawn |
-| Waterlogged pipes, pumps and valves (U17) | Bedrock custom blocks have no waterlogged state the server can set | open ends don't drain or fill waterlogged blocks; pipes in water are not waterlogged |
-| Pipe particles (drips at rims, splashes, the pouring stream of open ends) (U17) | Create's fluid particles need fluid-tinted particle types | not shown yet |
-| Instant potion effects from open ends at half strength (U17) | Bedrock applies instantaneous effects through `addEffect` at full strength | instant potion effects apply at full strength |
+| Glass pipe flow fronts for **vanilla** clients (U17) | no client-side rendering without the client mod; a block state per progress step, face and fluid would not fit | the client mod draws Create's advancing fronts; vanilla clients see the glass pipe's `levitate:fluid` state fill the whole pipe as soon as a flow starts |
 | Fluid inside tanks and the moving engine piston for **vanilla** clients (U18) | no client-side rendering without the client mod; a fluid level per block would need a block state per level and fluid | the client mod draws them; vanilla clients see the tank (windows show an empty inside) and a static engine |
 | Whistle redstone input (U18) | custom blocks get no redstone neighbour update | the whistle polls its neighbours' redstone power every 2 ticks (as the sticker, U4) |
-| Whistle tone as one looping sound with a changing pitch (U18) | Bedrock's server can't hold a looping sound instance on clients | the tone sample (0.6 s) is restarted every 10 ticks at the whistle's pitch, so it sounds continuous; the chiff plays when it starts |
-| Boiler gauges drawn on the tank sides (U18) | Create draws them with its block entity renderer | the goggle lines (`/create steam`, U8's overlay) show the same status |
-| Steam particles of whistles / engines as Create's custom steam jet particle (U18) | no custom particle shipped yet | vanilla's water evaporation particle at the whistle's mouth / the engine's front, for every client |
+| Boiler gauges for **vanilla** clients (U18) | the needle moves with the boiler level: client-side drawing (the client mod draws the gauges); a block state per needle position and side would need hundreds of tank states | vanilla clients see the boiler without gauges; the goggle lines (`/create steam`, U8's overlay) show the same status |
 | Flowing honey/chocolate in the world (U19) | Bedrock has no data-driven custom fluids: a custom block can't flow, be swum in or use the fluid renderer | they exist everywhere fluids are handled (pipes, tanks, basins, spouts, drains, buckets); in the world a bucket or a hose pulley places a translucent, non-colliding, non-flowing source block (`levitate:honey` / `levitate:chocolate`) that buckets and hose pulleys pick up again; entities in it are slowed (Slowness II) and take no fall damage instead of Create's viscous fluid motion; lava touching it turns into obsidian / limestone / scoria; no fog colour under it |
 | Hose drawn for **vanilla** clients (U19) | Create draws the hose with a block entity renderer; a block in its place would block the fluid it hangs in | the client mod draws the hose and its end piece; vanilla clients see the pulley only (draining and filling work the same) |
-| Spout nozzle squeeze and splash particles (U19) | client-side animation and fluid particles | the client mod draws Create's fluid stream (its width follows Create's curve over the 20 ticks); the nozzle model is static; vanilla clients hear the sounds only |
-| Spout over a moving belt item (U19 + U11) | wave-2 units can't call each other: the spout sees the item through the item capability (slot 0 from the top of a Levitate block) and can't stop a belt item itself | works on depots (and any block that exposes the item at its centre as slot 0); belt items are filled when the belt unit exposes the item under the spout that way |
+| Spout stream and nozzle squeeze for **vanilla** clients (U19) | no client-side animation without the client mod | the client mod draws Create's stream and squeezes the nozzle; vanilla clients see the static nozzle and the drops and splash (particles, every client) and hear the sounds |
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
-| Climbable ropes and magnets (U20) | data-driven blocks can't be climbable | they are thin solid blocks |
-| Native elevator contact screen (U20) | the native screen framework (U3) has no text field | the contact's form (floor identifier, description, door control) is used for every player |
 | Elevator door control acting on doors (U20) | the sliding / train doors are U10's | the mode is stored per contact (`data["pistons"]["door"]`) for U10 to apply |
 | Cart assembler and controller rail as real rails (U21) | Bedrock minecarts only ride vanilla rail blocks; a data-driven block can't be a rail | they are rail-shaped blocks without collision; a minecart on one is guided by the server: held on the rail line at rail height and moved along it at the speed the rail gives it (no off-rail friction), then the next vanilla rail takes it over. A minecart item used on them places a cart there |
 | Redstone input of the cart assembler / controller rail (U21) | custom blocks get no neighbour updates and the game's signal levels aren't exposed | power polled every 4 ticks from the neighbours' states (wire level, redstone block, torches, levers, buttons, repeaters / comparators, observers, `redstone_signal`, solid blocks on a lit torch) |

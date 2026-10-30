@@ -185,43 +185,43 @@
           ]
         },
         {
-          "name": "flap",
+          "name": "flap_0",
           "pivot": [
             0,
-            0,
-            0
+            13,
+            -1.5
           ],
           "cubes": [
             {
               "origin": [
-                -5,
+                -5.0,
                 2,
                 -2
               ],
               "size": [
-                10,
+                2.5,
                 11,
                 1
               ],
               "uv": {
                 "north": {
                   "uv": [
-                    3.0,
+                    7.0,
                     2.0
                   ],
                   "uv_size": [
-                    10,
+                    2,
                     11
                   ],
                   "material_instance": "flap"
                 },
                 "south": {
                   "uv": [
-                    3.0,
+                    7.0,
                     2.0
                   ],
                   "uv_size": [
-                    10,
+                    2,
                     11
                   ],
                   "material_instance": "flap"
@@ -250,22 +250,292 @@
                 },
                 "up": {
                   "uv": [
-                    3.0,
+                    7.0,
                     7.0
                   ],
                   "uv_size": [
-                    10,
+                    2,
                     1
                   ],
                   "material_instance": "flap"
                 },
                 "down": {
                   "uv": [
-                    3.0,
+                    7.0,
                     7.0
                   ],
                   "uv_size": [
-                    10,
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "flap_1",
+          "pivot": [
+            0,
+            13,
+            -1.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -2.5,
+                2,
+                -2
+              ],
+              "size": [
+                2.5,
+                11,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "flap_2",
+          "pivot": [
+            0,
+            13,
+            -1.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                0.0,
+                2,
+                -2
+              ],
+              "size": [
+                2.5,
+                11,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "flap_3",
+          "pivot": [
+            0,
+            13,
+            -1.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                2.5,
+                2,
+                -2
+              ],
+              "size": [
+                2.5,
+                11,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
                     1
                   ],
                   "material_instance": "flap"
@@ -284,34 +554,34 @@
           "cubes": [
             {
               "origin": [
-                -5,
+                -5.0,
                 2,
                 -2
               ],
               "size": [
-                10,
+                2.5,
                 11,
                 1
               ],
               "uv": {
                 "north": {
                   "uv": [
-                    3.0,
+                    7.0,
                     2.0
                   ],
                   "uv_size": [
-                    10,
+                    2,
                     11
                   ],
                   "material_instance": "flap"
                 },
                 "south": {
                   "uv": [
-                    3.0,
+                    7.0,
                     2.0
                   ],
                   "uv_size": [
-                    10,
+                    2,
                     11
                   ],
                   "material_instance": "flap"
@@ -340,22 +610,262 @@
                 },
                 "up": {
                   "uv": [
-                    3.0,
+                    7.0,
                     7.0
                   ],
                   "uv_size": [
-                    10,
+                    2,
                     1
                   ],
                   "material_instance": "flap"
                 },
                 "down": {
                   "uv": [
-                    3.0,
+                    7.0,
                     7.0
                   ],
                   "uv_size": [
-                    10,
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            },
+            {
+              "origin": [
+                -2.5,
+                2,
+                -2
+              ],
+              "size": [
+                2.5,
+                11,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            },
+            {
+              "origin": [
+                0.0,
+                2,
+                -2
+              ],
+              "size": [
+                2.5,
+                11,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                }
+              }
+            },
+            {
+              "origin": [
+                2.5,
+                2,
+                -2
+              ],
+              "size": [
+                2.5,
+                11,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "south": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    2,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "flap"
+                },
+                "up": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
+                    1
+                  ],
+                  "material_instance": "flap"
+                },
+                "down": {
+                  "uv": [
+                    7.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    2,
                     1
                   ],
                   "material_instance": "flap"
