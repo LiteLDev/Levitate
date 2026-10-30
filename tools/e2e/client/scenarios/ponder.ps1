@@ -5,6 +5,14 @@
 #   4. `/create ponder` of an entry whose blocks are not in main yet still plays (placeholders);
 #   5. the server-side selftests (`ponder.*`).
 # Screenshots: out/ponder/*.png
+if ($script:Mode -eq 'remote-vanilla') {
+    # Ponder is client mod only: the command says so, the tooltip has no hint
+    $mark = Get-LogMark
+    Invoke-Chat '/create ponder shaft'
+    Start-Sleep -Seconds 2
+    Save-Screenshot 'vanilla-refused' | Out-Null
+    return
+}
 Wait-LogLine 'companion: server accepted the handshake' 90 | Out-Null
 
 Invoke-Chat '/gamemode survival'
