@@ -210,9 +210,26 @@ void ensurePlacardPulse(GlobalPos const& pos);
 [[nodiscard]] std::optional<std::string> placardItem(GlobalPos const& pos);
 
 // copycats and brackets
-/// A use of `item` on the copycat at `pos` from `face`: apply a material, turn it (the same block
-/// again, Create's cycleMaterial) or reset it (wrench).
-bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos, int face);
+/// A use of `item` on the copycat at `pos` from `face` (`hitY`: the clicked height in the block,
+/// 0..1): apply a material, turn it (the same block again, Create's cycleMaterial) or reset it
+/// (wrench).
+bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos, int face, float hitY = 0.5f);
+/// Create's CopycatSpecialCases: iron bars like blocks (not glass panes) and trapdoors, which the
+/// copycat panel takes although they aren't full blocks (server and client mod).
+[[nodiscard]] bool isBarsMaterial(Block const& material);
+/// Create's CopycatBlock.setPlacedBy: a block item in the off hand becomes the new copycat's
+/// material (turned to the nearest look direction; one item used unless creative).
+void copycatPlacedBy(Player& player, GlobalPos const& pos);
+[[nodiscard]] bool isTrapdoorMaterial(Block const& material);
+/// Create's copycat placement helpers: the copycat panel / step a copycat item used on the copycat
+/// at `pos` (hit point `hit` in the block, 0..1) places next to it (nullopt: none). The panel goes
+/// to the nearest free side across its facing, keeping the facing; the step continues the line
+/// across its facing (PoleHelper, up to the placement assist range), keeping facing and half.
+struct CopycatOffset {
+    GlobalPos    pos;
+    Block const* block = nullptr;
+};
+[[nodiscard]] std::optional<CopycatOffset> copycatHelperOffset(BlockSource& region, GlobalPos const& pos, Block const& clicked, std::string const& heldId, double hx, double hy, double hz, int range);
 bool useBracket(Player& player, ItemStack const& item, GlobalPos const& pos, int face);
 /// Create's IWrenchableWithBracket: takes the bracket off (back to the player unless creative).
 bool removeBracket(Player* player, GlobalPos const& pos);

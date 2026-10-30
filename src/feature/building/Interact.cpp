@@ -200,6 +200,23 @@ bool girderHelper(Player& player, GlobalPos const& pos, Vec3 const& hit) {
     return false;
 }
 
+/// Create's copycat placement helpers (CopycatHelpers.cpp): a copycat panel / step used on one of
+/// its kind places the next one beside it. True when one was placed.
+bool copycatHelper(Player& player, std::string const& heldId, GlobalPos const& pos, Vec3 const& hit) {
+    auto* region  = regionOf(pos.dim);
+    auto const* b = blockAt(pos);
+    if (!region || !b) return false;
+    int  range = kPlacementAssistRange + (holdsExtendoGrip(player) ? 4 : 0);
+    auto off   = copycatHelperOffset(*region, pos, *b, heldId, hit.x, hit.y, hit.z, range);
+    if (!off) return false;
+    set(off->pos, *off->block);
+    playSound(off->pos, "dig.copper", 1.f, 0.8f); // the copycats' metal sound, pitch * 0.8 as PlacementOffset
+    copycatPlacedBy(player, off->pos);
+    consumeHeld(player);
+    log().info("building: {} placed at {} {} {} by the placement helper", heldId, off->pos.x, off->pos.y, off->pos.z);
+    return true;
+}
+
 bool girderShaft(Player& player, GlobalPos const& pos, int face) {
     auto const* b = blockAt(pos);
     if (!b) return false;
@@ -245,7 +262,14 @@ bool onUse(Player& player, ItemStack const& item, GlobalPos const& pos, int face
     case Kind::CopycatPanel:
     case Kind::CopycatStep:
         if (sneak || !build) break;
-        if (useCopycat(player, item, pos, face)) return true;
+        // Create's useItemOn: the placement helper first (a panel on a panel always ends the click,
+        // a step on a step only when it placed one)
+        if (held && held->kind == kind) {
+            if (copycatHelper(player, heldId, pos, hit)) return true;
+            if (kind == Kind::CopycatPanel) return true;
+            break;
+        }
+        if (useCopycat(player, item, pos, face, float(hit.y))) return true;
         break;
     case Kind::Girder:
         if (heldId == kShaftId && build) return girderShaft(player, pos, face);
@@ -342,10 +366,12 @@ void onPlaced(Player& player, GlobalPos const& pos, int face, Vec3 const& hit) {
     }
     case Kind::CopycatPanel:
         set(pos, *withStates(*block, {{"levitate:facing", opposite(nearestLooking(player)[0])}}));
+        copycatPlacedBy(player, pos);
         return;
     case Kind::CopycatStep: {
         bool top = face == Down || (face != Up && hitY > 0.5f);
         set(pos, *withStates(*block, {{"levitate:facing", horizontalFacing(player)}, {"levitate:top", top}}));
+        copycatPlacedBy(player, pos);
         return;
     }
     case Kind::Girder: {

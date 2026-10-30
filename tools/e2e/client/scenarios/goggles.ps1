@@ -5,7 +5,10 @@
 #                       reset` puts it back; the wrench turns the consumer; the inventory tooltip of
 #                       the wrench carries Create's "Hold [Shift] for Summary".
 #   remote-vanilla:     the same panel in the action bar.
-# Screenshots: out/goggles/{overlay,overlay-config,overlay-moved,wrenched,tooltip}.png or overlay-actionbar.png
+#   every mode (U48): the wrench in the hand is the resource pack's attachable, its cog turning
+#                       about the shaft, in first and third person.
+# Screenshots: out/goggles/{wrench-first-person-1,-2,wrench-third-person,wrench-third-person-back}.png,
+#              {overlay,overlay-config,overlay-moved,wrenched,tooltip}.png or overlay-actionbar.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 if (-not $vanilla) {
     Wait-LogLine 'companion: server accepted the handshake' 90 | Out-Null
@@ -14,6 +17,24 @@ if (-not $vanilla) {
 Invoke-Chat '/gamemode creative'
 Invoke-Chat '/clear @s'
 Invoke-Chat '/time set noon'
+
+# U48: the wrench held in first person (two shots 2 s apart: the cog turns 20 degrees), then in
+# third person from the front and from behind
+Invoke-Chat '/tp @s 0.5 -60 0.5 -90 10'
+Invoke-Chat '/replaceitem entity @s slot.hotbar 0 levitate:wrench'
+Press-Key '1'
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'wrench-first-person-1' | Out-Null
+Start-Sleep -Milliseconds 2000
+Save-Screenshot 'wrench-first-person-2' | Out-Null
+Press-Key F5
+Start-Sleep -Milliseconds 900
+Save-Screenshot 'wrench-third-person-back' | Out-Null
+Press-Key F5
+Start-Sleep -Milliseconds 900
+Save-Screenshot 'wrench-third-person' | Out-Null
+Reset-CameraPerspective
+Invoke-Chat '/clear @s'
 # absolute positions on the flat test world (ground at y -61): a column of three source/consumer
 # pairs along x, looked at from 3 blocks away
 Invoke-Chat '/tp @s 0.5 -60 0.5'

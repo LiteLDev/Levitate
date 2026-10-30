@@ -3,7 +3,11 @@
 #   local / remote-mod: the client mod previews the placement before the second click and draws
 #                       the curve (log "tracks: rendering ...")
 #   remote-vanilla:     only the straight tracks and the track bed (fake tracks) are visible
-# Screenshots: out/tracks/{placed,selected,preview,curve,curve-above,curve-close}.png
+# U48 (R18): a flat track between two sloped curves (built with the track item) tilts:
+#   local / remote-mod: the client mod draws the block turned onto the ramp (log "tracks: drawing
+#                       ... tilted track"), the curves meet it at its ends
+#   remote-vanilla:     the flat block model (the curves and trains follow the tilt on the server)
+# Screenshots: out/tracks/{placed,selected,preview,curve,curve-above,curve-close,tilt-side,tilt-close}.png
 $mark = Get-LogMark
 $withMod = $script:Mode -ne 'remote-vanilla'
 
@@ -65,6 +69,43 @@ Start-Sleep -Milliseconds 1500
 Save-Screenshot 'curve-close' | Out-Null
 
 if ($withMod) { Wait-LogLine 'tracks: rendering \d+ curve' 20 -Since $mark | Out-Null }
+
+# ---- U48: tilted track between two sloped curves (absolute place east of the spawn) ----
+# flat track M at (210, -56, 40), a slope rising away east of it, one rising towards it from the west
+Invoke-Teleport '/tp @s 200 -60 44'
+Invoke-Chat '/fill 195 -60 34 225 -44 46 air'
+Invoke-Chat '/setblock 210 -56 40 levitate:track ["levitate:shape"=2]'
+Invoke-Chat '/setblock 215 -54 40 levitate:track ["levitate:shape"=7]'
+Invoke-Chat '/setblock 216 -53 40 levitate:track ["levitate:shape"=7]'
+Invoke-Chat '/setblock 205 -59 40 levitate:track ["levitate:shape"=7]'
+Invoke-Chat '/setblock 204 -60 40 levitate:track ["levitate:shape"=7]'
+Invoke-Chat '/give @s levitate:track 64'
+Press-Key 1
+# (`facing` aims from the feet: the points are 1.62 below what the crosshair is on)
+# the east end of M, then the upper slope: a sloped curve
+Invoke-Teleport '/tp @s 207 -55 42 facing 210.5 -57.57 40.5'
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'tracks: \S+ selected the track at 210,-56,40' 20 -Since $mark | Out-Null
+Invoke-Teleport '/tp @s 213 -52 43 facing 215.5 -55.12 40.5'
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'tracks: \S+ connected 210,-56,40 to 215,-54,40 with a curve' 20 -Since $mark | Out-Null
+# the west end of M, then the lower slope: the second sloped curve tilts M
+Invoke-Teleport '/tp @s 213 -55 42 facing 210.5 -57.57 40.5'
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'tracks: \S+ selected the track at 210,-56,40' 20 -Since $mark | Out-Null
+Invoke-Teleport '/tp @s 207 -58 43 facing 205.5 -60.12 40.5'
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'tracks: \S+ connected 210,-56,40 to 205,-59,40 with a curve' 20 -Since $mark | Out-Null
+Wait-LogLine 'tracks: tilted the track at 210,-56,40 by' 20 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 1500
+# from the south, level with the ramp, and close up from above
+Invoke-Teleport '/tp @s 210.5 -55 47 facing 210.5 -57.12 40.5'
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'tilt-side' | Out-Null
+Invoke-Teleport '/tp @s 211.5 -53.5 43 facing 210.5 -57.22 40.5'
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'tilt-close' | Out-Null
+if ($withMod) { Wait-LogLine 'tracks: drawing \d+ tilted track' 20 -Since $mark | Out-Null }
 
 $r = Invoke-SelfTest 'tracks.*'
 if ($r.Pass -lt 8) { throw "expected at least 8 tracks selftests to pass, got $($r.Pass)" }

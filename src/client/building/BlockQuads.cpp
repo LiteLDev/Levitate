@@ -251,6 +251,14 @@ glm::vec4 atlasUv(std::string const& texture) {
     return c[texture] = glm::vec4{t._u0, t._v0, t._u1, t._v1};
 }
 
+std::optional<glm::vec4> faceUv(Block const& block, int face) {
+    auto const* g = BlockGraphics::getForBlock(block);
+    if (!g) return std::nullopt;
+    auto const& t = g->getTexture(static_cast<uint64>(std::clamp(face, 0, 5)), 0);
+    if (t._u0 == t._u1 || t._v0 == t._v1) return std::nullopt;
+    return glm::vec4{t._u0, t._v0, t._u1, t._v1};
+}
+
 void resetQuadCache() {
     auto& c = cache();
     c.quads.clear();
@@ -266,6 +274,7 @@ Drawer::Drawer(BaseActorRenderContext& ctx) : mCtx(ctx) {
     auto* moving     = static_cast<MovingBlockActorRenderer*>(dispatcher.mRenderers->operator[](BlockActorRendererId::MovingBlock).get());
     if (!moving) return;
     mMaterial = &moving->mBlockMaterials[static_cast<int>(BlockRenderLayer::RenderlayerAlphatest)].get();
+    mBlend    = &moving->mBlockMaterials[static_cast<int>(BlockRenderLayer::RenderlayerBlend)].get();
     Vec3 cam  = ctx.mImpl.get()->mCameraTargetPosition;
     mCam      = {cam.x, cam.y, cam.z};
     mOk       = true;
@@ -293,6 +302,20 @@ void Drawer::draw(mce::Mesh const& mesh, glm::mat4 const& model) {
     glm::mat4 m     = glm::translate(glm::mat4{1.f}, -mCam) * model;
     ref.mat->_m.get() = ref.mat->_m.get() * m;
     mesh.renderMesh(screen, *static_cast<mce::MaterialPtr const*>(mMaterial), texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+}
+
+void Drawer::drawBlended(mce::Mesh const& mesh, glm::mat4 const& model) {
+    if (!mOk || !mBlend) return;
+    auto& screen     = mCtx.mScreenContext;
+    auto& dispatcher = mCtx.mBlockEntityRenderDispatcher;
+    auto* moving     = static_cast<MovingBlockActorRenderer*>(dispatcher.mRenderers->operator[](BlockActorRendererId::MovingBlock).get());
+    if (!moving) return;
+    std::variant<std::monostate, mce::TexturePtr, mce::ClientTexture, mce::ServerTexture> texture{moving->mAtlasTexture.get()};
+    auto&     world = screen.camera.worldMatrixStack.get();
+    auto      ref   = world.push(false);
+    glm::mat4 m     = glm::translate(glm::mat4{1.f}, -mCam) * model;
+    ref.mat->_m.get() = ref.mat->_m.get() * m;
+    mesh.renderMesh(screen, *static_cast<mce::MaterialPtr const*>(mBlend), texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
 }
 
 } // namespace lv::client::building

@@ -252,9 +252,22 @@ std::string litTwin(std::string const& id) {
     return it == twins.end() ? std::string() : it->second;
 }
 
+struct TrapdoorState {
+    int  facing = North;
+    bool open = false, top = false;
+};
+Block const*  withTrapdoorStates(Block const& material, int facing, bool open, bool top);
+TrapdoorState trapdoorStateOf(Block const& material);
+
 /// Create's CopycatBlockEntity.cycleMaterial: the next orientation of the material (first rule
 /// that applies), nullptr when there is nothing to cycle.
 Block const* cycled(Block const& material) {
+    // 0. an open trapdoor flips its half, a closed one turns clockwise (HORIZONTAL_FACING)
+    if (isTrapdoorMaterial(material)) {
+        auto t = trapdoorStateOf(material);
+        if (t.open) return withTrapdoorStates(material, t.facing, true, !t.top);
+        return withTrapdoorStates(material, clockwise(t.facing), false, t.top);
+    }
     auto nbt = nbtOf(material);
     // 1. FACING: the next direction in Java's order
     if (hasState(*nbt, "facing_direction")) {
@@ -292,7 +305,66 @@ Block const* cycled(Block const& material) {
 
 std::string snbtOf(Block const& b) { return b.mSerializationId->toSnbt(SnbtFormat::Minimize, 0); }
 
+/// Bedrock's "direction" of trapdoors: 0 east, 1 west, 2 south, 3 north (Java FACING).
+int trapdoorDirection(int dir) { return dir == East ? 0 : dir == West ? 1 : dir == South ? 2 : 3; }
+int dirOfTrapdoorDirection(int d) { return d == 0 ? East : d == 1 ? West : d == 2 ? South : North; }
+
+/// A trapdoor material with Java's FACING / OPEN / HALF set (vanilla and our own trapdoors).
+Block const* withTrapdoorStates(Block const& material, int facing, bool open, bool top) {
+    if (auto const* info = infoOf(material); info && info->kind == Kind::Trapdoor)
+        return withStates(material, {{"levitate:facing", facing}, {"levitate:open", open ? 1 : 0}, {"levitate:top", top ? 1 : 0}});
+    auto nbt = nbtOf(material);
+    if (hasState(*nbt, "direction")) setInt(*nbt, "direction", trapdoorDirection(facing));
+    if (hasState(*nbt, "minecraft:cardinal_direction")) setStr(*nbt, "minecraft:cardinal_direction", kDirWords[facing]);
+    setInt(*nbt, "open_bit", open ? 1 : 0);
+    setInt(*nbt, "upside_down_bit", top ? 1 : 0);
+    auto const* b = fromNbt(*nbt);
+    return b ? b : &material;
+}
+
+TrapdoorState trapdoorStateOf(Block const& material) {
+    TrapdoorState t;
+    if (auto const* info = infoOf(material); info && info->kind == Kind::Trapdoor) {
+        t.facing = stateOf(material, "levitate:facing", North);
+        t.open   = stateOf(material, "levitate:open") != 0;
+        t.top    = stateOf(material, "levitate:top") != 0;
+        return t;
+    }
+    auto nbt = nbtOf(material);
+    if (hasState(*nbt, "minecraft:cardinal_direction")) {
+        int i = wordIndex(strOf(*nbt, "minecraft:cardinal_direction"), kDirWords, 6);
+        if (i >= 2) t.facing = i;
+    } else if (hasState(*nbt, "direction")) {
+        t.facing = dirOfTrapdoorDirection(intOf(*nbt, "direction") & 3);
+    }
+    t.open = hasState(*nbt, "open_bit") && intOf(*nbt, "open_bit") != 0;
+    t.top  = hasState(*nbt, "upside_down_bit") && intOf(*nbt, "upside_down_bit") != 0;
+    return t;
+}
+
+/// Create's CopycatPanelBlock.prepareMaterial for trapdoors: lying flat in a floor / ceiling
+/// panel (facing the way the player looks, upside down in a ceiling panel), standing open
+/// against the panel otherwise (the half the click was in).
+Block const* prepareTrapdoor(Block const& material, int panelFacing, int playerFacing, float hitY) {
+    if (panelFacing == Down || panelFacing == Up) return withTrapdoorStates(material, playerFacing, false, panelFacing == Down);
+    return withTrapdoorStates(material, panelFacing, true, hitY > 0.5f);
+}
+
 } // namespace
+
+bool isBarsMaterial(Block const& material) {
+    if (auto const* info = infoOf(material)) return info->kind == Kind::Bars;
+    std::string const& id = material.getTypeName();
+    // IronBarsBlock but not a glass pane: iron bars and the copper bars (all weathering stages)
+    return id == "minecraft:iron_bars" || (id.starts_with("minecraft:") && id.ends_with("copper_bars"));
+}
+
+bool isTrapdoorMaterial(Block const& material) {
+    if (auto const* info = infoOf(material)) return info->kind == Kind::Trapdoor;
+    auto nbt = nbtOf(material);
+    return material.getTypeName().ends_with("trapdoor") && hasState(*nbt, "open_bit") && hasState(*nbt, "upside_down_bit")
+        && (hasState(*nbt, "direction") || hasState(*nbt, "minecraft:cardinal_direction"));
+}
 
 std::optional<std::string> copycatMaterial(GlobalPos const& pos) {
     auto const* d = unitData(pos);
@@ -322,7 +394,7 @@ void setMaterial(GlobalPos const& pos, Block const* material, ItemStack const* c
 
 } // namespace
 
-bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos, int face) {
+bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos, int face, float hitY) {
     auto const* block = blockAt(pos);
     auto const* info  = block ? infoOf(*block) : nullptr;
     if (!info || (info->kind != Kind::CopycatPanel && info->kind != Kind::CopycatStep)) return false;
@@ -339,7 +411,11 @@ bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos, int
         return true;
     }
     auto const* material = blockOfItem(item);
-    if (!material || !acceptableMaterial(*material)) return false;
+    if (!material) return false;
+    // Create's CopycatPanelBlock.isAcceptedRegardless: bars and trapdoors in a panel
+    bool panel   = info->kind == Kind::CopycatPanel;
+    bool special = panel && (isBarsMaterial(*material) || isTrapdoorMaterial(*material));
+    if (!special && !acceptableMaterial(*material)) return false;
     auto current = copycatMaterial(pos);
     if (current && *current == material->getTypeName()) {
         // Create's cycleMaterial: the same block again turns the material
@@ -353,6 +429,9 @@ bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos, int
     }
     if (current) return false; // PASS: another material is already applied
     Block const* applied = orientToFace(*game::blockWith(material->getTypeName()), face);
+    // Create's CopycatPanelBlock.prepareMaterial
+    if (panel && isTrapdoorMaterial(*applied))
+        applied = prepareTrapdoor(*applied, stateOf(*block, "levitate:facing", Up), horizontalFacing(player), hitY);
     // Create's setMaterial: a neighbour of the same copycat state with the same material block lends
     // its exact material state (orientations match)
     for (int d = 0; d < 6; ++d) {
@@ -369,6 +448,27 @@ bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos, int
     if (!player.isCreative()) consumeHeld(player);
     log().info("building: {} at {} {} {} takes the look of {}", info->id, pos.x, pos.y, pos.z, material->getTypeName());
     return true;
+}
+
+void copycatPlacedBy(Player& player, GlobalPos const& pos) {
+    auto const* block = blockAt(pos);
+    auto const* info  = block ? infoOf(*block) : nullptr;
+    if (!info || (info->kind != Kind::CopycatPanel && info->kind != Kind::CopycatStep)) return;
+    ItemStack   offhand  = player.getOffhandSlot();
+    auto const* material = blockOfItem(offhand);
+    if (!material || copycatMaterial(pos)) return;
+    bool special = info->kind == Kind::CopycatPanel && (isBarsMaterial(*material) || isTrapdoorMaterial(*material));
+    if (!special && !acceptableMaterial(*material)) return;
+    auto const* base = game::blockWith(material->getTypeName());
+    if (!base) return;
+    // Direction.orderedByNearest(placer)[0]: the nearest look direction (no prepareMaterial here)
+    setMaterial(pos, orientToFace(*base, nearestLooking(player)[0]), &offhand);
+    if (!player.isCreative()) {
+        offhand.remove(1);
+        player.setOffhandSlot(offhand.isNull() || offhand.mCount == 0 ? ItemStack() : offhand);
+        player.sendInventory(false);
+    }
+    log().info("building: {} at {} {} {} takes the look of {} from the off hand", info->id, pos.x, pos.y, pos.z, material->getTypeName());
 }
 
 // ---- brackets ---------------------------------------------------------------------------------------------

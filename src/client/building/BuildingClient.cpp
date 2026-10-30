@@ -7,6 +7,14 @@
 //   1 px slice of the material's back plus its 2 px front, 3 px in all; step: the 4 px border
 //   strips of the material put together into the half step), faces against a solid neighbour
 //   culled. Without a material the copycat's own model is drawn.
+//   A copycat panel with a trapdoor shows the trapdoor as it is turned (Create's prepared
+//   material: lying in a floor / ceiling panel, open against a wall panel); with iron / copper /
+//   Create bars it shows Create's bars panel (a sheet of the bars' texture 1 px in from the back,
+//   2 px edge strips; CopycatBarsModel).
+// - Copycat placement helpers (Create's PlacementHelpers ghost): holding a copycat panel / step
+//   while looking at one of its kind (not sneaking), the copycat the click would add beside it is
+//   drawn as a breathing ghost (feature/building/CopycatHelpers.cpp computes the spot, as the
+//   server does when the click arrives).
 // - Brackets on shafts and cogwheels: the bracket block's mounted model (facing / axis / cog
 //   states) drawn over the shaft.
 //   Materials and brackets come from the server ("building.query" / "building.visuals",
@@ -55,6 +63,8 @@
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/BlockSupportType.h"
 #include "mc/world/level/block/CachedComponentData.h"
+#include "mc/world/item/ItemStack.h"
+#include "mc/world/phys/HitResult.h"
 
 #include "client/Client.h"
 #include "client/building/BlockQuads.h"
@@ -289,6 +299,56 @@ std::vector<Quad> stepQuads(std::vector<Quad> const& material, int f, bool upper
     return out;
 }
 
+/// Create's copycat_panel/bars(_vertical) models for a panel facing `f`: a sheet of the bars
+/// texture 1 px in from the panel's back, and 2 px deep strips along its four edges (the middle
+/// 2 px of the texture), both sides.
+std::vector<Quad> barsQuads(int f, glm::vec4 uv) {
+    std::vector<Quad> out;
+    int  a   = f < 2 ? 1 : (f < 4 ? 2 : 0);
+    bool pos = (f & 1) == 1;
+    // in-plane axes: u horizontal, v up for wall panels; x and z for floor / ceiling panels
+    int  ua  = a == 1 ? 0 : (a == 2 ? 0 : 2);
+    int  va  = a == 1 ? 2 : 1;
+    // depth from the back face (the side opposite the facing)
+    auto depth = [&](float w) { return pos ? w : 1.f - w; };
+    auto at    = [&](float w, float u, float v) {
+        glm::vec3 p{0.f};
+        p[a]  = depth(w);
+        p[ua] = u;
+        p[va] = v;
+        return p;
+    };
+    auto tex = [&](float s, float t) { return glm::vec2{uv.x + (uv.z - uv.x) * s, uv.y + (uv.w - uv.y) * t}; };
+    // the sheet (texture upright: v up = texture up)
+    Quad sheet;
+    sheet.pos = {at(1 / 16.f, 0.f, 0.f), at(1 / 16.f, 1.f, 0.f), at(1 / 16.f, 1.f, 1.f), at(1 / 16.f, 0.f, 1.f)};
+    sheet.uv  = {tex(0.f, 1.f), tex(1.f, 1.f), tex(1.f, 0.f), tex(0.f, 0.f)};
+    out.push_back(sheet);
+    // the edges: across the depth the middle 2 px of the texture, along the edge all of it
+    float const s0 = 7 / 16.f, s1 = 9 / 16.f, w1 = 2 / 16.f;
+    for (int end = 0; end < 2; ++end) {
+        float e = float(end);
+        Quad  q; // at u = end, along v
+        q.pos = {at(0.f, e, 0.f), at(w1, e, 0.f), at(w1, e, 1.f), at(0.f, e, 1.f)};
+        q.uv  = {tex(s0, 1.f), tex(s1, 1.f), tex(s1, 0.f), tex(s0, 0.f)};
+        out.push_back(q);
+        Quad r; // at v = end, along u
+        r.pos = {at(0.f, 0.f, e), at(w1, 0.f, e), at(w1, 1.f, e), at(0.f, 1.f, e)};
+        r.uv  = {tex(s0, 1.f), tex(s1, 1.f), tex(s1, 0.f), tex(s0, 0.f)};
+        out.push_back(r);
+    }
+    return out;
+}
+
+/// The bars' sprite: a Create bars block's own texture, else the game's (up face for floor /
+/// ceiling panels, a side otherwise, as CopycatBarsModel).
+glm::vec4 barsUv(Block const& material, bool vertical) {
+    std::string const& id = material.getTypeName();
+    if (id.starts_with("levitate:")) return atlasUv("levitate_" + id.substr(9));
+    if (auto uv = faceUv(material, vertical ? 1 : 2)) return *uv;
+    return atlasUv("iron_bars");
+}
+
 void drawCopycat(Drawer& d, BlockSource& region, BlockPos const& p, Block const& block, fb::Info const& info) {
     auto&        s    = state();
     auto&        tess = d.tessellator();
@@ -312,11 +372,18 @@ void drawCopycat(Drawer& d, BlockSource& region, BlockPos const& p, Block const&
             if (covered(region, p, half)) cull |= 1 << half;
             if (covered(region, p, f)) cull |= 1 << f;
         }
-        std::string key = "cc|" + ptrKey(&block) + "|" + ptrKey(material) + "|" + std::to_string(cull);
-        mesh            = cachedMesh(key, [&] {
-            auto const& mq = quadsOf(tess, *material);
-            return panel ? panelQuads(mq, f, cull) : stepQuads(mq, f, upper, cull);
-        }, tess);
+        if (panel && fb::isTrapdoorMaterial(*material)) {
+            // Create's CopycatPanelModel: a trapdoor material is drawn as it is
+            mesh = cachedMesh("td|" + ptrKey(material), [&] { return quadsOf(tess, *material); }, tess);
+        } else if (panel && fb::isBarsMaterial(*material)) {
+            mesh = cachedMesh("bars|" + ptrKey(material) + "|" + std::to_string(f), [&] { return barsQuads(f, barsUv(*material, f < 2)); }, tess, true);
+        } else {
+            std::string key = "cc|" + ptrKey(&block) + "|" + ptrKey(material) + "|" + std::to_string(cull);
+            mesh            = cachedMesh(key, [&] {
+                auto const& mq = quadsOf(tess, *material);
+                return panel ? panelQuads(mq, f, cull) : stepQuads(mq, f, upper, cull);
+            }, tess);
+        }
     }
     if (!mesh) return;
     d.light(region, p);
@@ -506,6 +573,44 @@ void drawNotches(Drawer& d, BlockSource& region, BlockPos const& p, Block const&
     }
 }
 
+// ---- copycat placement helper ghost -----------------------------------------------------------------
+
+/// Create's PlacementClient: the ghost of the copycat a click would place (CreateClient.GHOST_BLOCKS
+/// .showGhostState(...).breathingAlpha()).
+void renderHelperGhost(BaseActorRenderContext& ctx, LocalPlayer& player, double now) {
+    static bool logged = false;
+    if (player.isSneaking()) return;
+    ItemStack const& held = player.getSelectedItem();
+    if (held.isNull()) return;
+    std::string heldId = held.getTypeName();
+    if (heldId != "levitate:copycat_panel" && heldId != "levitate:copycat_step") return;
+    auto const& hit = player.getLevel().getHitResult();
+    if (hit.mType != HitResultType::Tile) return;
+    auto&        region = player.getDimensionBlockSource();
+    Block const& b      = region.getBlock(hit.mBlock);
+    if (b.getTypeName() != heldId) return;
+    core::GlobalPos at{static_cast<int>(player.getDimensionId()), hit.mBlock.x, hit.mBlock.y, hit.mBlock.z};
+    auto off = fb::copycatHelperOffset(region, at, b, heldId, hit.mPos.x - hit.mBlock.x, hit.mPos.y - hit.mBlock.y, hit.mPos.z - hit.mBlock.z, 12);
+    if (!off || !off->block) return;
+    Drawer d(ctx);
+    if (!d.ok()) return;
+    auto& tess  = d.tessellator();
+    auto  quads = quadsOf(tess, *off->block);
+    if (quads.empty()) return;
+    // Create's breathing alpha: between 1/4 and 3/4, a breath every 2 s
+    float alpha = 0.5f + 0.25f * float(std::sin(now / 20.0 * 3.14159265));
+    for (auto& q : quads) q.color.a = alpha;
+    auto mesh = buildMesh(tess, quads);
+    if (!mesh) return;
+    BlockPos tp{off->pos.x, off->pos.y, off->pos.z};
+    d.light(region, tp);
+    d.drawBlended(*mesh, glm::translate(glm::mat4{1.f}, glm::vec3{float(tp.x), float(tp.y), float(tp.z)}));
+    if (!logged) {
+        logged = true;
+        log().info("building client: placement helper ghost of {} at {} {} {}", heldId, tp.x, tp.y, tp.z);
+    }
+}
+
 // ---- frame ------------------------------------------------------------------------------------------
 
 void renderBuilding(BaseActorRenderContext& ctx) {
@@ -528,7 +633,10 @@ void renderBuilding(BaseActorRenderContext& ctx) {
         s.meshes.clear();
         s.dim = dim;
     }
-    if (feature::net::client::connected()) askChunks();
+    if (feature::net::client::connected()) {
+        askChunks();
+        renderHelperGhost(ctx, *player, double(level->getCurrentTick().tickID) + ctx.mFrameAlpha);
+    }
 
     PosSet copycats, doors, ct, ctDirty;
     {

@@ -55,6 +55,9 @@ struct Quad {
 
 /// The atlas UVs of a terrain texture (u0, v0, u1, v1).
 [[nodiscard]] glm::vec4 atlasUv(std::string const& texture);
+/// The atlas UVs of the texture a block shows on `face` (0..5), from the game's block graphics;
+/// nullopt when the block has none (data-driven blocks: use `atlasUv` with their texture name).
+[[nodiscard]] std::optional<glm::vec4> faceUv(Block const& block, int face);
 
 /// Drops the caches (new level: block states and the atlas are registered again).
 void resetQuadCache();
@@ -68,11 +71,14 @@ public:
     void light(BlockSource& region, BlockPos const& pos);
     /// Draws `mesh` with `model` (block units, world position) relative to the camera.
     void draw(mce::Mesh const& mesh, glm::mat4 const& model);
+    /// The same, blended by the vertex alpha (ghost blocks).
+    void drawBlended(mce::Mesh const& mesh, glm::mat4 const& model);
 
 private:
     BaseActorRenderContext& mCtx;
     bool                    mOk = false;
     void const*             mMaterial = nullptr;
+    void const*             mBlend    = nullptr;
     glm::vec3               mCam{0.f};
 };
 
