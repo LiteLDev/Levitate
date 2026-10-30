@@ -33,5 +33,6 @@
   "lv.packages.port.inventory": "Packages",
   "lv.packages.postbox": "Postbox",
   "lv.packages.frogport": "Package Frogport",
-  "create.packager_link.set": "Target selected"
+  "create.packager_link.set": "Target selected",
+  "create.clipboard.address_added": "Added '{}' to clipboard"
 }

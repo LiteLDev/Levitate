@@ -182,6 +182,36 @@ TEST(SchematicsFiles, McstructureRoundTrip) {
     EXPECT_EQ(back->posOf(s.index({1, 2, 3})), (Pos{1, 2, 3}));
     EXPECT_TRUE(load("house.mcstructure", bytes));
     EXPECT_FALSE(readMcstructure(bytes.substr(0, 40)));
+    EXPECT_EQ(back->worldOrigin, (Pos{10, 20, 30}));
+    EXPECT_EQ(back->entities, 0);
+}
+
+TEST(SchematicsFiles, McstructureKeepsBlockEntitiesAndEntities) {
+    // Create's schematics keep block entity NBT and entities (StructureTemplate.fillFromWorld)
+    Schematic s;
+    s.resize({2, 1, 1});
+    BlockState chest{"minecraft:chest", {}, 0, {}};
+    auto       c = s.paletteIndex(chest);
+    s.blocks[0]  = c;
+    s.blocks[1]  = c;
+    Compound be;
+    be.set("id", Tag(std::string("Chest")));
+    be.set("x", Tag(std::int32_t(5)));
+    s.blockEntities[1] = Tag(be);
+    Compound stand;
+    stand.set("identifier", Tag(std::string("minecraft:armor_stand")));
+    List pos{Type::Float, {}};
+    for (float v : {5.5f, 64.f, 7.5f}) pos.items.emplace_back(v);
+    stand.set("Pos", Tag(std::move(pos)));
+    s.entityTags.emplace_back(stand);
+    auto back = readMcstructure(writeMcstructure(s, {5, 64, 7}));
+    ASSERT_TRUE(back);
+    ASSERT_EQ(back->blockEntities.count(1), 1u);
+    EXPECT_EQ(*back->blockEntities.at(1).asCompound()->find("id")->asString(), "Chest");
+    ASSERT_EQ(back->entityTags.size(), 1u);
+    EXPECT_EQ(back->entities, 1);
+    EXPECT_EQ(*back->entityTags[0].asCompound()->find("identifier")->asString(), "minecraft:armor_stand");
+    EXPECT_EQ(back->worldOrigin, (Pos{5, 64, 7}));
 }
 
 TEST(SchematicsFiles, JavaStructureWithMapping) {

@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "ll/api/event/EventBus.h"
+#include "ll/api/event/player/PlayerDisconnectEvent.h"
 #include "ll/api/event/world/BlockChangedEvent.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
 #include "ll/api/service/Bedrock.h"
@@ -413,10 +414,21 @@ public:
         mListeners.push_back(bus.emplaceListener<ll::event::BlockChangedEvent>([](ll::event::BlockChangedEvent& ev) {
             onBlockChanged(ev);
         }));
+        // a companion leaving with Ctrl down must not keep maximising turns after it comes back
+        mListeners.push_back(bus.emplaceListener<ll::event::PlayerDisconnectEvent>([](ll::event::PlayerDisconnectEvent& ev) {
+            state().ctrlHeld.erase(ev.self().getUuid().asString());
+        }));
         static bool joinRegistered = false; // the protocol has no removal of join listeners
         if (!joinRegistered) {
             joinRegistered = true;
             net::onCompanionJoined([](Player& player) { syncAllTo(player); }); // after the handshake
+            // Create's keySprint (Ctrl) held for a maximised turn: the client mod reports the key
+            net::on(kCtrlChannel, [](Player& player, nlohmann::json const& msg) {
+                bool down = msg.value("down", false);
+                auto uuid = player.getUuid().asString();
+                if (down) state().ctrlHeld.insert(uuid);
+                else state().ctrlHeld.erase(uuid);
+            });
         }
         installHooks();
     }
@@ -444,6 +456,7 @@ struct WorldHooks {
             s.curves.clear();
             s.portals.clear();
             s.selections.clear();
+            s.ctrlHeld.clear();
             s.shapeFixes.clear();
             s.tasks.clear();
             s.railAdded.clear();

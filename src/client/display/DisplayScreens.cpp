@@ -6,6 +6,9 @@
 #ifdef LV_CLIENT
 
 #include <algorithm>
+#include <memory>
+
+#include "mc/world/item/ItemStack.h"
 
 #include "client/Client.h"
 #include "client/screen/Screen.h"
@@ -206,36 +209,67 @@ private:
         Json entries = mPage < count ? pages[static_cast<std::size_t>(mPage)] : Json::array();
         float y      = 32;
         int maxEntries = mData.value("maxEntries", 15);
-        // one text field per entry (Create edits the page in place), plus a blank one to add an entry
-        std::size_t rows = std::min<std::size_t>(entries.size() + 1, static_cast<std::size_t>(std::max(1, maxEntries)));
+        bool readOnly  = mData.value("readonly", false);
+        bool icons     = false;
+        for (auto const& e : entries) icons = icons || e.contains("i");
+        float rowHeight = icons ? 22.f : 11.5f; // Create's item entries are taller (icon + amount)
+        mIcons.clear();
+        // one text field per entry (Create edits the page in place), plus a blank one to add an
+        // entry; read-only clipboards (material checklists) only show their entries
+        std::size_t rows = std::min<std::size_t>(entries.size() + (readOnly ? 0 : 1), static_cast<std::size_t>(std::max(1, maxEntries)));
         for (std::size_t i = 0; i < rows; ++i) {
             bool has     = i < entries.size();
             bool checked = has && entries[i].value("c", false);
             auto text    = has ? entries[i].value("t", std::string{}) : std::string{};
             bool address = text.size() > 1 && text[0] == '#';
+            float textX  = 22;
+            if (has && entries[i].contains("i")) {
+                if (auto icon = iconOf(entries[i]["i"])) mIcons.push_back({icon, 22, y - 3, entries[i].value("n", 0)});
+                textX = 42;
+            }
             if (has && !address) {
                 auto& box   = add<IconButton>(Rect{8, y, 11, 11}, checked ? "v" : "", [this, i] {
                     mSend({{"op", "toggle"}, {"page", mPage}, {"entry", static_cast<int>(i)}});
                 });
                 box.toggled = checked;
             }
-            auto& field     = add<TextField>(Rect{22, y - 1, 170, 12}, text, [this](std::string const&) { submitPage(); });
-            field.maxLength = 512;
-            if (!has) field.placeholder = ctr("lv.display.clipboard.new_entry", "New entry...");
-            mFields.push_back(&field);
-            y += 11.5f;
+            if (readOnly) {
+                add<Label>(Rect{textX, y + 1, 192 - textX, 10}, text, checked ? 0xFF8B8B8B : color::kTextDark);
+            } else {
+                auto& field     = add<TextField>(Rect{textX, y - 1, 192 - textX, 12}, text, [this](std::string const&) { submitPage(); });
+                field.maxLength = 512;
+                if (!has) field.placeholder = ctr("lv.display.clipboard.new_entry", "New entry...");
+                mFields.push_back(&field);
+            }
+            y += rowHeight;
         }
         auto& prev = add<IconButton>(Rect{8, 212, 18, 18}, "<", [this] { go(mPage - 1); });
         prev.enabled = mPage > 0;
         auto& next = add<IconButton>(Rect{174, 212, 18, 18}, ">", [this] { go(mPage + 1); });
         next.enabled = mPage < 50;
-        auto& erase   = add<IconButton>(Rect{30, 212, 18, 18}, "x", [this] { mSend({{"op", "erase_checked"}, {"page", mPage}}); });
-        erase.tooltip = {ctr("create.gui.clipboard.erase_checked", "Erase checked items")};
+        if (!readOnly) {
+            auto& erase   = add<IconButton>(Rect{30, 212, 18, 18}, "x", [this] { mSend({{"op", "erase_checked"}, {"page", mPage}}); });
+            erase.tooltip = {ctr("create.gui.clipboard.erase_checked", "Erase checked items")};
+        }
     }
 
+    void renderExtra(Canvas& c, float, float) override {
+        // Create's ClipboardEntry.displayItem: the item with its amount next to the entry
+        for (auto const& i : mIcons) {
+            c.item(*i.stack, i.x, i.y);
+            if (i.amount > 0) c.text(i.x + 17, i.y + 9, std::to_string(i.amount), color::kText, Align::Right);
+        }
+    }
+
+    struct Icon {
+        std::shared_ptr<ItemStack> stack;
+        float                      x, y;
+        int                        amount;
+    };
     SendFn                  mSend;
     Json                    mData;
     std::vector<TextField*> mFields;
+    std::vector<Icon>       mIcons;
     bool                    mDirty = false;
     int                     mPage  = 0;
 };

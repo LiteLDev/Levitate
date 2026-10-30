@@ -1,8 +1,9 @@
 # Tracks (U5) on a real client: place two tracks, connect them with a curve by right-clicking
 # with the track item (select the first end, click the second), and screenshot the curve.
-#   local / remote-mod: the client mod draws the curve (log "tracks: rendering ...")
+#   local / remote-mod: the client mod previews the placement before the second click and draws
+#                       the curve (log "tracks: rendering ...")
 #   remote-vanilla:     only the straight tracks and the track bed (fake tracks) are visible
-# Screenshots: out/tracks/{placed,selected,curve,curve-above,curve-close}.png
+# Screenshots: out/tracks/{placed,selected,preview,curve,curve-above,curve-close}.png
 $mark = Get-LogMark
 $withMod = $script:Mode -ne 'remote-vanilla'
 
@@ -40,6 +41,12 @@ Save-Screenshot 'selected' | Out-Null
 # stand 3 blocks south of the second track looking north and down at it, right-click: a curve
 Invoke-Chat '/tp @s ~12 ~ ~-6 180 28'
 Start-Sleep -Milliseconds 800
+if ($withMod) {
+    # U44: Create's placement preview (rails of the planned curve, "Can Connect" in the action bar)
+    Wait-LogLine 'tracks: previewing a track placement \(valid\)' 20 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 600
+    Save-Screenshot 'preview' | Out-Null
+}
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'tracks: \S+ connected .* with a curve of length' 20 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 1500

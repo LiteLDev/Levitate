@@ -5,6 +5,12 @@
       "identifier": "levitate:schematicannon",
       "menu_category": {
         "category": "items"
+      },
+      "states": {
+        "levitate:barrel": [
+          0,
+          1
+        ]
       }
     },
     "components": {
@@ -62,6 +68,20 @@
         ]
       },
       "minecraft:loot": "loot_tables/blocks/schematicannon.json"
-    }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:barrel') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.schematicannon",
+            "bone_visibility": {
+              "connector": false,
+              "barrel": false
+            }
+          }
+        }
+      }
+    ]
   }
 }

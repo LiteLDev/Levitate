@@ -1,63 +1,27 @@
 {
   "levitate.packages.packager": {
     "category": "block",
-    "sounds": [
-      {
-        "name": "sounds/random/click",
-        "pitch": 0.75,
-        "volume": 0.6
-      }
-    ]
+    "sounds": [{ "name": "sounds/levitate/packages_packager", "pitch": 1.0, "volume": 0.6 }]
   },
   "levitate.packages.package_pop": {
     "category": "player",
-    "sounds": [
-      {
-        "name": "sounds/random/pop",
-        "pitch": 0.8,
-        "volume": 0.75
-      }
-    ]
+    "sounds": [{ "name": "sounds/levitate/packages_package_pop", "pitch": 1.0, "volume": 0.75 }]
   },
   "levitate.packages.depot_plop": {
     "category": "block",
-    "sounds": [
-      {
-        "name": "sounds/random/pop",
-        "pitch": 1.3,
-        "volume": 0.25
-      }
-    ]
+    "sounds": [{ "name": "sounds/levitate/packages_depot_plop", "pitch": 1.0, "volume": 0.25 }]
   },
   "levitate.packages.frogport_open": {
     "category": "block",
-    "sounds": [
-      {
-        "name": "sounds/random/click",
-        "pitch": 1.4,
-        "volume": 0.3
-      }
-    ]
+    "sounds": [{ "name": "sounds/levitate/packages_frogport_open", "pitch": 1.0, "volume": 0.3 }]
   },
   "levitate.packages.frogport_catch": {
     "category": "block",
-    "sounds": [
-      {
-        "name": "sounds/random/pop",
-        "pitch": 0.6,
-        "volume": 0.5
-      }
-    ]
+    "sounds": [{ "name": "sounds/levitate/packages_frogport_catch", "pitch": 1.0, "volume": 0.5 }]
   },
   "levitate.packages.frogport_deposit": {
     "category": "block",
-    "sounds": [
-      {
-        "name": "sounds/random/pop",
-        "pitch": 1.1,
-        "volume": 0.5
-      }
-    ]
+    "sounds": [{ "name": "sounds/levitate/packages_frogport_deposit", "pitch": 1.0, "volume": 0.5 }]
   },
   "levitate.packages.postbox_flag": {
     "category": "block",
