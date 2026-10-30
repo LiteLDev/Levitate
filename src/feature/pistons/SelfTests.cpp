@@ -23,6 +23,10 @@ namespace lv::feature::pistons {
 namespace {
 
 using selftest::Context;
+
+/// testPos puts dx 40xx 155 blocks south, outside the run's ticking area (z +-64): the U40 tests
+/// move 201 blocks north, to rows no unit uses (z -46..-42), so their entities keep ticking.
+constexpr int kU40Shift = -201;
 namespace ct = feature::contraption;
 
 constexpr char kSource[] = "levitate:kinetics_test_source";
@@ -359,7 +363,7 @@ LV_REGISTER_SELFTEST("pistons.elevator_contacts", [](Context& ctx) -> ll::coro::
 
 LV_REGISTER_SELFTEST("pistons.climbable", [](Context& ctx) -> ll::coro::CoroTask<> {
     ctx.check(ropesClimbable(), "ropes and pulley magnets have the Climbable property");
-    auto o = ctx.testPos(4070);
+    auto o = ctx.testPos(4070, kU40Shift);
     o.y += 1;
     ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
     clearBox(ctx, o, -2, -1, -1, 1, 7, 1);
@@ -382,7 +386,7 @@ LV_REGISTER_SELFTEST("pistons.climbable", [](Context& ctx) -> ll::coro::CoroTask
 });
 
 LV_REGISTER_SELFTEST("pistons.contact_screen", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto o = ctx.testPos(4080);
+    auto o = ctx.testPos(4080, kU40Shift);
     o.y += 1;
     ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
     clearBox(ctx, o, 0, 0, 0, 0, 1, 0);

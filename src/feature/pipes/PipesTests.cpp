@@ -89,11 +89,15 @@ struct TestTankRegistrar {
 
 // ---- helpers -------------------------------------------------------------------------------------
 
+/// testPos puts dx 40xx 155 blocks south, outside the run's ticking area (z +-64): the U40 tests
+/// move 201 blocks north, to rows no unit uses (z -46..-42), so their entities keep ticking.
+constexpr int kU40Shift = -201;
+
 struct Area {
     Context& ctx;
     int      base;
     GlobalPos at(int dx, int dy = 0, int dz = 0) const {
-        auto p = ctx.testPos(base + dx, dz);
+        auto p = ctx.testPos(base + dx, dz + (base >= 4000 ? kU40Shift : 0));
         p.y += dy + 1;
         return p;
     }

@@ -43,6 +43,10 @@ namespace ctr   = feature::contraption;
 
 constexpr char kTestKey[] = "fluids_test";
 
+/// testPos puts dx 40xx 155 blocks south, outside the run's ticking area (z +-64): the U40 tests
+/// move 201 blocks north, to rows no unit uses (z -46..-42), so their entities keep ticking.
+constexpr int kU40Shift = -201;
+
 // ---- the test depot ------------------------------------------------------------------------------
 struct TestDepotRegistrar {
     TestDepotRegistrar() {
@@ -270,7 +274,7 @@ int countOnTransporter(GlobalPos const& p, std::string const& id) {
 } // namespace
 
 LV_REGISTER_SELFTEST("fluids.spout_depot", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto p = at(ctx.testPos(4040), 0, 1, 0);
+    auto p = at(ctx.testPos(4040, kU40Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
     ctx.setBlock(p, belts::kDepotId);
     ctx.setBlock(at(p, 0, 1, 0), "minecraft:air");
@@ -296,7 +300,7 @@ LV_REGISTER_SELFTEST("fluids.spout_depot", [](Context& ctx) -> ll::coro::CoroTas
 });
 
 LV_REGISTER_SELFTEST("fluids.spout_belt", [](Context& ctx) -> ll::coro::CoroTask<> {
-    GlobalPos base = at(ctx.testPos(4044), 0, 1, 0);
+    GlobalPos base = at(ctx.testPos(4044, kU40Shift), 0, 1, 0);
     auto      bx   = [&](int dx, int dy = 0, int dz = 1) { return at(base, dx, dy, dz); };
     ctx.require(co_await ctx.ensureLoaded(bx(5)), "test area loaded");
     // a 4 block belt along +x (shafts on axis z, driven from the north), a depot at its end
