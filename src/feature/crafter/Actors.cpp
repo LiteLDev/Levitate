@@ -84,12 +84,12 @@ void dropItem(ct::MovementContext& ctx, ItemStack const& stack) {
                     std::array<double, 3>{ctx.motion.x * s, (ctx.motion.y + .5) * s, ctx.motion.z * s});
 }
 
-void damageEntities(ct::MovementContext& ctx, GlobalPos const& pos) {
+void damageEntities(ct::MovementContext& ctx, std::string const& kind, GlobalPos const& pos) {
     double damage = cr::movingDamage(ctx.motion.length());
     for (auto* a : world::entitiesIn(pos.dim, pos.x, pos.y, pos.z, pos.x + 1., pos.y + 1., pos.z + 1.)) {
         if (world::isItemEntity(*a)) continue;
         if (a->getEntityTypeId() == ActorType::FallingBlock) continue; // the contraption's own display blocks
-        world::hurt(*a, static_cast<float>(damage));
+        world::hurt(*a, static_cast<float>(damage), isSawActor(kind) ? kSawDeath : kDrillDeath);
         // throwEntity: the motion plus a lift, at most 4 blocks/tick
         cc::Vec3d boost = ctx.motion + cc::Vec3d{0, ctx.motion.length() / 4, 0};
         double    len   = boost.length();
@@ -99,7 +99,7 @@ void damageEntities(ct::MovementContext& ctx, GlobalPos const& pos) {
 }
 
 void visit(ct::MovementContext& ctx, std::string const& kind, GlobalPos const& pos) {
-    damageEntities(ctx, pos);
+    damageEntities(ctx, kind, pos);
     if (!canBreak(kind, pos)) return;
     ctx.data["BreakingPos"] = posJson(pos);
     ctx.stall               = true;
@@ -165,7 +165,7 @@ void tickBreaker(ct::MovementContext& ctx, std::string const& kind) {
     float hardness   = world::hardness(*block);
     float breakSpeed = cr::movingBreakSpeed(cr::animationSpeed(ctx.motion.length()));
     progress += cr::progressStep(breakSpeed, hardness, progress);
-    world::playSound(breaking, "hit.stone", .25f, 1.f);
+    world::playHitSound(breaking, *block); // the block's own hit sound (SoundType.getHitSound)
     if (progress >= 10) {
         world::crack(breaking, -1);
         // break falling blocks from the top down

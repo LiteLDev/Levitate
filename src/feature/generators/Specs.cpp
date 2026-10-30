@@ -184,6 +184,8 @@ void registerValueBoxes() {
     valve.format = [](Block const&, core::common::ValueSettings s) {
         return std::to_string(std::max(1, std::abs(s.value))) + "°";
     };
+    // Create's ValveHandleScrollValueBehaviour#onShortInteract: a short click on the box turns it
+    valve.onShortClick = [](GlobalPos const& p, Player& player) { useValve(player, p, "", false); };
     vb::registerBox(kCopperValve, valve);
     for (int c = 0; c < 16; ++c) vb::registerBox(valveId(c), valve);
 }

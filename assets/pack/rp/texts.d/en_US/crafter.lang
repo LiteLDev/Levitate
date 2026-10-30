@@ -1,3 +1,7 @@
 tile.levitate:mechanical_crafter.name=Mechanical Crafter
 tile.levitate:mechanical_saw.name=Mechanical Saw
 tile.levitate:mechanical_drill.name=Mechanical Drill
+death.attack.create.mechanical_drill=%1$s was impaled by Mechanical Drill
+death.attack.create.mechanical_drill.player=%1$s was thrown in front of a Drill by %2$s
+death.attack.create.mechanical_saw=%1$s got cut in half by Mechanical Saw
+death.attack.create.mechanical_saw.player=%1$s was thrown into a Saw by %2$s

@@ -2,7 +2,12 @@
 # capturing, mixing, heat, compacting, filters, pressing in the world, spouts, placement, sync),
 # then a press driven from the console pressing an item dropped under it and a basin collecting one.
 $r = Invoke-SelfTest 'basin.*'
-if ($r.Pass -lt 15) { throw "expected at least 15 basin selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 20) { throw "expected at least 20 basin selftests to pass, got $($r.Pass)" }
+# U39: the press runs sequenced assembly pressing steps on a depot (the belts unit's processor), the
+# mixer brews potions
+Wait-LogLine 'press at .* pressed levitate:incomplete_track on the depot \(levitate:sequenced_assembly/track\)' 10 | Out-Null
+Wait-LogLine 'press at .* pressed levitate:unprocessed_obsidian_sheet on the depot \(levitate:sequenced_assembly/sturdy_sheet\)' 10 | Out-Null
+Wait-LogLine 'mixer at .* mixed levitate:potion_mixing/minecraft:water/minecraft:nether_wart in the basin' 10 | Out-Null
 
 Send-Console 'tickingarea add 0 -64 0 15 -40 15 lv_basin_e2e true'
 Wait-Seconds 3
