@@ -2,7 +2,7 @@
 # cart assembler and a controller rail, then the bearings selftests on this world's server.
 #   local / remote-mod: the sails turn smoothly (client mod), the bearing's plate turns with them.
 #   remote-vanilla:     a client without the mod sees the blocks move as falling-block displays.
-# Screenshots: out/bearings/{built,turning-a,turning-b,rails,placed}.png
+# Screenshots: out/bearings/{built,turning-a,turning-b,rails,placed,cart-placing,cart-gone,coupled}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 # Sets a test generator's speed and waits for the server to confirm it. The game sometimes loses
 # a typed command or resolves its position oddly: then the chat is pictured and the command sent
@@ -106,8 +106,33 @@ Assert-ContraptionMoved $before $after 'the minecart contraption'
 Invoke-Chat '/tp @s ~-2 ~ ~5'
 Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.5 ~'
 
+# two minecarts coupled with the minecart coupling, as a player does (U21); the client mod draws
+# the coupling between them (Create's CouplingRenderer, U38)
+Invoke-Chat '/fill ~2 ~ ~8 ~8 ~ ~8 rail ["rail_direction"=1]'
+Start-Sleep -Milliseconds 500
+Invoke-Chat '/summon minecart ~3 ~ ~8'
+Invoke-Chat '/summon minecart ~6 ~ ~8'
+Invoke-Chat '/give @s levitate:minecart_coupling 4'
+Start-Sleep -Milliseconds 800
+Press-Key 2
+$mark = Get-LogMark
+Invoke-Chat '/tp @s ~3 ~ ~5 0 22' # 3 blocks north of the first cart
+Start-Sleep -Milliseconds 800
+Click 0.5 0.5 -Relative -Right
+Start-Sleep -Milliseconds 600
+Invoke-Chat '/tp @s ~ ~ ~ -45 16' # the second cart, 3 blocks further east
+Start-Sleep -Milliseconds 800
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'minecarts -?\d+ and -?\d+ coupled' 20 -Since $mark | Out-Null
+Invoke-Chat '/tp @s ~1.5 ~ ~-1 0 20' # facing the coupling between them
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'coupled' | Out-Null
+if (-not $vanilla) { Wait-LogLine 'bearings client: drawing 1 minecart coupling' 20 -Since $mark | Out-Null }
+Invoke-Chat '/kill @e[type=minecart]'
+Invoke-Chat '/tp @s ~-4.5 ~ ~-4'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.5 ~'
 if (-not $vanilla) {
     $r = Invoke-SelfTest 'bearings.*'
-    if ($r.Pass -lt 14) { throw "expected at least 14 bearings selftests to pass, got $($r.Pass)" }
+    if ($r.Pass -lt 15) { throw "expected at least 15 bearings selftests to pass, got $($r.Pass)" }
 }
 Assert-NoErrors

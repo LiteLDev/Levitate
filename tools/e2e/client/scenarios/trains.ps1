@@ -3,7 +3,7 @@
 # train on it and station "Demo B" on the north branch; the train's schedule drives it through
 # the curve to B. Then the station screen and the schedule editor.
 #   local / remote-mod: native screens (client mod); remote-vanilla: the server forms
-# Screenshots: out/trains/{assembled,departing-1..4,moving-1..5,arrived,station-screen,schedule-screen}.png
+# Screenshots: out/trains/{assembled,departing-1..4,moving-1..5,arrived,station-flag,station-screen,schedule-screen}.png
 $mark = Get-LogMark
 # Two pictures of a moving contraption must differ in a region of the screen (by default right of
 # the chat lines, above the hotbar): the structure moves on the client (U34).
@@ -67,6 +67,17 @@ Wait-LogLine "trains: train #\d+ '.*' arrived at station 'Demo B'" 60 -Since $ma
 Invoke-Chat '/tp @s ~9 ~2 ~-22 -135 30'
 Start-Sleep -Milliseconds 1200
 Save-Screenshot 'arrived' | Out-Null
+# Demo B's station with its flag up (a train stands there; U38: the client mod draws the flag,
+# Create's StationRenderer) and the bogey wheels turned while the train ran (client mod)
+# on the ground east of Demo B's station (the train stands on the track west of it)
+Invoke-Chat '/tp @s ~7 ~ ~-4 124 8'
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'station-flag' | Out-Null
+if ($script:Mode -ne 'remote-vanilla') {
+    Wait-LogLine 'trains client: drawing \d+ station flag' 20 -Since $mark | Out-Null
+    Wait-LogLine 'trains client: turning bogey wheels' 20 -Since $mark | Out-Null
+}
+Invoke-Chat '/tp @s ~-7 ~ ~4 -135 30'
 
 # the station screen (native with the client mod, a form without)
 Invoke-Chat '/create trains screen'
@@ -86,4 +97,4 @@ Save-Screenshot 'schedule-screen' | Out-Null
 if ($script:Mode -eq 'remote-vanilla') { Close-Screen } else { Press-Key E; Start-Sleep -Milliseconds 800 }
 
 $r = Invoke-SelfTest 'trains.*' -TimeoutSeconds 900
-if ($r.Pass -lt 8) { throw "expected at least 8 trains selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 9) { throw "expected at least 9 trains selftests to pass, got $($r.Pass)" }
