@@ -17,6 +17,7 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/safety/RedactableString.h"
 
 #include "core/common/ValueSettings.h"
 #include "feature/common/BlockData.h"
@@ -177,7 +178,14 @@ Json pagesJson(Contents const& c) {
     Json pages = Json::array();
     for (auto const& p : c.pages) {
         Json page = Json::array();
-        for (auto const& e : p) page.push_back({{"t", e.text}, {"c", e.checked}});
+        for (auto const& e : p) {
+            Json entry{{"t", e.text}, {"c", e.checked}};
+            if (!e.icon.is_null()) {
+                entry["i"] = e.icon;
+                entry["n"] = e.amount;
+            }
+            page.push_back(std::move(entry));
+        }
         pages.push_back(std::move(page));
     }
     return pages;
@@ -207,7 +215,14 @@ void applyAction(Player& player, Target const& t, Json const& action) {
         int   i = action.value("entry", -1);
         if (i < 0 || i >= static_cast<int>(p.size())) return;
         p[static_cast<std::size_t>(i)].checked = !p[static_cast<std::size_t>(i)].checked;
+    } else if (op == "checks") {
+        ensurePage();
+        auto& p      = c.pages[static_cast<std::size_t>(page)];
+        auto  checks = action.value("checks", Json::array());
+        for (std::size_t i = 0; i < p.size() && i < checks.size(); ++i)
+            if (checks[i].is_boolean()) p[i].checked = checks[i].get<bool>();
     } else if (op == "erase_checked") {
+        if (c.readOnly) return;
         ensurePage();
         std::erase_if(c.pages[static_cast<std::size_t>(page)], [](Entry const& e) { return e.checked; });
     } else if (op == "page") {
@@ -215,8 +230,17 @@ void applyAction(Player& player, Target const& t, Json const& action) {
         writeTarget(player, t, c);
         return;
     } else if (op == "set") {
+        if (c.readOnly) return; // Create's read-only clipboards (material checklists) can't be edited
         ensurePage();
-        c.pages[static_cast<std::size_t>(page)] = entriesFrom(action.value("entries", Json::array()));
+        auto  typed = entriesFrom(action.value("entries", Json::array()));
+        auto& was   = c.pages[static_cast<std::size_t>(page)];
+        // entries keep their item icon while their text is unchanged
+        for (std::size_t i = 0; i < typed.size() && i < was.size(); ++i) {
+            if (typed[i].text != was[i].text) continue;
+            typed[i].icon   = was[i].icon;
+            typed[i].amount = was[i].amount;
+        }
+        was = std::move(typed);
         c.previouslyOpenedPage                  = page;
         log().info("clipboard page {} edited by {} ({} entries)", page + 1, player.getRealName(), c.pages[static_cast<std::size_t>(page)].size());
     } else if (op == "edit") {
@@ -247,18 +271,36 @@ void openForm(Player& player, Target const& t) {
     }
     form.appendDropdown("page", trFor(player, "lv.display.clipboard.page", "Page"), pageNames, static_cast<std::size_t>(page));
     std::vector<Entry> entries = page < static_cast<int>(c.pages.size()) ? c.pages[static_cast<std::size_t>(page)] : std::vector<Entry>{};
-    int shown = std::min(kPageEntries, static_cast<int>(entries.size()) + 3);
+    bool readOnly = c.readOnly;
+    int  shown    = readOnly ? static_cast<int>(entries.size()) : std::min(kPageEntries, static_cast<int>(entries.size()) + 3);
     for (int i = 0; i < shown; ++i) {
         auto const* e = i < static_cast<int>(entries.size()) ? &entries[static_cast<std::size_t>(i)] : nullptr;
+        if (readOnly) {
+            // read-only entries are shown, only their check marks change
+            auto text = e->text;
+            if (e->amount > 0) text += " §8x" + std::to_string(e->amount);
+            form.appendToggle("c" + std::to_string(i), text, e->checked);
+            continue;
+        }
         form.appendInput("t" + std::to_string(i), trFor(player, "lv.display.clipboard.entry", "Entry {}", i + 1), "", e ? e->text : std::string{});
         form.appendToggle("c" + std::to_string(i), "✔", e && e->checked);
     }
-    form.appendToggle("erase", trFor(player, "create.gui.clipboard.erase_checked", "Erase checked items"), false);
+    if (!readOnly) form.appendToggle("erase", trFor(player, "create.gui.clipboard.erase_checked", "Erase checked items"), false);
     Json ctx = t.hand ? Json{{"slot", t.slot}} : Json{{"pos", posJson(t.pos)}};
-    form.sendTo(player, [ctx, page, shown](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
+    form.sendTo(player, [ctx, page, shown, readOnly](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
         if (!result) return;
         auto tt = targetOf(p, ctx);
         if (!tt) return;
+        if (readOnly) {
+            Json checks = Json::array();
+            for (int i = 0; i < shown; ++i) {
+                bool checked = false;
+                if (auto ci = result->find("c" + std::to_string(i)); ci != result->end())
+                    if (auto const* u = std::get_if<uint64>(&ci->second)) checked = *u != 0;
+                checks.push_back(checked);
+            }
+            applyAction(p, *tt, {{"op", "checks"}, {"page", page}, {"checks", checks}});
+        }
         Json entries = Json::array();
         for (int i = 0; i < shown; ++i) {
             auto ti = result->find("t" + std::to_string(i));
@@ -294,7 +336,7 @@ struct Registration {
                 auto t = targetOf(p, ctx);
                 if (!t) return std::nullopt;
                 auto c = readTarget(p, *t);
-                return Json{{"pages", pagesJson(c)}, {"page", c.previouslyOpenedPage}, {"maxPage", kMaxPage}, {"maxEntries", kPageEntries}};
+                return Json{{"pages", pagesJson(c)}, {"page", c.previouslyOpenedPage}, {"maxPage", kMaxPage}, {"maxEntries", kPageEntries}, {"readonly", c.readOnly}};
             },
             .action = [](Player& p, Json const& ctx, Json const& action) {
                 if (auto t = targetOf(p, ctx)) applyAction(p, *t, action);
@@ -302,6 +344,23 @@ struct Registration {
             .form = [](Player& p, Json const& ctx) {
                 if (auto t = targetOf(p, ctx)) openForm(p, *t);
             },
+        });
+        // Create's ClipboardValueSettingsHandler.clientTick: what the held clipboard can do with the
+        // block the client mod's player looks at ("Clipboard Actions" tip and outline)
+        net::on("display.clipboard_query", [](Player& p, Json const& msg) {
+            auto pos = posFrom(msg.value("pos", Json()));
+            Json out{{"pos", msg.value("pos", Json())}, {"copy", false}, {"paste", false}, {"other", false}};
+            auto* region = pos && static_cast<int>(p.getDimensionId()) == pos->dim ? regionOf(pos->dim) : nullptr;
+            if (region && items::idOf(p.getSelectedItem()) == kClipboardId && !p.isSpectator()) {
+                if (idAt(*region, *pos) == kClipboardId) {
+                    out["other"] = true;
+                } else {
+                    auto c       = ofItem(p.getSelectedItem());
+                    out["copy"]  = !copySettings(*region, *pos).is_null();
+                    out["paste"] = !c.copied.is_null() && pasteSettings(p, *region, *pos, c.copied, true);
+                }
+            }
+            net::send(p, "display.clipboard_tip", out);
         });
         // a broken clipboard drops itself with its pages (Create copies the components into the drop)
         blockdata::onErase([](GlobalPos const& pos, Json const& doc, std::string const& previous) {
@@ -333,20 +392,61 @@ Contents fromJson(Json const& j) {
     c.previouslyOpenedPage = j.value("page", 0);
     for (auto const& p : j.value("pages", Json::array())) {
         std::vector<Entry> page;
-        for (auto const& e : p) page.push_back({e.value("t", std::string{}), e.value("c", false)});
+        for (auto const& e : p) {
+            Entry entry{e.value("t", std::string{}), e.value("c", false)};
+            if (auto it = e.find("i"); it != e.end() && it->is_object()) {
+                entry.icon   = *it;
+                entry.amount = e.value("n", 0);
+            }
+            page.push_back(std::move(entry));
+        }
         c.pages.push_back(std::move(page));
     }
     if (auto it = j.find("copied"); it != j.end()) c.copied = *it;
+    c.readOnly = j.value("readonly", false);
     return c;
 }
 
 Json toJson(Contents const& c) {
     Json j = {{"type", c.type}, {"page", c.previouslyOpenedPage}, {"pages", pagesJson(c)}};
     if (!c.copied.is_null()) j["copied"] = c.copied;
+    if (c.readOnly) j["readonly"] = true;
     return j;
 }
 
 Contents ofItem(ItemStack const& stack) { return fromJson(items::getData(stack, kItemKey)); }
+
+bool isClipboard(ItemStack const& stack) { return items::idOf(stack) == kClipboardId; }
+
+bool addAddress(ItemStack& clipboard, std::string const& address) {
+    if (!isClipboard(clipboard) || address.find_first_not_of(" \t\n") == std::string::npos) return false;
+    auto c    = ofItem(clipboard);
+    auto text = "#" + address;
+    for (auto const& page : c.pages)
+        for (auto const& e : page)
+            if (e.text == text) return false;
+    auto free = std::find_if(c.pages.begin(), c.pages.end(), [](auto const& p) { return p.size() <= 11; });
+    if (free == c.pages.end()) {
+        c.pages.emplace_back();
+        free = std::prev(c.pages.end());
+    }
+    free->push_back({text, false});
+    c.type = 2; // ClipboardOverrides.switchTo(WRITTEN)
+    setOnItem(clipboard, c);
+    return true;
+}
+
+std::optional<ItemStack> makeWritten(std::vector<std::vector<Entry>> pages, std::string const& name) {
+    auto stack = items::make(kClipboardId);
+    if (!stack) return std::nullopt;
+    Contents c;
+    c.type     = 2;
+    c.pages    = std::move(pages);
+    c.readOnly = true;
+    setOnItem(*stack, c);
+    if (!name.empty()) stack->setCustomName(Bedrock::Safety::RedactableString("§r" + name));
+    return stack;
+}
 
 void setOnItem(ItemStack& stack, Contents const& c) {
     bool empty = c.pages.empty() && c.copied.is_null();
