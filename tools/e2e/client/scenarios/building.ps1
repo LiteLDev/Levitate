@@ -96,7 +96,7 @@ Use-At 1 -60 4 '3' 'building: levitate:copycat_panel at 1 -60 4 takes the look o
 Use-At 1 -60 4 '3' 'building: levitate:copycat_panel at 1 -60 4 turned its material'
 Use-At 3 -59 4 '4' 'building: levitate:metal_bracket applied to levitate:shaft at 3 -59 4'
 
-Invoke-Chat '/tp @s 0.5 -59 -1.5 0 12'
+Invoke-Chat '/tp @s 0.5 -59 1.5 0 22'
 Start-Sleep -Milliseconds 2500
 Save-Screenshot 'copycats' | Out-Null
 Invoke-Chat '/tp @s -2 -59 4.5 0 15'

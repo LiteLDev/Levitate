@@ -41,6 +41,7 @@
 #include "client/Client.h"
 #include "feature/materials/Materials.h"
 #include "mod/Config.h"
+#include "mod/Log.h"
 #include "mod/Module.h"
 
 namespace lv::client::materials {
@@ -133,10 +134,18 @@ LL_TYPE_INSTANCE_HOOK(
 ) {
     origin(ctx, client, owner, pass);
     try {
-        int light = chargeOf(*mItemInstance);
-        if (light <= 0 || pass != 0) return;
+        static int calls = 0;
+        if (calls++ == 0) lv::log().info("DEBUG bar hook called");
+        ItemStack const& it = *mItemInstance;
+        static int seen = 0;
+        if (!it.isNull() && it.getTypeName() == "levitate:chromatic_compound" && seen++ < 3)
+            lv::log().info("DEBUG bar compound data {}", it.mUserData ? it.mUserData->toSnbt(SnbtFormat::Minimize, 0) : std::string("none"));
+        int light = chargeOf(it);
+        if (light <= 0) return;
         glm::vec2 pos  = *owner.mCachedPosition;
         glm::vec2 size = *owner.mSize;
+        static int dbg = 0;
+        if (dbg++ < 6) lv::log().info("DEBUG bar pass {} pos {} {} size {} {} item pos {} {}", pass, pos.x, pos.y, size.x, size.y, mPosition->x, mPosition->y);
         drawBar(ctx, pos.x, pos.y, std::min(size.x, size.y), light);
     } catch (...) {
     }

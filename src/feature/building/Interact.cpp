@@ -221,6 +221,9 @@ bool onUse(Player& player, ItemStack const& item, GlobalPos const& pos, int face
     if (!firstEvent && !player.isSimulated()) {
         auto k = kindAt(pos);
         if (k == Kind::Door || k == Kind::Trapdoor || k == Kind::Placard) return true;
+        // copycat materials turn and girders extend once per click
+        if ((k == Kind::CopycatPanel || k == Kind::CopycatStep) && !item.isNull() && !player.isSneaking()) return true;
+        if ((k == Kind::Girder || k == Kind::GirderShaft) && !item.isNull() && item.getTypeName() == kGirderId) return true;
     }
     bool build = mayBuild(player);
     bool  sneak  = player.isSneaking();
@@ -413,10 +416,24 @@ ia::Result bracketUseOn(ia::UseOnContext const& c) {
     return ia::Result::Consume;
 }
 
-/// Create's IWrenchableWithBracket: the wrench takes the bracket off first.
+std::unordered_map<std::int64_t, std::pair<std::string, std::uint64_t>>& lastBracketRemoval() {
+    static std::unordered_map<std::int64_t, std::pair<std::string, std::uint64_t>> m;
+    return m;
+}
+
+/// Create's IWrenchableWithBracket: the wrench takes the bracket off first (onWrenched); sneaking,
+/// the block is picked up after that as well (onSneakWrenched: the generic wrench goes on).
 ia::Result bracketWrench(ia::UseOnContext const& c) {
-    if (!c.firstEvent && !c.player.isSimulated()) return bracketAt(c.pos) ? ia::Result::Consume : ia::Result::Pass;
-    return removeBracket(&c.player, c.pos) ? ia::Result::Consume : ia::Result::Pass;
+    auto  uid  = c.player.getOrCreateUniqueID().rawID;
+    auto& last = lastBracketRemoval()[uid];
+    if (!c.firstEvent && !c.player.isSimulated()) {
+        // a held button repeats the use: the click that took the bracket off does nothing else
+        if (last.first == c.pos.key() && now() - last.second < 10) return ia::Result::Consume;
+        return bracketAt(c.pos) ? ia::Result::Consume : ia::Result::Pass;
+    }
+    if (!removeBracket(&c.player, c.pos)) return ia::Result::Pass;
+    last = {c.pos.key(), now()};
+    return c.sneaking ? ia::Result::Pass : ia::Result::Consume;
 }
 
 void installHooks() {

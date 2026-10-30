@@ -525,6 +525,7 @@ void renderBuilding(BaseActorRenderContext& ctx) {
         s.asked.clear();
         s.anims.clear();
         s.notchKeys.clear();
+        s.meshes.clear();
         s.dim = dim;
     }
     if (feature::net::client::connected()) askChunks();
@@ -538,12 +539,16 @@ void renderBuilding(BaseActorRenderContext& ctx) {
         ctDirty.swap(s.ctDirty);
     }
     // re-meshed connected-texture blocks: their corners (and their neighbours') are computed again
-    for (auto const& p : ctDirty) {
-        s.notchKeys.erase(p);
+    auto forget = [&](BlockPos const& q) {
+        auto it = s.notchKeys.find(q);
+        if (it == s.notchKeys.end()) return;
+        for (auto const& [face, key] : it->second) s.meshes.erase(key);
+        s.notchKeys.erase(it);
+    };
+    for (auto const& p : ctDirty)
         for (int dx = -1; dx <= 1; ++dx)
             for (int dy = -1; dy <= 1; ++dy)
-                for (int dz = -1; dz <= 1; ++dz) s.notchKeys.erase(BlockPos{p.x + dx, p.y + dy, p.z + dz});
-    }
+                for (int dz = -1; dz <= 1; ++dz) forget(BlockPos{p.x + dx, p.y + dy, p.z + dz});
     if (copycats.empty() && doors.empty() && ct.empty() && s.visuals.empty()) return;
     Drawer d(ctx);
     if (!d.ok()) return;
@@ -581,6 +586,7 @@ void renderBuilding(BaseActorRenderContext& ctx) {
         auto         spec = ctSpecOf(b);
         if (!spec) {
             goneCt.push_back(p);
+            forget(p);
             continue;
         }
         drawNotches(d, region, p, b, *spec);

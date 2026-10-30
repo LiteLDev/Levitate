@@ -47,10 +47,10 @@ Invoke-Chat '/time set noon'
 
 # hotbar icons (+ U43: the charge bar of a chromatic compound with 6 of 10 charges)
 Invoke-Chat '/clear @s'
-foreach ($i in 'zinc_ingot', 'brass_ingot', 'andesite_alloy', 'precision_mechanism', 'electron_tube', 'builders_tea', 'blaze_cake', 'crushed_raw_iron', 'iron_sheet') {
+Invoke-SelfTest 'materials.chromatic_bar_item' | Out-Null   # hotbar slot 1: the charged compound
+foreach ($i in 'zinc_ingot', 'brass_ingot', 'andesite_alloy', 'precision_mechanism', 'electron_tube', 'builders_tea', 'blaze_cake', 'iron_sheet') {
     Invoke-Chat "/give @s levitate:$i 1"
 }
-Invoke-SelfTest 'materials.chromatic_bar_item' | Out-Null
 Start-Sleep -Milliseconds 1200
 Save-Screenshot 'items' | Out-Null
 

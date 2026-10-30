@@ -75,7 +75,21 @@ void pushRemoved(GlobalPos const& pos) {
     sendToDimension(pos.dim, {{"dim", pos.dim}, {"entries", nlohmann::json::array({entryOf(pos, nullptr)})}});
 }
 
-void installSync() { net::on(kQueryChannel, onQuery); }
+void installSync() {
+    net::on(kQueryChannel, onQuery);
+    static bool registered = false;
+    if (registered) return;
+    registered = true;
+    // contraptions take the data without erase listeners and put it back elsewhere
+    bd::onWriteBack([](GlobalPos const* pos) {
+        if (!pos) return;
+        auto const* d = bd::get(*pos);
+        if (d && d->contains(kDataKey) && ((*d)[kDataKey].contains("material") || (*d)[kDataKey].contains("bracket"))) pushRemoved(*pos);
+    });
+    bd::onPut([](GlobalPos const& pos, bd::Json const& doc) {
+        if (doc.contains(kDataKey) && (doc[kDataKey].contains("material") || doc[kDataKey].contains("bracket"))) pushVisual(pos);
+    });
+}
 void uninstallSync() { net::off(kQueryChannel); }
 
 } // namespace lv::feature::building

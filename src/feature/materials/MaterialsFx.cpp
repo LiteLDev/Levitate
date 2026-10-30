@@ -39,6 +39,7 @@
 #include "core/GlobalPos.h"
 #include "feature/materials/Materials.h"
 #include "feature/net/Net.h"
+#include "game/WorldDb.h"
 #include "mod/Log.h"
 
 namespace lv::feature::materials {
@@ -192,6 +193,10 @@ void particlesForVanillaPlayers() {
 } // namespace
 
 void installFurnaceXp() {
+    game::db::onWorldClosed([] {
+        adjustments().clear();
+        furnaceViews().clear();
+    });
     MaterialsFurnaceCanBurnHook::hook();
     MaterialsFurnaceWithdrawHook::hook();
     tickListener() = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) {

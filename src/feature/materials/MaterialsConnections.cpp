@@ -15,6 +15,8 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
+#include <tuple>
 #include <set>
 #include <string>
 #include <vector>
@@ -188,7 +190,15 @@ bool updateWall(BlockSource& region, BlockPos const& pos, Block const& block) {
 
 /// The pillar column through `p` along `axis`: blocks of the same pillar on the same axis below /
 /// above `p` (Create's ConnectedPillarBlock column walk).
+/// Column extents of the current batch (a batch only changes states, never ids or axes).
+std::map<std::tuple<int, int, int, int>, std::pair<int, int>>& extentCache() {
+    static std::map<std::tuple<int, int, int, int>, std::pair<int, int>> c;
+    return c;
+}
+
 std::pair<int, int> columnExtent(BlockSource& region, BlockPos const& p, std::string const& id, int axis) {
+    auto key = std::tuple{p.x, p.y, p.z, axis};
+    if (auto it = extentCache().find(key); it != extentCache().end()) return it->second;
     int neg = axis == 0 ? 4 : (axis == 1 ? 0 : 2), pos = neg + 1;
     auto walk = [&](int dir) {
         int n = 0;
@@ -201,7 +211,9 @@ std::pair<int, int> columnExtent(BlockSource& region, BlockPos const& p, std::st
         }
         return n;
     };
-    return {walk(neg), walk(pos)};
+    std::pair<int, int> out{walk(neg), walk(pos)};
+    extentCache()[key] = out;
+    return out;
 }
 
 bool updateCt(BlockSource& region, BlockPos const& pos, Block const& block, Shape shape) {
@@ -260,6 +272,7 @@ void markPillars(BlockSource& region, int dim, BlockPos const& p) {
 }
 
 void onChanged(BlockSource& region, BlockPos const& p, Block const& previous, Block const& now) {
+    extentCache().clear();
     int  dim     = static_cast<int>(region.getDimensionId());
     bool wasOurs = ours(previous), isOurs = ours(now);
     if (isOurs) mark(dim, p);
@@ -285,6 +298,7 @@ void processDirty() {
     if (dirty().empty()) return;
     auto work = std::move(dirty());
     dirty().clear();
+    extentCache().clear();
     for (auto const& g : work) {
         auto* region = regionOf(g.dim);
         if (!region) continue;

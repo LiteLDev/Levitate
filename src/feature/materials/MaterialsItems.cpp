@@ -177,7 +177,10 @@ bool tryAbsorbFromBelt(ItemActor& a, ItemStack& stack, BlockPos const& target) {
     });
     if (eaten.empty()) return false;
     int light = chromaticLight(stack) + 1;
-    charge(a, stack);
+    if (!charge(a, stack)) {
+        lv::log().warn("materials: chromatic compound could not take the light of {}", eaten);
+        return false;
+    }
     lv::log().info("materials: chromatic compound absorbed {} from a belt ({} light)", eaten, light);
     return true;
 }
