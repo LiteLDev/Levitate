@@ -1248,7 +1248,9 @@ CuckooClockRenderer, FlywheelBlock(Entity)). Pure rules in
   blocks' handlers, below value boxes and filter slots): a cog on a crafter's front goes beside
   the crafter unless the click is on the front's centre, where the crafter takes it into its
   slot. When no spot fits, or the player sneaks, the block's use and the plain placement follow
-  (the axis of the small cog it is placed against). Create's IntegratedLargeCogHelper /
+  (the axis of the small cog it is placed against; the plain placement's state and canSurvive
+  run after every block's own use, as BlockItem.place does). One helper placement per 5 ticks: the
+  repeats Bedrock sends while the button is held are swallowed in between. Create's IntegratedLargeCogHelper /
   IntegratedSmallCogHelper match a subset of the states the diagonal helpers already match, and
   `onItemUseFirst` returns the first matching helper's result, so in 6.0.10 they never decide a
   click (they only feed the client ghost). `isValidCogwheelPosition` skips a neighbour only when

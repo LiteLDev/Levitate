@@ -117,6 +117,12 @@ LV_REGISTER_SELFTEST("transmission.integrated_cog_crafter", [](Context& ctx) -> 
     ctx.check(idAt(world(), east) == kCogwheel && axisAt(east) == Z, "cogwheel placed east of the crafter, axis z");
     ctx.check(items::isEmpty(*cog), "the placed cog used the item (survival)");
     ctx.cleanupBlock(east);
+    {
+        // a repeat of the held button right after it: swallowed, not passed on to the crafter
+        auto again = items::make(kCogwheel);
+        ctx.check(click(ctx, *again, crafter, Face::North, {.1, .5, 0.}) == ia::Result::Consume, "a repeat within the cooldown is taken");
+        ctx.check(!items::isEmpty(*again) && idAt(world(), at(ctx, 19, 1, 0)) != kCogwheel, "and does nothing");
+    }
     co_await ctx.ticks(4);
     ctx.check(speed(east) == -16.f, "the cog turns opposite the crafter: " + std::to_string(speed(east)));
 

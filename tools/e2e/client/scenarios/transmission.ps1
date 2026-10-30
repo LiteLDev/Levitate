@@ -110,6 +110,8 @@ Invoke-Chat '/fill ~1 ~ ~-4 ~6 ~3 ~4 air'
 Invoke-Chat '/setblock ~3 ~1 ~ levitate:mechanical_mixer'
 Invoke-Chat '/setblock ~3 ~ ~1 levitate:kinetics_test_source ["levitate:axis"=1]'
 Invoke-Chat '/setblock ~3 ~1 ~1 levitate:cogwheel ["levitate:axis"=1]'
+# the south-west diagonal is taken: a hit on the face's middle line (north / south tie) can only go north-west
+Invoke-Chat '/setblock ~2 ~1 ~1 stone'
 Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 levitate:large_cogwheel'
 Invoke-Chat '/tp @s ~ ~ ~ -90 0'
 Start-Sleep -Milliseconds 800
