@@ -18,6 +18,9 @@ struct DisplayPose {
     int                     axis    = 1;
     float                   degrees = 0;
     core::contraption::Vec3d shift;
+    int                     quarter  = 0; ///< quarter turns the displayed block shows (about axis)
+    int                     tiltAxis = 0; ///< tilt (applied in the contraption frame before the turn)
+    float                   tilt     = 0;
 };
 
 /// False when the actor isn't a display of a contraption whose motion is known.

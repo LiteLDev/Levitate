@@ -34,6 +34,8 @@ struct BlockView {
     core::contraption::Vec3d         center;  ///< interpolated world centre of the block this frame
     int                              axis  = 1; ///< contraption rotation axis (0 x, 1 y, 2 z)
     double                           angle = 0; ///< contraption rotation (degrees, right-hand rule)
+    int                              tiltAxis = 0; ///< local axis of the tilt applied before the rotation
+    double                           tilt     = 0; ///< degrees (a carriage on a slope; see cc::Transform)
     nlohmann::json const*            visual = nullptr; ///< the actor's animation state (nullptr: none)
 };
 

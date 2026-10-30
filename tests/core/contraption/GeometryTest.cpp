@@ -1,7 +1,10 @@
+#include <cmath>
+
 #include <gtest/gtest.h>
 
 #include "core/contraption/Collision.h"
 #include "core/contraption/Geometry.h"
+#include "core/contraption/Motion.h"
 #include "core/contraption/StateRotation.h"
 
 using namespace lv::core::contraption;
@@ -62,6 +65,31 @@ TEST(ContraptionGeometry, TransformRoundTrip) {
     t.angle  = 33;
     Vec3d p{2.3, -1.2, 4.4};
     expectNear(t.toLocal(t.toWorld(p)), p, 1e-9);
+}
+
+TEST(ContraptionGeometry, TiltedCarriage) {
+    // a carriage along +X, yawed 90 degrees, pitched 30 degrees up a slope (tilt about local Z)
+    Transform t;
+    t.origin   = {0, 64, 0};
+    t.pivot    = {0.5, 0, 0.5};
+    t.axis     = Axis::Y;
+    t.angle    = 90;
+    t.tiltAxis = Axis::Z;
+    t.tilt     = 30;
+    // the pivot stays put; a point 2 blocks along the carriage rises by 2 sin 30 = 1
+    expectNear(t.toWorld({0.5, 0, 0.5}), {0.5, 64, 0.5});
+    auto w = t.toWorld({2.5, 0, 0.5});
+    EXPECT_NEAR(w.y, 65, 1e-9);
+    EXPECT_NEAR(w.z, 0.5 - 2 * std::cos(30 * 3.14159265358979323846 / 180), 1e-9); // +X turned to north
+    Vec3d p{2.3, -1.2, 4.4};
+    expectNear(t.toLocal(t.toWorld(p)), p, 1e-9);
+    expectNear(t.unrotateVector(t.rotateVector(p)), p, 1e-9);
+    // placement ignores the tilt
+    Transform level = t;
+    level.tilt      = 0;
+    EXPECT_EQ(t.placeBlock({3, 1, 0}), level.placeBlock({3, 1, 0}));
+    // the client interpolates the tilt too
+    EXPECT_NEAR(lerp(level, t, 0.5).tilt, 15, 1e-9);
 }
 
 TEST(ContraptionGeometry, PlacementRoundsToTheGrid) {

@@ -315,14 +315,16 @@ public:
     bool                                    forceVanilla = false; ///< selftests
 
     // -- client mod sync (channel "contraption.*", see client/contraption/ContraptionClient.h) --
-    /// [axis, angle, tx, ty, tz, px, py, pz]: world = t + p + R(local - p) (t = origin + offset).
+    /// [axis, angle, tx, ty, tz, px, py, pz, tiltAxis, tilt]: world = t + p + R(local - p)
+    /// (t = origin + offset, R = the turn about axis after the tilt, see cc::Transform).
     static json transformJson(cc::Transform const& t) {
         auto o = t.origin + t.offset;
-        return json::array({int(t.axis), t.angle, o.x, o.y, o.z, t.pivot.x, t.pivot.y, t.pivot.z});
+        return json::array({int(t.axis), t.angle, o.x, o.y, o.z, t.pivot.x, t.pivot.y, t.pivot.z, int(t.tiltAxis), t.tilt});
     }
     static bool sameTransform(cc::Transform const& a, cc::Transform const& b) {
         auto d = (a.origin + a.offset) - (b.origin + b.offset);
-        return a.axis == b.axis && a.angle == b.angle && d.lengthSqr() == 0 && (a.pivot - b.pivot).lengthSqr() == 0;
+        return a.axis == b.axis && a.angle == b.angle && d.lengthSqr() == 0 && (a.pivot - b.pivot).lengthSqr() == 0
+            && a.tiltAxis == b.tiltAxis && a.tilt == b.tilt;
     }
     json blocksMessage(Contraption const& c) const {
         json blocks = json::array();
@@ -456,7 +458,9 @@ public:
             {"offset", vec(t.offset)       },
             {"axis",   int(t.axis)         },
             {"angle",  t.angle             },
-            {"pivot",  vec(t.pivot)        }
+            {"pivot",  vec(t.pivot)        },
+            {"tiltAxis", int(t.tiltAxis)   },
+            {"tilt",   t.tilt              }
         };
         j["motion"] = {
             {"velocity", vec(c.mMotion.velocity)    },
@@ -500,6 +504,8 @@ public:
         c->mTransform.axis   = static_cast<cc::Axis>(std::clamp(t.value("axis", 1), 0, 2));
         c->mTransform.angle  = t.value("angle", 0.0);
         c->mTransform.pivot  = vecOf(t.value("pivot", json::array({0.5, 0.5, 0.5})));
+        c->mTransform.tiltAxis = static_cast<cc::Axis>(std::clamp(t.value("tiltAxis", 0), 0, 2));
+        c->mTransform.tilt     = t.value("tilt", 0.0);
         auto const& m        = j.value("motion", json::object());
         c->mMotion.velocity        = vecOf(m.value("velocity", json::array({0, 0, 0})));
         c->mMotion.angularVelocity = m.value("angular", 0.0);
@@ -831,7 +837,8 @@ public:
             }
         }
         bool moving = next.offset.x != before.offset.x || next.offset.y != before.offset.y || next.offset.z != before.offset.z
-                   || next.angle != before.angle || next.axis != before.axis;
+                   || next.angle != before.angle || next.axis != before.axis || next.tilt != before.tilt;
+
 
         // actors
         if (moving && !c.mMoving) {

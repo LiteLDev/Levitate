@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 #include <map>
 #include <unordered_set>
 
@@ -230,6 +231,19 @@ void placeCarriages(Train& t) {
         tr.axis          = cc::Axis::Y;
         tr.pivot         = {0.5, 0, 0.5};
         tr.angle         = normAngle(ct::yawOf(dir) - baseYaw);
+        // Create's carriage pitch from its bogeys: tilt about the local horizontal axis across
+        // the carriage (it runs along the assembly direction), before the yaw
+        double flat  = std::sqrt(dir.x * dir.x + dir.z * dir.z);
+        double pitch = std::atan2(dir.y, flat) * 180.0 / std::numbers::pi;
+        if (std::abs(pitch) < 1e-4) pitch = 0;
+        if (t.ax != 0) {
+            tr.tiltAxis = cc::Axis::Z; // (1,0,0) turned about Z rises with a positive angle
+            tr.tilt     = t.ax > 0 ? pitch : -pitch;
+        } else {
+            tr.tiltAxis = cc::Axis::X; // (0,0,1) turned about X sinks with a positive angle
+            tr.tilt     = t.az > 0 ? -pitch : pitch;
+        }
+
         cc::Vec3d target{p1->x, p1->y + t.lift, p1->z};
         tr.offset = target - tr.origin - tr.pivot;
         con->setTransform(tr);

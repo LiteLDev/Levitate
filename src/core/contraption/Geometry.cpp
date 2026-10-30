@@ -154,12 +154,21 @@ int roundHalfUp(double v) { return static_cast<int>(std::floor(v + 0.5)); }
 
 int quarterTurnsOf(double degrees) { return roundHalfUp(degrees / 90.0); }
 
+Vec3d Transform::rotateVector(Vec3d const& v) const {
+    return rotate(tilt == 0 ? v : rotate(v, tiltAxis, tilt), axis, angle);
+}
+
+Vec3d Transform::unrotateVector(Vec3d const& v) const {
+    Vec3d u = rotate(v, axis, -angle);
+    return tilt == 0 ? u : rotate(u, tiltAxis, -tilt);
+}
+
 Vec3d Transform::toWorld(Vec3d const& local) const {
-    return origin + offset + pivot + rotate(local - pivot, axis, angle);
+    return origin + offset + pivot + rotateVector(local - pivot);
 }
 
 Vec3d Transform::toLocal(Vec3d const& world) const {
-    return pivot + rotate(world - origin - offset - pivot, axis, -angle);
+    return pivot + unrotateVector(world - origin - offset - pivot);
 }
 
 Pos Transform::originBlock() const {

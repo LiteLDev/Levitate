@@ -12,6 +12,7 @@ Transform lerp(Transform const& a, Transform const& b, double t) {
     out.offset     = {};
     double delta   = std::remainder(b.angle - a.angle, 360.0); // -180..180
     out.angle      = b.angle - delta * (1 - t);
+    if (a.tiltAxis == b.tiltAxis) out.tilt = a.tilt + (b.tilt - a.tilt) * t;
     return out;
 }
 

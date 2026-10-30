@@ -92,6 +92,11 @@ std::optional<cc::Transform> transformOf(Json const& j, std::size_t at) {
     t.origin = {j[at + 2].get<double>(), j[at + 3].get<double>(), j[at + 4].get<double>()};
     t.offset = {};
     t.pivot  = {j[at + 5].get<double>(), j[at + 6].get<double>(), j[at + 7].get<double>()};
+    // [tiltAxis, tilt] (a carriage on a slope); older servers don't send them
+    if (j.size() >= at + 10 && j[at + 8].is_number() && j[at + 9].is_number()) {
+        t.tiltAxis = static_cast<cc::Axis>(std::clamp(j[at + 8].get<int>(), 0, 2));
+        t.tilt     = j[at + 9].get<double>();
+    }
     return t;
 }
 
@@ -242,8 +247,11 @@ bool displayPose(Actor const& actor, float partialTick, DisplayPose& out) {
     auto const& local = d->second.local;
     auto        t     = k.motion.at(partialTick);
     auto        from = feetOf(k.motion.previous(), local), to = feetOf(k.motion.current(), local);
-    out.axis    = static_cast<int>(t.axis);
-    out.degrees = static_cast<float>(std::remainder(t.angle - d->second.quarter * 90.0, 360.0));
+    out.axis     = static_cast<int>(t.axis);
+    out.degrees  = static_cast<float>(std::remainder(t.angle - d->second.quarter * 90.0, 360.0));
+    out.quarter  = d->second.quarter;
+    out.tiltAxis = static_cast<int>(t.tiltAxis);
+    out.tilt     = static_cast<float>(t.tilt);
     out.shift   = feetOf(t, local) - (from + (to - from) * partialTick);
     return true;
 }
@@ -266,8 +274,11 @@ void forEachBlock(std::string const& blockId, float partialTicks, std::function<
             v.blockId     = b.id;
             if (t) {
                 v.center = t->toWorld(cc::Vec3d::center(b.local));
-                v.axis   = static_cast<int>(t->axis);
-                v.angle  = t->angle;
+                v.axis     = static_cast<int>(t->axis);
+                v.angle    = t->angle;
+                v.tiltAxis = static_cast<int>(t->tiltAxis);
+                v.tilt     = t->tilt;
+
             } else {
                 // a server without motion sync: the display entity's place and encoded turn
                 v.center = ccVec(actor->getInterpolatedPosition(partialTicks)) + cc::Vec3d{0, 0.5, 0};
