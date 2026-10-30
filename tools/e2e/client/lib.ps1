@@ -516,6 +516,7 @@ $script:LogDecoder = [Text.Encoding]::UTF8.GetDecoder()
 
 function Start-LogSession {
     $script:LogFile = Join-Path $script:VersionDir 'logs\latest.log'   # this slot's instance
+    $script:ClientScreen = $null
     $script:LogLines.Clear(); $script:LogTail = ''; $script:LogDecoder = [Text.Encoding]::UTF8.GetDecoder()
     $script:LogPos = if (Test-Path $script:LogFile) { (Get-Item $script:LogFile).Length } else { 0L }
 }
@@ -566,7 +567,9 @@ function Update-LeviLog {
     $script:LogTail = $parts[-1]
     for ($i = 0; $i -lt $parts.Count - 1; $i++) {
         $l = $parts[$i].TrimEnd("`r")
-        if ($l -ne '') { $script:LogLines.Add($l) }
+        if ($l -eq '') { continue }
+        $script:LogLines.Add($l)
+        if ($l -match 'client screen: (\S+)') { $script:ClientScreen = $Matches[1] }
     }
 }
 
@@ -608,11 +611,8 @@ function Wait-LogLine([string]$pattern, [double]$TimeoutSeconds = 120, [int]$Sin
 function Test-ClientTrace { $script:Mode -ne 'remote-vanilla' }
 
 # The client's top screen as last traced ($null: unknown).
-function Get-ClientScreen {
-    $hit = Get-LeviLog | Select-String -Pattern '^(?!\[host\]).*client screen: (\S+)' | Select-Object -Last 1
-    if ($hit) { return $hit.Matches[0].Groups[1].Value }
-    return $null
-}
+function Get-ClientScreen { Update-LeviLog; $script:ClientScreen }
+$script:ClientScreen = $null
 
 # Waits until the HUD shows (the world is ready for chat and clicks) before a scenario starts.
 function Wait-HudReady([int]$TimeoutSeconds = 60) {
@@ -872,11 +872,16 @@ function Invoke-Chat([string]$text, [int]$Attempts = 4) {
         return
     }
     $open = $false
+    $closed = $false
     for ($i = 1; $i -le $Attempts -and -not $open; $i++) {
         $screen = Get-ClientScreen
-        if ($screen -eq 'chat_screen') {
-            # a chat left open (a lost Enter): close it, so its old text is not sent with ours
-            Press-Key ESC; Start-Sleep -Milliseconds 400
+        if ($screen -eq 'chat_screen' -and -not $closed) {
+            # a chat left open (a lost Enter): close it once, so its old text is not sent with ours
+            # (never a second Esc: on the HUD it would open the pause menu)
+            $mark = Get-LogMark
+            Press-Key ESC
+            try { Wait-LogLine 'client screen: (?!chat_screen)' 3 -Since $mark -PollMs 100 | Out-Null } catch {}
+            $closed = $true
             continue
         }
         if ($screen -and $screen -ne 'hud_screen') { Write-Step "chat: the top screen is '$screen', pressing T anyway" }

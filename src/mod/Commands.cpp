@@ -6,6 +6,11 @@
 
 #include "mod/Commands.h"
 
+#include <chrono>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+
 #include "ll/api/command/CommandHandle.h"
 #include "ll/api/command/CommandRegistrar.h"
 #include "ll/api/event/EventBus.h"
@@ -45,8 +50,23 @@ bool isAdmin(CommandOrigin const& origin) {
     return origin.getPermissionsLevel() >= CommandPermissionLevel::GameDirectors;
 }
 
-// Command error replies go only to the sender's chat. Log them too (one line per failed command, so
-// never per tick), so e2e scenarios and server admins can see why a player's command failed.
+// Command error replies go only to the sender's chat. Log them too, so e2e scenarios and server
+// admins can see why a player's command failed. A repeated error (a repeating command block, a
+// ticking function) is logged once per 10 s, never per tick.
+namespace {
+bool shouldLogCommandError(std::string const& line) {
+    static std::mutex                                         mutex;
+    static std::unordered_map<std::string, std::chrono::steady_clock::time_point> last;
+    auto                                                      now = std::chrono::steady_clock::now();
+    std::lock_guard                                           lock(mutex);
+    if (last.size() > 256) last.clear();
+    auto [it, fresh] = last.try_emplace(line, now);
+    if (!fresh && now - it->second < std::chrono::seconds(10)) return false;
+    it->second = now;
+    return true;
+}
+} // namespace
+
 LL_TYPE_INSTANCE_HOOK(
     CommandErrorLogHook,
     ll::memory::HookPriority::Normal,
@@ -64,7 +84,8 @@ LL_TYPE_INSTANCE_HOOK(
             args += p.mString;
         }
         if (!args.empty()) args += "]";
-        lv::log().info("Command error: {}{}", msgId, args);
+        auto line = std::string(msgId) + args;
+        if (shouldLogCommandError(line)) lv::log().info("Command error: {}", line);
     }
     origin(msgId, params, type);
 }

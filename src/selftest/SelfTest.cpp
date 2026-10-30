@@ -196,6 +196,7 @@ ll::coro::CoroTask<> loadTestArea() {
 
 void runAll(std::string const& glob, std::function<void(std::string const&)> out) {
     if (gRunning) {
+        log().info("SELFTEST BUSY");
         out("SELFTEST BUSY");
         return;
     }

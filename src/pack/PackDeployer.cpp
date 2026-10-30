@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -72,24 +73,42 @@ std::optional<std::string> readText(fs::path const& p) {
     return text;
 }
 
-/// Appends the RP's names to the server's current language: en_US first, then that language's own
-/// file (if we ship one) on top, so untranslated keys still get the English name.
+/// `key=value` lines of a .lang file (comments and blank lines skipped) into `out`, replacing keys.
+void readLang(std::string const& text, std::map<std::string, std::string>& out) {
+    std::size_t start = 0;
+    while (start < text.size()) {
+        auto end  = text.find('\n', start);
+        auto line = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        start     = end == std::string::npos ? text.size() : end + 1;
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
+        auto eq = line.find('=');
+        if (line.empty() || line.starts_with("#") || eq == std::string::npos || eq == 0) continue;
+        out[line.substr(0, eq)] = line.substr(eq + 1);
+    }
+}
+
+/// Appends the RP's names to the server's current language, once: that language's own file (if we
+/// ship one) over en_US, so untranslated keys still get the English name.
 void appendNamesToServerLanguage(fs::path const& rpDir) {
     auto current = getI18n().getCurrentLanguage();
     auto code    = current->getFullLanguageCode();
-    // The API hands out the shared localization as const; appending to it at install (server
-    // thread, before any player joins) is what the game does itself when it loads pack languages.
-    auto& loc   = const_cast<Localization&>(*current);
-    int   files = 0;
-    std::vector<std::string> locales{"en_US"};
-    if (code != "en_US") locales.push_back(code);
-    for (auto const& locale : locales) {
-        auto text = readText(rpDir / "texts" / (locale + ".lang"));
-        if (!text) continue;
-        loc.appendTranslations(*text, {}, {}, "");
-        ++files;
+    std::map<std::string, std::string> names;
+    int                                files = 0;
+    for (auto const& locale : {std::string("en_US"), code}) {
+        if (files && locale == "en_US") continue; // code is en_US itself
+        if (auto text = readText(rpDir / "texts" / (locale + ".lang"))) {
+            readLang(*text, names);
+            ++files;
+        }
     }
-    log().info("added the resource pack names to the server language {} ({} files)", code, files);
+    if (names.empty()) return;
+    std::string merged;
+    for (auto const& [key, value] : names) merged += key + "=" + value + "\n";
+    // The API hands out the shared localization as const. BDS enables mods right after "Server
+    // started", before any player can have joined, on the server thread: the same moment the game
+    // appends pack languages itself. Appending again (a reload) writes the same values.
+    const_cast<Localization&>(*current).appendTranslations(merged, {}, {}, "");
+    log().info("added {} resource pack names to the server language {} ({} files)", names.size(), code, files);
 }
 } // namespace
 #endif
@@ -166,6 +185,8 @@ LV_REGISTER_SELFTEST("pack.server_names", [](lv::selftest::Context& ctx) {
         auto stack = items::make(id);
         ctx.require(stack.has_value(), std::string("make ") + id);
         auto got = stack->getName();
-        ctx.check(got == name, std::string(id) + " is named '" + got + "', expected '" + name + "'");
+        // the English name, or a translation (a server / game in another language), never the key
+        bool raw = got.empty() || got.starts_with("item.") || got.starts_with("tile.") || got.ends_with(".name");
+        ctx.check(got == name || !raw, std::string(id) + " is named '" + got + "', expected '" + name + "' (or its translation)");
     }
 });
