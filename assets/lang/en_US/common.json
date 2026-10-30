@@ -91,6 +91,7 @@
   "lv.common.form.none": "(none)",
   "lv.common.valuebox.current": "Current: {}",
   "lv.common.valuebox.row": "Mode",
+  "create.gui.value_settings.hold_to_edit": "Click and hold to edit",
   "lv.common.valuebox.value": "Value",
   "create.generic.unit.ticks": "Ticks",
   "create.generic.unit.seconds": "Seconds",

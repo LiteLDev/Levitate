@@ -94,6 +94,18 @@ Registrations live in .cpp files linked directly into the DLL, so they are never
   `Match::block` = entity type id), `nextTick(fn)` (defer a world edit), `mutableItem(ctx.item)` (the
   hand slot). Handlers may edit the world directly (no rollback). Bedrock repeats use-on while the
   button is held and SimulatedPlayers never send a first event: debounce per player in the unit.
+- **Click and hold** (`feature/common/ValueBox.h`, U42): Create's "hold right-click" (value boards,
+  filter amounts, gauges) is one shared message pair. Value boxes do it by themselves (hold opens the
+  board, a short click runs `BoxSpec::onShortClick`); filter slots run `SlotSpec::onHold` when set.
+  Any other target calls `valuebox::awaitHold(player, pos, onShort, onHold)` from its use-on handler
+  and returns `Consume`: it is false for vanilla players (keep your click fallback); for companions
+  the client mod answers `valuebox.release {token, state: hold|short|cancel}` (held > 3 ticks, released,
+  looked away), and the action runs with the player looked up again. Consume the button's repeats
+  while `valuebox::holdPending(player, pos)`. Never add a second hold channel.
+- **Outlines** (`client/render/Outline.h`, U42): client units draw Create's Outliner boxes in their
+  `$renderBlockEntities` hook with `render::Lines lines(ctx); lines.outline(lo, hi, render::kWhite);`
+  (`line`, `box`, `plate(face, centre, size, ...)` for a frame on a block face; absolute world
+  coordinates, drawn when `lines` leaves scope). Don't copy the tessellator boilerplate again.
 - **Client sync** (`feature/net/Net.h`): server → client-mod data goes over the companion protocol
   only (`net::send`, `net::onCompanionJoined` for the full state, `net::client::on`), never over
   private `ScriptMessagePacket`s. A channel has one client handler: other units read kinetic speeds

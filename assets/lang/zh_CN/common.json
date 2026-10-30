@@ -91,6 +91,7 @@
   "lv.common.form.none": "（无）",
   "lv.common.valuebox.current": "当前：{}",
   "lv.common.valuebox.row": "模式",
+  "create.gui.value_settings.hold_to_edit": "按住右键以编辑",
   "lv.common.valuebox.value": "数值",
   "create.generic.unit.ticks": "Ticks",
   "create.generic.unit.seconds": "秒",
