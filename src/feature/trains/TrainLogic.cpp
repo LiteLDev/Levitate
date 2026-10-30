@@ -197,19 +197,19 @@ Train* trainOfContraption(std::uint64_t contraptionId) {
 
 // ---- carriages ----------------------------------------------------------------------------------
 
-void placeCarriages(Train& t) {
-    t.spansDirty = true;
+std::vector<std::pair<std::uint64_t, cc::Transform>> carriageTransforms(Train const& t, ct::Body const& body) {
+    std::vector<std::pair<std::uint64_t, cc::Transform>> out;
     auto& r   = rail();
-    auto  pts = t.body.points(r);
-    if (pts.size() != t.body.offsets.size()) return;
+    auto  pts = body.points(r);
+    if (pts.size() != body.offsets.size()) return out;
     auto posAt = [&](double offset) -> std::optional<Vec3d> {
-        for (size_t i = 0; i < t.body.offsets.size(); ++i)
-            if (std::abs(t.body.offsets[i] - offset) < 1e-6) return ct::positionOf(r, pts[i]);
-        auto p = t.body.pointAt(r, offset);
+        for (size_t i = 0; i < body.offsets.size(); ++i)
+            if (std::abs(body.offsets[i] - offset) < 1e-6) return ct::positionOf(r, pts[i]);
+        auto p = body.pointAt(r, offset);
         return p ? ct::positionOf(r, *p) : std::nullopt;
     };
     double baseYaw = ct::yawOf({double(t.ax), 0, double(t.az)});
-    for (auto& c : t.carriages) {
+    for (auto const& c : t.carriages) {
         auto* con = contraption::find(c.contraption);
         if (!con || c.bogeyOffsets.empty()) continue;
         double o1 = c.bogeyOffsets.front();
@@ -238,9 +238,17 @@ void placeCarriages(Train& t) {
 
         cc::Vec3d target{p1->x, p1->y + t.lift, p1->z};
         tr.offset = target - tr.origin - tr.pivot;
-        con->setTransform(tr);
+        out.emplace_back(c.contraption, tr);
     }
+    return out;
 }
+
+void placeCarriages(Train& t) {
+    t.spansDirty = true;
+    for (auto const& [id, tr] : carriageTransforms(t, t.body))
+        if (auto* con = contraption::find(id)) con->setTransform(tr);
+}
+
 
 // ---- status -------------------------------------------------------------------------------------
 
@@ -811,25 +819,33 @@ void transferMail(Train& t, Station const& st) {
     }
 }
 
-/// Tries to put a train whose track changed back on the graph (Create's reattachToTracks).
-bool reattach(Train& t) {
-    auto loc = rail().nearestEdge(t.dim, t.lastFront, 0.6);
-    if (!loc) return false;
+} // namespace
+
+std::optional<ct::Body> bodyAt(Train const& t, Vec3d const& point, Vec3d const& dir, double maxDistance) {
+    auto loc = rail().nearestEdge(t.dim, point, maxDistance);
+    if (!loc) return std::nullopt;
     auto p = ct::fromGraph(rail(), *loc);
     auto a = p.from.location(), b = p.to.location();
-    if ((b - a).dot(t.lastDir) < 0) p = ct::reverse(rail(), p);
+    if ((b - a).dot(dir) < 0) p = ct::reverse(rail(), p);
     ct::Body body = t.body;
     body.front    = p;
     body.route.clear();
     for (auto const& pt : body.points(rail()))
-        if (!ct::resolve(rail(), pt)) return false;
-    // the whole train must still be on track
-    auto back = body.pointAt(rail(), body.length());
-    if (!back) return false;
-    t.body = std::move(body);
-    return true;
+        if (!ct::resolve(rail(), pt)) return std::nullopt;
+    // the whole train must be on track
+    if (!body.pointAt(rail(), body.length())) return std::nullopt;
+    return body;
 }
 
+namespace {
+
+/// Tries to put a train whose track changed back on the graph (Create's reattachToTracks).
+bool reattach(Train& t) {
+    auto body = bodyAt(t, t.lastFront, t.lastDir, 0.6);
+    if (!body) return false;
+    t.body = std::move(*body);
+    return true;
+}
 void tickTrain(Train& t) {
     auto& r     = rail();
     auto  stats = t.stats();

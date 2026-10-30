@@ -30,6 +30,7 @@
 #include "feature/tracks/TrainsExt.h"
 #include "feature/trains/Trains.h"
 #include "game/Blocks.h"
+#include "feature/contraption/U38Test.h"
 #include "selftest/SelfTest.h"
 
 namespace {
@@ -76,8 +77,8 @@ struct Line {
 };
 
 /// Builds the line and both stations (A "U27 Station A" at x + 20, B at x + 60).
-ll::coro::CoroTask<bool> buildLine(Context& ctx, Line& l, int dx, std::string const& suffix) {
-    l.base = ctx.testPos(dx);
+ll::coro::CoroTask<bool> buildLine(Context& ctx, Line& l, int dx, std::string const& suffix, int dz = 0) {
+    l.base = ctx.testPos(dx, dz);
     if (!co_await ctx.ensureLoaded(l.base)) co_return false;
     if (!co_await ctx.ensureLoaded(at(l.base, 79))) co_return false;
     if (!co_await ctx.ensureLoaded(at(l.base, 40))) co_return false;
@@ -163,6 +164,46 @@ ct::Schedule twoStops(std::string const& suffix, int waitTicks) {
     return sch;
 }
 
+// U38 (R146 / R106 / R5): relocating a train with the wrench puts it on another stretch of track;
+// the station it stands at gives its doors' control; removing it places nothing
+LV_REGISTER_SELFTEST("trains.relocate", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Line l;
+    ctx.require(co_await buildLine(ctx, l, 3830, " relocate", ::lv::feature::contraption::kU38Dz), "line and stations built");
+    auto id = assembleTrain(ctx, l, false);
+    ctx.require(id.has_value(), "train assembled");
+    co_await ctx.ticks(5);
+    auto* t = tn::findTrain(*id);
+    ctx.require(t && !t->carriages.empty(), "train with a carriage");
+    auto cid = t->carriages[0].contraption;
+    if (!t->currentStation.empty()) {
+        auto mode = tn::stationDoorModeOf(cid);
+        ctx.check(mode && *mode == tn::DoorMode::All, "the station's door control applies to the carriage");
+    }
+    auto before = cn::find(cid)->transform().toWorld({0.5, 0.5, 0.5});
+    // Create's TrainRelocator: 12 blocks further along the line, facing the same way
+    lv::core::trains::Vec3d point{l.base.x + 42.5, double(l.base.y), l.base.z + 0.5};
+    auto body = tn::bodyAt(*t, point, {1, 0, 0}, 1.0);
+    ctx.require(body.has_value(), "the train fits there");
+    tn::relocate(*t, std::move(*body));
+    co_await ctx.ticks(3);
+    t = tn::findTrain(*id);
+    ctx.require(t && cn::find(cid), "train still there");
+    auto after = cn::find(cid)->transform().toWorld({0.5, 0.5, 0.5});
+    ctx.check(std::abs(after.x - before.x) > 5 && std::abs(after.z - before.z) < 0.5, "the carriage stands at the new place: moved " + std::to_string(after.x - before.x));
+    ctx.check(!t->derailed && std::abs(t->speed) < 1e-9, "on track and stopped");
+    // off the track: it doesn't fit
+    lv::core::trains::Vec3d away{l.base.x + 42.5, double(l.base.y), l.base.z + 9.5};
+    ctx.check(!tn::bodyAt(*t, away, {1, 0, 0}, 1.0).has_value(), "no track there: refused");
+    // Create's train remove: the carriages vanish, nothing is placed
+    tn::removeTrain(*id);
+    co_await ctx.ticks(2);
+    ctx.check(!cn::find(cid), "the carriage is gone");
+    bool placed = false;
+    for (int x = 0; x < 80; ++x)
+        for (int y = 1; y <= 3; ++y) placed = placed || tn::isBogey(tn::idAt(at(l.base, x, y)));
+    ctx.check(!placed, "no bogey was placed back");
+    teardown(l);
+});
 } // namespace
 
 LV_REGISTER_SELFTEST("trains.blocks", [](Context& ctx) {
