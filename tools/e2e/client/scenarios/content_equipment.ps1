@@ -5,7 +5,7 @@
 #                       an item hatch on a chest taking the held item (the hatch opens).
 #   remote-vanilla:     the same without the client mod (bells drawn still, no vignette).
 # Screenshots: out/content_equipment/{bells,bell-swing,bell-rung,soul-pulse,cardboard-armor,cardboard-hiding,cardboard-trim,
-#              cardboard-hiding-first-person,hatch,hatch-open,hatch-closed}.png
+#              cardboard-hiding-first-person,hatch,hatch-open,hatch-closed,hatch-open-model}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 
 function Hold-Key([int]$vk, [scriptblock]$body) {
@@ -117,6 +117,10 @@ Start-Sleep -Milliseconds 150
 Save-Screenshot 'hatch-open' | Out-Null
 Start-Sleep -Milliseconds 1200
 Save-Screenshot 'hatch-closed' | Out-Null
+# the open model (the hatch is open for 10 ticks only: shown here with the state set by command)
+Invoke-Chat '/setblock ~3 ~ ~ levitate:item_hatch ["levitate:facing"=5,"levitate:open"=1]'
+Start-Sleep -Milliseconds 1200
+Save-Screenshot 'hatch-open-model' | Out-Null
 # the apples went into the chest: nothing left to clear
 $mark = Get-LogMark
 Invoke-Chat '/clear @s apple'
