@@ -392,11 +392,55 @@ foreach ($axis in 0, 2) { foreach ($len in 0..3) {
 } }
 Block 'item_vault' ([ordered]@{ 'levitate:axis' = @(0, 1, 2); 'levitate:len' = @(0, 1, 2, 3); 'levitate:u' = @(0, 1, 2, 3); 'levitate:v' = @(0, 1, 2, 3); 'levitate:large' = @(0, 1) }) $comp $perms
 
+# --- item hatch (Create's ItemHatchBlock, U49) ----------------------------------------------------------------
+# A plate against the container (south of it for the model: levitate:facing = FacingID towards the
+# container, 2..5) with a slanted door that tips outward when something was deposited (levitate:open).
+$hatchPal = @{ L = '#c9ced4'; M = '#9aa1a9'; D = '#737a83'; K = '#4a5058'; R = '#e8ebee'; x = '#16181b'; y = '#2b2f34'; b = '#55657f'; n = '#7586a3'; q = '#3d4a60'; h = '#f0c040'; z = '#2b2b2b' }
+$c = New-Canvas; Metal $c; Bevel $c; Rivets $c 1
+Fill $c 3 3 12 12 'K'; Fill $c 4 4 11 11 'b'; Fill $c 4 4 11 4 'n'; Fill $c 4 11 11 11 'q'
+Save $c $hatchPal 'item_hatch_front'
+$c = New-Canvas; Metal $c; Bevel $c; Rivets $c 1
+Fill $c 3 3 12 12 'K'; Fill $c 4 4 11 11 'x'; Fill $c 4 4 11 5 'y'
+Save $c $hatchPal 'item_hatch_front_open'
+$c = New-Canvas; Metal $c; Bevel $c; Fill $c 6 6 9 9 'K'
+Save $c $hatchPal 'item_hatch_back'
+$c = New-Canvas; Metal $c; Bevel $c
+Save $c $hatchPal 'item_hatch_side'
+$c = New-Canvas; Fill $c 0 0 15 15 'b'; Fill $c 0 0 15 0 'n'; Fill $c 0 15 15 15 'q'; Fill $c 0 0 0 15 'n'; Fill $c 15 0 15 15 'q'
+for ($x = 1; $x -lt 15; $x++) { if ((($x + 1) % 4) -lt 2) { Set-Px $c $x 1 'h' } else { Set-Px $c $x 1 'z' } }
+Fill $c 6 7 9 8 'K'; Fill $c 6 7 9 7 'L'
+Save $c $hatchPal 'item_hatch_door'
+$plateMats = [ordered]@{ north = 'front'; south = 'back'; east = 'side'; west = 'side'; up = 'side'; down = 'side' }
+# the door leans outward (towards -z) by 45 degrees around its bottom edge (Create's closed model), or
+# hangs open almost flat (open)
+function Hatch-Bones($doorDeg) {
+    @(
+        (Bone 'plate' @((Cube @(-7, 0, 6) @(14, 16, 2) $plateMats))),
+        (Bone 'door' @((Cube @(-6, 2, 5) @(12, 11, 1) 'door')) @($doorDeg, 0, 0) @(0, 2, 6))
+    )
+}
+Save-Geo 'item_hatch' (Hatch-Bones 45)
+Save-Geo 'item_hatch_open' (Hatch-Bones 100)
+$comp = Base 'item_hatch' 3.0 6 '#4c3e5c'
+$comp['minecraft:geometry'] = 'geometry.levitate.item_hatch'
+$hatchMats = [ordered]@{ '*' = Mat 'levitate_item_hatch_side'; front = Mat 'levitate_item_hatch_front'; back = Mat 'levitate_item_hatch_back'; side = Mat 'levitate_item_hatch_side'; door = Mat 'levitate_item_hatch_door' }
+$comp['minecraft:material_instances'] = $hatchMats
+$comp['minecraft:selection_box'] = Box @(-7, 0, 0) @(14, 16, 8)
+$comp['minecraft:collision_box'] = Box @(-7, 0, 0) @(14, 16, 8)
+$comp['minecraft:liquid_detection'] = [ordered]@{ detection_rules = @([ordered]@{ liquid_type = 'water'; can_contain_liquid = $true; on_liquid_touches = 'no_reaction' }) }
+$hatchRot = @{ 2 = 180; 3 = 0; 4 = -90; 5 = 90 }
+$perms = @()
+foreach ($f in 2..5) { $perms += [ordered]@{ condition = "q.block_state('levitate:facing') == $f"; components = [ordered]@{ 'minecraft:transformation' = [ordered]@{ rotation = @(0, $hatchRot[$f], 0) } } } }
+$openMats = [ordered]@{ '*' = Mat 'levitate_item_hatch_side'; front = Mat 'levitate_item_hatch_front_open'; back = Mat 'levitate_item_hatch_back'; side = Mat 'levitate_item_hatch_side'; door = Mat 'levitate_item_hatch_door' }
+$perms += [ordered]@{ condition = "q.block_state('levitate:open') == 1"; components = [ordered]@{ 'minecraft:geometry' = 'geometry.levitate.item_hatch_open'; 'minecraft:material_instances' = $openMats } }
+Block 'item_hatch' ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:open' = @(0, 1) }) $comp $perms
+
 # --- RP fragments ---------------------------------------------------------------------------------------------
 Save-Json (Join-Path $root 'assets/pack/rp/terrain_texture.d/funnels.json') $terrain
 $sounds = [ordered]@{}
 foreach ($id in 'andesite_funnel', 'brass_funnel', 'andesite_tunnel', 'brass_tunnel', 'chute', 'smart_chute', 'item_vault', 'creative_crate') {
     $sounds["levitate:$id"] = [ordered]@{ sound = $(if ($id -like '*vault*' -or $id -like '*chute*') { 'metal' } elseif ($id -eq 'creative_crate') { 'wood' } else { 'metal' }) }
 }
+$sounds['levitate:item_hatch'] = [ordered]@{ sound = 'netherite' }
 Save-Json (Join-Path $root 'assets/pack/rp/blocks.d/funnels.json') $sounds
 Write-Host "funnels textures, models and blocks written ($($terrain.Count) textures)"

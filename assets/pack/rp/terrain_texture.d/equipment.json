@@ -55,5 +55,11 @@
   },
   "levitate_lectern_controller": {
     "textures": "textures/blocks/lectern_controller"
+  },
+  "levitate_peculiar_bell": {
+    "textures": "textures/blocks/peculiar_bell"
+  },
+  "levitate_haunted_bell": {
+    "textures": "textures/blocks/haunted_bell"
   }
 }

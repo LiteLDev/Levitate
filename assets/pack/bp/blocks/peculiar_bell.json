@@ -1,0 +1,271 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:peculiar_bell",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:attachment": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "levitate:powered": [
+          0,
+          1
+        ],
+        "levitate:part": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.levitate.bell_floor",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_peculiar_bell",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -5
+        ],
+        "size": [
+          16,
+          14,
+          10
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -5
+        ],
+        "size": [
+          16,
+          14,
+          10
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 3.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#faee4d",
+      "minecraft:loot": "loot_tables/blocks/peculiar_bell.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:attachment') == 0",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.bell_floor",
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -5
+            ],
+            "size": [
+              16,
+              14,
+              10
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -5
+            ],
+            "size": [
+              16,
+              14,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:attachment') == 0 && q.block_state('levitate:part') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.bell_floor_frame"
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:attachment') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.bell_ceiling",
+          "minecraft:collision_box": {
+            "origin": [
+              -6,
+              1,
+              -5
+            ],
+            "size": [
+              12,
+              15,
+              10
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -6,
+              1,
+              -5
+            ],
+            "size": [
+              12,
+              15,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:attachment') == 1 && q.block_state('levitate:part') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.bell_ceiling_frame"
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:attachment') == 2",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.bell_single_wall",
+          "minecraft:collision_box": {
+            "origin": [
+              -5,
+              1,
+              -5
+            ],
+            "size": [
+              10,
+              15,
+              13
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -5,
+              1,
+              -5
+            ],
+            "size": [
+              10,
+              15,
+              13
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:attachment') == 2 && q.block_state('levitate:part') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.bell_single_wall_frame"
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:attachment') == 3",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.bell_double_wall",
+          "minecraft:collision_box": {
+            "origin": [
+              -5,
+              1,
+              -8
+            ],
+            "size": [
+              10,
+              15,
+              16
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -5,
+              1,
+              -8
+            ],
+            "size": [
+              10,
+              15,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:attachment') == 3 && q.block_state('levitate:part') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.bell_double_wall_frame"
+        }
+      }
+    ]
+  }
+}

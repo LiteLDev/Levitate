@@ -181,4 +181,95 @@ Paint-Cube $c 0 38 16 2 12 'u' 't'
 Paint-Cube $c 32 18 8 2 5 'k' 'n'; Set-Px $c 38 19 'r'; Set-Px $c 41 19 'r'; Set-Px $c 44 19 'b'
 Save $c (Merge-Pal (Merge-Pal $wood $metal) @{ p = '#9c7848'; r = '#c23a2c' }) "$blocks/lectern_controller.png"
 
+# --- peculiar / haunted bell (64x64, box UV of geometry.levitate.bell_*, tools/models/curiosities.ps1) ------------
+$frameMetal = @{ f = '#4a4a52'; e = '#66666f'; q = '#2a2a30' }
+foreach ($set in @(@{ name = 'peculiar_bell'; pal = @{ b = '#d9a548'; h = '#f4d982'; g = '#a8742c'; o = '#6a4718' } },
+        @{ name = 'haunted_bell'; pal = @{ b = '#d8cfae'; h = '#f6f0d8'; g = '#9f9576'; o = '#3f4a52' } })) {
+    $c = New-Canvas 64 64
+    Paint-Cube $c 0 0 10 2 10 'g' 'o'; Side-Band $c 0 0 10 2 10 0 'h'          # lip
+    Paint-Cube $c 0 12 8 7 8 'b' 'g'; Side-Band $c 0 12 8 7 8 1 'h'; Side-Band $c 0 12 8 7 8 5 'g'  # body
+    Paint-Cube $c 32 12 6 2 6 'h' 'g'                                          # shoulder
+    Paint-Cube $c 56 12 2 1 2 'g' 'o'                                          # crown
+    Paint-Cube $c 0 28 2 14 4 'f' 'q'; Side-Band $c 0 28 2 14 4 0 'e'           # posts
+    Paint-Cube $c 12 28 12 2 2 'e' 'q'                                         # beam / yoke
+    Paint-Cube $c 40 28 2 1 2 'f' 'q'                                          # ceiling hangers
+    Paint-Cube $c 40 36 6 5 1 'f' 'q'                                          # wall plates
+    Paint-Cube $c 0 46 2 2 10 'e' 'q'                                          # wall arm
+    Paint-Cube $c 24 46 2 2 16 'e' 'q'                                         # double wall bar
+    if ($set.name -eq 'haunted_bell') {
+        # soul-blue cracks running down the body
+        foreach ($p in @(@(10, 21), @(11, 22), @(11, 23), @(19, 21), @(18, 22), @(26, 22), @(27, 23), @(3, 22), @(2, 23))) { Set-Px $c $p[0] $p[1] 's' }
+    }
+    Save $c (Merge-Pal (Merge-Pal $frameMetal $set.pal) @{ s = '#5fd8e0' }) "$blocks/$($set.name).png"
+}
+
+# --- cardboard armour and sword ------------------------------------------------------------------------------------
+$card = @{ c = '#b8946a'; l = '#d2b289'; d = '#8c6a44'; o = '#5c4228'; t = '#e0cc9c'; r = '#a8402f' }
+# icons
+$c = New-Canvas
+Fill $c 3 3 12 9 'o'; Fill $c 4 4 11 8 'c'; Fill $c 4 4 11 4 'l'; Fill $c 3 9 5 12 'o'; Fill $c 10 9 12 12 'o'
+Fill $c 4 9 4 11 'd'; Fill $c 11 9 11 11 'd'; Fill $c 7 4 8 8 't'
+Save $c $card "$items/cardboard_helmet.png"
+$c = New-Canvas
+Fill $c 2 2 13 13 'o'; Fill $c 5 2 10 4 '.'; Fill $c 3 3 4 12 'c'; Fill $c 11 3 12 12 'c'; Fill $c 5 5 10 12 'c'
+Fill $c 3 3 4 3 'l'; Fill $c 11 3 12 3 'l'; Fill $c 5 5 10 5 'l'; Fill $c 7 5 8 12 't'; Fill $c 5 12 10 12 'd'
+Set-Px $c 9 8 'r'; Set-Px $c 10 9 'r'
+Save $c $card "$items/cardboard_chestplate.png"
+$c = New-Canvas
+Fill $c 3 2 12 13 'o'; Fill $c 7 6 8 13 '.'; Fill $c 4 3 11 5 'c'; Fill $c 4 6 6 12 'c'; Fill $c 9 6 11 12 'c'
+Fill $c 4 3 11 3 'l'; Fill $c 4 5 11 5 't'; Fill $c 4 12 6 12 'd'; Fill $c 9 12 11 12 'd'
+Save $c $card "$items/cardboard_leggings.png"
+$c = New-Canvas
+Fill $c 2 6 6 13 'o'; Fill $c 9 6 13 13 'o'; Fill $c 3 7 5 12 'c'; Fill $c 10 7 12 12 'c'
+Fill $c 1 11 6 13 'o'; Fill $c 9 11 14 13 'o'; Fill $c 2 12 5 12 'd'; Fill $c 10 12 13 12 'd'; Fill $c 3 7 5 7 't'; Fill $c 10 7 12 7 't'
+Save $c $card "$items/cardboard_boots.png"
+$c = New-Canvas
+foreach ($i in 0..8) { Set-Px $c (5 + $i) (10 - $i) 'o'; Set-Px $c (6 + $i) (10 - $i) 'c'; Set-Px $c (6 + $i) (11 - $i) 'd'; Set-Px $c (7 + $i) (10 - $i) 'o' }
+foreach ($i in 0..7) { Set-Px $c (6 + $i) (9 - $i) 'l' }
+Fill $c 3 9 6 12 'o'; Set-Px $c 4 10 't'; Set-Px $c 5 11 't'; Set-Px $c 4 11 'd'
+foreach ($i in 0..2) { Set-Px $c (1 + $i) (14 - $i) 's'; Set-Px $c (2 + $i) (14 - $i) 'u' }
+Save $c (Merge-Pal $card @{ s = $wood.s; u = $wood.u }) "$items/cardboard_sword.png"
+# worn layers (64x32 armour layout): layer 1 = helmet, chestplate, boots; layer 2 = leggings
+$c = New-Canvas 64 32
+Fill $c 0 0 31 15 'c'; Fill $c 8 0 23 7 'l'; Fill $c 0 8 31 8 't'; Fill $c 0 15 31 15 'd'          # head box with a tape line
+Fill $c 8 9 15 9 'o'; Set-Px $c 10 11 'r'; Set-Px $c 11 12 'r'                                      # front flap seam, a 'fragile' mark
+Fill $c 16 16 39 31 'c'; Fill $c 16 16 39 19 'l'; Fill $c 26 20 29 31 't'; Fill $c 16 31 39 31 'd'  # body
+Fill $c 40 16 55 31 'c'; Fill $c 40 16 55 19 'l'; Fill $c 40 28 55 31 'd'                          # arms
+Fill $c 0 16 15 31 'c'; Fill $c 0 26 15 31 'd'; Fill $c 0 24 15 24 't'                             # boots on the legs
+Save $c $card "$armor/cardboard_1.png"
+$c = New-Canvas 64 32
+Fill $c 16 16 39 31 'c'; Fill $c 16 16 39 18 't'; Fill $c 16 26 39 31 'd'                          # waist
+Fill $c 0 16 15 31 'c'; Fill $c 0 16 15 17 'l'; Fill $c 0 30 15 31 'd'; Fill $c 4 20 4 29 'o'     # legs
+Save $c $card "$armor/cardboard_2.png"
+
+# --- soul pulse particles (Create's SoulParticle / SoulBaseParticle; particles/soul*.json) -----------------------
+$particles = Join-Path $root 'assets/pack/rp/textures/particle'
+$soulPal = @{ a = '#2a6e8a'; b = '#3fb6d0'; w = '#a6f4ff'; v = '#f2feff' }
+# levitate_soul: 24 frames of 16x16 in a column (8 forming, 8 flickering, 8 rising away)
+$c = New-Canvas 16 384
+for ($f = 0; $f -lt 24; $f++) {
+    if ($f -lt 8) { $h = 2 + $f; $lift = 0 } elseif ($f -lt 16) { $h = 10 + ($f % 2); $lift = 0 } else { $h = 10 - ($f - 16); $lift = $f - 16 }
+    $base = 16 * $f + 15 - $lift
+    for ($i = 0; $i -lt $h; $i++) {
+        $half = [Math]::Max(0, [int][Math]::Round(3.2 * [Math]::Sin([Math]::PI * ($i + 1) / ($h + 1.5))))
+        $sway = if ($f -ge 8 -and $f -lt 16 -and $i -gt $h / 2) { (($f + $i) % 3) - 1 } else { 0 }
+        for ($x = 8 - $half + $sway; $x -le 7 + $half + $sway; $x++) {
+            $k = if ($x -eq 8 - $half + $sway -or $x -eq 7 + $half + $sway) { 'a' } elseif ($i -lt $h / 3) { 'w' } else { 'b' }
+            Set-Px $c $x ($base - $i) $k
+        }
+    }
+    if ($h -gt 3) { Set-Px $c 7 ($base - 1) 'v'; Set-Px $c 8 ($base - 1) 'v' }
+}
+Save $c $soulPal "$particles/levitate_soul.png"
+# levitate_soul_base: 8 frames of a flat ring that pulses
+$c = New-Canvas 16 128
+for ($f = 0; $f -lt 8; $f++) {
+    $r = 4.5 + 1.5 * [Math]::Sin([Math]::PI * $f / 4)
+    for ($y = 0; $y -lt 16; $y++) { for ($x = 0; $x -lt 16; $x++) {
+            $d = [Math]::Sqrt(($x - 7.5) * ($x - 7.5) + ($y - 7.5) * ($y - 7.5))
+            if ([Math]::Abs($d - $r) -lt 0.7) { Set-Px $c $x ($y + 16 * $f) 'b' } elseif ([Math]::Abs($d - $r) -lt 1.4) { Set-Px $c $x ($y + 16 * $f) 'a' }
+        } }
+}
+Save $c $soulPal "$particles/levitate_soul_base.png"
+
 Write-Host 'equipment textures written'

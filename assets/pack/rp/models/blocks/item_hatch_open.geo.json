@@ -1,0 +1,206 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.item_hatch_open",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "plate",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -7,
+                0,
+                6
+              ],
+              "size": [
+                14,
+                16,
+                2
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    1.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    14,
+                    16
+                  ],
+                  "material_instance": "front"
+                },
+                "south": {
+                  "uv": [
+                    1.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    14,
+                    16
+                  ],
+                  "material_instance": "back"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "side"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    0.0
+                  ],
+                  "uv_size": [
+                    2,
+                    16
+                  ],
+                  "material_instance": "side"
+                },
+                "up": {
+                  "uv": [
+                    1.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    14,
+                    2
+                  ],
+                  "material_instance": "side"
+                },
+                "down": {
+                  "uv": [
+                    1.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    14,
+                    2
+                  ],
+                  "material_instance": "side"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "door",
+          "pivot": [
+            0,
+            2,
+            6
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                2,
+                5
+              ],
+              "size": [
+                12,
+                11,
+                1
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    2.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    12,
+                    11
+                  ],
+                  "material_instance": "door"
+                },
+                "south": {
+                  "uv": [
+                    2.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    12,
+                    11
+                  ],
+                  "material_instance": "door"
+                },
+                "east": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "door"
+                },
+                "west": {
+                  "uv": [
+                    7.0,
+                    2.0
+                  ],
+                  "uv_size": [
+                    1,
+                    11
+                  ],
+                  "material_instance": "door"
+                },
+                "up": {
+                  "uv": [
+                    2.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    12,
+                    1
+                  ],
+                  "material_instance": "door"
+                },
+                "down": {
+                  "uv": [
+                    2.0,
+                    7.0
+                  ],
+                  "uv_size": [
+                    12,
+                    1
+                  ],
+                  "material_instance": "door"
+                }
+              }
+            }
+          ],
+          "rotation": [
+            100,
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}

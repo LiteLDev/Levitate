@@ -1,4 +1,20 @@
 {
+  "levitate.haunted_bell.use": {
+    "category": "block",
+    "min_distance": 4.0,
+    "max_distance": 64.0,
+    "sounds": [{ "name": "sounds/levitate/haunted_bell_use", "volume": 1.0 }]
+  },
+  "levitate.haunted_bell.convert": {
+    "category": "block",
+    "max_distance": 16.0,
+    "sounds": [{ "name": "sounds/levitate/haunted_bell_convert", "volume": 1.0 }]
+  },
+  "levitate.cardboard_sword.bonk": {
+    "category": "player",
+    "max_distance": 16.0,
+    "sounds": [{ "name": "sounds/levitate/cardboard_bonk", "volume": 1.0 }]
+  },
   "levitate.potato_cannon.fwoomp": {
     "category": "player",
     "min_distance": 2.0,

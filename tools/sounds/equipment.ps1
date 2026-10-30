@@ -65,4 +65,77 @@ for ($i = 0; $i -lt $n; $i++) {
     $fw[$i] = (6.0 * $y * $airEnv + 0.8 * $body * $bodyEnv + 0.6 * $thump) * [Math]::Max(0, $fade)
 }
 Save-Wav (Join-Path $Out 'potato_cannon_fwoomp.wav') $fw
+
+# haunted_bell_use (Create's "Haunted Bell tolls"): a low bell with inharmonic partials (hum, a minor
+# third, fifth, octave and a sharp upper partial) drifting slightly flat, a slow tremolo and a breathy
+# whisper swelling under it, 2.6 s.
+$n = [int]($rate * 2.6)
+$hb = New-Object double[] $n
+$partials = @(@(0.5, 0.55, 2.2), @(1.0, 1.0, 1.6), @(1.19, 0.45, 1.2), @(1.5, 0.35, 1.0), @(2.0, 0.3, 0.7), @(2.74, 0.22, 0.45), @(3.76, 0.12, 0.3))
+$phases = New-Object double[] $partials.Count
+$y1 = 0.0; $y2 = 0.0
+for ($i = 0; $i -lt $n; $i++) {
+    $t = $i / $rate
+    $f0 = 196 * (1 - 0.012 * [Math]::Min(1, $t / 2.0))
+    $s = 0.0
+    for ($p = 0; $p -lt $partials.Count; $p++) {
+        $phases[$p] += 2 * [Math]::PI * $f0 * $partials[$p][0] / $rate
+        $s += $partials[$p][1] * [Math]::Sin($phases[$p]) * [Math]::Exp(-$t / $partials[$p][2])
+    }
+    $strike = [Math]::Min(1, $t / 0.004)
+    $trem = 1 + 0.18 * [Math]::Sin(2 * [Math]::PI * 4.5 * $t)
+    # whisper: noise through a resonant band around 700 Hz, swelling after the strike
+    $theta = 2 * [Math]::PI * 700 / $rate; $r = 0.97
+    $y = (1 - $r) * (Noise) + 2 * $r * [Math]::Cos($theta) * $y1 - $r * $r * $y2
+    $y2 = $y1; $y1 = $y
+    $whisper = 2.5 * $y * [Math]::Sin([Math]::PI * [Math]::Min(1, $t / 2.6)) * 0.6
+    $fade = [Math]::Min(1, (2.6 - $t) / 0.3)
+    $hb[$i] = ($s * $strike * $trem + $whisper) * [Math]::Max(0, $fade)
+}
+Save-Wav (Join-Path $Out 'haunted_bell_use.wav') $hb
+
+# haunted_bell_convert (Create's "Haunted Bell awakens"): a rush of air rising through a band-pass
+# (200 -> 1600 Hz) into a cold, high chime, 1.5 s.
+$n = [int]($rate * 1.5)
+$hc = New-Object double[] $n
+$y1 = 0.0; $y2 = 0.0; $phase = 0.0; $phase2 = 0.0
+for ($i = 0; $i -lt $n; $i++) {
+    $t = $i / $rate
+    $u = [Math]::Min(1, $t / 1.0)
+    $fc = 200 + 1400 * $u * $u
+    $theta = 2 * [Math]::PI * $fc / $rate; $r = 0.985
+    $y = (1 - $r) * (Noise) + 2 * $r * [Math]::Cos($theta) * $y1 - $r * $r * $y2
+    $y2 = $y1; $y1 = $y
+    $rush = 5.0 * $y * [Math]::Sin([Math]::PI * [Math]::Min(1, $t / 1.15))
+    $chimeT = $t - 0.9
+    $chime = 0.0
+    if ($chimeT -gt 0) {
+        $phase += 2 * [Math]::PI * 880 / $rate; $phase2 += 2 * [Math]::PI * 1318 / $rate
+        $chime = (0.6 * [Math]::Sin($phase) + 0.35 * [Math]::Sin($phase2)) * [Math]::Exp(-$chimeT / 0.25) * [Math]::Min(1, $chimeT / 0.005)
+    }
+    $fade = [Math]::Min(1, (1.5 - $t) / 0.15)
+    $hc[$i] = ($rush + $chime) * [Math]::Max(0, $fade)
+}
+Save-Wav (Join-Path $Out 'haunted_bell_convert.wav') $hc
+
+# cardboard_bonk (Create's "Resonant bonk"): a hollow cardboard tube hit: a low thump falling 180 -> 100 Hz,
+# a short papery noise burst and a resonant ring of the tube, 0.3 s.
+$n = [int]($rate * 0.3)
+$cb = New-Object double[] $n
+$phase = 0.0; $phase2 = 0.0; $y1 = 0.0; $y2 = 0.0
+for ($i = 0; $i -lt $n; $i++) {
+    $t = $i / $rate
+    $f = 100 + 80 * [Math]::Exp(-$t / 0.03)
+    $phase += 2 * [Math]::PI * $f / $rate
+    $thump = [Math]::Sin($phase) * [Math]::Exp(-$t / 0.06) * [Math]::Min(1, $t / 0.002)
+    $theta = 2 * [Math]::PI * 1200 / $rate; $r = 0.9
+    $y = (1 - $r) * (Noise) + 2 * $r * [Math]::Cos($theta) * $y1 - $r * $r * $y2
+    $y2 = $y1; $y1 = $y
+    $paper = 4.0 * $y * [Math]::Exp(-$t / 0.015)
+    $phase2 += 2 * [Math]::PI * 430 / $rate
+    $ring = 0.35 * [Math]::Sin($phase2) * [Math]::Exp(-$t / 0.09)
+    $fade = [Math]::Min(1, (0.3 - $t) / 0.05)
+    $cb[$i] = ($thump + $paper + $ring) * [Math]::Max(0, $fade)
+}
+Save-Wav (Join-Path $Out 'cardboard_bonk.wav') $cb
 Write-Host "equipment sounds written to $Out"
