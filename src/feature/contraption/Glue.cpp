@@ -1,5 +1,7 @@
 // Super glue: glue regions per dimension (world DB), the two-click selection of the super glue
-// item, removal by hitting, and the particle outlines shown to players holding glue.
+// item, removal by hitting, and the outlines shown to players holding glue: the client mod draws
+// them from the regions and the pending selection sent on channel `contraption.glue` (Create's
+// SuperGlueSelectionHandler); players without it see particles along the edges.
 
 #include <algorithm>
 #include <map>
@@ -10,6 +12,7 @@
 #include "mc/world/level/BlockSource.h"
 
 #include "feature/contraption/Internal.h"
+#include "feature/net/Net.h"
 #include "game/WorldDb.h"
 #include "mod/Config.h"
 #include "mod/I18n.h"
@@ -74,6 +77,52 @@ GlueLifecycle const gGlueLifecycle;
 
 std::string keyOf(Player const& p) { return p.getRealName(); }
 
+/// The glue state last sent to each companion (by player name), so it is only sent on changes.
+std::unordered_map<std::string, std::string>& sentGlue() {
+    static std::unordered_map<std::string, std::string> s;
+    return s;
+}
+
+/// Radius around the player within which regions are sent to the client mod (blocks).
+constexpr double kSyncRadius = 48;
+
+/// Sends the regions near a companion and its pending selection when they changed (channel
+/// `contraption.glue`: {d: dim, r: [[x0,y0,z0,x1,y1,z1], ...], s: [x,y,z] | null, m: max range}).
+void syncGlue(Player& player) {
+    if (!net::isCompanion(player)) return;
+    int            dim = static_cast<int>(player.getDimensionId());
+    auto           me  = player.getPosition();
+    nlohmann::json r   = nlohmann::json::array();
+    for (auto const& b : glueRegions(dim)) {
+        cc::Vec3d c = (cc::Vec3d::of(b.min) + cc::Vec3d::of(b.max) + cc::Vec3d{1, 1, 1}) * 0.5;
+        if ((c - cc::Vec3d{me.x, me.y, me.z}).lengthSqr() > kSyncRadius * kSyncRadius) continue;
+        r.push_back({b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z});
+    }
+    nlohmann::json sel = nullptr;
+    if (auto it = selections().find(keyOf(player)); it != selections().end() && it->second.dim == dim) {
+        sel = {it->second.first.x, it->second.first.y, it->second.first.z};
+    }
+    nlohmann::json msg{
+        {"d", dim                                       },
+        {"r", std::move(r)                              },
+        {"s", std::move(sel)                            },
+        {"m", config::get<Config>().maxSuperGlueRange}
+    };
+    auto text = msg.dump();
+    auto& last = sentGlue()[keyOf(player)];
+    if (last == text) return;
+    last = text;
+    net::send(player, "contraption.glue", msg);
+}
+
+struct GlueSync {
+    GlueSync() {
+        net::onCompanionJoined([](Player& p) { sentGlue().erase(keyOf(p)); });
+        game::db::onWorldClosed([] { sentGlue().clear(); });
+    }
+};
+GlueSync const gGlueSync;
+
 } // namespace
 
 std::vector<cc::GlueBox> glueRegions(int dim) {
@@ -129,6 +178,7 @@ void glueClick(Player& player, cc::Pos const& pos, bool sneaking) {
         if (it != selections().end()) {
             selections().erase(it);
             actionBar(player, trFor(player, "create.super_glue.abort", "Selection discarded"));
+            syncGlue(player);
         }
         return;
     }
@@ -136,6 +186,7 @@ void glueClick(Player& player, cc::Pos const& pos, bool sneaking) {
         selections()[key] = {dim, pos};
         actionBar(player, trFor(player, "create.super_glue.click_to_confirm", "Click again to confirm"));
         playSound(dim, cc::Vec3d::center(pos), "mob.slime.small", 0.5f, 1.2f);
+        syncGlue(player);
         return;
     }
     auto first = it->second.first;
@@ -170,6 +221,7 @@ void glueClick(Player& player, cc::Pos const& pos, bool sneaking) {
     addGlue(dim, box);
     actionBar(player, trFor(player, "create.super_glue.success", "Applying Glue..."));
     playSound(dim, cc::Vec3d::center(pos), "mob.slime.big", 0.5f, 0.9f);
+    syncGlue(player);
     log().info(
         "super glue applied by {}: {} {} {} .. {} {} {}",
         player.getRealName(),
@@ -187,12 +239,18 @@ bool glueAttack(Player& player, cc::Pos const& pos) {
     int n   = removeGlueAt(dim, pos);
     if (!n) return false;
     playSound(dim, cc::Vec3d::center(pos), "mob.slime.small", 0.5f, 0.6f);
+    syncGlue(player);
     log().info("super glue removed by {}: {} region(s) at {} {} {}", player.getRealName(), n, pos.x, pos.y, pos.z);
     return true;
 }
 
-/// Particle outlines of the regions near a player holding super glue (and of a pending selection).
+/// Outlines of the regions near a player holding super glue (and of a pending selection): the
+/// client mod draws them from the synced state, other players get particles along the edges.
 void glueOutlines(Player& player) {
+    if (net::isCompanion(player)) {
+        syncGlue(player);
+        return;
+    }
     int  dim = static_cast<int>(player.getDimensionId());
     auto me  = player.getPosition();
     auto draw = [&](cc::GlueBox const& b, std::string const& effect) {
