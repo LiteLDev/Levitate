@@ -23,7 +23,10 @@
 #include "mc/deps/nbt/IntTag.h"
 #include "mc/deps/nbt/ListTag.h"
 #include "mc/entity/components/ActorOwnerComponent.h"
+#include "mc/deps/vanilla_components/ActorDataDirtyFlagsComponent.h"
+#include "mc/deps/vanilla_components/ActorDataFlagComponent.h"
 #include "mc/entity/systems/FallingBlockNormalTickSystem.h"
+#include "mc/world/actor/ActorFlags.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorDataIDs.h"
 #include "mc/world/actor/ActorDefinitionIdentifier.h"
@@ -563,8 +566,20 @@ public:
         auto* actor = Actor::tryGetFromEntity(*owner, false);
         if (!actor) return 0;
         static_cast<FallingBlockActor*>(actor)->setFallingBlock(block, false);
+        // no gravity: a vanilla client simulates a falling block itself and would drop a display
+        // without a real block under it (a train carriage over its bogey display, a structure in
+        // the air) down to the ground; the server and the client mod don't tick displays at all
+        auto noGravity = [](::Actor& a) {
+            auto& data  = a.mEntityData.get();
+            auto* flags = data.mFlagData.get();
+            flags->mValue.set(static_cast<std::size_t>(::ActorFlags::HasGravity), false);
+            flags->mValue.set(static_cast<std::size_t>(::ActorFlags::Noai), true);
+            data.mDirtyFlags.get()->mDirtyFlags.get().set(0); // the flags data item
+        };
+        noGravity(*actor);
         auto* added = level->addEntity(region, std::move(owner));
         if (!added) return 0;
+        noGravity(*added); // adding the entity resets its flags from the entity definition
         added->addTag(kDisplayTag); // tags need the entity in the level
         setDisplayRotation(*added, rot);
         // a spawned falling block stands half a block higher than one teleported to the same
