@@ -13,10 +13,9 @@
 #                        bell swinging (geometry.levitate.bell_parts, bone bell); never set in the world
 # The models face south (+z) for facing 3, like Create's shapes (forHorizontal(SOUTH)).
 #
-# Cardboard armour: four armour items (Create's cardboard armour material) with attachables that turn
-# into a cardboard package while the wearer hides (server: full set, sneaking, not flying -> the
-# player is made invisible; the chestplate's attachable then draws one of the four package boxes,
-# the other pieces draw nothing).
+# Cardboard armour: four armour items (Create's cardboard armour material) with plain armour
+# attachables; a hiding wearer (full set, sneaking, not flying) is made invisible by the server and a
+# `levitate:cardboard_disguise` entity (a package box) stands in for the player.
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot/../..").Path
 $rp = Join-Path $root 'assets/pack/rp'
@@ -135,8 +134,6 @@ $pieces = @(
     @{ id = 'cardboard_leggings'; slot = 'slot.armor.legs'; ench = 'armor_legs'; durability = 60; geo = 'geometry.humanoid.armor.leggings'; layer = 2; setup = 'variable.leg_layer_visible = 0.0;' },
     @{ id = 'cardboard_boots'; slot = 'slot.armor.feet'; ench = 'armor_feet'; durability = 52; geo = 'geometry.humanoid.armor.boots'; layer = 1; setup = 'variable.boot_layer_visible = 0.0;' }
 )
-# the wearer hides as a box (CardboardArmorHandler.testForStealth; the server makes a hiding player invisible)
-$hiding = "q.is_sneaking && q.is_invisible && q.is_item_name_any('slot.armor.head', 0, 'levitate:cardboard_helmet') && q.is_item_name_any('slot.armor.chest', 0, 'levitate:cardboard_chestplate') && q.is_item_name_any('slot.armor.legs', 0, 'levitate:cardboard_leggings') && q.is_item_name_any('slot.armor.feet', 0, 'levitate:cardboard_boots')"
 foreach ($p in $pieces) {
     $item = [ordered]@{
         format_version   = '1.21.70'
@@ -156,45 +153,88 @@ foreach ($p in $pieces) {
         }
     }
     Write-Json $item (Join-Path $bp "items/$($p.id).json")
-    $controllers = @([ordered]@{ 'controller.render.armor' = '!v.lv_box' })
     $desc = [ordered]@{
-        identifier = "levitate:$($p.id)"
-        materials  = [ordered]@{ default = 'armor'; enchanted = 'armor_enchanted' }
-        textures   = [ordered]@{ default = "textures/models/armor/cardboard_$($p.layer)"; enchanted = 'textures/misc/enchanted_item_glint' }
-        geometry   = [ordered]@{ default = $p.geo }
-        scripts    = [ordered]@{ parent_setup = $p.setup; pre_animation = @("v.lv_box = $hiding;") }
+        identifier         = "levitate:$($p.id)"
+        materials          = [ordered]@{ default = 'armor'; enchanted = 'armor_enchanted' }
+        textures           = [ordered]@{ default = "textures/models/armor/cardboard_$($p.layer)"; enchanted = 'textures/misc/enchanted_item_glint' }
+        geometry           = [ordered]@{ default = $p.geo }
+        scripts            = [ordered]@{ parent_setup = $p.setup }
+        render_controllers = @('controller.render.armor')
     }
-    if ($p.id -eq 'cardboard_chestplate') {
-        # Create draws one of the four plain package boxes (AllPartialModels.PACKAGES_TO_HIDE_AS), picked at random
-        # each time the wearer starts hiding (CardboardArmorHandlerClient's cache): geometry / textures of U25's packages
-        $desc.materials.box = 'entity_alphatest'
-        $sizes = @('12x12', '10x12', '10x8', '12x10')
-        for ($i = 0; $i -lt 4; $i++) {
-            $desc.textures["box$i"] = "textures/entity/package/cardboard_package_$($sizes[$i])"
-            $desc.geometry["box$i"] = "geometry.levitate.package_$($sizes[$i])"
-        }
-        $desc.scripts.pre_animation = @("v.lv_box = $hiding;", 'v.lv_style = v.lv_box ? (v.lv_style ?? 0) : math.random_integer(0, 3);')
-        $controllers += [ordered]@{ 'controller.render.levitate.cardboard_box' = 'v.lv_box' }
-    }
-    $desc.render_controllers = $controllers
-    Write-Json ([ordered]@{ format_version = '1.10.0'; 'minecraft:attachable' = [ordered]@{ description = $desc } })(Join-Path $rp "attachables/$($p.id).json")
+    Write-Json ([ordered]@{ format_version = '1.10.0'; 'minecraft:attachable' = [ordered]@{ description = $desc } }) (Join-Path $rp "attachables/$($p.id).json")
 }
+
+# The box a hiding player becomes (CardboardArmorHandlerClient): the server makes the player invisible
+# (no body, armour or held items on any client) and keeps this entity at the player's feet, turned
+# with the player. One of the four plain package boxes (AllPartialModels.PACKAGES_TO_HIDE_AS: U25's
+# package geometry and textures) picked at random each time hiding starts (variant 0..3). It bobs
+# while the player walks (Create: |cos(t / 2)| x 2 px, at most 5 x the distance moved per tick) and is
+# not drawn for a camera closer than 1.8 blocks (Create: not in first person).
+$sizes = @('12x12', '10x12', '10x8', '12x10')
+$groups = [ordered]@{}; $events = [ordered]@{}
+for ($i = 0; $i -lt 4; $i++) {
+    $groups["levitate:style_$i"] = [ordered]@{ 'minecraft:variant' = [ordered]@{ value = $i } }
+    $events["levitate:style_$i"] = [ordered]@{ add = [ordered]@{ component_groups = @("levitate:style_$i") } }
+}
+Write-Json ([ordered]@{
+        format_version    = '1.21.70'
+        'minecraft:entity' = [ordered]@{
+            description      = [ordered]@{ identifier = 'levitate:cardboard_disguise'; is_spawnable = $false; is_summonable = $true; is_experimental = $false }
+            component_groups = $groups
+            components       = [ordered]@{
+                'minecraft:collision_box'        = [ordered]@{ width = 0.01; height = 0.01 }
+                'minecraft:physics'              = [ordered]@{ has_collision = $false; has_gravity = $false }
+                'minecraft:pushable'             = [ordered]@{ is_pushable = $false; is_pushable_by_piston = $false }
+                'minecraft:damage_sensor'        = [ordered]@{ triggers = @([ordered]@{ cause = 'all'; deals_damage = 'no' }) }
+                'minecraft:health'               = [ordered]@{ value = 1; max = 1 }
+                'minecraft:type_family'          = [ordered]@{ family = @('levitate_cardboard_disguise', 'inanimate') }
+                'minecraft:fire_immune'          = [ordered]@{}
+                'minecraft:knockback_resistance' = [ordered]@{ value = 1 }
+                'minecraft:conditional_bandwidth_optimization' = [ordered]@{ default_values = [ordered]@{ max_optimized_distance = 80; max_dropped_ticks = 0; use_motion_prediction_hints = $true } }
+            }
+            events           = $events
+        }
+    }) (Join-Path $bp 'entities/cardboard_disguise.json')
+$tex = [ordered]@{}; $geo = [ordered]@{}
+for ($i = 0; $i -lt 4; $i++) { $tex["s$i"] = "textures/entity/package/cardboard_package_$($sizes[$i])"; $geo["s$i"] = "geometry.levitate.package_$($sizes[$i])" }
+Write-Json ([ordered]@{
+        format_version          = '1.10.0'
+        'minecraft:client_entity' = [ordered]@{
+            description = [ordered]@{
+                identifier         = 'levitate:cardboard_disguise'
+                materials          = [ordered]@{ default = 'entity_alphatest' }
+                textures           = $tex
+                geometry           = $geo
+                animations         = [ordered]@{ bob = 'animation.levitate.cardboard_disguise.bob' }
+                scripts            = [ordered]@{ animate = @('bob') }
+                render_controllers = @('controller.render.levitate.cardboard_disguise')
+            }
+        }
+    }) (Join-Path $rp 'entity/cardboard_disguise.entity.json')
 Write-Json ([ordered]@{
         format_version     = '1.8.0'
         render_controllers = [ordered]@{
-            'controller.render.levitate.cardboard_box' = [ordered]@{
+            'controller.render.levitate.cardboard_disguise' = [ordered]@{
                 arrays          = [ordered]@{
-                    geometries = [ordered]@{ 'Array.boxes' = @('Geometry.box0', 'Geometry.box1', 'Geometry.box2', 'Geometry.box3') }
-                    textures   = [ordered]@{ 'Array.boxes' = @('Texture.box0', 'Texture.box1', 'Texture.box2', 'Texture.box3') }
+                    geometries = [ordered]@{ 'Array.sizes' = @('Geometry.s0', 'Geometry.s1', 'Geometry.s2', 'Geometry.s3') }
+                    textures   = [ordered]@{ 'Array.styles' = @('Texture.s0', 'Texture.s1', 'Texture.s2', 'Texture.s3') }
                 }
-                geometry        = 'Array.boxes[v.lv_style]'
-                materials       = @([ordered]@{ '*' = 'Material.box' })
-                textures        = @('Array.boxes[v.lv_style]')
-                # Create: the hiding player sees no box in first person
-                part_visibility = @([ordered]@{ '*' = '!c.is_first_person' })
+                geometry        = 'Array.sizes[math.clamp(q.variant, 0, 3)]'
+                materials       = @([ordered]@{ '*' = 'Material.default' })
+                textures        = @('Array.styles[math.clamp(q.variant, 0, 3)]')
+                part_visibility = @([ordered]@{ '*' = 'q.distance_from_camera > 1.8' })
             }
         }
-    }) (Join-Path $rp 'render_controllers/cardboard_armor.render_controllers.json')
+    }) (Join-Path $rp 'render_controllers/cardboard_disguise.render_controllers.json')
+Write-Json ([ordered]@{
+        format_version = '1.8.0'
+        animations     = [ordered]@{
+            'animation.levitate.cardboard_disguise.bob' = [ordered]@{
+                loop  = $true
+                bones = [ordered]@{ box = [ordered]@{ position = @(0, 'q.is_on_ground ? math.min(math.abs(math.cos(q.life_time * 573)) * 2, q.ground_speed * 4) : 0', 0) } }
+            }
+        }
+    }) (Join-Path $rp 'animations/cardboard_disguise.animation.json')
 
 # the sword: Create's CardboardSwordItem (AllToolMaterials.CARDBOARD: 0 uses = unbreakable, +2 damage on a
 # sword's 3, Knockback only), stacks to 1, 1000 ticks of fuel

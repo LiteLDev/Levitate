@@ -300,7 +300,7 @@ void drawStealth(MinecraftUIRenderContext& ctx) {
     constexpr int kBands = 12;
     for (int i = 0; i < kBands; ++i) {
         float    f    = 1.f - static_cast<float>(i) / kBands;
-        float    a    = v * (0.12f + 0.55f * f * f);
+        float    a    = v * 0.6f * f * f * f;
         unsigned argb = (static_cast<unsigned>(a * 255.f) << 24) | 0x5a4128u;
         float    bx   = sw * .045f, by = sh * .045f;
         float    x = bx * i, y = by * i;
@@ -398,6 +398,7 @@ public:
             if (!level) return;
             BlockPos pos{p[0].get<int>(), p[1].get<int>(), p[2].get<int>()};
             state().swings[pos] = Swing{static_cast<std::uint64_t>(level->getCurrentTick().tickID), msg.value("dir", 3)};
+            log().info("equipment client: bell at {} {} {} swings (hit from {})", pos.x, pos.y, pos.z, msg.value("dir", 3));
         });
     }
 

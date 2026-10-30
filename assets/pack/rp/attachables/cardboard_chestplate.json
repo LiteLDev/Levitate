@@ -5,38 +5,20 @@
       "identifier": "levitate:cardboard_chestplate",
       "materials": {
         "default": "armor",
-        "enchanted": "armor_enchanted",
-        "box": "entity_alphatest"
+        "enchanted": "armor_enchanted"
       },
       "textures": {
         "default": "textures/models/armor/cardboard_1",
-        "enchanted": "textures/misc/enchanted_item_glint",
-        "box0": "textures/entity/package/cardboard_package_12x12",
-        "box1": "textures/entity/package/cardboard_package_10x12",
-        "box2": "textures/entity/package/cardboard_package_10x8",
-        "box3": "textures/entity/package/cardboard_package_12x10"
+        "enchanted": "textures/misc/enchanted_item_glint"
       },
       "geometry": {
-        "default": "geometry.humanoid.armor.chestplate",
-        "box0": "geometry.levitate.package_12x12",
-        "box1": "geometry.levitate.package_10x12",
-        "box2": "geometry.levitate.package_10x8",
-        "box3": "geometry.levitate.package_12x10"
+        "default": "geometry.humanoid.armor.chestplate"
       },
       "scripts": {
-        "parent_setup": "variable.chest_layer_visible = 0.0;",
-        "pre_animation": [
-          "v.lv_box = q.is_sneaking && q.is_invisible && q.is_item_name_any('slot.armor.head', 0, 'levitate:cardboard_helmet') && q.is_item_name_any('slot.armor.chest', 0, 'levitate:cardboard_chestplate') && q.is_item_name_any('slot.armor.legs', 0, 'levitate:cardboard_leggings') && q.is_item_name_any('slot.armor.feet', 0, 'levitate:cardboard_boots');",
-          "v.lv_style = v.lv_box ? (v.lv_style ?? 0) : math.random_integer(0, 3);"
-        ]
+        "parent_setup": "variable.chest_layer_visible = 0.0;"
       },
       "render_controllers": [
-        {
-          "controller.render.armor": "!v.lv_box"
-        },
-        {
-          "controller.render.levitate.cardboard_box": "v.lv_box"
-        }
+        "controller.render.armor"
       ]
     }
   }

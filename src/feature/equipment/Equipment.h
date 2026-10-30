@@ -298,6 +298,8 @@ inline constexpr std::string_view kCardboardSword      = "levitate:cardboard_swo
 [[nodiscard]] bool isCardboardArmor(std::string_view id);
 /// Create's CardboardArmorHandler#testForStealth: full cardboard set, sneaking, not flying.
 [[nodiscard]] bool hidingAsBox(Actor const& actor);
+/// The box entity (`levitate:cardboard_disguise`) shown in place of a hiding player (0: none).
+[[nodiscard]] std::int64_t disguiseOf(Player const& player);
 /// Create's CardboardSwordItem#cardboardSwordsCannotHurtYou: the bonk replacing an attack. False
 /// when the attack stays a normal one (arthropods, non-living targets, another item).
 bool cardboardBonk(Player& attacker, Actor& target);

@@ -209,6 +209,7 @@ LV_REGISTER_SELFTEST("equipment.cardboard_hiding", [](Context& ctx) -> ll::coro:
     co_await ctx.ticks(2);
     ctx.check(eq::hidingAsBox(sp), "the full set while sneaking: a box");
     ctx.check(sp.isInvisible(), "the player is hidden (only the box is drawn)");
+    ctx.check(eq::disguiseOf(sp) != 0, "a cardboard box stands in for the player");
     ctx.check(adv::has(sp, "cardboard_armor"), "advancement cardboard_armor");
     // a mob can't pick the box as its target
     auto  level = ll::service::getLevel();
@@ -220,6 +221,7 @@ LV_REGISTER_SELFTEST("equipment.cardboard_hiding", [](Context& ctx) -> ll::coro:
     sp.setSneaking(false);
     co_await ctx.ticks(2);
     ctx.check(!eq::hidingAsBox(sp) && !sp.isInvisible(), "standing up shows the player again");
+    ctx.check(eq::disguiseOf(sp) == 0, "the box is gone");
     static_cast<Mob*>(mob)->setTarget(&sp);
     ctx.check(mob->mTargetId->rawID == sp.getOrCreateUniqueID().rawID, "a visible player can be targeted");
     static_cast<Mob*>(mob)->setTarget(nullptr);

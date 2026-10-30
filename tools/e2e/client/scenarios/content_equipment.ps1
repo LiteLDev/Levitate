@@ -4,7 +4,7 @@
 #                       the full cardboard set worn and hiding as a box while sneaking (the vignette),
 #                       an item hatch on a chest taking the held item (the hatch opens).
 #   remote-vanilla:     the same without the client mod (bells drawn still, no vignette).
-# Screenshots: out/content_equipment/{bells,bell-rung,soul-pulse,cardboard-armor,cardboard-hiding,cardboard-trim,
+# Screenshots: out/content_equipment/{bells,bell-swing,bell-rung,soul-pulse,cardboard-armor,cardboard-hiding,cardboard-trim,
 #              cardboard-hiding-first-person,hatch,hatch-open,hatch-closed}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 
@@ -30,7 +30,7 @@ Start-Sleep -Milliseconds 400
 # it, a peculiar bell on a wall and one hanging over soul fire (it turns haunted)
 $mark = Get-LogMark
 Invoke-Chat '/setblock ~3 ~ ~ levitate:haunted_bell ["levitate:facing"=5,"levitate:attachment"=0]'
-Invoke-Chat '/setblock ~3 ~ ~-2 levitate:peculiar_bell ["levitate:facing"=5,"levitate:attachment"=0]'
+Invoke-Chat '/setblock ~3 ~ ~-2 levitate:peculiar_bell ["levitate:facing"=2,"levitate:attachment"=0]'
 Invoke-Chat '/setblock ~5 ~ ~2 stone'
 Invoke-Chat '/setblock ~4 ~ ~2 levitate:peculiar_bell ["levitate:facing"=5,"levitate:attachment"=2]'
 Invoke-Chat '/setblock ~5 ~-1 ~-4 soul_soil'
@@ -40,6 +40,15 @@ Invoke-Chat '/setblock ~5 ~ ~-4 soul_fire'
 Wait-LogLine 'equipment: peculiar bell at .* became a haunted bell' 15 -Since $mark | Out-Null
 Start-Sleep -Seconds 1
 Save-Screenshot 'bells' | Out-Null
+
+# a redstone block next to the peculiar bell (facing north) rings it: it swings north - south, across
+# the view (the client mod draws the swing; vanilla clients see it still)
+$mark = Get-LogMark
+Invoke-Chat '/setblock ~3 ~ ~-3 redstone_block'
+Wait-LogLine 'equipment: levitate:peculiar_bell at .* rang' 15 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 200
+Save-Screenshot 'bell-swing' | Out-Null
+if (-not $vanilla) { Wait-LogLine 'equipment client: bell at .* swings' 10 -Since $mark | Out-Null }
 
 # ring the haunted bell from its west side (the crosshair is on its body)
 $mark = Get-LogMark

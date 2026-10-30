@@ -59,7 +59,7 @@ LV_REGISTER_SELFTEST("funnels.item_hatch", [](Context& ctx) -> ll::coro::CoroTas
     clearInventory(sp);
     ctx.require(ctx.setBlock(base, "minecraft:stone"), "floor");
     auto chest = at(base, 0, 1, 0);
-    ctx.require(ctx.setBlock(chest, "minecraft:chest"), "a chest");
+    ctx.require(ctx.setBlock(chest, "levitate:item_vault", {{"levitate:axis", 0}}), "a container (an item vault: no screen takes the click)");
     auto hatch = at(base, 0, 1, -1); // on the chest's north side
     ctx.cleanupBlock(hatch);
     sp.teleport(Vec3{base.x + .5f, float(base.y + 1), base.z - 3.5f}, DimensionType(0));
@@ -73,7 +73,7 @@ LV_REGISTER_SELFTEST("funnels.item_hatch", [](Context& ctx) -> ll::coro::CoroTas
     sp.simulateUseItemInSlotOnBlock(0, bp(floor2), Facing::Up, Vec3{.5f, 1.f, .5f});
     co_await ctx.ticks(3);
     ctx.check(lv::game::blockIdAt(sp.getDimensionBlockSource(), bp(at(floor2, 0, 1, 0))) != "levitate:item_hatch", "nothing placed on a floor");
-    // sneak-click the chest's north side (a plain click opens the chest)
+    // click the container's north side
     clearInventory(sp);
     ctx.give(sp, item(ctx, "levitate:item_hatch"), 0);
     sp.setSneaking(true);

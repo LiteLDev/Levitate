@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <set>
 #include <unordered_map>
 
@@ -18,12 +19,16 @@
 #include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
+#include "mc/deps/core/math/Vec2.h"
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/core/string/HashedString.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorCategory.h"
+#include "mc/world/actor/ActorDefinitionIdentifier.h"
+#include "mc/world/actor/ActorFactory.h"
+#include "mc/deps/ecs/gamerefs_entity/GameRefsEntity.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/Mob.h"
 #include "mc/world/actor/player/Player.h"
@@ -63,9 +68,13 @@ namespace {
 
 constexpr char kBonk[] = "levitate.cardboard_sword.bonk";
 
+constexpr char kDisguise[]    = "levitate:cardboard_disguise";
+constexpr char kDisguiseTag[] = "lv_cardboard_disguise";
+
 struct State {
-    std::set<std::int64_t> hiding; ///< players hiding as a box (uids)
-    std::uint64_t          tick = 0;
+    std::set<std::int64_t>                 hiding;    ///< players hiding as a box (uids)
+    std::map<std::int64_t, std::int64_t>   disguises; ///< player uid -> box entity uid
+    std::uint64_t                          tick = 0;
 };
 State& st() {
     static State s;
@@ -104,6 +113,61 @@ void addEffect(Actor& a, unsigned id, int ticks, int amplifier) {
     a.addEffect(inst);
 }
 
+Actor* actorById(std::int64_t uid) {
+    auto level = ll::service::getLevel();
+    if (!level || !uid) return nullptr;
+    ActorUniqueID id;
+    id.rawID = uid;
+    return level->fetchEntity(id, false);
+}
+
+/// Keeps the box entity of a hiding player at its feet, turned with it (CardboardArmorHandlerClient
+/// draws the box at the player); spawns it with a random plain package style.
+void placeDisguise(Player& p) {
+    auto& s   = st();
+    auto  uid = uidOf(p);
+    auto  feet = p.getFeetPos();
+    Vec2  rot{0, p.getRotation().y};
+    auto* box = actorById(s.disguises.contains(uid) ? s.disguises[uid] : 0);
+    if (box && box->getDimensionId() != p.getDimensionId()) {
+        box->remove();
+        box = nullptr;
+    }
+    if (!box) {
+        auto level = ll::service::getLevel();
+        int  style = std::min(3, static_cast<int>(random01() * 4));
+        auto owner = level->getActorFactory().createSpawnedActor(
+            ActorDefinitionIdentifier("levitate", "cardboard_disguise", "levitate:style_" + std::to_string(style)), nullptr, feet, rot
+        );
+        if (!owner) return;
+        box = level->addEntity(p.getDimensionBlockSource(), std::move(owner));
+        if (!box) return;
+        box->addTag(kDisguiseTag);
+        s.disguises[uid] = uidOf(*box);
+    }
+    box->moveTo(feet, rot);
+}
+
+void removeDisguise(std::int64_t uid) {
+    auto& s = st();
+    if (auto it = s.disguises.find(uid); it != s.disguises.end()) {
+        if (auto* box = actorById(it->second)) box->remove();
+        s.disguises.erase(it);
+    }
+}
+
+/// Box entities nobody wears any more (a reload, a crash).
+void sweepDisguises() {
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    std::set<std::int64_t> live;
+    for (auto const& [p, e] : st().disguises) live.insert(e);
+    std::vector<Actor*> orphans;
+    for (auto* a : level->getRuntimeActorList())
+        if (a && a->getTypeName() == kDisguise && !live.contains(uidOf(*a))) orphans.push_back(a);
+    for (auto* a : orphans) a->remove();
+}
+
 /// CardboardArmorHandler: who hides, invisibility, the advancement, mobs losing their target.
 void tickHiding() {
     auto level = ll::service::getLevel();
@@ -118,6 +182,7 @@ void tickHiding() {
         if (hide) {
             now.insert(uid);
             if (!p.isInvisible()) p.setInvisible(true);
+            placeDisguise(p);
             if (!s.hiding.contains(uid)) {
                 // Create awards it when the player's hitbox shrinks to the box (EntityEvent.Size)
                 advancements::award(p, "cardboard_armor");
@@ -125,10 +190,21 @@ void tickHiding() {
             }
         } else if (s.hiding.contains(uid)) {
             p.updateInvisibilityStatus(); // back to what the effects say
+            removeDisguise(uid);
             log().info("equipment: {} stops hiding", p.getRealName());
         }
         return true;
     });
+    // players who left while hiding
+    for (auto it = s.disguises.begin(); it != s.disguises.end();) {
+        if (now.contains(it->first)) {
+            ++it;
+            continue;
+        }
+        if (auto* box = actorById(it->second)) box->remove();
+        it = s.disguises.erase(it);
+    }
+    if (s.tick % 100 == 0) sweepDisguises();
     s.hiding = std::move(now);
     if (s.hiding.empty()) return;
     // mobsMayLoseTargetWhenItIsWearingCardboard: every 16 ticks of each mob
@@ -149,6 +225,11 @@ std::vector<ia::HandlerId>& handlerIds() {
 }
 
 } // namespace
+
+std::int64_t disguiseOf(Player const& player) {
+    auto it = st().disguises.find(player.getOrCreateUniqueID().rawID);
+    return it == st().disguises.end() ? 0 : it->second;
+}
 
 bool cardboardBonk(Player& attacker, Actor& target) {
     if (items::idOf(attacker.getSelectedItem()) != kCardboardSword) return false;

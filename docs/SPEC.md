@@ -3984,9 +3984,12 @@ by conversion) stirs for 20 ticks: now and then a soul particle rises with a sou
 
 **Cardboard armour** (U49, Create's CardboardArmorItem / CardboardArmorHandler(Client) /
 CardboardArmorStealthOverlay; `Cardboard.cpp`). A player in all four pieces who sneaks and isn't
-flying hides as a box: the server makes the player invisible, so every client (vanilla too) draws
-only the armour's attachables, and those draw one of the four plain package boxes (random each
-time hiding starts; nothing in first person) instead of the armour. Mobs can't choose a hiding
+flying hides as a box: the server makes the player invisible (no body, armour, held item or name on
+any client) and keeps a `levitate:cardboard_disguise` entity at the player's feet, turned with the
+player — one of the four plain package boxes (U25's models; random each time hiding starts), bobbing
+while the player walks, not drawn for a camera closer than 1.8 blocks (Create: not in first person);
+it takes no damage, has no collision and is removed when the player stops hiding, leaves or changes
+dimension (orphans are swept every 5 s). Vanilla clients see the same. Mobs can't choose a hiding
 player as their target (Create: visibility 0), except one it just hurt (vanilla's hurt-by
 targeting ignores visibility); every 16 ticks of a mob a hiding target or last attacker is
 forgotten. Hiding awards `cardboard_armor`. The client mod fades a cardboard vignette over the HUD
@@ -4347,8 +4350,8 @@ matches Create's official Chinese translation wording).
 | Swinging peculiar / haunted bells for **vanilla** clients (U49) | custom blocks have no block entity renderer; a state per swing frame and direction would need dozens of models | the client mod draws Create's swing; vanilla clients see the bell still (sounds, souls and particles reach everyone) |
 | Bells rung by projectiles (U49) | custom blocks get no projectile-hit callback (`BlockType::onProjectileHit` is a folded no-op shared by many blocks, it can't be hooked for ours alone) | clicks and redstone ring them |
 | Soul particles vanishing when the spot gets lit (U49) | resource-pack particles can't read the block light | the particles live their full time; new pulses only mark dark spots |
-| The hiding player's smaller hitbox and eye height (U49) | Bedrock clients size and move their own player (sneaking height is the client's); a server-side size is not used for the player's collision | the player becomes the box visually (invisible + the package attachable); hitbox and camera stay the sneaking ones |
-| Cardboard vignette for **vanilla** clients and the box bobbing while walking (U49) | no HUD drawing without the client mod; an attachable has no access to the player's walk distance | the client mod draws the vignette; the box stands still on the ground |
+| The hiding player's smaller hitbox and eye height (U49) | Bedrock clients size and move their own player (sneaking height is the client's); a server-side size is not used for the player's collision | the player becomes the box visually (invisible + a box entity at its feet, which hits pass through to the player); hitbox and camera stay the sneaking ones |
+| Cardboard vignette for **vanilla** clients (U49) | no HUD drawing without the client mod | the client mod draws it (in every camera view: the mod can't read the view perspective; Create: first person only) |
 | Cardboard sword's 3D in-hand model (U49) | Bedrock items have no custom item renderer, and an attachable's first-person transform is not solved (wrench row above) | the sprite in hand, as for every item |
 
 Units add rows here in their PRs (in unit order) when they find something else impossible.
