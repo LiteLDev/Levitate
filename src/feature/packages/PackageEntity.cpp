@@ -86,6 +86,7 @@ struct Tracked {
     int       dim             = 0;
     int       insertionDelay  = kInsertionDelay;
     int       handoffCooldown = 0;
+    int       airTicks        = 0; ///< ticks since it left the ground (landing sound)
 };
 
 struct EntityState {
@@ -258,6 +259,13 @@ void tickEntity(std::int64_t id, Tracked& t) {
     if (a->isInWater()) {
         destroyPackageEntity(*a);
         return;
+    }
+    // Create's fall sounds (getFallSounds): the chiseled bookshelf's
+    if (a->isOnGround()) {
+        if (t.airTicks > 3) playSound(int(a->getDimensionId()), feetOf(*a), "fall.chiseled_bookshelf", .5f, 1.f);
+        t.airTicks = 0;
+    } else {
+        ++t.airTicks;
     }
     tryInsert(*a, t, a->getDimensionBlockSource());
 }

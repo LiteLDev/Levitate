@@ -3020,6 +3020,25 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   releasing throws it with the bow's power curve (`(t² + 2t) / 3`, t = seconds held, capped at 1,
   thrown only from 0.1; speed 2 × power, snowball sound at volume 0.5, pitch 0.5); right-click on a
   block puts it down there. Packages, shulker boxes and bundles don't fit into packages.
+- **Package entities** (U46, Create's PackageEntity): thrown, put-down and dropped packages are
+  `levitate:package` entities (a box model per style from the resource pack, so vanilla clients
+  see them too; size = the style's width × height / 16, rare styles 12 × 10; a random yaw; health
+  5; gravity and drag of a mob). The package item (contents, address, order data) is kept in the
+  world DB (`lv:packages:entity:<unique id>`). Put down: at the click point (from below: lowered by
+  its height + 0.25; on a side: out by half its width), nothing when a package already stands
+  there. Thrown: from the player's mid-height plus the motion, keeping the motion. Every package
+  item entity joining the world (drops with Q, broken containers, ...) becomes a package entity
+  on the next tick with 1.5 × its motion. Right-click with an empty hand: the package goes into
+  the hand (pick-up sound at volume 0.2, pitch 0.75–1.75). A hit (not in adventure mode), an
+  explosion, a projectile, water, or fire / lava burning through its health break it open: the
+  contents drop at the entity (spawn eggs spawn their mob there), "Package breaks" sound, item
+  particles of the box; the package item itself is not dropped. The void and `/kill` remove it with
+  its contents. No fall damage; landing after a fall plays the chiseled bookshelf fall sound. Create's centerPackage: on a belt (not rising, no tunnel on the
+  segment), landed on a depot / ejector or on a chute that takes items, the package slides to the
+  input point (motion × 0.75, y × 0.25, 20% of the way per tick; insertion delay 30, +1 per tick,
+  −3 per centering tick) and is inserted; inside a funnel it is handed to the funnel as an item
+  entity at the funnel's centre (taken back as an entity after 20 ticks if the funnel refused it,
+  and not offered again for 100 ticks).
 - Comparator output (U36): packager / re-packager 15 while holding or animating a package, else 0;
   frogport / postbox calcRedstoneFromInventory over the port's 18 slots.
 - **Packager** (`levitate:facing` 0–5 = the side the tray faces, the inventory is behind it;
@@ -3104,7 +3123,10 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
 - **Log lines** (e2e): `packages: packager at <pos> activated by redstone`, `... packed a package
   for '<address>' (<n> stacks)`, `... unpacked a package ...`, `chain conveyors at A and B
   connected`, `frogport at <pos> caught a package for '<address>'`, `... sent a package ...`,
-  `<player> opened a package (<n> stacks)`, `<player> threw a package ...`.
+  `<player> opened a package (<n> stacks)`, `<player> threw a package ...`, `<player> put down a
+  package at ...`, `<player> picked up a package entity`, `a package entity broke open (<n>
+  stacks)`, `a package entity went into the <block> at ...`, `a package entity was removed with
+  its contents`.
 
 #### 3.6.26 Stock network (U26)
 
@@ -3599,7 +3621,10 @@ Client mod only (§8); the server side is `/create ponder`.
   the south-west, 30° from above (drag with the left button to turn it); scene dots; the timeline
   with key frames (click: jump, snapping to key frames); text bubbles pointing at their target
   (Create's palette colours); outlines, hand / mouse-button / item / Sneak + / Ctrl + indicators,
-  redstone sparks, floating items, sections that slide and turn (contraptions), kinetic blocks
+  redstone sparks, item entities, entities (minecarts, mobs) and particles (U46: drawn by the game's
+  own actor renderer from puppet actors the client level's actor factory builds but never adds to
+  the level; particles as billboards of our own sprites: flame, soul flame, smoke, large smoke,
+  cloud, splash, bubble, snowflake, heart, crit), sections that slide and turn (contraptions), kinetic blocks
   turning at their RPM (0.3° per tick per RPM, rotor parts as the kinetics renderer); blocks fade in
   and out translucent (blend layer, alpha in 16 steps) while sliding from a direction; water and lava
   with their levels (`liquid_depth`: 8/9 of a block for a source, one ninth less per level, falling
@@ -3617,7 +3642,8 @@ Client mod only (§8); the server side is `/create ponder`.
   <id>.".
 - **Log lines** (e2e): `ponder: loaded N scenes for M entries`, `ponder: hovering <id>`,
   `ponder: held <key> over <id>`, `ponder: Ponder key set to <key>`, `ponder: opened <id> (N scenes)`, `ponder: scene <id> (i/n) of
-  <component>`, `ponder: scene <id> drawn (N blocks, M placeholders)`, `ponder: identify mode
+  <component>`, `ponder: scene <id> drawn (N blocks, M placeholders)`, `ponder: scene <id> shows N
+  entities, M item entities, K particles`, `ponder: identify mode
   on|off`, `ponder: replay <id>`, `ponder: closed <id>`, `ponder: tag <id> opened`,
   `ponder: index of N categories opened`.
 
@@ -4036,7 +4062,7 @@ matches Create's official Chinese translation wording).
 
 | Deaths statistic of the respawn anchor source (U24) | Bedrock has no deaths statistic | Levitate counts player deaths per world (`lv:display:deaths`) |
 | Display link placement by a SimulatedPlayer (U24 selftests) | `simulateUseItemInSlotOnBlock` does not place this block item | the selftest places the block itself after the item logic; the client e2e places it for real |
-| Packages as physical entities (thrown, put down, on the ground) (U25) | Create's PackageEntity is a custom entity with its own model and physics | thrown / put-down packages are item entities (same velocity); breaking or opening is done with the item |
+| Package entities piling on each other (U25 / U46) | Create's PackageEntity collides only with packages below it; Bedrock entity collision is per type (`minecraft:is_stackable` would let players stand on packages too, which Create's packages don't allow) | package entities (§3.6.25) pass through each other; everything else of the entity is ported |
 | Chains, hanging packages, frogport tongue and packager tray for **vanilla** clients (U25) | no client-side rendering without the client mod | the client mod draws them; vanilla clients see the static conveyor, frogport and packager models and the postbox flag / lid states |
 | Factory gauge item icons, counts and connection arrows for **vanilla** clients (U26) | no world-space item / text rendering without the client mod | the client mod draws them (U42); vanilla: the bulb is the block model |
 | "Click and hold" on a gauge panel / price tag for **vanilla** clients (U26) | the server only sees discrete clicks | client mod: as Create (U42); vanilla: sneak + empty-hand click opens the board (price tag: a click opens it, sneaking clears) |
@@ -4062,7 +4088,6 @@ matches Create's official Chinese translation wording).
 | Ponder for **vanilla** clients (U30) | a scene player needs client-side 3D rendering of a private scene; forms can't draw blocks | Ponder is client mod only; `/create ponder` tells vanilla players it needs the client mod |
 | Ponder scenes as Create's scene code and NBT schematics (U30) | Create's scenes are Java code over its own schematics (and copying them is not allowed) | our own scene scripts as data (`assets/ponder/scenes/*.json`) teaching the same steps; titles keep Create's wording, the texts are our own |
 | "Hold [W] to Ponder" progress bar inside the item tooltip (U30) | Bedrock builds an item's hover text once when the slot is hovered (verified: the line doesn't change while the key is held; re-hovering the slot from the mod to rebuild it can outlive the screen controller) | the hint is the tooltip's second line; while the key is held Create's `\|` bar is drawn in a tooltip box at the top of the screen |
-| Entities and particles inside Ponder scenes (U30) | the scene is drawn from blocks in the UI pass (no private level with entity renderers or a particle engine) | items float as item icons, mobs / minecarts are shown as their item, redstone with red sparks, fluid flow in pipes / tanks with coloured outlines; water and lava are drawn with their levels and sloped surfaces |
 | Holding the toolbox key on a **vanilla** client (U31) | the server can't see a held key without the client mod | `/create toolbox` opens the same entries as a form |
 | Dyeing a toolbox in the crafting grid keeps its contents (U31) | Bedrock crafting results carry no data of the ingredients | the crafted toolbox is empty; right-clicking a placed toolbox with a dye recolours it with its contents (as Create does too) |
 | Tree fertilizer as one recipe with "any small flower" (U31) | Bedrock recipes take one item or tag per ingredient and vanilla flowers have no common item tag | one recipe per flower × coral (two of the same flower) |

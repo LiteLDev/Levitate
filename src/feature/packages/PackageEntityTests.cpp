@@ -133,10 +133,12 @@ LV_REGISTER_SELFTEST("packages.entity_throw", [](Context& ctx) -> ll::coro::Coro
     co_await ctx.ticks(2);
     sp.simulateLookAt(BlockPos{pos.x + 10, pos.y + 2, pos.z}, sim::LookDuration::Instant);
     co_await ctx.ticks(2);
-    sp.simulateSetItem(pk::containing({stack("minecraft:clay_ball", 3)}), true, 0);
+    auto thrown = pk::containing({stack("minecraft:clay_ball", 3)});
+    sp.simulateSetItem(thrown, true, 0);
     co_await ctx.ticks(1);
     pk::throwPackage(sp, 20); // fully charged: speed 2
     co_await ctx.ticks(1);
+    if (!sp.isCreative()) ctx.check(countPlayer(sp, items::idOf(thrown)) == 0, "the thrown package left the inventory");
     auto found = packageEntities(pos, 6);
     ctx.require(found.size() == 1, "the thrown package is an entity");
     auto id = found.front()->getOrCreateUniqueID().rawID;
