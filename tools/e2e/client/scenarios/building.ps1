@@ -114,31 +114,32 @@ if (-not $vanilla) {
     if ($log -notmatch 'building client: drawing') { throw 'the client mod drew no copycat / door / bracket' }
 }
 
-# ---- U48: bars and trapdoors in copycat panels, the placement helper -----------------------------
+# ---- U48: bars and trapdoors in copycat panels, the placement helper (a row clear of the scene
+# above: a player standing in a casing would be pushed aside) -----------------------------
 foreach ($c in @(
-        '/fill -5 -60 9 5 -57 13 air',
-        '/setblock -3 -60 10 levitate:copycat_panel ["levitate:facing"=2]',
-        '/setblock -1 -60 10 levitate:copycat_panel ["levitate:facing"=2]',
-        '/setblock 1 -60 10 levitate:copycat_panel ["levitate:facing"=1]',
-        '/setblock 3 -60 10 levitate:copycat_panel ["levitate:facing"=2]')) { Invoke-Chat $c; Start-Sleep -Milliseconds 250 }
+        '/fill -5 -60 14 5 -57 17 air',
+        '/setblock -3 -60 14 levitate:copycat_panel ["levitate:facing"=2]',
+        '/setblock -1 -60 14 levitate:copycat_panel ["levitate:facing"=2]',
+        '/setblock 1 -60 14 levitate:copycat_panel ["levitate:facing"=1]',
+        '/setblock 3 -60 14 levitate:copycat_panel ["levitate:facing"=2]')) { Invoke-Chat $c; Start-Sleep -Milliseconds 250 }
 Invoke-Chat '/clear @s'
 Invoke-Chat '/give @s iron_bars 4'
 Invoke-Chat '/give @s trapdoor 4'
 Invoke-Chat '/give @s levitate:copycat_panel 4'
 Start-Sleep -Milliseconds 800
 # (each panel set again right before its click: a chat command that got lost leaves no panel)
-Invoke-Chat '/setblock -3 -60 10 levitate:copycat_panel ["levitate:facing"=2]'
-Use-At -3 -59.6 10 '1' 'building: levitate:copycat_panel at -3 -60 10 takes the look of minecraft:iron_bars'
-Invoke-Chat '/setblock -1 -60 10 levitate:copycat_panel ["levitate:facing"=2]'
-Use-At -1 -59.6 10 '2' 'building: levitate:copycat_panel at -1 -60 10 takes the look of minecraft:trapdoor'
-Invoke-Chat '/setblock 1 -60 10 levitate:copycat_panel ["levitate:facing"=1]'
-Use-At 1 -60.25 10 '2' 'building: levitate:copycat_panel at 1 -60 10 takes the look of minecraft:trapdoor'
-Invoke-Chat '/tp @s 0.5 -59 7.5 0 22'
+Invoke-Chat '/setblock -3 -60 14 levitate:copycat_panel ["levitate:facing"=2]'
+Use-At -3 -59.6 14 '1' 'building: levitate:copycat_panel at -3 -60 14 takes the look of minecraft:iron_bars'
+Invoke-Chat '/setblock -1 -60 14 levitate:copycat_panel ["levitate:facing"=2]'
+Use-At -1 -59.6 14 '2' 'building: levitate:copycat_panel at -1 -60 14 takes the look of minecraft:trapdoor'
+Invoke-Chat '/setblock 1 -60 14 levitate:copycat_panel ["levitate:facing"=1]'
+Use-At 1 -60.25 14 '2' 'building: levitate:copycat_panel at 1 -60 14 takes the look of minecraft:trapdoor'
+Invoke-Chat '/tp @s 0.5 -59 11.5 0 22'
 Start-Sleep -Milliseconds 2500
 Save-Screenshot 'copycat_specials' | Out-Null
 # the helper: holding a copycat panel while looking at one shows the ghost, the click places it
-Invoke-Chat '/setblock 3 -60 10 levitate:copycat_panel ["levitate:facing"=2]'
-Invoke-Chat "/tp @s 3.5 -60 7.5 0 $([Math]::Round([Math]::Atan2(-58.38 - (-59.2), 2.6) * 180 / [Math]::PI, 1))"
+Invoke-Chat '/setblock 3 -60 14 levitate:copycat_panel ["levitate:facing"=2]'
+Invoke-Chat "/tp @s 3.5 -60 11.5 0 $([Math]::Round([Math]::Atan2(-58.38 - (-59.2), 2.6) * 180 / [Math]::PI, 1))"
 Start-Sleep -Milliseconds 700
 Press-Key '3'
 Start-Sleep -Milliseconds 1200
@@ -146,7 +147,7 @@ if (-not $vanilla) { Wait-LogLine 'building client: placement helper ghost of le
 Save-Screenshot 'helper_ghost' | Out-Null
 $m = Get-LogMark
 Click 0.5 0.5 -Relative -Right
-Wait-LogLine 'building: levitate:copycat_panel placed at -?\d+ -?\d+ 10 by the placement helper' 20 -Since $m | Out-Null
+Wait-LogLine 'building: levitate:copycat_panel placed at -?\d+ -?\d+ 14 by the placement helper' 20 -Since $m | Out-Null
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'helper_placed' | Out-Null
 
