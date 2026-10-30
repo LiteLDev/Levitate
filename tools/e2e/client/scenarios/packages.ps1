@@ -14,6 +14,58 @@ Invoke-Chat '/clear @s'
 Invoke-Chat '/tp @s 0 -60 0'
 Start-Sleep -Milliseconds 800
 
+# --- U46: package entities (every mode: the entity's model comes with the resource pack) ---------
+Invoke-Chat '/gamemode survival'
+Invoke-Chat '/kill @e[type=levitate:package]'
+Invoke-Chat '/replaceitem entity @s slot.hotbar 0 levitate:cardboard_package_12x12 1'
+Invoke-Chat '/replaceitem entity @s slot.hotbar 1 levitate:rare_creeper_package 1'
+Invoke-Chat '/tp @s 0.5 -60 0.5 0 50'
+Press-Key '1'
+Start-Sleep -Milliseconds 1200
+# right-click on the ground: the package is put down as an entity
+$mark = Get-LogMark
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'packages: .* put down a package at' 20 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'package-put-down' | Out-Null
+# an empty hand takes it back
+Press-Key '9'
+Start-Sleep -Milliseconds 600
+$mark = Get-LogMark
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'packages: .* picked up a package entity' 20 -Since $mark | Out-Null
+# put it down again and break it open with a hit
+Press-Key '9'
+Invoke-Chat '/replaceitem entity @s slot.hotbar 0 levitate:cardboard_package_12x12 1'
+Press-Key '1'
+Start-Sleep -Milliseconds 800
+$mark = Get-LogMark
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'packages: .* put down a package at' 20 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 800
+Click 0.5 0.5 -Relative
+Wait-LogLine 'packages: a package entity broke open' 20 -Since $mark | Out-Null
+# hold right-click with the rare package and let go: it is thrown
+Press-Key '2'
+Invoke-Chat '/tp @s 0.5 -60 0.5 0 -10'
+Start-Sleep -Milliseconds 1000
+$mark = Get-LogMark
+[BsE2E.Native]::MouseButton(1, $false)
+Start-Sleep -Milliseconds 450   # a short charge: a gentle throw a few blocks ahead
+[BsE2E.Native]::MouseButton(1, $true)
+Wait-LogLine 'packages: .* threw a package' 20 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 150
+Save-Screenshot 'package-thrown' | Out-Null
+Start-Sleep -Milliseconds 2000
+Invoke-Chat '/tp @s 0.5 -58 -2 0 30'
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'package-landed' | Out-Null
+Invoke-Chat '/kill @e[type=levitate:package]'
+Invoke-Chat '/gamemode creative'
+Invoke-Chat '/clear @s'
+Invoke-Chat '/tp @s 0 -60 0'
+Start-Sleep -Milliseconds 800
+
 # --- the port screen ---------------------------------------------------------------------------
 Invoke-Chat '/setblock 5 -60 -3 levitate:package_frogport'
 Invoke-Chat '/tp @s 5.5 -60 0.5 180 25'

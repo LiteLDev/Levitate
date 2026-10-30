@@ -253,6 +253,8 @@ std::optional<ActorDefinitionIdentifier> spawnEggMob(ItemStack const& stack) {
     return id;
 }
 
+} // namespace
+
 bool spawnFromEgg(BlockSource& region, ItemStack const& egg, Actor* spawner, cp::V3 const& at) {
     auto mob   = spawnEggMob(egg);
     auto level = ll::service::getLevel();
@@ -262,7 +264,6 @@ bool spawnFromEgg(BlockSource& region, ItemStack const& egg, Actor* spawner, cp:
     return spawned != nullptr;
 }
 
-} // namespace
 
 void openPackage(Player& player) {
     ItemStack box = player.getSelectedItem();
@@ -304,10 +305,19 @@ void throwPackage(Player& player, int ticksHeld) {
     if (!player.isCreative()) {
         player.setSelectedItem(items::withCount(held, items::countOf(held) - 1));
         player.sendInventory(false);
+        // the client finishes its own (bow-like) use after this and shows the stack again: resend
+        auto uid = player.getOrCreateUniqueID().rawID;
+        defer([uid] {
+            if (auto* p = playerById(uid)) p->refreshInventory();
+        });
     }
     cp::V3 motion = lookVec(player) * (f * 2.0);
     cp::V3 at     = cp::V3{feet.x, feet.y + 0.9, feet.z} + motion;
-    dropItem(player.getDimensionId(), at, copy, motion);
+    // Create: a PackageEntity at the player's mid-height plus the motion, keeping the motion
+    if (!spawnPackageEntity(player.getDimensionId(), at, copy, motion)) {
+        if (!player.isCreative()) giveOrDrop(player, copy); // nowhere to spawn it (unloaded chunk)
+        return;
+    }
     log().info("packages: {} threw a package (power {:.2f})", player.getRealName(), f);
 }
 

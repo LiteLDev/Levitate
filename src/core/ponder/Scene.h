@@ -55,7 +55,17 @@
 //   {"turn": "name", "axis": "x"|"y"|"z", "degrees": d, "origin": point, "ticks": t}
 //                                                     rotate a section about `origin`
 //   {"item": "id", "at": point, "to": point, "ticks": t}
-//                                                     an item floating from `at` to `to`
+//                                                     an item entity (Create's createItemEntity) moving
+//                                                     from `at` to `to`
+//   {"entity": "minecraft:minecart", "at": point, "to": point, "ticks": t, "yaw": d, "yaw_to": d}
+//                                                     an entity (mob, minecart, ...; Create's
+//                                                     createEntity) moving from `at` to `to`, turned
+//                                                     to `yaw` (degrees, 0 = facing south)
+//   {"particles": "flame", "at": point, "ticks": t, "rate": n, "spread": [x, y, z], "motion": [x, y, z]}
+//                                                     particles (Create's emitParticles): `rate` per
+//                                                     tick (fractions allowed) around `at` (`spread`:
+//                                                     half extents), with an extra motion in blocks
+//                                                     per tick. Types: kParticleTypes
 //   {"keyframe": true}                                a key frame of the timeline
 //
 // Everything here is game-independent and unit-tested (tests/core/PonderTest.cpp).
@@ -111,7 +121,11 @@ struct BlockDef {
     bool         operator==(BlockDef const&) const = default;
 };
 
-enum class Op { Idle, Show, Hide, Set, Destroy, Modify, Text, Outline, Input, Redstone, Rotate, Move, Turn, Item, Keyframe };
+enum class Op { Idle, Show, Hide, Set, Destroy, Modify, Text, Outline, Input, Redstone, Rotate, Move, Turn, Item, Keyframe, Entity, Particles };
+
+/// Particle types of the `particles` instruction (U46).
+inline constexpr char const* kParticleTypes[] = {"flame", "soul_flame", "smoke", "large_smoke", "cloud",
+                                                 "splash", "bubble", "snowflake", "heart", "crit"};
 
 struct Instruction {
     Op          op    = Op::Idle;
@@ -136,6 +150,12 @@ struct Instruction {
     float       rpm     = 0;
     char        axis    = 'y';
     float       degrees = 0;
+    std::string entity;            ///< entity: type id
+    float       yaw = 0, yawTo = 0; ///< entity: degrees
+    std::string particle;          ///< particles: type
+    float       rate = 1;          ///< particles per tick
+    Vec3f       spread{0.25f, 0.25f, 0.25f};
+    Vec3f       motion;
 };
 
 struct Scene {
@@ -211,6 +231,22 @@ struct ItemView {
     Vec3f       pos;
 };
 
+struct EntityView {
+    std::string id;           ///< entity type
+    int         instance = 0; ///< index of its instruction in the timeline
+    Vec3f       pos;
+    float       yaw = 0;
+    float       age = 0, left = 0;
+};
+
+struct ParticleView {
+    std::string type;
+    int         instance = 0; ///< index of its instruction (seeds the particle positions)
+    Vec3f       point, spread, motion;
+    float       rate = 1;
+    float       age = 0, left = 0;
+};
+
 struct RedstoneView {
     Area  area;
     float age = 0, left = 0;
@@ -234,6 +270,8 @@ struct SceneState {
     std::vector<OutlineView>           outlines;
     std::vector<InputView>             inputs;
     std::vector<ItemView>              items;
+    std::vector<EntityView>            entities;
+    std::vector<ParticleView>          particles;
     std::vector<RedstoneView>          redstone;
     std::map<std::string, SectionView> sections;
 };

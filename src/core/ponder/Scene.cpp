@@ -209,6 +209,8 @@ std::set<std::string> const& allowedKeys(Op op) {
         {Op::Turn, {"turn", "axis", "degrees", "origin", "ticks"}},
         {Op::Item, {"item", "at", "to", "ticks"}},
         {Op::Keyframe, {"keyframe"}},
+        {Op::Entity, {"entity", "at", "to", "ticks", "yaw", "yaw_to"}},
+        {Op::Particles, {"particles", "at", "ticks", "rate", "spread", "motion"}},
     };
     return keys.at(op);
 }
@@ -222,7 +224,7 @@ std::optional<Instruction> instruction(Parser& p, Scene const& s, Json const& j,
         {"idle", Op::Idle},       {"show", Op::Show},     {"hide", Op::Hide},       {"set", Op::Set},
         {"destroy", Op::Destroy}, {"modify", Op::Modify}, {"text", Op::Text},       {"outline", Op::Outline},
         {"input", Op::Input},     {"redstone", Op::Redstone}, {"rotate", Op::Rotate}, {"move", Op::Move},
-        {"turn", Op::Turn},       {"item", Op::Item},
+        {"turn", Op::Turn},       {"item", Op::Item},     {"entity", Op::Entity},   {"particles", Op::Particles},
     };
     Instruction in;
     char const* opName = nullptr;
@@ -410,6 +412,48 @@ std::optional<Instruction> instruction(Parser& p, Scene const& s, Json const& j,
         in.to = in.point;
         point("to", in.to);
         in.ticks = positiveTicks(p, field(j, "ticks"), 20);
+        break;
+    }
+    case Op::Entity: {
+        if (!main.is_string()) {
+            p.err("\"entity\" needs an entity id");
+            return std::nullopt;
+        }
+        in.entity = main.get<std::string>();
+        p.blockId(in.entity);
+        if (!point("at", in.point)) p.err("\"entity\" needs \"at\"");
+        in.to = in.point;
+        point("to", in.to);
+        in.ticks = positiveTicks(p, field(j, "ticks"), 20);
+        auto number = [&](char const* name, float def) {
+            auto v = field(j, name);
+            if (v.is_null()) return def;
+            if (!v.is_number()) {
+                p.err(std::string("\"") + name + "\" must be a number");
+                return def;
+            }
+            return v.get<float>();
+        };
+        in.yaw   = number("yaw", 0.f);
+        in.yawTo = number("yaw_to", in.yaw);
+        break;
+    }
+    case Op::Particles: {
+        if (!main.is_string()
+            || std::none_of(std::begin(kParticleTypes), std::end(kParticleTypes), [&](char const* t) { return main.get<std::string>() == t; })) {
+            p.err("\"particles\" needs a particle type, got " + main.dump());
+            return std::nullopt;
+        }
+        in.particle = main.get<std::string>();
+        if (!point("at", in.point)) p.err("\"particles\" needs \"at\"");
+        in.ticks = positiveTicks(p, field(j, "ticks"), 20);
+        auto rate = field(j, "rate");
+        if (!rate.is_null()) {
+            if (!rate.is_number() || rate.get<float>() <= 0.f || rate.get<float>() > 20.f) p.err("\"rate\" must be a number in (0, 20]");
+            else in.rate = rate.get<float>();
+        }
+        point("spread", in.spread);
+        point("motion", in.motion);
         break;
     }
     case Op::Keyframe: break;
@@ -605,8 +649,10 @@ SceneState evaluate(Scene const& scene, float time) {
     };
     std::map<std::string, std::vector<Anim>> anims;
 
-    float t = 0;
+    float t     = 0;
+    int   index = -1;
     for (auto const& in : scene.timeline) {
+        ++index;
         if (t > time) break;
         switch (in.op) {
         case Op::Idle: t += static_cast<float>(in.ticks); break;
@@ -700,6 +746,33 @@ SceneState evaluate(Scene const& scene, float time) {
                 st.items.push_back({in.item,
                                     {in.point.x + (in.to.x - in.point.x) * k, in.point.y + (in.to.y - in.point.y) * k,
                                      in.point.z + (in.to.z - in.point.z) * k}});
+            }
+            break;
+        case Op::Entity:
+            if (time < t + static_cast<float>(in.ticks)) {
+                float k = clamp01((time - t) / static_cast<float>(in.ticks));
+                EntityView e;
+                e.id       = in.entity;
+                e.instance = index;
+                e.pos      = {in.point.x + (in.to.x - in.point.x) * k, in.point.y + (in.to.y - in.point.y) * k, in.point.z + (in.to.z - in.point.z) * k};
+                e.yaw      = in.yaw + (in.yawTo - in.yaw) * k;
+                e.age      = time - t;
+                e.left     = t + static_cast<float>(in.ticks) - time;
+                st.entities.push_back(e);
+            }
+            break;
+        case Op::Particles:
+            if (time < t + static_cast<float>(in.ticks)) {
+                ParticleView v;
+                v.type     = in.particle;
+                v.instance = index;
+                v.point    = in.point;
+                v.spread   = in.spread;
+                v.motion   = in.motion;
+                v.rate     = in.rate;
+                v.age      = time - t;
+                v.left     = t + static_cast<float>(in.ticks) - time;
+                st.particles.push_back(v);
             }
             break;
         case Op::Keyframe: break;

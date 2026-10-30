@@ -98,6 +98,46 @@ TEST(Ponder, RejectsBadScenes) {
     EXPECT_FALSE(bad([](Json& j) { j["blocks"][0]["states"] = {{"levitate:axis", 1.5}}; }).scene);
 }
 
+TEST(Ponder, EntitiesAndParticles) {
+    auto j = minimal();
+    j["timeline"] = Json::parse(R"([
+        {"show": "base"},
+        {"entity": "minecraft:minecart", "at": [0.5, 1, 2.5], "to": [4.5, 1, 2.5], "ticks": 40, "yaw": 90, "yaw_to": 180},
+        {"particles": "flame", "at": [2.5, 1.5, 2.5], "ticks": 20, "rate": 0.5, "spread": [0.1, 0, 0.1], "motion": [0, 0.05, 0]},
+        {"idle": 50}
+    ])");
+    auto r = parseScene(j);
+    ASSERT_TRUE(r.scene) << (r.errors.empty() ? "" : r.errors[0]);
+    auto st = evaluate(*r.scene, 10);
+    ASSERT_EQ(st.entities.size(), 1u);
+    EXPECT_EQ(st.entities[0].id, "minecraft:minecart");
+    EXPECT_EQ(st.entities[0].instance, 1);
+    EXPECT_FLOAT_EQ(st.entities[0].pos.x, 1.5f); // a quarter of the way
+    EXPECT_FLOAT_EQ(st.entities[0].yaw, 112.5f);
+    ASSERT_EQ(st.particles.size(), 1u);
+    EXPECT_EQ(st.particles[0].type, "flame");
+    EXPECT_FLOAT_EQ(st.particles[0].rate, 0.5f);
+    EXPECT_FLOAT_EQ(st.particles[0].age, 10.f);
+    EXPECT_FLOAT_EQ(st.particles[0].motion.y, 0.05f);
+    EXPECT_FLOAT_EQ(st.particles[0].spread.y, 0.f);
+    auto later = evaluate(*r.scene, 30);
+    EXPECT_EQ(later.entities.size(), 1u);
+    EXPECT_TRUE(later.particles.empty()); // the emitter ran for 20 ticks
+    EXPECT_TRUE(evaluate(*r.scene, 45).entities.empty());
+
+    auto bad = [&](Json in) {
+        auto k        = minimal();
+        k["timeline"] = Json::array({Json{{"show", "base"}}, in, Json{{"idle", 10}}});
+        return parseScene(k).scene.has_value();
+    };
+    EXPECT_FALSE(bad({{"particles", "fireworks"}, {"at", {1, 1, 1}}}));
+    EXPECT_FALSE(bad({{"particles", "flame"}, {"at", {1, 1, 1}}, {"rate", 0}}));
+    EXPECT_FALSE(bad({{"entity", "pig"}, {"at", {1, 1, 1}}}));
+    EXPECT_FALSE(bad({{"entity", "minecraft:pig"}}));
+    EXPECT_FALSE(bad({{"entity", "minecraft:pig"}, {"at", {1, 1, 1}}, {"yaw", "north"}}));
+    EXPECT_TRUE(bad({{"entity", "minecraft:pig"}, {"at", {1, 1, 1}}}));
+}
+
 TEST(Ponder, EvaluatesShowFadeAndRotation) {
     auto s = *parseScene(minimal()).scene;
     auto at0 = evaluate(s, 0);
