@@ -82,6 +82,16 @@ inline constexpr int kNoHeight = -2147483647 - 1;
 /// floor(v + 0.5). `rows` x `cols`, row-major.
 [[nodiscard]] std::vector<int> smoothHeights(std::vector<int> const& heights, int rows, int cols);
 
+/// One unit edge of a cluster outline, from `a` to `b` (block corner coordinates).
+struct Edge {
+    IPos a, b;
+    friend bool operator==(Edge const&, Edge const&) = default;
+    friend auto operator<=>(Edge const&, Edge const&) = default;
+};
+/// Create's Outliner#showCluster: the edges of the outline of a set of blocks (edges of faces
+/// between a block of the set and one outside it, except edges inside a flat side of the set).
+[[nodiscard]] std::vector<Edge> clusterEdges(std::vector<IPos> const& blocks);
+
 /// Translation keys (Create's `create.gui.terrainzapper.*`).
 [[nodiscard]] std::string brushKey(Brush b);
 [[nodiscard]] std::string toolKey(ShaperTool t);

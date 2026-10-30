@@ -19,6 +19,10 @@
 
 namespace {
 
+/// testPos puts dx 45xx 180 blocks south, outside the area the selftest run keeps ticking (z +-64):
+/// U45's tests move 240 blocks north, to rows no unit uses (z -62..-58), so entities there tick.
+constexpr int kU45Shift = -240;
+
 using lv::core::GlobalPos;
 using lv::selftest::Context;
 namespace adv   = lv::feature::advancements;
@@ -97,7 +101,7 @@ LV_REGISTER_SELFTEST("advancements.inventory_criteria", [](Context& ctx) -> ll::
 });
 
 LV_REGISTER_SELFTEST("advancements.casing_click", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4500), 0, 1, 0);
+    auto base = at(ctx.testPos(4500, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     forget(sp);
@@ -115,7 +119,7 @@ LV_REGISTER_SELFTEST("advancements.casing_click", [](Context& ctx) -> ll::coro::
 });
 
 LV_REGISTER_SELFTEST("advancements.owner_and_speed", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4505), 0, 1, 0);
+    auto base = at(ctx.testPos(4505, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     forget(sp);
@@ -147,7 +151,7 @@ LV_REGISTER_SELFTEST("advancements.owner_and_speed", [](Context& ctx) -> ll::cor
 });
 
 LV_REGISTER_SELFTEST("advancements.shifting_gears", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4510), 0, 1, 0);
+    auto base = at(ctx.testPos(4510, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     forget(sp);

@@ -312,3 +312,15 @@ TEST(Shaper, Smooth) {
     EXPECT_EQ(sm[12], 2);
     EXPECT_EQ(sm[0], 0);
 }
+
+TEST(Shaper, ClusterEdgesOutlineTheShape) {
+    // one block: its 12 edges
+    EXPECT_EQ(clusterEdges({{0, 0, 0}}).size(), 12u);
+    // two blocks in a row: a 2x1x1 box, 16 unit edges (the ones across its flat sides vanish)
+    auto two = clusterEdges({{0, 0, 0}, {1, 0, 0}});
+    EXPECT_EQ(two.size(), 16u);
+    // an L of three blocks has a concave edge
+    auto l = clusterEdges({{0, 0, 0}, {1, 0, 0}, {0, 0, 1}});
+    EXPECT_GT(l.size(), 12u);
+    EXPECT_TRUE(clusterEdges({}).empty());
+}

@@ -41,6 +41,10 @@
 
 namespace {
 
+/// testPos puts dx 45xx 180 blocks south, outside the area the selftest run keeps ticking (z +-64):
+/// U45's tests move 240 blocks north, to rows no unit uses (z -62..-58), so entities there tick.
+constexpr int kU45Shift = -240;
+
 using lv::core::GlobalPos;
 using lv::selftest::Context;
 using SharedTypes::Legacy::ArmorSlot;
@@ -124,7 +128,7 @@ void addEffect(Actor& a, unsigned id, int ticks) {
 // The cannon fires a real projectile entity: tagged, of the ammo's variant, never saved, moved every
 // tick to the simulated position, removed when it pops on a wall (no recovery without the enchantment).
 LV_REGISTER_SELFTEST("equipment.potato_entity", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4550), 0, 1, 0);
+    auto base = at(ctx.testPos(4550, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     clearInventory(sp);
@@ -168,7 +172,7 @@ LV_REGISTER_SELFTEST("equipment.potato_entity", [](Context& ctx) -> ll::coro::Co
 
 // Every ammo item picks its texture (the entity variant) and Create's render mode in the resource pack.
 LV_REGISTER_SELFTEST("equipment.potato_variants", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4553), 0, 1, 0);
+    auto base = at(ctx.testPos(4553, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp = ctx.player();
     int   dim = static_cast<int>(sp.getDimensionId());
@@ -187,7 +191,7 @@ LV_REGISTER_SELFTEST("equipment.potato_variants", [](Context& ctx) -> ll::coro::
 
 // Create's sticky types stick to the entity they hit, slide down it and pop below its feet.
 LV_REGISTER_SELFTEST("equipment.potato_sticky", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4556), 0, 1, 0);
+    auto base = at(ctx.testPos(4556, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp    = ctx.player();
     auto  level = ll::service::getLevel();
@@ -226,7 +230,7 @@ LV_REGISTER_SELFTEST("equipment.potato_sticky", [](Context& ctx) -> ll::coro::Co
 
 // Projectiles of different types pop each other; both owners get "potato_cannon_collide".
 LV_REGISTER_SELFTEST("equipment.potato_collide", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4559), 0, 1, 0);
+    auto base = at(ctx.testPos(4559, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp  = ctx.player();
     int   dim = static_cast<int>(sp.getDimensionId());
@@ -253,7 +257,7 @@ LV_REGISTER_SELFTEST("equipment.potato_collide", [](Context& ctx) -> ll::coro::C
 // Create's recovery rule: the recovery roll (else the type's drop: a bowl for suspicious stew), and the
 // cannon's Potato Recovery level sets the chance (0 without it).
 LV_REGISTER_SELFTEST("equipment.potato_recovery", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4562), 0, 1, 0);
+    auto base = at(ctx.testPos(4562, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp  = static_cast<SimulatedPlayer&>(ctx.player());
     int   dim = static_cast<int>(sp.getDimensionId());
@@ -298,7 +302,7 @@ LV_REGISTER_SELFTEST("equipment.potato_recovery", [](Context& ctx) -> ll::coro::
 
 // Create's CureZombieVillager: a golden apple cures a weakened zombie villager.
 LV_REGISTER_SELFTEST("equipment.potato_golden_apple", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4565), 0, 1, 0);
+    auto base = at(ctx.testPos(4565, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp    = ctx.player();
     auto  level = ll::service::getLevel();
@@ -336,7 +340,7 @@ LV_REGISTER_SELFTEST("equipment.potato_golden_apple", [](Context& ctx) -> ll::co
 
 // Capacity: + enchantedBacktankCapacity (300) air per level, in the item and in the placed block.
 LV_REGISTER_SELFTEST("equipment.potato_capacity", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4566), 0, 1, 0);
+    auto base = at(ctx.testPos(4566, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     clearInventory(sp);
@@ -384,7 +388,7 @@ LV_REGISTER_SELFTEST("equipment.potato_enchant_table", [](Context& ctx) -> ll::c
     ctx.check(eq::rollTableEnchant("levitate:potato_cannon", 1, 3, 1, 0).second == 0, "nothing at a low cost");
 
     // a real table with 16 bookshelves
-    auto base = at(ctx.testPos(4568), 0, 1, 0);
+    auto base = at(ctx.testPos(4568, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     clearInventory(sp);

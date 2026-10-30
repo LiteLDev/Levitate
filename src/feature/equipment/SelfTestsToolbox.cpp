@@ -24,6 +24,10 @@
 
 namespace {
 
+/// testPos puts dx 45xx 180 blocks south, outside the area the selftest run keeps ticking (z +-64):
+/// U45's tests move 240 blocks north, to rows no unit uses (z -62..-58), so entities there tick.
+constexpr int kU45Shift = -240;
+
 using lv::core::GlobalPos;
 using lv::selftest::Context;
 namespace eq    = lv::feature::equipment;
@@ -72,7 +76,7 @@ int countIn(GlobalPos const& c, std::string const& suffix) {
 // Create's TreesDreamWorld: the tree grows without room; logs never replace unbreakable blocks,
 // leaves never replace solid blocks.
 LV_REGISTER_SELFTEST("equipment.tree_fertilizer_no_room", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto sap = at(ctx.testPos(4575), 0, 1, 0);
+    auto sap = at(ctx.testPos(4575, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(sap), "test area loaded");
     auto& p = ctx.player();
     clearInventory(p);
@@ -97,7 +101,7 @@ LV_REGISTER_SELFTEST("equipment.tree_fertilizer_no_room", [](Context& ctx) -> ll
 
 // A 2x2 of dark oak saplings grows Bedrock's dark oak (its quadruple feature) from any of them.
 LV_REGISTER_SELFTEST("equipment.tree_fertilizer_dark_oak", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto sap = at(ctx.testPos(4582), 0, 1, 0);
+    auto sap = at(ctx.testPos(4582, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(sap), "test area loaded");
     auto& p = ctx.player();
     clearInventory(p);
@@ -126,7 +130,7 @@ LV_REGISTER_SELFTEST("equipment.tree_fertilizer_dark_oak", [](Context& ctx) -> l
 // Create: a hanging mangrove propagule does nothing (the item is not used); a standing one and an
 // azalea grow their trees.
 LV_REGISTER_SELFTEST("equipment.tree_fertilizer_propagule", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto sap = at(ctx.testPos(4588), 0, 1, 0);
+    auto sap = at(ctx.testPos(4588, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(sap), "test area loaded");
     auto& p = ctx.player();
     clearInventory(p);
@@ -156,7 +160,7 @@ LV_REGISTER_SELFTEST("equipment.tree_fertilizer_propagule", [](Context& ctx) -> 
 // Create's ToolboxBlockEntity openTracker: the lid is open while anyone has the screen open (the
 // block state `levitate:toolbox_lid` = 1, which vanilla clients show as the open model).
 LV_REGISTER_SELFTEST("equipment.toolbox_lid", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4570), 0, 1, 0);
+    auto base = at(ctx.testPos(4570, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& p = ctx.player();
     ctx.require(ctx.setBlock(base, "levitate:cyan_toolbox", {{"levitate:facing", 3}}), "toolbox placed");
@@ -208,7 +212,7 @@ LV_REGISTER_SELFTEST("equipment.toolbox_lid", [](Context& ctx) -> ll::coro::Coro
 // Create's ToolboxDyeingRecipe keeps the toolbox's data: the crafted toolbox gets the user data of
 // the toolbox in the grid (the craft hook calls keepDyedToolboxData; the client e2e crafts it).
 LV_REGISTER_SELFTEST("equipment.toolbox_dye_craft", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(4572), 0, 1, 0);
+    auto base = at(ctx.testPos(4572, kU45Shift), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& p = ctx.player();
     clearInventory(p);
