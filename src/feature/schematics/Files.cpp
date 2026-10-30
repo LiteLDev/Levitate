@@ -196,6 +196,7 @@ cs::Schematic capture(int dim, cs::Pos lo, cs::Pos hi) {
     }
     if (anyLiquid) s.liquids = std::move(liquids);
     captureExtras(dim, lo, hi, s);
+    s.worldOrigin = lo; // entities keep their world position: relative to this
     return s;
 }
 

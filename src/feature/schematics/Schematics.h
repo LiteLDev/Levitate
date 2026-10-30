@@ -176,8 +176,9 @@ void                                        clearSchematicCache();
 /// Adds the block entity NBT and the entities (not players) of the area to `s` (Create's
 /// StructureTemplate.fillFromWorld with entities).
 void captureExtras(int dim, cs::Pos lo, cs::Pos hi, cs::Schematic& s);
-/// Loads saved block entity NBT into the block entity at `at` (its position rewritten).
-bool placeBlockEntity(GlobalPos const& at, cs::nbt::Tag const& data);
+/// Loads saved block entity NBT into the block entity at `at` of a schematic placed at `anchor`
+/// with `t` (`origin`: the file's world origin): its position and a chest's pair rewritten.
+bool placeBlockEntity(GlobalPos const& at, cs::nbt::Tag const& data, cs::Pos origin, cs::Transform const& t, cs::Pos anchor);
 /// Spawns a saved entity of a schematic placed at `anchor` with `t` (`origin`: the file's world
 /// origin of its saved "Pos"): position and facing transformed like the blocks, a new id.
 Actor* placeEntity(int dim, cs::nbt::Tag const& data, cs::Pos origin, cs::Transform const& t, cs::Pos anchor);

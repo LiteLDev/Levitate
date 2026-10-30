@@ -243,6 +243,8 @@ void rebindPonderKey(std::function<void(int)> done) {
 
 bool rebinding() { return static_cast<bool>(state().rebind); }
 
+void cancelRebind() { state().rebind = {}; }
+
 void pushHistory(std::function<void()> reopen) {
     auto& h = state().history;
     h.push_back(std::move(reopen));

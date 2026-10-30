@@ -511,6 +511,11 @@ public:
         for (std::size_t i = 0; i < lines.size() && i < 2; ++i) c.text(width / 2, height - 44 + static_cast<float>(i) * 9, lines[i], color::kTextDark, Align::Centre, false);
     }
 
+    void onClose() override {
+        PonderScreen::onClose();
+        if (rebinding()) cancelRebind(); // a key pressed later must not become the Ponder key
+    }
+
 private:
     static std::string keyLabel() { return "[" + keyName(ponderKeyCode()) + "]"; }
     screen::IconButton* mKey = nullptr;

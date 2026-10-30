@@ -68,6 +68,8 @@ void deferUi(std::function<void()> fn);
 /// The next key pressed becomes the Ponder key (Esc cancels); `done(vk)` runs after (0: cancelled).
 void rebindPonderKey(std::function<void(int)> done);
 [[nodiscard]] bool rebinding();
+/// Stops waiting for a new Ponder key (the screen that asked closed).
+void cancelRebind();
 
 // ---- rendering --------------------------------------------------------------------------------
 

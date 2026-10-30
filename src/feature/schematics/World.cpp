@@ -539,7 +539,7 @@ void captureExtras(int dim, cs::Pos lo, cs::Pos hi, cs::Schematic& s) {
     s.entities = static_cast<int>(s.entityTags.size());
 }
 
-bool placeBlockEntity(GlobalPos const& at, cs::nbt::Tag const& data) {
+bool placeBlockEntity(GlobalPos const& at, cs::nbt::Tag const& data, cs::Pos origin, cs::Transform const& t, cs::Pos anchor) {
     auto* region = regionOf(at.dim);
     auto  level  = ll::service::getLevel();
     if (!region || !level || !data.asCompound()) return false;
@@ -549,6 +549,15 @@ bool placeBlockEntity(GlobalPos const& at, cs::nbt::Tag const& data) {
     copy.asCompound()->set("x", cs::nbt::Tag(std::int32_t(at.x)));
     copy.asCompound()->set("y", cs::nbt::Tag(std::int32_t(at.y)));
     copy.asCompound()->set("z", cs::nbt::Tag(std::int32_t(at.z)));
+    // a double chest's other half (absolute pairx / pairz) moves and turns like the blocks
+    auto const* px = copy.asCompound()->find("pairx");
+    auto const* pz = copy.asCompound()->find("pairz");
+    if (px && pz && px->asInt() && pz->asInt()) {
+        cs::Pos local{static_cast<int>(*px->asInt()) - origin.x, at.y, static_cast<int>(*pz->asInt()) - origin.z};
+        cs::Pos pair = anchor + cs::apply(t, {local.x, 0, local.z});
+        copy.asCompound()->set("pairx", cs::nbt::Tag(std::int32_t(pair.x)));
+        copy.asCompound()->set("pairz", cs::nbt::Tag(std::int32_t(pair.z)));
+    }
     auto tag = gameTag(copy);
     if (!tag) return false;
     be->load(*level, *tag, defaultLoadHelper());

@@ -96,6 +96,7 @@ struct Cache {
     std::map<std::string, std::unique_ptr<mce::Mesh>> rotorMeshes;
     std::map<Block const*, std::unique_ptr<mce::Mesh>> blockMeshes;
     std::map<std::string, std::unique_ptr<mce::Mesh>> modelMeshes; ///< by block key (id + states)
+    std::map<std::string, std::optional<std::vector<cp::Quad>>> modelQuads; ///< by block key (schematic ghosts)
     std::unique_ptr<BlockTessellator>                  tessellator; ///< our own: the game's is shared with item icons
     void const*                                        tessRegion = nullptr;
 };
@@ -419,7 +420,10 @@ mce::Mesh* modelPartMesh(Tessellator& tess, cp::BlockDef const& def, std::vector
 bool appendBlock(Tessellator& tess, cp::BlockDef const& def, Block const& block, float x, float y, float z) {
     // Levitate blocks: the pack's own geometry
     if (models().blocks.contains(def.id)) {
-        auto quads = modelQuads(def);
+        auto& cached = cache().modelQuads;
+        auto  it     = cached.find(keyOf(def));
+        if (it == cached.end()) it = cached.emplace(keyOf(def), modelQuads(def)).first;
+        auto const& quads = it->second;
         if (!quads) return false;
         emitQuads(tess, *quads, 1.f, Vec3{x, y, z});
         return true;
@@ -441,6 +445,7 @@ void resetRenderCache() {
     c.rotorMeshes.clear();
     c.blockMeshes.clear();
     c.modelMeshes.clear();
+    c.modelQuads.clear();
     c.tessellator.reset();
     c.tessRegion = nullptr;
 }

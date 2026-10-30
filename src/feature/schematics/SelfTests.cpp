@@ -60,6 +60,18 @@ void clearBox(Context& ctx, GlobalPos const& o, int sx, int sy, int sz) {
             }
 }
 
+/// U44's tests (dx 4400..): row 44 lies outside the area the run keeps loaded (z spawn-60..+60);
+/// this z offset moves them to its free strip at spawn - 55.
+constexpr int kRowDz = -230;
+
+/// U44's test rows (dx 4400..) lie outside the run's ticking area: their chunks may take longer
+/// than one ensureLoaded to come in.
+ll::coro::CoroTask<bool> loadFar(Context& ctx, GlobalPos const& p) {
+    for (int i = 0; i < 4; ++i)
+        if (co_await ctx.ensureLoaded(p)) co_return true;
+    co_return false;
+}
+
 ll::coro::CoroTask<bool> waitFor(Context& ctx, std::function<bool()> cond, int maxTicks) {
     for (int i = 0; i < maxTicks; ++i) {
         if (cond()) co_return true;
@@ -401,9 +413,9 @@ LV_REGISTER_SELFTEST("schematics.checklist", [](Context& ctx) -> ll::coro::CoroT
 
 // U44 (dx 4400..4409): a clipboard in the paper slot comes out as a read-only checklist clipboard
 LV_REGISTER_SELFTEST("schematics.checklist_clipboard", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto o = ctx.testPos(4400);
+    auto o = ctx.testPos(4400, kRowDz);
     o.y += 1;
-    ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
+    ctx.require(co_await loadFar(ctx, o), "test area loaded");
     buildSample(ctx, at(o, 4, 0, 0));
     auto& player = ctx.player();
     auto  dir    = playerDir(player.getRealName());
@@ -438,11 +450,11 @@ LV_REGISTER_SELFTEST("schematics.checklist_clipboard", [](Context& ctx) -> ll::c
 // U44 (dx 4430..4449): schematics keep block entity data and entities (Create's StructureTemplate
 // with entities); the creative print restores both, turned with the schematic
 LV_REGISTER_SELFTEST("schematics.entities", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto o = ctx.testPos(4430);
+    auto o = ctx.testPos(4430, kRowDz);
     o.y += 1;
     auto target = at(o, 8, 0, 0);
-    ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
-    ctx.require(co_await ctx.ensureLoaded(target), "target area loaded");
+    ctx.require(co_await loadFar(ctx, o), "test area loaded");
+    ctx.require(co_await loadFar(ctx, target), "target area loaded");
     clearBox(ctx, o, 3, 2, 3);
     clearBox(ctx, target, 3, 2, 3);
     auto* region = regionOf(o.dim);
@@ -453,6 +465,7 @@ LV_REGISTER_SELFTEST("schematics.entities", [](Context& ctx) -> ll::coro::CoroTa
     };
     clearStands();
     put(ctx, o, "minecraft:chest");
+    put(ctx, at(o, 1, -1, 0), "minecraft:stone"); // the armor stand stands inside the area
     co_await ctx.ticks(2);
     fillChest(o, {{"minecraft:diamond", 3}});
     auto level = ll::service::getLevel();

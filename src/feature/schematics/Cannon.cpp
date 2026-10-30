@@ -95,8 +95,10 @@ struct Cannon {
     cs::Pos                       bmin, bmax;
     cs::PrintCursor               cursor;
     std::optional<cs::Pos>        current; ///< offset from the anchor
-    std::size_t                   entityIndex = 0; ///< next schematic entity (after the blocks)
+    std::size_t                   entityIndex = 0; ///< next schematic entity (after the blocks; saved)
+    bool                          entityPhase = false; ///< the blocks are done, entities are printed
     std::optional<cs::Pos>        aimSent;         ///< the target the client mods aim the barrel at
+    int                           aimResend = 0;   ///< ticks until the aim is sent again (late viewers)
     std::vector<Block const*>     tblocks; ///< transformed block per palette index
     std::vector<char>             tdone;
 
@@ -163,6 +165,7 @@ void save(Cannon& c) {
         {"replaceBE",   c.replaceBE               },
         {"placed",      c.placed                  },
         {"toPlace",     c.toPlace                 },
+        {"entityIndex", c.entityIndex             },
         {"missing",     items::toJson(c.missing)  },
         {"book",        c.book                    },
         {"flying",      flying                    },
@@ -185,6 +188,7 @@ Cannon& cannonAt(GlobalPos const& p) {
         c.replaceBE   = d->value("replaceBE", false);
         c.placed      = d->value("placed", 0);
         c.toPlace     = d->value("toPlace", 0);
+        c.entityIndex = d->value("entityIndex", std::size_t{0});
         c.missing     = items::fromJson(d->value("missing", Json()));
         c.book        = d->value("book", 0.f);
         for (auto const& f : d->value("flying", Json::array())) {
@@ -353,6 +357,7 @@ void resetPrinter(Cannon& c) {
     c.sch.reset();
     c.current.reset();
     c.entityIndex = 0;
+    c.entityPhase = false;
     sendAim(c, std::nullopt);
     c.missing = items::empty();
     c.placed  = 0;
@@ -489,8 +494,10 @@ void sendLaunch(Cannon const& c, Flying const& f) {
 /// Create's SchematicannonRenderer aims at the printer's current target: the client mods turn the
 /// connector and pitch the barrel towards it ("schematics.cannon", null when idle).
 void sendAim(Cannon& c, std::optional<cs::Pos> target) {
-    if (c.aimSent == target) return;
-    c.aimSent  = target;
+    // changes at once; the current aim again every 2 s for players who came close or joined since
+    if (c.aimSent == target && --c.aimResend > 0) return;
+    c.aimSent   = target;
+    c.aimResend = 40;
     auto level = ll::service::getLevel();
     if (!level) return;
     Json msg{{"dim", c.pos.dim}, {"pos", {c.pos.x, c.pos.y, c.pos.z}}, {"target", target ? Json{target->x, target->y, target->z} : Json()}};
@@ -671,9 +678,15 @@ void tickPrinter(Cannon& c) {
             c.state   = "RUNNING";
         }
     }
+    if (c.entityPhase) {
+        // also retries an entity whose items were missing (c.missing set, no block cursor)
+        if (!tickEntities(c)) finishedPrinting(c);
+        return;
+    }
     if (items::isEmpty(c.missing) && !c.positionNotLoaded) {
         c.current = c.cursor.next([&](cs::Pos q) { return deferred(c, q); });
         if (!c.current) {
+            c.entityPhase = true;
             if (tickEntities(c)) return;
             finishedPrinting(c);
             return;
@@ -740,7 +753,7 @@ void signText(Cannon& c, GlobalPos const& t, Block const& b) {
     cs::nbt::Compound safe;
     for (auto const* key : {"id", "FrontText", "BackText", "Text", "IsWaxed"})
         if (auto const* v = it->second.asCompound()->find(key)) safe.set(key, *v);
-    placeBlockEntity(t, cs::nbt::Tag(std::move(safe)));
+    placeBlockEntity(t, cs::nbt::Tag(std::move(safe)), s.worldOrigin, c.sd.transform, c.sd.anchor);
 }
 
 void landed(Cannon& c, Flying const& f) {

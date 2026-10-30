@@ -12,6 +12,7 @@
 
 #include "mc/world/actor/ActorDefinitionIdentifier.h"
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/item/Item.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
@@ -241,20 +242,23 @@ bool filterMatches(ItemStack const& filter, ItemStack const& stack) {
 // ---- player actions ----------------------------------------------------------------------------------
 
 namespace {
-std::optional<std::string> spawnEggMob(ItemStack const& stack) {
-    if (items::isEmpty(stack)) return std::nullopt;
-    auto id = items::idOf(stack);
-    constexpr std::string_view kSuffix = "_spawn_egg";
-    if (!endsWith(id, kSuffix)) return std::nullopt;
-    return id.substr(0, id.size() - kSuffix.size());
+/// The mob of a spawn egg (Create's SpawnEggItem.getType): the egg item's own actor identifier
+/// (villager eggs spawn `villager_v2`, ...); nullopt for other items.
+std::optional<ActorDefinitionIdentifier> spawnEggMob(ItemStack const& stack) {
+    if (items::isEmpty(stack) || !endsWith(items::idOf(stack), "_spawn_egg")) return std::nullopt;
+    auto const* item = stack.mItem.get();
+    if (!item) return std::nullopt;
+    auto id = item->getActorIdentifier(stack);
+    if (id.mIdentifier->empty()) return std::nullopt;
+    return id;
 }
 
 bool spawnFromEgg(BlockSource& region, ItemStack const& egg, Actor* spawner, cp::V3 const& at) {
-    auto mob = spawnEggMob(egg);
+    auto mob   = spawnEggMob(egg);
     auto level = ll::service::getLevel();
     if (!mob || !level) return false;
-    auto* spawned = level->getSpawner().spawnMob(region, ActorDefinitionIdentifier(*mob), spawner, Vec3{float(at.x), float(at.y), float(at.z)}, false, false, false);
-    if (spawned) log().info("packages: a {} spawned from a package's spawn egg", *mob);
+    auto* spawned = level->getSpawner().spawnMob(region, *mob, spawner, Vec3{float(at.x), float(at.y), float(at.z)}, false, false, false);
+    if (spawned) log().info("packages: a {} spawned from a package's spawn egg", *mob->mFullName);
     return spawned != nullptr;
 }
 

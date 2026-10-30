@@ -24,6 +24,7 @@
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Filter.h"
+#include "feature/display/Clipboard.h"
 #include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/packages/PackagesInternal.h"
@@ -500,6 +501,19 @@ std::vector<ia::HandlerId>& handlerIds() {
 void installInteractions() {
     auto& ids = handlerIds();
     ids.push_back(ia::onUseOn({}, packagesUseOn));
+    // Create: the port block's use runs before the clipboard item's own use (which opens it), so a
+    // clipboard on a port takes its address (U24's clipboard handler is priority::High)
+    ids.push_back(ia::onUseOn(
+        {.item = std::string(display::kClipboardId)},
+        [](ia::UseOnContext const& c) {
+            auto kind = kindOf(game::blockId(c.block));
+            if ((kind != Kind::Frogport && kind != Kind::Postbox) || c.sneaking || c.offhand) return ia::Result::Pass;
+            if (!debounced(c.player, c.pos)) usePort(c.player, c.pos, kind);
+            ia::mutableItem(c.item) = c.player.getSelectedItem();
+            return ia::Result::Consume;
+        },
+        ia::priority::High + 1
+    ));
     ids.push_back(ia::onUnusedUseOn({}, packagesPutDown));
     ids.push_back(ia::onPlace({}, packagesPlaced));
     ids.push_back(ia::onUse({}, packagesUse));

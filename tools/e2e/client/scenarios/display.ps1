@@ -65,9 +65,9 @@ Invoke-Chat '/give @s levitate:clipboard 1'
 Press-Key '1'
 if (-not $vanilla) {
     # U44: Create's "Clipboard Actions" tip and white outline on a block with settings
+    $mark = Get-LogMark
     Invoke-Chat '/setblock ~ ~ ~2 levitate:creative_motor'
     Invoke-Chat '/tp @s ~ ~ ~ 0 35'
-    $mark = Get-LogMark
     Wait-LogLine 'clipboard: showing the Clipboard Actions tip \(2 lines\)' 20 -Since $mark | Out-Null
     Start-Sleep -Milliseconds 600
     Save-Screenshot 'clipboard-tip' | Out-Null

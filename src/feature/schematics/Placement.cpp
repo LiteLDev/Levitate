@@ -185,7 +185,7 @@ int printInstantly(Player* player, int dim, SchematicData const& d, bool include
     bool bedrock = s.format == "mcstructure"; // Java files carry Java NBT: blocks only
     if (bedrock) {
         for (auto const& [i, tag] : s.blockEntities)
-            if (s.blocks[i] >= 0 && placeBlockEntity(gp(dim, d.anchor + cs::apply(d.transform, s.posOf(i))), tag)) ++data;
+            if (s.blocks[i] >= 0 && placeBlockEntity(gp(dim, d.anchor + cs::apply(d.transform, s.posOf(i))), tag, s.worldOrigin, d.transform, d.anchor)) ++data;
         for (auto const& e : s.entityTags)
             if (placeEntity(dim, e, s.worldOrigin, d.transform, d.anchor)) ++spawned;
     }

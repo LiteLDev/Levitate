@@ -75,7 +75,7 @@ struct State {
     std::chrono::steady_clock::time_point  last{};
     std::string                            message;
     std::chrono::steady_clock::time_point  messageAt{};
-    bool                                   loggedPreview = false;
+    std::string                            loggedOutcome;
 };
 State& st() {
     static State s;
@@ -275,9 +275,11 @@ void renderPreview(BaseActorRenderContext& ctx) {
         }
     }
     MeshHelpers::renderMeshImmediately(sc, tess, material(), OffscreenCaptureDescription{});
-    if (!s.loggedPreview) {
-        s.loggedPreview = true;
-        log().info("tracks: previewing a track placement ({})", plan->valid ? "valid" : plan->message);
+    // one line per change of the outcome (what the action bar says), not per frame
+    auto outcome = plan->valid ? std::string("valid") : plan->message;
+    if (outcome != s.loggedOutcome) {
+        s.loggedOutcome = outcome;
+        log().info("tracks: previewing a track placement ({})", outcome);
     }
 }
 
@@ -288,7 +290,7 @@ void onSelection(nlohmann::json const& msg) {
     }
     std::lock_guard lock(st().mutex);
     st().selection     = sel;
-    st().loggedPreview = false;
+    st().loggedOutcome.clear();
     log().info("tracks: {}", sel ? "a track end is selected" : "the track selection is gone");
 }
 
