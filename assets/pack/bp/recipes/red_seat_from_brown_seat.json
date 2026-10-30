@@ -1,0 +1,27 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:red_seat_from_brown_seat"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:brown_seat"
+      },
+      {
+        "item": "minecraft:red_dye"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:brown_seat"
+      }
+    ],
+    "result": {
+      "item": "levitate:red_seat"
+    }
+  }
+}

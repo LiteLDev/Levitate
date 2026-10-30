@@ -67,6 +67,7 @@ enum class Overlap { Valid, Occupied, Junction, NoTrack };
 
 struct State {
     std::map<GlobalPos, BlockRec>      blocks;
+    std::map<GlobalPos, int>           watches; ///< signal -> common::redstone watch id
     cs::SignalSystem                   system;
     std::map<std::string, ObserverRun> observers;  ///< by point id
     std::map<std::string, Selection>   selections; ///< by player UUID

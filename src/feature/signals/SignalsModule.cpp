@@ -180,6 +180,7 @@ std::optional<BlockRec> jsonRec(nlohmann::json const& j) {
 void loadWorld() {
     auto& s = state();
     s.blocks.clear();
+    s.watches.clear(); // (the redstone watches are dropped with the world)
     s.observers.clear();
     s.selections.clear();
     s.intents.clear();
@@ -324,23 +325,26 @@ void pushBlockStates() {
 }
 
 /// Create's SignalBlock.neighborChanged: the POWERED state follows the redstone input.
-void pollRedstone() {
-    auto& s       = state();
-    bool  changed = false;
+/// Create's SignalBlock.neighborChanged: one redstone watch per signal block (common::redstone).
+void watchRedstone() {
+    auto& s = state();
     for (auto& [pos, r] : s.blocks) {
-        if (r.kind != Kind::Signal) continue;
-        auto* region = regionOf(pos.dim);
-        if (!region) continue;
-        BlockPos bp = game::blockPos(pos);
-        if (!region->hasChunksAt(bp, 0, false) || kindOf(region->getBlock(bp)) != Kind::Signal) continue;
-        bool powered = poweredAt(*region, bp);
-        if (powered == r.powered) continue;
-        r.powered    = powered;
-        changed      = true;
-        s.indexDirty = true;
-        log().info("signals: signal at {} {} by redstone", pos.key(), powered ? "forced red" : "released");
+        if (r.kind != Kind::Signal || s.watches.contains(pos)) continue;
+        s.watches[pos] = common::redstone::watch(pos, [](GlobalPos const& at, int) {
+            auto& st     = state();
+            auto  it     = st.blocks.find(at);
+            auto* region = regionOf(at.dim);
+            if (it == st.blocks.end() || it->second.kind != Kind::Signal || !region) return;
+            BlockPos bp = game::blockPos(at);
+            if (!region->hasChunksAt(bp, 0, false) || kindOf(region->getBlock(bp)) != Kind::Signal) return;
+            bool powered = poweredAt(*region, bp);
+            if (powered == it->second.powered) return;
+            it->second.powered = powered;
+            st.indexDirty      = true;
+            st.sidesDirty      = true;
+            log().info("signals: signal at {} {} by redstone", at.key(), powered ? "forced red" : "released");
+        });
     }
-    if (changed) s.sidesDirty = true;
 }
 
 /// Create's TrackObserver.tick / Train.tick: observers stay on 8 ticks after a matching train.
@@ -528,6 +532,10 @@ void removeBlock(GlobalPos const& pos) {
     if (it == s.blocks.end()) return;
     std::string point = it->second.point;
     s.blocks.erase(it);
+    if (auto w = s.watches.find(pos); w != s.watches.end()) {
+        common::redstone::unwatch(w->second);
+        s.watches.erase(w);
+    }
     s.indexDirty = true;
     if (!point.empty()) {
         bool used = std::any_of(s.blocks.begin(), s.blocks.end(), [&](auto const& e) { return e.second.point == point; });
@@ -561,25 +569,9 @@ cs::SignalState lampOf(BlockRec const& rec) {
 }
 
 bool poweredAt(BlockSource& region, BlockPos const& pos) {
-    // Create's hasNeighborSignal: custom blocks get no redstone updates, the shared redstone
-    // input reads the neighbours from the circuit graph
-    if (common::redstone::powered(region, pos)) return true;
-    // track observers are signal sources of this unit (not part of the vanilla circuit)
-    static int const d[6][3] = {
-        {0, -1, 0},
-        {0, 1,  0},
-        {0, 0,  -1},
-        {0, 0,  1},
-        {-1, 0, 0},
-        {1, 0,  0}
-    };
-    for (auto const& o : d) {
-        BlockPos n{pos.x + o[0], pos.y + o[1], pos.z + o[2]};
-        if (!region.hasChunksAt(n, 0, false)) continue;
-        Block const& b = region.getBlock(n);
-        if (b.getTypeName() == api::kObserverId && game::intState(b, api::kPoweredState).value_or(0)) return true;
-    }
-    return false;
+    // Create's hasNeighborSignal, read from the circuit graph by the shared redstone input (track
+    // observers are registered there as signal sources, see SignalsModule::install)
+    return common::redstone::powered(region, pos);
 }
 
 // ---- tick ---------------------------------------------------------------------------------------
@@ -623,7 +615,7 @@ void runTick() {
     for (auto& fn : tasks) fn();
     if (!s.loaded) return;
     s.intents.clear();
-    if (s.tick % 4 == 0) pollRedstone();
+    watchRedstone();
     refresh();
     tickObservers();
     s.system.updateStates();
@@ -704,6 +696,10 @@ public:
             }
         );
         installHooks();
+        // Create's TrackObserverBlock.getSignal: 15 to every side while powered
+        common::redstone::registerEmitter(std::string{api::kObserverId}, [](BlockSource&, BlockPos const&, Block const& b, int) {
+            return game::intState(b, api::kPoweredState).value_or(0) ? 15 : 0;
+        });
         // Create's SignalBlock.getAnalogOutputSignal: 15 while red
         common::redstone::registerAnalog(std::string{api::kSignalId}, [](BlockSource& region, BlockPos const& pos, Block const&) -> std::optional<int> {
             auto const& blocks = state().blocks;
@@ -734,6 +730,8 @@ struct WorldHooks {
             auto& s  = state();
             s.loaded = false;
             s.blocks.clear();
+            s.watches.clear();
+
             s.observers.clear();
             s.selections.clear();
             s.intents.clear();

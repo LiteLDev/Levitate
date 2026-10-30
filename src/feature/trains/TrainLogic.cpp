@@ -1084,8 +1084,8 @@ void removeTrain(std::uint64_t id) {
     if (it == m.end()) return;
     Train& t = it->second;
     if (!t.controller.empty()) stopControlling(t, false);
-    for (auto const& c : t.carriages)
-        if (contraption::find(c.contraption)) contraption::disassemble(c.contraption);
+    // Create's /create train remove: the carriage entities are discarded, nothing is placed
+    for (auto const& c : t.carriages) contraption::discard(c.contraption);
     t.carriages.clear();
     for (auto const& pid : t.occupied)
         if (auto const* p = rail().point(pid))

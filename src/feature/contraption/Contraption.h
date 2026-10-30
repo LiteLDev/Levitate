@@ -178,6 +178,10 @@ public:
     /// Sets the transform for the next tick (anchors that compute their own position).
     void setTransform(cc::Transform const& t) { mTarget = t; }
     void setMotion(Motion const& m) { mMotion = m; }
+    /// Pauses the actors (no tick / visitNewPosition while moving) without stopping the motion:
+    /// Create's isActorActive of a cart in "Pause actors while rotating" mode while it turns.
+    void setActorsPaused(bool paused) { mActorsPaused = paused; }
+    [[nodiscard]] bool actorsPaused() const { return mActorsPaused; }
     void stop() { mMotion = {}; mTarget.reset(); }
     /// World position of a local point at the current transform.
     [[nodiscard]] cc::Vec3d toWorld(cc::Vec3d const& local) const { return mTransform.toWorld(local); }
@@ -215,6 +219,7 @@ private:
     nlohmann::json                    mAnchorData = nlohmann::json::object();
     std::unique_ptr<Storage>          mStorage;
     bool                              mMoving = false;
+    bool                              mActorsPaused = false;
     std::vector<cc::Box>              mBoxes;           ///< local collision boxes (cache)
     cc::Box                           mBounds;          ///< local bounds of all blocks (cache)
     int                               mDisplayQuarter = 0; ///< quarter turns shown by the display entities
@@ -246,6 +251,9 @@ AssembleResult assemble(AssembleOptions const& options);
 [[nodiscard]] Contraption* find(Id id);
 /// Places the blocks back (grid aligned); drops what can't be placed. Returns false if unknown.
 bool disassemble(Id id);
+/// Removes the contraption without placing or dropping anything (Create's entity discard: a
+/// picked up minecart contraption, `/create killtrain`). Actors get `stopMoving`. False if unknown.
+bool discard(Id id);
 /// All live contraptions (ids).
 [[nodiscard]] std::vector<Id> all();
 

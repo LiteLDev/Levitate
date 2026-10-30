@@ -838,7 +838,7 @@ public:
         }
         bool stalled = false;
         if (moving) {
-            forEachActor(c, next, before, [&](MovementBehaviour const& a, MovementContext& ctx, CarriedBlock& b) {
+            if (!c.mActorsPaused) forEachActor(c, next, before, [&](MovementBehaviour const& a, MovementContext& ctx, CarriedBlock& b) {
                 if (a.tick) a.tick(ctx);
                 cc::Pos wp{ctx.worldPos.x, ctx.worldPos.y, ctx.worldPos.z};
                 if (!b.visited || *b.visited != wp) {
@@ -1135,13 +1135,36 @@ public:
             addGlue(c.mDim, cc::transformBox(g, [&](cc::Pos const& p) { return c.mTransform.placeBlock(p); }));
         }
         log().info("contraption #{} disassembled: {} placed, {} dropped", c.mId, placed, dropped);
+        forget(it);
+        return true;
+    }
+
+    /// Create's AbstractContraptionEntity#discard: the structure goes, nothing is placed or dropped.
+    bool discard(Id id) {
+        auto it = live.find(id);
+        if (it == live.end()) return false;
+        auto& c = *it->second;
+        if (c.mMoving) {
+            forEachActor(c, c.mTransform, c.mTransform, [](MovementBehaviour const& a, MovementContext& ctx, CarriedBlock&) {
+                if (a.stopMoving) a.stopMoving(ctx);
+            });
+        }
+        for (auto& b : c.mBlocks) removeDisplay(b);
+        removeRetiring([id](Retiring const& r) { return r.contraption == id; });
+        log().info("contraption #{} discarded: {} blocks", c.mId, c.mBlocks.size());
+        forget(it);
+        return true;
+    }
+
+    /// Drops a contraption whose displays are gone: its record, the companions' copy, the caches.
+    void forget(std::map<Id, std::unique_ptr<Contraption>>::iterator it) {
+        auto& c = *it->second;
         game::db::erase(kDbPrefix + std::to_string(c.mId));
         sendToDim(c.mDim, "contraption.remove", {{"id", c.mId}});
         sentTransforms.erase(c.mId);
         std::erase_if(visuals, [id = c.mId](auto const& e) { return std::get<0>(e.first) == id; });
         displaysChanged.erase(c.mId);
         live.erase(it);
-        return true;
     }
 
     /// Puts the carried items into the placed container when the block entity didn't take them.
@@ -1211,6 +1234,9 @@ Contraption* find(Id id) {
 }
 
 bool disassemble(Id id) { return Engine::get().disassemble(id); }
+
+bool discard(Id id) { return Engine::get().discard(id); }
+
 
 void setActorVisual(Id id, cc::Pos const& local, nlohmann::json visual) {
     auto& e  = Engine::get();

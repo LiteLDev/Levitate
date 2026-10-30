@@ -111,6 +111,12 @@ void spawnItem(BlockSource& region, ItemStack const& item, cc::Vec3d const& pos,
 void collectOrDrop(con::MovementContext& ctx, ItemStack const& stack);
 /// Create's damageEntities: hurts (damage > 0) and/or throws the entities in a block.
 void damageEntities(con::MovementContext& ctx, GlobalPos const& pos, bool hurt, bool roller);
+/// Death message of the roller's damage source (Create's CreateDamageSources.roller), a
+/// translation key of the resource pack (actors.lang).
+inline constexpr char kRollerDeathMessage[] = "death.attack.create.roller";
+/// Plays the block's own hit sound at `pos` (Create's getSoundType().getHitSound()) for the
+/// players nearby: the game's hit sound event, resolved by every client from the block.
+void playHitSound(int dim, BlockPos const& pos, Block const& block);
 
 /// Create's BlockBreakingMovementBehaviour state in the actor data.
 struct Breaker {

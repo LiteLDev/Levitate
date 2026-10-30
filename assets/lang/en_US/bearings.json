@@ -22,6 +22,5 @@
   "create.minecart_coupling.removed": "Removed all couplings from minecart",
   "create.contraption.minecart_contraption_too_big": "This Cart Contraption seems too big to pick up",
   "create.contraption.minecart_contraption_illegal_pickup": "A mystical force is binding this Cart Contraption to the world",
-  "lv.bearings.pickup_blocked": "Something is in the way of this Cart Contraption",
   "lv.bearings.coupling_too_close": "Minecarts are too close for a two-cart contraption"
 }

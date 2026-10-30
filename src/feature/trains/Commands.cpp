@@ -124,22 +124,23 @@ LV_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
         openStationScreen(*player, best->pos);
         output.success("opened " + best->name);
     });
-    cmd.overload<KillTrainParams>()
-        .text("killtrain")
-        .required("name")
-        .execute([](Origin& origin, CommandOutput& output, KillTrainParams const& p) {
-            if (!commands::isAdmin(origin)) return output.error(tr("lv.trains.need_op", "You need operator permission."));
-            std::vector<std::uint64_t> ids;
-            for (auto const& [id, t] : state().trains)
-                if (!t.invalid && (t.name == p.name || std::to_string(id) == p.name || "#" + std::to_string(id) == p.name)) ids.push_back(id);
-            if (ids.empty()) return output.error(tr("lv.trains.no_train", "No Train with name '{0}' was found", p.name));
-            for (auto id : ids) {
-                auto name = state().trains[id].name;
-                removeTrain(id);
-                log().info("trains: train #{} '{}' removed by command", id, name);
-                output.success(tr("lv.trains.removed", "Train '{0}' removed successfully", name));
-            }
-        });
+    // Create's /create train remove: the carriages vanish (nothing is placed or dropped)
+    auto removeByName = [](Origin& origin, CommandOutput& output, KillTrainParams const& p) {
+        if (!commands::isAdmin(origin)) return output.error(tr("lv.trains.need_op", "You need operator permission."));
+        std::vector<std::uint64_t> ids;
+        for (auto const& [id, t] : state().trains)
+            if (!t.invalid && (t.name == p.name || std::to_string(id) == p.name || "#" + std::to_string(id) == p.name)) ids.push_back(id);
+        if (ids.empty()) return output.error(tr("lv.trains.no_train", "No Train with name '{0}' was found", p.name));
+        for (auto id : ids) {
+            auto name = state().trains[id].name;
+            removeTrain(id);
+            log().info("trains: train #{} '{}' removed by command", id, name);
+            output.success(tr("lv.trains.removed", "Train '{0}' removed successfully", name));
+        }
+    };
+    cmd.overload<KillTrainParams>().text("killtrain").required("name").execute(removeByName);
+    cmd.overload<KillTrainParams>().text("train").text("remove").required("name").execute(removeByName);
+
 });
 
 } // namespace lv::feature::trains

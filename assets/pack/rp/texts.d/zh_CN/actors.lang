@@ -23,3 +23,4 @@ entity.levitate:seat.name=坐垫
 action.hint.exit.levitate:seat=按下潜行键以离开坐垫
 entity.levitate:player_seat.name=坐垫
 action.hint.exit.levitate:player_seat=按下潜行键以离开坐垫
+death.attack.create.roller=%1$s被动力压路机压扁了

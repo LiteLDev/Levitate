@@ -7,9 +7,11 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <utility>
 #include <vector>
 
 #include "ll/api/event/EventBus.h"
+#include "ll/api/event/world/BlockChangedEvent.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
 #include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
@@ -23,6 +25,9 @@
 #include "mc/world/level/dimension/DimensionType.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/block/BlockChangeContext.h"
+#include "mc/world/level/block/BlockType.h"
+#include "mc/world/level/Level.h"
 
 #include "feature/actors/Actors.h"
 #include "feature/common/Interactions.h"
@@ -83,6 +88,31 @@ cc::Dir nearestLook(Player const& player) {
 
 bool isAttachedActor(std::string_view id) { return id == kHarvester || id == kPlough || id == kRoller; }
 
+/// Create's AttachedActorBlock#canSurvive: the block behind it (opposite its facing) has a collision shape.
+bool supported(BlockSource& region, BlockPos const& pos, cc::Dir facing) {
+    auto     o = cc::offset(cc::opposite(facing));
+    BlockPos behind{pos.x + o.x, pos.y + o.y, pos.z + o.z};
+    if (!region.hasChunksAt(behind, 0, false)) return true;
+    return hasCollision(region, behind);
+}
+
+/// Create's updateShape: a harvester / plough / roller whose support went drops as an item.
+void checkSupportAround(BlockSource& region, BlockPos const& changed) {
+    for (auto d : {cc::Dir::North, cc::Dir::South, cc::Dir::East, cc::Dir::West, cc::Dir::Up, cc::Dir::Down}) {
+        auto     o = cc::offset(d);
+        BlockPos at{changed.x + o.x, changed.y + o.y, changed.z + o.z};
+        if (!region.hasChunksAt(at, 0, false)) continue;
+        auto const& block = region.getBlock(at);
+        std::string id    = block.getTypeName();
+        if (!isAttachedActor(id) || facingAt(region, at) != d) continue; // the changed block isn't behind it
+        if (supported(region, at, d)) continue;
+        auto level = ll::service::getLevel();
+        if (!level) return;
+        level->destroyBlock(region, at, true, BlockChangeContext{});
+        logAction(id + " at " + std::to_string(at.x) + " " + std::to_string(at.y) + " " + std::to_string(at.z) + " dropped: its support is gone");
+    }
+}
+
 bool isOurs(std::string_view id) { return isAttachedActor(id) || id == kPsi || id == kControls; }
 
 /// Create's getStateForPlacement of our blocks (facing), plus the settings hand-off.
@@ -102,6 +132,18 @@ void placed(Player& player, BlockSource& region, BlockPos const& pos, BlockPos c
     } else if (id == kControls) {
         facing = cc::opposite(horizontalLook(player));
     } else {
+        return;
+    }
+    if (isAttachedActor(id) && !supported(region, pos, facing)) {
+        // Create's AttachedActorBlock#canSurvive: no placement without a block behind it
+        BlockChangeContext ctx{};
+        if (auto const* air = game::blockWith("minecraft:air")) region.setBlock(pos, *air, 3, nullptr, ctx);
+        if (!player.isCreative()) {
+            auto refund = makeItem(id, 1);
+            if (!player.add(refund)) player.drop(refund, false);
+        }
+        player.sendInventory(false);
+        logAction(player.getRealName() + " could not place " + id + ": nothing to attach it to");
         return;
     }
     setIntState(region, pos, kFacing, static_cast<int>(facing));
@@ -261,6 +303,14 @@ public:
         };
         auto& bus = ll::event::EventBus::getInstance();
         mTick     = bus.emplaceListener<ll::event::ServerLevelTickEvent>([this](auto&) { tick(); });
+        // custom blocks get no neighbour updates: watch the blocks the attached actors hang on
+        mChanged = bus.emplaceListener<ll::event::BlockChangedEvent>([this](ll::event::BlockChangedEvent& ev) {
+            if (ev.layer() != 0) return;
+            auto& region = ev.blockSource();
+            if (region.getLevel().isClientSide()) return;
+            if (hasCollisionShape(ev.newBlock(), region, ev.pos())) return; // still something to hang on
+            mSupportChecks.emplace_back(static_cast<int>(region.getDimensionId()), ev.pos());
+        });
         // empty-hand right-click into the air (client mod): the server can't see it otherwise
         net::on("actors.use", [](Player& p, net::Json const&) { useOnContraption(p); });
         game::db::onWorldReady([] { controlsLoad(); });
@@ -274,13 +324,29 @@ public:
     void uninstall() {
         net::off("actors.use");
         ll::event::EventBus::getInstance().removeListener(mTick);
+        ll::event::EventBus::getInstance().removeListener(mChanged);
         for (auto id : mHandlers) ia::remove(id);
         mHandlers.clear();
     }
 
 private:
+    static bool hasCollisionShape(Block const& block, BlockSource& region, BlockPos const& pos) {
+        if (block.isAir()) return false;
+        AABB box = block.getBlockType().getCollisionShape(block, region, pos, nullptr);
+        return box.max.x - box.min.x > 1e-4f && box.max.y - box.min.y > 1e-4f && box.max.z - box.min.z > 1e-4f;
+    }
+
     void tick() {
         ++mTicks;
+        // (out of the block change: dropping a block inside it would edit the world in a setBlock)
+        auto checks = std::exchange(mSupportChecks, {});
+        for (auto const& [dim, pos] : checks) {
+            try {
+                if (auto* region = regionOf(dim)) checkSupportAround(*region, pos);
+            } catch (std::exception const& e) {
+                log().error("actors: support check failed: {}", e.what());
+            }
+        }
         try {
             controlsTick(mTicks);
             psiTick();
@@ -291,6 +357,9 @@ private:
     }
 
     ll::event::ListenerPtr     mTick;
+    ll::event::ListenerPtr     mChanged;
+    std::vector<std::pair<int, BlockPos>> mSupportChecks;
+
     std::uint64_t              mTicks = 0;
     std::vector<ia::HandlerId> mHandlers;
 };
