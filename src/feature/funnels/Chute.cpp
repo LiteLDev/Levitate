@@ -17,6 +17,7 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/belts/BeltApi.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/FunnelsExt.h"
 #include "feature/common/Items.h"
@@ -555,8 +556,29 @@ void forgetChute(GlobalPos const& pos) {
 }
 
 void installChutes() {
-    for (char const* id : {kChute, kSmartChute}) common::items::registerBlock(id, capability());
-    common::filterslot::registerSlot(kSmartChute, {"filter", smartFilterCentre, 0.5, nullptr});
+    for (char const* id : {kChute, kSmartChute}) {
+        common::items::registerBlock(id, capability());
+        // Create's DirectBeltInputBehaviour of a chute (onlyInsertWhen canDirectlyInsert): belt
+        // ends, ejectors and tunnels put items in from any side while it can pick items up
+        belts::registerDirectInput(
+            id,
+            belts::DirectInput{
+                .canInsertFromSide = [](GlobalPos const& p, int) { return rt(p).canPickUp; },
+                .insert =
+                    [](GlobalPos const& p, belts::TransportedItem const& t, int side, bool simulate) {
+                        auto* region = regionOf(p.dim);
+                        if (!region) return t.stack;
+                        return common::items::insert(*region, toBlockPos(p), cf::oppositeFace(side), t.stack, simulate);
+                    },
+            }
+        );
+    }
+    // Create: holding the filter slot opens its count (the "Extracted Amount" board); the separate
+    // amount box stays for vanilla players (SPEC §8)
+    common::filterslot::registerSlot(
+        kSmartChute,
+        {"filter", smartFilterCentre, 0.5, nullptr, [](Player& p, GlobalPos const& pos) { common::valuebox::openEditor(p, pos, "amount"); }}
+    );
     registerAmountBox(kSmartChute, smartAmountCentre);
     // `levitate:facing` of a chute is not in facing order (0 down, 1..4 north..east): undo the
     // common rotation, turn the real facing and keep the old one when it would leave the chute's

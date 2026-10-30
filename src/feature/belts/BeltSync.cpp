@@ -68,6 +68,12 @@ public:
             }
             net::send(player, "belts.speed", {{"dim", dim}, {"speeds", speeds}});
         });
+        // the connector selection survives a reconnect of the client mod
+        static bool joined = false;
+        if (!joined) {
+            joined = true;
+            net::onCompanionJoined([](Player& player) { syncConnectorSelection(player); });
+        }
         mTick = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { flush(); });
     }
     void uninstall() {

@@ -129,6 +129,9 @@ struct DirectInput {
 };
 void registerDirectInput(std::string const& blockId, DirectInput input);
 [[nodiscard]] bool hasDirectInput(GlobalPos const& pos);
+/// (Added by U41) The direct input at `pos` takes items travelling `side` (Create's
+/// DirectBeltInputBehaviour.canInsertFromSide); false when there is none.
+[[nodiscard]] bool canInsertDirect(GlobalPos const& pos, int side);
 /// Inserts into the direct input at `pos` (returns `item.stack` unchanged when there is none or it
 /// refuses the side).
 [[nodiscard]] ItemStack insertDirect(GlobalPos const& pos, TransportedItem const& item, int side, bool simulate);

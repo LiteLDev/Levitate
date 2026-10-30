@@ -171,13 +171,30 @@ function Save-Geo($id, $bones) {
     })
 }
 
-# funnel on a wall, opening towards north (the inventory is south of it)
-Save-Geo 'funnel_wall' @(
-    (Bone 'plate' @((Cube @(-8, 0, 4) @(16, 16, 4) ([ordered]@{ north = 'frame'; south = 'back'; east = 'side'; west = 'side'; up = 'side'; down = 'side' })))),
-    (Bone 'hood' @((Cube @(-6, 1, -1) @(12, 13, 5) ([ordered]@{ north = 'frame'; east = 'side'; west = 'side'; up = 'side'; down = 'side' })))),
-    (Bone 'flap' @((Cube @(-5, 2, -2) @(10, 11, 1) 'flap'))),
-    (Bone 'flap_open' @((Cube @(-5, 2, -2) @(10, 11, 1) 'flap')) @(-22.5, 0, 0) @(0, 13, -1.5))
-)
+# funnel on a wall, opening towards north (the inventory is south of it). The flap is four strips
+# (flap_0..3, west to east) that the client mod swings one by one around their top edge (Create's
+# FunnelRenderer); flap_open is the state-driven open flap for clients without the mod.
+# $dy lowers the funnel onto a belt (belt funnels), $reach makes the hood longer (extended).
+function Funnel-Bones($dy = 0, $reach = 0) {
+    $flapZ = -2 - $reach
+    $bones = @(
+        (Bone 'plate' @((Cube @(-8, (0 + $dy), 4) @(16, 16, 4) ([ordered]@{ north = 'frame'; south = 'back'; east = 'side'; west = 'side'; up = 'side'; down = 'side' })))),
+        (Bone 'hood' @((Cube @(-6, (1 + $dy), (-1 - $reach)) @(12, 13, (5 + $reach)) ([ordered]@{ north = 'frame'; east = 'side'; west = 'side'; up = 'side'; down = 'side' }))))
+    )
+    $strips = @()
+    foreach ($i in 0..3) {
+        $x = -5 + 2.5 * $i
+        $bones += (Bone "flap_$i" @((Cube @($x, (2 + $dy), $flapZ) @(2.5, 11, 1) 'flap')) $null @(0, (13 + $dy), ($flapZ + 0.5)))
+        $strips += (Cube @($x, (2 + $dy), $flapZ) @(2.5, 11, 1) 'flap')
+    }
+    $bones += (Bone 'flap_open' $strips @(-22.5, 0, 0) @(0, (13 + $dy), ($flapZ + 0.5)))
+    $bones
+}
+Save-Geo 'funnel_wall' (Funnel-Bones 0 0)
+# belt funnels: the wall funnel lowered by 3 px onto the belt surface (pushing / pulling / retracted)
+# and its extended variant reaching 6 px further over the belt
+Save-Geo 'funnel_belt' (Funnel-Bones -3 0)
+Save-Geo 'funnel_belt_extended' (Funnel-Bones -3 6)
 # funnel on the floor, opening up (the inventory is below)
 Save-Geo 'funnel_floor' @(
     (Bone 'base' @((Cube @(-8, 0, -8) @(16, 4, 16) ([ordered]@{ north = 'side'; south = 'side'; east = 'side'; west = 'side'; up = 'frame'; down = 'back' })))),
@@ -228,6 +245,7 @@ function Base($id, $seconds, $resistance, $color) {
     }
 }
 $yRot = @{ 2 = 0; 3 = 180; 4 = 90; 5 = -90 } # model faces north; Bedrock turns +90 from north to west
+$flapVis = [ordered]@{ flap_0 = "q.block_state('levitate:flap') == 0"; flap_1 = "q.block_state('levitate:flap') == 0"; flap_2 = "q.block_state('levitate:flap') == 0"; flap_3 = "q.block_state('levitate:flap') == 0"; flap_open = "q.block_state('levitate:flap') == 1" }
 
 # funnels: facing 0..5, extracting, powered, flap (horizontal funnels)
 foreach ($n in 'andesite', 'brass') {
@@ -247,22 +265,30 @@ foreach ($n in 'andesite', 'brass') {
             $pc['minecraft:geometry'] = [ordered]@{ identifier = 'geometry.levitate.funnel_floor' }
             if ($f -eq 0) { $pc['minecraft:transformation'] = [ordered]@{ rotation = @(180, 0, 0) } }
         } else {
-            $pc['minecraft:geometry'] = [ordered]@{
-                identifier = 'geometry.levitate.funnel_wall'
-                bone_visibility = [ordered]@{ flap = "q.block_state('levitate:flap') == 0"; flap_open = "q.block_state('levitate:flap') == 1" }
-            }
+            $pc['minecraft:geometry'] = [ordered]@{ identifier = 'geometry.levitate.funnel_wall'; bone_visibility = $flapVis }
             $pc['minecraft:transformation'] = [ordered]@{ rotation = @(0, $yRot[$f], 0) }
             $pc['minecraft:selection_box'] = Box @(-8, 0, -2) @(16, 16, 10)
             $pc['minecraft:collision_box'] = Box @(-8, 0, -2) @(16, 16, 10)
         }
         $perms += [ordered]@{ condition = "q.block_state('levitate:facing') == $f"; components = $pc }
     }
+    # belt funnels (levitate:shape 1 retracted, 2 extended, 3 pushing, 4 pulling) on the four sides
+    foreach ($f in 2..5) {
+        foreach ($s in 1..4) {
+            $geo = if ($s -eq 2) { 'funnel_belt_extended' } else { 'funnel_belt' }
+            $box = if ($s -eq 2) { Box @(-8, 0, -8) @(16, 13, 16) } else { Box @(-8, 0, -2) @(16, 13, 10) }
+            $perms += [ordered]@{ condition = "q.block_state('levitate:facing') == $f && q.block_state('levitate:shape') == $s"; components = [ordered]@{
+                'minecraft:geometry' = [ordered]@{ identifier = "geometry.levitate.$geo"; bone_visibility = $flapVis }
+                'minecraft:transformation' = [ordered]@{ rotation = @(0, $yRot[$f], 0) }
+                'minecraft:selection_box' = $box; 'minecraft:collision_box' = $box } }
+        }
+    }
     foreach ($v in @(@{ c = "q.block_state('levitate:extracting') == 0"; t = 'insert' }, @{ c = "q.block_state('levitate:powered') == 1"; t = 'powered' })) {
         $perms += [ordered]@{ condition = $v.c; components = [ordered]@{ 'minecraft:material_instances' = [ordered]@{
             '*' = Mat "levitate_${n}_funnel_side"; side = Mat "levitate_${n}_funnel_side"; frame = Mat "levitate_${n}_funnel_frame"
             flap = Mat "levitate_${n}_funnel_flap"; back = Mat "levitate_${n}_funnel_back_$($v.t)" } } }
     }
-    Block $id ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:extracting' = @(0, 1); 'levitate:powered' = @(0, 1); 'levitate:flap' = @(0, 1) }) $comp $perms
+    Block $id ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:extracting' = @(0, 1); 'levitate:powered' = @(0, 1); 'levitate:flap' = @(0, 1); 'levitate:shape' = @(0, 1, 2, 3, 4) }) $comp $perms
 }
 
 # tunnels: axis (0 x / 2 z), shape (straight, window, closed, t_left, t_right, cross)
@@ -297,18 +323,18 @@ $comp['minecraft:selection_box'] = Box @(-6, 0, -6) @(12, 16, 12)
 $comp['minecraft:collision_box'] = Box @(-6, 0, -6) @(12, 16, 12)
 $perms = @(
     [ordered]@{ condition = "q.block_state('levitate:shape') == 1"; components = [ordered]@{ 'minecraft:material_instances' = [ordered]@{ '*' = Mat 'levitate_chute_window'; side = Mat 'levitate_chute_window'; top = Mat 'levitate_chute_top' } } },
-    [ordered]@{ condition = "q.block_state('levitate:shape') == 0"; components = [ordered]@{ 'minecraft:material_instances' = [ordered]@{ '*' = Mat 'levitate_chute_intersection'; side = Mat 'levitate_chute_intersection'; top = Mat 'levitate_chute_top' } } },
+    [ordered]@{ condition = "q.block_state('levitate:shape') == 2"; components = [ordered]@{ 'minecraft:material_instances' = [ordered]@{ '*' = Mat 'levitate_chute_intersection'; side = Mat 'levitate_chute_intersection'; top = Mat 'levitate_chute_top' } } },
     [ordered]@{ condition = "q.block_state('levitate:shape') == 3"; components = [ordered]@{
         'minecraft:geometry' = [ordered]@{ identifier = 'geometry.levitate.chute_encased' }
         'minecraft:material_instances' = [ordered]@{ '*' = Mat 'levitate_chute_encased' 'opaque'; side = Mat 'levitate_chute_encased' 'opaque'; top = Mat 'levitate_chute_top' 'opaque' }
         'minecraft:selection_box' = Box @(-8, 0, -8) @(16, 16, 16); 'minecraft:collision_box' = Box @(-8, 0, -8) @(16, 16, 16) } }
 )
 foreach ($f in 2..5) {
-    $perms += [ordered]@{ condition = "q.block_state('levitate:facing') == $f && q.block_state('levitate:shape') != 3"; components = [ordered]@{
+    $perms += [ordered]@{ condition = "q.block_state('levitate:facing') == $($f - 1) && q.block_state('levitate:shape') != 3"; components = [ordered]@{
         'minecraft:geometry' = [ordered]@{ identifier = 'geometry.levitate.chute_diagonal' }
         'minecraft:transformation' = [ordered]@{ rotation = @(0, $yRot[$f], 0) } } }
 }
-Block 'chute' ([ordered]@{ 'levitate:facing' = @(0, 2, 3, 4, 5); 'levitate:shape' = @(2, 0, 1, 3) }) $comp $perms
+Block 'chute' ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4); 'levitate:shape' = @(0, 1, 2, 3) }) $comp $perms
 
 # smart chute: powered
 $comp = Base 'smart_chute' 1.0 6 '#d9a941'
@@ -316,7 +342,7 @@ $comp['minecraft:geometry'] = [ordered]@{ identifier = 'geometry.levitate.smart_
 $comp['minecraft:material_instances'] = [ordered]@{ '*' = Mat 'levitate_smart_chute_side'; side = Mat 'levitate_smart_chute_side'; top = Mat 'levitate_smart_chute_top' }
 $perms = @([ordered]@{ condition = "q.block_state('levitate:powered') == 1"; components = [ordered]@{ 'minecraft:material_instances' = [ordered]@{
     '*' = Mat 'levitate_smart_chute_side_powered'; side = Mat 'levitate_smart_chute_side_powered'; top = Mat 'levitate_smart_chute_top' } } })
-Block 'smart_chute' ([ordered]@{ 'levitate:powered' = @(1, 0) }) $comp $perms
+Block 'smart_chute' ([ordered]@{ 'levitate:powered' = @(0, 1) }) $comp $perms
 
 # creative crate
 $comp = Base 'creative_crate' 2.0 6 '#a46cc0'
