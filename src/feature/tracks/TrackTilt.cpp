@@ -72,12 +72,15 @@ void updateTilt(int dim, ct::BlockPos3 const& pos, std::optional<ct::TrackBlockV
     auto  angle = tiltAt(dim, pos);
     auto  view  = world().trackAt(dim, pos);
 
+    // (as Create, the curves change first and the graph then forgets the block as it was: the
+    // tracks it re-walks around the block already see the new curves)
     if (angle) {
         // Create's undoSmoothing: only once the block no longer has exactly its two curves
         if (view && view->curves.size() == 2) return;
-        if (view || before) s.rail.onRailRemoved(world(), dim, pos, before ? *before : *view);
+        std::optional<ct::TrackBlockView> old = before ? before : view;
         for (auto const& c : s.curves.curvesAt(dim, pos)) replaceCurve(dim, ct::restoreToOriginalCurve(*c));
         setTilt(dim, pos, std::nullopt);
+        if (old && world().trackAt(dim, pos)) s.rail.onRailRemoved(world(), dim, pos, *old);
         s.railAdded.insert({dim, pos});
         log().info("tracks: the track at {} is flat again", pos.str());
         return;
@@ -86,11 +89,10 @@ void updateTilt(int dim, ct::BlockPos3 const& pos, std::optional<ct::TrackBlockV
     if (!view) return;
     auto sm = ct::trySmoothing(pos, view->shape, view->portalLink.has_value(), view->curves);
     if (!sm) return;
-    // the graph forgets the block as it was, then finds it again with the tilted curves
-    s.rail.onRailRemoved(world(), dim, pos, *view);
     replaceCurve(dim, sm->low);
     replaceCurve(dim, sm->high);
     setTilt(dim, pos, sm->angle);
+    s.rail.onRailRemoved(world(), dim, pos, *view);
     log().info("tracks: tilted the track at {} by {:.2f} degrees", pos.str(), sm->angle);
 }
 
