@@ -75,6 +75,7 @@ struct Config {
     int maxExtendoGripActions = 1000; ///< Create: maxExtendoGripActions (0: unbreakable)
     int maxPotatoCannonShots  = 200;  ///< Create: maxPotatoCannonShots (0: unbreakable)
     int maxSymmetryWandRange  = 50;   ///< Create: maxSymmetryWandRange
+    int enchantedBacktankCapacity = 300; ///< Create: enchantedBacktankCapacity (air per Capacity level)
 };
 [[nodiscard]] Config const& config();
 
@@ -143,7 +144,12 @@ void installToolboxes();
 /// Air stored in a backtank item (its user data).
 [[nodiscard]] int  airOf(ItemStack const& stack);
 void               setAir(ItemStack& stack, int air);
+/// Create's air without enchantments (airInBacktank).
 [[nodiscard]] int  maxAir();
+/// The air a backtank stack holds at most (Create's BacktankUtil#maxAir with its Capacity level).
+[[nodiscard]] int  maxAir(ItemStack const& stack);
+/// The air of a placed backtank holds at most (Create's BacktankBlockEntity keeps the Capacity level).
+[[nodiscard]] int  blockMaxAir(GlobalPos const& pos);
 /// Air tools (extendo grip, potato cannon): uses air from the worn backtank, else durability.
 /// Returns true when the use was paid for by air.
 bool useAirOrDurability(Player& player, bool mainHand, int usesPerTank);
@@ -179,6 +185,45 @@ void tickSanding();
 bool useTreeFertilizer(Player& player, ItemStack& held, GlobalPos const& pos);
 /// Number of projectiles in flight (selftests).
 [[nodiscard]] int projectileCount();
+
+// ---- potato projectiles (Projectile.cpp) ------------------------------------------------------------
+/// The projectile entity (Create's PotatoProjectileEntity; behaviour pack `entities/potato_projectile.json`).
+inline constexpr std::string_view kPotatoProjectile = "levitate:potato_projectile";
+/// Tag of every projectile entity (orphans without a simulated projectile are removed).
+inline constexpr char kPotatoProjectileTag[] = "lv_potato_projectile";
+struct ProjectileInfo {
+    std::int64_t entity = 0;     ///< the projectile entity
+    std::string  type;           ///< Create's type id
+    double       x = 0, y = 0, z = 0;
+    std::int64_t stuckTo = 0;    ///< the entity a sticky projectile sticks to (0: flying)
+    double       recovery = 0;   ///< recovery chance
+};
+/// The projectiles in flight (selftests).
+[[nodiscard]] std::vector<ProjectileInfo> projectiles();
+/// Launches one projectile as the cannon of `owner` does (selftests: collisions, stuck projectiles).
+std::int64_t launchProjectile(int dim, double x, double y, double z, double vx, double vy, double vz, std::string const& ammoId,
+                              std::int64_t owner, double recoveryChance);
+
+// ---- enchantments (Enchants.cpp) ----------------------------------------------------------------------
+/// Create's enchantments, kept in the item's user data (`lv:enchants`: {"capacity": L, "potato_recovery": L})
+/// and shown as lore lines named like enchantments.
+inline constexpr char kEnchantsData[]   = "lv:enchants";
+inline constexpr char kCapacity[]       = "capacity";
+inline constexpr char kPotatoRecovery[] = "potato_recovery";
+/// The level of one of Create's enchantments on a stack (0: none).
+[[nodiscard]] int  enchantLevel(ItemStack const& stack, std::string_view key);
+/// Sets (0: removes) the level and rewrites the lore lines (in the language of `viewer`, else the default).
+void               setEnchantLevel(ItemStack& stack, std::string_view key, int level, Player const* viewer = nullptr);
+/// Whether the enchantment applies to the item (Capacity: backtanks; Potato Recovery: the potato cannon;
+/// both: books, Java's enchanting table offers every enchantment for a book).
+[[nodiscard]] bool enchantApplies(std::string_view itemId, std::string_view key);
+/// Rolls Create's enchantment for one enchanting-table option as Java does (selftests): the level it adds
+/// (0: none) for an item, the option's cost and slot, and the player's enchantment seed.
+[[nodiscard]] std::pair<std::string, int> rollTableEnchant(std::string const& itemId, int enchantValue, int cost, int seed, int slot);
+/// What the table rolled for the player's current item, per option (selftests).
+[[nodiscard]] std::vector<std::pair<std::string, int>> tableRolls(Player const& player);
+/// Runs `fn` as the player applying an enchanting-table option (the scope of the table's craft request; selftests).
+void asTableEnchant(Player& player, std::function<void()> const& fn);
 
 // ---- symmetry wand (Symmetry.cpp) ---------------------------------------------------------------
 bool wandUseOn(Player& player, ItemStack& wand, GlobalPos const& clicked, int face);

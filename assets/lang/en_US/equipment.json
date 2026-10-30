@@ -90,5 +90,7 @@
   "lv.equipment.controller.key.jump": "Space",
   "lv.equipment.controller.key.sneak": "Shift",
   "lv.equipment.controller.active": "Linked controller active (Esc or right-click to stop)",
-  "lv.equipment.controller.no_frequency": "This link has no frequency to bind"
+  "lv.equipment.controller.no_frequency": "This link has no frequency to bind",
+  "enchantment.create.capacity": "Capacity",
+  "enchantment.create.potato_recovery": "Potato Recovery"
 }

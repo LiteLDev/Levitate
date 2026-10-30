@@ -37,6 +37,7 @@
 #include "core/equipment/Gear.h"
 #include "feature/advancements/Advancements.h"
 #include "feature/common/BlockData.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/equipment/Equipment.h"
 #include "feature/kinetics/Kinetics.h"
@@ -81,6 +82,7 @@ std::map<GlobalPos, Filler>& fillers() {
     return m;
 }
 std::vector<kinetics::ListenerId> gListeners;
+std::vector<common::interactions::HandlerId> gPlaceHandlers;
 
 /// Creative breaks (no drop) and pickups (the item was given already).
 std::map<GlobalPos, bool>& handledBreaks() {
@@ -109,9 +111,17 @@ void effect(Player& p, unsigned id, int ticks, int amplifier = 0) {
     p.addEffect(inst);
 }
 
-ItemStack backtankItem(std::string const& id, int air, std::string const& name) {
+/// Create's BacktankBlockEntity keeps the Capacity level of the placed item.
+int blockCapacity(GlobalPos const& pos) {
+    auto const* d = bd::get(pos);
+    if (!d || !d->contains("equipment")) return 0;
+    return (*d)["equipment"].value(kCapacity, 0);
+}
+
+ItemStack backtankItem(std::string const& id, int air, std::string const& name, int capacity, Player const* viewer) {
     auto item = items::make(id, 1);
     if (!item) return items::empty();
+    if (capacity > 0) setEnchantLevel(*item, kCapacity, capacity, viewer); // before the air (its limit)
     setAir(*item, air);
     (void)name;
     return *item;
@@ -174,8 +184,8 @@ std::map<std::int64_t, DiverState>& divers() {
     return m;
 }
 
-void warn(Player& player, int before, int after) {
-    int w = ce::backtankWarning(before, after, maxAir());
+void warn(Player& player, int before, int after, int max) {
+    int w = ce::backtankWarning(before, after, max);
     if (w == 0) return;
     auto pos = player.getPosition();
     int  dim = static_cast<int>(player.getDimensionId());
@@ -203,7 +213,7 @@ void consumeAir(Player& p, int amount) {
     setAir(copy, after);
     p.setArmor(ArmorSlot::Torso, copy);
     p.sendInventory(false);
-    warn(p, before, after);
+    warn(p, before, after, maxAir(copy));
 }
 
 bool fireResistantSet(Player& p) {
@@ -214,9 +224,9 @@ bool fireResistantSet(Player& p) {
         && (id(ArmorSlot::Feet) == kNetheriteBoots || id(ArmorSlot::Feet) == "minecraft:netherite_boots");
 }
 
-void sendAirHud(Player& p, int air, bool show) {
+void sendAirHud(Player& p, int air, int max, bool show) {
     if (net::isCompanion(p)) {
-        net::send(p, "equipment.air", {{"air", air}, {"max", maxAir()}, {"show", show}});
+        net::send(p, "equipment.air", {{"air", air}, {"max", max}, {"show", show}});
     } else if (show) {
         actionBar(p, (air < 60 ? "§c" : "§f") + ce::backtankTimeLeft(air));
     }
@@ -228,15 +238,23 @@ bool isBacktank(std::string_view id) { return id == kCopperBacktank || id == kNe
 
 int maxAir() { return std::max(1, config().airInBacktank); }
 
+int maxAir(ItemStack const& stack) {
+    return std::max(1, ce::backtankMaxAir(config().airInBacktank, config().enchantedBacktankCapacity, enchantLevel(stack, kCapacity)));
+}
+
+int blockMaxAir(GlobalPos const& pos) {
+    return std::max(1, ce::backtankMaxAir(config().airInBacktank, config().enchantedBacktankCapacity, blockCapacity(pos)));
+}
+
 int airOf(ItemStack const& stack) {
     auto j = items::getData(stack, kAirData);
-    return j.is_number() ? std::clamp(j.get<int>(), 0, maxAir()) : 0;
+    return j.is_number() ? std::clamp(j.get<int>(), 0, maxAir(stack)) : 0;
 }
 
 void setAir(ItemStack& stack, int air) {
-    air = std::clamp(air, 0, maxAir());
+    air = std::clamp(air, 0, maxAir(stack));
     items::setData(stack, kAirData, air);
-    stack.setDamageValue(static_cast<short>(ce::backtankBarDamage(air, maxAir(), kBarDurability)));
+    stack.setDamageValue(static_cast<short>(ce::backtankBarDamage(air, maxAir(stack), kBarDurability)));
 }
 
 bool useAirOrDurability(Player& player, bool mainHand, int usesPerTank) {
@@ -265,14 +283,14 @@ int blockAir(GlobalPos const& pos) {
 
 void setBlockAir(GlobalPos const& pos, int air) {
     auto* e   = blockDoc(pos, true);
-    (*e)["air"] = std::clamp(air, 0, maxAir());
+    (*e)["air"] = std::clamp(air, 0, blockMaxAir(pos));
 }
 
 void backtankPlaced(Player& player, GlobalPos const& pos, int air, std::string const& name) {
     int facing = game::opposite(game::playerFacing(player));
     place(pos, idAt(pos), {{kFacing, facing}});
     auto* e    = blockDoc(pos, true);
-    (*e)["air"] = std::clamp(air, 0, maxAir());
+    (*e)["air"] = std::clamp(air, 0, blockMaxAir(pos));
     if (!name.empty()) (*e)["name"] = name;
     log().info("equipment: backtank placed at {} {} {} with {} air", pos.x, pos.y, pos.z, air);
 }
@@ -284,13 +302,14 @@ bool useBacktankBlock(Player& player, ItemStack& held, GlobalPos const& pos) {
     if (!items::isEmpty(held) && game::blockWith(items::idOf(held))) return false;
     std::string id   = idAt(pos);
     int         air  = blockAir(pos);
+    int         capacity = blockCapacity(pos);
     handledBreaks()[pos] = true;
     if (!clearAt(pos)) {
         handledBreaks().erase(pos);
         return false;
     }
     handledBreaks().erase(pos);
-    player.setArmor(ArmorSlot::Torso, backtankItem(id, air, {}));
+    player.setArmor(ArmorSlot::Torso, backtankItem(id, air, {}, capacity, &player));
     player.sendInventory(false);
     sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.pop", .75f, 1.f);
     log().info("equipment: {} put on the backtank from {} {} {} ({} air)", player.getRealName(), pos.x, pos.y, pos.z, air);
@@ -314,12 +333,13 @@ void tickBacktanks() {
         }
         if (!isBacktank(idAt(pos))) continue;
         int air = blockAir(pos);
-        if (air >= maxAir()) continue;
-        int next = std::min(maxAir(), air + ce::backtankFillAmount(f.speed));
+        int max = blockMaxAir(pos);
+        if (air >= max) continue;
+        int next = std::min(max, air + ce::backtankFillAmount(f.speed));
         setBlockAir(pos, next);
         f.cooldown = ce::backtankFillDelay(f.speed);
         if (currentTick() % 10 == 0) particle(pos.dim, pos.x + .5, pos.y + 1.0, pos.z + .5, "minecraft:bubble_column_up_particle");
-        if (next >= maxAir()) {
+        if (next >= max) {
             // Create: "confirm" sound and a ring of spit particles when full
             sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.orb", .4f, 1.f);
             for (int i = 0; i < 36; i += 3) {
@@ -405,7 +425,7 @@ void tickDivingGear() {
         }
         // air HUD (Create: shown under water without breath, or in lava)
         bool show = tank && (breathing || ((underWater || inLava) && !p.isCreative()));
-        if (show != st.usingAir || (show && second)) sendAirHud(p, air, show);
+        if (show != st.usingAir || (show && second)) sendAirHud(p, air, tank ? maxAir(*tank) : maxAir(), show);
         st.usingAir = show;
         st.lastAir  = air;
         return true;
@@ -418,6 +438,23 @@ void resetBacktanks() {
 }
 
 void installBacktanks() {
+    // Create's BacktankBlockEntity keeps the Capacity level of the placed item (after the unit's placement handler
+    // wrote the air, which it limits to the air without Capacity)
+    for (auto id : {kCopperBacktank, kNetheriteBacktank}) {
+        gPlaceHandlers.push_back(common::interactions::onPlace(
+            {std::string(id), std::string(id)},
+            [](common::interactions::PlaceContext const& c) {
+                if (!c.itemBefore) return;
+                int capacity = enchantLevel(*c.itemBefore, kCapacity);
+                if (capacity <= 0) return;
+                auto& e = bd::edit(c.pos)["equipment"];
+                if (!e.is_object()) e = Json::object();
+                e[kCapacity] = capacity;
+                setBlockAir(c.pos, airOf(*c.itemBefore));
+            },
+            common::interactions::priority::Low
+        ));
+    }
     static bool done = false;
     if (!done) {
         done = true;
@@ -425,8 +462,9 @@ void installBacktanks() {
             if (prevId.empty() || !isBacktank(prevId)) return;
             fillers().erase(p);
             if (handledBreaks().contains(p)) return;
-            int  air  = doc.contains("equipment") ? doc["equipment"].value("air", 0) : 0;
-            auto item = backtankItem(prevId, air, {});
+            int  air      = doc.contains("equipment") ? doc["equipment"].value("air", 0) : 0;
+            int  capacity = doc.contains("equipment") ? doc["equipment"].value(kCapacity, 0) : 0;
+            auto item     = backtankItem(prevId, air, {}, capacity, nullptr);
             defer([p, item] { dropAt(p.dim, p.x + .5, p.y + .5, p.z + .5, item); });
         });
     }
@@ -443,6 +481,8 @@ void installBacktanks() {
 }
 
 void uninstallBacktanks() {
+    for (auto id : gPlaceHandlers) common::interactions::remove(id);
+    gPlaceHandlers.clear();
     for (auto id : gListeners) kinetics::removeListener(id);
     gListeners.clear();
 }

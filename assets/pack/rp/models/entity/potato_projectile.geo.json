@@ -1,0 +1,55 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.levitate.potato_projectile",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 1,
+        "visible_bounds_height": 1,
+        "visible_bounds_offset": [0, 0.125, 0]
+      },
+      "bones": [
+        { "name": "root", "pivot": [0, 2, 0] },
+        { "name": "tilt", "parent": "root", "pivot": [0, 2, 0] },
+        { "name": "spin", "parent": "tilt", "pivot": [0, 2, 0] },
+        { "name": "roll", "parent": "spin", "pivot": [0, 2, 0] },
+        {
+          "name": "sprite",
+          "parent": "roll",
+          "pivot": [0, 2, 0],
+          "cubes": [
+            {
+              "origin": [-4, -2, 0],
+              "size": [8, 8, 0],
+              "uv": {
+                "north": { "uv": [16, 0], "uv_size": [-16, 16] },
+                "south": { "uv": [0, 0], "uv_size": [16, 16] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "block",
+          "parent": "roll",
+          "pivot": [0, 2, 0],
+          "cubes": [
+            {
+              "origin": [-2, 0, -2],
+              "size": [4, 4, 4],
+              "uv": {
+                "north": { "uv": [0, 0], "uv_size": [16, 16] },
+                "south": { "uv": [0, 0], "uv_size": [16, 16] },
+                "east": { "uv": [0, 0], "uv_size": [16, 16] },
+                "west": { "uv": [0, 0], "uv_size": [16, 16] },
+                "up": { "uv": [0, 0], "uv_size": [16, 16] },
+                "down": { "uv": [0, 0], "uv_size": [16, 16] }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

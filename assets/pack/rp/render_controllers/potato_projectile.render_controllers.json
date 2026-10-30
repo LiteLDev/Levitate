@@ -1,0 +1,65 @@
+{
+  "format_version": "1.10.0",
+  "render_controllers": {
+    "controller.render.levitate.potato_projectile": {
+      "arrays": {
+        "textures": {
+          "Array.ammo": [
+            "Texture.potato",
+            "Texture.baked_potato",
+            "Texture.carrot",
+            "Texture.golden_carrot",
+            "Texture.sweet_berries",
+            "Texture.glow_berries",
+            "Texture.chocolate_glazed_berries",
+            "Texture.poisonous_potato",
+            "Texture.chorus_fruit",
+            "Texture.apple",
+            "Texture.honeyed_apple",
+            "Texture.golden_apple",
+            "Texture.enchanted_golden_apple",
+            "Texture.beetroot",
+            "Texture.melon_slice",
+            "Texture.glistering_melon_slice",
+            "Texture.melon_block",
+            "Texture.pumpkin",
+            "Texture.pumpkin_pie",
+            "Texture.cake",
+            "Texture.blaze_cake",
+            "Texture.cod",
+            "Texture.cooked_cod",
+            "Texture.salmon",
+            "Texture.cooked_salmon",
+            "Texture.tropical_fish",
+            "Texture.pufferfish",
+            "Texture.suspicious_stew"
+          ]
+        },
+        "materials": {
+          "Array.material": [
+            "Material.default",
+            "Material.glint"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Array.material[query.variant == 12 ? 1 : 0]"
+        }
+      ],
+      "textures": [
+        "Array.ammo[query.variant]",
+        "Texture.glint"
+      ],
+      "part_visibility": [
+        {
+          "sprite": "variable.block == 0"
+        },
+        {
+          "block": "variable.block == 1"
+        }
+      ]
+    }
+  }
+}

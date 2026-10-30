@@ -1,0 +1,33 @@
+{
+  "format_version": "1.10.0",
+  "animations": {
+    "animation.levitate.potato_projectile.billboard": {
+      "loop": true,
+      "bones": {
+        "root": { "rotation": ["query.camera_rotation(0)", "query.camera_rotation(1)", 0] }
+      }
+    },
+    "animation.levitate.potato_projectile.tumble": {
+      "loop": true,
+      "bones": {
+        "spin": { "rotation": [0, 0, "variable.ticks * 2 * math.mod(variable.seed, 16)"] },
+        "roll": { "rotation": ["variable.ticks * math.mod(variable.seed, 32)", 0, 0] }
+      }
+    },
+    "animation.levitate.potato_projectile.toward_motion": {
+      "loop": true,
+      "bones": {
+        "root": { "rotation": [0, "-query.target_y_rotation", 0] },
+        "tilt": { "rotation": ["-90 - query.target_x_rotation", 0, 0] },
+        "spin": { "rotation": [0, "variable.ticks * 20 * variable.mode + variable.seed", 0] },
+        "roll": { "rotation": [0, 0, -140] }
+      }
+    },
+    "animation.levitate.potato_projectile.stuck": {
+      "loop": true,
+      "bones": {
+        "root": { "rotation": [0, "-query.target_y_rotation", 0] }
+      }
+    }
+  }
+}
