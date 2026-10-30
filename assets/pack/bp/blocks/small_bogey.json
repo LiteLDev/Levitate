@@ -10,6 +10,12 @@
         "levitate:bogey_axis": [
           0,
           1
+        ],
+        "levitate:anim": [
+          0,
+          1,
+          2,
+          3
         ]
       }
     },
@@ -20,7 +26,17 @@
       "minecraft:destructible_by_explosion": {
         "explosion_resistance": 6
       },
-      "minecraft:geometry": "geometry.levitate.small_bogey",
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.small_bogey",
+        "bone_visibility": {
+          "frame": true,
+          "wheels": true,
+          "spokes0": "q.block_state('levitate:anim') == 0",
+          "spokes1": "q.block_state('levitate:anim') == 1",
+          "spokes2": "q.block_state('levitate:anim') == 2",
+          "spokes3": "q.block_state('levitate:anim') == 3"
+        }
+      },
       "minecraft:collision_box": {
         "origin": [
           -8,

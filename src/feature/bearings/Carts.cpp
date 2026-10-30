@@ -46,6 +46,7 @@
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/BearingsExt.h"
 #include "feature/contraption/Contraption.h"
+#include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
 #include "mod/Config.h"
@@ -433,6 +434,33 @@ void guide(BlockSource& region, GP const& pos, Actor& cart, double speed, bool a
     (void)region;
 }
 
+// ---- couplings drawn by the client mod (Create's CouplingRenderer) ------------------------------
+
+/// The coupled cart pairs as companions get them: [[a, b], ...] (ActorUniqueIDs).
+Json couplingsMessage() {
+    Json list = Json::array();
+    for (auto const& c : state().couplings) list.push_back(Json::array({c.a, c.b}));
+    return {{"couplings", std::move(list)}};
+}
+
+/// Sends the couplings to the companions when they changed (and the full list to joining ones).
+void syncCouplings() {
+    static bool joined = false; // join listeners can't be removed: registered once
+    if (!joined) {
+        joined = true;
+        feature::net::onCompanionJoined([](Player& p) { feature::net::send(p, "bearings.couplings", couplingsMessage()); });
+    }
+    static Json last;
+    Json        msg = couplingsMessage();
+    if (msg == last) return;
+    last       = msg;
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    level->forEachPlayer([&](Player& p) {
+        feature::net::send(p, "bearings.couplings", msg);
+        return true;
+    });
+}
 } // namespace
 
 // ---- rails ------------------------------------------------------------------------------------
@@ -671,6 +699,7 @@ void tickCarts() {
     for (auto i = broken.rbegin(); i != broken.rend(); ++i) st.couplings.erase(st.couplings.begin() + static_cast<long long>(*i));
     if (!broken.empty()) st.dirty = true;
     if (st.dirty && currentTick() % 20 == 0) saveCarts();
+    syncCouplings();
 }
 
 // ---- couplings --------------------------------------------------------------------------------

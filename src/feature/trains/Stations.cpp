@@ -3,15 +3,21 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
+#include <set>
 
 #include "ll/api/form/CustomForm.h"
 #include "ll/api/form/SimpleForm.h"
+#include "ll/api/event/EventBus.h"
+#include "ll/api/event/world/ServerLevelTickEvent.h"
+#include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/BlockType.h"
 
@@ -20,11 +26,14 @@
 #include "feature/common/Screens.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/contraption/PistonsExt.h"
+#include "feature/net/Net.h"
 #include "feature/tracks/Tracks.h"
 #include "feature/trains/Trains.h"
 #include "game/Blocks.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
+#include "mod/Module.h"
+#include "game/WorldDb.h"
 
 namespace lv::feature::trains {
 
@@ -764,4 +773,106 @@ void registerStationScreens() {
     });
 }
 
+// ---- station flags (Create's StationBlockEntity#flag, drawn by the client mod) -------------------
+
+namespace {
+
+/// Create raises the flag while a train stands at the station or while it is in assembly mode.
+struct FlagSync {
+    std::map<std::string, bool> raised;     ///< station key -> flag target last sent
+    std::map<std::string, bool> assembling; ///< station key -> assembly mode last sent (flag colour)
+    bool                         dirty = true;
+};
+FlagSync& flags() {
+    static FlagSync f;
+    return f;
+}
+
+Json flagsMessage() {
+    Json list = Json::array();
+    for (auto const& [key, s] : state().stations) {
+        auto r = flags().raised.find(key);
+        list.push_back({s.pos.dim, s.pos.x, s.pos.y, s.pos.z, r != flags().raised.end() && r->second ? 1 : 0, s.fx, s.fz, s.assembling ? 1 : 0});
+    }
+    return {{"flags", std::move(list)}};
+}
+
+void syncFlags() {
+    auto& f       = flags();
+    bool  changed = f.dirty;
+    f.dirty       = false;
+    std::set<std::string> seen;
+    for (auto& [key, s] : state().stations) {
+        seen.insert(key);
+        bool target = s.assembling || trainAt(s) != nullptr;
+        if (auto a = f.assembling.find(key); a == f.assembling.end() || a->second != s.assembling) {
+            f.assembling[key] = s.assembling;
+            changed           = true;
+        }
+        auto it     = f.raised.find(key);
+        if (it != f.raised.end() && it->second == target) continue;
+        bool first = it == f.raised.end();
+        f.raised[key] = target;
+        changed       = true;
+        if (first) continue;
+        // Create: CONTRAPTION_ASSEMBLE (pitch 2) as the flag goes up, CONTRAPTION_DISASSEMBLE as it comes down
+        ct::Vec3d at{s.pos.x + .5, s.pos.y + 1.0, s.pos.z + .5};
+        if (target) {
+            playSound(s.pos.dim, at, "open.wooden_trapdoor", .5f, 1.f);
+            playSound(s.pos.dim, at, "random.chestopen", .045f, 1.48f);
+        } else {
+            playSound(s.pos.dim, at, "close.wooden_trapdoor", .35f, .75f);
+        }
+        log().info("trains: station '{}' flag {}", s.name, target ? "raised" : "lowered");
+    }
+    for (auto it = f.raised.begin(); it != f.raised.end();) {
+        if (seen.contains(it->first)) ++it;
+        else f.assembling.erase(it->first), it = f.raised.erase(it), changed = true;
+    }
+    if (!changed) return;
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    auto msg = flagsMessage();
+    level->forEachPlayer([&](Player& p) {
+        net::send(p, "trains.flags", msg);
+        return true;
+    });
+}
+
+class StationFlagsModule {
+public:
+    void install() {
+        static bool joined = false; // join listeners can't be removed
+        if (!joined) {
+            joined = true;
+            net::onCompanionJoined([](Player& p) { net::send(p, "trains.flags", flagsMessage()); });
+        }
+        game::db::onWorldClosed([] { flags() = FlagSync{}; });
+        mTick = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>([this](auto&) {
+            if (++mTicks % 2 != 0) return;
+            try {
+                syncFlags();
+            } catch (std::exception const& e) {
+                log().error("trains: station flag sync failed: {}", e.what());
+            }
+        });
+    }
+    void uninstall() { ll::event::EventBus::getInstance().removeListener(mTick); }
+
+private:
+    ll::event::ListenerPtr mTick;
+    std::uint64_t          mTicks = 0;
+};
+
+} // namespace
+
+/// Selftests: the flag state the companions were last sent (nullopt: station unknown).
+std::optional<bool> stationFlagRaised(GlobalPos const& pos) {
+    auto it = flags().raised.find(pos.key());
+    if (it == flags().raised.end()) return std::nullopt;
+    return it->second;
+}
+
 } // namespace lv::feature::trains
+
+LV_REGISTER_MODULE(lv::feature::trains::StationFlagsModule);
