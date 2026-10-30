@@ -1,0 +1,1 @@
+{"format_version":"1.10.0","animation_controllers":{"controller.animation.levitate.wrench.held":{"initial_state":"first_person","states":{"first_person":{"animations":["first_person"],"transitions":[{"third_person":"!c.is_first_person"}]},"third_person":{"animations":["third_person"],"transitions":[{"first_person":"c.is_first_person"}]}}}}}

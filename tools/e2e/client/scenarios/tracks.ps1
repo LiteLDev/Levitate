@@ -79,30 +79,38 @@ Invoke-Chat '/setblock 215 -54 40 levitate:track ["levitate:shape"=7]'
 Invoke-Chat '/setblock 216 -53 40 levitate:track ["levitate:shape"=7]'
 Invoke-Chat '/setblock 205 -59 40 levitate:track ["levitate:shape"=7]'
 Invoke-Chat '/setblock 204 -60 40 levitate:track ["levitate:shape"=7]'
+# glass to stand on at every place the player is put (it would fall otherwise)
+foreach ($g in '207 -56 42', '213 -53 43', '213 -56 42', '207 -59 43', '210 -56 47', '211 -54 43') {
+    Invoke-Chat "/setblock $g glass"
+}
 Invoke-Chat '/give @s levitate:track 64'
 Press-Key 1
 # (`facing` aims from the feet: the points are 1.62 below what the crosshair is on)
 # the east end of M, then the upper slope: a sloped curve
 Invoke-Teleport '/tp @s 207 -55 42 facing 210.5 -57.57 40.5'
+$tm = Get-LogMark
 Click 0.5 0.5 -Relative -Right
-Wait-LogLine 'tracks: \S+ selected the track at 210,-56,40' 20 -Since $mark | Out-Null
+Wait-LogLine 'tracks: \S+ selected the track at 210,-56,40' 20 -Since $tm | Out-Null
 Invoke-Teleport '/tp @s 213 -52 43 facing 215.5 -55.12 40.5'
+$tm = Get-LogMark
 Click 0.5 0.5 -Relative -Right
-Wait-LogLine 'tracks: \S+ connected 210,-56,40 to 215,-54,40 with a curve' 20 -Since $mark | Out-Null
+Wait-LogLine 'tracks: \S+ connected 210,-56,40 to 215,-54,40 with a curve' 20 -Since $tm | Out-Null
 # the west end of M, then the lower slope: the second sloped curve tilts M
 Invoke-Teleport '/tp @s 213 -55 42 facing 210.5 -57.57 40.5'
+$tm = Get-LogMark
 Click 0.5 0.5 -Relative -Right
-Wait-LogLine 'tracks: \S+ selected the track at 210,-56,40' 20 -Since $mark | Out-Null
+Wait-LogLine 'tracks: \S+ selected the track at 210,-56,40' 20 -Since $tm | Out-Null
 Invoke-Teleport '/tp @s 207 -58 43 facing 205.5 -60.12 40.5'
+$tm = Get-LogMark
 Click 0.5 0.5 -Relative -Right
-Wait-LogLine 'tracks: \S+ connected 210,-56,40 to 205,-59,40 with a curve' 20 -Since $mark | Out-Null
-Wait-LogLine 'tracks: tilted the track at 210,-56,40 by' 20 -Since $mark | Out-Null
+Wait-LogLine 'tracks: \S+ connected 210,-56,40 to 205,-59,40 with a curve' 20 -Since $tm | Out-Null
+Wait-LogLine 'tracks: tilted the track at 210,-56,40 by' 20 -Since $tm | Out-Null
 Start-Sleep -Milliseconds 1500
 # from the south, level with the ramp, and close up from above
 Invoke-Teleport '/tp @s 210.5 -55 47 facing 210.5 -57.12 40.5'
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'tilt-side' | Out-Null
-Invoke-Teleport '/tp @s 211.5 -53.5 43 facing 210.5 -57.22 40.5'
+Invoke-Teleport '/tp @s 211.5 -53 43 facing 210.5 -57.22 40.5'
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'tilt-close' | Out-Null
 if ($withMod) { Wait-LogLine 'tracks: drawing \d+ tilted track' 20 -Since $mark | Out-Null }

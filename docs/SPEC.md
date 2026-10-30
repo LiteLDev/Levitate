@@ -125,7 +125,12 @@ engine is U18.
 `assets/pending_recipes/goggles/` until U9's sheets and U6's cogwheel exist): wrench `GG / GP / ␣S`
 (G golden sheet, P cogwheel, S stick); goggles `␣S␣ / GPG` (S string, G glass, P golden sheet).
 The goggles are a wearable (`slot.armor.head`, no protection) with an attachable model (a strap
-and two brass lenses on the head; a small copy in the hand). Mechanics in §3.6.8 (U8).
+and two brass lenses on the head; a small copy in the hand). The wrench in the hand is an
+attachable too (U48, `tools/models/wrench.ps1`): the item sprite extruded into pixels with a small
+gear on the shaft that turns about the shaft while the wrench is drawn (Create's
+WrenchItemRenderer: ScrollValueHandler's passive 0.5° a tick), bound to the hand bone of the slot
+(`q.item_slot_to_bone_name`, as the vanilla spear) with its own first- and third-person poses; it
+comes with the resource pack, so vanilla clients see it too. Mechanics in §3.6.8 (U8).
 
 ### 2.4 Materials, food, world (U9)
 
@@ -1105,6 +1110,21 @@ breakable: breaking it destroys the curve). Breaking either end track removes it
 one track per two segments (and two girders each when built with girders) unless in creative or
 `doTileDrops` is off; `tracks::dismantleCurves` gives them to a player instead (wrench, U8).
 
+**Tilted tracks** (Create's TrackBlockEntityTilt, U48; maths in `core/tracks/Tilt.h`): a flat
+straight track (not bound to a portal) with exactly two curves leaving it on opposite sides, one
+ending lower and one higher (two sloped curves meeting at it), tilts when the second curve is
+built: m = (height of the high far end − height of the low far end) / (sum of both curve lengths);
+the low curve keeps its start and leaves along the ramp (its axis gets −m), the high curve starts
+at the ramp's top (low start + the axis direction raised by m, normalised, times the axis length)
+with axis +m; the graph node at the raised end is lifted by `smoothing` = ⌊m · axis length · 16⌋
+(0..15) pixels (Create's TrackNodeLocation.yOffsetPixels), so trains climb over the block; the
+smoothing angle (atan m, negative when the ramp rises towards −x / −z) is kept in
+`BlockData["tracks"]["tilt"]` (not carried by contraptions: a moved track loses its curves). A
+connection onto a tilted track is refused (`create.track.turn_start`); once the track no longer has
+exactly its two curves, the remaining ones get their original shape back and the track is flat
+again. The client mod leaves the tilted block out of the chunk mesh and draws its model turned
+onto the ramp (Create's TrackModel transform); vanilla clients see the flat block (§8).
+
 **Graph** (Create's TrackGraph): nodes at track ends, junctions, curve ends, portal crossings and
 on the 16-block grid of long straight runs (TrackNodeLocation: x/z on a half-block grid, y per
 block); edges straight or curved (both directions stored, curves oriented from the edge's first
@@ -1129,7 +1149,8 @@ no U-turns, Create's 7/8 direction rule at junctions), edge points (`addPoint` /
 
 **Client**: curves are drawn by the client mod (ties and rails along the curve segments) from the
 companion protocol's `tracks.curves` messages: every curve of every dimension after the handshake
-(`reset` first), then each change (see §8). Vanilla clients get nothing.
+(`reset` first), then each change, and the tilt of every tilted track (`{"op":"tilt"}`, see §8).
+Vanilla clients get nothing.
 
 ### 3.6 Feature mechanics
 
@@ -1639,7 +1660,25 @@ the block-changed event: the position and its neighbours are re-evaluated at the
   The client mod draws the copycat in its material (Create's CopycatPanelModel / CopycatStepModel:
   the material's quads cropped and moved; faces against a solid neighbour culled); materials and
   brackets reach it over `building.query` / `building.visuals`.
-- Selftests `building.*` (dx 1000..1099; U43 additions 4350..4399), e2e
+  U48: the panel also takes **bars** (iron bars, the copper bars, Create's bars; not glass panes)
+  and **trapdoors** (vanilla and Create's), although they aren't full blocks (Create's
+  CopycatSpecialCases / isAcceptedRegardless; the step doesn't). A trapdoor is prepared as Create's
+  prepareMaterial: in a floor / ceiling panel it lies closed, facing the way the player looks (upside
+  down in a ceiling panel); against a wall it stands open, facing the panel's way, in the half the
+  click was in. Using the same trapdoor again flips an open one's half, turns a closed one clockwise
+  (Create's cycleMaterial). The client mod draws a trapdoor material as the trapdoor itself and bars
+  as Create's bars panel (a sheet of the bars' texture 1 px in from the back, 2 px edge strips;
+  CopycatBarsModel). A block in the off hand becomes the material of a copycat when it is placed
+  (Create's setPlacedBy).
+  **Placement helpers** (Create's CopycatPanelBlock / CopycatStepBlock PlacementHelper,
+  `feature/building/CopycatHelpers.cpp`): a copycat panel used on a copycat panel (not sneaking)
+  places one on the free side nearest the clicked point across its facing, with its facing (the
+  click is used up even when nothing fits); a copycat step used on a copycat step continues the line
+  across its facing (PoleHelper on `facing.getClockWise()`'s axis, past up to
+  `placementAssistRange` = 12 steps, +4 with the extendo grip), with its facing and half. While a
+  player of the client mod holds one and looks at one of its kind, the copycat the click would add
+  is drawn as a breathing ghost there (Create's PlacementClient ghost).
+- Selftests `building.*` (dx 1000..1099; U43 additions 4350..4399; U48 4870..4899), e2e
   `tools/e2e/{server,client}/scenarios/building.ps1`; client parts in `src/client/building/`.
 
 #### 3.6.11 Belts, depots and weighted ejectors (U11)
@@ -4184,7 +4223,7 @@ matches Create's official Chinese translation wording).
 | Contraption blocks drawn as one rotating model on **vanilla** clients (U4) | a vanilla client draws a falling-block entity axis-aligned and can't be told to turn it | each block is its own falling-block entity at its exact rotated position, showing the block turned by the nearest quarter turn; the client mod turns each block by the remaining angle so the structure looks exact. Displays carry no gravity (actor flag HasGravity off, NoAI on; set again after the entity is added), so a vanilla client, which simulates falling blocks itself, doesn't drop a block that has no real block under it (a train carriage over its bogey) |
 | Smooth contraption motion on **vanilla** clients (U34) | a vanilla client never applies the movement packets of a falling block that isn't falling: it stays where it was spawned | while a vanilla player is in the dimension, each display entity is spawned again at its place once it is half a block away (at most every 4 ticks per block, and where it comes to rest), so vanilla players see the structure move in half-block steps; the client mod moves the displays smoothly from the contraption's motion |
 | Curved tracks drawn for **vanilla** clients (U5) | Bedrock block models are fixed per block state; a curve is not a block | the client mod draws the curve; vanilla clients see the straight end tracks and a track bed (`levitate:fake_track`) on every block the curve passes through |
-| Tilted tracks between two sloped curves (U5) | Create re-shapes the curves and tilts the block model at runtime | curves keep their original handles; the middle track stays flat |
+| Tilted track block drawn for **vanilla** clients (U5, U48) | Bedrock block models are fixed per state; the ramp's angle is a real number per block | the curves, the graph and the trains follow Create's tilt for every client (§3.5); the client mod draws the block turned onto the ramp; vanilla clients see the flat block between the two curves' track beds |
 | Smooth gauge needle for **vanilla** clients (U6) | block models are static per state; cube rotations are limited to 22.5° steps | the needle state snaps to the nearest 22.5°; the client mod draws the eased needle |
 | Integrated-cog placement helpers (cogs placed against mixers / crafters) (U6) | those blocks are other units' | plain placement rules apply |
 
@@ -4193,7 +4232,6 @@ matches Create's official Chinese translation wording).
 | Red outline of the missing room when a large water wheel can't be placed, for **vanilla** clients (U7) | no client-side line rendering without the client mod | the action bar message only (the client mod draws the outline, U42) |
 | Goggle overlay next to the crosshair for **vanilla** clients (U8) | no client-side drawing without a client mod | the same lines in the action bar (indentation trimmed), refreshed every `overlayInterval` ticks |
 | Kinetic stats and "Hold [Shift] for Summary" in item tooltips for **vanilla** clients (U8) | Bedrock builds item hover text on the client from the item alone | the client mod appends them to the hover text, with the server's stress table (`kinetics.stress`, U42); vanilla clients see the plain name |
-| The wrench's animated cog in the hand (U8) | Bedrock items have no custom item renderer; an attachable (extruded sprite with a cog bone turning by `q.life_time`) works in third person, but its first-person transform is not solved yet (U42 tried and left it out) | a static item sprite |
 | Strikethrough in Create's speed text of an overstressed network for **vanilla** clients (U8) | Bedrock text has no strikethrough format | the client mod draws the line (`§~` spans, U42); vanilla: only dark gray |
 | Wall collision predicted by **vanilla** clients (U9) | JSON collision boxes are at most 16 px high | the server and the client mod use Java's 24 px (collision hook); vanilla clients predict 16 px and are corrected by the server's movement authority |
 | Chromatic compound charge bar and stack size 1 for **vanilla** clients (U9) | durability bars and per-stack max sizes aren't data-driven | the server and the client mod use Create's stack size (1 while charged); the client mod draws the bar; vanilla clients see no bar and predict stacks of 16 (the server corrects them) |

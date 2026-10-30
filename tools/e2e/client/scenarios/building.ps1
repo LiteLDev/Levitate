@@ -7,7 +7,11 @@
 #   local / remote-mod: the client mod draws the copycats in their materials, the bracket, the
 #                       corner and the sliding door.
 #   remote-vanilla:     the copycat base models and the plain shaft (no client mod), same server logic.
-# Screenshots: out/building/{built,door_open,door_moving,copycats,bracket,ct}.png
+# U48: a copycat panel takes iron bars and trapdoors (open against a wall panel, lying in a floor
+#   panel), and a copycat panel used on a panel places the next one beside it (Create's placement
+#   helper); local / remote-mod: the bars panel, the trapdoors and the helper's ghost drawn by the
+#   client mod; remote-vanilla: copycat base models, same server logic.
+# Screenshots: out/building/{built,door_open,door_moving,copycats,bracket,ct,copycat_specials,helper_ghost,helper_placed}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 if (-not $vanilla) {
     Wait-LogLine 'companion: server accepted the handshake' 90 | Out-Null
@@ -109,6 +113,37 @@ if (-not $vanilla) {
     $log = (Get-LeviLog) -join "`n"
     if ($log -notmatch 'building client: drawing') { throw 'the client mod drew no copycat / door / bracket' }
 }
+
+# ---- U48: bars and trapdoors in copycat panels, the placement helper -----------------------------
+foreach ($c in @(
+        '/fill -5 -60 9 5 -57 13 air',
+        '/setblock -3 -60 10 levitate:copycat_panel ["levitate:facing"=2]',
+        '/setblock -1 -60 10 levitate:copycat_panel ["levitate:facing"=2]',
+        '/setblock 1 -60 10 levitate:copycat_panel ["levitate:facing"=1]',
+        '/setblock 3 -60 10 levitate:copycat_panel ["levitate:facing"=2]')) { Invoke-Chat $c; Start-Sleep -Milliseconds 250 }
+Invoke-Chat '/clear @s'
+Invoke-Chat '/give @s iron_bars 4'
+Invoke-Chat '/give @s trapdoor 4'
+Invoke-Chat '/give @s levitate:copycat_panel 4'
+Start-Sleep -Milliseconds 800
+Use-At -3 -60 10 '1' 'building: levitate:copycat_panel at -3 -60 10 takes the look of minecraft:iron_bars'
+Use-At -1 -60 10 '2' 'building: levitate:copycat_panel at -1 -60 10 takes the look of minecraft:trapdoor'
+Use-At 1 -60.25 10 '2' 'building: levitate:copycat_panel at 1 -60 10 takes the look of minecraft:trapdoor'
+Invoke-Chat '/tp @s 0.5 -59 7.5 0 22'
+Start-Sleep -Milliseconds 2500
+Save-Screenshot 'copycat_specials' | Out-Null
+# the helper: holding a copycat panel while looking at one shows the ghost, the click places it
+Invoke-Chat "/tp @s 3.5 -60 7.5 0 $([Math]::Round([Math]::Atan2(-58.38 - (-60 + 0.4), 2.6) * 180 / [Math]::PI, 1))"
+Start-Sleep -Milliseconds 700
+Press-Key '3'
+Start-Sleep -Milliseconds 1200
+if (-not $vanilla) { Wait-LogLine 'building client: placement helper ghost of levitate:copycat_panel at' 20 | Out-Null }
+Save-Screenshot 'helper_ghost' | Out-Null
+$m = Get-LogMark
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'building: levitate:copycat_panel placed at -?\d+ -60 10 by the placement helper' 20 -Since $m | Out-Null
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'helper_placed' | Out-Null
 
 $r = Invoke-SelfTest 'building.*'
 if ($r.Pass -lt 15) { throw "expected at least 15 building selftests to pass, got $($r.Pass)" }
