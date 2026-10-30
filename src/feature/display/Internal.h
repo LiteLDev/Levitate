@@ -18,6 +18,7 @@
 #include "nlohmann/json.hpp"
 
 #include "core/GlobalPos.h"
+#include "feature/display/Clipboard.h"
 #include "feature/display/Display.h"
 
 class Block;
@@ -32,7 +33,6 @@ namespace lv::feature::display {
 inline constexpr char kLinkId[]       = "levitate:display_link";
 inline constexpr char kBoardId[]      = "levitate:display_board";
 inline constexpr char kNixieId[]      = "levitate:nixie_tube"; ///< the orange one (Create's ORANGE_NIXIE_TUBE)
-inline constexpr char kClipboardId[]  = "levitate:clipboard";
 inline constexpr char kTextEntityId[] = "levitate:display_text";
 inline constexpr char kWrenchId[]     = "levitate:wrench";
 
@@ -200,20 +200,6 @@ void syncAll(Player& player);
 
 // ---- clipboards -------------------------------------------------------------------------------
 namespace clipboard {
-struct Entry {
-    std::string text;
-    bool        checked = false;
-};
-struct Contents {
-    int                             type = 0; ///< 0 empty, 1 editing, 2 written (Create's ClipboardType)
-    std::vector<std::vector<Entry>> pages;
-    int                             previouslyOpenedPage = 0;
-    Json                            copied; ///< copied machine settings (null when none)
-};
-[[nodiscard]] Contents fromJson(Json const& j);
-[[nodiscard]] Json     toJson(Contents const& c);
-[[nodiscard]] Contents ofItem(ItemStack const& stack);
-void                   setOnItem(ItemStack& stack, Contents const& c);
 /// Create's ClipboardEntry.getLastViewedEntries: the entries of the page last opened.
 [[nodiscard]] std::vector<Entry> lastViewedEntries(Contents const& c);
 /// Clipboard item used on a block (copy settings, copy entries, open the screen). Returns true when

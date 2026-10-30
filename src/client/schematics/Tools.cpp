@@ -65,6 +65,8 @@
 #include "mc/world/phys/HitResult.h"
 
 #include "client/Client.h"
+#include "client/ponder/Ponder.h"
+#include "client/schematics/SchematicsClient.h"
 #include "client/screen/Screen.h"
 #include "core/schematics/Schematic.h"
 #include "feature/common/Items.h"
@@ -344,7 +346,22 @@ std::uint64_t packPos(cs::Pos p) {
     return (static_cast<std::uint64_t>(p.x + (1 << 20)) << 42) | (static_cast<std::uint64_t>(p.y + (1 << 20)) << 21) | static_cast<std::uint64_t>(p.z + (1 << 20));
 }
 
-/// Builds the ghost mesh of a schematic in anchor-relative coordinates (transform applied).
+/// Ponder's block definition of a block (id and its integer / string states).
+lv::client::ponder::cp::BlockDef defOf(Block const& b) {
+    lv::client::ponder::cp::BlockDef def;
+    auto                             st = fsc::stateOf(b);
+    def.id                              = st.name;
+    for (std::size_t i = 0; i < st.states.keys.size(); ++i) {
+        auto const& v = st.states.values[i];
+        if (auto const* str = v.asString()) def.strings[st.states.keys[i]] = *str;
+        else if (auto n = v.asInt()) def.states[st.states.keys[i]] = static_cast<int>(*n);
+    }
+    return def;
+}
+
+/// Builds the ghost mesh of a schematic in anchor-relative coordinates (transform applied): every
+/// block with its exact model (Create's SchematicRenderer tessellates the real block models), as
+/// Ponder draws them; a textured cube only when a block can't be tessellated.
 std::unique_ptr<mce::Mesh> buildGhost(Tessellator& tess, Preview const& p, cs::Transform const& t) {
     // transformed blocks per palette index
     std::vector<Block const*> tblocks(p.palette.size(), nullptr);
@@ -376,7 +393,9 @@ std::unique_ptr<mce::Mesh> buildGhost(Tessellator& tess, Preview const& p, cs::T
             auto it = occ.find(packPos(off + kDirs[static_cast<std::size_t>(f)]));
             skip[static_cast<std::size_t>(f)] = it != occ.end() && BlockGraphics::isFullAndOpaque(*it->second);
         }
-        cube(tess, b, float(off.x), float(off.y), float(off.z), 1.f, skip);
+        if (std::all_of(skip.begin(), skip.end(), [](bool hidden) { return hidden; })) continue; // enclosed
+        if (!lv::client::ponder::appendBlock(tess, defOf(b), b, float(off.x), float(off.y), float(off.z)))
+            cube(tess, b, float(off.x), float(off.y), float(off.z), 1.f, skip);
         faces += 6;
     }
     return std::make_unique<mce::Mesh>(tess.end(Tessellator::UploadMode::Buffered, "levitate_schematic_ghost", SupplementaryFieldAutoGenerationMode::None));
@@ -626,6 +645,25 @@ void onLaunch(Json const& msg) {
     std::lock_guard lock(s.mutex);
     if (s.launches.size() < 256) s.launches.push_back(l);
 }
+
+} // namespace
+
+float cannonRecoil(int dim, int x, int y, int z) {
+    // Create's SchematicannonRenderer: a launch in its first 10 ticks pushes the barrel back
+    // (ticks still to go above total - 10)
+    auto&           s   = st();
+    auto            now = Clock::now();
+    std::lock_guard lock(s.mutex);
+    float           recoil = 0;
+    for (auto const& l : s.launches) {
+        if (l.dim != dim || l.from.x != x || l.from.y != y || l.from.z != z) continue;
+        float elapsed = std::chrono::duration<float>(now - l.start).count() * 20.f;
+        recoil        = std::max(recoil, 10.f - elapsed);
+    }
+    return recoil;
+}
+
+namespace {
 
 void onQuill(Json const& msg) {
     auto&           s = st();

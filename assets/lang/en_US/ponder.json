@@ -71,5 +71,7 @@
   "lv.ponder.scene_of": "Scene {0} of {1}",
   "lv.ponder.missing_block": "Not available yet: {0}",
   "lv.ponder.drag_hint": "Drag to rotate the view",
-  "lv.ponder.players_only": "Only players can ponder."
+  "lv.ponder.players_only": "Only players can ponder.",
+  "lv.ponder.key": "Ponder Key",
+  "lv.ponder.key.rebind": "Click, then press the new key (Esc cancels)"
 }

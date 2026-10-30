@@ -19,6 +19,7 @@
 #include "core/schematics/Logic.h"
 #include "core/schematics/Schematic.h"
 
+class Actor;
 class Block;
 class BlockPos;
 class CompoundTag;
@@ -44,7 +45,8 @@ inline constexpr std::string_view kBlueprintBlock = "levitate:placed_crafting_bl
 inline constexpr std::string_view kCreativeCrate = "levitate:creative_crate";
 /// Owned by U8 (wrench): referenced by id only.
 inline constexpr std::string_view kWrench = "levitate:wrench";
-/// Owned by U24 (clipboard): accepted as checklist paper by id only.
+/// Owned by U24 (clipboard): accepted as checklist paper; the cannon prints a read-only checklist
+/// clipboard on it (display/Clipboard.h).
 inline constexpr std::string_view kClipboard = "levitate:clipboard";
 
 inline constexpr char kFacing[] = "levitate:facing"; ///< table: 0..3 (S W N E), blueprint: 0..5
@@ -171,6 +173,15 @@ void                                        clearSchematicCache();
 
 /// Reads an area of the world into a schematic (Create's SchematicExport.saveSchematic).
 [[nodiscard]] cs::Schematic capture(int dim, cs::Pos lo, cs::Pos hi);
+/// Adds the block entity NBT and the entities (not players) of the area to `s` (Create's
+/// StructureTemplate.fillFromWorld with entities).
+void captureExtras(int dim, cs::Pos lo, cs::Pos hi, cs::Schematic& s);
+/// Loads saved block entity NBT into the block entity at `at` of a schematic placed at `anchor`
+/// with `t` (`origin`: the file's world origin): its position and a chest's pair rewritten.
+bool placeBlockEntity(GlobalPos const& at, cs::nbt::Tag const& data, cs::Pos origin, cs::Transform const& t, cs::Pos anchor);
+/// Spawns a saved entity of a schematic placed at `anchor` with `t` (`origin`: the file's world
+/// origin of its saved "Pos"): position and facing transformed like the blocks, a new id.
+Actor* placeEntity(int dim, cs::nbt::Tag const& data, cs::Pos origin, cs::Transform const& t, cs::Pos anchor);
 /// Saves an area as `<dir>/<name>.mcstructure` (name made unique unless `overwrite`). Returns the
 /// file name, nullopt on failure.
 [[nodiscard]] std::optional<std::string> saveArea(std::filesystem::path const& dir, std::string name, bool overwrite, int dim, cs::Pos lo, cs::Pos hi);

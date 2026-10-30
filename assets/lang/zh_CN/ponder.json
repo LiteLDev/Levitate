@@ -71,5 +71,7 @@
   "lv.ponder.scene_of": "第 {0} 个情景，共 {1} 个",
   "lv.ponder.missing_block": "尚未可用：{0}",
   "lv.ponder.drag_hint": "拖动以旋转视角",
-  "lv.ponder.players_only": "只有玩家才能思索。"
+  "lv.ponder.players_only": "只有玩家才能思索。",
+  "lv.ponder.key": "思索按键",
+  "lv.ponder.key.rebind": "点击后按下新的按键（Esc 取消）"
 }
