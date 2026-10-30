@@ -131,6 +131,46 @@ foreach ($name in $rare.Keys) {
     Save $c $boxPal "$items/rare_${name}_package.png"
 }
 
+# --- package entities (U46): 64x32 box-UV skins of the w x h x w cube of each style ------------------
+# Layout (cube uv [0, 0]): top at (w, 0), bottom at (2w, 0), then the sides in one row at y = w
+# (x 0, w, 2w, 3w; the 2nd and 4th are the north / south faces the tape runs over).
+$entity = Join-Path $root 'assets/pack/rp/textures/entity/package'
+New-Item -ItemType Directory -Force $entity | Out-Null
+function Box-Skin($c, [int]$w, [int]$h, [char]$side, [char]$top, [char]$dark, [char]$tape, [char]$edge, [char]$emblem) {
+    $mid = [int]($w / 2) - 1
+    # top and bottom
+    foreach ($zx in @($w, (2 * $w))) {
+        Fill $c $zx 0 ($zx + $w - 1) ($w - 1) $top
+        Noise $c $zx 0 ($zx + $w - 1) ($w - 1) $dark 5 9
+        Frame $c $zx 0 ($zx + $w - 1) ($w - 1) $edge $edge
+    }
+    Fill $c ($w + $mid) 0 ($w + $mid + 1) ($w - 1) $tape        # the tape runs over the top (along z)
+    # the four sides
+    for ($i = 0; $i -lt 4; $i++) {
+        $x0 = $i * $w; $y0 = $w
+        Fill $c $x0 $y0 ($x0 + $w - 1) ($y0 + $h - 1) $side
+        Noise $c $x0 $y0 ($x0 + $w - 1) ($y0 + $h - 1) $dark (3 + $i) 7
+        Frame $c $x0 $y0 ($x0 + $w - 1) ($y0 + $h - 1) $edge $edge
+        if ($i % 2 -eq 1) {
+            Fill $c ($x0 + $mid) $y0 ($x0 + $mid + 1) ($y0 + [int]($h / 2)) $tape   # tape down the front / back
+        } elseif ($emblem -ne [char]'.') {
+            $ex = $x0 + $mid; $ey = $y0 + [int]($h / 2) - 1
+            Fill $c $ex $ey ($ex + 1) ($ey + 1) $emblem                              # the rare style's mark
+        }
+    }
+}
+foreach ($s in $sizes.Keys) {
+    $c = New-Canvas 64; $c = $c[0..31]
+    Box-Skin $c $sizes[$s][0] $sizes[$s][1] 's' 't' 'd' 'p' 'e' '.'
+    Save $c $boxPal "$entity/cardboard_package_$s.png"
+}
+foreach ($name in $rare.Keys) {
+    $p = $rare[$name]
+    $c = New-Canvas 64; $c = $c[0..31]
+    Box-Skin $c 12 10 $p[0] $p[1] $p[2] $p[1] 'e' $p[3]
+    Save $c $boxPal "$entity/rare_${name}_package.png"
+}
+
 # --- package filter: wool strip between zinc nuggets with an address tag -----------------------------
 $filterPal = @{ w = '#d9d4c7'; x = '#b8b2a3'; z = '#a7b9b0'; y = '#7e918a'; t = '#b88a52'; u = '#8d6538'; k = '#3a3a3a' }
 $c = New-Canvas
