@@ -14,6 +14,7 @@
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorCategory.h"
 #include "mc/world/effect/EffectDuration.h"
+#include "mc/world/effect/MobEffect.h"
 #include "mc/world/effect/MobEffectInstance.h"
 #include "mc/world/item/alchemy/Potion.h"
 #include "mc/world/level/BlockPos.h"
@@ -87,6 +88,20 @@ bool canProvideFluidWithoutCapability(Block const& block) {
     return isHive(id) || isCauldron(id);
 }
 
+bool canContainWater(Block const& block) {
+    // the block's water detection rule (vanilla waterloggable blocks, custom blocks with
+    // minecraft:liquid_detection): Java's `hasProperty(WATERLOGGED)`
+    return block.mDirectData->mWaterDetectionRule->mCanContainLiquid;
+}
+
+bool waterlogged(BlockSource& region, BlockPos const& pos) {
+    if (!region.hasChunksAt(pos, 0, false)) return false;
+    auto const& extra = region.getExtraBlock(pos);
+    if (extra.isAir()) return false;
+    auto const& id = extra.getTypeName();
+    return (id == "minecraft:water" || id == "minecraft:flowing_water") && stateOf(extra, "liquid_depth") == 0;
+}
+
 namespace {
 
 /// Create's `VanillaFluidTargets.drainBlock`: a full beehive gives 250 mB of honey, a full cauldron
@@ -154,6 +169,14 @@ cp::Fluid removeFluidFromSpace(BlockSource& region, BlockPos const& out, bool si
     if (!region.hasChunksAt(out, 0, false)) return {};
     auto const& block = region.getBlock(out);
     if (canProvideFluidWithoutCapability(block)) return drainVanillaTarget(region, out, simulate);
+    // a waterlogged block gives its water and stays (Create: WATERLOGGED = false)
+    if (canContainWater(block) && waterlogged(region, out)) {
+        if (!simulate) {
+            if (auto const* air = game::blockWith("minecraft:air")) region.setExtraBlock(out, *air, 3);
+            log().info("pipes: drained the water of the waterlogged {} at {} {} {}", block.getTypeName(), out.x, out.y, out.z);
+        }
+        return {"minecraft:water", 1000};
+    }
     if (!game::replaceable(region, out)) return {};
     auto w = worldFluidAt(region, out);
     if (!w || !w->source) return {};
@@ -169,10 +192,29 @@ cp::Fluid removeFluidFromSpace(BlockSource& region, BlockPos const& out, bool si
 
 bool provideFluidToSpace(BlockSource& region, BlockPos const& out, cp::Fluid const& fluid, bool simulate) {
     if (!region.hasChunksAt(out, 0, false)) return false;
-    if (!game::replaceable(region, out)) return false;
+    auto const& block    = region.getBlock(out);
+    bool        replace  = game::replaceable(region, out);
+    bool        waterlog = !replace && canContainWater(block); // Java: hasProperty(WATERLOGGED)
+    if (!waterlog && !replace) return false;
     if (fluid.empty()) return false;
     auto const* type = ft::find(fluid.id);
     if (!type || type->sourceBlock.empty()) return true; // no world block: the pipe consumes it
+    if (waterlog) {
+        // Create: a waterloggable block takes water only, and only when it is not waterlogged yet
+        if (waterlogged(region, out)) return false;
+        if (fluid.id != "minecraft:water") return false;
+        if (simulate) return true;
+        if (!config::get<PipesConfig>().pipesPlaceFluidSourceBlocks) return true;
+        if (ultraWarm(region)) {
+            sound(region, out, "random.fizz", .5f, 2.6f);
+            return true;
+        }
+        if (auto const* water = game::blockWith("minecraft:water")) {
+            region.setExtraBlock(out, *water, 3);
+            log().info("pipes: waterlogged the {} at {} {} {}", block.getTypeName(), out.x, out.y, out.z);
+        }
+        return true;
+    }
     auto w = worldFluidAt(region, out);
     if (w && w->id != fluid.id) {
         spillCollision(region, out, fluid.id, *w);
@@ -347,7 +389,12 @@ void registerOpenPipeEffects() {
         if (effects.empty()) return;
         for (auto* e : actorsIn(region, a)) {
             if (!living(*e)) continue;
-            for (auto const& effect : effects) e->addEffect(effect);
+            for (auto const& effect : effects) {
+                // Create's PotionEffectHandler: instant effects at half strength, the others as they are
+                auto const* type = MobEffect::getByName(MobEffect::getNameById(effect.mId));
+                if (type && type->isInstantaneous()) type->applyInstantaneousEffect(nullptr, nullptr, e, effect.mAmplifier, .5f);
+                else e->addEffect(effect);
+            }
         }
     });
 }
