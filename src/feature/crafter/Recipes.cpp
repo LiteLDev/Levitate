@@ -18,6 +18,7 @@
 #include "mc/world/level/Level.h"
 
 #include "core/common/Recipe.h"
+#include "feature/assembly/SequencedAssembly.h"
 #include "feature/common/Items.h"
 #include "feature/common/Recipes.h"
 #include "feature/common/ValueBox.h"
@@ -28,6 +29,7 @@ namespace lv::feature::crafter {
 
 namespace ci = common::items;
 namespace rc = common::recipes;
+namespace sa = assembly::sequenced;
 using Json   = nlohmann::json;
 
 namespace {
@@ -203,6 +205,22 @@ std::optional<ItemStack> crafterlogic::tryToApplyRecipe(std::map<cr::Cell, ItemS
 std::vector<sawrecipes::Option> sawrecipes::forInput(GlobalPos const& pos, ItemStack const& input) {
     std::vector<Option> out;
     if (ci::isEmpty(input)) return out;
+    // Create's getRecipes: a sequenced assembly cutting step first, alone (when the filter allows
+    // its transitional item)
+    if (auto step = sa::findStep(sa::kCutting, input)) {
+        if (auto display = ci::make(step->recipe->transitionalItem); display && common::filterslot::matches(pos, *display)) {
+            Option o;
+            o.id      = step->recipe->id;
+            int time  = sa::processingTime(*step);
+            o.time    = time > 0 ? time : 50;
+            o.display = *display;
+            auto one  = ci::withCount(input, 1);
+            auto match = *step;
+            o.roll    = [match, one] { return std::vector<ItemStack>{sa::advance(match, one)}; };
+            out.push_back(std::move(o));
+            return out;
+        }
+    }
     for (auto const* r : rc::withFirstIngredient("cutting", input)) {
         if (r->results.empty()) continue;
         auto display = ci::make(r->results[0].id, r->results[0].count);

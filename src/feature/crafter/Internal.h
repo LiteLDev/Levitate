@@ -35,6 +35,9 @@ namespace cr = core::crafter;
 inline constexpr std::string_view kCrafter   = "levitate:mechanical_crafter";
 inline constexpr std::string_view kSaw       = "levitate:mechanical_saw";
 inline constexpr std::string_view kDrill     = "levitate:mechanical_drill";
+/// Create's damage types of the saw and the drill (death messages "death.attack.<id>").
+inline constexpr char const* kSawDeath   = "death.attack.create.mechanical_saw";
+inline constexpr char const* kDrillDeath = "death.attack.create.mechanical_drill";
 inline constexpr std::string_view kWrench    = "levitate:wrench";
 inline constexpr std::string_view kSlotCover = "levitate:crafter_slot_cover";
 inline constexpr std::string_view kArm       = "levitate:mechanical_arm";
@@ -90,7 +93,11 @@ std::vector<Actor*> entitiesIn(int dim, double x0, double y0, double z0, double 
 [[nodiscard]] ItemStack itemOf(Actor const& itemEntity);
 void                    setItem(Actor& itemEntity, ItemStack const& stack);
 void                    discard(Actor& a);
-void                    hurt(Actor& a, float damage);
+/// Hurts with the contact cause and Create's death message (its translation key, translated by the
+/// resource pack).
+void                    hurt(Actor& a, float damage, std::string const& deathMessage);
+/// The block's own hit sound (Bedrock picks it from the block, as Create's SoundType.getHitSound).
+void                    playHitSound(GlobalPos const& pos, Block const& block);
 void                    push(Actor& a, double vx, double vy, double vz);
 [[nodiscard]] Player*   playerById(std::int64_t uniqueId);
 /// Calls `fn` for every companion player (client mod) in `pos`'s dimension within `radius` blocks.
@@ -99,6 +106,8 @@ void                    forEachCompanionNear(GlobalPos const& pos, double radius
 void                    give(Player& player, ItemStack const& stack);
 /// Whether `id` (a Levitate block) accepts items from a belt/saw/crafter output like Create's
 /// DirectBeltInputBehaviour (Levitate machines with an item capability, except vaults).
+/// Blocks of other units with Create's DirectBeltInputBehaviour that don't register a belts direct
+/// input yet (chutes, item drains): handed items through their item capability.
 [[nodiscard]] bool      acceptsDirectInput(std::string const& id);
 } // namespace world
 
