@@ -2,7 +2,7 @@
 # redstone start, connected inputs, slot cover, hand use, cutting, recipe filter, tree felling,
 # drill breaking, drill on a contraption), then a powered drill set up from the console.
 $r = Invoke-SelfTest 'crafter.*'
-if ($r.Pass -lt 12) { throw "expected at least 12 crafter selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 14) { throw "expected at least 14 crafter selftests to pass, got $($r.Pass)" }
 
 # A drill fed by a test source breaks the stone in front of it (log line per break).
 Send-Console 'tickingarea add 0 -64 0 15 -40 15 lv_crafter_e2e true'

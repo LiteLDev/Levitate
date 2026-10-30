@@ -2,7 +2,11 @@
 # washing / smoking / blasting / haunting), nozzle, placement rules; then a fan driven from the
 # console with its log line.
 $r = Invoke-SelfTest 'bulk.*'
-if ($r.Pass -lt 14) { throw "expected at least 14 bulk selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 22) { throw "expected at least 22 bulk selftests to pass, got $($r.Pass)" }
+# U39: a crushed pig, an overloaded pulling nozzle, a refused nozzle placement
+Wait-LogLine 'crushing wheels at .*: crushed minecraft:pig' 10 | Out-Null
+Wait-LogLine 'nozzle at .*: 260 entities, exploded' 10 | Out-Null
+Wait-LogLine "levitate:nozzle at .*: can't be placed there \(canSurvive\)" 10 | Out-Null
 Wait-LogLine 'millstone at .*: milled minecraft:bone into \d+ item' 10 | Out-Null
 Wait-LogLine 'crushing wheels at .*: crushed minecraft:cobblestone x2 into 2 item' 10 | Out-Null
 Wait-LogLine 'encased fan at .*: splashing turned minecraft:red_wool x2 into minecraft:white_wool x2' 10 | Out-Null
