@@ -66,7 +66,9 @@
           "w_cap_end": "q.block_state('levitate:slope') == 4 && q.block_state('levitate:part') == 2",
           "pulley": "q.block_state('levitate:slope') != 4 && q.block_state('levitate:part') != 1",
           "pulley_y": "q.block_state('levitate:slope') == 4 && q.block_state('levitate:part') != 1",
-          "casing": "q.block_state('levitate:slope') == 0 && q.block_state('levitate:casing') != 0"
+          "casing": "q.block_state('levitate:slope') == 0 && q.block_state('levitate:casing') != 0",
+          "casing_slope": "(q.block_state('levitate:slope') == 1 || q.block_state('levitate:slope') == 2) && q.block_state('levitate:casing') != 0",
+          "casing_vertical": "q.block_state('levitate:slope') == 3 && q.block_state('levitate:casing') != 0"
         }
       },
       "minecraft:material_instances": {

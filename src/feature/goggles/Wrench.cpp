@@ -33,6 +33,8 @@
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/BlockChangeContext.h"
 #include "mc/world/level/block/BlockType.h"
+#include "mc/world/level/block/ResourceDrops.h"
+#include "mc/world/level/block/ResourceDropsContext.h"
 #include "mc/world/level/dimension/Dimension.h"
 #include "mc/deps/nbt/CompoundTag.h"
 
@@ -77,13 +79,18 @@ void playSound(core::GlobalPos const& pos, std::string const& name, float volume
     pkt.sendTo(game::blockPos(pos), DimensionType(pos.dim));
 }
 
-/// The item a block gives back when it is picked up (its pick item: the block's own item, a
-/// redstone wire's redstone, ...).
-ItemStack itemOf(BlockSource& region, BlockPos const& pos, Block const& block) {
-    ItemStack out;
-    auto      instance = block.asItemInstance(region, pos, false);
-    if (auto tag = instance.save(*SaveContextFactory::createCloneSaveContext())) out = ItemStack::fromTag(*tag);
-    if (out.isNull()) out.reinit(block, 1);
+
+/// Create's IWrenchable.onSneakWrenched: `Block.getDrops(state, level, pos, be, player, wrench)`,
+/// the block's loot table rolled as if mined with the wrench (silk touch / fortune of the wrench
+/// apply, the correct-tool rule does not, as in Java).
+std::vector<ItemStack> lootOf(BlockSource& region, BlockPos const& pos, Block const& block, ItemStack const& tool) {
+    std::vector<ItemStack> out;
+    auto                   level = ll::service::getLevel();
+    if (!level) return out;
+    ResourceDropsContext ctx{ResourceDropsCause::PlayerMining, 0.f, tool, pos, region.getDimensionId(), region};
+    auto                 drops = block.getBlockType().getResourceDrops(block, level->getIRandom(), ctx);
+    for (auto& s : drops.mItems.get())
+        if (!s.isNull() && s.mCount > 0) out.push_back(s);
     return out;
 }
 
@@ -218,13 +225,14 @@ Result defaultOnWrenched(Context& ctx) {
 Result defaultOnSneakWrenched(Context& ctx) {
     auto bp = game::blockPos(ctx.pos);
     auto id = ctx.block.getTypeName();
-    auto item = itemOf(ctx.region, bp, ctx.block); // before the block goes
+    // the drops are rolled before the block goes
+    auto drops = ctx.player.isCreative() ? std::vector<ItemStack>{} : lootOf(ctx.region, bp, ctx.block, ctx.player.getSelectedItem());
     disassembleAnchoredAt(ctx.pos);
     bool removed = false;
     if (auto level = ll::service::getLevel()) removed = level->destroyBlock(ctx.region, bp, false, BlockChangeContext{});
     if (!removed) removed = game::clearBlock(ctx.region, bp);
     if (!removed || &ctx.region.getBlock(bp) == &ctx.block) return Result::Success; // protected: nothing given
-    if (!ctx.player.isCreative()) giveBack(ctx.player, item);
+    for (auto& d : drops) giveBack(ctx.player, d);
     playRemoveSound(ctx.pos);
     log().info("wrench: {} dismantled {} at {}", ctx.player.getRealName(), id, ctx.pos.key());
     return Result::Success;

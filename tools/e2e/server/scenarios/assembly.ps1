@@ -3,7 +3,10 @@
 # transfers / value box), then a deployer and an arm built from the console and running on their
 # own, with their log lines.
 $r = Invoke-SelfTest 'assembly.*'
-if ($r.Pass -lt 11) { throw "expected at least 11 assembly selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 15) { throw "expected at least 15 assembly selftests to pass, got $($r.Pass)" }
+# U39: a precision mechanism finished by a deployer over a depot, two deployers fist bumping
+Wait-LogLine 'deployer at .* applied levitate:cogwheel to levitate:golden_sheet' 10 | Out-Null
+Wait-LogLine 'deployers at .* and .* fist bumped' 10 | Out-Null
 
 # A deployer facing east, turned by a test source, places what it holds (given by the selftest
 # helpers through its capability is not reachable from the console: it punches instead).

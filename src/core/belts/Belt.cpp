@@ -181,6 +181,41 @@ ConnectError canConnect(ConnectWorld const& w, Vec3i const& first, Vec3i const& 
     return ConnectError::None;
 }
 
+std::optional<PreviewLine> previewLine(Vec3i const& first, Vec3i const& selected, Axis axis) {
+    Vec3i actual = selected - first;
+    Vec3i diff   = actual;
+    if (axis == Axis::X) diff.x = 0;
+    if (axis == Axis::Y) diff.y = 0;
+    if (axis == Axis::Z) diff.z = 0;
+    double x = std::abs(diff.x), y = std::abs(diff.y), z = std::abs(diff.z);
+    double length = std::max(x, std::max(y, z));
+    if (length <= 0) return std::nullopt;
+    double norm = std::sqrt(double(diff.x) * diff.x + double(diff.y) * diff.y + double(diff.z) * diff.z);
+    double sx = diff.x / norm, sy = diff.y / norm, sz = diff.z / norm;
+    int    sames = (x == y ? 1 : 0) + (y == z ? 1 : 0) + (z == x ? 1 : 0);
+    if (sames == 0) {
+        // the closest of the straight / diagonal steps in the plane of the belt
+        double best = 1e18, ox = sx, oy = sy, oz = sz;
+        for (int i = -1; i <= 1; ++i)
+            for (int j = -1; j <= 1; ++j)
+                for (int k = -1; k <= 1; ++k) {
+                    int along = axis == Axis::X ? i : axis == Axis::Y ? j : k;
+                    if (along != 0) continue;
+                    if (axis == Axis::Y && i != 0 && k != 0) continue;
+                    if (i == 0 && j == 0 && k == 0) continue;
+                    double d = std::sqrt((ox - i) * (ox - i) + (oy - j) * (oy - j) + (oz - k) * (oz - k));
+                    if (d < best) {
+                        best = d;
+                        sx = i, sy = j, sz = k;
+                    }
+                }
+    }
+    auto sgn = [](double v) { return v > 0 ? 1 : v < 0 ? -1 : 0; };
+    Vec3i step{sgn(sx), sgn(sy), sgn(sz)};
+    if (axis == Axis::Y && step.x != 0 && step.z != 0) return std::nullopt;
+    return PreviewLine{step, float(length)};
+}
+
 Slope slopeBetween(Vec3i const& start, Vec3i const& end) {
     Vec3i diff = end - start;
     if (diff.y != 0) {

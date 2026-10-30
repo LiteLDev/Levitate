@@ -3,6 +3,7 @@
 // side, item entities falling in, player use, the item / fluid capabilities.
 
 #include <algorithm>
+#include <cmath>
 #include <map>
 #include <set>
 
@@ -18,6 +19,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "feature/basin/BasinInternal.h"
+#include "feature/belts/BeltApi.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
@@ -282,7 +284,15 @@ bool canOutputTo(BlockSource& region, BlockPos const& basin, int face) {
     auto output    = offsetOf(neighbour, kDown);
     if (!loaded(region, neighbour) || !loaded(region, output)) return false;
     auto nid = idAt(region, neighbour);
-    if (!isFunnel(nid) && hasCollision(region, neighbour)) return false;
+    if (isFunnel(nid)) {
+        // a funnel whose opening faces away from the basin doesn't take its outputs
+        if (stateAt(region, neighbour, kFacingState, -1) == face) return false;
+    } else if (hasCollision(region, neighbour)) {
+        return false;
+    } else if (auto belt = belts::beltAt(game::globalPos(region, output))) {
+        // a belt below moving towards the basin doesn't take its outputs
+        if (belt->speed != 0 && belt->movementFace == oppositeFace(face)) return false;
+    }
     // Create: a DirectBeltInputBehaviour below the neighbour (belts, depots, basins, ...)
     return directInputBlock(idAt(region, output)) && items::has(region, output, oppositeFace(face));
 }
@@ -396,6 +406,9 @@ void collectItemEntities(BlockSource& region, GlobalPos const& pos, BasinState& 
         Vec3{float(bp.x + 1), float(bp.y + 1.5f), float(bp.z + 1)}
     };
     bool any = false;
+    // Create's updateEntityAfterFallOn takes the items that fell in; Bedrock pushes an item entity
+    // out of the basin's cell as soon as it gets in, so items are taken while they fall into it
+    // (up to half a block above the rim)
     for (auto* actor : region.getEntities(box, 0.f, ActorType::ItemEntity)) {
         if (!actor || !actor->isAlive()) continue;
         auto& itemActor = static_cast<ItemActor&>(*actor);

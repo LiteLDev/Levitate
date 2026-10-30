@@ -162,6 +162,11 @@ bool apply(BlockSource& region, GlobalPos const& basinPos, BasinState& b, BasinR
 [[nodiscard]] BasinRecipe const* byId(bool press, std::string const& id);
 /// First pressing recipe for an item (Create's MechanicalPressBlockEntity.getRecipe).
 [[nodiscard]] core::common::ProcessingRecipe const* pressing(ItemStack const& stack);
+/// Whether the press can press `stack`: a sequenced assembly pressing step or a pressing recipe.
+[[nodiscard]] bool canPress(ItemStack const& stack);
+/// Outputs of pressing `count` items of `stack` (Create's RecipeApplier.applyRecipeOn, merged);
+/// sequenced assembly steps first. `recipeId` receives the recipe used.
+[[nodiscard]] std::vector<ItemStack> press(ItemStack const& stack, int count, std::string* recipeId = nullptr);
 /// Rolled outputs of a processing recipe for one input.
 [[nodiscard]] std::vector<ItemStack> roll(core::common::ProcessingRecipe const& r);
 /// Container left after crafting (milk bucket -> bucket, ...).
@@ -191,6 +196,8 @@ namespace operators {
 void save(GlobalPos const& pos, OperatorState const& s, bool press);
 void forget(GlobalPos const& pos);
 void forgetAll();
+/// Registers the press as the belts unit's processor (belts and depots two below).
+void registerBeltProcessor();
 void tickPress(BlockSource& region, GlobalPos const& pos, OperatorState& s);
 void tickMixer(BlockSource& region, GlobalPos const& pos, OperatorState& s);
 /// Kinetic speed changed (Create's onSpeedChanged): look at the basin again.

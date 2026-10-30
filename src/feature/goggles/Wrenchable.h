@@ -5,8 +5,8 @@
 // Right-click with the wrench calls the block's `onWrenched` (default: Create's rotation of
 // `levitate:facing` / `levitate:axis` / `levitate:horizontal_facing` / `levitate:horizontal_axis` /
 // `levitate:axis_along_first` about the clicked face, core/goggles/Rotation.h), sneak + right-click
-// calls `onSneakWrenched` (default: the block is picked up: its item goes to the player's inventory
-// in survival, the block is removed with Create's "component breaks" sound).
+// calls `onSneakWrenched` (default: the block is picked up: its loot-table drops go to the player's
+// inventory in survival, the block is removed with Create's "component breaks" sound).
 //
 // Every kinetic block (feature/kinetics/Kinetics.h) is wrenchable with the defaults, as every
 // Create IRotate block is. Other blocks opt in:
@@ -78,8 +78,9 @@ void registerBlock(std::string blockId, Handler handler = {});
 /// Create's default onWrenched: rotates (with the block's `rotate`), sets the block (the kinetic
 /// network re-attaches it) and plays the rotate sound when it changed. Always Success.
 Result defaultOnWrenched(Context& ctx);
-/// Create's default onSneakWrenched: survival players get the block's item (inventory, else
-/// dropped at their feet), the block is removed without drops and the remove sound plays.
+/// Create's default onSneakWrenched: survival players get the drops of the block's loot table
+/// rolled with the wrench as the tool (inventory, else dropped at their feet), the block is
+/// removed without drops and the remove sound plays.
 /// A contraption anchored at the block is disassembled first.
 Result defaultOnSneakWrenched(Context& ctx);
 

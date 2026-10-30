@@ -73,6 +73,12 @@ struct FlowBlock {
     Kind kind = Kind::Pass;
     /// Collision box of a partial block, in block units (0..1).
     std::array<double, 3> min{0, 0, 0}, max{1, 1, 1};
+    /// More boxes of a partial block whose shape has several (stairs, walls, ...): the shape is
+    /// the union of `min`/`max` and these.
+    struct Box {
+        std::array<double, 3> min{0, 0, 0}, max{1, 1, 1};
+    };
+    std::vector<Box> more;
 };
 
 /// Create's `findMaxDepth`: how deep the current reaches into a partial block when travelling

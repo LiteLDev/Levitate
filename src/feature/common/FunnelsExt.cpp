@@ -65,6 +65,28 @@ Passing itemEntering(BlockSource& region, BlockPos const& beltPos, ItemStack& st
     return it->second(region, above, beltPos, stack, movementFacing);
 }
 
+bool hasAbove(BlockSource& region, BlockPos const& beltPos) {
+    auto const* block = loadedBlock(region, BlockPos{beltPos.x, beltPos.y + 1, beltPos.z});
+    if (!block) return false;
+    auto& t = table<AboveHandler>();
+    return t.contains(block->getTypeName());
+}
+
+void registerAboveSideInput(std::string const& blockId, SideInputHandler handler) {
+    table<SideInputHandler>()[blockId] = std::move(handler);
+}
+
+std::optional<ItemStack> sideInputAbove(BlockSource& region, BlockPos const& beltPos, ItemStack const& stack, int side, bool simulate) {
+    auto& t = table<SideInputHandler>();
+    if (t.empty()) return std::nullopt;
+    BlockPos    above{beltPos.x, beltPos.y + 1, beltPos.z};
+    auto const* block = loadedBlock(region, above);
+    if (!block) return std::nullopt;
+    auto it = t.find(block->getTypeName());
+    if (it == t.end() || !it->second) return std::nullopt;
+    return it->second(region, above, stack, side, simulate);
+}
+
 } // namespace beltlink
 
 } // namespace lv::feature::common

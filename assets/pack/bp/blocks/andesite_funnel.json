@@ -26,6 +26,13 @@
         "levitate:flap": [
           0,
           1
+        ],
+        "levitate:shape": [
+          0,
+          1,
+          2,
+          3,
+          4
         ]
       }
     },
@@ -119,7 +126,10 @@
           "minecraft:geometry": {
             "identifier": "geometry.levitate.funnel_wall",
             "bone_visibility": {
-              "flap": "q.block_state('levitate:flap') == 0",
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
               "flap_open": "q.block_state('levitate:flap') == 1"
             }
           },
@@ -162,7 +172,10 @@
           "minecraft:geometry": {
             "identifier": "geometry.levitate.funnel_wall",
             "bone_visibility": {
-              "flap": "q.block_state('levitate:flap') == 0",
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
               "flap_open": "q.block_state('levitate:flap') == 1"
             }
           },
@@ -205,7 +218,10 @@
           "minecraft:geometry": {
             "identifier": "geometry.levitate.funnel_wall",
             "bone_visibility": {
-              "flap": "q.block_state('levitate:flap') == 0",
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
               "flap_open": "q.block_state('levitate:flap') == 1"
             }
           },
@@ -248,7 +264,10 @@
           "minecraft:geometry": {
             "identifier": "geometry.levitate.funnel_wall",
             "bone_visibility": {
-              "flap": "q.block_state('levitate:flap') == 0",
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
               "flap_open": "q.block_state('levitate:flap') == 1"
             }
           },
@@ -280,6 +299,742 @@
             "size": [
               16,
               16,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt_extended",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 2 && q.block_state('levitate:shape') == 4",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt_extended",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3 && q.block_state('levitate:shape') == 4",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt_extended",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4 && q.block_state('levitate:shape') == 4",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 1",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 2",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt_extended",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              13,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 3",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5 && q.block_state('levitate:shape') == 4",
+        "components": {
+          "minecraft:geometry": {
+            "identifier": "geometry.levitate.funnel_belt",
+            "bone_visibility": {
+              "flap_0": "q.block_state('levitate:flap') == 0",
+              "flap_1": "q.block_state('levitate:flap') == 0",
+              "flap_2": "q.block_state('levitate:flap') == 0",
+              "flap_3": "q.block_state('levitate:flap') == 0",
+              "flap_open": "q.block_state('levitate:flap') == 1"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
+              10
+            ]
+          },
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -2
+            ],
+            "size": [
+              16,
+              13,
               10
             ]
           }

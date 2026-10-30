@@ -1,0 +1,37 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:goggles_light_blue_stained_glass_light_gray_stained_glass"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " S ",
+      "LPR"
+    ],
+    "key": {
+      "S": {
+        "item": "minecraft:string"
+      },
+      "L": {
+        "item": "minecraft:light_blue_stained_glass"
+      },
+      "P": {
+        "item": "levitate:golden_sheet"
+      },
+      "R": {
+        "item": "minecraft:light_gray_stained_glass"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:golden_sheet"
+      }
+    ],
+    "result": {
+      "item": "levitate:goggles"
+    }
+  }
+}

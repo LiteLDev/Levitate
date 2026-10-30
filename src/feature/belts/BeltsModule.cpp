@@ -32,6 +32,7 @@
 #include "feature/belts/BeltsInternal.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
+#include "feature/common/FunnelsExt.h"
 #include "feature/common/Items.h"
 #include "feature/itemrender/DisplayItems.h"
 #include "feature/kinetics/Kinetics.h"
@@ -717,6 +718,12 @@ std::vector<TransportedItem> itemsAt(GlobalPos const& pos) {
 
 bool hasDirectInput(GlobalPos const& pos) { return directInputFor(idAt(pos)) != nullptr; }
 
+bool canInsertDirect(GlobalPos const& pos, int side) {
+    auto const* in = directInputFor(idAt(pos));
+    if (!in || !in->insert) return false;
+    return !in->canInsertFromSide || in->canInsertFromSide(pos, side);
+}
+
 ItemStack insertDirect(GlobalPos const& pos, TransportedItem const& item, int side, bool simulate) {
     auto const* in = directInputFor(idAt(pos));
     if (!in || !in->insert) return item.stack;
@@ -849,6 +856,7 @@ void closeWorld() {
     for (auto& [pos, d] : s.depots) {
         for (auto& [id, sd] : d->stacks) removeDisplay(sd);
         for (auto& a : d->airborne) removeDisplay(a.data);
+        releaseDepot(*d);
     }
     s.belts.clear();
     s.depots.clear();
@@ -857,6 +865,7 @@ void closeWorld() {
     s.tasks.clear();
     s.removals.clear();
     s.playerBroke.clear();
+    s.exploded.clear();
     s.placeIntents.clear();
     s.connector.clear();
     s.ejectorTargets.clear();
@@ -879,6 +888,7 @@ void runTick() {
         }
     }
     processRemovals();
+    s.exploded.clear();
 
     std::vector<GlobalPos> idx(s.index.begin(), s.index.end());
     for (auto const& p : idx) {
@@ -893,6 +903,7 @@ void runTick() {
         } else if (isDepotId(id)) {
             if (auto* d = depotFor(p)) {
                 if (d->ejector != (id == kEjectorId)) {
+                    releaseDepot(*d);
                     s.depots.erase(p);
                     d = depotFor(p);
                 }
@@ -908,10 +919,11 @@ void runTick() {
         }
         if (auto it = s.depots.find(p); it != s.depots.end()) {
             dropDepotContents(*it->second);
+            releaseDepot(*it->second);
             s.depots.erase(it);
         }
     }
-    if (s.tick % 5 == 0) connectorPreview();
+    if (s.tick % 5 == 0) connectorPreview(); // the client mod draws its own every tick
     s.playerBroke.clear();
     s.placeIntents.clear();
 }
@@ -970,6 +982,7 @@ public:
             auto& s = state();
             if (auto it = s.depots.find(pos); it != s.depots.end()) {
                 dropDepotContents(*it->second);
+                releaseDepot(*it->second);
                 s.depots.erase(it);
             } else if (auto d = doc.find("depot"); d != doc.end() && d->is_object()) {
                 // never loaded this session: drop what the document holds
@@ -1013,6 +1026,22 @@ public:
                 },
             }
         );
+        // tunnels and funnels see the belt under them (FunnelsExt.h beltlink)
+        common::beltlink::registerSegment(kBeltId, [](BlockSource& region, BlockPos const& p, Block const& block) -> std::optional<common::beltlink::Segment> {
+            auto seg = segmentOf(block);
+            if (!seg) return std::nullopt;
+            auto pos  = game::globalPos(region, p);
+            auto info = segmentInfo(pos);
+            if (!info) return std::nullopt;
+            float rpm  = kinetics::speedAt(info->controller);
+            auto  cseg = segmentAt(info->controller).value_or(*seg);
+            common::beltlink::Segment out;
+            out.movementFacing = cb::faceOfFacing(cb::movementFacing(rpm, cseg.facing));
+            out.speed          = rpm;
+            out.horizontal     = seg->slope == cb::Slope::Horizontal;
+            out.casing         = seg->casing != cb::Casing::None;
+            return out;
+        });
         registerDepotCapabilities();
         registerEjectorBox();
 
@@ -1024,6 +1053,7 @@ public:
     }
 
     void uninstall() {
+        common::beltlink::unregisterSegment(kBeltId);
         uninstallHooks();
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);

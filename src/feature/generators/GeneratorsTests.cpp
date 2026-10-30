@@ -15,6 +15,7 @@
 #include "feature/common/ValueBox.h"
 #include "feature/generators/Generators.h"
 #include "feature/kinetics/Kinetics.h"
+#include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "selftest/SelfTest.h"
 
@@ -378,9 +379,20 @@ LV_REGISTER_SELFTEST("generators.large_wheel_place", [](Context& ctx) -> ll::cor
     ctx.require(ctx.setBlock(a.at(1, 2, 0), "minecraft:stone"), "an obstacle");
     ctx.require(ctx.setBlock(a.at(0, 2, 1), "minecraft:stone"), "an obstacle");
     auto stack = item(kLargeWheel);
+    net::setTestCompanion(sp, true);
+    net::takeTestMessages(sp);
     useOn(sp, stack, a.at(0, 1), ScriptModuleMinecraft::ScriptFacing::Up);
     co_await ctx.ticks(2);
     ctx.check(id(a.at(0, 2)) != kLargeWheel && id(a.at(0, 3)) != kLargeWheel, "no room: nothing placed");
+    bool outlined = false;
+    for (auto const& m : net::takeTestMessages(sp))
+        if (m.channel == "generators.room") {
+            double extent = 0; // 3 x 3 x 1 blocks
+            for (int i = 0; i < 3; ++i) extent += m.payload["hi"][i].get<double>() - m.payload["lo"][i].get<double>();
+            outlined = extent == 7.0;
+        }
+    ctx.check(outlined, "the client mod is sent the missing room's box");
+    net::setTestCompanion(sp, false);
     ctx.require(ctx.setBlock(a.at(1, 2, 0), "minecraft:air"), "clear");
     ctx.require(ctx.setBlock(a.at(0, 2, 1), "minecraft:air"), "clear");
     co_await ctx.ticks(10);

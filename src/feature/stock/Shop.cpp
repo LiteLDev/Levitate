@@ -171,11 +171,16 @@ bool useShop(Player& player, GlobalPos const& p, double lx, double ly, double lz
     if ((owner.empty() || owner == uuidOf(player)) && hitsPriceTag(p, shop, lx, ly, lz)) {
         auto const& held = player.getSelectedItem();
         if (items::isEmpty(held)) {
+            auto clear = [p](Player& q) {
+                auto s     = shopOf(p);
+                s["price"] = nullptr;
+                writeShop(p, s);
+                log().info("stock: {} cleared the price of the shop at {} {} {}", q.getRealName(), p.x, p.y, p.z);
+            };
             if (player.isSneaking()) {
-                shop["price"] = nullptr;
-                writeShop(p, shop);
-                log().info("stock: {} cleared the price of the shop at {} {} {}", player.getRealName(), p.x, p.y, p.z);
-            } else {
+                clear(player);
+            } else if (!common::valuebox::awaitHold(player, p, clear, [p](Player& q) { common::valuebox::openEditor(q, p, "price"); })) {
+                // vanilla players: the click opens the price board (Create's hold), sneaking clears
                 common::valuebox::openEditor(player, p, "price");
             }
             return true;
