@@ -20,6 +20,7 @@
 #include "core/packages/Chain.h"
 #include "feature/packages/Packages.h"
 
+class Actor;
 class Block;
 class BlockSource;
 class Player;
@@ -271,6 +272,29 @@ void openPackageFilterScreen(Player& player);
 /// NeoForge's insertItemStacked into `slots` (slot limit 64): returns what did not fit.
 ItemStack insertStackedInto(std::vector<ItemStack>& slots, ItemStack const& stack);
 void installItemScreens();
+/// A spawn egg in a package spawns its mob at `at` (Create's PackageItem.open / PackageEntity
+/// drops); false for other items or when nothing spawned.
+bool spawnFromEgg(BlockSource& region, ItemStack const& egg, Actor* spawner, cp::V3 const& at);
+
+// ---- package entities (PackageEntity.cpp, U46) -----------------------------------------------------------------
+inline constexpr char const* kPackageEntityId = "levitate:package";
+/// The style of a package item (index into packageIds(): 4 cardboard sizes, then the rare ones), -1 if none.
+[[nodiscard]] int packageStyle(std::string_view itemId);
+/// Create's PackageStyle size in pixels (width = depth, height).
+[[nodiscard]] std::pair<int, int> packageStyleSize(int style);
+/// Create's PackageEntity: spawns `box` as an entity at `at` (feet) with `motion` (blocks per tick).
+/// Returns its unique id (0 when it could not spawn). The box is kept in the world DB under its id.
+std::int64_t spawnPackageEntity(int dim, cp::V3 at, ItemStack const& box, cp::V3 motion = {});
+/// The package an entity carries (nullopt: not a package entity / unknown).
+[[nodiscard]] std::optional<ItemStack> packageEntityBox(std::int64_t uniqueId);
+/// Create's PackageItem.useOn space check: a package entity within the box a new one would take.
+[[nodiscard]] bool packageEntityNear(int dim, cp::V3 point, double r, double h);
+/// Create's PackageEntity.destroy: drops the contents (spawn eggs spawn), pops, removes the entity.
+void destroyPackageEntity(Actor& entity);
+/// Create's PackageEntity.interact with an empty hand: the package goes into the hand.
+bool pickUpPackageEntity(Player& player, Actor& entity);
+void installPackageEntities();
+void uninstallPackageEntities();
 
 // ---- client sync (Sync.cpp) ---------------------------------------------------------------------------------
 /// Frog tongue animation for companions near the port.

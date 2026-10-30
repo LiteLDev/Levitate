@@ -1,0 +1,36 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "levitate:package",
+      "materials": {
+        "default": "entity"
+      },
+      "textures": {
+        "s0": "textures/entity/package/cardboard_package_12x12",
+        "s1": "textures/entity/package/cardboard_package_10x12",
+        "s2": "textures/entity/package/cardboard_package_10x8",
+        "s3": "textures/entity/package/cardboard_package_12x10",
+        "s4": "textures/entity/package/rare_creeper_package",
+        "s5": "textures/entity/package/rare_darcy_package",
+        "s6": "textures/entity/package/rare_evan_package",
+        "s7": "textures/entity/package/rare_jinx_package",
+        "s8": "textures/entity/package/rare_kryppers_package",
+        "s9": "textures/entity/package/rare_simi_package",
+        "s10": "textures/entity/package/rare_starlotte_package",
+        "s11": "textures/entity/package/rare_thunder_package",
+        "s12": "textures/entity/package/rare_up_package",
+        "s13": "textures/entity/package/rare_vector_package"
+      },
+      "geometry": {
+        "s12x12": "geometry.levitate.package_12x12",
+        "s10x12": "geometry.levitate.package_10x12",
+        "s10x8": "geometry.levitate.package_10x8",
+        "s12x10": "geometry.levitate.package_12x10"
+      },
+      "render_controllers": [
+        "controller.render.levitate.package"
+      ]
+    }
+  }
+}
