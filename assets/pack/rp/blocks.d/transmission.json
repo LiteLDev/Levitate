@@ -52,5 +52,14 @@
   },
   "levitate:stressometer": {
     "sound": "stone"
+  },
+  "levitate:cuckoo_clock": {
+    "sound": "wood"
+  },
+  "levitate:mysterious_cuckoo_clock": {
+    "sound": "wood"
+  },
+  "levitate:flywheel": {
+    "sound": "metal"
   }
 }

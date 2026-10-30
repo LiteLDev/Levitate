@@ -55,7 +55,8 @@ LV_REGISTER_SELFTEST("transmission.registry", [](Context& ctx) {
     for (auto const& id : allBlocks()) {
         ctx.check(kinetics::specOf(id) != nullptr, id + " is a kinetic block");
         ctx.check(game::blockWith(id) != nullptr, id + " is in the behavior pack");
-        ctx.check(kinetics::stressImpactOf(id) == 0, id + " has no stress impact");
+        if (isCuckooClock(id)) ctx.check(kinetics::stressImpactOf(id) == 1, id + " uses 1 SU per RPM");
+        else ctx.check(kinetics::stressImpactOf(id) == 0, id + " has no stress impact");
     }
     ctx.check(items::make(kVerticalGearbox).has_value(), "the vertical gearbox item exists");
     ctx.check(items::make(kShaft).has_value(), "blocks have items");

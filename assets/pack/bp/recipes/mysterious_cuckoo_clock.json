@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:mysterious_cuckoo_clock"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " C ",
+      "CBC",
+      " C "
+    ],
+    "key": {
+      "B": {
+        "item": "levitate:cuckoo_clock"
+      },
+      "C": {
+        "item": "minecraft:gunpowder"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:cuckoo_clock"
+      }
+    ],
+    "result": {
+      "item": "levitate:mysterious_cuckoo_clock",
+      "count": 1
+    }
+  }
+}

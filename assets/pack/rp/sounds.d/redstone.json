@@ -1,0 +1,8 @@
+{
+  "levitate.desk_bell": {
+    "category": "block",
+    "min_distance": 4.0,
+    "max_distance": 64.0,
+    "sounds": [{ "name": "sounds/levitate/desk_bell", "volume": 1.0 }]
+  }
+}

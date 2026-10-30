@@ -27,5 +27,14 @@
   "create.gui.stressometer.title": "Network Stress",
   "create.kinetics.speed_controller.rotation_speed": "Targeted Speed in RPM",
   "lv.transmission.sequencer.form.value": "Value (Turn: degrees, Piston: meters, Delay: ticks)",
-  "lv.transmission.sequencer.add": "Add instruction"
+  "lv.transmission.sequencer.add": "Add instruction",
+  "block.create.cuckoo_clock.tooltip.summary": "Fine craftsmanship for _decorating_ a space and _keeping track of time_.",
+  "block.create.cuckoo_clock.tooltip.condition1": "When Powered by Kinetics",
+  "block.create.cuckoo_clock.tooltip.behaviour1": "Shows the _current time_ and plays a tune twice a day. _Activates_ once at _noon_ and at dusk, as soon as _players can sleep_.",
+  "block.create.mysterious_cuckoo_clock.tooltip.summary": "Fine craftsmanship for _decorating_ a space and _keeping track of time_.",
+  "block.create.mysterious_cuckoo_clock.tooltip.condition1": "When Powered by Kinetics",
+  "block.create.mysterious_cuckoo_clock.tooltip.behaviour1": "Shows the _current time_ and plays a tune twice a day. _Activates_ once at _noon_ and at dusk, as soon as _players can sleep_.",
+  "block.create.flywheel.tooltip.summary": "_Embellish_ your _Machines_ with this imposing Wheel of Brass.",
+  "block.create.flywheel.tooltip.condition1": "When Powered by Kinetics",
+  "block.create.flywheel.tooltip.behaviour1": "Starts spinning."
 }

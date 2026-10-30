@@ -12,6 +12,7 @@
 # - 16x16 block faces: casings (andesite / brass), shaft holes, cog slots, clutch / gearshift /
 #   chain drive / sequenced gearshift / speed controller sides, gauge faces.
 # - items/vertical_gearbox.png.
+# - cuckoo_clock.png (32x32) and flywheel.png (32x32), U49: regions as in tools/models/transmission.ps1.
 . "$PSScriptRoot/lib.ps1"
 $blocks = Join-Path $PSScriptRoot '../../assets/pack/rp/textures/blocks'
 $items  = Join-Path $PSScriptRoot '../../assets/pack/rp/textures/items'
@@ -210,3 +211,54 @@ Set-Rect $it 7 0 8 15 't'; Set-Rect $it 7 0 7 15 's'
 Set-Rect $it 0 7 15 8 't'; Set-Rect $it 0 7 15 7 's'
 Set-Rect $it 6 6 9 9 'd'; Set-Rect $it 7 7 8 8 'u'
 Save-PixelArt -Rows (Rows $it) -Palette $pal -Path "$items/vertical_gearbox.png"
+
+# ---- cuckoo clock (U49): cuckoo_clock.png 32x32, regions as tools/models/transmission.ps1 ------------------
+$cpal = @{
+    W = '#6b4426'; X = '#4a2d17'; Y = '#80553a'           # walnut body
+    R = '#5a2a1e'; S = '#3f1c13'; T = '#74372a'           # roof shingles
+    C = '#efe3c2'; K = '#3a2a18'; H = '#1e1b18'           # dial, hands
+    B = '#d9a83f'; N = '#a6762b'                          # brass
+    D = '#8a5a32'; E = '#5c3a1f'; O = '#1a120c'           # doors, opening
+    P = '#f0a0a8'; Q = '#d8707e'                          # pig
+    G = '#5bb04a'; J = '#3e8a33'; F = '#0e140c'           # creeper
+}
+$cc = New-Grid 32 32 '.'
+# body: vertical walnut planks
+Set-Rect $cc 0 0 15 15 'W'
+foreach ($x in 3, 7, 11, 15) { Set-Rect $cc $x 0 $x 15 'X' }
+foreach ($x in 0, 4, 8, 12) { Set-Rect $cc $x 0 $x 15 'Y' }
+foreach ($p in @(@(2, 3), @(5, 9), @(9, 5), @(13, 12), @(1, 13), @(10, 1))) { Set-Pixel $cc $p[0] $p[1] 'X' }
+# roof: staggered shingles
+Set-Rect $cc 16 0 31 15 'R'
+for ($y = 0; $y -lt 16; $y++) {
+    if ($y % 4 -eq 3) { Set-Rect $cc 16 $y 31 $y 'S'; continue }
+    if ($y % 4 -eq 0) { Set-Rect $cc 16 $y 31 $y 'T' }
+    $seams = if ((($y -shr 2) % 2) -eq 0) { 3, 7, 11, 15 } else { 1, 5, 9, 13 }
+    foreach ($x in $seams) { Set-Pixel $cc (16 + $x) $y 'S' }
+}
+# dial 8x8 at (0,16): a round face with four hour marks
+$dial = @('.KKKKKK.', 'KCCHHCCK', 'KCCCCCCK', 'KHCCCCHK', 'KHCCCCHK', 'KCCCCCCK', 'KCCHHCCK', '.KKKKKK.')
+for ($y = 0; $y -lt 8; $y++) { for ($x = 0; $x -lt 8; $x++) { $cc[16 + $y][$x] = $dial[$y][$x] } }
+# swatches
+Set-Rect $cc 16 16 19 19 'H'
+Set-Rect $cc 20 16 23 19 'B'; Set-Pixel $cc 23 19 'N'; Set-Pixel $cc 22 19 'N'
+Set-Rect $cc 24 16 27 19 'D'; Set-Frame $cc 24 16 27 19 'E'
+Set-Rect $cc 28 16 31 19 'O'
+Set-Rect $cc 16 20 19 23 'P'
+Set-Rect $cc 20 20 23 23 'Q'
+Set-Rect $cc 24 20 27 23 'G'; Set-Pixel $cc 24 20 'J'; Set-Pixel $cc 26 22 'J'
+Set-Rect $cc 28 20 31 23 'F'
+Save-PixelArt -Rows (Rows $cc) -Palette $cpal -Path "$blocks/cuckoo_clock.png"
+
+# ---- flywheel (U49): flywheel.png 32x32: rim (0,0), spokes (16,0), hub (0,16), shaft (16,16) ----------------
+$fpal = @{ y = '#e2b84f'; z = '#a77a29'; q = '#f3dc8c'; k = '#7a5520'; a = '#a3a69a'; d = '#55574f'; s = '#b4b8b4'; t = '#858a86'; u = '#5d615e' }
+$fw = New-Grid 32 32 'y'
+for ($y = 0; $y -lt 16; $y++) { if ($y % 4 -eq 0) { Set-Rect $fw 0 $y 15 $y 'q' } elseif ($y % 4 -eq 3) { Set-Rect $fw 0 $y 15 $y 'z' } }
+foreach ($x in 5, 11) { Set-Rect $fw $x 0 $x 15 'z' }
+Set-Rect $fw 16 0 31 15 'z'
+for ($y = 0; $y -lt 16; $y += 2) { Set-Rect $fw 16 $y 31 $y 'k' }
+Set-Rect $fw 0 16 15 31 'a'; Set-Frame $fw 0 16 15 31 'd'; Set-Frame $fw 3 19 12 28 'z'
+Set-Rect $fw 16 16 31 31 't'
+for ($x = 16; $x -lt 32; $x += 4) { Set-Rect $fw $x 16 $x 31 's' }
+for ($x = 19; $x -lt 32; $x += 4) { Set-Rect $fw $x 16 $x 31 'u' }
+Save-PixelArt -Rows (Rows $fw) -Palette $fpal -Path "$blocks/flywheel.png"

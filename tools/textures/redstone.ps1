@@ -194,4 +194,29 @@ Save (Contact-Face '5') $pal 'redstone_contact_front_powered'
 $cb = Casing; Fill $cb 6 6 9 9 '3'
 Save $cb $pal 'redstone_contact_back'
 Save (Casing) $pal 'redstone_contact_side'
+# --- desk bell (U49): desk_bell.png 32x32, regions as tools/models/redstone.ps1 ----------------------
+$bpal = @{ a = '#9a9d96'; '3' = '#7d807a'; h = '#c3c5be'; d = '#55574f'; B = '#f2c84b'; Y = '#fff0a8'; Z = '#b8862a'; N = '#4a4a48'; M = '#6a6a66'; K = '#d9a83f' }
+$db = New-Grid 32 32
+Fill $db 0 0 15 15 'a'; Box $db 0 0 15 15 'h' 'd'
+for ($i = 2; $i -lt 14; $i += 3) { Px $db $i 5 '3'; Px $db (15 - $i) 10 '3' }
+Fill $db 16 0 31 15 'B'
+for ($y = 0; $y -lt 16; $y++) { Px $db 17 $y 'Y'; Px $db 18 $y 'Y'; Px $db 29 $y 'Z'; Px $db 30 $y 'Z' }
+Fill $db 16 0 31 0 'Y'; Fill $db 16 15 31 15 'Z'
+Fill $db 0 16 15 31 'N'; for ($y = 16; $y -lt 32; $y += 2) { Px $db 1 $y 'M'; Px $db 2 $y 'M' }
+Fill $db 16 16 31 31 'K'; Fill $db 16 16 31 16 'Y'
+Save $db $bpal 'desk_bell'
+
+# --- rose quartz lamp (U49): rose_quartz_lamp.png / _powered.png 16x16 ---------------------------------
+function Lamp-Face([char]$frame, [char]$body, [char]$facet, [char]$core) {
+    $g = New-Grid 16 16 $body
+    Box $g 0 0 15 15 $frame $frame
+    Box $g 1 1 14 14 $facet $frame
+    # a cut gem: diamond facets around a bright core
+    for ($i = 0; $i -lt 5; $i++) { Px $g (7 - $i) (3 + $i) $facet; Px $g (8 + $i) (3 + $i) $facet; Px $g (7 - $i) (12 - $i) $facet; Px $g (8 + $i) (12 - $i) $facet }
+    Fill $g 6 6 9 9 $core; Px $g 6 6 $facet; Px $g 9 9 $frame
+    , $g
+}
+$lpal = @{ F = '#6e3f48'; R = '#a8606e'; S = '#c4808d'; C = '#8f4f5c'; G = '#d97b92'; P = '#ff9db4'; Q = '#ffcdd9'; W = '#fff0f4' }
+Save (Lamp-Face 'F' 'R' 'S' 'C') $lpal 'rose_quartz_lamp'
+Save (Lamp-Face 'G' 'P' 'Q' 'W') $lpal 'rose_quartz_lamp_powered'
 Write-Host "redstone textures written to $blocks"

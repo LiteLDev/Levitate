@@ -2,8 +2,10 @@
 
 // Internals of the transmission unit (U6), shared by its own .cpp files only.
 
+#include <cstdint>
 #include <functional>
 #include <optional>
+#include <utility>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -47,6 +49,9 @@ inline constexpr char kSequencedGearshift[]  = "levitate:sequenced_gearshift";
 inline constexpr char kSpeedController[]     = "levitate:rotation_speed_controller";
 inline constexpr char kSpeedometer[]         = "levitate:speedometer";
 inline constexpr char kStressometer[]        = "levitate:stressometer";
+inline constexpr char kCuckooClock[]         = "levitate:cuckoo_clock";            ///< U49
+inline constexpr char kMysteriousCuckooClock[] = "levitate:mysterious_cuckoo_clock"; ///< U49
+inline constexpr char kFlywheel[]            = "levitate:flywheel";                ///< U49
 // other units' ids (referenced by id only)
 inline constexpr char kAndesiteCasing[] = "levitate:andesite_casing";
 inline constexpr char kBrassCasing[]    = "levitate:brass_casing";
@@ -68,6 +73,11 @@ inline constexpr char kFacing[]     = "levitate:facing";
 inline constexpr char kDial[]       = "levitate:dial";
 inline constexpr char kRevision[]   = "levitate:revision";
 inline constexpr char kBracket[]    = "levitate:bracket";
+// cuckoo clocks (U49)
+inline constexpr char kHorizontalFacing[] = "levitate:horizontal_facing"; ///< 0 south, 1 west, 2 north, 3 east
+inline constexpr char kHour[]              = "levitate:hour";               ///< static hour hand 0..11
+inline constexpr char kMinute[]            = "levitate:minute";             ///< static minute hand 0..11 (5 minutes)
+inline constexpr char kCuckoo[]            = "levitate:cuckoo";             ///< 0 doors shut, 1 pig out, 2 creeper out
 
 /// Every block id of the unit (for listeners and selftests).
 [[nodiscard]] std::vector<std::string> const& allBlocks();
@@ -78,6 +88,7 @@ inline constexpr char kBracket[]    = "levitate:bracket";
 [[nodiscard]] bool isEncasedShaft(std::string_view id);
 [[nodiscard]] bool isChainDrive(std::string_view id);
 [[nodiscard]] bool isGauge(std::string_view id);
+[[nodiscard]] bool isCuckooClock(std::string_view id); ///< both cuckoo clocks (U49)
 /// Blocks that read redstone (clutch, gearshift, adjustable chain gearshift, sequenced gearshift).
 [[nodiscard]] bool readsRedstone(std::string_view id);
 /// Blocks with a comparator output (gauges, sequenced gearshift).
@@ -177,5 +188,27 @@ void gaugeTick(BlockSource& region, GlobalPos const& pos);
 void gaugeForget(GlobalPos const& pos);
 void gaugeSyncTo(Player& player);
 void clearGauges();
+
+// ---- cuckoo clocks (Clock.cpp, U49) -------------------------------------------------------------------------
+/// The front of a clock from its levitate:horizontal_facing value.
+[[nodiscard]] Face clockFacing(int horizontalFacing);
+[[nodiscard]] int  horizontalFacingOf(Face face);
+/// One server tick of a cuckoo clock (Create's CuckooClockBlockEntity.tick).
+void clockTick(BlockSource& region, GlobalPos const& pos);
+/// The running animation (0 none, 1 pig, 2 creeper, 3 surprise) and its progress (selftests).
+[[nodiscard]] std::pair<int, int> clockAnimation(GlobalPos const& pos);
+/// Starts an animation as the clock would at its time (selftests, Create's startAnimation).
+void startClockAnimation(BlockSource& region, GlobalPos const& pos, int animation);
+void clockForget(GlobalPos const& pos);
+void clockSyncTo(Player& player);
+void clearClocks();
+/// The time the clocks show (the level's day time; selftests may pin it).
+[[nodiscard]] std::int64_t clockDayTime();
+void setClockDayTimeOverride(std::optional<std::int64_t> dayTime);
+void installClockHooks();
+void uninstallClockHooks();
+/// The death message of an explosion death right after a surprise (selftests).
+[[nodiscard]] std::string surpriseDeathMessage(std::string const& name);
+void                      markSurpriseForTest();
 
 } // namespace lv::feature::transmission

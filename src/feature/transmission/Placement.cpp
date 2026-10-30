@@ -195,7 +195,22 @@ std::optional<States> stateForPlacement(BlockSource& region, std::string_view it
         return States{{kAxis, axisInt(axis)}};
     }
     if (id == kGearbox) return States{{kAxis, 1}};
-    if (id == kShaft || isEncasedShaft(id)) return States{{kAxis, axisInt(pillarAxis(region, ctx, player))}};
+    if (id == kShaft || isEncasedShaft(id) || id == kFlywheel) return States{{kAxis, axisInt(pillarAxis(region, ctx, player))}};
+    if (isCuckooClock(id)) {
+        // Create's HorizontalKineticBlock.getPreferredHorizontalFacing: the back goes to a shaft
+        // facing the position, else the clock faces the player
+        std::optional<Face> preferred;
+        for (Face side : {Face::South, Face::West, Face::North, Face::East}) {
+            if (!shaftTowards(region, stepPos(ctx.pos, side), ck::opposite(side))) continue;
+            if (preferred && ck::axisOf(*preferred) != ck::axisOf(side)) {
+                preferred.reset();
+                break;
+            }
+            preferred = side;
+        }
+        Face front = preferred ? ck::opposite(*preferred) : ck::opposite(horizontalLooking(player));
+        return States{{kHorizontalFacing, horizontalFacingOf(front)}};
+    }
     if (id == kClutch || id == kGearshift) {
         return States{{kAxis, axisInt(pillarAxis(region, ctx, player))}, {kPowered, neighbourSignal(region, ctx.pos) > 0 ? 1 : 0}};
     }

@@ -227,6 +227,8 @@ std::vector<std::string_view> const& blockAdvancements(std::string_view blockId)
          {"train_casing_00", "andesite_casing", "brass_casing", "copper_casing", "fist_bump", "deployer", "self_deploying"}},
         {"levitate:encased_fan", {"encased_fan", "fan_processing"}},
         {"levitate:stressometer", {"stressometer", "stressometer_maxed"}},
+        {"levitate:cuckoo_clock", {"cuckoo_clock"}},
+        {"levitate:mysterious_cuckoo_clock", {"cuckoo_clock"}},
         {"levitate:mechanical_arm", {"arm_blaze_burner", "arm_many_targets", "mechanical_arm", "musical_arm"}},
         {"levitate:millstone", {"millstone"}},
         {"levitate:mechanical_mixer", {"mechanical_mixer"}},

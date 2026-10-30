@@ -91,5 +91,14 @@
   },
   "levitate_redstone_contact_side": {
     "textures": "textures/blocks/redstone_contact_side"
+  },
+  "levitate_desk_bell": {
+    "textures": "textures/blocks/desk_bell"
+  },
+  "levitate_rose_quartz_lamp": {
+    "textures": "textures/blocks/rose_quartz_lamp"
+  },
+  "levitate_rose_quartz_lamp_powered": {
+    "textures": "textures/blocks/rose_quartz_lamp_powered"
   }
 }

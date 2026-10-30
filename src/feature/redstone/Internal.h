@@ -53,6 +53,8 @@ inline constexpr char kElevatorContact[] = "levitate:elevator_contact"; ///< U20
 inline constexpr char kWrench[]          = "levitate:wrench";
 inline constexpr char kLinkedController[] = "levitate:linked_controller";
 inline constexpr char kGoggles[]         = "levitate:goggles";
+inline constexpr char kDeskBell[]        = "levitate:desk_bell";        ///< U49
+inline constexpr char kRoseQuartzLamp[]  = "levitate:rose_quartz_lamp"; ///< U49
 
 enum class Kind : std::uint8_t {
     Link,
@@ -65,7 +67,11 @@ enum class Kind : std::uint8_t {
     SmartObserver,
     ThresholdSwitch,
     Contact,
+    DeskBell,       ///< U49
+    RoseQuartzLamp, ///< U49
 };
+/// The last kind (saved kinds are clamped to it).
+inline constexpr Kind kLastKind = Kind::RoseQuartzLamp;
 [[nodiscard]] std::optional<Kind> kindOf(std::string_view blockId);
 [[nodiscard]] char const*         idOf(Kind kind);
 [[nodiscard]] constexpr bool      isBrassDiode(Kind k) { return k == Kind::PulseRepeater || k == Kind::PulseExtender || k == Kind::PulseTimer; }
@@ -85,6 +91,8 @@ inline constexpr char sInverted[]    = "levitate:inverted";     ///< brass diode
 inline constexpr char sPoweredSide[] = "levitate:powered_side"; ///< powered latch
 inline constexpr char sTarget[]      = "levitate:target";       ///< observer / switch: 0 wall, 1 floor, 2 ceiling
 inline constexpr char sLevel[]       = "levitate:level";        ///< threshold switch 0..5
+inline constexpr char sActivate[]    = "levitate:activate";     ///< rose quartz lamp (ACTIVATE)
+inline constexpr char sRotor[]       = "levitate:rotor";        ///< desk bell: 1 = without bell and plunger (client mod)
 
 // ---- directions (Bedrock FacingID) -------------------------------------------------------------
 enum Dir : int { kDown = 0, kUp = 1, kNorth = 2, kSouth = 3, kWest = 4, kEast = 5 };
@@ -163,6 +171,7 @@ struct Runtime {
     bool                     neighbour  = true; ///< a neighbour changed (checked next tick)
     bool                     loaded     = false;
     bool                     contraptionContact = false; ///< contact powered by a passing contraption
+    std::uint64_t            scheduledAt = 0; ///< U49 (bell, lamp): game tick of a pending block tick, 0 none
     /// Create's per-tick counter (diode state, lever lastChange, observer turnOff), kept in
     /// memory and written to BlockData on world save.
     int  counter       = 0;
@@ -270,6 +279,22 @@ void activateObserver(BlockSource& region, GP const& pos, int ticks);
 // ---- contacts ----------------------------------------------------------------------------------
 [[nodiscard]] bool hasValidContact(BlockSource& region, BlockPos const& pos, int facing);
 void               registerContactActor();
+
+// ---- desk bell and rose quartz lamp (BellLamp.cpp, U49) ------------------------------------------
+/// DeskBellBlock.useWithoutItem: rings (sound, the client mod's animation) and powers for 20 ticks.
+void ringDeskBell(BlockSource& region, GP const& pos, Player* player);
+void tickDeskBell(BlockSource& region, GP const& pos, Block const& block, Runtime& rt);
+/// RoseQuartzLampBlock: neighbour changes and the scheduled activation.
+void tickRoseQuartzLamp(BlockSource& region, GP const& pos, Block const& block, Runtime& rt);
+/// What the lamp at t sends into its neighbour on side 	owards (RoseQuartzLampBlock.getSignal).
+[[nodiscard]] int lampSignal(BlockSource& region, BlockPos const& at, Block const& block, int towards);
+/// What a comparator reads from the lamp at pos (distance to the lit lamp of its column).
+[[nodiscard]] std::optional<int> lampComparatorOutput(BlockSource& region, BlockPos const& pos);
+/// Registers the emitters, the comparator output, the wrench handlers and the bell's contraption
+/// behaviour.
+void registerBellAndLamp();
+/// Desk bell rings sent so far (selftests).
+[[nodiscard]] int deskBellRings();
 
 // ---- hover text (client mod overlay, vanilla action bar) ---------------------------------------
 [[nodiscard]] Json hoverLines(Player& player, GP const& pos, int face, core::common::Vec const& hit);

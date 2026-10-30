@@ -58,6 +58,8 @@ std::optional<Kind> kindOf(std::string_view id) {
         {kSmartObserver,   Kind::SmartObserver  },
         {kThresholdSwitch, Kind::ThresholdSwitch},
         {kContact,         Kind::Contact        },
+        {kDeskBell,        Kind::DeskBell       },
+        {kRoseQuartzLamp,  Kind::RoseQuartzLamp },
     };
     if (!id.starts_with("levitate:")) return std::nullopt;
     auto it = map.find(id);
@@ -77,6 +79,8 @@ char const* idOf(Kind kind) {
     case Kind::SmartObserver: return kSmartObserver;
     case Kind::ThresholdSwitch: return kThresholdSwitch;
     case Kind::Contact: return kContact;
+    case Kind::DeskBell: return kDeskBell;
+    case Kind::RoseQuartzLamp: return kRoseQuartzLamp;
     }
     return "";
 }
@@ -241,6 +245,10 @@ std::optional<int> ourEmission(Block const& block, int d) {
     case Kind::SmartObserver:
     case Kind::ThresholdSwitch: return state(block, sPowered) && d != targetDirection(block) ? 15 : 0;
     case Kind::Contact: return state(block, sPowered) && d != state(block, sFacing, kUp) ? 15 : 0;
+    // DeskBellBlock.getSignal: 15 to every side while pressed
+    case Kind::DeskBell: return state(block, sPowered) ? 15 : 0;
+    // RoseQuartzLampBlock.getSignal (the receiver-dependent parts: lampSignal)
+    case Kind::RoseQuartzLamp: return state(block, sPowering) ? 15 : 0;
     }
     return 0;
 }

@@ -28,5 +28,11 @@
   },
   "levitate:redstone_contact": {
     "sound": "stone"
+  },
+  "levitate:desk_bell": {
+    "sound": "stone"
+  },
+  "levitate:rose_quartz_lamp": {
+    "sound": "glass"
   }
 }
