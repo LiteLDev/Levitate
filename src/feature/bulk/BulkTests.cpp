@@ -718,18 +718,26 @@ LV_REGISTER_SELFTEST("bulk.haunted_horse", [](Context& ctx) -> ll::coro::CoroTas
     auto  at     = a.at(1, 0, 2);
     co_await watchFrom(ctx, at);
     co_await ctx.ticks(2);
-    auto* horse  = spawnMob(region, "minecraft:horse", {at.x + .5, at.y + .1, at.z + .5});
-    ctx.require(horse != nullptr, "spawn a horse");
-    horse->setNameTag("Haunted Test");
-    auto hid = idOf(*horse);
-    co_await ctx.ticks(2);
-    horse = entityById(hid);
-    ctx.require(horse != nullptr, "the horse is still there");
-    static_cast<Horse*>(horse)->tameToPlayer(ctx.player(), false);
-    co_await ctx.ticks(2);
-    horse = entityById(hid);
-    ctx.require(horse != nullptr, "the horse is still there after taming");
-    ctx.info(std::string("horse tame: ") + (horse->isTame() ? "yes" : "no"));
+    // a natural spawn is sometimes a foal, which can't be tamed: spawn again until the taming takes
+    Actor*       horse = nullptr;
+    std::int64_t hid   = 0;
+    for (int attempt = 0; attempt < 8; ++attempt) {
+        horse = spawnMob(region, "minecraft:horse", {at.x + .5, at.y + .1, at.z + .5});
+        ctx.require(horse != nullptr, "spawn a horse");
+        horse->setNameTag("Haunted Test");
+        hid = idOf(*horse);
+        co_await ctx.ticks(2);
+        horse = entityById(hid);
+        ctx.require(horse != nullptr, "the horse is still there");
+        static_cast<Horse*>(horse)->tameToPlayer(ctx.player(), false);
+        co_await ctx.ticks(2);
+        horse = entityById(hid);
+        ctx.require(horse != nullptr, "the horse is still there after taming");
+        if (horse->isTame()) break;
+        horse->remove();
+        co_await ctx.ticks(1);
+    }
+    ctx.require(horse->isTame(), "a horse was tamed");
     for (int i = 0; i <= 101; ++i) {
         auto* h = entityById(hid);
         if (!h) break;

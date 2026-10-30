@@ -161,7 +161,17 @@ void Context::info(std::string const& message) const { log().info("SELFTEST INFO
 bool running() { return gRunning; }
 
 namespace {
-constexpr char const* kTestArea = "lv_selftest";
+/// The ticking areas of a run, relative to the spawn. A Bedrock ticking area holds at most 100
+/// chunks, so the rows of `Context::testPos` (z = (unit - 9) * 5) are split over two: the spawn
+/// area and the rows of the later units (U22 and up, z +65 and beyond).
+struct TestArea {
+    char const* name;
+    int         x0, z0, x1, z1;
+};
+constexpr TestArea kTestAreas[] = {
+    {"lv_selftest", -16, -64, 120, 64},
+    {"lv_selftest_rows", 0, 64, 112, 200},
+};
 
 void runServerCommand(std::string const& command) {
     auto level = ll::service::getLevel();
@@ -170,21 +180,25 @@ void runServerCommand(std::string const& command) {
     ll::command::CommandRegistrar::getServerInstance().executeCommand(command, origin);
 }
 
-/// Keeps the test area (`Context::testPos`: x spawn..+110, z spawn-60..+60) loaded for the whole
-/// run, so tests never race the chunk loading of freshly spawned players.
+/// Keeps the test area (`Context::testPos`: x spawn..+110, z spawn-64..+200, see `kTestAreas`)
+/// loaded for the whole run, so tests never race the chunk loading of freshly spawned players and
+/// entities a test spawns are not unloaded halfway through it.
 ll::coro::CoroTask<> loadTestArea() {
     auto level = ll::service::getLevel();
     if (!level) co_return;
     BlockPos spawn = level->getSharedSpawnPos();
     spawn.y        = 0; // y is irrelevant for the ticking area (it spans the whole height)
     auto at = [&](int dx, int dz) { return std::to_string(spawn.x + dx) + " 0 " + std::to_string(spawn.z + dz); };
-    runServerCommand("tickingarea add " + at(-16, -64) + " " + at(120, 64) + " " + kTestArea + " true");
+    for (auto const& a : kTestAreas)
+        runServerCommand("tickingarea add " + at(a.x0, a.z0) + " " + at(a.x1, a.z1) + " " + a.name + " true");
     for (int i = 0; i < 200; ++i) {
         auto dim    = level->getDimension(0).lock();
         bool loaded = dim != nullptr;
-        for (int dx = -16; loaded && dx <= 112; dx += 16) {
-            for (int dz = -64; loaded && dz <= 64; dz += 16) {
-                loaded = dim->getBlockSourceFromMainChunkSource().hasChunksAt(BlockPos{spawn.x + dx, spawn.y, spawn.z + dz}, 0, false);
+        for (auto const& a : kTestAreas) {
+            for (int dx = a.x0; loaded && dx <= a.x1; dx += 16) {
+                for (int dz = a.z0; loaded && dz <= a.z1; dz += 16) {
+                    loaded = dim->getBlockSourceFromMainChunkSource().hasChunksAt(BlockPos{spawn.x + dx, spawn.y, spawn.z + dz}, 0, false);
+                }
             }
         }
         if (loaded) co_return;
@@ -233,7 +247,7 @@ void runAll(std::string const& glob, std::function<void(std::string const&)> out
             }
             co_await ll::chrono::ticks(1);
         }
-        runServerCommand(std::string("tickingarea remove ") + kTestArea);
+        for (auto const& a : kTestAreas) runServerCommand(std::string("tickingarea remove ") + a.name);
         emit("SELFTEST DONE pass=" + std::to_string(pass) + " fail=" + std::to_string(fail));
         gRunning = false;
     }).launch(ll::thread::ServerThreadExecutor::getDefault());
