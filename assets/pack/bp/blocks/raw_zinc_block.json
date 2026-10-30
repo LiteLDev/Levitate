@@ -16,6 +16,8 @@
       },
       "minecraft:map_color": "#7fa796",
       "minecraft:loot": "loot_tables/blocks/raw_zinc_block.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "tag:minecraft:iron_tier_destructible": {},
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
         "*": {

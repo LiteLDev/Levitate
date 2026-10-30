@@ -16,6 +16,7 @@
       },
       "minecraft:map_color": "#167e86",
       "minecraft:loot": "loot_tables/blocks/cut_veridium_bricks.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
         "*": {

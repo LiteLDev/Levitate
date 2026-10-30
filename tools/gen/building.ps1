@@ -204,13 +204,14 @@ function Ct-Mask([string]$face, [hashtable]$conn, [string]$kind) {
             'omni' { $true }
             'horizontal' { $side -and ($i -eq 1 -or $i -eq 3) }
             'vertical' { $side -and ($i -eq 0 -or $i -eq 2) }
+            'rect' { $side }
             default { $false }
         }
         if ($use -and $conn[$e[$i]]) { $m = $m -bor (1 -shl $i) }
     }
     return $m
 }
-function Ct-Block([string]$id, [string]$kind, [string]$texBase, [string]$method, $comps, [string[]]$dirsUsed, [string]$endTex = $null) {
+function Ct-Block([string]$id, [string]$kind, [string]$texBase, [string]$method, $comps, [string[]]$dirsUsed, [string]$endTex = $null, [string]$endBase = $null) {
     $states = Bool-States ($dirsUsed | ForEach-Object { "c_$_" })
     $comps['minecraft:geometry'] = 'minecraft:geometry.full_block'
     $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat (Tex "${texBase}_0" "${texBase}_0") $method) }
@@ -225,6 +226,11 @@ function Ct-Block([string]$id, [string]$kind, [string]$texBase, [string]$method,
         }
         $mi = [ordered]@{}
         foreach ($face in $FaceEdges.Keys) {
+            if ($endBase -and $face -in @('up', 'down')) {
+                # Create: the top / bottom of horizontal framed glass use the framed glass sheet (OMNIDIRECTIONAL)
+                $endMask = Ct-Mask $face $conn 'omni'
+                $mi[$face] = Mat (Tex "${endBase}_$endMask" "${endBase}_$endMask") $method; continue
+            }
             if ($endTex -and $face -in @('up', 'down')) { $mi[$face] = Mat $endTex $method; continue }
             $mask = Ct-Mask $face $conn $kind
             $mi[$face] = Mat (Tex "${texBase}_$mask" "${texBase}_$mask") $method
@@ -252,7 +258,7 @@ foreach ($id in $GlassKinds.Keys) {
     $comps['minecraft:light_dampening'] = 0
     switch ($kind) {
         'omni' { Ct-Block $id 'omni' $id 'alpha_test' $comps $Dirs }
-        'horizontal' { Ct-Block $id 'horizontal' $id 'alpha_test' $comps @('north', 'south', 'west', 'east') (Tex "${id}_end" "${id}_end") }
+        'horizontal' { Ct-Block $id 'horizontal' $id 'alpha_test' $comps @('north', 'south', 'west', 'east') $null 'framed_glass' }
         'vertical' { Ct-Block $id 'vertical' $id 'alpha_test' $comps @('down', 'up') (Tex "${id}_end" "${id}_end") }
         default {
             $comps['minecraft:geometry'] = 'minecraft:geometry.full_block'
@@ -270,7 +276,8 @@ foreach ($w in $WindowTypes) {
     $id = "${w}_window"
     $comps = Base-Components $id 0.3 0.3 '#a9c3cf' @()
     $comps['minecraft:light_dampening'] = 0
-    Ct-Block $id 'vertical' $id 'alpha_test' $comps @('down', 'up') (Tex "${id}_end" "${id}_end")
+    if ($w -in 'industrial_iron', 'weathered_iron') { Ct-Block $id 'rect' $id 'alpha_test' $comps $Dirs (Tex "${id}_end" "${id}_end") }
+    else { Ct-Block $id 'vertical' $id 'alpha_test' $comps @('down', 'up') (Tex "${id}_end" "${id}_end") }
     Loot-Silk $id
     $BlockSounds["levitate:$id"] = 'glass'
 }
@@ -290,7 +297,7 @@ $BarsGeo = Write-Geo 'bars' @(
     (Bone 'w' (Cube @(0, 0, 8, 7, 16, 8) @(0, 0) @('north', 'south')))
     (Bone 'e' (Cube @(9, 0, 8, 16, 16, 8) @(0, 0) @('north', 'south')))
 )
-function Pane-Block([string]$id, [string]$geo, [string]$tex, [double]$hard, [string]$map, [string[]]$tools, [string]$sound, [bool]$drops) {
+function Pane-Block([string]$id, [string]$geo, [string]$tex, [double]$hard, [string]$map, [string[]]$tools, [string]$sound, [bool]$drops, [string]$ctKind = $null, [string]$ctBase = $null) {
     $comps = Base-Components $id $hard $hard $map $tools
     $comps['minecraft:light_dampening'] = 0
     $comps['minecraft:geometry'] = [ordered]@{
@@ -300,15 +307,55 @@ function Pane-Block([string]$id, [string]$geo, [string]$tex, [double]$hard, [str
     $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat $tex 'alpha_test') }
     $comps['minecraft:collision_box'] = Box6 @(7, 0, 7, 9, 16, 9)
     $comps['minecraft:selection_box'] = Box6 @(7, 0, 7, 9, 16, 9)
-    $perms = @(
-        [ordered]@{ condition = "$(Q north) == 1 || $(Q south) == 1 || $(Q west) == 1 || $(Q east) == 1"; components = [ordered]@{ 'minecraft:selection_box' = (Box6 @(0, 0, 0, 16, 16, 16)) } }
-    )
-    Block-Json $id (Bool-States @('north', 'south', 'west', 'east')) $comps $perms
+    $selFull = [ordered]@{ 'minecraft:selection_box' = (Box6 @(0, 0, 0, 16, 16, 16)) }
+    $anyArm = "($(Q north) == 1 || $(Q south) == 1 || $(Q west) == 1 || $(Q east) == 1)"
+    $states = Bool-States @('north', 'south', 'west', 'east')
+    if (-not $ctKind) {
+        $perms = @([ordered]@{ condition = $anyArm; components = $selFull })
+        Block-Json $id $states $comps $perms
+    } else {
+        # levitate:c_<dir>: the neighbour on <dir> is the same pane (kept by the mod)
+        $ctDirs = if ($ctKind -eq 'vertical') { @('down', 'up') } else { $Dirs }
+        foreach ($d in $ctDirs) { $states["levitate:c_$d"] = @(0, 1) }
+        $perms = [System.Collections.Generic.List[object]]::new()
+        $n = $ctDirs.Count
+        for ($bits = 0; $bits -lt (1 -shl $n); $bits++) {
+            $conn = @{}; $cond = @()
+            for ($i = 0; $i -lt $n; $i++) {
+                $on = (($bits -shr $i) -band 1) -eq 1
+                $conn[$ctDirs[$i]] = $on
+                $cond += "$(Q "c_$($ctDirs[$i])") == $([int]$on)"
+            }
+            $mi = [ordered]@{}
+            foreach ($face in $FaceEdges.Keys) {
+                if ($face -in @('up', 'down')) { $mi[$face] = Mat $tex 'alpha_test'; continue }
+                # every side face of a pane shows the sheet (Create: all faces, including the edges)
+                $kind = if ($ctKind -eq 'omni') { 'omni' } else { $ctKind }
+                $mask = Ct-Mask $face $conn $kind
+                $mi[$face] = Mat (Tex "${ctBase}_$mask" "${ctBase}_$mask") 'alpha_test'
+            }
+            $mi['*'] = $mi['north']
+            foreach ($arm in 0, 1) {
+                $c = [ordered]@{ 'minecraft:material_instances' = $mi }
+                if ($arm) { $c['minecraft:selection_box'] = (Box6 @(0, 0, 0, 16, 16, 16)) }
+                $armCond = if ($arm) { $anyArm } else { "!$anyArm" }
+                $perms.Add([ordered]@{ condition = (($cond + $armCond) -join ' && '); components = $c })
+            }
+        }
+        Block-Json $id $states $comps $perms
+    }
     if ($drops) { Loot $id } else { Loot-Silk $id }
     $script:BlockSounds["levitate:$id"] = $sound
 }
-foreach ($id in $GlassKinds.Keys) { Pane-Block "${id}_pane" $PaneGeo (Tex "${id}_pane" "${id}_pane") 0.3 '#c8dbe0' @() 'glass' $false }
-foreach ($w in $WindowTypes) { Pane-Block "${w}_window_pane" $PaneGeo (Tex "${w}_window_pane" "${w}_window_pane") 0.3 '#a9c3cf' @() 'glass' $false }
+foreach ($id in $GlassKinds.Keys) {
+    $k = $GlassKinds[$id]
+    if ($k -eq 'none') { $k = $null }
+    Pane-Block "${id}_pane" $PaneGeo (Tex "${id}_pane" "${id}_pane") 0.3 '#c8dbe0' @() 'glass' $false $k $id
+}
+foreach ($w in $WindowTypes) {
+    $k = if ($w -in 'industrial_iron', 'weathered_iron') { 'rect' } else { 'vertical' }
+    Pane-Block "${w}_window_pane" $PaneGeo (Tex "${w}_window_pane" "${w}_window_pane") 0.3 '#a9c3cf' @() 'glass' $false $k "${w}_window"
+}
 foreach ($m in $Metals) { Pane-Block "${m}_bars" $BarsGeo (Tex "${m}_bars" "${m}_bars") 5 '#8d8f86' @('pickaxe') 'metal' $true }
 
 # ---- copper shingles and tiles ------------------------------------------------------------------------------
@@ -469,7 +516,7 @@ foreach ($id in $Doors.Keys) {
     $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat (Tex $id $id) 'alpha_test') }
     $comps['minecraft:collision_box'] = Box6 @(0, 0, 0, 16, 16, 16)
     $perms = @([ordered]@{ condition = "$(Q upper) == 1"; components = [ordered]@{ 'minecraft:loot' = 'loot_tables/blocks/building_empty.json' } })
-    $states = [ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:upper' = @(0, 1); 'levitate:hinge' = @(0, 1); 'levitate:open' = @(0, 1); 'levitate:powered' = @(0, 1) }
+    $states = [ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:upper' = @(0, 1); 'levitate:hinge' = @(0, 1); 'levitate:open' = @(0, 1); 'levitate:powered' = @(0, 1); 'levitate:closing' = @(0, 1) }
     Block-Json $id $states $comps $perms
     Loot $id
     $BlockSounds["levitate:$id"] = $d.sound
@@ -498,7 +545,7 @@ foreach ($id in $Trapdoors.Keys) {
     foreach ($f in 2, 3, 4, 5) {
         $perms += [ordered]@{ condition = "$(Q open) == 1 && $(HF $f)"; components = [ordered]@{ 'minecraft:collision_box' = (Box6 (Rot-Y @(0, 0, 13, 16, 16, 16) $Quarter[$f])) } }
     }
-    $states = [ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:top' = @(0, 1); 'levitate:open' = @(0, 1); 'levitate:powered' = @(0, 1) }
+    $states = [ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:top' = @(0, 1); 'levitate:open' = @(0, 1); 'levitate:powered' = @(0, 1); 'levitate:closing' = @(0, 1) }
     Block-Json $id $states $comps $perms
     Loot $id
     $BlockSounds["levitate:$id"] = $d.sound
@@ -566,18 +613,93 @@ $BlockSounds['levitate:metal_girder_encased_shaft'] = 'netherite'
 $null = Tex 'girder_shaft' 'girder_shaft'
 
 # ---- brackets (item icons; applied to shafts, cogs and pipes) -------------------------------------------------
-$BracketGeo = Write-Geo 'bracket' @(
+# levitate:mounted 0: the item's own model. Mounted (1): Create's bracket models as the client mod
+# draws them on a bracketed shaft / cogwheel (feature/building: BlockData["building"]["bracket"],
+# client/building): levitate:facing = the bracket's facing (the plate sits on the opposite side),
+# levitate:axis = the shaft's axis, levitate:cog = the cogwheel variant (two clamps beside the cog).
+# Shapes from Create's bracket/shaft and bracket/cog ground models (pixels), turned onto every
+# facing / axis; the ring faces use the `ring` instance (a texture with a hole for the shaft).
+function Rot-Box([double[]]$b, [string]$axis) {
+    # one quarter turn about $axis through the block centre (a proper rotation; which way does not matter)
+    switch ($axis) {
+        'x' { return , @($b[0], $b[2], (16 - $b[4]), $b[3], $b[5], (16 - $b[1])) } # y' = z, z' = 16 - y
+        'y' { return , (Rot-Y $b 1) }
+        'z' { return , @($b[1], (16 - $b[3]), $b[2], $b[4], (16 - $b[0]), $b[5]) } # x' = y, y' = 16 - x
+    }
+}
+function Rot-Vec([int[]]$v, [string]$axis) {
+    switch ($axis) {
+        'x' { return , @($v[0], $v[2], (-$v[1])) }
+        'y' { return , @((-$v[2]), $v[1], $v[0]) }
+        'z' { return , @($v[1], (-$v[0]), $v[2]) }
+    }
+}
+$DirVec = @{ 0 = @(0, -1, 0); 1 = @(0, 1, 0); 2 = @(0, 0, -1); 3 = @(0, 0, 1); 4 = @(-1, 0, 0); 5 = @(1, 0, 0) }
+function Clamp-Boxes([double]$z0) {
+    # posts, ring and bolts of one clamp in the slice z0..z0+4 (ground model: the shaft runs along z)
+    $z1 = $z0 + 4
+    return @{
+        solid = @(@(2, 3, $z0, 4.1, 6, $z1), @(2, 10, $z0, 4.1, 13, $z1), @(11.9, 3, $z0, 14, 6, $z1), @(11.9, 10, $z0, 14, 13, $z1),
+            @(2.5, 6, 7.5, 3.5, 14, 8.5), @(12.5, 6, 7.5, 13.5, 14, 8.5))
+        ring  = @(, @(4.1, 3, $z0, 11.9, 13, $z1))
+    }
+}
+$bracketVariants = [ordered]@{
+    shaft = @{ plates = @(, @(1, 0, 1, 15, 3, 15)); clamps = @(6) }
+    cog   = @{ plates = @(@(1, 0, 1, 15, 3, 6), @(1, 0, 10, 15, 3, 15)); clamps = @(2, 10) }
+}
+$brBones = @(
     (Bone 'plate' (Cube @(3, 0, 3, 13, 2, 13)))
     (Bone 'arms' @((Cube @(3, 2, 6, 5, 12, 10)), (Cube @(11, 2, 6, 13, 12, 10)), (Cube @(3, 10, 6, 13, 12, 10))))
 )
+$brVis = [ordered]@{ plate = "$(Q mounted) == 0"; arms = "$(Q mounted) == 0" }
+foreach ($kind in $bracketVariants.Keys) {
+    $v = $bracketVariants[$kind]
+    $cog = [int]($kind -eq 'cog')
+    foreach ($f in 0..5) {
+        foreach ($ax in 0, 1, 2) {
+            $axVec = @(@(1, 0, 0), @(0, 1, 0), @(0, 0, 1))[$ax]
+            $want = $DirVec[$f]
+            if ([Math]::Abs($want[$ax]) -eq 1) { continue } # the facing can't be on the shaft's axis
+            # find the turns taking the plate normal (down) onto -facing and the ring axis (z) onto the shaft axis
+            $found = $null
+            foreach ($rx in 0..3) { foreach ($ry in 0..3) { foreach ($rz in 0..3) {
+                        if ($found) { continue }
+                        $turns = @(@('x') * $rx) + @(@('y') * $ry) + @(@('z') * $rz)
+                        $n = @(0, -1, 0); $r = @(0, 0, 1)
+                        foreach ($t in $turns) { if ($t) { $n = Rot-Vec $n $t; $r = Rot-Vec $r $t } }
+                        $opp = @((-$want[0]), (-$want[1]), (-$want[2]))
+                        if (($n -join ',') -eq ($opp -join ',') -and [Math]::Abs($r[$ax]) -eq 1) { $found = $turns }
+                    } } }
+            $turn = { param($b) foreach ($t in $found) { if ($t) { $b = Rot-Box $b $t } }; return , $b }
+            $cubes = @()
+            foreach ($p in $v.plates) { $cubes += Cube (& $turn $p) }
+            $ringCubes = @()
+            foreach ($z in $v.clamps) {
+                $c = Clamp-Boxes $z
+                foreach ($s in $c.solid) { $cubes += Cube (& $turn $s) }
+                foreach ($rb in $c.ring) {
+                    $rc = Cube (& $turn $rb)
+                    foreach ($k in @($rc.uv.Keys)) { $rc.uv[$k]['material_instance'] = 'ring' }
+                    $ringCubes += $rc
+                }
+            }
+            $name = "m${kind}_${f}_$ax"
+            $brBones += Bone $name ($cubes + $ringCubes)
+            $brVis[$name] = "$(Q mounted) == 1 && $(Q cog) == $cog && $(Q facing) == $f && $(Q axis) == $ax"
+        }
+    }
+}
+$BracketGeo = Write-Geo 'bracket' $brBones
 foreach ($b in @('metal_bracket', 'wooden_bracket')) {
     $comps = Base-Components $b 1 3 '#7b6a4c' @('pickaxe', 'axe')
     $comps['minecraft:light_dampening'] = 0
-    $comps['minecraft:geometry'] = $BracketGeo
-    $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat (Tex $b $b) 'alpha_test') }
+    $comps['minecraft:geometry'] = [ordered]@{ identifier = $BracketGeo; bone_visibility = $brVis }
+    $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat (Tex $b $b) 'alpha_test'); ring = (Mat (Tex "${b}_ring" "${b}_ring") 'alpha_test') }
     $comps['minecraft:collision_box'] = Box6 @(3, 0, 3, 13, 12, 13)
     $comps['minecraft:selection_box'] = Box6 @(3, 0, 3, 13, 12, 13)
-    Block-Json $b $null $comps $null
+    $states = [ordered]@{ 'levitate:mounted' = @(0, 1); 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:axis' = @(0, 1, 2); 'levitate:cog' = @(0, 1) }
+    Block-Json $b $states $comps $null
     Loot $b
     $BlockSounds["levitate:$b"] = $(if ($b -eq 'wooden_bracket') { 'scaffolding' } else { 'netherite' })
 }

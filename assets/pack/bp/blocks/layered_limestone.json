@@ -5,6 +5,24 @@
       "identifier": "levitate:layered_limestone",
       "menu_category": {
         "category": "construction"
+      },
+      "states": {
+        "levitate:c_north": [
+          0,
+          1
+        ],
+        "levitate:c_south": [
+          0,
+          1
+        ],
+        "levitate:c_west": [
+          0,
+          1
+        ],
+        "levitate:c_east": [
+          0,
+          1
+        ]
       }
     },
     "components": {
@@ -16,21 +34,584 @@
       },
       "minecraft:map_color": "#f7e9a3",
       "minecraft:loot": "loot_tables/blocks/layered_limestone.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
-        "down": {
-          "texture": "levitate_limestone_cap",
+        "*": {
+          "texture": "levitate_limestone_layered_0",
           "render_method": "opaque"
         },
         "up": {
-          "texture": "levitate_limestone_cap",
+          "texture": "levitate_limestone_cap_0",
           "render_method": "opaque"
         },
-        "*": {
-          "texture": "levitate_limestone_layered",
+        "down": {
+          "texture": "levitate_limestone_cap_0",
           "render_method": "opaque"
         }
       }
-    }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_0",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_0",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_1",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_4",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_4",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_1",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_5",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_5",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_8",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_8",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_9",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_12",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_12",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_9",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_13",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_13",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_2",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_2",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_3",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_6",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_6",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_3",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 0 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_7",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_7",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_0",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_10",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_10",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 0 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_11",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_14",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 0 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_8",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_2",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_14",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_11",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_north') == 1 && q.block_state('levitate:c_south') == 1 && q.block_state('levitate:c_west') == 1 && q.block_state('levitate:c_east') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "south": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "east": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "west": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "levitate_limestone_cap_15",
+              "render_method": "opaque"
+            },
+            "down": {
+              "texture": "levitate_limestone_cap_15",
+              "render_method": "opaque"
+            },
+            "*": {
+              "texture": "levitate_limestone_layered_10",
+              "render_method": "opaque"
+            }
+          }
+        }
+      }
+    ]
   }
 }

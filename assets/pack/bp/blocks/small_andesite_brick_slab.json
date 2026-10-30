@@ -30,6 +30,7 @@
       },
       "minecraft:map_color": "#707070",
       "minecraft:loot": "loot_tables/blocks/small_andesite_brick_slab.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
       "minecraft:geometry": {
         "identifier": "geometry.levitate.materials_slab",
         "bone_visibility": {

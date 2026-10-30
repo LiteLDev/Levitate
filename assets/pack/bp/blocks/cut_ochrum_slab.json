@@ -30,6 +30,7 @@
       },
       "minecraft:map_color": "#ba8524",
       "minecraft:loot": "loot_tables/blocks/cut_ochrum_slab.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
       "minecraft:geometry": {
         "identifier": "geometry.levitate.materials_slab",
         "bone_visibility": {

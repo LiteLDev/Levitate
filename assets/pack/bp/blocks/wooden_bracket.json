@@ -5,6 +5,29 @@
       "identifier": "levitate:wooden_bracket",
       "menu_category": {
         "category": "construction"
+      },
+      "states": {
+        "levitate:mounted": [
+          0,
+          1
+        ],
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:axis": [
+          0,
+          1,
+          2
+        ],
+        "levitate:cog": [
+          0,
+          1
+        ]
       }
     },
     "components": {
@@ -19,10 +42,44 @@
       "tag:minecraft:is_pickaxe_item_destructible": {},
       "tag:minecraft:is_axe_item_destructible": {},
       "minecraft:light_dampening": 0,
-      "minecraft:geometry": "geometry.levitate.bracket",
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.bracket",
+        "bone_visibility": {
+          "plate": "q.block_state('levitate:mounted') == 0",
+          "arms": "q.block_state('levitate:mounted') == 0",
+          "mshaft_0_0": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 0 && q.block_state('levitate:axis') == 0",
+          "mshaft_0_2": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 0 && q.block_state('levitate:axis') == 2",
+          "mshaft_1_0": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 1 && q.block_state('levitate:axis') == 0",
+          "mshaft_1_2": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 1 && q.block_state('levitate:axis') == 2",
+          "mshaft_2_0": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:axis') == 0",
+          "mshaft_2_1": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:axis') == 1",
+          "mshaft_3_0": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:axis') == 0",
+          "mshaft_3_1": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:axis') == 1",
+          "mshaft_4_1": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:axis') == 1",
+          "mshaft_4_2": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:axis') == 2",
+          "mshaft_5_1": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:axis') == 1",
+          "mshaft_5_2": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 0 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:axis') == 2",
+          "mcog_0_0": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 0 && q.block_state('levitate:axis') == 0",
+          "mcog_0_2": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 0 && q.block_state('levitate:axis') == 2",
+          "mcog_1_0": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 1 && q.block_state('levitate:axis') == 0",
+          "mcog_1_2": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 1 && q.block_state('levitate:axis') == 2",
+          "mcog_2_0": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:axis') == 0",
+          "mcog_2_1": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 2 && q.block_state('levitate:axis') == 1",
+          "mcog_3_0": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:axis') == 0",
+          "mcog_3_1": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 3 && q.block_state('levitate:axis') == 1",
+          "mcog_4_1": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:axis') == 1",
+          "mcog_4_2": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 4 && q.block_state('levitate:axis') == 2",
+          "mcog_5_1": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:axis') == 1",
+          "mcog_5_2": "q.block_state('levitate:mounted') == 1 && q.block_state('levitate:cog') == 1 && q.block_state('levitate:facing') == 5 && q.block_state('levitate:axis') == 2"
+        }
+      },
       "minecraft:material_instances": {
         "*": {
           "texture": "levitate_wooden_bracket",
+          "render_method": "alpha_test"
+        },
+        "ring": {
+          "texture": "levitate_wooden_bracket_ring",
           "render_method": "alpha_test"
         }
       },

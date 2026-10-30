@@ -71,14 +71,113 @@
   "levitate_granite_small_brick": {
     "textures": "textures/blocks/palettes/granite_small_brick"
   },
-  "levitate_granite_layered": {
-    "textures": "textures/blocks/palettes/granite_layered"
+  "levitate_granite_layered_0": {
+    "textures": "textures/blocks/palettes/granite_layered_0"
   },
-  "levitate_granite_cap": {
-    "textures": "textures/blocks/palettes/granite_cap"
+  "levitate_granite_layered_2": {
+    "textures": "textures/blocks/palettes/granite_layered_2"
   },
-  "levitate_granite_pillar": {
-    "textures": "textures/blocks/palettes/granite_pillar"
+  "levitate_granite_layered_8": {
+    "textures": "textures/blocks/palettes/granite_layered_8"
+  },
+  "levitate_granite_layered_10": {
+    "textures": "textures/blocks/palettes/granite_layered_10"
+  },
+  "levitate_granite_cap_0": {
+    "textures": "textures/blocks/palettes/granite_cap_0"
+  },
+  "levitate_granite_pillar_0": {
+    "textures": "textures/blocks/palettes/granite_pillar_0"
+  },
+  "levitate_granite_cap_1": {
+    "textures": "textures/blocks/palettes/granite_cap_1"
+  },
+  "levitate_granite_pillar_1": {
+    "textures": "textures/blocks/palettes/granite_pillar_1"
+  },
+  "levitate_granite_cap_2": {
+    "textures": "textures/blocks/palettes/granite_cap_2"
+  },
+  "levitate_granite_pillar_2": {
+    "textures": "textures/blocks/palettes/granite_pillar_2"
+  },
+  "levitate_granite_cap_3": {
+    "textures": "textures/blocks/palettes/granite_cap_3"
+  },
+  "levitate_granite_pillar_3": {
+    "textures": "textures/blocks/palettes/granite_pillar_3"
+  },
+  "levitate_granite_cap_4": {
+    "textures": "textures/blocks/palettes/granite_cap_4"
+  },
+  "levitate_granite_pillar_4": {
+    "textures": "textures/blocks/palettes/granite_pillar_4"
+  },
+  "levitate_granite_cap_5": {
+    "textures": "textures/blocks/palettes/granite_cap_5"
+  },
+  "levitate_granite_pillar_5": {
+    "textures": "textures/blocks/palettes/granite_pillar_5"
+  },
+  "levitate_granite_cap_6": {
+    "textures": "textures/blocks/palettes/granite_cap_6"
+  },
+  "levitate_granite_pillar_6": {
+    "textures": "textures/blocks/palettes/granite_pillar_6"
+  },
+  "levitate_granite_cap_7": {
+    "textures": "textures/blocks/palettes/granite_cap_7"
+  },
+  "levitate_granite_pillar_7": {
+    "textures": "textures/blocks/palettes/granite_pillar_7"
+  },
+  "levitate_granite_cap_8": {
+    "textures": "textures/blocks/palettes/granite_cap_8"
+  },
+  "levitate_granite_pillar_8": {
+    "textures": "textures/blocks/palettes/granite_pillar_8"
+  },
+  "levitate_granite_cap_9": {
+    "textures": "textures/blocks/palettes/granite_cap_9"
+  },
+  "levitate_granite_pillar_9": {
+    "textures": "textures/blocks/palettes/granite_pillar_9"
+  },
+  "levitate_granite_cap_10": {
+    "textures": "textures/blocks/palettes/granite_cap_10"
+  },
+  "levitate_granite_pillar_10": {
+    "textures": "textures/blocks/palettes/granite_pillar_10"
+  },
+  "levitate_granite_cap_11": {
+    "textures": "textures/blocks/palettes/granite_cap_11"
+  },
+  "levitate_granite_pillar_11": {
+    "textures": "textures/blocks/palettes/granite_pillar_11"
+  },
+  "levitate_granite_cap_12": {
+    "textures": "textures/blocks/palettes/granite_cap_12"
+  },
+  "levitate_granite_pillar_12": {
+    "textures": "textures/blocks/palettes/granite_pillar_12"
+  },
+  "levitate_granite_cap_13": {
+    "textures": "textures/blocks/palettes/granite_cap_13"
+  },
+  "levitate_granite_pillar_13": {
+    "textures": "textures/blocks/palettes/granite_pillar_13"
+  },
+  "levitate_granite_cap_14": {
+    "textures": "textures/blocks/palettes/granite_cap_14"
+  },
+  "levitate_granite_pillar_14": {
+    "textures": "textures/blocks/palettes/granite_pillar_14"
+  },
+  "levitate_granite_cap_15": {
+    "textures": "textures/blocks/palettes/granite_cap_15"
+  },
+  "levitate_granite_pillar_15": {
+    "textures": "textures/blocks/palettes/granite_pillar_15"
   },
   "levitate_diorite_cut": {
     "textures": "textures/blocks/palettes/diorite_cut"
@@ -95,14 +194,113 @@
   "levitate_diorite_small_brick": {
     "textures": "textures/blocks/palettes/diorite_small_brick"
   },
-  "levitate_diorite_layered": {
-    "textures": "textures/blocks/palettes/diorite_layered"
+  "levitate_diorite_layered_0": {
+    "textures": "textures/blocks/palettes/diorite_layered_0"
   },
-  "levitate_diorite_cap": {
-    "textures": "textures/blocks/palettes/diorite_cap"
+  "levitate_diorite_layered_2": {
+    "textures": "textures/blocks/palettes/diorite_layered_2"
   },
-  "levitate_diorite_pillar": {
-    "textures": "textures/blocks/palettes/diorite_pillar"
+  "levitate_diorite_layered_8": {
+    "textures": "textures/blocks/palettes/diorite_layered_8"
+  },
+  "levitate_diorite_layered_10": {
+    "textures": "textures/blocks/palettes/diorite_layered_10"
+  },
+  "levitate_diorite_cap_0": {
+    "textures": "textures/blocks/palettes/diorite_cap_0"
+  },
+  "levitate_diorite_pillar_0": {
+    "textures": "textures/blocks/palettes/diorite_pillar_0"
+  },
+  "levitate_diorite_cap_1": {
+    "textures": "textures/blocks/palettes/diorite_cap_1"
+  },
+  "levitate_diorite_pillar_1": {
+    "textures": "textures/blocks/palettes/diorite_pillar_1"
+  },
+  "levitate_diorite_cap_2": {
+    "textures": "textures/blocks/palettes/diorite_cap_2"
+  },
+  "levitate_diorite_pillar_2": {
+    "textures": "textures/blocks/palettes/diorite_pillar_2"
+  },
+  "levitate_diorite_cap_3": {
+    "textures": "textures/blocks/palettes/diorite_cap_3"
+  },
+  "levitate_diorite_pillar_3": {
+    "textures": "textures/blocks/palettes/diorite_pillar_3"
+  },
+  "levitate_diorite_cap_4": {
+    "textures": "textures/blocks/palettes/diorite_cap_4"
+  },
+  "levitate_diorite_pillar_4": {
+    "textures": "textures/blocks/palettes/diorite_pillar_4"
+  },
+  "levitate_diorite_cap_5": {
+    "textures": "textures/blocks/palettes/diorite_cap_5"
+  },
+  "levitate_diorite_pillar_5": {
+    "textures": "textures/blocks/palettes/diorite_pillar_5"
+  },
+  "levitate_diorite_cap_6": {
+    "textures": "textures/blocks/palettes/diorite_cap_6"
+  },
+  "levitate_diorite_pillar_6": {
+    "textures": "textures/blocks/palettes/diorite_pillar_6"
+  },
+  "levitate_diorite_cap_7": {
+    "textures": "textures/blocks/palettes/diorite_cap_7"
+  },
+  "levitate_diorite_pillar_7": {
+    "textures": "textures/blocks/palettes/diorite_pillar_7"
+  },
+  "levitate_diorite_cap_8": {
+    "textures": "textures/blocks/palettes/diorite_cap_8"
+  },
+  "levitate_diorite_pillar_8": {
+    "textures": "textures/blocks/palettes/diorite_pillar_8"
+  },
+  "levitate_diorite_cap_9": {
+    "textures": "textures/blocks/palettes/diorite_cap_9"
+  },
+  "levitate_diorite_pillar_9": {
+    "textures": "textures/blocks/palettes/diorite_pillar_9"
+  },
+  "levitate_diorite_cap_10": {
+    "textures": "textures/blocks/palettes/diorite_cap_10"
+  },
+  "levitate_diorite_pillar_10": {
+    "textures": "textures/blocks/palettes/diorite_pillar_10"
+  },
+  "levitate_diorite_cap_11": {
+    "textures": "textures/blocks/palettes/diorite_cap_11"
+  },
+  "levitate_diorite_pillar_11": {
+    "textures": "textures/blocks/palettes/diorite_pillar_11"
+  },
+  "levitate_diorite_cap_12": {
+    "textures": "textures/blocks/palettes/diorite_cap_12"
+  },
+  "levitate_diorite_pillar_12": {
+    "textures": "textures/blocks/palettes/diorite_pillar_12"
+  },
+  "levitate_diorite_cap_13": {
+    "textures": "textures/blocks/palettes/diorite_cap_13"
+  },
+  "levitate_diorite_pillar_13": {
+    "textures": "textures/blocks/palettes/diorite_pillar_13"
+  },
+  "levitate_diorite_cap_14": {
+    "textures": "textures/blocks/palettes/diorite_cap_14"
+  },
+  "levitate_diorite_pillar_14": {
+    "textures": "textures/blocks/palettes/diorite_pillar_14"
+  },
+  "levitate_diorite_cap_15": {
+    "textures": "textures/blocks/palettes/diorite_cap_15"
+  },
+  "levitate_diorite_pillar_15": {
+    "textures": "textures/blocks/palettes/diorite_pillar_15"
   },
   "levitate_andesite_cut": {
     "textures": "textures/blocks/palettes/andesite_cut"
@@ -119,14 +317,113 @@
   "levitate_andesite_small_brick": {
     "textures": "textures/blocks/palettes/andesite_small_brick"
   },
-  "levitate_andesite_layered": {
-    "textures": "textures/blocks/palettes/andesite_layered"
+  "levitate_andesite_layered_0": {
+    "textures": "textures/blocks/palettes/andesite_layered_0"
   },
-  "levitate_andesite_cap": {
-    "textures": "textures/blocks/palettes/andesite_cap"
+  "levitate_andesite_layered_2": {
+    "textures": "textures/blocks/palettes/andesite_layered_2"
   },
-  "levitate_andesite_pillar": {
-    "textures": "textures/blocks/palettes/andesite_pillar"
+  "levitate_andesite_layered_8": {
+    "textures": "textures/blocks/palettes/andesite_layered_8"
+  },
+  "levitate_andesite_layered_10": {
+    "textures": "textures/blocks/palettes/andesite_layered_10"
+  },
+  "levitate_andesite_cap_0": {
+    "textures": "textures/blocks/palettes/andesite_cap_0"
+  },
+  "levitate_andesite_pillar_0": {
+    "textures": "textures/blocks/palettes/andesite_pillar_0"
+  },
+  "levitate_andesite_cap_1": {
+    "textures": "textures/blocks/palettes/andesite_cap_1"
+  },
+  "levitate_andesite_pillar_1": {
+    "textures": "textures/blocks/palettes/andesite_pillar_1"
+  },
+  "levitate_andesite_cap_2": {
+    "textures": "textures/blocks/palettes/andesite_cap_2"
+  },
+  "levitate_andesite_pillar_2": {
+    "textures": "textures/blocks/palettes/andesite_pillar_2"
+  },
+  "levitate_andesite_cap_3": {
+    "textures": "textures/blocks/palettes/andesite_cap_3"
+  },
+  "levitate_andesite_pillar_3": {
+    "textures": "textures/blocks/palettes/andesite_pillar_3"
+  },
+  "levitate_andesite_cap_4": {
+    "textures": "textures/blocks/palettes/andesite_cap_4"
+  },
+  "levitate_andesite_pillar_4": {
+    "textures": "textures/blocks/palettes/andesite_pillar_4"
+  },
+  "levitate_andesite_cap_5": {
+    "textures": "textures/blocks/palettes/andesite_cap_5"
+  },
+  "levitate_andesite_pillar_5": {
+    "textures": "textures/blocks/palettes/andesite_pillar_5"
+  },
+  "levitate_andesite_cap_6": {
+    "textures": "textures/blocks/palettes/andesite_cap_6"
+  },
+  "levitate_andesite_pillar_6": {
+    "textures": "textures/blocks/palettes/andesite_pillar_6"
+  },
+  "levitate_andesite_cap_7": {
+    "textures": "textures/blocks/palettes/andesite_cap_7"
+  },
+  "levitate_andesite_pillar_7": {
+    "textures": "textures/blocks/palettes/andesite_pillar_7"
+  },
+  "levitate_andesite_cap_8": {
+    "textures": "textures/blocks/palettes/andesite_cap_8"
+  },
+  "levitate_andesite_pillar_8": {
+    "textures": "textures/blocks/palettes/andesite_pillar_8"
+  },
+  "levitate_andesite_cap_9": {
+    "textures": "textures/blocks/palettes/andesite_cap_9"
+  },
+  "levitate_andesite_pillar_9": {
+    "textures": "textures/blocks/palettes/andesite_pillar_9"
+  },
+  "levitate_andesite_cap_10": {
+    "textures": "textures/blocks/palettes/andesite_cap_10"
+  },
+  "levitate_andesite_pillar_10": {
+    "textures": "textures/blocks/palettes/andesite_pillar_10"
+  },
+  "levitate_andesite_cap_11": {
+    "textures": "textures/blocks/palettes/andesite_cap_11"
+  },
+  "levitate_andesite_pillar_11": {
+    "textures": "textures/blocks/palettes/andesite_pillar_11"
+  },
+  "levitate_andesite_cap_12": {
+    "textures": "textures/blocks/palettes/andesite_cap_12"
+  },
+  "levitate_andesite_pillar_12": {
+    "textures": "textures/blocks/palettes/andesite_pillar_12"
+  },
+  "levitate_andesite_cap_13": {
+    "textures": "textures/blocks/palettes/andesite_cap_13"
+  },
+  "levitate_andesite_pillar_13": {
+    "textures": "textures/blocks/palettes/andesite_pillar_13"
+  },
+  "levitate_andesite_cap_14": {
+    "textures": "textures/blocks/palettes/andesite_cap_14"
+  },
+  "levitate_andesite_pillar_14": {
+    "textures": "textures/blocks/palettes/andesite_pillar_14"
+  },
+  "levitate_andesite_cap_15": {
+    "textures": "textures/blocks/palettes/andesite_cap_15"
+  },
+  "levitate_andesite_pillar_15": {
+    "textures": "textures/blocks/palettes/andesite_pillar_15"
   },
   "levitate_calcite_cut": {
     "textures": "textures/blocks/palettes/calcite_cut"
@@ -143,14 +440,113 @@
   "levitate_calcite_small_brick": {
     "textures": "textures/blocks/palettes/calcite_small_brick"
   },
-  "levitate_calcite_layered": {
-    "textures": "textures/blocks/palettes/calcite_layered"
+  "levitate_calcite_layered_0": {
+    "textures": "textures/blocks/palettes/calcite_layered_0"
   },
-  "levitate_calcite_cap": {
-    "textures": "textures/blocks/palettes/calcite_cap"
+  "levitate_calcite_layered_2": {
+    "textures": "textures/blocks/palettes/calcite_layered_2"
   },
-  "levitate_calcite_pillar": {
-    "textures": "textures/blocks/palettes/calcite_pillar"
+  "levitate_calcite_layered_8": {
+    "textures": "textures/blocks/palettes/calcite_layered_8"
+  },
+  "levitate_calcite_layered_10": {
+    "textures": "textures/blocks/palettes/calcite_layered_10"
+  },
+  "levitate_calcite_cap_0": {
+    "textures": "textures/blocks/palettes/calcite_cap_0"
+  },
+  "levitate_calcite_pillar_0": {
+    "textures": "textures/blocks/palettes/calcite_pillar_0"
+  },
+  "levitate_calcite_cap_1": {
+    "textures": "textures/blocks/palettes/calcite_cap_1"
+  },
+  "levitate_calcite_pillar_1": {
+    "textures": "textures/blocks/palettes/calcite_pillar_1"
+  },
+  "levitate_calcite_cap_2": {
+    "textures": "textures/blocks/palettes/calcite_cap_2"
+  },
+  "levitate_calcite_pillar_2": {
+    "textures": "textures/blocks/palettes/calcite_pillar_2"
+  },
+  "levitate_calcite_cap_3": {
+    "textures": "textures/blocks/palettes/calcite_cap_3"
+  },
+  "levitate_calcite_pillar_3": {
+    "textures": "textures/blocks/palettes/calcite_pillar_3"
+  },
+  "levitate_calcite_cap_4": {
+    "textures": "textures/blocks/palettes/calcite_cap_4"
+  },
+  "levitate_calcite_pillar_4": {
+    "textures": "textures/blocks/palettes/calcite_pillar_4"
+  },
+  "levitate_calcite_cap_5": {
+    "textures": "textures/blocks/palettes/calcite_cap_5"
+  },
+  "levitate_calcite_pillar_5": {
+    "textures": "textures/blocks/palettes/calcite_pillar_5"
+  },
+  "levitate_calcite_cap_6": {
+    "textures": "textures/blocks/palettes/calcite_cap_6"
+  },
+  "levitate_calcite_pillar_6": {
+    "textures": "textures/blocks/palettes/calcite_pillar_6"
+  },
+  "levitate_calcite_cap_7": {
+    "textures": "textures/blocks/palettes/calcite_cap_7"
+  },
+  "levitate_calcite_pillar_7": {
+    "textures": "textures/blocks/palettes/calcite_pillar_7"
+  },
+  "levitate_calcite_cap_8": {
+    "textures": "textures/blocks/palettes/calcite_cap_8"
+  },
+  "levitate_calcite_pillar_8": {
+    "textures": "textures/blocks/palettes/calcite_pillar_8"
+  },
+  "levitate_calcite_cap_9": {
+    "textures": "textures/blocks/palettes/calcite_cap_9"
+  },
+  "levitate_calcite_pillar_9": {
+    "textures": "textures/blocks/palettes/calcite_pillar_9"
+  },
+  "levitate_calcite_cap_10": {
+    "textures": "textures/blocks/palettes/calcite_cap_10"
+  },
+  "levitate_calcite_pillar_10": {
+    "textures": "textures/blocks/palettes/calcite_pillar_10"
+  },
+  "levitate_calcite_cap_11": {
+    "textures": "textures/blocks/palettes/calcite_cap_11"
+  },
+  "levitate_calcite_pillar_11": {
+    "textures": "textures/blocks/palettes/calcite_pillar_11"
+  },
+  "levitate_calcite_cap_12": {
+    "textures": "textures/blocks/palettes/calcite_cap_12"
+  },
+  "levitate_calcite_pillar_12": {
+    "textures": "textures/blocks/palettes/calcite_pillar_12"
+  },
+  "levitate_calcite_cap_13": {
+    "textures": "textures/blocks/palettes/calcite_cap_13"
+  },
+  "levitate_calcite_pillar_13": {
+    "textures": "textures/blocks/palettes/calcite_pillar_13"
+  },
+  "levitate_calcite_cap_14": {
+    "textures": "textures/blocks/palettes/calcite_cap_14"
+  },
+  "levitate_calcite_pillar_14": {
+    "textures": "textures/blocks/palettes/calcite_pillar_14"
+  },
+  "levitate_calcite_cap_15": {
+    "textures": "textures/blocks/palettes/calcite_cap_15"
+  },
+  "levitate_calcite_pillar_15": {
+    "textures": "textures/blocks/palettes/calcite_pillar_15"
   },
   "levitate_dripstone_cut": {
     "textures": "textures/blocks/palettes/dripstone_cut"
@@ -167,14 +563,113 @@
   "levitate_dripstone_small_brick": {
     "textures": "textures/blocks/palettes/dripstone_small_brick"
   },
-  "levitate_dripstone_layered": {
-    "textures": "textures/blocks/palettes/dripstone_layered"
+  "levitate_dripstone_layered_0": {
+    "textures": "textures/blocks/palettes/dripstone_layered_0"
   },
-  "levitate_dripstone_cap": {
-    "textures": "textures/blocks/palettes/dripstone_cap"
+  "levitate_dripstone_layered_2": {
+    "textures": "textures/blocks/palettes/dripstone_layered_2"
   },
-  "levitate_dripstone_pillar": {
-    "textures": "textures/blocks/palettes/dripstone_pillar"
+  "levitate_dripstone_layered_8": {
+    "textures": "textures/blocks/palettes/dripstone_layered_8"
+  },
+  "levitate_dripstone_layered_10": {
+    "textures": "textures/blocks/palettes/dripstone_layered_10"
+  },
+  "levitate_dripstone_cap_0": {
+    "textures": "textures/blocks/palettes/dripstone_cap_0"
+  },
+  "levitate_dripstone_pillar_0": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_0"
+  },
+  "levitate_dripstone_cap_1": {
+    "textures": "textures/blocks/palettes/dripstone_cap_1"
+  },
+  "levitate_dripstone_pillar_1": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_1"
+  },
+  "levitate_dripstone_cap_2": {
+    "textures": "textures/blocks/palettes/dripstone_cap_2"
+  },
+  "levitate_dripstone_pillar_2": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_2"
+  },
+  "levitate_dripstone_cap_3": {
+    "textures": "textures/blocks/palettes/dripstone_cap_3"
+  },
+  "levitate_dripstone_pillar_3": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_3"
+  },
+  "levitate_dripstone_cap_4": {
+    "textures": "textures/blocks/palettes/dripstone_cap_4"
+  },
+  "levitate_dripstone_pillar_4": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_4"
+  },
+  "levitate_dripstone_cap_5": {
+    "textures": "textures/blocks/palettes/dripstone_cap_5"
+  },
+  "levitate_dripstone_pillar_5": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_5"
+  },
+  "levitate_dripstone_cap_6": {
+    "textures": "textures/blocks/palettes/dripstone_cap_6"
+  },
+  "levitate_dripstone_pillar_6": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_6"
+  },
+  "levitate_dripstone_cap_7": {
+    "textures": "textures/blocks/palettes/dripstone_cap_7"
+  },
+  "levitate_dripstone_pillar_7": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_7"
+  },
+  "levitate_dripstone_cap_8": {
+    "textures": "textures/blocks/palettes/dripstone_cap_8"
+  },
+  "levitate_dripstone_pillar_8": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_8"
+  },
+  "levitate_dripstone_cap_9": {
+    "textures": "textures/blocks/palettes/dripstone_cap_9"
+  },
+  "levitate_dripstone_pillar_9": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_9"
+  },
+  "levitate_dripstone_cap_10": {
+    "textures": "textures/blocks/palettes/dripstone_cap_10"
+  },
+  "levitate_dripstone_pillar_10": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_10"
+  },
+  "levitate_dripstone_cap_11": {
+    "textures": "textures/blocks/palettes/dripstone_cap_11"
+  },
+  "levitate_dripstone_pillar_11": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_11"
+  },
+  "levitate_dripstone_cap_12": {
+    "textures": "textures/blocks/palettes/dripstone_cap_12"
+  },
+  "levitate_dripstone_pillar_12": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_12"
+  },
+  "levitate_dripstone_cap_13": {
+    "textures": "textures/blocks/palettes/dripstone_cap_13"
+  },
+  "levitate_dripstone_pillar_13": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_13"
+  },
+  "levitate_dripstone_cap_14": {
+    "textures": "textures/blocks/palettes/dripstone_cap_14"
+  },
+  "levitate_dripstone_pillar_14": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_14"
+  },
+  "levitate_dripstone_cap_15": {
+    "textures": "textures/blocks/palettes/dripstone_cap_15"
+  },
+  "levitate_dripstone_pillar_15": {
+    "textures": "textures/blocks/palettes/dripstone_pillar_15"
   },
   "levitate_deepslate_cut": {
     "textures": "textures/blocks/palettes/deepslate_cut"
@@ -191,14 +686,113 @@
   "levitate_deepslate_small_brick": {
     "textures": "textures/blocks/palettes/deepslate_small_brick"
   },
-  "levitate_deepslate_layered": {
-    "textures": "textures/blocks/palettes/deepslate_layered"
+  "levitate_deepslate_layered_0": {
+    "textures": "textures/blocks/palettes/deepslate_layered_0"
   },
-  "levitate_deepslate_cap": {
-    "textures": "textures/blocks/palettes/deepslate_cap"
+  "levitate_deepslate_layered_2": {
+    "textures": "textures/blocks/palettes/deepslate_layered_2"
   },
-  "levitate_deepslate_pillar": {
-    "textures": "textures/blocks/palettes/deepslate_pillar"
+  "levitate_deepslate_layered_8": {
+    "textures": "textures/blocks/palettes/deepslate_layered_8"
+  },
+  "levitate_deepslate_layered_10": {
+    "textures": "textures/blocks/palettes/deepslate_layered_10"
+  },
+  "levitate_deepslate_cap_0": {
+    "textures": "textures/blocks/palettes/deepslate_cap_0"
+  },
+  "levitate_deepslate_pillar_0": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_0"
+  },
+  "levitate_deepslate_cap_1": {
+    "textures": "textures/blocks/palettes/deepslate_cap_1"
+  },
+  "levitate_deepslate_pillar_1": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_1"
+  },
+  "levitate_deepslate_cap_2": {
+    "textures": "textures/blocks/palettes/deepslate_cap_2"
+  },
+  "levitate_deepslate_pillar_2": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_2"
+  },
+  "levitate_deepslate_cap_3": {
+    "textures": "textures/blocks/palettes/deepslate_cap_3"
+  },
+  "levitate_deepslate_pillar_3": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_3"
+  },
+  "levitate_deepslate_cap_4": {
+    "textures": "textures/blocks/palettes/deepslate_cap_4"
+  },
+  "levitate_deepslate_pillar_4": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_4"
+  },
+  "levitate_deepslate_cap_5": {
+    "textures": "textures/blocks/palettes/deepslate_cap_5"
+  },
+  "levitate_deepslate_pillar_5": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_5"
+  },
+  "levitate_deepslate_cap_6": {
+    "textures": "textures/blocks/palettes/deepslate_cap_6"
+  },
+  "levitate_deepslate_pillar_6": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_6"
+  },
+  "levitate_deepslate_cap_7": {
+    "textures": "textures/blocks/palettes/deepslate_cap_7"
+  },
+  "levitate_deepslate_pillar_7": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_7"
+  },
+  "levitate_deepslate_cap_8": {
+    "textures": "textures/blocks/palettes/deepslate_cap_8"
+  },
+  "levitate_deepslate_pillar_8": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_8"
+  },
+  "levitate_deepslate_cap_9": {
+    "textures": "textures/blocks/palettes/deepslate_cap_9"
+  },
+  "levitate_deepslate_pillar_9": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_9"
+  },
+  "levitate_deepslate_cap_10": {
+    "textures": "textures/blocks/palettes/deepslate_cap_10"
+  },
+  "levitate_deepslate_pillar_10": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_10"
+  },
+  "levitate_deepslate_cap_11": {
+    "textures": "textures/blocks/palettes/deepslate_cap_11"
+  },
+  "levitate_deepslate_pillar_11": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_11"
+  },
+  "levitate_deepslate_cap_12": {
+    "textures": "textures/blocks/palettes/deepslate_cap_12"
+  },
+  "levitate_deepslate_pillar_12": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_12"
+  },
+  "levitate_deepslate_cap_13": {
+    "textures": "textures/blocks/palettes/deepslate_cap_13"
+  },
+  "levitate_deepslate_pillar_13": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_13"
+  },
+  "levitate_deepslate_cap_14": {
+    "textures": "textures/blocks/palettes/deepslate_cap_14"
+  },
+  "levitate_deepslate_pillar_14": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_14"
+  },
+  "levitate_deepslate_cap_15": {
+    "textures": "textures/blocks/palettes/deepslate_cap_15"
+  },
+  "levitate_deepslate_pillar_15": {
+    "textures": "textures/blocks/palettes/deepslate_pillar_15"
   },
   "levitate_tuff_cut": {
     "textures": "textures/blocks/palettes/tuff_cut"
@@ -215,14 +809,113 @@
   "levitate_tuff_small_brick": {
     "textures": "textures/blocks/palettes/tuff_small_brick"
   },
-  "levitate_tuff_layered": {
-    "textures": "textures/blocks/palettes/tuff_layered"
+  "levitate_tuff_layered_0": {
+    "textures": "textures/blocks/palettes/tuff_layered_0"
   },
-  "levitate_tuff_cap": {
-    "textures": "textures/blocks/palettes/tuff_cap"
+  "levitate_tuff_layered_2": {
+    "textures": "textures/blocks/palettes/tuff_layered_2"
   },
-  "levitate_tuff_pillar": {
-    "textures": "textures/blocks/palettes/tuff_pillar"
+  "levitate_tuff_layered_8": {
+    "textures": "textures/blocks/palettes/tuff_layered_8"
+  },
+  "levitate_tuff_layered_10": {
+    "textures": "textures/blocks/palettes/tuff_layered_10"
+  },
+  "levitate_tuff_cap_0": {
+    "textures": "textures/blocks/palettes/tuff_cap_0"
+  },
+  "levitate_tuff_pillar_0": {
+    "textures": "textures/blocks/palettes/tuff_pillar_0"
+  },
+  "levitate_tuff_cap_1": {
+    "textures": "textures/blocks/palettes/tuff_cap_1"
+  },
+  "levitate_tuff_pillar_1": {
+    "textures": "textures/blocks/palettes/tuff_pillar_1"
+  },
+  "levitate_tuff_cap_2": {
+    "textures": "textures/blocks/palettes/tuff_cap_2"
+  },
+  "levitate_tuff_pillar_2": {
+    "textures": "textures/blocks/palettes/tuff_pillar_2"
+  },
+  "levitate_tuff_cap_3": {
+    "textures": "textures/blocks/palettes/tuff_cap_3"
+  },
+  "levitate_tuff_pillar_3": {
+    "textures": "textures/blocks/palettes/tuff_pillar_3"
+  },
+  "levitate_tuff_cap_4": {
+    "textures": "textures/blocks/palettes/tuff_cap_4"
+  },
+  "levitate_tuff_pillar_4": {
+    "textures": "textures/blocks/palettes/tuff_pillar_4"
+  },
+  "levitate_tuff_cap_5": {
+    "textures": "textures/blocks/palettes/tuff_cap_5"
+  },
+  "levitate_tuff_pillar_5": {
+    "textures": "textures/blocks/palettes/tuff_pillar_5"
+  },
+  "levitate_tuff_cap_6": {
+    "textures": "textures/blocks/palettes/tuff_cap_6"
+  },
+  "levitate_tuff_pillar_6": {
+    "textures": "textures/blocks/palettes/tuff_pillar_6"
+  },
+  "levitate_tuff_cap_7": {
+    "textures": "textures/blocks/palettes/tuff_cap_7"
+  },
+  "levitate_tuff_pillar_7": {
+    "textures": "textures/blocks/palettes/tuff_pillar_7"
+  },
+  "levitate_tuff_cap_8": {
+    "textures": "textures/blocks/palettes/tuff_cap_8"
+  },
+  "levitate_tuff_pillar_8": {
+    "textures": "textures/blocks/palettes/tuff_pillar_8"
+  },
+  "levitate_tuff_cap_9": {
+    "textures": "textures/blocks/palettes/tuff_cap_9"
+  },
+  "levitate_tuff_pillar_9": {
+    "textures": "textures/blocks/palettes/tuff_pillar_9"
+  },
+  "levitate_tuff_cap_10": {
+    "textures": "textures/blocks/palettes/tuff_cap_10"
+  },
+  "levitate_tuff_pillar_10": {
+    "textures": "textures/blocks/palettes/tuff_pillar_10"
+  },
+  "levitate_tuff_cap_11": {
+    "textures": "textures/blocks/palettes/tuff_cap_11"
+  },
+  "levitate_tuff_pillar_11": {
+    "textures": "textures/blocks/palettes/tuff_pillar_11"
+  },
+  "levitate_tuff_cap_12": {
+    "textures": "textures/blocks/palettes/tuff_cap_12"
+  },
+  "levitate_tuff_pillar_12": {
+    "textures": "textures/blocks/palettes/tuff_pillar_12"
+  },
+  "levitate_tuff_cap_13": {
+    "textures": "textures/blocks/palettes/tuff_cap_13"
+  },
+  "levitate_tuff_pillar_13": {
+    "textures": "textures/blocks/palettes/tuff_pillar_13"
+  },
+  "levitate_tuff_cap_14": {
+    "textures": "textures/blocks/palettes/tuff_cap_14"
+  },
+  "levitate_tuff_pillar_14": {
+    "textures": "textures/blocks/palettes/tuff_pillar_14"
+  },
+  "levitate_tuff_cap_15": {
+    "textures": "textures/blocks/palettes/tuff_cap_15"
+  },
+  "levitate_tuff_pillar_15": {
+    "textures": "textures/blocks/palettes/tuff_pillar_15"
   },
   "levitate_asurine_cut": {
     "textures": "textures/blocks/palettes/asurine_cut"
@@ -239,14 +932,113 @@
   "levitate_asurine_small_brick": {
     "textures": "textures/blocks/palettes/asurine_small_brick"
   },
-  "levitate_asurine_layered": {
-    "textures": "textures/blocks/palettes/asurine_layered"
+  "levitate_asurine_layered_0": {
+    "textures": "textures/blocks/palettes/asurine_layered_0"
   },
-  "levitate_asurine_cap": {
-    "textures": "textures/blocks/palettes/asurine_cap"
+  "levitate_asurine_layered_2": {
+    "textures": "textures/blocks/palettes/asurine_layered_2"
   },
-  "levitate_asurine_pillar": {
-    "textures": "textures/blocks/palettes/asurine_pillar"
+  "levitate_asurine_layered_8": {
+    "textures": "textures/blocks/palettes/asurine_layered_8"
+  },
+  "levitate_asurine_layered_10": {
+    "textures": "textures/blocks/palettes/asurine_layered_10"
+  },
+  "levitate_asurine_cap_0": {
+    "textures": "textures/blocks/palettes/asurine_cap_0"
+  },
+  "levitate_asurine_pillar_0": {
+    "textures": "textures/blocks/palettes/asurine_pillar_0"
+  },
+  "levitate_asurine_cap_1": {
+    "textures": "textures/blocks/palettes/asurine_cap_1"
+  },
+  "levitate_asurine_pillar_1": {
+    "textures": "textures/blocks/palettes/asurine_pillar_1"
+  },
+  "levitate_asurine_cap_2": {
+    "textures": "textures/blocks/palettes/asurine_cap_2"
+  },
+  "levitate_asurine_pillar_2": {
+    "textures": "textures/blocks/palettes/asurine_pillar_2"
+  },
+  "levitate_asurine_cap_3": {
+    "textures": "textures/blocks/palettes/asurine_cap_3"
+  },
+  "levitate_asurine_pillar_3": {
+    "textures": "textures/blocks/palettes/asurine_pillar_3"
+  },
+  "levitate_asurine_cap_4": {
+    "textures": "textures/blocks/palettes/asurine_cap_4"
+  },
+  "levitate_asurine_pillar_4": {
+    "textures": "textures/blocks/palettes/asurine_pillar_4"
+  },
+  "levitate_asurine_cap_5": {
+    "textures": "textures/blocks/palettes/asurine_cap_5"
+  },
+  "levitate_asurine_pillar_5": {
+    "textures": "textures/blocks/palettes/asurine_pillar_5"
+  },
+  "levitate_asurine_cap_6": {
+    "textures": "textures/blocks/palettes/asurine_cap_6"
+  },
+  "levitate_asurine_pillar_6": {
+    "textures": "textures/blocks/palettes/asurine_pillar_6"
+  },
+  "levitate_asurine_cap_7": {
+    "textures": "textures/blocks/palettes/asurine_cap_7"
+  },
+  "levitate_asurine_pillar_7": {
+    "textures": "textures/blocks/palettes/asurine_pillar_7"
+  },
+  "levitate_asurine_cap_8": {
+    "textures": "textures/blocks/palettes/asurine_cap_8"
+  },
+  "levitate_asurine_pillar_8": {
+    "textures": "textures/blocks/palettes/asurine_pillar_8"
+  },
+  "levitate_asurine_cap_9": {
+    "textures": "textures/blocks/palettes/asurine_cap_9"
+  },
+  "levitate_asurine_pillar_9": {
+    "textures": "textures/blocks/palettes/asurine_pillar_9"
+  },
+  "levitate_asurine_cap_10": {
+    "textures": "textures/blocks/palettes/asurine_cap_10"
+  },
+  "levitate_asurine_pillar_10": {
+    "textures": "textures/blocks/palettes/asurine_pillar_10"
+  },
+  "levitate_asurine_cap_11": {
+    "textures": "textures/blocks/palettes/asurine_cap_11"
+  },
+  "levitate_asurine_pillar_11": {
+    "textures": "textures/blocks/palettes/asurine_pillar_11"
+  },
+  "levitate_asurine_cap_12": {
+    "textures": "textures/blocks/palettes/asurine_cap_12"
+  },
+  "levitate_asurine_pillar_12": {
+    "textures": "textures/blocks/palettes/asurine_pillar_12"
+  },
+  "levitate_asurine_cap_13": {
+    "textures": "textures/blocks/palettes/asurine_cap_13"
+  },
+  "levitate_asurine_pillar_13": {
+    "textures": "textures/blocks/palettes/asurine_pillar_13"
+  },
+  "levitate_asurine_cap_14": {
+    "textures": "textures/blocks/palettes/asurine_cap_14"
+  },
+  "levitate_asurine_pillar_14": {
+    "textures": "textures/blocks/palettes/asurine_pillar_14"
+  },
+  "levitate_asurine_cap_15": {
+    "textures": "textures/blocks/palettes/asurine_cap_15"
+  },
+  "levitate_asurine_pillar_15": {
+    "textures": "textures/blocks/palettes/asurine_pillar_15"
   },
   "levitate_asurine": {
     "textures": {
@@ -285,14 +1077,113 @@
   "levitate_crimsite_small_brick": {
     "textures": "textures/blocks/palettes/crimsite_small_brick"
   },
-  "levitate_crimsite_layered": {
-    "textures": "textures/blocks/palettes/crimsite_layered"
+  "levitate_crimsite_layered_0": {
+    "textures": "textures/blocks/palettes/crimsite_layered_0"
   },
-  "levitate_crimsite_cap": {
-    "textures": "textures/blocks/palettes/crimsite_cap"
+  "levitate_crimsite_layered_2": {
+    "textures": "textures/blocks/palettes/crimsite_layered_2"
   },
-  "levitate_crimsite_pillar": {
-    "textures": "textures/blocks/palettes/crimsite_pillar"
+  "levitate_crimsite_layered_8": {
+    "textures": "textures/blocks/palettes/crimsite_layered_8"
+  },
+  "levitate_crimsite_layered_10": {
+    "textures": "textures/blocks/palettes/crimsite_layered_10"
+  },
+  "levitate_crimsite_cap_0": {
+    "textures": "textures/blocks/palettes/crimsite_cap_0"
+  },
+  "levitate_crimsite_pillar_0": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_0"
+  },
+  "levitate_crimsite_cap_1": {
+    "textures": "textures/blocks/palettes/crimsite_cap_1"
+  },
+  "levitate_crimsite_pillar_1": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_1"
+  },
+  "levitate_crimsite_cap_2": {
+    "textures": "textures/blocks/palettes/crimsite_cap_2"
+  },
+  "levitate_crimsite_pillar_2": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_2"
+  },
+  "levitate_crimsite_cap_3": {
+    "textures": "textures/blocks/palettes/crimsite_cap_3"
+  },
+  "levitate_crimsite_pillar_3": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_3"
+  },
+  "levitate_crimsite_cap_4": {
+    "textures": "textures/blocks/palettes/crimsite_cap_4"
+  },
+  "levitate_crimsite_pillar_4": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_4"
+  },
+  "levitate_crimsite_cap_5": {
+    "textures": "textures/blocks/palettes/crimsite_cap_5"
+  },
+  "levitate_crimsite_pillar_5": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_5"
+  },
+  "levitate_crimsite_cap_6": {
+    "textures": "textures/blocks/palettes/crimsite_cap_6"
+  },
+  "levitate_crimsite_pillar_6": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_6"
+  },
+  "levitate_crimsite_cap_7": {
+    "textures": "textures/blocks/palettes/crimsite_cap_7"
+  },
+  "levitate_crimsite_pillar_7": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_7"
+  },
+  "levitate_crimsite_cap_8": {
+    "textures": "textures/blocks/palettes/crimsite_cap_8"
+  },
+  "levitate_crimsite_pillar_8": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_8"
+  },
+  "levitate_crimsite_cap_9": {
+    "textures": "textures/blocks/palettes/crimsite_cap_9"
+  },
+  "levitate_crimsite_pillar_9": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_9"
+  },
+  "levitate_crimsite_cap_10": {
+    "textures": "textures/blocks/palettes/crimsite_cap_10"
+  },
+  "levitate_crimsite_pillar_10": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_10"
+  },
+  "levitate_crimsite_cap_11": {
+    "textures": "textures/blocks/palettes/crimsite_cap_11"
+  },
+  "levitate_crimsite_pillar_11": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_11"
+  },
+  "levitate_crimsite_cap_12": {
+    "textures": "textures/blocks/palettes/crimsite_cap_12"
+  },
+  "levitate_crimsite_pillar_12": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_12"
+  },
+  "levitate_crimsite_cap_13": {
+    "textures": "textures/blocks/palettes/crimsite_cap_13"
+  },
+  "levitate_crimsite_pillar_13": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_13"
+  },
+  "levitate_crimsite_cap_14": {
+    "textures": "textures/blocks/palettes/crimsite_cap_14"
+  },
+  "levitate_crimsite_pillar_14": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_14"
+  },
+  "levitate_crimsite_cap_15": {
+    "textures": "textures/blocks/palettes/crimsite_cap_15"
+  },
+  "levitate_crimsite_pillar_15": {
+    "textures": "textures/blocks/palettes/crimsite_pillar_15"
   },
   "levitate_crimsite": {
     "textures": {
@@ -331,14 +1222,113 @@
   "levitate_limestone_small_brick": {
     "textures": "textures/blocks/palettes/limestone_small_brick"
   },
-  "levitate_limestone_layered": {
-    "textures": "textures/blocks/palettes/limestone_layered"
+  "levitate_limestone_layered_0": {
+    "textures": "textures/blocks/palettes/limestone_layered_0"
   },
-  "levitate_limestone_cap": {
-    "textures": "textures/blocks/palettes/limestone_cap"
+  "levitate_limestone_layered_2": {
+    "textures": "textures/blocks/palettes/limestone_layered_2"
   },
-  "levitate_limestone_pillar": {
-    "textures": "textures/blocks/palettes/limestone_pillar"
+  "levitate_limestone_layered_8": {
+    "textures": "textures/blocks/palettes/limestone_layered_8"
+  },
+  "levitate_limestone_layered_10": {
+    "textures": "textures/blocks/palettes/limestone_layered_10"
+  },
+  "levitate_limestone_cap_0": {
+    "textures": "textures/blocks/palettes/limestone_cap_0"
+  },
+  "levitate_limestone_pillar_0": {
+    "textures": "textures/blocks/palettes/limestone_pillar_0"
+  },
+  "levitate_limestone_cap_1": {
+    "textures": "textures/blocks/palettes/limestone_cap_1"
+  },
+  "levitate_limestone_pillar_1": {
+    "textures": "textures/blocks/palettes/limestone_pillar_1"
+  },
+  "levitate_limestone_cap_2": {
+    "textures": "textures/blocks/palettes/limestone_cap_2"
+  },
+  "levitate_limestone_pillar_2": {
+    "textures": "textures/blocks/palettes/limestone_pillar_2"
+  },
+  "levitate_limestone_cap_3": {
+    "textures": "textures/blocks/palettes/limestone_cap_3"
+  },
+  "levitate_limestone_pillar_3": {
+    "textures": "textures/blocks/palettes/limestone_pillar_3"
+  },
+  "levitate_limestone_cap_4": {
+    "textures": "textures/blocks/palettes/limestone_cap_4"
+  },
+  "levitate_limestone_pillar_4": {
+    "textures": "textures/blocks/palettes/limestone_pillar_4"
+  },
+  "levitate_limestone_cap_5": {
+    "textures": "textures/blocks/palettes/limestone_cap_5"
+  },
+  "levitate_limestone_pillar_5": {
+    "textures": "textures/blocks/palettes/limestone_pillar_5"
+  },
+  "levitate_limestone_cap_6": {
+    "textures": "textures/blocks/palettes/limestone_cap_6"
+  },
+  "levitate_limestone_pillar_6": {
+    "textures": "textures/blocks/palettes/limestone_pillar_6"
+  },
+  "levitate_limestone_cap_7": {
+    "textures": "textures/blocks/palettes/limestone_cap_7"
+  },
+  "levitate_limestone_pillar_7": {
+    "textures": "textures/blocks/palettes/limestone_pillar_7"
+  },
+  "levitate_limestone_cap_8": {
+    "textures": "textures/blocks/palettes/limestone_cap_8"
+  },
+  "levitate_limestone_pillar_8": {
+    "textures": "textures/blocks/palettes/limestone_pillar_8"
+  },
+  "levitate_limestone_cap_9": {
+    "textures": "textures/blocks/palettes/limestone_cap_9"
+  },
+  "levitate_limestone_pillar_9": {
+    "textures": "textures/blocks/palettes/limestone_pillar_9"
+  },
+  "levitate_limestone_cap_10": {
+    "textures": "textures/blocks/palettes/limestone_cap_10"
+  },
+  "levitate_limestone_pillar_10": {
+    "textures": "textures/blocks/palettes/limestone_pillar_10"
+  },
+  "levitate_limestone_cap_11": {
+    "textures": "textures/blocks/palettes/limestone_cap_11"
+  },
+  "levitate_limestone_pillar_11": {
+    "textures": "textures/blocks/palettes/limestone_pillar_11"
+  },
+  "levitate_limestone_cap_12": {
+    "textures": "textures/blocks/palettes/limestone_cap_12"
+  },
+  "levitate_limestone_pillar_12": {
+    "textures": "textures/blocks/palettes/limestone_pillar_12"
+  },
+  "levitate_limestone_cap_13": {
+    "textures": "textures/blocks/palettes/limestone_cap_13"
+  },
+  "levitate_limestone_pillar_13": {
+    "textures": "textures/blocks/palettes/limestone_pillar_13"
+  },
+  "levitate_limestone_cap_14": {
+    "textures": "textures/blocks/palettes/limestone_cap_14"
+  },
+  "levitate_limestone_pillar_14": {
+    "textures": "textures/blocks/palettes/limestone_pillar_14"
+  },
+  "levitate_limestone_cap_15": {
+    "textures": "textures/blocks/palettes/limestone_cap_15"
+  },
+  "levitate_limestone_pillar_15": {
+    "textures": "textures/blocks/palettes/limestone_pillar_15"
   },
   "levitate_limestone": {
     "textures": "textures/blocks/palettes/limestone"
@@ -358,14 +1348,113 @@
   "levitate_ochrum_small_brick": {
     "textures": "textures/blocks/palettes/ochrum_small_brick"
   },
-  "levitate_ochrum_layered": {
-    "textures": "textures/blocks/palettes/ochrum_layered"
+  "levitate_ochrum_layered_0": {
+    "textures": "textures/blocks/palettes/ochrum_layered_0"
   },
-  "levitate_ochrum_cap": {
-    "textures": "textures/blocks/palettes/ochrum_cap"
+  "levitate_ochrum_layered_2": {
+    "textures": "textures/blocks/palettes/ochrum_layered_2"
   },
-  "levitate_ochrum_pillar": {
-    "textures": "textures/blocks/palettes/ochrum_pillar"
+  "levitate_ochrum_layered_8": {
+    "textures": "textures/blocks/palettes/ochrum_layered_8"
+  },
+  "levitate_ochrum_layered_10": {
+    "textures": "textures/blocks/palettes/ochrum_layered_10"
+  },
+  "levitate_ochrum_cap_0": {
+    "textures": "textures/blocks/palettes/ochrum_cap_0"
+  },
+  "levitate_ochrum_pillar_0": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_0"
+  },
+  "levitate_ochrum_cap_1": {
+    "textures": "textures/blocks/palettes/ochrum_cap_1"
+  },
+  "levitate_ochrum_pillar_1": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_1"
+  },
+  "levitate_ochrum_cap_2": {
+    "textures": "textures/blocks/palettes/ochrum_cap_2"
+  },
+  "levitate_ochrum_pillar_2": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_2"
+  },
+  "levitate_ochrum_cap_3": {
+    "textures": "textures/blocks/palettes/ochrum_cap_3"
+  },
+  "levitate_ochrum_pillar_3": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_3"
+  },
+  "levitate_ochrum_cap_4": {
+    "textures": "textures/blocks/palettes/ochrum_cap_4"
+  },
+  "levitate_ochrum_pillar_4": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_4"
+  },
+  "levitate_ochrum_cap_5": {
+    "textures": "textures/blocks/palettes/ochrum_cap_5"
+  },
+  "levitate_ochrum_pillar_5": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_5"
+  },
+  "levitate_ochrum_cap_6": {
+    "textures": "textures/blocks/palettes/ochrum_cap_6"
+  },
+  "levitate_ochrum_pillar_6": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_6"
+  },
+  "levitate_ochrum_cap_7": {
+    "textures": "textures/blocks/palettes/ochrum_cap_7"
+  },
+  "levitate_ochrum_pillar_7": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_7"
+  },
+  "levitate_ochrum_cap_8": {
+    "textures": "textures/blocks/palettes/ochrum_cap_8"
+  },
+  "levitate_ochrum_pillar_8": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_8"
+  },
+  "levitate_ochrum_cap_9": {
+    "textures": "textures/blocks/palettes/ochrum_cap_9"
+  },
+  "levitate_ochrum_pillar_9": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_9"
+  },
+  "levitate_ochrum_cap_10": {
+    "textures": "textures/blocks/palettes/ochrum_cap_10"
+  },
+  "levitate_ochrum_pillar_10": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_10"
+  },
+  "levitate_ochrum_cap_11": {
+    "textures": "textures/blocks/palettes/ochrum_cap_11"
+  },
+  "levitate_ochrum_pillar_11": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_11"
+  },
+  "levitate_ochrum_cap_12": {
+    "textures": "textures/blocks/palettes/ochrum_cap_12"
+  },
+  "levitate_ochrum_pillar_12": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_12"
+  },
+  "levitate_ochrum_cap_13": {
+    "textures": "textures/blocks/palettes/ochrum_cap_13"
+  },
+  "levitate_ochrum_pillar_13": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_13"
+  },
+  "levitate_ochrum_cap_14": {
+    "textures": "textures/blocks/palettes/ochrum_cap_14"
+  },
+  "levitate_ochrum_pillar_14": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_14"
+  },
+  "levitate_ochrum_cap_15": {
+    "textures": "textures/blocks/palettes/ochrum_cap_15"
+  },
+  "levitate_ochrum_pillar_15": {
+    "textures": "textures/blocks/palettes/ochrum_pillar_15"
   },
   "levitate_ochrum": {
     "textures": {
@@ -404,14 +1493,113 @@
   "levitate_scoria_small_brick": {
     "textures": "textures/blocks/palettes/scoria_small_brick"
   },
-  "levitate_scoria_layered": {
-    "textures": "textures/blocks/palettes/scoria_layered"
+  "levitate_scoria_layered_0": {
+    "textures": "textures/blocks/palettes/scoria_layered_0"
   },
-  "levitate_scoria_cap": {
-    "textures": "textures/blocks/palettes/scoria_cap"
+  "levitate_scoria_layered_2": {
+    "textures": "textures/blocks/palettes/scoria_layered_2"
   },
-  "levitate_scoria_pillar": {
-    "textures": "textures/blocks/palettes/scoria_pillar"
+  "levitate_scoria_layered_8": {
+    "textures": "textures/blocks/palettes/scoria_layered_8"
+  },
+  "levitate_scoria_layered_10": {
+    "textures": "textures/blocks/palettes/scoria_layered_10"
+  },
+  "levitate_scoria_cap_0": {
+    "textures": "textures/blocks/palettes/scoria_cap_0"
+  },
+  "levitate_scoria_pillar_0": {
+    "textures": "textures/blocks/palettes/scoria_pillar_0"
+  },
+  "levitate_scoria_cap_1": {
+    "textures": "textures/blocks/palettes/scoria_cap_1"
+  },
+  "levitate_scoria_pillar_1": {
+    "textures": "textures/blocks/palettes/scoria_pillar_1"
+  },
+  "levitate_scoria_cap_2": {
+    "textures": "textures/blocks/palettes/scoria_cap_2"
+  },
+  "levitate_scoria_pillar_2": {
+    "textures": "textures/blocks/palettes/scoria_pillar_2"
+  },
+  "levitate_scoria_cap_3": {
+    "textures": "textures/blocks/palettes/scoria_cap_3"
+  },
+  "levitate_scoria_pillar_3": {
+    "textures": "textures/blocks/palettes/scoria_pillar_3"
+  },
+  "levitate_scoria_cap_4": {
+    "textures": "textures/blocks/palettes/scoria_cap_4"
+  },
+  "levitate_scoria_pillar_4": {
+    "textures": "textures/blocks/palettes/scoria_pillar_4"
+  },
+  "levitate_scoria_cap_5": {
+    "textures": "textures/blocks/palettes/scoria_cap_5"
+  },
+  "levitate_scoria_pillar_5": {
+    "textures": "textures/blocks/palettes/scoria_pillar_5"
+  },
+  "levitate_scoria_cap_6": {
+    "textures": "textures/blocks/palettes/scoria_cap_6"
+  },
+  "levitate_scoria_pillar_6": {
+    "textures": "textures/blocks/palettes/scoria_pillar_6"
+  },
+  "levitate_scoria_cap_7": {
+    "textures": "textures/blocks/palettes/scoria_cap_7"
+  },
+  "levitate_scoria_pillar_7": {
+    "textures": "textures/blocks/palettes/scoria_pillar_7"
+  },
+  "levitate_scoria_cap_8": {
+    "textures": "textures/blocks/palettes/scoria_cap_8"
+  },
+  "levitate_scoria_pillar_8": {
+    "textures": "textures/blocks/palettes/scoria_pillar_8"
+  },
+  "levitate_scoria_cap_9": {
+    "textures": "textures/blocks/palettes/scoria_cap_9"
+  },
+  "levitate_scoria_pillar_9": {
+    "textures": "textures/blocks/palettes/scoria_pillar_9"
+  },
+  "levitate_scoria_cap_10": {
+    "textures": "textures/blocks/palettes/scoria_cap_10"
+  },
+  "levitate_scoria_pillar_10": {
+    "textures": "textures/blocks/palettes/scoria_pillar_10"
+  },
+  "levitate_scoria_cap_11": {
+    "textures": "textures/blocks/palettes/scoria_cap_11"
+  },
+  "levitate_scoria_pillar_11": {
+    "textures": "textures/blocks/palettes/scoria_pillar_11"
+  },
+  "levitate_scoria_cap_12": {
+    "textures": "textures/blocks/palettes/scoria_cap_12"
+  },
+  "levitate_scoria_pillar_12": {
+    "textures": "textures/blocks/palettes/scoria_pillar_12"
+  },
+  "levitate_scoria_cap_13": {
+    "textures": "textures/blocks/palettes/scoria_cap_13"
+  },
+  "levitate_scoria_pillar_13": {
+    "textures": "textures/blocks/palettes/scoria_pillar_13"
+  },
+  "levitate_scoria_cap_14": {
+    "textures": "textures/blocks/palettes/scoria_cap_14"
+  },
+  "levitate_scoria_pillar_14": {
+    "textures": "textures/blocks/palettes/scoria_pillar_14"
+  },
+  "levitate_scoria_cap_15": {
+    "textures": "textures/blocks/palettes/scoria_cap_15"
+  },
+  "levitate_scoria_pillar_15": {
+    "textures": "textures/blocks/palettes/scoria_pillar_15"
   },
   "levitate_scoria": {
     "textures": "textures/blocks/palettes/scoria"
@@ -431,14 +1619,113 @@
   "levitate_scorchia_small_brick": {
     "textures": "textures/blocks/palettes/scorchia_small_brick"
   },
-  "levitate_scorchia_layered": {
-    "textures": "textures/blocks/palettes/scorchia_layered"
+  "levitate_scorchia_layered_0": {
+    "textures": "textures/blocks/palettes/scorchia_layered_0"
   },
-  "levitate_scorchia_cap": {
-    "textures": "textures/blocks/palettes/scorchia_cap"
+  "levitate_scorchia_layered_2": {
+    "textures": "textures/blocks/palettes/scorchia_layered_2"
   },
-  "levitate_scorchia_pillar": {
-    "textures": "textures/blocks/palettes/scorchia_pillar"
+  "levitate_scorchia_layered_8": {
+    "textures": "textures/blocks/palettes/scorchia_layered_8"
+  },
+  "levitate_scorchia_layered_10": {
+    "textures": "textures/blocks/palettes/scorchia_layered_10"
+  },
+  "levitate_scorchia_cap_0": {
+    "textures": "textures/blocks/palettes/scorchia_cap_0"
+  },
+  "levitate_scorchia_pillar_0": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_0"
+  },
+  "levitate_scorchia_cap_1": {
+    "textures": "textures/blocks/palettes/scorchia_cap_1"
+  },
+  "levitate_scorchia_pillar_1": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_1"
+  },
+  "levitate_scorchia_cap_2": {
+    "textures": "textures/blocks/palettes/scorchia_cap_2"
+  },
+  "levitate_scorchia_pillar_2": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_2"
+  },
+  "levitate_scorchia_cap_3": {
+    "textures": "textures/blocks/palettes/scorchia_cap_3"
+  },
+  "levitate_scorchia_pillar_3": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_3"
+  },
+  "levitate_scorchia_cap_4": {
+    "textures": "textures/blocks/palettes/scorchia_cap_4"
+  },
+  "levitate_scorchia_pillar_4": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_4"
+  },
+  "levitate_scorchia_cap_5": {
+    "textures": "textures/blocks/palettes/scorchia_cap_5"
+  },
+  "levitate_scorchia_pillar_5": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_5"
+  },
+  "levitate_scorchia_cap_6": {
+    "textures": "textures/blocks/palettes/scorchia_cap_6"
+  },
+  "levitate_scorchia_pillar_6": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_6"
+  },
+  "levitate_scorchia_cap_7": {
+    "textures": "textures/blocks/palettes/scorchia_cap_7"
+  },
+  "levitate_scorchia_pillar_7": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_7"
+  },
+  "levitate_scorchia_cap_8": {
+    "textures": "textures/blocks/palettes/scorchia_cap_8"
+  },
+  "levitate_scorchia_pillar_8": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_8"
+  },
+  "levitate_scorchia_cap_9": {
+    "textures": "textures/blocks/palettes/scorchia_cap_9"
+  },
+  "levitate_scorchia_pillar_9": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_9"
+  },
+  "levitate_scorchia_cap_10": {
+    "textures": "textures/blocks/palettes/scorchia_cap_10"
+  },
+  "levitate_scorchia_pillar_10": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_10"
+  },
+  "levitate_scorchia_cap_11": {
+    "textures": "textures/blocks/palettes/scorchia_cap_11"
+  },
+  "levitate_scorchia_pillar_11": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_11"
+  },
+  "levitate_scorchia_cap_12": {
+    "textures": "textures/blocks/palettes/scorchia_cap_12"
+  },
+  "levitate_scorchia_pillar_12": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_12"
+  },
+  "levitate_scorchia_cap_13": {
+    "textures": "textures/blocks/palettes/scorchia_cap_13"
+  },
+  "levitate_scorchia_pillar_13": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_13"
+  },
+  "levitate_scorchia_cap_14": {
+    "textures": "textures/blocks/palettes/scorchia_cap_14"
+  },
+  "levitate_scorchia_pillar_14": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_14"
+  },
+  "levitate_scorchia_cap_15": {
+    "textures": "textures/blocks/palettes/scorchia_cap_15"
+  },
+  "levitate_scorchia_pillar_15": {
+    "textures": "textures/blocks/palettes/scorchia_pillar_15"
   },
   "levitate_scorchia": {
     "textures": "textures/blocks/palettes/scorchia"
@@ -458,14 +1745,113 @@
   "levitate_veridium_small_brick": {
     "textures": "textures/blocks/palettes/veridium_small_brick"
   },
-  "levitate_veridium_layered": {
-    "textures": "textures/blocks/palettes/veridium_layered"
+  "levitate_veridium_layered_0": {
+    "textures": "textures/blocks/palettes/veridium_layered_0"
   },
-  "levitate_veridium_cap": {
-    "textures": "textures/blocks/palettes/veridium_cap"
+  "levitate_veridium_layered_2": {
+    "textures": "textures/blocks/palettes/veridium_layered_2"
   },
-  "levitate_veridium_pillar": {
-    "textures": "textures/blocks/palettes/veridium_pillar"
+  "levitate_veridium_layered_8": {
+    "textures": "textures/blocks/palettes/veridium_layered_8"
+  },
+  "levitate_veridium_layered_10": {
+    "textures": "textures/blocks/palettes/veridium_layered_10"
+  },
+  "levitate_veridium_cap_0": {
+    "textures": "textures/blocks/palettes/veridium_cap_0"
+  },
+  "levitate_veridium_pillar_0": {
+    "textures": "textures/blocks/palettes/veridium_pillar_0"
+  },
+  "levitate_veridium_cap_1": {
+    "textures": "textures/blocks/palettes/veridium_cap_1"
+  },
+  "levitate_veridium_pillar_1": {
+    "textures": "textures/blocks/palettes/veridium_pillar_1"
+  },
+  "levitate_veridium_cap_2": {
+    "textures": "textures/blocks/palettes/veridium_cap_2"
+  },
+  "levitate_veridium_pillar_2": {
+    "textures": "textures/blocks/palettes/veridium_pillar_2"
+  },
+  "levitate_veridium_cap_3": {
+    "textures": "textures/blocks/palettes/veridium_cap_3"
+  },
+  "levitate_veridium_pillar_3": {
+    "textures": "textures/blocks/palettes/veridium_pillar_3"
+  },
+  "levitate_veridium_cap_4": {
+    "textures": "textures/blocks/palettes/veridium_cap_4"
+  },
+  "levitate_veridium_pillar_4": {
+    "textures": "textures/blocks/palettes/veridium_pillar_4"
+  },
+  "levitate_veridium_cap_5": {
+    "textures": "textures/blocks/palettes/veridium_cap_5"
+  },
+  "levitate_veridium_pillar_5": {
+    "textures": "textures/blocks/palettes/veridium_pillar_5"
+  },
+  "levitate_veridium_cap_6": {
+    "textures": "textures/blocks/palettes/veridium_cap_6"
+  },
+  "levitate_veridium_pillar_6": {
+    "textures": "textures/blocks/palettes/veridium_pillar_6"
+  },
+  "levitate_veridium_cap_7": {
+    "textures": "textures/blocks/palettes/veridium_cap_7"
+  },
+  "levitate_veridium_pillar_7": {
+    "textures": "textures/blocks/palettes/veridium_pillar_7"
+  },
+  "levitate_veridium_cap_8": {
+    "textures": "textures/blocks/palettes/veridium_cap_8"
+  },
+  "levitate_veridium_pillar_8": {
+    "textures": "textures/blocks/palettes/veridium_pillar_8"
+  },
+  "levitate_veridium_cap_9": {
+    "textures": "textures/blocks/palettes/veridium_cap_9"
+  },
+  "levitate_veridium_pillar_9": {
+    "textures": "textures/blocks/palettes/veridium_pillar_9"
+  },
+  "levitate_veridium_cap_10": {
+    "textures": "textures/blocks/palettes/veridium_cap_10"
+  },
+  "levitate_veridium_pillar_10": {
+    "textures": "textures/blocks/palettes/veridium_pillar_10"
+  },
+  "levitate_veridium_cap_11": {
+    "textures": "textures/blocks/palettes/veridium_cap_11"
+  },
+  "levitate_veridium_pillar_11": {
+    "textures": "textures/blocks/palettes/veridium_pillar_11"
+  },
+  "levitate_veridium_cap_12": {
+    "textures": "textures/blocks/palettes/veridium_cap_12"
+  },
+  "levitate_veridium_pillar_12": {
+    "textures": "textures/blocks/palettes/veridium_pillar_12"
+  },
+  "levitate_veridium_cap_13": {
+    "textures": "textures/blocks/palettes/veridium_cap_13"
+  },
+  "levitate_veridium_pillar_13": {
+    "textures": "textures/blocks/palettes/veridium_pillar_13"
+  },
+  "levitate_veridium_cap_14": {
+    "textures": "textures/blocks/palettes/veridium_cap_14"
+  },
+  "levitate_veridium_pillar_14": {
+    "textures": "textures/blocks/palettes/veridium_pillar_14"
+  },
+  "levitate_veridium_cap_15": {
+    "textures": "textures/blocks/palettes/veridium_cap_15"
+  },
+  "levitate_veridium_pillar_15": {
+    "textures": "textures/blocks/palettes/veridium_pillar_15"
   },
   "levitate_veridium": {
     "textures": {

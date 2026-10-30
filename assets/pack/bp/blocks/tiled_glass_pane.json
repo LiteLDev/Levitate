@@ -78,7 +78,7 @@
     },
     "permutations": [
       {
-        "condition": "q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1",
+        "condition": "(q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1)",
         "components": {
           "minecraft:selection_box": {
             "origin": [

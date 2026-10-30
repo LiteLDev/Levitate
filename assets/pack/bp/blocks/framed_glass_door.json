@@ -30,6 +30,10 @@
         "levitate:powered": [
           0,
           1
+        ],
+        "levitate:closing": [
+          0,
+          1
         ]
       }
     },

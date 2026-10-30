@@ -16,6 +16,7 @@
       },
       "minecraft:map_color": "#4c4c4c",
       "minecraft:loot": "loot_tables/blocks/industrial_iron_block.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
         "down": {
