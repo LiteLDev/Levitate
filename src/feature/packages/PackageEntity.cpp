@@ -298,7 +298,7 @@ void tickEntity(std::int64_t id, Tracked& t) {
 /// Item entities other units show things with (belt / depot displays, potato cannon shots: pickup
 /// delay 32767, Java's mark of an item entity that is not a real drop; tagged ones) stay items.
 bool isDisplayItem(Actor& a) {
-    return static_cast<ItemActor&>(a).mPickupDelay >= 0x7fff || a.hasTags();
+    return static_cast<ItemActor&>(a).mPickupDelay > 1000 || a.hasTags(); // the game counts it down every tick
 }
 
 void convertItem(std::int64_t itemId, int cooldown) {

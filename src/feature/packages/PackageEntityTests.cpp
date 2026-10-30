@@ -232,6 +232,8 @@ LV_REGISTER_SELFTEST("packages.entity_from_dropped_item", [](Context& ctx) -> ll
     ctx.require(shown != nullptr, "display item spawned");
     shown->mPickupDelay = 0x7fff;
     co_await ctx.ticks(3);
+    ctx.info("display item: " + std::to_string(droppedItems(pos, items::idOf(box).c_str())) + " item(s), "
+             + std::to_string(packageEntities(pos).size()) + " package entities");
     ctx.check(droppedItems(pos, items::idOf(box).c_str()) == 1 && packageEntities(pos).empty(), "a display item entity is not converted");
     clearAround(pos);
 });
