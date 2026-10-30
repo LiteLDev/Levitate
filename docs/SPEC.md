@@ -1705,7 +1705,8 @@ counts a timer down by `clamp((int) |RPM / 16|, 1, 512)` per tick: the recipe's 
 (100 without a recipe), then mills one input item (rolled results, stacked into the outputs; what
 doesn't fit is lost, as Create); it pauses while an output slot holds 64. Right-click with an empty
 hand takes all outputs into the inventory (the inputs when there are no outputs). The capability
-extracts only from the outputs. Item crack particles of the input while milling.
+extracts only from the outputs. Item crack particles of the input while milling. While it holds an
+input it plays Create's MILLING soundscape (below).
 
 **Crushing wheels** (impact 8 SU/RPM, pillar with shaft ends along its axis): two wheels with the
 same axis two blocks apart get a `crushing_wheel_controller` between them (when the block is
@@ -1713,17 +1714,23 @@ replaceable); it is valid when both turn and their speeds have opposite signs, f
 `nearest(axis × side · sign(speed) · step(side))` (Create's updateControllers) — the way items move
 through the pair. Checked on placement, on speed changes and every 20 ticks; a removed wheel takes
 its controllers with it. A wheel can't stand next to a controller on a non-axis side or next to a
-wheel that isn't stacked along their common axis (it pops). Crushing speed = |wheel RPM| / 50.
+wheel that isn't stacked along their common axis: a player can't place it there (Create's
+canSurvive, checked before the placement; other placements pop it). Crushing speed = |wheel RPM| / 50.
 Controller (valid and turning): the first entity entering it is taken (not creative / spectator
 players, no players on peaceful, not items it ejected itself); items are pulled through and taken in
-once 0.25 past the centre; the inventory (32 slots) counts `processing_time` (crushing recipe, else
+once 0.25 past the centre; the controller has no collision for the entity it crushes (it falls
+through) nor, unless it faces up, for the items it ejected (they land on it); the inventory (32 slots) counts `processing_time` (crushing recipe, else
 milling, else 100) down by `clamp(4 · crushingSpeed / log2(count), 0.25, 20)` per tick (20 for one
 item), applies the recipe once per item below 20 (no recipe: the items are destroyed, as Create)
 and at 0 outputs: into the Levitate block below / in front when it has an item handler (Create's
 DirectBeltInputBehaviour: belts, depots, chutes, ...), else as item entities 0.55 past the centre
 with Create's out-speed (0.25 sideways, 0.5 up, 0 down). Other entities get `crushingDamage` (4) per
-hit (Bedrock's hurt cooldown applies) and are moved out below the wheels before a lethal hit; their
-drops keep no motion. Item capability: insert a whole stack into an empty, unoccupied controller.
+hit (Bedrock's hurt cooldown applies; Create's `create.crush` death message, "%1$s was processed by
+Crushing Wheels") and are moved out below the wheels before a lethal hit; their drops roll with
+looting II (Create's crushingIsFortunate) and keep no motion. Item capability (and the belts unit's
+direct input, Create's DirectBeltInputBehaviour: items travelling the way the wheels pull, any way
+when they pull down): insert a whole stack into an empty, unoccupied controller. While something is
+inside it plays Create's CRUSHING soundscape.
 
 **Encased fan** (impact 2 SU/RPM, shaft at the back, `facing` = the side the air leaves through).
 Placement (Create's getStateForPlacement): against a chute it faces the chute's way; else the side
@@ -1733,8 +1740,9 @@ away (sneaking: towards). Air current, rebuilt on speed changes, neighbour chang
 - pushing when the speed converted to the facing's direction (negated for down/north/west) is
   positive, else pulling; reach `lerp(min(|RPM| / fanRotationArgmax, 1), 3, fanPushDistance |
   fanPullDistance)` (256, 20, 20);
-- the reach stops at the first full collision box, unloaded chunk or partial block that covers the
-  5 test points (then `i + depth + 1/32`); air, liquids, non-colliding blocks and
+- the reach stops at the first full collision box, unloaded chunk or partial block whose collision
+  boxes (all of them: stairs, walls, ...) cover the 5 test points (then `i + depth + 1/32`, the depth
+  from the boxes at each test point); air, liquids, non-colliding blocks and
   `#create:fan_transparent` (iron bars, copper grates, mangrove roots, fences, leaves, campfires,
   blaze burners, sail frames, metal bars, copycat base) let it through;
 - processing types (a catalyst changes the air from there on in the flow direction; priority
@@ -1748,14 +1756,19 @@ away (sneaking: towards). Air current, rebuilt on speed changes, neighbour chang
   the fan's centre / reach)`, and no fall damage;
 - items in processing air: after `fanProcessingTime · ((count − 1) / 16 + 1) + 1` ticks (150) the
   stack becomes the outputs (the first stays in place with the same motion and is not processed
-  again by that air; the rest spawn next to it): splashing / haunting = their recipes rolled per
+  again by that air; the rest spawn next to it); the processing state (type, time) is kept on the
+  item entity (tag `lv_fan:<type>:<time>`, Create's persistent data), so it survives saving: splashing / haunting = their recipes rolled per
   item; smoking = the smoker recipe × count; blasting = the furnace (else blast furnace) recipe ×
   count unless the smoker gives the same item (food burns up); anything else that isn't fire
   resistant burns up in blasting air;
 - other entities: splashing hurts endermen, snow golems and blazes (2, drowning) and puts out fire;
-  smoking sets on fire 2 s and hurts 2; blasting sets on fire 10 s and hurts 4 (not fire immune);
-  haunting gives blindness (30 ticks) and slowness II (20 ticks), and turns a horse into a skeleton
-  horse after 100 ticks;
+  smoking sets on fire 2 s and hurts 2 (`create.fan_fire`); blasting sets on fire 10 s and hurts 4
+  (`create.fan_lava`; not fire immune); haunting gives blindness (30 ticks) and slowness II (20
+  ticks), and turns a horse into a skeleton horse after 100 ticks that keeps its name, health / speed
+  / jump attributes, taming, owner and saddle (its armour drops);
+- a player in a current hears wind (Create's air current sound): Levitate's own sample
+  (`levitate.fan_wind`, `tools/sounds/bulk.ps1`) every 10 ticks, volume `clamp(|RPM| / 128 · .4,
+  .01, .4)`, pitch `clamp(|motion| · .5, .5, 2)`;
 - items on `levitate:belt`, `levitate:depot` and `levitate:weighted_ejector` in the current (or one
   below a horizontal one) are processed the same way through their item capability;
 - airflow particles (`levitate:fan_airflow`, density `fanParticleDensity` 0.5 per tick) flow along the
@@ -1764,12 +1777,20 @@ away (sneaking: towards). Air current, rebuilt on speed changes, neighbour chang
 Other units use `feature/common/BulkExt.h` (`airflow::sourceAt`, `typeAt`, `canProcess`, `process`,
 `processingTime`), e.g. chutes for fans blowing up into them.
 
-**Nozzle**: placed on the clicked face; survives only in front of a fan facing the same way (else it
-pops). Range = the fan's reach (0 when stopped), pushing like the fan. Every 5 ticks it collects
+**Nozzle**: placed on the clicked face; survives only in front of a fan facing the same way (a player
+can't place it elsewhere; other placements pop). Range = the fan's reach (0 when stopped), pushing like the fan. Every 5 ticks it collects
 entities within the range it can see; each tick it pushes them `normalize(diff) · (range −
 distance) · (1/32, items 1/128)` away (pulling: towards it, except closer than 1.5); sneaking and
-creative-flying entities are left alone; poof particles around it. The nozzle blocks the fan's own
-current (its shape stops it at once).
+creative-flying entities are left alone; poof particles around it. A pulling nozzle holding more than
+256 entities explodes (power 2, no block damage) and the entities are gone. The nozzle blocks the
+fan's own current (its shape stops it at once).
+
+**Soundscapes** (Create's SoundScapes MILLING / CRUSHING, sent by the server to every player within
+16 blocks): sources are grouped per player by type and pitch group (pitch `clamp(|RPM| / 256 + .45,
+.85, 1)`), volume `clamp(count / 150, .025, .1) · lerp(distance / 16, 2, 0)` (Create's ambient
+volume cap .1), played one block from the player towards their mean position: netherrack hit
+(×1.545, pitch .75) every tick, gravel place (×.425, pitch .75) every 2 ticks, and for crushing
+netherite break (×2, pitch 1.75) every 2 ticks.
 
 **Client**: rotating parts through the kinetic renderer (millstone stone; crushing wheel; fan shaft
 at the network speed and propeller at 5×); every block has a static model for vanilla clients.
@@ -1798,10 +1819,14 @@ heat ordinal − 1 (at least 0).
   drains the first fluid. A bucket never pours next to the basin. Wrench: Create's onWrenched
   (preferred / disabled spout sides). The filter slot (`filter`, on every side 12 px up, U3's
   filter slot) filters recipes by their first output (a fluid output for fluid-only recipes).
-- Item entities that fall on / into the basin are taken into the inputs (every tick by default,
-  `basinIntakeInterval`).
+- Collision: Create's basin shape (a 12 px foot and 2 px walls, hollow above 2 px: entities can stand
+  in it). Item entities falling into the basin are taken into the inputs (every tick by default,
+  `basinIntakeInterval`; up to half a block above the rim, since Bedrock pushes an item entity out of
+  the basin's cell). Belt ends, saws, chutes, ... hand items in through the belts unit's direct
+  input (Create's DirectBeltInputBehaviour).
 - Spout (Create's updateSpoutput, every 10 ticks): a side can be output to when the neighbour has no
-  collision (or is a funnel) and the block below it accepts items from that side and is one of
+  collision (or is a funnel whose opening doesn't face away from the basin), no belt below it moves
+  towards the basin, and the block below it accepts items from that side and is one of
   Create's direct belt inputs (belt, depot, weighted ejector, basin, item drain, crushing wheel
   controller, tunnels; through U3's item capability). The last such side in Create's order south,
   west, north, east wins unless disabled; the preferred side wins when possible. When spouting,
@@ -1822,8 +1847,10 @@ are sorted by ingredient count, most first; the first one starts.
 - Mixer: `mixing` recipes plus every shapeless crafting-table recipe with 2+ ingredients that is not a
   compression (`allowShapelessInMixer`). Press: `compacting` recipes plus every crafting-table recipe
   (shaped or shapeless) with 4 or 9 identical ingredients (`allowShapedSquareInPress`). Recipe ids
-  ending in `_manual_only` are ignored. Create's potion brewing in the mixer needs U19's potion
-  fluids (`allowBrewingInMixer`, not yet: §8).
+  ending in `_manual_only` are ignored. Potion brewing (Create's PotionMixingRecipes,
+  `allowBrewingInMixer`): a reagent in the basin and a tank with 1000 mB of a potion fluid (or water)
+  brew 1000 mB of the potion the brewing stand would make (Bedrock's PotionBrewing mixes: potion
+  mixes for each bottle type, container mixes such as gunpowder → splash), heated.
 - Recipes (`assets/recipes/`, Create 6.0.10 data, non-compat): pressing iron / gold / copper / brass
   ingot → sheets, sugar cane → paper, pulp → cardboard, dirt / coarse dirt / rooted dirt / mycelium /
   podzol and grass block → dirt path; mixing andesite alloy (andesite + iron or zinc nugget), brass
@@ -1837,13 +1864,19 @@ look direction). Cycle of 240 running ticks advancing `lerp(clamp(|speed| / 512)
 tick; the work happens at tick 120, then the head returns. Head travel: 1 block in the world,
 19/16 on belts / depots, 22/16 in a basin; head offset `(t / 240 · 2)³` going down, `(240 − t) / 240 ·
 3` going up. Modes:
+- What it presses (Create's getRecipe): the next step of a sequenced assembly when it is pressing
+  (U15), else the first `pressing` recipe; per item the results (sequenced: the advanced
+  transitional item) are rolled and merged (RecipeApplier).
 - *World*: every 10 ticks (moving) it looks for item entities on the ground in the block below
-  (deflated by 1/8) with a `pressing` recipe; at the half cycle it presses the first one (Bedrock
+  (deflated by 1/8) that it can press; at the half cycle it presses the first one (Bedrock
   lists entities in another order than Java, so items without a recipe are skipped): a single
   item (or the whole stack with `bulkPressing`) becomes the results, otherwise one item of the
   stack is pressed and the results drop beside it.
-- *Belt / depot*: a pressable item on `levitate:depot` / `levitate:belt` two blocks below (U3 item
-  capability) starts a cycle; one item is extracted and its results inserted back (left-overs drop).
+- *Belt / depot* (Create's BeltProcessingBehaviour, the belts unit's processor): a pressable item
+  reaching the centre of the belt segment / depot two blocks below is held there and starts a cycle
+  (on a moving belt too); at the half cycle the held stack (`bulkPressing`) or one of its items is
+  pressed (results stay held under the press until it lifts, the rest of a stack stays for the next
+  cycle), then the press lets go.
 - *Basin*: Create's BasinOperatingBlockEntity on the basin two blocks below: when the basin changes
   (or the speed changes) and the press is idle and turning, the first matching recipe starts a cycle;
   after the cycle, the same recipe repeats while it still matches.
@@ -1975,7 +2008,9 @@ transitional item carrying that recipe's progress (item data `sequenced_assembly
 progress}); after `sequence.size()·loops` steps one result is picked by weight (Create's
 rollResult). The item's lore shows Create's tooltip: "Recipe Sequence", "Progress: s/t",
 "Next: <step>" and the remaining steps ("Deploy <item>", "Process in Press", "Cut with Saw",
-"Spout <fluid>").
+"Spout <fluid>") in the server's language; the client mod shows the same lines in the game's
+language instead. Machines running steps: deployers (deploying), presses (pressing: world, belts,
+depots), spouts (filling), saws (cutting).
 
 **Item application** (Create's ManualApplicationRecipe, `assets/recipes/item_application/`):
 right-clicking a block with the applied item (players and deployers, not sneaking) turns it into
@@ -2049,13 +2084,16 @@ them, whatever placed them).
   `cutting` recipes (`assets/recipes/cutting/`: the generated wood cutting — log / wood →
   stripped (50 ticks), stripped → 6 planks, bamboo block → stripped → 3 planks ⚠, bamboo planks →
   mosaic (20), andesite alloy → 6 shafts (200)) and the game's stonecutter recipes
-  (`allowStonecuttingOnSaw`), cutting first; the recipe filter slot (on top, 3 px beside the
+  (`allowStonecuttingOnSaw`), cutting first; a sequenced assembly's cutting step (U15) comes before
+  all of them and alone when the filter allows its transitional item; the recipe filter slot (on top, 3 px beside the
   blade; U3 filter slot) keeps the recipes whose first result matches; several recipes cycle per
   item. Time = recipe time (50 for stonecutting) × max(1, count / 5), counted down by
   clamp(|RPM| / 24, 1, 128) per tick; below 5 the results are rolled (once per input item, merged),
   then 20 more; no recipe: 10 ticks, the item passes through. Output: along the item movement
-  (±x when not along first, ∓z otherwise; sign of the speed) into a Levitate block that takes
-  direct input (belts, depots, saws, crafters…; §8), else ejected (centre + move × .5 + (0, .5, 0),
+  (±x when not along first, ∓z otherwise; sign of the speed) into the block with Create's
+  DirectBeltInputBehaviour there (the belts unit's direct inputs: belts, depots, ejectors, basins,
+  saws, crushing wheels; chutes and item drains through their item capability), which may refuse
+  the side (the items wait), else ejected (centre + move × .5 + (0, .5, 0),
   motion move × .0625 + (0, .125, 0)).
 - *Cutting* (facing sideways): breaks the block in front when sawable (logs, wood, stems,
   leaves, mangrove roots, bamboo, melons, pumpkins, cactus, sugar cane, kelp, chorus plant; never
@@ -2066,7 +2104,9 @@ them, whatever placed them).
   cactus, sugar cane, kelp: everything above; chorus: the connected plant). Felled drops fly
   from their block away from the saw (motion (cut − saw) × distance / 20). It resumes the next
   tick.
-- Entities inside the block (but items) are hurt like by the drill.
+- Entities inside the block (but items) are hurt like by the drill (Create's `create.mechanical_saw`
+  death message, "%1$s got cut in half by Mechanical Saw"). The saw takes items from belt ends and
+  other saws (the belts unit's direct input).
 - Contraption actor: breaks sawable blocks in its path (stalling the contraption), fells their
   trees (not for leaves), drops into the contraption's storage first (`moveItemsToStorage`).
 
@@ -2076,10 +2116,11 @@ them, whatever placed them).
 - *Breaking* (both machines): every hit adds clamp((int)(speed / hardness), 1, 10 − progress)
   (speed = |RPM| / 100), then waits (int)(hardness / speed) ticks; at 10 the block breaks with
   its normal drops (no tool) at its centre, then the drill resumes on its next lazy tick
-  (10 ticks). Never: air, liquids, unbreakable blocks, Create's non-breakable list. Hit sound
-  .25, cracks shown while breaking.
+  (10 ticks). Never: air, liquids, unbreakable blocks, Create's non-breakable list. Every hit plays
+  the block's own hit sound (LevelSoundEvent `Hit` with the block's runtime id, as Create's
+  SoundType.getHitSound), cracks shown while breaking.
 - Entities (not items) inside its block lose min(s/16, 2) + min(s/32, 4) + min(s/64, 4) health
-  per hit (s = |RPM|).
+  per hit (s = |RPM|; Create's `create.mechanical_drill` death message).
 - Contraption actor (BlockBreakingMovementBehaviour): visits the block at its centre + facing ×
   .65, hurts entities there (clamp(6·|motion|^0.4 + 1, 2, 10)) and throws them, stalls while
   breaking blocks with collision (no tracks) at speed clamp(|animation speed| / 500, 1/128, 16),
@@ -3761,31 +3802,15 @@ matches Create's official Chinese translation wording).
 | Funnel / smart chute redstone input by neighbour updates (U12) | custom blocks get no redstone neighbour update | polled every 2 ticks like the sticker (same sources) |
 | Comparators reading a vault (U12) | Bedrock only asks container blocks for analog signals | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
 | Belt funnels, tunnels on belts, chutes pulling from belts (U12) | waiting for U11's belt | the hooks exist (`beltlink`, FunnelsExt.h); tunnels already work with any registered segment |
-| Crushing wheel controller letting only the crushed entity through (U13) | Bedrock block collision can't depend on the entity | the controller keeps Create's 13 px slab for everyone; the item being crushed is moved through it by the server; mobs are hurt where they stand on it |
-| Create's crushing death messages, looting 2 for crushed mobs, fan damage types (U13) | Bedrock has no data-driven damage types or per-kill looting | crushing uses the contact cause, fans fire / lava / drowning causes; drops are the mob's plain loot; the strings exist in the lang files |
-| Fan processing state kept on the item entity (U13) | Bedrock item entities can't change their item for clients and carry no free data | a processed item entity is replaced by a new one with the same motion; the processing state lives in the server's memory (restarts after a reload) |
-| Haunted horses keep their data (U13) | no generic entity NBT copy between types | a skeleton horse is spawned in place; saddle, armour and taming are not carried over |
-| Placing a crushing wheel or nozzle where Create refuses it (U13) | the placement can't be vetoed per position for custom blocks | the block pops off right after placement |
-| Millstone / crusher ambient sounds, air current wind sound (U13) | Create's milling / crushing soundscapes and the fan's wind are client-side sound assets of their own | not played; the kinetic hum and cog soundscapes of these blocks play (§3.1 Kinetic feedback, U37) |
-| Pulling nozzle explosion with more than 256 entities (U13) | rare edge case | not ported |
-| Air currents through blocks made of several boxes (U13) | the server only gets one collision box per block | a partial block stops the current by its bounding box (stairs, walls and hoppers block it like a full block); fan-transparent blocks pass as in Create |
 | Items floating in the basin for **vanilla** clients (U14) | no item rendering hooks for vanilla clients | the client mod draws the stacks inside (Create's ring around the centre, tilted, slowly turning, bobbing on the fluid, one more copy per 8 items) with the world item renderer (U33) and the fluid surface; vanilla clients see the basin; the items are taken out with an empty hand or seen by funnels |
-| Hollow basin collision (U14) | a custom block has a single collision box | full-block collision; item entities resting on top are collected as if they fell in |
-| Press on a moving belt (U14) | no belt contract to hold an item under the press | items on a depot or belt below are pressed through the item capability (one per cycle) |
-| Sequenced-assembly pressing steps, potion brewing in the mixer (U14) | they need U15's sequenced assembly and U19's potion fluids | plain pressing / mixing; added with those units |
-| Basin spout checks of the funnel facing and the belt direction (U14) | funnel and belt states are U12's / U11's, without a contract | a funnel beside the basin never blocks a spout; a belt below takes outputs whatever its direction |
-| Deployer fake player (U15) | Bedrock has no fake players | one simulated player per dimension ("Deployer", invisible, invulnerable, survival) acts for every deployer: it is moved into the hand for each action and waits above the build limit in between; it shows in the player list |
+| Deployer fake player (U15) | Bedrock has no fake players: a player that acts in the world must be a real (simulated) server player | one simulated player per dimension ("Deployer", invisible, invulnerable, survival) acts for every deployer: it is moved into the hand for each action and waits above the build limit in between. Like Create's fake player it is no player for the others: it is taken out of every client's player list, command selectors don't find it, it doesn't count for sleeping through the night and its kills drop no experience |
 | Redstone input of the deployer and the arm (U15) | custom blocks get no neighbour updates | power is polled every tick (same sources as the sticker) |
 | Item held by a deployer drawn in its hand, item held by the arm, for **vanilla** clients (U15) | no item rendering hooks for vanilla clients | the client mod draws the held item in the moving hand and between the arm's claws (world item renderer, U33; the server sends the stack with the animation state); vanilla clients see static models, the hand pose shows whether it holds something |
-| Transitional item progress bar and tooltip (U15) | item bars come only from durability and tooltips are client-side | the tooltip lines are the item's lore (server language); no bar |
-| Deployer kills dropping no experience (U15) | Bedrock has no hook between a kill and its orbs | orbs drop as for a player kill; item drops go into the deployer |
-| Deployer "fist bump" easter egg (U15) | cosmetic advancement only | not reproduced |
+| Transitional item progress bar (U15) | item bars come only from item durability, which the game also uses for item behaviour (breaking, repairing); custom items have none | no bar. The tooltip is Create's: the item's lore in the server's language for vanilla clients, rebuilt in the game's language by the client mod |
 | Redstone input of the mechanical crafter (U16) | custom blocks get no redstone neighbour update | the crafter polls the power of its neighbours every tick (same sources as the sticker) |
 | Crafter items on the crafter's face for **vanilla** clients (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it | the client mod draws the slot item, the grouped grid, the exported grid sliding to the next crafter and the growing result with the world item renderer (U33); every client sees the blocks, the crit particles, the sounds and the result popping out |
-| Saw output only into blocks with Create's DirectBeltInputBehaviour (U16) | the item capability doesn't say whether a block takes "direct belt input" | the saw (and its belt neighbours) hands its items to Levitate blocks with an item handler except vaults; vanilla containers next to a saw are skipped as in Create |
-| Sequenced assembly steps on the saw (U16) | the sequenced assembly state belongs to U15 | the saw cuts plain `cutting` recipes; U15 adds the sequenced cutting step |
-| Block break sounds of the drill / saw per block sound type (U16) | the server can't name a block's hit sound for a PlaySound packet | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone` by the block id |
-| Saw / drill damage source names (U16) | Bedrock has no custom damage causes | contact damage (death message of a cactus-like cause) |
+| Block break sounds of the moving drill per block sound type (U22) | the contraption actor (`actors/`) names the hit sound by the block id | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone`; the saw, the stationary drill and the crafter unit's moving saw / drill play the block's own hit sound (LevelSoundEvent `Hit` with its runtime id) |
+| Drill damage source name of the `actors/` drill (U22) | that actor hurts with the plain contact cause | contact damage (death message of a cactus-like cause); the saw and the drill of the crafter unit use Create's `create.mechanical_saw` / `create.mechanical_drill` death messages |
 | Fluid moving through glass pipes drawn by a block entity renderer, with the flow front advancing (U17) | custom blocks have no block entity renderer on Bedrock | the glass pipe's `levitate:fluid` state shows the fluid filling the pipe as soon as a flow starts (all clients, with or without the mod); the front's progress is not drawn |
 | Waterlogged pipes, pumps and valves (U17) | Bedrock custom blocks have no waterlogged state the server can set | open ends don't drain or fill waterlogged blocks; pipes in water are not waterlogged |
 | Pipe particles (drips at rims, splashes, the pouring stream of open ends) (U17) | Create's fluid particles need fluid-tinted particle types | not shown yet |
