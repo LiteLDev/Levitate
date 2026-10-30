@@ -27,6 +27,7 @@
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "feature/schematics/Schematics.h"
 #include "game/Blocks.h"
 #include "mod/I18n.h"
@@ -78,6 +79,41 @@ void storeSection(GlobalPos const& p, Section const& s) {
         {"inferred", s.inferred                          },
         {"items",    it                                  },
     };
+    itemrender::refresh(p);
+}
+
+/// Create's BlueprintRenderer: each section shows its display item (half a block) in the middle of
+/// the canvas and its secondary display item (a quarter) at the lower right, facing out.
+void blueprintItems(GlobalPos const& p, Block const&, std::vector<std::pair<std::int64_t, itemrender::DisplayItem>>& out) {
+    auto s = sectionAt(p);
+    if (!s) return;
+    cs::Pos n = kDirs[static_cast<std::size_t>(s->face)];
+    // the canvas lies against the supporting block, 1 px thick: just in front of it
+    double  depth = 0.5 - 1.5 / 16.0;
+    double  cx = p.x + 0.5 - n.x * depth, cy = p.y + 0.5 - n.y * depth, cz = p.z + 0.5 - n.z * depth;
+    // the canvas' "up" and "right" as a viewer facing it sees them
+    cs::Pos up    = s->face >= 2 ? cs::Pos{0, 1, 0} : kDirs[static_cast<std::size_t>(s->horiz)];
+    cs::Pos right = {-(n.y * up.z - n.z * up.y), -(n.z * up.x - n.x * up.z), -(n.x * up.y - n.y * up.x)}; // (-n) x up
+    auto pose     = itemrender::facingFace(s->face);
+    if (s->face < 2) {
+        static constexpr std::array<float, 6> kYaw{0, 0, 180, 0, 90, 270};
+        pose.yaw = kYaw[static_cast<std::size_t>(s->horiz)];
+    }
+    for (int slot : {9, 10}) {
+        auto const& stack = s->items[static_cast<std::size_t>(slot)];
+        if (items::isEmpty(stack)) continue;
+        bool   primary = slot == 9;
+        double off     = primary ? 0 : 0.25;
+        itemrender::DisplayItem d;
+        d.stack    = stack;
+        d.style    = itemrender::Style::Facing;
+        d.at       = pose;
+        d.at.x     = cx + (right.x - up.x) * off;
+        d.at.y     = cy + (right.y - up.y) * off;
+        d.at.z     = cz + (right.z - up.z) * off;
+        d.at.scale = primary ? 0.5f : 0.25f;
+        out.emplace_back(slot, d);
+    }
 }
 
 std::vector<GlobalPos> groupOf(GlobalPos const& p, Section const& s) {
@@ -409,6 +445,7 @@ bool blueprintAttack(Player& player, GlobalPos const& p) {
 namespace detail {
 
 void registerBlueprint() {
+    itemrender::registerProvider(std::string(kBlueprintBlock), blueprintItems);
     screens::registerType({
         .id   = kScreen,
         .data = [](Player& pl, Json const& ctx) -> std::optional<Json> {

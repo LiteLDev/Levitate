@@ -31,6 +31,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
+#include "feature/display/Clipboard.h"
 #include "feature/net/Net.h"
 #include "feature/schematics/Schematics.h"
 #include "game/Blocks.h"
@@ -65,6 +66,7 @@ struct Flying {
     std::string          snbt; ///< "" = air (clearing)
     std::string          item;
     std::vector<Partner> partners;
+    std::string          entity; ///< a launched entity's NBT (binary NBT as hex), "" for blocks
 };
 
 struct Requirement {
@@ -93,6 +95,8 @@ struct Cannon {
     cs::Pos                       bmin, bmax;
     cs::PrintCursor               cursor;
     std::optional<cs::Pos>        current; ///< offset from the anchor
+    std::size_t                   entityIndex = 0; ///< next schematic entity (after the blocks)
+    std::optional<cs::Pos>        aimSent;         ///< the target the client mods aim the barrel at
     std::vector<Block const*>     tblocks; ///< transformed block per palette index
     std::vector<char>             tdone;
 
@@ -106,12 +110,34 @@ struct Cannon {
 std::map<GlobalPos, Cannon>               gCannons;
 std::map<GlobalPos, std::set<std::int64_t>> gViewers;
 
+void sendAim(Cannon& c, std::optional<cs::Pos> target);
+
 // ---- persistence ------------------------------------------------------------------------------------
+
+std::string toHex(std::string const& bytes) {
+    static constexpr char kDigits[] = "0123456789abcdef";
+    std::string out;
+    out.reserve(bytes.size() * 2);
+    for (unsigned char b : bytes) {
+        out.push_back(kDigits[b >> 4]);
+        out.push_back(kDigits[b & 15]);
+    }
+    return out;
+}
+
+std::string fromHex(std::string const& hex) {
+    auto nibble = [](char ch) { return ch >= 'a' ? ch - 'a' + 10 : ch - '0'; };
+    std::string out;
+    for (std::size_t i = 0; i + 1 < hex.size(); i += 2) out.push_back(static_cast<char>((nibble(hex[i]) << 4) | nibble(hex[i + 1])));
+    return out;
+}
 
 Json flyingJson(Flying const& f) {
     Json partners = Json::array();
     for (auto const& p : f.partners) partners.push_back({{"pos", {p.pos.x, p.pos.y, p.pos.z}}, {"snbt", p.snbt}});
-    return {{"t", {f.target.x, f.target.y, f.target.z}}, {"left", f.left}, {"total", f.total}, {"snbt", f.snbt}, {"item", f.item}, {"partners", partners}};
+    Json j{{"t", {f.target.x, f.target.y, f.target.z}}, {"left", f.left}, {"total", f.total}, {"snbt", f.snbt}, {"item", f.item}, {"partners", partners}};
+    if (!f.entity.empty()) j["entity"] = f.entity;
+    return j;
 }
 
 cs::Pos vec3(Json const& j) {
@@ -169,6 +195,7 @@ Cannon& cannonAt(GlobalPos const& p) {
             fl.snbt   = f.value("snbt", std::string{});
             fl.item   = f.value("item", std::string{});
             for (auto const& p2 : f.value("partners", Json::array())) fl.partners.push_back({vec3(p2.value("pos", Json())), p2.value("snbt", std::string{})});
+            fl.entity = f.value("entity", std::string{});
             c.flying.push_back(std::move(fl));
         }
     }
@@ -325,6 +352,8 @@ void resetPrinter(Cannon& c) {
     c.errored       = false;
     c.sch.reset();
     c.current.reset();
+    c.entityIndex = 0;
+    sendAim(c, std::nullopt);
     c.missing = items::empty();
     c.placed  = 0;
     c.toPlace = 0;
@@ -457,6 +486,23 @@ void sendLaunch(Cannon const& c, Flying const& f) {
     });
 }
 
+/// Create's SchematicannonRenderer aims at the printer's current target: the client mods turn the
+/// connector and pitch the barrel towards it ("schematics.cannon", null when idle).
+void sendAim(Cannon& c, std::optional<cs::Pos> target) {
+    if (c.aimSent == target) return;
+    c.aimSent  = target;
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    Json msg{{"dim", c.pos.dim}, {"pos", {c.pos.x, c.pos.y, c.pos.z}}, {"target", target ? Json{target->x, target->y, target->z} : Json()}};
+    level->forEachPlayer([&](Player& p) {
+        if (!net::isCompanion(p) || static_cast<int>(p.getDimensionId()) != c.pos.dim) return true;
+        auto   pos = p.getFeetPos();
+        double dx = pos.x - c.pos.x, dz = pos.z - c.pos.z;
+        if (dx * dx + dz * dz <= 128.0 * 128.0) net::send(p, "schematics.cannon", msg);
+        return true;
+    });
+}
+
 void launch(Cannon& c, cs::Pos offset, Block const& want, std::string const& item) {
     GlobalPos t = targetOf(c, offset);
     Flying    f;
@@ -485,6 +531,96 @@ void launch(Cannon& c, cs::Pos offset, Block const& want, std::string const& ite
     // Create: GENERIC_EXPLODE at 0.1 volume, pitch 1.1
     sound(c.pos, "random.explode", 0.1f, 1.1f);
     particle(c.pos.dim, c.pos.x + 0.5, c.pos.y + 1.2, c.pos.z + 0.5, "minecraft:basic_smoke_particle");
+}
+
+/// Create's ItemRequirement.of(entity): armor stands need themselves and what they wear / hold;
+/// other entities can't be printed (item frames are blocks on Bedrock).
+std::optional<std::vector<std::pair<std::string, int>>> entityRequirement(cs::nbt::Tag const& tag) {
+    auto const* c = tag.asCompound();
+    if (!c) return std::nullopt;
+    auto const* id = c->find("identifier");
+    if (!id || !id->asString() || *id->asString() != "minecraft:armor_stand") return std::nullopt;
+    std::vector<std::pair<std::string, int>> out{{"minecraft:armor_stand", 1}};
+    for (auto const* key : {"Armor", "Mainhand", "Offhand"}) {
+        auto const* l = c->find(key);
+        if (!l || !l->asList()) continue;
+        for (auto const& it : l->asList()->items) {
+            auto const* ic = it.asCompound();
+            if (!ic) continue;
+            auto const* name  = ic->find("Name");
+            auto const* count = ic->find("Count");
+            if (!name || !name->asString() || name->asString()->empty() || *name->asString() == "minecraft:air") continue;
+            out.emplace_back(*name->asString(), static_cast<int>(count ? count->asInt().value_or(1) : 1));
+        }
+    }
+    return out;
+}
+
+/// Create's SchematicPrinter entity phase: launches the schematic's printable entities one per
+/// shot once the blocks are done. Returns false when there is nothing left.
+bool tickEntities(Cannon& c) {
+    if (!c.sch || c.sch->schematic.format != "mcstructure") return false;
+    auto const& tags = c.sch->schematic.entityTags;
+    while (c.entityIndex < tags.size()) {
+        auto const& tag = tags[c.entityIndex];
+        auto        req = entityRequirement(tag);
+        if (!req) {
+            ++c.entityIndex;
+            continue;
+        }
+        bool have = c.creative;
+        if (!have) {
+            have = true;
+            for (auto const& [item, n] : *req) have = have && grabItems(c, item, n, true);
+        }
+        if (!have) {
+            if (c.skipMissing) {
+                c.status = "skipping";
+                ++c.entityIndex;
+                continue;
+            }
+            c.missing = makeItem(req->front().first, req->front().second).value_or(items::empty());
+            c.state   = "PAUSED";
+            c.status  = "missingBlock";
+            c.dirty = c.viewDirty = true;
+            return true;
+        }
+        if (!c.creative)
+            for (auto const& [item, n] : *req) grabItems(c, item, n, false);
+        // where it lands: the block of its saved position, transformed like the blocks
+        auto const* pos = tag.asCompound()->find("Pos");
+        cs::Pos     target = c.sd.anchor;
+        if (pos && pos->asList() && pos->asList()->items.size() == 3) {
+            auto const& v = pos->asList()->items;
+            auto num = [](cs::nbt::Tag const& t) {
+                if (auto const* f = std::get_if<float>(&t.v)) return static_cast<double>(*f);
+                if (auto const* d = std::get_if<double>(&t.v)) return *d;
+                return static_cast<double>(t.asInt().value_or(0));
+            };
+            auto const& o = c.sch->schematic.worldOrigin;
+            cs::Pos local{static_cast<int>(std::floor(num(v[0]) - o.x)), static_cast<int>(std::floor(num(v[1]) - o.y)), static_cast<int>(std::floor(num(v[2]) - o.z))};
+            target = c.sd.anchor + cs::apply(c.sd.transform, local);
+        }
+        sendAim(c, target);
+        Flying f;
+        f.target = target;
+        f.total = f.left = cs::flightTicks(cp(c.pos), f.target);
+        f.item           = req->front().first;
+        f.entity         = toHex(cs::nbt::write(tag, "", cs::nbt::Endian::Little));
+        ++c.entityIndex;
+        c.state  = "RUNNING";
+        c.status = "placing";
+        sendLaunch(c, f);
+        c.flying.push_back(std::move(f));
+        sound(c.pos, "random.explode", 0.1f, 1.1f);
+        particle(c.pos.dim, c.pos.x + 0.5, c.pos.y + 1.2, c.pos.z + 0.5, "minecraft:basic_smoke_particle");
+        c.printerCooldown = config().schematicannonDelay;
+        c.fuel -= 1;
+        c.missing = items::empty();
+        c.dirty = c.viewDirty = true;
+        return true;
+    }
+    return false;
 }
 
 void finishedPrinting(Cannon& c) {
@@ -538,6 +674,7 @@ void tickPrinter(Cannon& c) {
     if (items::isEmpty(c.missing) && !c.positionNotLoaded) {
         c.current = c.cursor.next([&](cs::Pos q) { return deferred(c, q); });
         if (!c.current) {
+            if (tickEntities(c)) return;
             finishedPrinting(c);
             return;
         }
@@ -545,6 +682,7 @@ void tickPrinter(Cannon& c) {
     }
     if (!c.current) return;
     GlobalPos target = targetOf(c, *c.current);
+    sendAim(c, cp(target));
     if (!loaded(target)) {
         c.positionNotLoaded = true;
         c.status            = "targetNotLoaded";
@@ -591,13 +729,35 @@ void tickPrinter(Cannon& c) {
     c.dirty = c.viewDirty = true;
 }
 
+/// Create's NBTProcessors in survival: of the block entity data only a sign's text is printed.
+void signText(Cannon& c, GlobalPos const& t, Block const& b) {
+    if (!c.sch || c.sch->schematic.format != "mcstructure" || !b.getTypeName().ends_with("sign")) return;
+    auto const& s     = c.sch->schematic;
+    cs::Pos     local = cs::unapply(c.sd.transform, cp(t) - c.sd.anchor);
+    if (!s.contains(local)) return;
+    auto it = s.blockEntities.find(s.index(local));
+    if (it == s.blockEntities.end() || !it->second.asCompound()) return;
+    cs::nbt::Compound safe;
+    for (auto const* key : {"id", "FrontText", "BackText", "Text", "IsWaxed"})
+        if (auto const* v = it->second.asCompound()->find(key)) safe.set(key, *v);
+    placeBlockEntity(t, cs::nbt::Tag(std::move(safe)));
+}
+
 void landed(Cannon& c, Flying const& f) {
     GlobalPos t = gp(c.pos.dim, f.target);
     if (!loaded(t)) return;
+    if (!f.entity.empty()) {
+        if (auto tag = cs::nbt::read(fromHex(f.entity), cs::nbt::Endian::Little); tag && c.sch)
+            if (placeEntity(c.pos.dim, tag->root, c.sch->schematic.worldOrigin, c.sd.transform, c.sd.anchor))
+                log().info("schematicannon at {} {} {}: printed an entity at {} {} {}", c.pos.x, c.pos.y, c.pos.z, t.x, t.y, t.z);
+        particle(t.dim, t.x + 0.5, t.y + 0.5, t.z + 0.5, "minecraft:basic_crit_particle");
+        return;
+    }
     if (f.snbt.empty()) {
         clearAt(t);
     } else if (auto const* b = blockFromSnbt(f.snbt)) {
         place(t, *b);
+        signText(c, t, *b);
         for (auto const& p : f.partners)
             if (auto const* pb = blockFromSnbt(p.snbt)) place(gp(c.pos.dim, p.pos), *pb);
         particle(t.dim, t.x + 0.5, t.y + 0.5, t.z + 0.5, "minecraft:basic_crit_particle");
@@ -667,6 +827,32 @@ ItemStack writtenChecklist(Cannon& c) {
     return *book;
 }
 
+/// Create's MaterialChecklist.createWrittenClipboard: 7 entries per page, each with its item icon
+/// and amount (missing ones first, then the completed ones checked off), read-only.
+ItemStack writtenClipboard(Cannon& c) {
+    auto nameOf = [](std::string const& id) {
+        auto s = makeItem(id);
+        return s ? items::displayName(*s) : id;
+    };
+    std::vector<std::vector<display::clipboard::Entry>> pages(1);
+    if (c.checklist.blocksNotLoaded)
+        pages.back().push_back({"§c" + std::string(translate("create.materialChecklist.blocksNotLoaded", "* Disclaimer *\n\nMaterial List may be inaccurate due to relevant chunks not being loaded.")), false});
+    int written = 0;
+    for (auto const& e : c.checklist.entries(nameOf)) {
+        if (written == display::clipboard::kChecklistPageEntries) {
+            written = 0;
+            pages.emplace_back();
+        }
+        ++written;
+        auto stack = makeItem(e.item);
+        auto text  = std::string(e.complete ? "§2" : "") + nameOf(e.item) + " §0x" + std::to_string(e.amount) + "§7 | "
+                  + std::to_string(e.amount / 64) + "▤ +" + std::to_string(e.amount % 64);
+        pages.back().push_back({text, e.complete, stack ? items::toJson(*stack) : Json(), e.complete ? 0 : e.amount});
+    }
+    auto clip = display::clipboard::makeWritten(std::move(pages), std::string(translate("create.materialChecklist", "Material Checklist")));
+    return clip ? *clip : items::empty();
+}
+
 void tickPaperPrinter(Cannon& c) {
     auto& paper = c.inv[BookIn];
     auto& out   = c.inv[BookOut];
@@ -686,8 +872,9 @@ void tickPaperPrinter(Cannon& c) {
         c.book = 0;
         if (!c.dontUpdateChecklist) updateChecklist(c);
         c.dontUpdateChecklist = true;
+        bool clipboard       = items::idOf(paper) == kClipboard;
         paper                 = items::withCount(paper, items::countOf(paper) - 1);
-        auto written          = writtenChecklist(c);
+        auto written          = clipboard ? writtenClipboard(c) : writtenChecklist(c);
         out                   = items::withCount(written, items::countOf(out) + 1);
         log().info("schematicannon at {} {} {}: printed a material checklist", c.pos.x, c.pos.y, c.pos.z);
         c.dirty = c.viewDirty = true;

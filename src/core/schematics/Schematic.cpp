@@ -185,7 +185,12 @@ std::optional<Schematic> readMcstructure(std::string_view bytes, std::string* er
             }
         }
     }
-    if (auto const* ents = structure->find("entities"); ents && ents->asList()) s.entities = static_cast<int>(ents->asList()->items.size());
+    if (auto const* ents = structure->find("entities"); ents && ents->asList()) {
+        s.entities = static_cast<int>(ents->asList()->items.size());
+        for (auto const& e : ents->asList()->items)
+            if (e.asCompound()) s.entityTags.push_back(e);
+    }
+    if (auto o = readSize(root->find("structure_world_origin"))) s.worldOrigin = *o;
     return s;
 }
 
@@ -206,7 +211,9 @@ std::string writeMcstructure(Schematic const& s, Pos origin) {
     layers.items.emplace_back(std::move(primary));
     layers.items.emplace_back(std::move(secondary));
     structure.set("block_indices", Tag(std::move(layers)));
-    structure.set("entities", Tag::list(Type::Compound));
+    List entities{Type::Compound, {}};
+    for (auto const& e : s.entityTags) entities.items.push_back(e);
+    structure.set("entities", Tag(std::move(entities)));
 
     List paletteList{Type::Compound, {}};
     for (auto const& st : s.palette) {

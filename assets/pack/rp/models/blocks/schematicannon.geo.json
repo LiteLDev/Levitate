@@ -186,7 +186,7 @@
           ]
         },
         {
-          "name": "barrel",
+          "name": "connector",
           "pivot": [
             0,
             12,
@@ -272,7 +272,17 @@
                   "material_instance": "body"
                 }
               }
-            },
+            }
+          ]
+        },
+        {
+          "name": "barrel",
+          "pivot": [
+            0,
+            13,
+            0
+          ],
+          "cubes": [
             {
               "origin": [
                 -3,

@@ -1,18 +1,29 @@
 // Selftests of the schematics unit (testPos dx 2900..2999).
 
+#include <cmath>
 #include <filesystem>
 #include <functional>
 
+#include "ll/api/service/Bedrock.h"
+
+#include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorDefinitionIdentifier.h"
+#include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/Level.h"
+#include "mc/world/level/Spawner.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/phys/AABB.h"
 
 #include "core/schematics/Inflate.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
+#include "feature/display/Clipboard.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "feature/net/Net.h"
 #include "feature/schematics/Schematics.h"
 #include "game/Blocks.h"
@@ -388,6 +399,104 @@ LV_REGISTER_SELFTEST("schematics.checklist", [](Context& ctx) -> ll::coro::CoroT
     ctx.check(items::isEmpty(cannonSlot(o, 2)), "the book was used");
 });
 
+// U44 (dx 4400..4409): a clipboard in the paper slot comes out as a read-only checklist clipboard
+LV_REGISTER_SELFTEST("schematics.checklist_clipboard", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto o = ctx.testPos(4400);
+    o.y += 1;
+    ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
+    buildSample(ctx, at(o, 4, 0, 0));
+    auto& player = ctx.player();
+    auto  dir    = playerDir(player.getRealName());
+    auto  file   = saveArea(dir, tmpName(ctx), true, o.dim, cp(at(o, 4, 0, 0)), cp(at(o, 6, 1, 2)));
+    ctx.require(file.has_value(), "saved");
+    FileCleanup cleanup{dir / upath(*file)};
+    auto item = makeSchematic(*file, player.getRealName());
+    auto d    = *schematicData(*item);
+    d.anchor   = cp(at(o, 0, 0, 6));
+    d.deployed = true;
+    setSchematicData(*item, d);
+    put(ctx, o, std::string(kCannon));
+    cannonSetSlot(o, 0, *item);
+    cannonSetSlot(o, 2, *makeItem(kClipboard, 1));
+    ctx.check(co_await waitFor(ctx, [&] { return isItem(cannonSlot(o, 3), kClipboard); }, 60), "a checklist clipboard is printed");
+    auto c = display::clipboard::ofItem(cannonSlot(o, 3));
+    ctx.check(c.readOnly && c.type == 2, "the checklist clipboard is written and read-only");
+    std::size_t entries = 0;
+    bool        icons   = true;
+    for (auto const& p : c.pages) {
+        ctx.check(static_cast<int>(p.size()) <= display::clipboard::kChecklistPageEntries, "at most 7 entries per page");
+        for (auto const& e : p) {
+            ++entries;
+            icons = icons && !e.icon.is_null();
+        }
+    }
+    // stone, planks, stairs, torch
+    ctx.check(entries == 4 && icons, "one entry with its item per material, got " + std::to_string(entries));
+    ctx.check(items::isEmpty(cannonSlot(o, 2)), "the clipboard was used");
+});
+
+// U44 (dx 4430..4449): schematics keep block entity data and entities (Create's StructureTemplate
+// with entities); the creative print restores both, turned with the schematic
+LV_REGISTER_SELFTEST("schematics.entities", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto o = ctx.testPos(4430);
+    o.y += 1;
+    auto target = at(o, 8, 0, 0);
+    ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
+    ctx.require(co_await ctx.ensureLoaded(target), "target area loaded");
+    clearBox(ctx, o, 3, 2, 3);
+    clearBox(ctx, target, 3, 2, 3);
+    auto* region = regionOf(o.dim);
+    ctx.require(region != nullptr, "region");
+    AABB both{Vec3{float(o.x - 1), float(o.y - 1), float(o.z - 4)}, Vec3{float(target.x + 4), float(o.y + 3), float(o.z + 4)}};
+    auto clearStands = [&] {
+        for (auto* a : region->getEntities(both, 0.f, ActorType::ArmorStand)) a->remove();
+    };
+    clearStands();
+    put(ctx, o, "minecraft:chest");
+    co_await ctx.ticks(2);
+    fillChest(o, {{"minecraft:diamond", 3}});
+    auto level = ll::service::getLevel();
+    auto* stand = level->getSpawner().spawnMob(*region, ActorDefinitionIdentifier("minecraft:armor_stand"), nullptr, Vec3{o.x + 1.5f, float(o.y), o.z + 0.5f}, false, false, false);
+    ctx.require(stand != nullptr, "an armor stand");
+    co_await ctx.ticks(2);
+    auto& player = ctx.player();
+    auto  dir    = playerDir(player.getRealName());
+    auto  file   = saveArea(dir, tmpName(ctx), true, o.dim, cp(o), cp(at(o, 2, 1, 2)));
+    ctx.require(file.has_value(), "saved");
+    FileCleanup cleanup{dir / upath(*file)};
+    std::string err;
+    auto        loaded = loadSchematic(player.getRealName(), *file, &err);
+    ctx.require(loaded != nullptr, "loaded: " + err);
+    ctx.check(loaded->schematic.blockEntities.size() == 1, "the chest's data is saved, " + std::to_string(loaded->schematic.blockEntities.size()) + " block entities");
+    ctx.check(loaded->schematic.entityTags.size() == 1, "the armor stand is saved, " + std::to_string(loaded->schematic.entityTags.size()) + " entities");
+    clearStands();
+    // creative print, turned a quarter clockwise
+    auto item = makeSchematic(*file, player.getRealName());
+    auto d    = *schematicData(*item);
+    d.anchor             = cp(target);
+    d.transform.rotation = 1;
+    d.deployed           = true;
+    printInstantly(&player, o.dim, d, false);
+    co_await ctx.ticks(2);
+    auto chestAt = gp(o.dim, d.anchor + cs::apply(d.transform, {0, 0, 0}));
+    ctx.cleanupBlock(chestAt);
+    int diamonds = 0;
+    if (auto h = common::items::find({*region, bp(chestAt), -1})) {
+        common::Access a{*region, bp(chestAt), -1};
+        for (int i = 0; i < h->slots(a); ++i)
+            if (items::idOf(h->getSlot(a, i)) == "minecraft:diamond") diamonds += items::countOf(h->getSlot(a, i));
+    }
+    ctx.check(diamonds == 3, "the printed chest holds the saved items, got " + std::to_string(diamonds));
+    auto standAt = d.anchor + cs::apply(d.transform, {1, 0, 0});
+    int  stands  = 0;
+    for (auto* a : region->getEntities(both, 0.f, ActorType::ArmorStand)) {
+        auto const& p = a->getPosition();
+        if (int(std::floor(p.x)) == standAt.x && int(std::floor(p.z)) == standAt.z) ++stands;
+    }
+    ctx.check(stands == 1, "the armor stand is printed where the turned schematic puts it");
+    clearStands();
+});
+
 LV_REGISTER_SELFTEST("schematics.blueprint", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto o = ctx.testPos(2980);
     o.y += 1;
@@ -415,6 +524,9 @@ LV_REGISTER_SELFTEST("schematics.blueprint", [](Context& ctx) -> ll::coro::CoroT
     auto display = items::fromJson((*doc)["blueprint"]["items"][9]);
     if (items::idOf(display) != "minecraft:stick")
         ctx.check(false, "the display item is inferred from the recipe: " + items::idOf(display) + " (" + debugRecipes("minecraft:stick") + ")");
+    // U44: the display item is drawn on the canvas for the client mod (Create's BlueprintRenderer)
+    auto const* shown = itemrender::find(sec, 9);
+    ctx.check(shown && items::idOf(shown->stack) == "minecraft:stick" && shown->at.scale == 0.5f, "the display item is drawn on the section");
     auto& inv = player.getInventory();
     for (int i = 0; i < inv.getContainerSize(); ++i) inv.setItem(i, items::empty());
     ctx.give(player, *makeItem("minecraft:oak_planks", 4));

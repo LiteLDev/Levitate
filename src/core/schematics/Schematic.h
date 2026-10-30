@@ -50,7 +50,12 @@ struct Schematic {
     std::map<std::size_t, std::string> levitateData;
     /// Block entity data of the source file per block index (kept, not printed).
     std::map<std::size_t, nbt::Tag> blockEntities;
-    int                             entities = 0; ///< entities in the file (not printed)
+    int                             entities = 0; ///< entities in the file
+    /// Bedrock entity NBT of a `.mcstructure` (absolute "Pos" in the world the structure was saved
+    /// from, see `worldOrigin`); Java entities are only counted.
+    std::vector<nbt::Tag> entityTags;
+    /// `structure_world_origin` of a `.mcstructure`: the world position of local (0, 0, 0) when saved.
+    Pos worldOrigin;
     std::string                     format;       ///< "mcstructure" or "nbt"
 
     [[nodiscard]] std::size_t index(Pos p) const {
