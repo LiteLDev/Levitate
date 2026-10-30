@@ -182,7 +182,6 @@ void loadWorld() {
     s.blocks.clear();
     s.watches.clear(); // (the redstone watches are dropped with the world)
     s.observers.clear();
-    s.selections.clear();
     s.intents.clear();
     s.tasks.clear();
     s.system      = cs::SignalSystem{};
@@ -646,9 +645,12 @@ void onBlockChanged(ll::event::BlockChangedEvent& ev) {
         Kind kind = *after;
         s.tasks.push_back([pos, kind, uuid, sel] {
             bool ok = addBlock(kind, pos, sel.target);
-            if (ok) state().selections.erase(uuid); // Create clears the item's selection once used
             if (auto level = ll::service::getLevel()) {
                 if (auto* p = level->getPlayer(mce::UUID::fromString(uuid))) {
+                    // Create clears the selection of the stack it was placed from
+                    if (ok) {
+                        if (auto held = selectionOf(p->getSelectedItem()); held && held->item == sel.item) setHeldSelection(*p, std::nullopt);
+                    }
                     if (ok) actionbar(*p, "create.track_target.success", "Successfully bound to targeted track", 'a');
                     else actionbar(*p, "create.track_target.invalid", "Cannot target this track here", 'c');
                 }
@@ -733,8 +735,7 @@ struct WorldHooks {
             s.watches.clear();
 
             s.observers.clear();
-            s.selections.clear();
-            s.intents.clear();
+                    s.intents.clear();
             s.tasks.clear();
             s.system = cs::SignalSystem{};
         });

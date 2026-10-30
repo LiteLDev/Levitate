@@ -6,6 +6,11 @@
 // arrow in the signal's colour is drawn on the track where each signal side is bound (pointing
 // the way the trains it controls travel) and a square where an observer is bound. Vanilla
 // clients see the signal state on the block itself (block state `levitate:signal_state`).
+//
+// While the player holds a signal / observer item that carries a track selection (item data
+// `lv:track_target`, Create's TrackTargetingBlockItem), the selected track is outlined (Create's
+// TrackTargetingClient). Create also makes the item glint (isFoil); Bedrock draws no glint on items
+// shown with their block's model, as ours are, even when isGlint says so (tried: SPEC §8).
 
 #ifdef LV_CLIENT
 
@@ -31,6 +36,9 @@
 #include "mc/deps/minecraft_renderer/resources/OffscreenCaptureDescription.h"
 
 #include "client/Client.h"
+#include "mc/deps/nbt/CompoundTag.h"
+#include "feature/common/Items.h"
+#include "mc/world/item/ItemStack.h"
 #include "feature/net/Net.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
@@ -69,6 +77,67 @@ mce::MaterialPtr& material() {
     return m;
 }
 
+/// Whether a stack carries a track selection (item data lv:track_target).
+bool hasTrackTarget(ItemStack const& stack) {
+    auto const* tag = stack.mUserData.get();
+    return tag && tag->contains("lv:track_target", Tag::Type::String);
+}
+
+/// Create's TrackTargetingClient: the outline of the track the held item has selected.
+void renderSelection(BaseActorRenderContext& ctx, LocalPlayer& player, Vec3 const& o) {
+    auto const& held = player.getSelectedItem();
+    if (!hasTrackTarget(held)) return;
+    auto j = feature::common::items::getData(held, "track_target");
+    double lo[3], hi[3];
+    try {
+        if (j.at("d").get<int>() != static_cast<int>(player.getDimensionId())) return;
+        if (j.value("c", false)) {
+            auto a = j.at("a");
+            for (int i = 0; i < 3; ++i) lo[i] = a.at(i).get<double>() - .5, hi[i] = a.at(i).get<double>() + .5;
+            lo[1] = a.at(1).get<double>() - .05, hi[1] = lo[1] + .25;
+        } else {
+            auto t = j.at("t");
+            for (int i = 0; i < 3; ++i) lo[i] = t.at(i).get<int>(), hi[i] = lo[i] + 1;
+            hi[1] = lo[1] + .25; // the track's own shape is flat
+        }
+    } catch (...) {
+        return;
+    }
+    for (int i = 0; i < 3; ++i) lo[i] -= (&o.x)[i] + .002, hi[i] -= (&o.x)[i] - .002;
+    ScreenContext& sc   = ctx.mScreenContext;
+    Tessellator&   tess = sc.tessellator;
+    tess.begin({}, mce::PrimitiveMode::QuadList, 12 * 8, false);
+    tess.color(lin(0x68), lin(0xc5), lin(0x86), 1.0f);
+    constexpr double w = 1.0 / 32; // half the line width
+    // each of the 12 edges as two crossed thin quads, both windings
+    auto edge = [&](std::array<double, 3> a, std::array<double, 3> b) {
+        int axis = a[0] != b[0] ? 0 : a[1] != b[1] ? 1 : 2;
+        for (int k = 0; k < 3; ++k) {
+            if (k == axis) continue;
+            auto p = [&](std::array<double, 3> v, double off) {
+                v[k] += off;
+                tess.vertex(float(v[0]), float(v[1]), float(v[2]));
+            };
+            p(a, -w), p(a, w), p(b, w), p(b, -w);
+            p(b, -w), p(b, w), p(a, w), p(a, -w);
+        }
+    };
+    for (int i = 0; i < 4; ++i) {
+        double x0 = (i & 1) ? hi[0] : lo[0], y0 = (i & 2) ? hi[1] : lo[1];
+        edge({x0, y0, lo[2]}, {x0, y0, hi[2]});
+        double z0 = (i & 1) ? hi[2] : lo[2];
+        edge({lo[0], y0, z0}, {hi[0], y0, z0});
+        double xz = (i & 2) ? hi[0] : lo[0];
+        edge({xz, lo[1], z0}, {xz, hi[1], z0});
+    }
+    MeshHelpers::renderMeshImmediately(sc, tess, material(), OffscreenCaptureDescription{});
+    static bool logged = false;
+    if (!logged) {
+        logged = true;
+        log().info("signals: outlining the selected track");
+    }
+}
+
 void renderMarkers(BaseActorRenderContext& ctx) {
     auto* player = currentPlayer();
     if (!player) return;
@@ -76,8 +145,10 @@ void renderMarkers(BaseActorRenderContext& ctx) {
     auto const& impl = ctx.mImpl;
     if (!impl) return;
     Vec3 o = impl->mCameraTargetPosition;
+    renderSelection(ctx, *player, o);
 
     std::lock_guard lock(gMutex);
+
     std::vector<Marker const*> visible;
     for (auto const& m : gMarkers) {
         if (m.dim != dim) continue;

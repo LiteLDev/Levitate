@@ -9,6 +9,7 @@
 #include "mc/scripting/modules/minecraft/ScriptFacing.h"
 #include "mc/server/SimulatedPlayer.h"
 #include "mc/server/sim/LookDuration.h"
+#include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -155,7 +156,6 @@ LV_REGISTER_SELFTEST("signals.place_with_item", [](Context& ctx) -> ll::coro::Co
     auto look = [&](GlobalPos p) {
         sp.simulateLookAt(Vec3{p.x + .5f, p.y + .5f, p.z + .5f}, sim::LookDuration::Continuous);
     };
-    std::string uuid = sp.getUuid().asString();
 
     // without a selection nothing is placed
     look(at(base, 8, -1, 2));
@@ -172,14 +172,14 @@ LV_REGISTER_SELFTEST("signals.place_with_item", [](Context& ctx) -> ll::coro::Co
     bool used = use(at(base, 6));
     co_await ctx.ticks(3);
     ctx.info(std::string("track click returned ") + (used ? "true" : "false") + ", block " + idAt(at(base, 6)));
-    ctx.check(sg::state().selections.contains(uuid), "clicking the track selects it");
+    ctx.check(sg::selectionOf(sp.getInventory().getItem(0)).has_value(), "clicking the track selects it");
     ctx.cleanupBlock(at(base, 6, 0, 2));
     co_await ctx.ticks(8);
     use(at(base, 6, -1, 2));
     co_await ctx.ticks(4);
     GlobalPos placed = at(base, 6, 0, 2);
     ctx.require(idAt(placed) == api::kSignalId, "the signal is placed");
-    ctx.check(!sg::state().selections.contains(uuid), "placing uses up the selection");
+    ctx.check(!sg::selectionOf(sp.getInventory().getItem(0)).has_value(), "placing uses up the selection");
     auto it = sg::state().blocks.find(placed);
     ctx.require(it != sg::state().blocks.end() && !it->second.point.empty(), "the signal is bound to the track");
     co_await ctx.ticks(3);
@@ -192,7 +192,7 @@ LV_REGISTER_SELFTEST("signals.place_with_item", [](Context& ctx) -> ll::coro::Co
     co_await ctx.ticks(8);
     use(at(base, 6));
     co_await ctx.ticks(3);
-    ctx.check(sg::state().selections.contains(uuid), "the other direction of the same spot can be selected");
+    ctx.check(sg::selectionOf(sp.getInventory().getItem(0)).has_value(), "the other direction of the same spot can be selected");
     ctx.cleanupBlock(at(base, 6, 0, -2));
     co_await ctx.ticks(8);
     use(at(base, 6, -1, -2));
@@ -220,7 +220,7 @@ LV_REGISTER_SELFTEST("signals.place_with_item", [](Context& ctx) -> ll::coro::Co
     use(at(base, 2, -1, 19));
     co_await ctx.ticks(2);
     sp.setSneaking(false);
-    ctx.check(!sg::state().selections.contains(uuid), "sneak-clicking clears the selection");
+    ctx.check(!sg::selectionOf(sp.getInventory().getItem(0)).has_value(), "sneak-clicking clears the selection");
 });
 
 LV_REGISTER_SELFTEST("signals.sections", [](Context& ctx) -> ll::coro::CoroTask<> {
@@ -439,4 +439,50 @@ LV_REGISTER_SELFTEST("signals.track_removed", [](Context& ctx) -> ll::coro::Coro
     ctx.setBlock(sig, "minecraft:air");
     co_await ctx.ticks(3);
     ctx.check(api::sectionAt(*loc(at(base, 10))) == api::kNoGroup, "no sections without signals");
+});
+
+// U38: the selection is the item stack's own (Create's TrackTargetingBlockItem keeps it in the
+// item's tag): another stack has none, the selected stack keeps it wherever it goes.
+LV_REGISTER_SELFTEST("signals.selection_on_item", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto base = ctx.testPos(3870);
+    ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
+    lineX(ctx, base, 12);
+    auto item = lv::feature::common::items::make(api::kObserverId, 2);
+    ctx.require(item.has_value(), "the observer item exists");
+    ctx.give(sp, *item, 0);
+    sp.teleport(Vec3{base.x + 2.5f, float(base.y), base.z + 2.5f}, DimensionType(0));
+    co_await ctx.ticks(2);
+    auto use = [&](GlobalPos p) {
+        return sp.simulateUseItemInSlotOnBlock(0, lv::game::blockPos(p), ScriptModuleMinecraft::ScriptFacing::Up, Vec3{0.5f, 1.0f, 0.5f});
+    };
+    sp.simulateLookAt(Vec3{base.x + 10.5f, base.y + .5f, base.z + .5f}, sim::LookDuration::Continuous);
+    co_await ctx.ticks(10);
+    use(at(base, 5));
+    co_await ctx.ticks(3);
+    auto sel = sg::selectionOf(sp.getInventory().getItem(0));
+    ctx.require(sel.has_value(), "the selection is written on the held stack");
+    ctx.check(sel->target.track.x == base.x + 5 && sel->target.track.z == base.z && sel->target.dir.x > 0, "the stack carries the track and the direction");
+    ctx.check(sel->item == api::kObserverId, "the selection belongs to the observer item");
+
+    // the stack goes elsewhere: a fresh stack in the hand has no selection
+    ItemStack selected = sp.getInventory().getItem(0);
+    ctx.give(sp, *item, 0);
+    co_await ctx.ticks(1);
+    ctx.check(!sg::selectionOf(sp.getInventory().getItem(0)).has_value(), "another stack has no selection");
+    ctx.cleanupBlock(at(base, 5, 0, 2));
+    co_await ctx.ticks(8);
+    use(at(base, 5, -1, 2));
+    co_await ctx.ticks(4);
+    ctx.check(idAt(at(base, 5, 0, 2)) != api::kObserverId, "nothing is placed without a selection on the stack");
+
+    // the selected stack back in the hand places and binds the observer
+    ctx.give(sp, selected, 0);
+    co_await ctx.ticks(8);
+    use(at(base, 5, -1, 2));
+    co_await ctx.ticks(4);
+    ctx.check(idAt(at(base, 5, 0, 2)) == api::kObserverId, "the selected stack places the observer");
+    auto it = sg::state().blocks.find(at(base, 5, 0, 2));
+    ctx.check(it != sg::state().blocks.end() && !it->second.point.empty(), "the observer is bound to the selected track");
+    ctx.check(!sg::selectionOf(sp.getInventory().getItem(0)).has_value(), "placing clears the stack's selection");
 });
