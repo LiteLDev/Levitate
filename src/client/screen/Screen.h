@@ -161,7 +161,7 @@ public:
 /// A single-line text input (Create's address / name / search boxes), edited in place:
 /// - click it to focus (a click elsewhere, Enter or Esc leaves it); typed text comes from the
 ///   game window's character messages (WM_CHAR), so keyboard layouts, dead keys and IME-composed
-///   text arrive as the player sees them, and LeviHeadlessInput's `Send-HeadlessText` works;
+///   text arrive as the player sees them, and BeDD's `Send-BeDDText` works;
 /// - Backspace / Delete, Left / Right / Home / End move and edit at the caret; Ctrl+V pastes
 ///   the clipboard's text (line breaks become spaces), Ctrl+A selects nothing but moves to the end;
 /// - Enter submits (`onSubmit(text)`), Esc cancels (restores the text from before focusing,
