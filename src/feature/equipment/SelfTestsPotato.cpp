@@ -454,3 +454,49 @@ LV_REGISTER_SELFTEST("equipment.potato_anvil_grindstone", [](Context& ctx) {
     ctx.check(eq::enchantLevel(out, eq::kPotatoRecovery) == 0, "the grindstone removes it");
     ctx.check(out.getCustomLore().empty(), "and its lore line");
 });
+
+// A show of projectiles for the client harness' screenshots (does nothing without a real player):
+// slow arcs of every render mode in front of the first real player, and cakes stuck to a cow.
+LV_REGISTER_SELFTEST("equipment.potato_showcase", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto level = ll::service::getLevel();
+    ctx.require(level != nullptr, "level");
+    Player* viewer = nullptr;
+    level->forEachPlayer([&](Player& p) {
+        if (!p.isSimulatedPlayer()) viewer = &p;
+        return viewer == nullptr;
+    });
+    if (!viewer) {
+        ctx.info("no real player: nothing to show");
+        co_return;
+    }
+    int   dim      = static_cast<int>(viewer->getDimensionId());
+    auto  eye      = viewer->getEyePos();
+    auto  look     = viewer->getViewVector(1.0f);
+    double h       = std::sqrt(double(look.x) * look.x + double(look.z) * look.z);
+    double fx = h > 1e-6 ? look.x / h : 1, fz = h > 1e-6 ? look.z / h : 0; // forward (horizontal)
+    double rx = -fz, rz = fx;                                               // right
+    // a cow 5 blocks ahead with two cakes stuck to it
+    Vec3   cowAt{float(eye.x + fx * 5 - rx * 1.5), float(eye.y - 1.62), float(eye.z + fz * 5 - rz * 1.5)};
+    Actor* cow = level->getSpawner().spawnMob(viewer->getDimensionBlockSource(), ActorDefinitionIdentifier("minecraft:cow"), nullptr, cowAt, false, false, false);
+    auto   cowId = cow ? eq::uidOf(*cow) : 0;
+    static constexpr char const* kAmmo[] = {
+        "minecraft:potato", "minecraft:carrot", "minecraft:apple", "minecraft:golden_carrot", "minecraft:melon_block", "minecraft:cod",
+        "minecraft:enchanted_golden_apple", "minecraft:pumpkin", "minecraft:beetroot", "levitate:chocolate_glazed_berries",
+    };
+    for (int i = 0; i < 40; ++i) {
+        if (i % 4 == 0) {
+            auto id = kAmmo[(i / 4) % std::size(kAmmo)];
+            // from 6 blocks ahead, 2.5 to the left, drifting right and arcing up
+            eq::launchProjectile(dim, eye.x + fx * 6 - rx * 2.5, eye.y - 0.8, eye.z + fz * 6 - rz * 2.5, rx * 0.22, 0.55, rz * 0.22, id, 0, 0);
+        }
+        if ((i == 2 || i == 12) && cowId) {
+            if (auto* c = actorById(cowId)) {
+                auto cp = c->getPosition();
+                eq::launchProjectile(dim, cp.x + fx * -1.5 + rx * 0.2 * i / 12, cp.y + 0.9, cp.z + fz * -1.5, fx * 0.6, 0, fz * 0.6, "minecraft:cake", 0, 0);
+            }
+        }
+        co_await ctx.ticks(1);
+    }
+    co_await ctx.ticks(20);
+    if (auto* c = actorById(cowId)) c->remove();
+});

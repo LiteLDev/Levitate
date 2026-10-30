@@ -6,7 +6,7 @@
 # worldshaper, sand paper, tree fertilizer, linked controller and lectern), then blocks set from
 # the console.
 $r = Invoke-SelfTest 'equipment.*'
-if ($r.Pass -lt 25) { throw "expected at least 25 equipment selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 26) { throw "expected at least 26 equipment selftests to pass, got $($r.Pass)" }
 Wait-LogLine 'equipment: .* equipped minecraft:torch from the toolbox at ' 10 | Out-Null
 Wait-LogLine 'equipment: .* fired a potato cannon \(potato\)' 10 | Out-Null
 Wait-LogLine 'equipment: a potato cannon planted potato at ' 10 | Out-Null

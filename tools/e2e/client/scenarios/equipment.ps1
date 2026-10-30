@@ -4,7 +4,7 @@
 #                       diving gear; the selftests pass on the (integrated) server.
 #   remote-vanilla:     the same items without the client mod: forms instead of screens.
 # Screenshots: out/equipment/{blocks,toolbox-screen,toolbox-filled,radial,radial-compartments,worldshaper-screen,
-#              symmetry-screen,cannon-shot,diving-gear}.png
+#              symmetry-screen,cannon-shot,projectiles-{1,2,3},diving-gear}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 
 # native screens close with the inventory key (the framework pops its host scene itself)
@@ -123,6 +123,22 @@ Start-Sleep -Milliseconds 120
 Save-Screenshot 'cannon-shot' | Out-Null
 Invoke-Chat '/gamemode creative'
 
+# potato projectile entities in flight (tumbling, along the motion, blocks) and cakes stuck to a cow
+# (vanilla clients draw them from the resource pack too)
+& {
+    Invoke-Chat '/tp @s ~ ~ ~ -90 0'
+    Start-Sleep -Milliseconds 600
+    $mark = Get-LogMark
+    Invoke-Chat '/create selftest "equipment.potato_showcase"'
+    Start-Sleep -Milliseconds 900
+    Save-Screenshot 'projectiles-1' | Out-Null
+    Start-Sleep -Milliseconds 450
+    Save-Screenshot 'projectiles-2' | Out-Null
+    Start-Sleep -Milliseconds 450
+    Save-Screenshot 'projectiles-3' | Out-Null
+    Wait-LogLine 'SELFTEST (PASS|FAIL) equipment.potato_showcase' 30 -Since $mark | Out-Null
+}
+
 # worn diving gear, seen from the front
 Invoke-Chat '/clear @s'
 Invoke-Chat '/replaceitem entity @s slot.armor.head 0 levitate:copper_diving_helmet'
@@ -136,7 +152,7 @@ Reset-CameraPerspective
 
 if (-not $vanilla) {
     $r = Invoke-SelfTest 'equipment.*'
-    if ($r.Pass -lt 16) { throw "expected at least 16 equipment selftests to pass, got $($r.Pass)" }
+    if ($r.Pass -lt 26) { throw "expected at least 26 equipment selftests to pass, got $($r.Pass)" }
 }
 Invoke-Chat '/clear @s'
 Invoke-Chat '/fill ~2 ~-1 ~-4 ~8 ~5 ~4 air'
