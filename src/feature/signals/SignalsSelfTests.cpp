@@ -4,6 +4,7 @@
 // stretch of track reported with setTrainExtent, and checkAhead is what a train asks before
 // entering a section.
 
+#include "feature/contraption/U38Test.h"
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/scripting/modules/minecraft/ScriptFacing.h"
@@ -444,7 +445,7 @@ LV_REGISTER_SELFTEST("signals.track_removed", [](Context& ctx) -> ll::coro::Coro
 // U38: the selection is the item stack's own (Create's TrackTargetingBlockItem keeps it in the
 // item's tag): another stack has none, the selected stack keeps it wherever it goes.
 LV_REGISTER_SELFTEST("signals.selection_on_item", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = ctx.testPos(3870);
+    auto base = ctx.testPos(3870, lv::feature::contraption::kU38Dz);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     lineX(ctx, base, 12);

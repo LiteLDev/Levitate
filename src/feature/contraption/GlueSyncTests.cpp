@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "feature/contraption/U38Test.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/server/SimulatedPlayer.h"
 #include "mc/world/actor/player/Player.h"
@@ -31,7 +32,7 @@ nlohmann::json lastGlue(Player const& player) {
 } // namespace
 
 LV_REGISTER_SELFTEST("contraption.glue_sync", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto p = ctx.testPos(3880);
+    auto p = ctx.testPos(3880, kU38Dz);
     p.y += 1;
     ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
     auto& region = ctx.player().getDimensionBlockSource();

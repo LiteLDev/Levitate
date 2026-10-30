@@ -2,6 +2,7 @@
 // ticking area with dz): companions get the coupled cart pairs to draw (Create's CouplingRenderer)
 // when a coupling is made and when it goes.
 
+#include "feature/contraption/U38Test.h"
 #include "mc/server/SimulatedPlayer.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/level/BlockSource.h"
@@ -11,6 +12,8 @@
 #include "selftest/SelfTest.h"
 
 namespace lv::feature::bearings {
+
+using ::lv::feature::contraption::kU38Dz;
 
 namespace {
 
@@ -35,7 +38,7 @@ std::optional<bool> lists(std::vector<core::common::Envelope> const& msgs, std::
 } // namespace
 
 LV_REGISTER_SELFTEST("bearings.coupling_sync", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto p = ctx.testPos(3890, -150);
+    auto p = ctx.testPos(3890, kU38Dz);
     p.y += 2;
     ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
     auto& r = ctx.player().getDimensionBlockSource();
