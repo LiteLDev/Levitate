@@ -24,6 +24,7 @@ class Block;
 class BlockPos;
 class BlockSource;
 class ItemStack;
+class ItemStackBase;
 class Player;
 class Vec3;
 
@@ -134,6 +135,15 @@ int  depositAll(Player& player, std::vector<GlobalPos> const& boxes);
 void openToolboxForm(Player& player);
 /// Before a player breaks a toolbox (creative breaks of empty toolboxes drop nothing).
 void noteToolboxBreak(GlobalPos const& p);
+/// The player closed the toolbox screen (native or form): the lid closes when nobody has it open.
+void toolboxScreenClosed(Player& player, GlobalPos const& pos);
+/// Players that have the toolbox's screen open (Create's openTracker.openCount).
+[[nodiscard]] int toolboxOpenCount(GlobalPos const& pos);
+/// Holds the lid open for `ticks` (0: releases it) as if a player had the screen open (debug command).
+bool holdToolboxOpen(GlobalPos const& pos, int ticks);
+/// Create's ToolboxDyeingRecipe: when the player's crafting grid holds exactly a toolbox and a dye,
+/// the crafted toolbox `result` gets the toolbox's user data (contents, name). True when copied.
+bool keepDyedToolboxData(Player& player, ItemStackBase& result);
 void tickToolboxes();
 void resetToolboxes();
 void installToolboxes();

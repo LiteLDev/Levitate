@@ -12,6 +12,11 @@
           1,
           2,
           3
+        ],
+        "levitate:lid": [
+          0,
+          1,
+          2
         ]
       }
     },
@@ -104,6 +109,18 @@
               0
             ]
           }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:lid') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.toolbox_open"
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:lid') == 2",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.toolbox_body"
         }
       }
     ]
