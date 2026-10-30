@@ -6,6 +6,8 @@
 #ifdef LV_CLIENT
 
 #include <array>
+#include <bit>
+#include <cstring>
 #include <chrono>
 #include <cmath>
 #include <map>
@@ -20,7 +22,9 @@
 #include "mc/client/game/ClientInstance.h"
 #include "mc/client/gui/screens/ScreenContext.h"
 #include "mc/client/sound/SoundEngine.h"
-#include "mc/deps/core/file/Path.h"
+#include "mc/client/network/ClientNetworkHandler.h"
+#include "mc/deps/audio/ServerSoundHandle.h"
+#include "mc/network/packet/PlaySoundPacket.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
 #include "mc/client/renderer/RenderMaterialGroup.h"
@@ -245,31 +249,40 @@ mce::MaterialPtr& material() {
     return m;
 }
 
-/// Watches the game's sound engine for a whistle tone: the server plays it once as a looping
-/// instance, so a tone that keeps playing for 3 s (the sample is 0.6 s long) proves the loop.
-/// One log line per level (the e2e scenario waits for it).
+/// The first whistle tone this client received (handle, time): the server plays it once as a
+/// looping instance, so a tone still playing 3 s later (the sample is 0.6 s long) proves the loop.
+/// One log line per process (the e2e scenario waits for it).
+std::mutex                                           gToneMutex;
+std::optional<std::uint64_t>                         gToneHandle;
+std::chrono::steady_clock::time_point                gToneAt;
+bool                                                 gToneChecked = false;
+
+/// SoundEngine::isPlayingSound(ServerSoundHandle): the handle is an opaque 64-bit id, passed in a
+/// register like the game's own callers do (its header declares a copy constructor it doesn't
+/// define, so the member can't be called with one directly).
+bool isPlayingHandle(SoundEngine const& engine, std::uint64_t handle) {
+    auto member = static_cast<bool (SoundEngine::*)(ServerSoundHandle) const>(&SoundEngine::$isPlayingSound);
+    static_assert(sizeof(member) == sizeof(void*), "single inheritance member pointer");
+    auto fn = reinterpret_cast<bool (*)(SoundEngine const*, std::uint64_t)>(std::bit_cast<void*>(member));
+    return fn(&engine, handle);
+}
+
 void probeWhistleLoop() {
-    static int  frame = 0;
-    static bool logged = false;
-    static std::optional<std::chrono::steady_clock::time_point> since;
-    if (logged || ++frame % 10 != 0) return;
+    std::uint64_t handle = 0;
+    {
+        std::lock_guard lock(gToneMutex);
+        if (gToneChecked || !gToneHandle || std::chrono::steady_clock::now() - gToneAt < std::chrono::seconds(3)) return;
+        gToneChecked = true;
+        handle       = *gToneHandle;
+    }
     auto* ci = currentClient();
     if (!ci) return;
     auto* engine = ci->getSoundEngine().get().get();
     if (!engine) return;
-    bool playing = false;
-    for (char const* name : {"levitate.steam.whistle_high", "levitate.steam.whistle_medium", "levitate.steam.whistle_low"})
-        playing = playing || engine->isPlayingSound(Core::Path(name));
-    auto now = std::chrono::steady_clock::now();
-    if (!playing) {
-        since.reset();
-        return;
-    }
-    if (!since) since = now;
-    if (now - *since >= std::chrono::seconds(3)) {
-        logged = true;
-        log().info("steam client: whistle loop still playing after 3 s");
-    }
+    // a handle that was never played must read as not playing, or the probe proves nothing
+    if (isPlayingHandle(*engine, handle ^ 0xFFFF'0000ull)) log().warn("steam client: the sound engine reports unknown handles as playing");
+    else if (isPlayingHandle(*engine, handle)) log().info("steam client: whistle loop still playing after 3 s");
+    else log().warn("steam client: the whistle tone stopped before 3 s");
 }
 
 void drawSteam(BaseActorRenderContext& ctx) {
@@ -380,6 +393,35 @@ LL_TYPE_INSTANCE_HOOK(
     }
 }
 
+// The whistle tone as the client receives it (loop count, handle): remembered for the probe.
+LL_TYPE_INSTANCE_HOOK(
+    WhistleToneHook,
+    ll::memory::HookPriority::Normal,
+    ClientNetworkHandler,
+    &ClientNetworkHandler::$handle,
+    void,
+    NetworkIdentifier const& source,
+    PlaySoundPacket const&   packet
+) {
+    try {
+        std::string const& name = packet.mName;
+        if (name.starts_with("levitate.steam.whistle_") && name != "levitate.steam.whistle_chiff") {
+            auto const* raw     = reinterpret_cast<unsigned char const*>(&packet.mServerSoundHandle);
+            bool        engaged = raw[sizeof(std::uint64_t)] != 0;
+            std::uint64_t handle = 0;
+            std::memcpy(&handle, raw, sizeof(handle));
+            std::lock_guard lock(gToneMutex);
+            if (!gToneHandle && engaged) {
+                gToneHandle = handle;
+                gToneAt     = std::chrono::steady_clock::now();
+                log().info("steam client: received the whistle tone {} (loop count {}, handle {:#x})", name, int(packet.mLoopCount), handle);
+            }
+        }
+    } catch (...) {
+    }
+    origin(source, packet);
+}
+
 class SteamRenderModule {
 public:
     void install() {
@@ -390,6 +432,7 @@ public:
             feature::net::client::on("steam.engines", [](Json const& msg) { onEngines(msg); });
         }
         SteamRenderHook::hook();
+        WhistleToneHook::hook();
         mExit = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             std::lock_guard lock(gMutex);
             gTanks.clear();
@@ -400,6 +443,7 @@ public:
     void uninstall() {
         ll::event::EventBus::getInstance().removeListener(mExit);
         SteamRenderHook::unhook();
+        WhistleToneHook::unhook();
     }
 
 private:

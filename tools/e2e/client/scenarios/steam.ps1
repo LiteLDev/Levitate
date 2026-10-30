@@ -7,7 +7,7 @@
 #                       gauges on the free sides.
 #   remote-vanilla:     the same blocks as static models (no fluid, no piston, no gauges), the
 #                       whistle's looping tone and steam jets, without errors.
-# Screenshots: out/steam/{steam-a,steam-b,steam-c}.png
+# Screenshots: out/steam/{steam-a,steam-b,steam-c,steam-d}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 
 if (-not $vanilla) {
@@ -48,6 +48,7 @@ if (-not $vanilla) {
     Wait-LogLine 'steam client: drawing [1-9]\d* engine\(s\)' 30 | Out-Null
     Wait-LogLine 'steam client: drawing the gauges of [1-9]\d* boiler\(s\)' 30 | Out-Null
     # the tone was played once and keeps looping in the game's sound engine
+    Wait-LogLine 'steam client: received the whistle tone levitate.steam.whistle_low \(loop count -1' 30 | Out-Null
     Wait-LogLine 'steam client: whistle loop still playing after 3 s' 30 | Out-Null
 }
 Start-Sleep -Seconds 1
@@ -58,4 +59,8 @@ Save-Screenshot 'steam-b' | Out-Null
 Invoke-Chat '/tp @s ~2 ~5 ~ facing ~5 ~ ~'
 Start-Sleep -Seconds 1
 Save-Screenshot 'steam-c' | Out-Null
+# the sounding whistle with its steam jets and the single boiler's gauges, from the south-west
+Invoke-Chat '/tp @s ~ ~-4 ~8 facing ~3.5 ~-4.5 ~5.5'
+Start-Sleep -Seconds 1
+Save-Screenshot 'steam-d' | Out-Null
 Assert-NoErrors
