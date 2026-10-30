@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <set>
 
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
@@ -13,6 +14,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "core/common/ValueSettings.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/FluidRegistry.h"
@@ -215,7 +217,8 @@ void evaluate(GlobalPos const& ctrl, BoilerRuntime& rt) {
         rt.boiler.setAttachments(0, 0);
         return;
     }
-    int engines = 0, whistles = 0;
+    int           engines = 0, whistles = 0;
+    std::set<int> pitches; // Create's whistlePitches (pipe_organ)
     for (int y = 0; y < info->height; ++y) {
         for (int x = 0; x < info->width; ++x) {
             for (int z = 0; z < info->width; ++z) {
@@ -227,7 +230,10 @@ void evaluate(GlobalPos const& ctrl, BoilerRuntime& rt) {
                     if (id == kEngine) {
                         if (engineShape(region->getBlock(game::blockPos(n))).facing == d) ++engines;
                     } else if (id == kWhistle) {
-                        if (cs::opposite(whistleAttached(region->getBlock(game::blockPos(n)))) == d) ++whistles;
+                        if (cs::opposite(whistleAttached(region->getBlock(game::blockPos(n)))) == d) {
+                            ++whistles;
+                            pitches.insert(whistlePitchAt(n) + 100 * static_cast<int>(whistleSize(region->getBlock(game::blockPos(n)))));
+                        }
                     }
                 }
             }
@@ -235,6 +241,7 @@ void evaluate(GlobalPos const& ctrl, BoilerRuntime& rt) {
     }
     bool wasActive = rt.boiler.isActive();
     rt.boiler.setAttachments(engines, whistles);
+    if (pitches.size() >= 12) advancements::awardOwner(ctrl, "pipe_organ");
     if (wasActive != rt.boiler.isActive()) {
         if (rt.boiler.isActive()) setWindows(ctrl, false); // Create: a boiler closes its windows
         log().info("steam: tank at {} {} a boiler ({} engines, {} whistles)", at(ctrl), rt.boiler.isActive() ? "is now" : "is no longer", engines,
@@ -663,8 +670,10 @@ void tickSteam() {
         if (++rt->sinceEval >= 100) evaluate(ctrl, *rt); // catches attachments changed without an event
         if (!rt->boiler.isActive()) continue;
         if (rt->boiler.updateTemperature(heatScores(*region, *info))) markTankForSync(ctrl);
-        if (rt->boiler.tick(static_cast<int>(std::min<std::int64_t>(info->capacity, INT32_MAX)), info->creative)) markTankForSync(ctrl);
+        bool sampled = rt->boiler.tick(static_cast<int>(std::min<std::int64_t>(info->capacity, INT32_MAX)), info->creative);
+        if (sampled) markTankForSync(ctrl);
         int size  = info->width * info->width * info->height;
+        if (sampled && rt->boiler.actualHeat(size) == cs::kMaxBoilerLevel) advancements::awardOwner(ctrl, "steam_engine_maxed");
         int level = rt->boiler.display(size).passive ? -1 : rt->boiler.actualHeat(size);
         // the gauges (Create's BoilerData.read: gauge chases this target; updateOcclusion)
         int   forSize = rt->boiler.maxHeatForSize(size);
