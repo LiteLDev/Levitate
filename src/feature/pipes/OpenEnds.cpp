@@ -200,8 +200,12 @@ bool provideFluidToSpace(BlockSource& region, BlockPos const& out, cp::Fluid con
     auto const* type = ft::find(fluid.id);
     if (!type || type->sourceBlock.empty()) return true; // no world block: the pipe consumes it
     if (waterlog) {
-        // Create: a waterloggable block takes water only, and only when it is not waterlogged yet
-        if (waterlogged(region, out)) return false;
+        // Create: a waterloggable block takes water only, and only when it is not waterlogged yet;
+        // another fluid poured into its water reacts (lava: the block becomes stone)
+        if (waterlogged(region, out)) {
+            if (fluid.id != "minecraft:water") spillCollision(region, out, fluid.id, WorldFluid{"minecraft:water", true});
+            return false;
+        }
         if (fluid.id != "minecraft:water") return false;
         if (simulate) return true;
         if (!config::get<PipesConfig>().pipesPlaceFluidSourceBlocks) return true;

@@ -1,8 +1,10 @@
 # Fluid machines (U19) on a real client: the blocks' models and textures, a hose pulley turned
-# by a test source lowering its hose (drawn by the client mod), and the unit's selftests.
-#   local / remote-mod: the client mod draws the hose (log "fluids: rendering ...")
-#   remote-vanilla:     static blocks only
-# Screenshots: out/fluids/{blocks,hose}.png
+# by a test source lowering its hose (drawn by the client mod), a spout over a depot fed from a
+# cauldron of water through a pump filling the bottles put on the depot, and the unit's selftests.
+#   local / remote-mod: the client mod draws the hose (log "fluids: rendering ...") and the spout's
+#                       stream with its nozzle squeezing (log "fluids: spout nozzle squeezes ...")
+#   remote-vanilla:     static blocks; the spout's drops and splash (particles) and the filling
+# Screenshots: out/fluids/{blocks,hose,spout-a,spout-b,spout-c}.png
 $mark = Get-LogMark
 $withMod = $script:Mode -ne 'remote-vanilla'
 
@@ -42,5 +44,33 @@ Start-Sleep -Milliseconds 1000
 Save-Screenshot 'hose' | Out-Null
 if ($withMod) { Wait-LogLine 'fluids: rendering \d+ quads' 20 -Since $mark | Out-Null }
 
+# a spout over a depot north of the player, fed from a cauldron of water by a pump (U17) east of it
+Invoke-Chat '/fill ~-1 ~-2 ~-7 ~9 ~4 ~-2 air'
+Invoke-Chat '/setblock ~3 ~-1 ~-4 levitate:depot'
+Invoke-Chat '/setblock ~3 ~1 ~-4 levitate:spout'
+Invoke-Chat '/setblock ~4 ~1 ~-4 levitate:fluid_pipe ["levitate:east"=1,"levitate:west"=1]'
+Invoke-Chat '/setblock ~6 ~1 ~-4 levitate:fluid_pipe ["levitate:east"=1,"levitate:west"=1]'
+Invoke-Chat '/setblock ~7 ~1 ~-4 cauldron ["fill_level"=6,"cauldron_liquid"="water"]'
+Invoke-Chat '/setblock ~6 ~1 ~-3 levitate:kinetics_test_source ["levitate:axis"=0]'
+Invoke-Chat '/setblock ~5 ~1 ~-3 levitate:kinetics_test_cog ["levitate:axis"=0]'
+if ($withMod) { Invoke-Chat '/create kinetics ~6 ~1 ~-3 speed 64' }
+Start-Sleep -Milliseconds 500
+Invoke-Chat '/setblock ~5 ~1 ~-4 levitate:mechanical_pump ["levitate:facing"=4]'
+# the cauldron's bucket goes into the spout (1000 mB: four bottles)
+Start-Sleep -Seconds 4
+Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 glass_bottle 4'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~-0.5 ~-4'
+Start-Sleep -Milliseconds 800
+$spoutMark = Get-LogMark
+Click 0.5 0.5 -Relative -Right
+Start-Sleep -Milliseconds 700
+Save-Screenshot 'spout-a' | Out-Null
+Start-Sleep -Milliseconds 250
+Save-Screenshot 'spout-b' | Out-Null
+Wait-LogLine 'spout at -?\d+ -?\d+ -?\d+ filled minecraft:glass_bottle into minecraft:potion' 20 -Since $spoutMark | Out-Null
+Start-Sleep -Milliseconds 300
+Save-Screenshot 'spout-c' | Out-Null
+if ($withMod) { Wait-LogLine 'fluids: spout nozzle squeezes while filling' 20 -Since $mark | Out-Null }
+
 $r = Invoke-SelfTest 'fluids.*'
-if ($r.Pass -lt 12) { throw "expected at least 12 fluids selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 14) { throw "expected at least 14 fluids selftests to pass, got $($r.Pass)" }

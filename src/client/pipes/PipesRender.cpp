@@ -255,8 +255,8 @@ void reset() {
 
 } // namespace
 
-// Chunk meshes: glass pipes lose their static fluid while the server is a Levitate server (it
-// sends the flows drawn here).
+// Chunk meshes: glass pipes lose their static fluid (a world with glass pipes runs Levitate, whose
+// server sends the flows drawn here).
 LL_STATIC_HOOK(
     PipesExtractHook,
     ll::memory::HookPriority::Normal,
@@ -274,7 +274,7 @@ LL_STATIC_HOOK(
     bool                                                               checkIgnoreBlockTransforms
 ) {
     Block const* use = &block;
-    if (visualReference == ClientBlockPipeline::VisualReference::Block && block.getTypeName() == kGlassPipe && feature::net::client::connected()) {
+    if (visualReference == ClientBlockPipeline::VisualReference::Block && block.getTypeName() == kGlassPipe) {
         if (auto const* hidden = withoutFluid(block)) use = hidden;
     }
     return origin(*use, iterData, extraction, worldView, shouldGenerateFaceCulling, visualReference, tintResolver, biomeTintCache, chunkMinPos, checkIgnoreBlockTransforms);

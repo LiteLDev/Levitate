@@ -1,7 +1,9 @@
 # Fluid transport (U17) on the client: a cauldron of water pumped through glass pipes out of an open
 # end next to the player.
-#   local / remote-mod: the pump's cog turns (client mod), the glass pipes fill with water, the open
-#                       end places a water source; the selftests pass on the (integrated) server.
+#   local / remote-mod: the pump's cog turns (client mod), the client mod draws the water's flow
+#                       fronts in the glass pipes (log "pipes client: drawing N glass pipe flows"),
+#                       the open end pours fluid particles and places a water source; the selftests
+#                       pass on the (integrated) server.
 #   remote-vanilla:     a client without the mod sees the same static models and the water in the
 #                       glass pipes (block states), without errors.
 # Screenshots: out/pipes/{pipes-built,pipes-flowing}.png
@@ -36,6 +38,7 @@ Save-Screenshot 'pipes-built' | Out-Null
 # the pump last: it starts pumping as soon as it is placed
 Invoke-Chat '/setblock ~8 ~1 ~-1 levitate:mechanical_pump ["levitate:facing"=3]'
 Wait-LogLine "pipes: pump at .* now runs at $rpm RPM" 30 -Since $mark | Out-Null
+if (-not $vanilla) { Wait-LogLine 'pipes client: drawing \d+ glass pipe flows' 30 -Since $mark | Out-Null }
 Start-Sleep -Seconds 6
 Save-Screenshot 'pipes-flowing' | Out-Null
 Invoke-Chat '/create pipes ~8 ~1 ~0'
@@ -43,6 +46,6 @@ Wait-LogLine 'pipes: levitate:glass_fluid_pipe at' 30 -Since $mark | Out-Null
 
 if (-not $vanilla) {
     $r = Invoke-SelfTest 'pipes.*'
-    if ($r.Pass -lt 13) { throw "expected at least 13 pipes selftests to pass, got $($r.Pass)" }
+    if ($r.Pass -lt 18) { throw "expected at least 18 pipes selftests to pass, got $($r.Pass)" }
 }
 Assert-NoErrors
