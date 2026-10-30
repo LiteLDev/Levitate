@@ -21,6 +21,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "core/common/ValueSettings.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
@@ -330,6 +331,7 @@ void tickRequests(GlobalPos const& p, int slot, Json& panel) {
         auto filter = stackFromJson(panel.value("filter", Json()));
         net->promises.add(itemKey(filter), std::max(1, panel.value("output", 1)));
     }
+    advancements::awardOwner(p, "factory_gauge"); // Create's FactoryPanelBehaviour#tryRestock
     log().info("stock: factory gauge at {} {} {} panel {} requested its ingredients to '{}'", p.x, p.y, p.z, slot, address);
 }
 

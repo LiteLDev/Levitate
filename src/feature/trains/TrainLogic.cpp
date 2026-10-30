@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 #include <unordered_set>
 
 #include "ll/api/service/Bedrock.h"
@@ -25,6 +26,7 @@
 #include "mc/world/level/block/actor/FurnaceBlockActor.h"
 #include "mc/world/phys/AABB.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
@@ -433,6 +435,7 @@ void arriveAt(Train& t, Station& s) {
     if (!s.autoSchedule.is_null() && !t.runtime.hasSchedule) {
         if (auto sch = scheduleOf(common::items::fromJson(s.autoSchedule)); sch && !sch->entries.empty()) {
             t.runtime.setSchedule(*sch, true);
+            advancements::awardOwner(s.pos, "conductor"); // Create's StationBlockEntity#applyAutoSchedule
             playSound(s.pos.dim, {s.pos.x + .5, s.pos.y + .5, s.pos.z + .5}, "random.levelup", 0.5f, 1.2f);
         }
     }
@@ -659,7 +662,74 @@ std::vector<std::string> occupiedPoints(Train const& t) {
     return out;
 }
 
+// ---- advancements (Create's Train / CarriageContraptionEntity / ContraptionCollider awards) -------------
+
+/// Create's Train#backwardsDriver: the player who drove the train backwards (slowly) this tick.
+std::map<std::uint64_t, std::string>& backwardsDrivers() {
+    static std::map<std::uint64_t, std::string> m;
+    return m;
+}
+
+Player* playerByActorId(std::int64_t uid) {
+    auto level = ll::service::getLevel();
+    if (!level || !uid) return nullptr;
+    ActorUniqueID id;
+    id.rawID = uid;
+    return level->getPlayer(id);
+}
+
+/// The signal section under the train's leading point (in the direction it moves).
+sig::GroupId leadSection(Train& t) {
+    auto lead = t.speed >= 0 ? std::optional<ct::TrackPos>(t.body.front) : t.body.pointAt(rail(), t.body.length());
+    if (!lead) return sig::kNoGroup;
+    auto loc = ct::resolve(rail(), *lead);
+    return loc ? sig::sectionAt(*loc) : sig::kNoGroup;
+}
+
+/// Create's CarriageContraptionEntity#addPassenger / AbstractContraptionEntity#getDismountLocationForPassenger:
+/// a player who leaves a train seat 5000 blocks or more from where they sat down gets long_travel.
+void trackRiders() {
+    static std::map<std::int64_t, Vec3d> mountedAt;
+    std::set<std::int64_t>              seated;
+    for (auto const& [id, t] : state().trains) {
+        for (auto const& c : t.carriages) {
+            auto* con = contraption::find(c.contraption);
+            if (!con) continue;
+            for (auto const& [local, uid] : con->seated()) {
+                auto* p = playerByActorId(uid);
+                if (!p) continue;
+                seated.insert(uid);
+                auto f = p->getPosition();
+                mountedAt.try_emplace(uid, Vec3d{f.x, f.y, f.z});
+            }
+        }
+    }
+    for (auto it = mountedAt.begin(); it != mountedAt.end();) {
+        if (seated.contains(it->first)) {
+            ++it;
+            continue;
+        }
+        if (auto* p = playerByActorId(it->first)) {
+            auto f = p->getPosition();
+            if ((Vec3d{f.x, f.y, f.z} - it->second).length() >= 5000) advancements::award(*p, "long_travel");
+        }
+        it = mountedAt.erase(it);
+    }
+}
+
 void crash(Train& t, Vec3d const& where) {
+    // Create's Train#crash: the passengers (not the driver) get train_crash, a backwards driver
+    // train_crash_backwards
+    if (!t.derailed) {
+        for (auto const& c : t.carriages) {
+            auto* con = contraption::find(c.contraption);
+            if (!con) continue;
+            for (auto const& [local, uid] : con->seated())
+                if (auto* p = playerByActorId(uid); p && uuidOf(*p) != t.controller) advancements::award(*p, "train_crash");
+        }
+        if (auto it = backwardsDrivers().find(t.id); it != backwardsDrivers().end())
+            if (auto* p = playerByUuid(it->second)) advancements::award(*p, "train_crash_backwards");
+    }
     cancelNavigation(t);
     t.speed    = ct::crashBounce(t.speed);
     t.derailed = true;
@@ -772,6 +842,9 @@ void damageEntities(Train& t, Vec3d const& motion) {
             HurtParameters    params{};
             last = state().tick;
             a->hurt(source, float(hit->damage), params);
+            // Create's ContraptionCollider: the driver of a train that ran someone over
+            if (!a->isAlive() || a->getHealth() <= 0)
+                if (auto* driver = playerByUuid(t.controller)) advancements::award(*driver, "train_roadkill");
             a->lerpMotion(Vec3{float(hit->motion.x), float(hit->motion.y), float(hit->motion.z)});
             playSound(t.dim, {f.x, f.y, f.z}, "game.player.attack.strong", 1, 0.75f);
             log().info("trains: train #{} '{}' hit {} for {} damage", t.id, t.name, a->getTypeName(), hit->damage);
@@ -850,6 +923,7 @@ void tickTrain(Train& t) {
     auto& r     = rail();
     auto  stats = t.stats();
     auto& s     = state();
+    backwardsDrivers().erase(t.id);
 
     // the graph under the train (and where it is, to find the track again if it changes)
     if (ct::resolve(r, t.body.front)) {
@@ -998,6 +1072,8 @@ void tickTrain(Train& t) {
             if (auto back = t.body.pointAt(r, t.body.length())) onTrn = onTrn || ct::onTurn(r, *back);
             bool slow     = dirKeys != 0 && dirKeys != t.controlDir && !t.doubleEnded;
             double target = ct::manualTargetSpeed(dirKeys, stats, config().manualTrainSpeedModifier, t.throttle, onTrn, slow);
+            auto   sgn    = [](double v) { return v > 0 ? 1.0 : v < 0 ? -1.0 : 0.0; };
+            if (slow && std::abs(sgn(target) - sgn(t.speed)) <= 1.5) backwardsDrivers()[t.id] = t.controller;
             t.targetSpeed = target;
             t.speed       = ct::manualStep(t.speed, target, stats);
         }
@@ -1023,6 +1099,7 @@ void tickTrain(Train& t) {
     }
     bool arrived = false;
     auto before  = ct::positionOf(r, t.body.front);
+    auto section = leadSection(t);
     auto res = t.body.move(r, t.speed, choose, [&](ct::EdgeSpan const& sp) {
         if (!dest || arrived) return;
         if (sp.from == dest->from && sp.to == dest->to && dest->pos > sp.start - 1e-9 && dest->pos <= sp.end + 1e-9) arrived = true;
@@ -1062,6 +1139,15 @@ void tickTrain(Train& t) {
                     for (auto const& fn : ext().left) fn(t.id, *p);
         t.occupied = std::move(occ);
     }
+    // Create's Train signal listener: a train without a running schedule entering an occupied section
+    if ((!t.runtime.hasSchedule || t.runtime.paused) && !t.controller.empty()) {
+        auto now = leadSection(t);
+        if (now != sig::kNoGroup && now != section) {
+            auto in = sig::trainsIn(now);
+            if (std::any_of(in.begin(), in.end(), [&](std::string const& id) { return id != signalId(t); }))
+                if (auto* p = playerByUuid(t.controller)) advancements::award(*p, "red_signal");
+        }
+    }
 
     collideWithOtherTrains(t);
     if (after && before) damageEntities(t, *after - *before);
@@ -1098,6 +1184,7 @@ void tickTrains() {
             log().error("trains: train #{} tick failed: {}", id, e.what());
         }
     }
+    trackRiders();
 }
 
 void removeTrain(std::uint64_t id) {

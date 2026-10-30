@@ -20,6 +20,7 @@
 #include "mc/world/level/block/actor/LecternBlockActor.h"
 
 #include "core/equipment/Gear.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
@@ -337,6 +338,8 @@ void controllerButtons(Player& player, std::array<bool, 6> const& pressed, std::
                 u.nodes[i]   = rl::add({.pos = pos, .key = key, .listening = false, .transmit = 15});
                 u.keys[i]    = key;
                 u.nodePos[i] = pos;
+                // Create's LinkedControllerServerHandler#receivePressed: a link listens on it
+                if (rl::hasListeningLinks(pos.dim, key)) advancements::award(player, "linked_controller");
             } else {
                 if (!(u.keys[i] == key)) rl::setKey(u.nodes[i], u.keys[i] = key);
                 if (u.nodePos[i] != pos) rl::move(u.nodes[i], u.nodePos[i] = pos);

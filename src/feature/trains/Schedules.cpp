@@ -15,6 +15,7 @@
 #include "mc/world/item/ItemStack.h"
 
 #include "core/common/Utf8.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/trains/Trains.h"
@@ -621,6 +622,7 @@ bool handScheduleTo(Player& player, Train& t, int slot) {
         return true;
     }
     t.runtime.setSchedule(*sch, false);
+    advancements::award(player, "conductor"); // Create's ScheduleItem#handScheduleTo
     if (!player.isCreative()) {
         inv.setItem(slot, ItemStack{});
         player.sendInventory(false);

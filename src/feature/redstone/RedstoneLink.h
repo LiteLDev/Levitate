@@ -69,6 +69,9 @@ void move(LinkId id, core::GlobalPos const& pos, bool update = true);
 [[nodiscard]] int powerAt(core::GlobalPos const& pos, LinkKey const& key);
 /// Create's hasAnyLoadedPower: something transmits on `key` (any dimension).
 [[nodiscard]] bool anyPower(LinkKey const& key);
+/// A receiver listens on `key` in dimension `dim` (Create: a LinkBehaviour#isListening in the
+/// network of a frequency; the linked controller's advancement).
+[[nodiscard]] bool hasListeningLinks(int dim, LinkKey const& key);
 /// The configured range in blocks.
 [[nodiscard]] int range();
 

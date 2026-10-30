@@ -18,6 +18,7 @@
 
 #include "core/common/Utf8.h"
 #include "core/packages/Address.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
@@ -372,6 +373,7 @@ void startFrogAnimation(GlobalPos const& pos, ItemStack const& box, bool deposit
     s.animationTicks  = 0;
     s.animatedPackage = items::withCount(box, 1);
     s.depositing      = deposit;
+    if (!deposit) advancements::awardOwner(pos, "frogport"); // Create's FrogportBlockEntity#startAnimation
     savePort(pos);
     syncFrog(pos, s);
     playSound(pos.dim, centre(pos), "levitate.packages.frogport_open", 1.f, 1.f);

@@ -131,6 +131,13 @@ int powerAt(core::GlobalPos const& pos, LinkKey const& key) {
 
 bool anyPower(LinkKey const& key) { return links().net.anyPower(key); }
 
+bool hasListeningLinks(int dim, LinkKey const& key) {
+    auto const& net = links().net;
+    for (auto id : net.members(dim, key))
+        if (auto const* n = net.node(id); n && n->listening) return true;
+    return false;
+}
+
 int range() { return std::max(1, config::get<RedstoneConfig>().linkRange); }
 
 } // namespace link

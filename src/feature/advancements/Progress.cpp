@@ -243,6 +243,10 @@ std::vector<std::string_view> const& blockAdvancements(std::string_view blockId)
         {"levitate:andesite_funnel", {"funnel"}},
         {"levitate:brass_funnel", {"funnel"}},
         {"levitate:display_link", {"display_link", "display_board_0"}},
+        {"levitate:packager", {"packager"}},
+        {"levitate:repackager", {"packager"}},
+        {"levitate:package_frogport", {"frogport"}},
+        {"levitate:factory_gauge", {"factory_gauge"}},
         {"levitate:track_station", {"contraption_actors", "train", "long_train", "conductor"}},
     };
     static std::vector<std::string_view> const none;

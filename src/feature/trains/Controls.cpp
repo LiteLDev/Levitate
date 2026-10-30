@@ -14,6 +14,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "core/steam/Whistle.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/contraption/Internal.h"
 #include "feature/net/Net.h"
@@ -141,6 +142,7 @@ void setHonk(Player& player, bool honk) {
     auto& h = honks()[t->id];
     determineHonk(*t, h);
     if (!h.found) return; // Create: no whistle, no horn (lowHonk == null)
+    advancements::award(player, "train_whistle"); // Create's HonkPacket.Serverbound
     bool was = h.ticks > 0;
     // Create's HonkPacket.Serverbound
     if (honk) h.ticks = h.ticks == 0 ? 20 : 13;

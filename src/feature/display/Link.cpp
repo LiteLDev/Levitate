@@ -22,6 +22,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "core/common/Utf8.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
@@ -231,7 +232,7 @@ bool withSource(GlobalPos const& link, Fn&& fn) {
 } // namespace
 
 bool update(GlobalPos const& link) {
-    return withSource(link, [](Source const* source, Context& ctx, LinkData& data) {
+    bool sent = withSource(link, [](Source const* source, Context& ctx, LinkData& data) {
         auto const* target = targetAt(ctx.region, ctx.target);
         if (!source || !target || !source->text) return false;
         TargetStats stats = target->stats ? target->stats(ctx.region, ctx.target) : TargetStats{};
@@ -249,6 +250,8 @@ bool update(GlobalPos const& link) {
         if (target->accept) target->accept(ctx.region, ctx.target, data.line, lines, ctx);
         return true;
     });
+    if (sent) advancements::awardOwner(link, "display_link"); // Create's DisplayLinkBlockEntity#updateGatheredData
+    return sent;
 }
 
 void selectSource(GlobalPos const& link, std::string const& sourceId) {

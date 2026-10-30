@@ -13,6 +13,7 @@
 #include "mc/world/level/BlockSource.h"
 
 #include "core/packages/Address.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
@@ -521,6 +522,7 @@ void sendFromInventory(GlobalPos const& pos, std::vector<PackagingRequest>* queu
     s.held            = box;
     s.animationInward = false;
     s.animationTicks  = kPackagerCycle;
+    advancements::awardOwner(pos, "packager"); // Create's PackagerBlockEntity#attemptToSend
     savePackager(pos);
     syncPackager(pos, s);
 }
