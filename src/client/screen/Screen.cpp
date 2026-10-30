@@ -269,7 +269,7 @@ HWND gameWindow();
 
 /// The game's own window procedure (the window class's), detoured: every character message
 /// reaches it, whether it comes from the system, from a subclass in front of it or straight from
-/// a tool that calls it directly (LeviHeadlessInput's injected text).
+/// a tool that calls it directly (BeDD's injected text).
 WNDPROC gGameWndProc = nullptr;
 
 /// A character for the focused text field (window thread); false when no field is focused.
@@ -779,7 +779,7 @@ HWND gameWindow() {
 std::pair<float, float> toGui(short x, short y);
 
 /// The pointer in GUI pixels. The pointer is read from the OS cursor (the mouse events carry
-/// stale positions while a screen is open); LeviHeadlessInput virtualises that cursor.
+/// stale positions while a screen is open); BeDD virtualises that cursor.
 std::pair<float, float> pointerGui() {
     POINT p{};
     HWND  w = gameWindow();

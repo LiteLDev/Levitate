@@ -1008,7 +1008,10 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   degrees). While a player without the client mod is in the dimension, a display that
   moved away from where it was spawned is spawned again at its place (from half a block away, at
   most every 4 ticks per block, and once more where it comes to rest), so vanilla clients see the
-  structure move in steps. Display entities are never written to the world
+  structure move in steps. A client draws a new falling block only a few frames (~125 ms) after
+  it appears, so the replaced display is removed 4 ticks later (`contraption.blocks` lists it under
+  `retiring`; the client mod keeps it on its block meanwhile): no gap in the structure. Display
+  entities are never written to the world
   (`Actor::save` refuses them): contraptions live in our DB and spawn their displays again after a
   load, so a world saved mid-move (autosave, or the last save before a crash) holds no falling
   blocks that could land when it is opened without Levitate (§8). Persistence:

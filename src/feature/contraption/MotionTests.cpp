@@ -179,6 +179,13 @@ LV_REGISTER_SELFTEST("contraptionmotion.vanilla_steps", [](Context& ctx) -> ll::
     auto respawns = static_cast<int>(seen.size() - after.size());
     // 2 blocks of 2 each: a step every 5 ticks (0.5 block) -> about 4 per block
     ctx.check(respawns >= 6 && respawns <= 12, "displays spawned again in steps: " + std::to_string(respawns));
+    // the replaced displays stay a few ticks (clients draw a new one only after some frames), then go
+    std::set<std::int64_t> current;
+    for (auto const& b : find(*guard.id)->blocks()) current.insert(b.display);
+    int lingering = 0;
+    for (auto id : seen)
+        if (!current.contains(id) && display(id)) ++lingering;
+    ctx.check(lingering == 0, "replaced displays removed: " + std::to_string(lingering) + " left");
     for (auto const& b : find(*guard.id)->blocks()) {
         auto* a = display(b.display);
         ctx.check(a != nullptr, "display alive");
