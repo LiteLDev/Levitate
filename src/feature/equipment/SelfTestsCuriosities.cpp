@@ -6,6 +6,7 @@
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/nbt/CompoundTag.h"
 #include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
 #include "mc/scripting/modules/minecraft/ScriptFacing.h"
 #include "mc/server/SimulatedPlayer.h"
@@ -176,6 +177,9 @@ LV_REGISTER_SELFTEST("equipment.held_haunted_bell", [](Context& ctx) -> ll::coro
         for (int z = -1; z <= 1; ++z) ctx.require(ctx.setBlock(at(base, x, 0, z), "minecraft:stone"), "floor");
     sp.teleport(Vec3{base.x + .5f, float(base.y + 1), base.z + .5f}, DimensionType(0));
     co_await ctx.ticks(2);
+    // pulses of other tests (a rung haunted bell) end first
+    for (int i = 0; i < 400 && eq::soulPulseCount() > 0; ++i) co_await ctx.ticks(1);
+    ctx.require(eq::soulPulseCount() == 0, "no other soul pulse running");
     (void)eq::takeSoulMarks();
     ctx.give(sp, item(ctx, "levitate:haunted_bell"), sp.getSelectedItemSlot());
     co_await ctx.ticks(6);
@@ -249,6 +253,36 @@ LV_REGISTER_SELFTEST("equipment.cardboard_sword", [](Context& ctx) -> ll::coro::
     }
     cow->remove();
     sp.getInventory().setItem(sp.getSelectedItemSlot(), items::empty());
+});
+
+// Client e2e helper: dresses the first real player in cardboard armour with a trimmed chestplate
+// (Bedrock's item data "Trim" {Material, Pattern}, as the smithing table writes it), to see whether
+// the attachable draws the trim.
+LV_REGISTER_SELFTEST("equipment.cardboard_trim_showcase", [](Context& ctx) {
+    auto level = ll::service::getLevel();
+    ctx.require(level != nullptr, "level");
+    Player* viewer = nullptr;
+    level->forEachPlayer([&](Player& p) {
+        if (!p.isSimulatedPlayer()) viewer = &p;
+        return viewer == nullptr;
+    });
+    if (!viewer) {
+        ctx.info("no real player: nothing to show");
+        return;
+    }
+    auto chest = item(ctx, "levitate:cardboard_chestplate");
+    auto tag   = chest.mUserData ? chest.mUserData->clone() : std::make_unique<CompoundTag>();
+    CompoundTag trim;
+    trim.putString("Material", "diamond");
+    trim.putString("Pattern", "sentry");
+    tag->putCompound("Trim", std::move(trim));
+    chest.setUserData(std::move(tag));
+    viewer->setArmor(ArmorSlot::Head, item(ctx, "levitate:cardboard_helmet"));
+    viewer->setArmor(ArmorSlot::Torso, chest);
+    viewer->setArmor(ArmorSlot::Legs, item(ctx, "levitate:cardboard_leggings"));
+    viewer->setArmor(ArmorSlot::Feet, item(ctx, "levitate:cardboard_boots"));
+    viewer->sendInventory(false);
+    ctx.info("trimmed cardboard chestplate on " + viewer->getRealName());
 });
 
 } // namespace

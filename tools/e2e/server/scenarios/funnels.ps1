@@ -1,8 +1,9 @@
 # Item logistics (U12) on BDS: every funnels selftest (funnels, filters and amounts, redstone,
 # player placement / insertion, chutes, smart chutes, fans, vaults and comparators, creative
-# crate, tunnels), then a funnel built with /setblock and powered from the console.
+# crate, tunnels; U49: the item hatch), then a funnel built with /setblock and powered from the console.
 $r = Invoke-SelfTest 'funnels.*'
-if ($r.Pass -lt 13) { throw "expected at least 13 funnels selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 14) { throw "expected at least 14 funnels selftests to pass, got $($r.Pass)" }
+Wait-LogLine 'funnels: .* deposited the held item through the item hatch at ' 10 | Out-Null
 Wait-LogLine 'funnels: levitate:andesite_funnel placed at .* by ' 10 | Out-Null
 Wait-LogLine 'funnels: item vault at .* formed \(2x2x3\)' 10 | Out-Null
 
