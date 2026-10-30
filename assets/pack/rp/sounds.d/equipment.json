@@ -1,0 +1,27 @@
+{
+  "levitate.potato_cannon.fwoomp": {
+    "category": "player",
+    "min_distance": 2.0,
+    "max_distance": 24.0,
+    "sounds": [{ "name": "sounds/levitate/potato_cannon_fwoomp", "volume": 1.0 }]
+  },
+  "levitate.potato_cannon.hit": {
+    "category": "player",
+    "sounds": [
+      { "name": "sounds/block/itemframe/break1", "volume": 0.75, "pitch": 0.75 },
+      { "name": "sounds/block/itemframe/break2", "volume": 0.75, "pitch": 0.75 },
+      { "name": "sounds/block/itemframe/break3", "volume": 0.75, "pitch": 0.75 }
+    ]
+  },
+  "levitate.potato_cannon.hit_vines": {
+    "category": "player",
+    "sounds": [
+      { "name": "sounds/block/roots/break1", "volume": 0.75, "pitch": 1.25 },
+      { "name": "sounds/block/roots/break2", "volume": 0.75, "pitch": 1.25 },
+      { "name": "sounds/block/roots/break3", "volume": 0.75, "pitch": 1.25 },
+      { "name": "sounds/block/roots/break4", "volume": 0.75, "pitch": 1.25 },
+      { "name": "sounds/block/roots/break5", "volume": 0.75, "pitch": 1.25 },
+      { "name": "sounds/block/roots/break6", "volume": 0.75, "pitch": 1.25 }
+    ]
+  }
+}

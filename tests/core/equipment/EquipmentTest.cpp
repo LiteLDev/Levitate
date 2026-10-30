@@ -121,7 +121,103 @@ TEST(Potato, TypesAndMotion) {
     EXPECT_NEAR(v.x, 0.99, 1e-6);
     EXPECT_NEAR(v.y, -0.0495, 1e-6);
     EXPECT_DOUBLE_EQ(potatoSpeed(*p), 2.5);
-    EXPECT_DOUBLE_EQ(potatoRecoveryChance(0), 0.125);
+    // Create: no recovery without Potato Recovery, then 25 / 37.5 / 50 %
+    EXPECT_DOUBLE_EQ(potatoRecoveryChance(0), 0.0);
+    EXPECT_DOUBLE_EQ(potatoRecoveryChance(1), 0.25);
+    EXPECT_DOUBLE_EQ(potatoRecoveryChance(3), 0.5);
+}
+
+TEST(Potato, RenderModesDropsAndAmmoIndex) {
+    EXPECT_EQ(potatoTypeFor("minecraft:potato")->render, PotatoRender::Tumble);
+    EXPECT_EQ(potatoTypeFor("minecraft:carrot")->render, PotatoRender::TowardMotion);
+    EXPECT_EQ(potatoTypeFor("minecraft:carrot")->spin, 1);
+    EXPECT_EQ(potatoTypeFor("minecraft:beetroot")->spin, 2);
+    EXPECT_EQ(potatoTypeFor("minecraft:golden_carrot")->spin, 2);
+    EXPECT_EQ(potatoTypeFor("minecraft:tropical_fish")->render, PotatoRender::TowardMotion);
+    EXPECT_TRUE(potatoTypeFor("minecraft:golden_apple")->consumed);
+    EXPECT_TRUE(potatoTypeFor("minecraft:pufferfish")->consumed);
+    EXPECT_FALSE(potatoTypeFor("minecraft:poisonous_potato")->consumed);
+    EXPECT_EQ(potatoTypeFor("minecraft:suspicious_stew")->dropItem, "minecraft:bowl");
+    // the sticky types (Create's sticky()): pies, cakes and fish
+    for (auto id : {"minecraft:pumpkin_pie", "minecraft:cake", "levitate:blaze_cake", "minecraft:cod", "minecraft:pufferfish"})
+        EXPECT_TRUE(potatoTypeFor(id)->sticky) << id;
+    EXPECT_FALSE(potatoTypeFor("minecraft:apple")->sticky);
+    // the entity's texture array is indexed in this order (assets/pack/rp/entity/potato_projectile.entity.json)
+    EXPECT_EQ(potatoAmmoItems().size(), 28u);
+    EXPECT_EQ(potatoAmmoIndex("minecraft:potato"), 0);
+    EXPECT_EQ(potatoAmmoIndex("minecraft:melon_block"), 16);
+    EXPECT_EQ(potatoAmmoIndex("minecraft:cod"), 21);
+    EXPECT_EQ(potatoAmmoIndex("minecraft:suspicious_stew"), 27);
+    EXPECT_EQ(potatoAmmoIndex("minecraft:stone"), -1);
+}
+
+TEST(Potato, StuckAndRotation) {
+    auto const* cake = potatoTypeFor("minecraft:cake");
+    double      fall = 0;
+    double      y    = potatoStuckStep(1.0, fall, *cake);
+    EXPECT_NEAR(fall, 0.007, 1e-12);
+    EXPECT_NEAR(y, 0.993, 1e-12);
+    y = potatoStuckStep(y, fall, *cake);
+    EXPECT_NEAR(y, 0.979, 1e-12);
+    EXPECT_FALSE(potatoStuckPops(64.0, 64.0));
+    EXPECT_TRUE(potatoStuckPops(63.89, 64.0));
+    EXPECT_NEAR(potatoYaw({0, 0, 1}), 0, 1e-9);
+    EXPECT_NEAR(potatoYaw({-1, 0, 0}), 90, 1e-9);
+    EXPECT_NEAR(potatoPitch({1, -1, 0}), 45, 1e-9);
+}
+
+TEST(Enchantments, CostsLevelsAndAir) {
+    EXPECT_EQ(enchantMinCost(1), 15);
+    EXPECT_EQ(enchantMaxCost(1), 45);
+    EXPECT_EQ(enchantMinCost(3), 45);
+    EXPECT_EQ(enchantMaxCost(3), 75);
+    EXPECT_EQ(enchantLevelForCost(14), 0);
+    EXPECT_EQ(enchantLevelForCost(15), 1);
+    EXPECT_EQ(enchantLevelForCost(30), 2);
+    EXPECT_EQ(enchantLevelForCost(45), 3);
+    EXPECT_EQ(enchantLevelForCost(76), 0);
+    EXPECT_EQ(enchantLevelName(2), "II");
+    EXPECT_EQ(backtankMaxAir(900, 300, 0), 900);
+    EXPECT_EQ(backtankMaxAir(900, 300, 3), 1800);
+    EXPECT_EQ(mergeEnchantLevel(1, 1), 2);
+    EXPECT_EQ(mergeEnchantLevel(3, 3), 3);
+    EXPECT_EQ(mergeEnchantLevel(1, 3), 3);
+}
+
+TEST(Enchantments, JavaRandomMatchesJava) {
+    // new java.util.Random(42): nextInt(10) x3 = 0, 3, 8; nextFloat() after that 0.7275637
+    JavaRandom r(42);
+    EXPECT_EQ(r.nextInt(10), 0);
+    EXPECT_EQ(r.nextInt(10), 3);
+    EXPECT_EQ(r.nextInt(10), 8);
+    JavaRandom f(42);
+    EXPECT_NEAR(f.nextFloat(), 0.7275637f, 1e-6);
+}
+
+TEST(Enchantments, SelectionPicksFromThePool) {
+    // a pool with only Create's enchantment: the first pick is always it, and it is never picked twice
+    auto avail = [](int cost) {
+        std::vector<EnchantCandidate> v;
+        if (int l = enchantLevelForCost(cost)) v.push_back({"potato_recovery", l, kEnchantWeight});
+        return v;
+    };
+    auto compat = [](EnchantCandidate const&, EnchantCandidate const&) { return true; };
+    int  hits   = 0;
+    for (int seed = 0; seed < 200; ++seed) {
+        JavaRandom r(seed);
+        auto       picks = selectEnchantments(r, 1, 30, avail, compat);
+        ASSERT_LE(picks.size(), 1u);
+        if (!picks.empty()) {
+            ++hits;
+            EXPECT_EQ(picks[0].key, "potato_recovery");
+            EXPECT_GE(picks[0].level, 1);
+        }
+    }
+    EXPECT_EQ(hits, 200); // cost 30 (+1, ±15 %) always lies in a level's range
+    JavaRandom r(1);
+    EXPECT_TRUE(selectEnchantments(r, 1, 5, avail, compat).empty()); // too cheap for level I
+    JavaRandom z(1);
+    EXPECT_TRUE(selectEnchantments(z, 0, 30, avail, compat).empty()); // not enchantable
 }
 
 TEST(Symmetry, PlaneAndCross) {
@@ -215,4 +311,16 @@ TEST(Shaper, Smooth) {
     auto sm  = smoothHeights(bump, 5, 5);
     EXPECT_EQ(sm[12], 2);
     EXPECT_EQ(sm[0], 0);
+}
+
+TEST(Shaper, ClusterEdgesOutlineTheShape) {
+    // one block: its 12 edges
+    EXPECT_EQ(clusterEdges({{0, 0, 0}}).size(), 12u);
+    // two blocks in a row: a 2x1x1 box, 16 unit edges (the ones across its flat sides vanish)
+    auto two = clusterEdges({{0, 0, 0}, {1, 0, 0}});
+    EXPECT_EQ(two.size(), 16u);
+    // an L of three blocks has a concave edge
+    auto l = clusterEdges({{0, 0, 0}, {1, 0, 0}, {0, 0, 1}});
+    EXPECT_GT(l.size(), 12u);
+    EXPECT_TRUE(clusterEdges({}).empty());
 }

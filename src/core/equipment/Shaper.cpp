@@ -1,8 +1,10 @@
 #include "core/equipment/Shaper.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <deque>
+#include <map>
 #include <set>
 
 namespace lv::core::equipment {
@@ -261,4 +263,38 @@ std::string patternFallback(Pattern p) {
     return k[static_cast<int>(p)];
 }
 
+std::vector<Edge> clusterEdges(std::vector<IPos> const& blocks) {
+    std::set<IPos> set(blocks.begin(), blocks.end());
+    // the normals of the boundary faces using each edge
+    std::map<Edge, std::vector<int>> uses;
+    static constexpr int d[6][3] = {{0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}};
+    for (auto const& p : set) {
+        for (int f = 0; f < 6; ++f) {
+            if (set.contains(IPos{p.x + d[f][0], p.y + d[f][1], p.z + d[f][2]})) continue;
+            // the face's square: fixed coordinate on the face's axis, the other two span 0..1
+            int axis = f < 2 ? 1 : f < 4 ? 2 : 0;
+            int u = (axis + 1) % 3, v = (axis + 2) % 3;
+            std::array<int, 3> base{p.x, p.y, p.z};
+            if (f % 2 == 1) base[static_cast<std::size_t>(axis)] += 1;
+            auto corner = [&](int du, int dv) {
+                auto c = base;
+                c[static_cast<std::size_t>(u)] += du;
+                c[static_cast<std::size_t>(v)] += dv;
+                return IPos{c[0], c[1], c[2]};
+            };
+            IPos c00 = corner(0, 0), c10 = corner(1, 0), c01 = corner(0, 1), c11 = corner(1, 1);
+            for (auto e : {Edge{c00, c10}, Edge{c00, c01}, Edge{c10, c11}, Edge{c01, c11}}) {
+                if (e.b < e.a) std::swap(e.a, e.b);
+                uses[e].push_back(f);
+            }
+        }
+    }
+    std::vector<Edge> out;
+    for (auto const& [e, normals] : uses) {
+        // inside a flat side: two faces with the same normal meet there
+        if (normals.size() == 2 && normals[0] == normals[1]) continue;
+        out.push_back(e);
+    }
+    return out;
+}
 } // namespace lv::core::equipment

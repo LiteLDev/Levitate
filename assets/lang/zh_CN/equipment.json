@@ -90,5 +90,7 @@
   "lv.equipment.controller.key.jump": "空格",
   "lv.equipment.controller.key.sneak": "Shift",
   "lv.equipment.controller.active": "无线红石遥控器已启用（Esc 或右键停止）",
-  "lv.equipment.controller.no_frequency": "这个无线红石信号终端没有可绑定的频率"
+  "lv.equipment.controller.no_frequency": "这个无线红石信号终端没有可绑定的频率",
+  "enchantment.create.capacity": "扩容",
+  "enchantment.create.potato_recovery": "土豆回收"
 }

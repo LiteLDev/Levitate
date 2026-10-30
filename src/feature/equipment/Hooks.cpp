@@ -272,6 +272,7 @@ public:
         EquipmentPickRangeHook::hook();
         EquipmentReleaseHook::hook();
         EquipmentHurtAndBreakHook::hook();
+        hookToughness(true);
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { tick(); }));
     }
@@ -282,6 +283,7 @@ public:
         mListeners.clear();
         uninstallBacktanks();
         uninstallControllers();
+        hookToughness(false);
         EquipmentHurtAndBreakHook::unhook();
         EquipmentReleaseHook::unhook();
         EquipmentPickRangeHook::unhook();

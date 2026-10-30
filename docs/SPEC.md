@@ -610,12 +610,15 @@ is U21's (it is made by its cart assembler). Mechanics in §3.6.31.
   8 (netherite), the item bar (durability 900) shows the air and never breaks; diving helmet
   protection 2 / 3, durability 77 / 407; diving boots 1 / 3, durability 91 / 481 (repaired with
   copper / netherite ingots); extendo grip durability 200; potato cannon 100; sand papers 8 (32-tick
-  "eat" use); tree fertilizer stacks 64. Armour toughness and knockback resistance of the netherite
-  pieces are not expressible (§8).
-- Recipes (Create 6.0.10): toolbox dyeing (any toolbox + a dye, 16 shapeless recipes),
+  "eat" use); tree fertilizer stacks 64. The netherite helmet, backtank and boots are Create's
+  netherite material: +3 armour toughness (a Mob::getToughnessValue hook) and +0.1 knockback
+  resistance (an attribute modifier) per piece. Toolboxes also have `levitate:toolbox_lid` 0..2
+  (0 closed, 1 open, 2 body only for the client mod).
+- Recipes (Create 6.0.10): toolbox dyeing (any toolbox + a dye, 16 shapeless recipes; the result
+  keeps the contents and name of the dyed toolbox),
   copper diving helmet (copper ingots around glass), sand paper (paper + sand), red sand paper
-  (paper + red sand), tree fertilizer ×2 (2 small flowers + a coral + bone meal; one recipe per
-  flower × coral, §8), netherite helmet / boots / backtank (smithing: upgrade template + the copper
+  (paper + red sand), tree fertilizer ×2 (2 small flowers + a coral + bone meal: a recipe per
+  unordered pair of the 14 small flowers × 5 corals, from `tools/gen/equipment.ps1`), netherite helmet / boots / backtank (smithing: upgrade template + the copper
   piece + a netherite ingot, or + the netherite piece + the copper piece), brown toolbox (cogwheel /
   golden sheet, chest, golden sheet / leather), copper backtank (andesite alloy, shaft, andesite
   alloy / copper ingot, copper block, copper ingot / copper ingot), copper diving boots (copper
@@ -3732,9 +3735,19 @@ empty).
   slot ("Unequip: …", or "Stop tracking and keep item" out of range) or returns items ("Return items
   to (nearby) Toolbox(es)"). Linked hotbar slots get a marker (green in range, grey out of range).
   Vanilla players use `/create toolbox` (a form with the same entries).
+- *Lid and drawers*: while any player has the toolbox screen open (native or form; closed by Esc,
+  the form's close, leaving, or moving more than 8 blocks away) the block state
+  `levitate:toolbox_lid` is 1: vanilla clients show the open model (lid 135° back, drawers out). The
+  client mod meshes the body only (state 2) and animates lid and drawers like Create's
+  ToolboxRenderer (lid linear 0.2 per tick to 135°, drawers exponential 0.2, lower 0.35 / upper
+  0.175 blocks). Sounds: iron door + chest open on the first opener, chest close when the last
+  closes, iron door close 5 ticks later.
+- *Dyeing in the crafting grid* (one toolbox + one dye, Create's ToolboxDyeingRecipe): the crafted
+  toolbox keeps the contents and name (the craft results of the item stack request get the
+  toolbox's user data).
 
-**Backtanks.** Air 0..`airInBacktank` (900) in the item (bar = air). Placed as a block (facing the
-player, keeping its air), it is a kinetic block with a shaft end at the bottom (stress impact 4):
+**Backtanks.** Air 0..`airInBacktank` (900) + `enchantedBacktankCapacity` (300) × Capacity level in
+the item (bar = air). Placed as a block (facing the player, keeping its air and Capacity level), it is a kinetic block with a shaft end at the bottom (stress impact 4):
 while turning it adds `clamp(floor((|rpm| − 100) / 20), 1, 5)` air, then waits
 `clamp(int(128 − |rpm| / 5) − 108, 0, 20)` ticks (256 RPM: 5 air per tick); full: a chime and a
 ring of particles. Right-click with an empty chest slot (not sneaking, not holding a block item)
@@ -3747,9 +3760,21 @@ low", gold) and to 1 ("⚠ Backtank pressure depleted", red).
   (air only). The air timer (mm:ss, red under 60 s) is shown while it is used (client mod: next to the
   hotbar; vanilla: action bar).
 - *Netherite set*: netherite diving helmet + netherite backtank with air + netherite leggings +
-  netherite (diving) boots: fire immunity (fire resistance, refreshed).
+  netherite (diving) boots: fire immunity (fire resistance, refreshed). Each netherite diving piece
+  adds 3 armour toughness and 0.1 knockback resistance (Create: netherite armour material).
+- *Fog* (Create's ClientEvents#getFogDensity): a worn diving helmet pushes the fog layer
+  `levitate:diving_helmet` (water fog 6.25 times as far: 0..375 blocks), the netherite one
+  `levitate:netherite_diving_helmet` (also lava fog 0..20 blocks); fog layers live in
+  `assets/pack/rp/fogs/` and reach vanilla clients through PlayerFogPacket.
 - *Diving boots*: in water (not swimming, not flying): sinking (vy − 0.05 per tick, a jump on the
-  ground +0.5) and walking speed ×1.3 below 0.145 blocks per tick (motion sent to the player, §8).
+  ground +0.5) and walking speed ×1.3 below 0.145 blocks per tick. The client mod applies this to its
+  own player every client tick; vanilla players get the vertical motion as packets and +87.5 %
+  underwater movement speed (the speed Create's rule settles at, §8).
+- *Capacity* (backtanks) and *Potato Recovery* (potato cannon), levels I–III, weight 10, cost
+  15 + 15·(L−1) .. 45 + 15·(L−1), are kept in the item's user data (`lv:enchants`) and shown as lore
+  lines (`enchantment.create.*`). The enchanting table rolls them per option with Java's algorithm
+  (the player's enchantment seed + option; books too); anvils merge them (equal +1, else the higher,
+  +1 cost per level); grindstones remove them (§8).
 
 **Extendo grip**: +3 block reach in either hand, +5 with one in each hand (pick range; §8); every
 block broken or placed and every entity hit by the holder uses the grip (air / durability, main hand
@@ -3769,7 +3794,20 @@ glistering melon 5/8/1.45/0.1, melon 8/20/0.95/2 and pumpkin 6/15/0.95/2 (placed
 pumpkin pie 7/15/1.1/0.05, cake 8/15/1.1/0.1, blaze cake 15/20/1.1/0.3 (fire 12 s), fish (cod,
 salmon, cooked, tropical) 4/10/1.3/0.6, pufferfish 4/10/1.1/0.4 (pufferfish effects), suspicious
 stew 3/40/0.8/0.2 (drops the bowl). Knockback × 0.6 along the shot; endermen take damage only; a
-powered wither is immune. The item is recovered with 12.5 % unless the hit used it up.
+powered wither is immune. Each projectile is a `levitate:potato_projectile` entity drawn from the
+resource pack (also by vanilla clients) with the ammo's texture and Create's render mode (tumbling
+billboard; along the motion with spin 1 for carrot, fish, pufferfish and suspicious stew, spin 2 for
+golden carrot and beetroot; melon and pumpkin as small blocks); it is not saved with the world.
+Sticky types (pumpkin pie, cake, blaze cake, fish, pufferfish) stick to the living entity they hit,
+slide down (fall speed +0.007 per tick) and pop below its feet. Projectiles of different types pop
+each other (once one is at least 10 ticks old), awarding `potato_cannon_collide` to both owners; a
+kill of a monster, or a hit on another player, awards `potato_cannon`. Golden apples cure a zombie
+villager with weakness, else give the golden apple effects. A hit that hurts nothing drops nothing;
+otherwise, unless the hit used the item up, the item comes back with the recovery chance (0, or
+12.5 % + 12.5 % per Potato Recovery level; first projectile of a split only), else the type's drop
+(a bowl for suspicious stew). Crops plant only from the top face; melons and pumpkins that hit a
+side fall as a falling block. Sounds: `levitate.potato_cannon.fwoomp` (original), the hit = item
+frame break + roots break. Glow berries / glistering melon give no glowing (§8).
 
 **Wand of symmetry.** Right-click a block: the mirror goes to the block in front of the clicked face
 and the wand is enabled (5-tick cooldown); a new mirror is "Mirror Once" (players facing north /
@@ -3793,7 +3831,10 @@ Borders: flood fill from the clicked block within distance < range; surface stay
 and needs an open face). Placement (shaped brushes): merged / attached / inserted (Create's
 offsets). Tools: fill (air only), place, replace (non-air only), clear, overlay (on top of non-air
 blocks), flatten (Create's 5×5 Gaussian height smoothing). Patterns: solid, checkerboard, inverted
-checkerboard, 25 / 50 / 75 % roll.
+checkerboard, 25 / 50 / 75 % roll. Preview (client mod, Create's WorldshaperRenderHandler): while a
+configured worldshaper is held (main hand first), the blocks its brush would change at the
+looked-at block (128 blocks) are outlined as one cluster (0xbfbfbf, 1/32 wide; rebuilt when the aim
+or the settings change).
 
 **Linked controller.** Six buttons — forward, back, left, right, jump, sneak — each bound to a
 frequency (two items, Create's Couple<Frequency>). Right-click toggles it in use; in use, held buttons
@@ -3815,11 +3856,78 @@ hand (or an item entity at the looked-at point within 3 blocks) by the `sandpape
 the result goes to the inventory, the paper loses 1 durability; releasing early cancels. On copper
 blocks it scrapes one oxidation stage or the wax like an axe (1 durability).
 
-**Tree fertilizer.** On a sapling (not a hanging mangrove propagule) the tree grows at once
-(Bedrock's own growth, repeated until it grows, so 2×2 trees work); one item is used (creative: none).
+**Tree fertilizer.** On a sapling, azalea or mangrove propagule (not a hanging propagule, which
+does nothing and uses no item) the tree grows at once, also without room (Create's
+TreesDreamWorld). The sapling's own Bedrock tree feature (its single or 2×2 feature; the mangrove:
+the tall mangrove with a chance of 0.85, else the mangrove; azaleas: the azalea tree) is placed
+into a world that is air except the soil below (dirt-like soil counts as dirt); podzol is ignored.
+The result is copied: a solid block replaces anything but unbreakable blocks, any other block only
+replaces blocks without collision, and replaced blocks drop as broken (the grown saplings drop
+nothing). A single dark oak / pale oak sapling grows nothing. One item is used (creative: none). If
+a feature can't be resolved, Bedrock's growth repeats until it grows (needs room).
 
 **Messages / logs**: one log line per user-visible action (`equipment: ...`), e2e scenarios wait
 for them.
+
+#### 3.6.45 Advancements (U45)
+
+Checked against Create 6.0.10 (AllAdvancements, CreateAdvancement, AdvancementBehaviour,
+SimpleCreateTrigger) and vanilla's advancement toast, chat line and AdvancementVisibilityEvaluator.
+Code: `src/core/advancements/` (the 102 entries in Create's order with parent, icon, task type and
+inventory criteria; visibility; tree layout; gtest), `src/feature/advancements/` (contract
+`Advancements.h`), `src/client/advancements/`.
+
+- **Entries and types**: Create's ids (`lava_wheel_00000`, `track_0`, ...), titles and
+  descriptions as `advancement.create.<id>` / `.desc` (Create's en_US and zh_CN text; secret ones end
+  with "§7(Hidden Advancement)"). Types: silent (no toast), normal (toast), noisy (toast + chat),
+  expert (goal frame, toast + chat), secret (goal frame, toast + chat, hidden until done). The root
+  is awarded for free (silent).
+- **Progress**: per player (uuid) in the world DB, `lv:advancements:player:<uuid>` `{done: [ids]}`.
+  On unlock: client mod: Create's toast at the top right (5 s, "Advancement Made!" / "Goal
+  Reached!", icon, title); vanilla: the game's toast (ToastRequestPacket); announce types: the chat
+  line "<player> has made the advancement [<title>]" / "has reached the goal [...]" to every player
+  in their language; log `advancements: <player> made <id>`.
+- **Screen**: `/create advancements`: client mod: the tree (columns by depth, a parent centred on
+  its children, Create's task / goal frames gold when done, lines to the parent, wheel / Shift-wheel
+  scrolling, title and description tooltip); vanilla: a form listing the visible entries (done ones
+  green) with a detail form. Visibility is vanilla's: done, or a done descendant, or the nearest of
+  itself / parent / grandparent that is done or hidden is done. `/create advancements grant|revoke
+  <id>` (op) changes the caller's progress.
+- **Owners** (Create's AdvancementBehaviour): the player who placed a block with block advancements
+  (Create's registerAwardables list per block entity) is remembered (`lv:advancements:owners`) until
+  they have all of them; placements are seen through the interaction dispatch two ticks after the
+  click (also units' own placements); units placing blocks otherwise call `setOwner`. Units award
+  with `award(player, id)`, `awardOwner(pos, id)` and `awardOwnerIfNear(pos, id, distance)`.
+- **Triggers this unit fires** (observing the world and the contracts): root; inventory criteria
+  every second (andesite_alloy, burner, wrench_goggles (wrench + goggles), cardboard, copper, brass,
+  rose_quartz, precision_mechanism, sturdy_sheet, track_0, chocolate_bucket); extendo_grip /
+  extendo_grip_dual (held); item application turning a block into an andesite / copper / brass /
+  railway casing (andesite_casing, copper_casing, brass_casing, train_casing_00); belt (a belt
+  connector making a belt); glass_pipe (a wrench turning a pipe with fluid into a glass pipe);
+  track_signal (a signal placed); shifting_gears (a small and a large cogwheel meshing diagonally
+  with the same axis); hand_crank_000 (a crank used with an empty hunger bar); owner + kinetic speed:
+  encased_fan, mechanical_pump_0 (speed magnitude changed, not 0), mechanical_crafter /
+  crafter_lazy_000 (< 5 RPM), speed_controller (a large cogwheel on top), water_wheel /
+  lava_wheel_00000 (the wheel generates; lava next to it), crushing_wheel / crusher_maxed_0000 (next
+  to a crushing wheel controller; > 255 RPM), deployer (turning), backtank (turning); owner, polled
+  every second: steam_whistle (powered), stressometer / stressometer_maxed (the owner looks at it
+  wearing goggles; stress = capacity), windmill / windmill_maxed (assembled; ≥ 128 sails),
+  clockwork_bearing (assembled), steam_engine (its powered shaft turns); contraption_actors (a new
+  contraption with drills, saws, ploughs, rollers or harvesters, to its anchor's owner);
+  super_glue (a new glue region, to the nearest player holding super glue); equipment: diving_suit,
+  diving_suit_lava, potato_cannon, potato_cannon_collide.
+- **Triggers that need a call in their unit** (follow-ups; the contract is in place):
+  mechanical_press, compacting, track_crafting_factory (U39 press), fan_processing (U39 fan),
+  saw_processing, millstone, mechanical_mixer (U39), funnel, belt_funnel_kiss (U41), chute,
+  package_chute_throw (U41/U44), burner via arm_blaze_burner, mechanical_arm, arm_many_targets,
+  musical_arm (U39 arm), portable_storage_interface, cart_pickup, anvil_plough, pulley_maxed,
+  self_deploying (U38), ejector_maxed (U41), spout, foods, drain, chained_drain, hose_pulley,
+  hose_pulley_lava, water_supply, honey_drain, cross_streams, steam_engine_maxed, pipe_organ (U40),
+  fist_bump (U39), display_link, display_board_0, packager, frogport, stock_ticker, table_cloth_shop,
+  factory_gauge (U42/U44), train, conductor, long_train, long_travel, train_whistle, train_portal,
+  train_roadkill, red_signal, train_crash, train_crash_backwards (U38), linked_controller (needs a
+  "listening links on a frequency" query in U42's `RedstoneLink.h`). cuckoo_clock, haunted_bell,
+  cardboard_armor and cardboard_armor_trim have no Levitate block / item yet.
 
 #### 3.6.35 Consistency (U35)
 
@@ -3958,7 +4066,7 @@ true, `psiTimeout` 60.
 `config/funnels.json` (U12): `defaultExtractionTimer` 8, `vaultCapacity` 20, `brassTunnelTimer` 10
 (Create's CLogistics), `fanBlockCheckRate` 30 (Create's CKinetics; how often chutes re-check their air flow).
 `config/equipment.json` (U31, Create's CEquipment keys and defaults): `toolboxRange` 10, `airInBacktank`
-900, `maxExtendoGripActions` 1000, `maxPotatoCannonShots` 200, `maxSymmetryWandRange` 50 (the
+900, `enchantedBacktankCapacity` 300, `maxExtendoGripActions` 1000, `maxPotatoCannonShots` 200, `maxSymmetryWandRange` 50 (the
 controller's link range is U23's `redstone.linkRange`).
 
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
@@ -4003,6 +4111,8 @@ UI pass), `placeholderColour` (outline of unregistered blocks).
 | `/create steam <pos>` (tank / boiler goggle lines) / `steam <pos> fill <fluid> <mB>` (Levitate debug: fills, or drains when negative, through the fluid capability) | op | U18 |
 | `/create display text <x y z> <line> <text>` / `bind <x y z> <tx ty tz> <source>` (Levitate debug) | op | U24 |
 | `/create toolbox` (the toolbox radial menu as a form, for players without the client mod) | anyone | U31 |
+| `/create toolbox lid <x y z> <ticks>` (Levitate debug: holds a toolbox lid open; 0 releases) | op | U45 |
+| `/create advancements` (Create's advancement tree: native for the client mod, a form otherwise) / `advancements grant\|revoke <id>` (the caller's progress) | anyone / op | U45 |
 | `/create config [section]` (Create's config screen: sections, then their entries; native for the client mod, forms otherwise; changing a value needs op) | anyone / op | U42 |
 
 ## 7. Strings
@@ -4040,7 +4150,6 @@ matches Create's official Chinese translation wording).
 | Valve handle "holding opens the angle board" for **vanilla** clients (U7) | the server sees no held button (value box row) | client mod: as Create; vanilla: a click turns the handle, the wrench on its front opens the form |
 | Large water wheel as one 3×3 model for **vanilla** clients (U7) | a Bedrock block model may be at most 30 px wide | the wheel and its 8 structure blocks each show their own cell of the wheel; the client mod spins the whole wheel |
 | Red outline of the missing room when a large water wheel can't be placed, for **vanilla** clients (U7) | no client-side line rendering without the client mod | the action bar message only (the client mod draws the outline, U42) |
-| Hand crank / water wheel / lava wheel advancements (U7) | Bedrock has no custom advancements | none |
 | Goggle overlay next to the crosshair for **vanilla** clients (U8) | no client-side drawing without a client mod | the same lines in the action bar (indentation trimmed), refreshed every `overlayInterval` ticks |
 | Kinetic stats and "Hold [Shift] for Summary" in item tooltips for **vanilla** clients (U8) | Bedrock builds item hover text on the client from the item alone | the client mod appends them to the hover text, with the server's stress table (`kinetics.stress`, U42); vanilla clients see the plain name |
 | The wrench's animated cog in the hand (U8) | Bedrock items have no custom item renderer; an attachable (extruded sprite with a cog bone turning by `q.life_time`) works in third person, but its first-person transform is not solved yet (U42 tried and left it out) | a static item sprite |
@@ -4128,18 +4237,12 @@ matches Create's official Chinese translation wording).
 | Ponder scenes as Create's scene code and NBT schematics (U30) | Create's scenes are Java code over its own schematics (and copying them is not allowed) | our own scene scripts as data (`assets/ponder/scenes/*.json`) teaching the same steps; titles keep Create's wording, the texts are our own |
 | "Hold [W] to Ponder" progress bar inside the item tooltip (U30) | Bedrock builds an item's hover text once when the slot is hovered (verified: the line doesn't change while the key is held; re-hovering the slot from the mod to rebuild it can outlive the screen controller) | the hint is the tooltip's second line; while the key is held Create's `\|` bar is drawn in a tooltip box at the top of the screen |
 | Holding the toolbox key on a **vanilla** client (U31) | the server can't see a held key without the client mod | `/create toolbox` opens the same entries as a form |
-| Dyeing a toolbox in the crafting grid keeps its contents (U31) | Bedrock crafting results carry no data of the ingredients | the crafted toolbox is empty; right-clicking a placed toolbox with a dye recolours it with its contents (as Create does too) |
-| Tree fertilizer as one recipe with "any small flower" (U31) | Bedrock recipes take one item or tag per ingredient and vanilla flowers have no common item tag | one recipe per flower × coral (two of the same flower) |
-| Toolbox lid / drawer animation (U31) | custom blocks have no block entity renderer | static model (closed lid) |
-| Enchantments Capacity (backtank air) and Potato Recovery (U31) | Bedrock has no data-driven enchantments | air is always `airInBacktank`; projectiles are recovered with the base 12.5 % |
-| Armour toughness and knockback resistance of the netherite diving gear (U31) | `minecraft:wearable` only has `protection` | protection as Create; no toughness / knockback resistance |
-| Netherite helmet lava vision and the diving helmet's clearer underwater fog (U31) | fog is client-side | no fog change |
-| Diving boots movement (U31) | players move themselves (client-authoritative input); the server can only push them | sinking and the ×1.3 walking speed are sent as motion packets while in water (less smooth than Create) |
+| Enchantments Capacity (backtank air) and Potato Recovery as real enchantments (U31) | Bedrock's enchantment list is a fixed set of vanilla ids (0..41) that clients know by number; an unknown id would reach vanilla clients | the levels live in the item's user data and show as lore lines ("Capacity II"); the enchanting table rolls them per option with Java's algorithm, anvils merge them, grindstones remove them (§3.6.31); the table's clue and option tooltips show only vanilla enchantments, and they are not on loot or trade books |
+| Diving boots movement for **vanilla** clients (U31) | players move themselves (client-authoritative input); the server can only push them | the client mod applies Create's motion to its own player; vanilla players sink through motion packets and walk faster under water through the underwater movement speed attribute (Create's ×1.3 per tick below 0.145 b/t settles at ~0.15 b/t: +87.5 %) |
 | Extendo grip reach for **vanilla** clients (U31) | the client limits its own block picking range | the pick range is raised in GameMode (server validation and the client mod's local player); vanilla clients keep their normal reach |
-| Potato projectiles as entities (U31) | no custom projectile entities without a client-side renderer | the server simulates the flight (Create's drag / gravity, block and entity hits) and shows the ammo as an item entity that can't be picked up; sticky projectiles don't stick; glow berries / glistering melon have no glowing (Bedrock has no glowing effect); golden apples don't cure zombie villagers; custom sounds use vanilla ones |
-| Tree fertilizer growing without room (U31) | Create grows the tree in a virtual world and copies it; Bedrock's tree features aren't callable into another world | Bedrock's own sapling growth, repeated until it grows (needs the room Bedrock trees need) |
+| Glowing of glow berry / glistering melon potato projectiles (U31) | Bedrock has no glowing effect | the hit has its other effects |
 | Linked controller input for **vanilla** clients (U31) | movement keys are only visible through Bedrock's movement input | the movement input the server receives is polled (the player still moves); the client mod captures the keys as Create |
-| Worldshaper preview outline (U31) | no world-space line renderer yet | no preview; the changed blocks are logged and appear at once |
+| Worldshaper preview outline for **vanilla** clients (U31) | no world-space line rendering without the client mod | the client mod draws Create's outline; vanilla players see the blocks change at once |
 
 Units add rows here in their PRs (in unit order) when they find something else impossible.
 

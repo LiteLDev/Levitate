@@ -4,7 +4,7 @@
 #                       diving gear; the selftests pass on the (integrated) server.
 #   remote-vanilla:     the same items without the client mod: forms instead of screens.
 # Screenshots: out/equipment/{blocks,toolbox-screen,toolbox-filled,radial,radial-compartments,worldshaper-screen,
-#              symmetry-screen,cannon-shot,diving-gear}.png
+#              symmetry-screen,cannon-shot,projectiles-{1,2,3},diving-gear}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 
 # native screens close with the inventory key (the framework pops its host scene itself)
@@ -57,6 +57,27 @@ Close-Native
 Start-Sleep -Milliseconds 500
 Save-Screenshot 'toolbox-closed' | Out-Null
 
+# the lid and drawers (Create's ToolboxRenderer): held open from the console as if a player had the
+# screen open; the client mod animates them, vanilla clients see the open model. The red toolbox
+# faces the player, the brown one shows its back.
+Invoke-Chat '/setblock ~4 ~ ~-2 levitate:red_toolbox ["levitate:facing"=1]'
+Invoke-Chat '/tp @s ~ ~ ~ -110 25'
+$mark = Get-LogMark
+Invoke-Chat '/create toolbox lid ~4 ~ ~-2 600'
+Invoke-Chat '/create toolbox lid ~3 ~ ~ 600'
+Wait-LogLine 'equipment: toolbox lid at .* opened' 15 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'toolbox-lid-open' | Out-Null
+$mark = Get-LogMark
+Invoke-Chat '/create toolbox lid ~4 ~ ~-2 0'
+Wait-LogLine 'equipment: toolbox lid at .* closed' 15 -Since $mark | Out-Null
+Save-Screenshot 'toolbox-lid-closing' | Out-Null
+Invoke-Chat '/create toolbox lid ~3 ~ ~ 0'
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'toolbox-lid-shut' | Out-Null
+Invoke-Chat '/tp @s ~ ~ ~ -90 20'
+Start-Sleep -Milliseconds 400
+
 if (-not $vanilla) {
     # hold Left Alt: the radial menu of the nearby toolboxes; release over the first entry
     $mark = Get-LogMark
@@ -79,6 +100,51 @@ if (-not $vanilla) {
     Wait-LogLine 'equipment: .* equipped minecraft:torch from the toolbox' 15 -Since $mark | Out-Null
     Start-Sleep -Milliseconds 600
     Save-Screenshot 'radial-equipped' | Out-Null
+
+    # dyeing in a crafting table keeps the contents (Create's ToolboxDyeingRecipe): pick the filled
+    # brown toolbox up (left-click), craft it with a red dye, place the red toolbox and open it
+    Invoke-Chat '/tp @s ~ ~ ~ -90 20'
+    Start-Sleep -Milliseconds 500
+    $mark = Get-LogMark
+    Click 0.5 0.5 -Relative
+    Wait-LogLine 'equipment: toolbox at .* picked up by ' 15 -Since $mark | Out-Null
+    Invoke-Chat '/clear @s torch'
+    Invoke-Chat '/clear @s levitate:handheld_worldshaper'
+    Invoke-Chat '/give @s red_dye'
+    Invoke-Chat '/setblock ~3 ~ ~ crafting_table'
+    Start-Sleep -Milliseconds 600
+    Click 0.5 0.5 -Relative -Right
+    Start-Sleep -Milliseconds 1500
+    Save-Screenshot 'crafting-table' | Out-Null
+    # hotbar: red dye (slot 1), the filled brown toolbox (slot 2) -> the grid's middle row
+    # (hover each slot before clicking it: the screen only takes a click on the slot under the mouse)
+    function Click-Slot([double]$x, [double]$y) { Move-Mouse $x $y -Relative; Start-Sleep -Milliseconds 300; Click $x $y -Relative; Start-Sleep -Milliseconds 400 }
+    Click-Slot 0.540 0.729; Click-Slot 0.5805 0.365
+    Click-Slot 0.5055 0.729; Click-Slot 0.547 0.365
+    Start-Sleep -Milliseconds 400
+    Save-Screenshot 'crafting-grid' | Out-Null
+    # take the result and put it into the third hotbar slot
+    $mark = Get-LogMark
+    Click-Slot 0.730 0.365
+    Wait-LogLine 'equipment: .* dyed a toolbox into levitate:red_toolbox in the crafting grid \(contents kept\)' 15 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 400
+    Click-Slot 0.574 0.729
+    Save-Screenshot 'crafted' | Out-Null
+    Close-Screen
+    # place the crafted toolbox on the floor and open it: it has the brown toolbox's contents
+    Invoke-Chat '/setblock ~3 ~ ~ air'
+    Press-Key '3'
+    Start-Sleep -Milliseconds 400
+    $mark = Get-LogMark
+    Click 0.5 0.5 -Relative -Right
+    Wait-LogLine 'equipment: toolbox placed at .* by .* \([1-9]\d* items\)' 15 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 600
+    Click 0.5 0.5 -Relative -Right
+    Wait-LogLine 'equipment: toolbox at .* opened by ' 15 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 900
+    Save-Screenshot 'crafted-toolbox-screen' | Out-Null
+    Close-Native
+    Invoke-Chat '/fill ~3 ~ ~-1 ~6 ~ ~1 air'
 } else {
     Invoke-Chat '/create toolbox'
     Start-Sleep -Milliseconds 900
@@ -123,6 +189,22 @@ Start-Sleep -Milliseconds 120
 Save-Screenshot 'cannon-shot' | Out-Null
 Invoke-Chat '/gamemode creative'
 
+# potato projectile entities in flight (tumbling, along the motion, blocks) and cakes stuck to a cow
+# (vanilla clients draw them from the resource pack too)
+& {
+    Invoke-Chat '/tp @s ~ ~ ~ -90 0'
+    Start-Sleep -Milliseconds 600
+    $mark = Get-LogMark
+    Invoke-Chat '/create selftest "equipment.potato_showcase"'
+    Start-Sleep -Milliseconds 900
+    Save-Screenshot 'projectiles-1' | Out-Null
+    Start-Sleep -Milliseconds 450
+    Save-Screenshot 'projectiles-2' | Out-Null
+    Start-Sleep -Milliseconds 450
+    Save-Screenshot 'projectiles-3' | Out-Null
+    Wait-LogLine 'SELFTEST (PASS|FAIL) equipment.potato_showcase' 30 -Since $mark | Out-Null
+}
+
 # worn diving gear, seen from the front
 Invoke-Chat '/clear @s'
 Invoke-Chat '/replaceitem entity @s slot.armor.head 0 levitate:copper_diving_helmet'
@@ -136,7 +218,7 @@ Reset-CameraPerspective
 
 if (-not $vanilla) {
     $r = Invoke-SelfTest 'equipment.*'
-    if ($r.Pass -lt 16) { throw "expected at least 16 equipment selftests to pass, got $($r.Pass)" }
+    if ($r.Pass -lt 26) { throw "expected at least 26 equipment selftests to pass, got $($r.Pass)" }
 }
 Invoke-Chat '/clear @s'
 Invoke-Chat '/fill ~2 ~-1 ~-4 ~8 ~5 ~4 air'

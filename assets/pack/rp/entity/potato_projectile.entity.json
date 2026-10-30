@@ -1,0 +1,79 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "levitate:potato_projectile",
+      "materials": {
+        "default": "entity_alphatest",
+        "glint": "xp_bottle"
+      },
+      "textures": {
+        "potato": "textures/items/potato",
+        "baked_potato": "textures/items/potato_baked",
+        "carrot": "textures/items/carrot",
+        "golden_carrot": "textures/items/carrot_golden",
+        "sweet_berries": "textures/items/sweet_berries",
+        "glow_berries": "textures/items/glow_berries",
+        "chocolate_glazed_berries": "textures/items/chocolate_glazed_berries",
+        "poisonous_potato": "textures/items/potato_poisonous",
+        "chorus_fruit": "textures/items/chorus_fruit",
+        "apple": "textures/items/apple",
+        "honeyed_apple": "textures/items/honeyed_apple",
+        "golden_apple": "textures/items/apple_golden",
+        "enchanted_golden_apple": "textures/items/apple_golden",
+        "beetroot": "textures/items/beetroot",
+        "melon_slice": "textures/items/melon",
+        "glistering_melon_slice": "textures/items/melon_speckled",
+        "melon_block": "textures/blocks/melon_side",
+        "pumpkin": "textures/blocks/pumpkin_side",
+        "pumpkin_pie": "textures/items/pumpkin_pie",
+        "cake": "textures/items/cake",
+        "blaze_cake": "textures/items/blaze_cake",
+        "cod": "textures/items/fish_raw",
+        "cooked_cod": "textures/items/fish_cooked",
+        "salmon": "textures/items/fish_salmon_raw",
+        "cooked_salmon": "textures/items/fish_salmon_cooked",
+        "tropical_fish": "textures/items/fish_clownfish_raw",
+        "pufferfish": "textures/items/fish_pufferfish_raw",
+        "suspicious_stew": "textures/items/suspicious_stew",
+        "glint": "textures/misc/enchanted_item_glint"
+      },
+      "geometry": {
+        "default": "geometry.levitate.potato_projectile"
+      },
+      "animations": {
+        "billboard": "animation.levitate.potato_projectile.billboard",
+        "tumble": "animation.levitate.potato_projectile.tumble",
+        "toward_motion": "animation.levitate.potato_projectile.toward_motion",
+        "stuck": "animation.levitate.potato_projectile.stuck"
+      },
+      "scripts": {
+        "initialize": [
+          "variable.seed = math.random_integer(0, 359);"
+        ],
+        "pre_animation": [
+          "variable.mode = (query.variant == 2 || query.variant == 21 || query.variant == 22 || query.variant == 23 || query.variant == 24 || query.variant == 25 || query.variant == 26 || query.variant == 27) ? 1 : ((query.variant == 3 || query.variant == 13) ? 2 : 0);",
+          "variable.block = (query.variant == 16 || query.variant == 17) ? 1 : 0;",
+          "variable.ticks = query.life_time * 20;"
+        ],
+        "animate": [
+          {
+            "billboard": "query.mark_variant == 0 && variable.mode == 0"
+          },
+          {
+            "tumble": "query.mark_variant == 0 && variable.mode == 0"
+          },
+          {
+            "toward_motion": "query.mark_variant == 0 && variable.mode > 0"
+          },
+          {
+            "stuck": "query.mark_variant == 1"
+          }
+        ]
+      },
+      "render_controllers": [
+        "controller.render.levitate.potato_projectile"
+      ]
+    }
+  }
+}

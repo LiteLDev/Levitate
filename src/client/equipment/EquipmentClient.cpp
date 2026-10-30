@@ -17,6 +17,8 @@
 
 #include "mc/client/gui/screens/ScreenView.h"
 #include "mc/client/player/LocalPlayer.h"
+#include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
 #include "mc/world/item/ItemStack.h"
 
 #include "client/Client.h"
@@ -465,6 +467,26 @@ void drawHud(MinecraftUIRenderContext& ctx) {
     if (controller().active) c.text(sw / 2, sh - 60, ctr("lv.equipment.controller.active", "Linked controller active (Esc or right-click to stop)"), color::kTextGold, Align::Centre);
 }
 
+// ---- diving boots ---------------------------------------------------------------------------------------------------
+
+/// Create's DivingBootsItem#accelerateDescentUnderwater for our own player (the client moves it;
+/// the server leaves companions to us): sink 0.05 per tick, jump 0.5 off the ground, and walk
+/// 1.3 times faster per tick below 0.145 blocks per tick.
+void divingBoots() {
+    auto* lp = currentPlayer();
+    if (!lp || !net::client::connected()) return;
+    auto feet = items::idOf(lp->getArmor(SharedTypes::Legacy::ArmorSlot::Feet));
+    if (feet != "levitate:copper_diving_boots" && feet != "levitate:netherite_diving_boots") return;
+    if (!lp->isInWater() || lp->isSwimming() || lp->isFlying()) return;
+    Vec3 v      = lp->getPosDelta();
+    bool ground = lp->isOnGround();
+    if (lp->isJumping() && ground) v.y += .5f;
+    else v.y -= .05f;
+    float h = std::sqrt(v.x * v.x + v.z * v.z);
+    if (h < .145f && h > 1e-3f && !lp->isSneaking()) v.x *= 1.3f, v.z *= 1.3f;
+    const_cast<Vec3&>(lp->getPosDelta()) = v;
+}
+
 } // namespace
 
 class EquipmentClientModule {
@@ -551,6 +573,7 @@ public:
             auto& c = controller();
             if (c.active && ++c.keepAlive % 5 == 0) sendInput();
             if (gRadial && current() != gRadial) gRadial = nullptr;
+            divingBoots();
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             hud()        = Hud{};

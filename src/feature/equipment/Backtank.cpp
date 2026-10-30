@@ -7,9 +7,24 @@
 #include <cmath>
 #include <map>
 
+#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/legacy/ActorRuntimeID.h"
+#include "mc/network/MinecraftPacketIds.h"
+#include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/PlayerFogPacket.h"
+#include "mc/platform/UUID.h"
+#include "mc/world/actor/Mob.h"
+#include "mc/world/attribute/AttributeInstance.h"
+#include "mc/world/attribute/AttributeInstanceRef.h"
+#include "mc/world/attribute/AttributeModificationContext.h"
+#include "mc/world/attribute/AttributeModifier.h"
+#include "mc/world/attribute/AttributeModifierOperation.h"
+#include "mc/world/attribute/AttributeOperands.h"
+#include "mc/world/attribute/MutableAttributeWithContext.h"
+#include "mc/world/attribute/SharedAttributes.h"
 #include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
 #include "mc/deps/shared_types/v1_26_20/block/MaterialType.h"
 #include "mc/world/actor/player/Player.h"
@@ -17,10 +32,13 @@
 #include "mc/world/effect/MobEffectInstance.h"
 #include "mc/world/item/Item.h"
 #include "mc/world/item/ItemStack.h"
+#include "mc/world/level/BlockPos.h"
 #include "mc/world/level/Level.h"
 
 #include "core/equipment/Gear.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/BlockData.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/equipment/Equipment.h"
 #include "feature/kinetics/Kinetics.h"
@@ -65,6 +83,7 @@ std::map<GlobalPos, Filler>& fillers() {
     return m;
 }
 std::vector<kinetics::ListenerId> gListeners;
+std::vector<common::interactions::HandlerId> gPlaceHandlers;
 
 /// Creative breaks (no drop) and pickups (the item was given already).
 std::map<GlobalPos, bool>& handledBreaks() {
@@ -93,26 +112,82 @@ void effect(Player& p, unsigned id, int ticks, int amplifier = 0) {
     p.addEffect(inst);
 }
 
-ItemStack backtankItem(std::string const& id, int air, std::string const& name) {
+/// Create's BacktankBlockEntity keeps the Capacity level of the placed item.
+int blockCapacity(GlobalPos const& pos) {
+    auto const* d = bd::get(pos);
+    if (!d || !d->contains("equipment")) return 0;
+    return (*d)["equipment"].value(kCapacity, 0);
+}
+
+ItemStack backtankItem(std::string const& id, int air, std::string const& name, int capacity, Player const* viewer) {
     auto item = items::make(id, 1);
     if (!item) return items::empty();
+    if (capacity > 0) setEnchantLevel(*item, kCapacity, capacity, viewer); // before the air (its limit)
     setAir(*item, air);
     (void)name;
     return *item;
 }
 
-/// Per-player state: the last air value warned about.
+/// Per-player state: the last air value warned about, the attribute modifiers and fog applied.
 struct DiverState {
-    int  lastAir  = -1;
-    bool usingAir = false;
+    int  lastAir    = -1;
+    bool usingAir   = false;
+    int  netherite  = -1; ///< netherite pieces counted in the knockback resistance modifier
+    int  bootsSpeed = -1; ///< 1 while the diving boots' speed modifier is applied
+    int  fog        = -1; ///< 0 none, 1 diving helmet, 2 netherite diving helmet
+    std::uint64_t runtime = 0; ///< the player's runtime id the state belongs to (a rejoin starts over)
 };
+
+// ---- netherite diving gear: armour toughness and knockback resistance (Create: ArmorMaterials.NETHERITE) ---------
+
+constexpr int   kNetheriteToughness  = 3;    ///< per piece
+constexpr float kNetheriteKnockback  = 0.1f; ///< per piece
+constexpr char  kKnockbackModifier[] = "6c0f6b1e-6d2a-4c55-9a43-1f3c0e5b7a01";
+constexpr char  kBootsModifier[]     = "6c0f6b1e-6d2a-4c55-9a43-1f3c0e5b7a02";
+/// Create's DivingBootsItem multiplies the walking motion under water by 1.3 every tick while it is
+/// below 0.145 blocks per tick: the walking speed settles at ~0.15 instead of ~0.08 (water drag
+/// 0.8, acceleration 0.02). Vanilla clients move themselves, so their underwater movement speed
+/// attribute gets the same top speed; the client mod applies Create's motion itself.
+constexpr float kBootsSpeedBonus = 0.875f;
+
+int netheritePieces(Actor const& a) {
+    int n = 0;
+    if (items::idOf(a.getArmor(ArmorSlot::Head)) == kNetheriteHelmet) ++n;
+    if (items::idOf(a.getArmor(ArmorSlot::Torso)) == kNetheriteBacktank) ++n;
+    if (items::idOf(a.getArmor(ArmorSlot::Feet)) == kNetheriteBoots) ++n;
+    return n;
+}
+
+/// Replaces our modifier of `attr` (amount 0: removes it).
+void setModifier(Player& p, Attribute const& attr, char const* uuid, char const* name, float amount, AttributeModifierOperation op) {
+    auto               m    = p.getMutableAttribute(attr);
+    AttributeInstance* inst = m.mInstance->mPtr;
+    if (!inst) return;
+    auto id = mce::UUID::fromString(uuid);
+    inst->removeModifier(id, m.mContext);
+    if (amount != 0) inst->addModifier(AttributeModifier(id, name, amount, op, AttributeOperands::OperandCurrent, false), m.mContext);
+}
+
+/// Create's ClientEvents#getFogDensity as a fog layer (`assets/pack/rp/fogs/`): the diving helmet
+/// sees 6.25 times as far under water, the netherite one also sees 20 blocks in lava. Fog layers
+/// reach vanilla clients too (PlayerFogPacket).
+void sendFog(Player& p, int fog) {
+    auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::PlayerFogSetting);
+    if (!packet) return;
+    auto&                    pkt = static_cast<PlayerFogPacket&>(*packet);
+    std::vector<std::string> stack;
+    if (fog == 1) stack.emplace_back("levitate:diving_helmet");
+    if (fog == 2) stack.emplace_back("levitate:netherite_diving_helmet");
+    pkt.mFogStack = stack;
+    pkt.sendTo(p);
+}
 std::map<std::int64_t, DiverState>& divers() {
     static std::map<std::int64_t, DiverState> m;
     return m;
 }
 
-void warn(Player& player, int before, int after) {
-    int w = ce::backtankWarning(before, after, maxAir());
+void warn(Player& player, int before, int after, int max) {
+    int w = ce::backtankWarning(before, after, max);
     if (w == 0) return;
     auto pos = player.getPosition();
     int  dim = static_cast<int>(player.getDimensionId());
@@ -140,7 +215,7 @@ void consumeAir(Player& p, int amount) {
     setAir(copy, after);
     p.setArmor(ArmorSlot::Torso, copy);
     p.sendInventory(false);
-    warn(p, before, after);
+    warn(p, before, after, maxAir(copy));
 }
 
 bool fireResistantSet(Player& p) {
@@ -151,9 +226,9 @@ bool fireResistantSet(Player& p) {
         && (id(ArmorSlot::Feet) == kNetheriteBoots || id(ArmorSlot::Feet) == "minecraft:netherite_boots");
 }
 
-void sendAirHud(Player& p, int air, bool show) {
+void sendAirHud(Player& p, int air, int max, bool show) {
     if (net::isCompanion(p)) {
-        net::send(p, "equipment.air", {{"air", air}, {"max", maxAir()}, {"show", show}});
+        net::send(p, "equipment.air", {{"air", air}, {"max", max}, {"show", show}});
     } else if (show) {
         actionBar(p, (air < 60 ? "§c" : "§f") + ce::backtankTimeLeft(air));
     }
@@ -165,15 +240,23 @@ bool isBacktank(std::string_view id) { return id == kCopperBacktank || id == kNe
 
 int maxAir() { return std::max(1, config().airInBacktank); }
 
+int maxAir(ItemStack const& stack) {
+    return std::max(1, ce::backtankMaxAir(config().airInBacktank, config().enchantedBacktankCapacity, enchantLevel(stack, kCapacity)));
+}
+
+int blockMaxAir(GlobalPos const& pos) {
+    return std::max(1, ce::backtankMaxAir(config().airInBacktank, config().enchantedBacktankCapacity, blockCapacity(pos)));
+}
+
 int airOf(ItemStack const& stack) {
     auto j = items::getData(stack, kAirData);
-    return j.is_number() ? std::clamp(j.get<int>(), 0, maxAir()) : 0;
+    return j.is_number() ? std::clamp(j.get<int>(), 0, maxAir(stack)) : 0;
 }
 
 void setAir(ItemStack& stack, int air) {
-    air = std::clamp(air, 0, maxAir());
+    air = std::clamp(air, 0, maxAir(stack));
     items::setData(stack, kAirData, air);
-    stack.setDamageValue(static_cast<short>(ce::backtankBarDamage(air, maxAir(), kBarDurability)));
+    stack.setDamageValue(static_cast<short>(ce::backtankBarDamage(air, maxAir(stack), kBarDurability)));
 }
 
 bool useAirOrDurability(Player& player, bool mainHand, int usesPerTank) {
@@ -202,14 +285,14 @@ int blockAir(GlobalPos const& pos) {
 
 void setBlockAir(GlobalPos const& pos, int air) {
     auto* e   = blockDoc(pos, true);
-    (*e)["air"] = std::clamp(air, 0, maxAir());
+    (*e)["air"] = std::clamp(air, 0, blockMaxAir(pos));
 }
 
 void backtankPlaced(Player& player, GlobalPos const& pos, int air, std::string const& name) {
     int facing = game::opposite(game::playerFacing(player));
     place(pos, idAt(pos), {{kFacing, facing}});
     auto* e    = blockDoc(pos, true);
-    (*e)["air"] = std::clamp(air, 0, maxAir());
+    (*e)["air"] = std::clamp(air, 0, blockMaxAir(pos));
     if (!name.empty()) (*e)["name"] = name;
     log().info("equipment: backtank placed at {} {} {} with {} air", pos.x, pos.y, pos.z, air);
 }
@@ -221,13 +304,14 @@ bool useBacktankBlock(Player& player, ItemStack& held, GlobalPos const& pos) {
     if (!items::isEmpty(held) && game::blockWith(items::idOf(held))) return false;
     std::string id   = idAt(pos);
     int         air  = blockAir(pos);
+    int         capacity = blockCapacity(pos);
     handledBreaks()[pos] = true;
     if (!clearAt(pos)) {
         handledBreaks().erase(pos);
         return false;
     }
     handledBreaks().erase(pos);
-    player.setArmor(ArmorSlot::Torso, backtankItem(id, air, {}));
+    player.setArmor(ArmorSlot::Torso, backtankItem(id, air, {}, capacity, &player));
     player.sendInventory(false);
     sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.pop", .75f, 1.f);
     log().info("equipment: {} put on the backtank from {} {} {} ({} air)", player.getRealName(), pos.x, pos.y, pos.z, air);
@@ -251,12 +335,13 @@ void tickBacktanks() {
         }
         if (!isBacktank(idAt(pos))) continue;
         int air = blockAir(pos);
-        if (air >= maxAir()) continue;
-        int next = std::min(maxAir(), air + ce::backtankFillAmount(f.speed));
+        int max = blockMaxAir(pos);
+        if (air >= max) continue;
+        int next = std::min(max, air + ce::backtankFillAmount(f.speed));
         setBlockAir(pos, next);
         f.cooldown = ce::backtankFillDelay(f.speed);
         if (currentTick() % 10 == 0) particle(pos.dim, pos.x + .5, pos.y + 1.0, pos.z + .5, "minecraft:bubble_column_up_particle");
-        if (next >= maxAir()) {
+        if (next >= max) {
             // Create: "confirm" sound and a ring of spit particles when full
             sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.orb", .4f, 1.f);
             for (int i = 0; i < 36; i += 3) {
@@ -268,6 +353,13 @@ void tickBacktanks() {
     }
 }
 
+/// Create's Entity#isInLava: lava where the player stands.
+bool lavaAtFeet(Player& p) {
+    auto pos = p.getFeetBlockPos();
+    auto id  = idAt(GlobalPos{static_cast<int>(p.getDimensionId()), pos.x, pos.y, pos.z});
+    return id == "minecraft:lava" || id == "minecraft:flowing_lava";
+}
+
 void tickDivingGear() {
     auto level = ll::service::getLevel();
     if (!level) return;
@@ -276,6 +368,11 @@ void tickDivingGear() {
         if (p.isClientSide() || !p.isAlive()) return true;
         auto  uid  = uidOf(p);
         auto& st   = divers()[uid];
+        // a rejoined player is a new client session: resend fog and modifiers
+        if (auto rt = p.getRuntimeID().rawID; st.runtime != rt) {
+            st         = DiverState{};
+            st.runtime = rt;
+        }
         auto  head = items::idOf(p.getArmor(ArmorSlot::Head));
         auto  feet = items::idOf(p.getArmor(ArmorSlot::Feet));
         auto const* tank = wornBacktank(p);
@@ -284,12 +381,15 @@ void tickDivingGear() {
         bool  underWater = p.isUnderLiquid(SharedTypes::v1_26_20::MaterialType::Water);
         bool  inLava     = p.isUnderLiquid(SharedTypes::v1_26_20::MaterialType::Lava);
         bool  breathing  = false;
+        // Create's DivingHelmetItem#breatheUnderwater: lava diving with the netherite helmet
+        if (head == kNetheriteHelmet && tank && air > 0 && (inLava || lavaAtFeet(p))) advancements::award(p, "diving_suit_lava");
         // helmet: breathing from the backtank (1 air per second while it is needed)
         if (helmet && tank && air > 0 && !p.isCreative()) {
             if (underWater) {
                 breathing = true;
                 effect(p, 13, 40); // water breathing while the tank provides air
                 if (second) consumeAir(p, 1);
+                advancements::award(p, "diving_suit");
             } else if (inLava && head == kNetheriteHelmet && items::idOf(*tank) == kNetheriteBacktank) {
                 breathing = true;
                 if (second) consumeAir(p, 1);
@@ -297,28 +397,47 @@ void tickDivingGear() {
         }
         // the netherite set makes the wearer immune to fire
         if (fireResistantSet(p)) effect(p, 12, 40);
-        // boots: sink and walk on the ground under water (Create's DivingBootsItem.accelerateDescentUnderwater)
-        bool boots = feet == kCopperBoots || feet == kNetheriteBoots;
-        if (boots && p.isInWater() && !p.isSwimming() && !p.isFlying()) {
+        // netherite pieces: knockback resistance (the toughness is added by the hook below)
+        int pieces = netheritePieces(p);
+        if (pieces != st.netherite) {
+            setModifier(p, SharedAttributes::KNOCKBACK_RESISTANCE(), kKnockbackModifier, "Netherite diving gear", kNetheriteKnockback * static_cast<float>(pieces),
+                        AttributeModifierOperation::OperationAddition);
+            st.netherite = pieces;
+        }
+        // the diving helmet's fog
+        int fog = head == kNetheriteHelmet ? 2 : head == kCopperHelmet ? 1 : 0;
+        if (fog != st.fog) {
+            if (fog != 0 || st.fog > 0) sendFog(p, fog);
+            st.fog = fog;
+        }
+        // boots: sink and walk on the ground under water (Create's DivingBootsItem.accelerateDescentUnderwater);
+        // the client mod moves its own player, vanilla clients get motion packets and a faster underwater walk
+        bool boots     = feet == kCopperBoots || feet == kNetheriteBoots;
+        bool affected  = boots && p.isInWater() && !p.isSwimming() && !p.isFlying();
+        bool companion = net::isCompanion(p);
+        int  speedMod  = affected && !companion ? 1 : 0;
+        if (speedMod != st.bootsSpeed) {
+            setModifier(p, SharedAttributes::UNDERWATER_MOVEMENT_SPEED(), kBootsModifier, "Diving boots", speedMod ? kBootsSpeedBonus : 0.f,
+                        AttributeModifierOperation::OperationMultiplyTotal);
+            st.bootsSpeed = speedMod;
+        }
+        if (affected && !companion) {
             auto const& v = p.getPosDelta();
             double      vy = v.y;
             double      vx = v.x, vz = v.z;
             bool        jumping = p.isJumping();
             if (jumping && p.isOnGround()) vy += 0.5;
             else if (!p.isOnGround()) vy -= 0.05;
-            double h = std::sqrt(vx * vx + vz * vz);
-            if (h < 0.145 && h > 1e-3 && !p.isSneaking()) vx *= 1.3, vz *= 1.3;
             if (!p.isOnGround() || jumping) setMotion(p, vx, vy, vz);
         }
         // air HUD (Create: shown under water without breath, or in lava)
         bool show = tank && (breathing || ((underWater || inLava) && !p.isCreative()));
-        if (show != st.usingAir || (show && second)) sendAirHud(p, air, show);
+        if (show != st.usingAir || (show && second)) sendAirHud(p, air, tank ? maxAir(*tank) : maxAir(), show);
         st.usingAir = show;
         st.lastAir  = air;
         return true;
     });
 }
-
 void resetBacktanks() {
     fillers().clear();
     divers().clear();
@@ -326,6 +445,23 @@ void resetBacktanks() {
 }
 
 void installBacktanks() {
+    // Create's BacktankBlockEntity keeps the Capacity level of the placed item (after the unit's placement handler
+    // wrote the air, which it limits to the air without Capacity)
+    for (auto id : {kCopperBacktank, kNetheriteBacktank}) {
+        gPlaceHandlers.push_back(common::interactions::onPlace(
+            {std::string(id), std::string(id)},
+            [](common::interactions::PlaceContext const& c) {
+                if (!c.itemBefore) return;
+                int capacity = enchantLevel(*c.itemBefore, kCapacity);
+                if (capacity <= 0) return;
+                auto& e = bd::edit(c.pos)["equipment"];
+                if (!e.is_object()) e = Json::object();
+                e[kCapacity] = capacity;
+                setBlockAir(c.pos, airOf(*c.itemBefore));
+            },
+            common::interactions::priority::Low
+        ));
+    }
     static bool done = false;
     if (!done) {
         done = true;
@@ -333,8 +469,9 @@ void installBacktanks() {
             if (prevId.empty() || !isBacktank(prevId)) return;
             fillers().erase(p);
             if (handledBreaks().contains(p)) return;
-            int  air  = doc.contains("equipment") ? doc["equipment"].value("air", 0) : 0;
-            auto item = backtankItem(prevId, air, {});
+            int  air      = doc.contains("equipment") ? doc["equipment"].value("air", 0) : 0;
+            int  capacity = doc.contains("equipment") ? doc["equipment"].value(kCapacity, 0) : 0;
+            auto item     = backtankItem(prevId, air, {}, capacity, nullptr);
             defer([p, item] { dropAt(p.dim, p.x + .5, p.y + .5, p.z + .5, item); });
         });
     }
@@ -351,8 +488,24 @@ void installBacktanks() {
 }
 
 void uninstallBacktanks() {
+    for (auto id : gPlaceHandlers) common::interactions::remove(id);
+    gPlaceHandlers.clear();
     for (auto id : gListeners) kinetics::removeListener(id);
     gListeners.clear();
 }
 
+} // namespace lv::feature::equipment
+
+// Create: the netherite diving gear is ArmorMaterials.NETHERITE (toughness 3 per piece); Bedrock's
+// data-driven wearables have protection only.
+LL_TYPE_INSTANCE_HOOK(EquipmentToughnessHook, ll::memory::HookPriority::Normal, Mob, &Mob::getToughnessValue, int) {
+    return origin() + lv::feature::equipment::netheriteToughness(*this);
+}
+
+namespace lv::feature::equipment {
+int  netheriteToughness(Actor const& a) { return kNetheriteToughness * netheritePieces(a); }
+void hookToughness(bool on) {
+    if (on) EquipmentToughnessHook::hook();
+    else EquipmentToughnessHook::unhook();
+}
 } // namespace lv::feature::equipment

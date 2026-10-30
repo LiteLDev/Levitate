@@ -1,0 +1,34 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:tree_fertilizer_poppy_wither_rose_horn_coral"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:poppy"
+      },
+      {
+        "item": "minecraft:wither_rose"
+      },
+      {
+        "item": "minecraft:horn_coral"
+      },
+      {
+        "item": "minecraft:bone_meal"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:poppy"
+      }
+    ],
+    "result": {
+      "item": "levitate:tree_fertilizer",
+      "count": 2
+    }
+  }
+}

@@ -16,7 +16,11 @@
       "minecraft:durability": {
         "max_durability": 100
       },
-      "minecraft:hand_equipped": true
+      "minecraft:hand_equipped": true,
+      "minecraft:enchantable": {
+        "slot": "bow",
+        "value": 1
+      }
     }
   }
 }
