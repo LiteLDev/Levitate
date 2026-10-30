@@ -1,0 +1,15 @@
+{
+  "format_version": "1.16.100",
+  "minecraft:fog_settings": {
+    "description": {
+      "identifier": "levitate:diving_helmet"
+    },
+    "distance": {
+      "water": {
+        "fog_start": 0.0,
+        "fog_end": 375.0,
+        "render_distance_type": "fixed"
+      }
+    }
+  }
+}

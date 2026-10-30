@@ -160,6 +160,10 @@ void clearBacktankBreak(GlobalPos const& p);
 void uninstallBacktanks();
 void resetBacktanks();
 void installBacktanks();
+/// Armour toughness of the netherite diving pieces an actor wears (Create: 3 per piece).
+[[nodiscard]] int netheriteToughness(Actor const& a);
+/// The Mob::getToughnessValue hook adding it.
+void hookToughness(bool on);
 
 // ---- tools (Tools.cpp) ----------------------------------------------------------------------------
 /// Extra reach of the extendo grip(s) the player holds (0, 3 or 5).
