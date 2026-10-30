@@ -61,9 +61,10 @@ function Geometry([string]$id, $bones) {
 }
 function Bone([string]$name, $cubes) { [ordered]@{ name = $name; pivot = @(0, 0, 0); cubes = @($cubes) } }
 
-# Create's ToolboxRenderer at rest when open: lid 135 degrees, lower drawer 0.35 blocks out, upper 0.175
+# Create's ToolboxRenderer at rest when open: lid 135 degrees back (Bedrock turns a cube by +x the
+# other way round from a right-handed turn), lower drawer 0.35 blocks out, upper 0.175
 $closed = @($body) + (Drawer 4 0) + (Drawer 6 0) + (Lid $null)
-$open = @($body) + (Drawer 4 5.6) + (Drawer 6 2.8) + (Lid (-135))
+$open = @($body) + (Drawer 4 5.6) + (Drawer 6 2.8) + (Lid 135)
 $geo = [ordered]@{
     format_version      = '1.12.0'
     'minecraft:geometry' = @(
