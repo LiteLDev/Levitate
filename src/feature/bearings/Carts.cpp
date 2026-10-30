@@ -444,13 +444,20 @@ Json couplingsMessage() {
 }
 
 /// Sends the couplings to the companions when they changed (and the full list to joining ones).
+/// The couplings message last sent to the companions (reset with the world).
+Json& lastCouplings() {
+    static Json last;
+    return last;
+}
+
 void syncCouplings() {
     static bool joined = false; // join listeners can't be removed: registered once
     if (!joined) {
         joined = true;
         feature::net::onCompanionJoined([](Player& p) { feature::net::send(p, "bearings.couplings", couplingsMessage()); });
     }
-    static Json last;
+    auto& last = lastCouplings();
+
     Json        msg = couplingsMessage();
     if (msg == last) return;
     last       = msg;
@@ -755,24 +762,26 @@ bool pickupContraption(Player& player, Actor& cart) {
         }
     }
     auto snap = ct::ext::snapshot(rec.id);
-    if (!snap || snap->dump().size() > kMaxItemData) {
+    // Create's chest minecart contraption: the cart's own inventory travels in the item too
+    Json                         cartItems = Json::array();
+    std::optional<ContainerComponent*> cartInventory;
+    if (chest) {
+        if (auto inv = cart.getEntityContext().tryGetComponent<ContainerComponent>()) {
+            auto& container = *inv->mContainer;
+            cartInventory   = &*inv;
+            for (int i = 0; i < container.getContainerSize(); ++i) {
+                auto const& s = container.getItem(i);
+                if (!s.isNull() && s.mCount > 0) cartItems.push_back({{"slot", i}, {"item", it::toJsonWithCount(s, s.mCount)}});
+            }
+        }
+    }
+    if (!snap || snap->dump().size() + cartItems.dump().size() > kMaxItemData) {
         actionBar(player, "§c" + trFor(player, "create.contraption.minecart_contraption_too_big", "This Cart Contraption seems too big to pick up"));
         return true;
     }
     auto item = it::make(chest ? kChestMinecartContraption : kMinecartContraption);
     if (!item) return false;
-    // Create's chest minecart contraption: the cart's own inventory travels in the item too
-    Json cartItems = Json::array();
-    if (chest) {
-        if (auto inv = cart.getEntityContext().tryGetComponent<ContainerComponent>()) {
-            auto& container = *inv->mContainer;
-            for (int i = 0; i < container.getContainerSize(); ++i) {
-                auto const& s = container.getItem(i);
-                if (!s.isNull() && s.mCount > 0) cartItems.push_back({{"slot", i}, {"item", it::toJsonWithCount(s, s.mCount)}});
-            }
-            container.removeAllItems(); // (nothing drops when the cart goes)
-        }
-    }
+    if (cartInventory) (*cartInventory)->mContainer->removeAllItems(); // (nothing drops when the cart goes)
     if (rec.coupled) {
         std::erase_if(state().couplings, [&](Coupling const& cp) { return cp.a == rec.cart || cp.b == rec.cart; });
     }
@@ -1026,6 +1035,7 @@ void saveCarts() {
 }
 
 void forgetCarts() {
+    lastCouplings() = Json();
     auto railY = state().railY;
     state()    = State{};
     state().railY = railY;

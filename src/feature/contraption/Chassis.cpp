@@ -428,6 +428,14 @@ private:
                 log().error("contraption: deferred action failed: {}", ex.what());
             }
         }
+        // stickers that were mined or carried away (their redstone watch only reports power changes)
+        if (mTicks % 200 == 0) {
+            for (auto [dim, pos] : std::vector<std::pair<int, cc::Pos>>(stickers().begin(), stickers().end())) {
+                auto* region = detail::regionOf(dim);
+                if (region && region->hasChunksAt(detail::toBlockPos(pos), 0, false) && blockIdAt(*region, pos) != kSticker)
+                    detail::updateSticker(*region, dim, pos); // forgets it
+            }
+        }
         if (mTicks % 10 == 0 && config::get<Config>().glueOutlines) {
             auto level = ll::service::getLevel();
             if (!level) return;

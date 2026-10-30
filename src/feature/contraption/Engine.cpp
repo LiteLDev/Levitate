@@ -552,6 +552,7 @@ public:
             if (b.collision) c.mBoxes.push_back(b.collision->moved(cc::Vec3d::of(b.local)));
             if (b.display) displays.insert(b.display);
         }
+        refreshBoxBlocks(c);
         auto storage = std::make_unique<MergedStorage>(c);
         storage->build(c.mBlocks);
         c.mStorage = std::move(storage);
@@ -851,8 +852,7 @@ public:
             e.bounds = worldBounds(*c, 0.0);
             e.boxes.reserve(c->mBoxes.size());
             for (auto const& b : c->mBoxes) e.boxes.push_back(worldBox(c->mTransform, b));
-            for (auto const& b : c->mBlocks)
-                if (b.collision) e.blocks.push_back(detail::blockFromSnbt(b.block));
+            e.blocks = c->mBoxBlocks;
             collisionCache.push_back(std::move(e));
         }
     }
@@ -916,7 +916,7 @@ public:
                 if (a.stopMoving) a.stopMoving(ctx);
             });
         }
-        if (!moving) {
+        if (!moving && c.mTicksWhileStill) {
             // Create ticks every actor each tick: the ones that act while still (doors)
             forEachActor(c, before, before, [](MovementBehaviour const& a, MovementContext& ctx, CarriedBlock&) {
                 if (a.tickWhileStill && a.tick) a.tick(ctx);
@@ -1232,6 +1232,7 @@ public:
             c.mBoxes.clear();
             for (auto const& o : c.mBlocks)
                 if (o.collision) c.mBoxes.push_back(o.collision->moved(cc::Vec3d::of(o.local)));
+            refreshBoxBlocks(c);
             if (b.display) {
                 retireDisplay(c, b, c.mDisplayQuarter); // spawned again with the new block this tick
                 displaysChanged.insert(c.mId);
@@ -1241,6 +1242,17 @@ public:
         return false;
     }
     static cc::Pos toCc(core::GlobalPos const& p) { return {p.x, p.y, p.z}; }
+
+    /// The block of each collision box (entity movement collides with them) and whether an actor
+    /// ticks while the contraption stands still: cached when the blocks change.
+    static void refreshBoxBlocks(Contraption& c) {
+        c.mBoxBlocks.clear();
+        c.mTicksWhileStill = false;
+        for (auto const& b : c.mBlocks) {
+            if (b.collision) c.mBoxBlocks.push_back(detail::blockFromSnbt(b.block));
+            if (auto const* a = detail::actorFor(b.id); a && a->tickWhileStill) c.mTicksWhileStill = true;
+        }
+    }
 
     /// Create's AbstractContraptionEntity#discard: the structure goes, nothing is placed or dropped.
     bool discard(Id id) {
@@ -1260,7 +1272,10 @@ public:
     }
 
     /// Drops a contraption whose displays are gone: its record, the companions' copy, the caches.
+    static cc::Box boundsOf(Contraption const& c) { return c.mBounds; }
+
     void forget(std::map<Id, std::unique_ptr<Contraption>>::iterator it) {
+
         auto& c = *it->second;
         game::db::erase(kDbPrefix + std::to_string(c.mId));
         sendToDim(c.mDim, "contraption.remove", {{"id", c.mId}});
@@ -1344,15 +1359,10 @@ bool discard(Id id) { return Engine::get().discard(id); }
 bool setBlockStates(Id id, cc::Pos const& local, cc::States const& states) { return Engine::get().setBlockStates(id, local, states); }
 
 std::optional<cc::Box> bounds(Id id) {
-    auto* c = find(id);
-    if (!c || c->blocks().empty()) return std::nullopt;
-    cc::Box b = cc::Box::unit(c->blocks().front().local);
-    for (auto const& blk : c->blocks()) {
-        auto u = cc::Box::unit(blk.local);
-        b.min  = {std::min(b.min.x, u.min.x), std::min(b.min.y, u.min.y), std::min(b.min.z, u.min.z)};
-        b.max  = {std::max(b.max.x, u.max.x), std::max(b.max.y, u.max.y), std::max(b.max.z, u.max.z)};
-    }
-    return b;
+    auto& live = Engine::get().live;
+    auto  it   = live.find(id);
+    if (it == live.end() || it->second->blocks().empty()) return std::nullopt;
+    return Engine::boundsOf(*it->second);
 }
 
 

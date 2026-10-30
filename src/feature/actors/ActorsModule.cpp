@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <set>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -310,8 +312,10 @@ public:
             if (ev.layer() != 0) return;
             auto& region = ev.blockSource();
             if (region.getLevel().isClientSide()) return;
+            if (ev.previousBlock().isAir()) return; // nothing was there to hang on
             if (hasCollisionShape(ev.newBlock(), region, ev.pos())) return; // still something to hang on
-            mSupportChecks.emplace_back(static_cast<int>(region.getDimensionId()), ev.pos());
+            auto const& p = ev.pos();
+            mSupportChecks.emplace(static_cast<int>(region.getDimensionId()), p.x, p.y, p.z);
         });
         // empty-hand right-click into the air (client mod): the server can't see it otherwise
         net::on("actors.use", [](Player& p, net::Json const&) { useOnContraption(p); });
@@ -343,9 +347,9 @@ private:
         ++mTicks;
         // (out of the block change: dropping a block inside it would edit the world in a setBlock)
         auto checks = std::exchange(mSupportChecks, {});
-        for (auto const& [dim, pos] : checks) {
+        for (auto const& [dim, x, y, z] : checks) {
             try {
-                if (auto* region = regionOf(dim)) checkSupportAround(*region, pos);
+                if (auto* region = regionOf(dim)) checkSupportAround(*region, BlockPos{x, y, z});
             } catch (std::exception const& e) {
                 log().error("actors: support check failed: {}", e.what());
             }
@@ -361,7 +365,7 @@ private:
 
     ll::event::ListenerPtr     mTick;
     ll::event::ListenerPtr     mChanged;
-    std::vector<std::pair<int, BlockPos>> mSupportChecks;
+    std::set<std::tuple<int, int, int, int>> mSupportChecks; // dim, x, y, z (deduplicated)
 
     std::uint64_t              mTicks = 0;
     std::vector<ia::HandlerId> mHandlers;

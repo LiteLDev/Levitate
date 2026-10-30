@@ -34,6 +34,7 @@
 #include "core/contraption/Glue.h"
 #include "core/contraption/StateRotation.h"
 
+class Block;
 class BlockSource;
 class BlockPos;
 class ItemStack;
@@ -227,6 +228,8 @@ private:
     bool                              mMoving = false;
     bool                              mActorsPaused = false;
     std::vector<cc::Box>              mBoxes;           ///< local collision boxes (cache)
+    std::vector<Block const*>         mBoxBlocks;       ///< the block of each collision box (cache)
+    bool                              mTicksWhileStill = false; ///< an actor ticks while it stands still (cache)
     cc::Box                           mBounds;          ///< local bounds of all blocks (cache)
     int                               mDisplayQuarter = 0; ///< quarter turns shown by the display entities
 };

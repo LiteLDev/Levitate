@@ -131,9 +131,13 @@ void sendGhost(Player& player, Relocating& r, nlohmann::json msg) {
     net::send(player, "trains.relocate", msg);
 }
 
+void clearGhost(Player& player) {
+    if (net::isCompanion(player)) net::send(player, "trains.relocate", {{"boxes", nlohmann::json::array()}});
+}
+
 void stop(Player& player, std::string const& uuid) {
     relocating().erase(uuid);
-    if (net::isCompanion(player)) net::send(player, "trains.relocate", {{"boxes", nlohmann::json::array()}});
+    clearGhost(player);
 }
 
 /// Create's TrainRelocator.visualise / relocateClient: what the player looks at now.
@@ -239,8 +243,12 @@ void relocate(Train& t, ct::Body body) {
     t.speed = t.targetSpeed = 0;
     t.reattachCooldown = 0;
     cancelNavigation(t);
+    t.currentStation.clear(); // it no longer stands at the station it was at
     placeCarriages(t);
     if (auto p = ct::positionOf(tracks::railways(), t.body.front)) t.lastFront = *p;
+    auto d = t.body.front.to.location() - t.body.front.from.location();
+    if (d.length() > 1e-6) t.lastDir = d.normalize();
+
 }
 
 bool relocationClick(Player& player, bool sneaking) { return click(player, sneaking); }
@@ -275,8 +283,8 @@ public:
                 auto* p = playerByUuid(uuid);
                 if (!p || !findTrain(r.train) || !holdsWrench(*p)) {
                     // Create: putting the wrench away ends the relocation
-                    gone.push_back(uuid);
-                    if (p) stop(*p, uuid);
+                    gone.push_back(uuid); // (erased after the loop)
+                    if (p) clearGhost(*p);
                     continue;
                 }
                 evaluate(*p, r);
