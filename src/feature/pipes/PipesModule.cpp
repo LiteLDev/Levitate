@@ -41,7 +41,9 @@
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "feature/kinetics/Kinetics.h"
+#include "feature/net/Net.h"
 #include "feature/pipes/OpenEnds.h"
+#include "feature/pipes/PipeEffects.h"
 #include "feature/pipes/Pipes.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -169,7 +171,8 @@ public:
         if (canProvideFluidWithoutCapability(nb)) return true;
         if (nb.canProvideFullSupport(static_cast<uchar>(back))) return false;
         if (common::fluids::find(common::Access{*r, n, static_cast<int>(back)})) return false;
-        if (!game::replaceable(*r, n)) return false;
+        // Create: replaceable (and breakable) blocks, or waterloggable ones
+        if (!game::replaceable(*r, n) && !canContainWater(nb)) return false;
         return true;
     }
 
@@ -254,6 +257,7 @@ void loadWorld() {
     r.changes.clear();
     r.deferred.clear();
     r.intents.clear();
+    clearPipeEffects();
     if (auto j = game::db::load(kDbKey); j && j->is_object()) {
         try {
             r.model.load(j->value("model", nlohmann::json::object()));
@@ -277,6 +281,7 @@ void closeWorld() {
     r.intents.clear();
     r.host.flowChanged.clear();
     r.host.collisions.clear();
+    clearPipeEffects();
     r.loaded = false;
 }
 
@@ -462,6 +467,7 @@ void runTick() {
     }
     auto glass = std::exchange(r.host.flowChanged, {});
     for (auto const& p : glass) refreshGlass(p);
+    tickPipeEffects(r.model);
     r.intents.clear();
 }
 
@@ -612,6 +618,9 @@ public:
             game::db::onWorldSave([] { saveWorld(); });
             game::db::onWorldClosed([] { closeWorld(); });
             registerOpenPipeEffects();
+            net::onCompanionJoined([](Player& p) {
+                if (rt().loaded) syncGlassTo(p);
+            });
             common::filterslot::registerSlot(kSmartPipe, {"filter", smartSlotCentre, 0.5, [](GlobalPos const& p) { scheduleChanged(p); }});
             // brackets go back to the world when their pipe is gone
             common::blockdata::onErase([](GlobalPos const& p, nlohmann::json const& doc, std::string const& previous) {

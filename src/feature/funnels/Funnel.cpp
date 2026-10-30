@@ -1,10 +1,17 @@
-// Andesite and brass funnels (Create's FunnelBlock / FunnelBlockEntity, SPEC §3.6.12).
+// Andesite and brass funnels (Create's FunnelBlock / BeltFunnelBlock / FunnelBlockEntity, SPEC
+// §3.6.12).
 //
 // A funnel is attached to the block behind it (opposite of `levitate:facing`). Extracting
 // funnels pull items out of that inventory every `defaultExtractionTimer` ticks and drop them in
 // front; inserting funnels put item entities touching their opening (and items handed to an
 // upward funnel by belts / chutes / players) into it. Redstone power pauses both. Brass funnels
 // filter and extract up to a configurable amount; andesite funnels move single items.
+//
+// Belt funnels (Create's BeltFunnelBlock) are funnels with a `levitate:shape` (1 retracted,
+// 2 extended, 3 pushing, 4 pulling): a horizontal funnel on top of a belt / depot / ejector. A
+// pushing one (or a retracted / extended one at the end of a belt moving away from it) puts items
+// from its inventory onto the belt; a pulling one (or one the belt moves towards) takes the belt
+// items that pass under it (belts::registerAboveInteractor, Create's BeltFunnelInteractionHandler).
 
 #include <algorithm>
 #include <cmath>
@@ -19,10 +26,12 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/belts/BeltApi.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "feature/funnels/FunnelsInternal.h"
+#include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
 #include "mod/Log.h"
@@ -66,22 +75,35 @@ std::array<double, 3> turned(int side, double x, double y, double z) {
 
 std::optional<std::array<double, 3>> filterCentre(Block const& block, int face) {
     int facing = facingOf(block);
+    int shape  = beltShapeOf(block);
+    if (shape == kBeltExtended) {
+        // the extended belt funnel shows its slot on top (Create: isSideActive UP)
+        if (face != cf::kUp || !cf::isHorizontal(facing)) return std::nullopt;
+        return turned(facing, 8 / 16.0, 11.3 / 16.0, 12.5 / 16.0);
+    }
     if (cf::isHorizontal(facing)) {
         if (face != facing) return std::nullopt;
-        return turned(facing, 8 / 16.0, 12.2 / 16.0, 8.55 / 16.0);
+        // belt funnels sit 3 px lower, on the belt
+        return turned(facing, 8 / 16.0, (shape != kNotOnBelt ? 9.2 : 12.2) / 16.0, 8.55 / 16.0);
     }
     if (!cf::isHorizontal(face)) return std::nullopt;
     return turned(face, 8 / 16.0, (facing == cf::kDown ? 14 : 2) / 16.0, 15.5 / 16.0);
 }
 
 /// The "Extracted Amount" box: Create edits the count by holding the filter slot; here it is a
-/// separate box next to it (SPEC §8).
+/// separate box next to it (SPEC §8). Create shows the count on extracting funnels and on belt
+/// funnels (supportsAmountOnFilter).
 std::optional<std::array<double, 3>> amountCentre(Block const& block, int face) {
-    if (!state(block, kExtracting)) return std::nullopt;
+    int shape = beltShapeOf(block);
+    if (shape == kNotOnBelt && !state(block, kExtracting)) return std::nullopt;
     int facing = facingOf(block);
+    if (shape == kBeltExtended) {
+        if (face != cf::kUp || !cf::isHorizontal(facing)) return std::nullopt;
+        return turned(facing, 8 / 16.0, 11.3 / 16.0, 6.5 / 16.0);
+    }
     if (cf::isHorizontal(facing)) {
         if (face != facing) return std::nullopt;
-        return turned(facing, 8 / 16.0, 5 / 16.0, 8.55 / 16.0);
+        return turned(facing, 8 / 16.0, (shape != kNotOnBelt ? 3 : 5) / 16.0, 8.55 / 16.0);
     }
     if (!cf::isHorizontal(face)) return std::nullopt;
     return turned(face, 8 / 16.0, (facing == cf::kDown ? 9 : 7) / 16.0, 15.5 / 16.0);
@@ -91,7 +113,10 @@ bool passesFilter(Block const& block, GlobalPos const& pos, ItemStack const& sta
     return !isBrass(block) || common::filterslot::matches(pos, stack, "filter");
 }
 
-void flap(BlockSource& region, GlobalPos const& pos, Block const& block) {
+/// Create's FunnelBlockEntity.flap: the flap state for 4 ticks (every client sees it), the flap
+/// sound, and a flap event for the client mod (which swings the flap smoothly, Create's
+/// FunnelRenderer). `inward` = items went into the funnel.
+void flap(BlockSource& region, GlobalPos const& pos, Block const& block, bool inward) {
     if (!cf::isHorizontal(facingOf(block))) return;
     auto& rt     = runtime(pos);
     rt.flapTicks = 4;
@@ -99,6 +124,17 @@ void flap(BlockSource& region, GlobalPos const& pos, Block const& block) {
     // Create's funnel flap sound: an item frame turn and a muffled wool break
     playSound(region, toBlockPos(pos), "block.itemframe.rotate_item", .125f, 1.5f);
     playSound(region, toBlockPos(pos), "dig.cloth", .0425f, .75f);
+    if (auto level = ll::service::getLevel()) {
+        net::Json msg{{"dim", pos.dim}, {"pos", {pos.x, pos.y, pos.z}}, {"inward", inward}};
+        level->forEachPlayer([&](Player& p) {
+            if (static_cast<int>(p.getDimensionId()) != pos.dim || !net::isCompanion(p)) return true;
+            auto const& at = p.getPosition();
+            float       dx = at.x - pos.x, dy = at.y - pos.y, dz = at.z - pos.z;
+            if (dx * dx + dy * dy + dz * dz > 96.f * 96.f) return true;
+            net::send(p, "funnels.flap", msg);
+            return true;
+        });
+    }
 }
 
 /// The funnel in front of an inventory: the block it is attached to is behind it.
@@ -153,7 +189,7 @@ void activateExtractor(BlockSource& region, GlobalPos const& pos, Block const& b
     }
     stack = extractCounted(region, inv, facing, filter, amount.count, !amount.upTo, false);
     if (items::isEmpty(stack)) return;
-    flap(region, pos, block);
+    flap(region, pos, block, false);
 
     bool  vertical = !cf::isHorizontal(facing);
     bool  up       = facing == cf::kUp;
@@ -163,6 +199,36 @@ void activateExtractor(BlockSource& region, GlobalPos const& pos, Block const& b
     if (!vertical) out.y -= .45f;
     Vec3 motion{0, up ? 4 / 16.f : 0.f, 0};
     if (auto* item = spawnItem(region, stack, out, motion)) rt.lastObserved = item->getOrCreateUniqueID().rawID;
+    rt.cooldown = std::max(1, config().defaultExtractionTimer);
+}
+
+/// Create's FunnelBlockEntity.activateExtractingBeltFunnel: items from the inventory onto the
+/// belt / depot below, inserted from the funnel's side.
+void activateExtractingBeltFunnel(BlockSource& region, GlobalPos const& pos, Block const& block) {
+    auto& rt     = runtime(pos);
+    int   facing = facingOf(block);
+    auto  below  = offset(pos, cf::kDown);
+    if (!belts::canInsertDirect(below, facing)) return;
+    // Create's isOccupied: a probe stack the input refuses
+    belts::TransportedItem probe;
+    bool                   brass  = isBrass(block);
+    cf::AmountSetting      amount = brass ? amountOf(pos) : cf::AmountSetting{1, true};
+    auto                   accept = [&](ItemStack const& s) {
+        if (!passesFilter(block, pos, s)) return false;
+        probe.stack = s;
+        return items::isEmpty(belts::insertDirect(below, probe, facing, true));
+    };
+    auto stack = extractCounted(region, attachedPos(pos, facing), facing, accept, amount.count, !amount.upTo, false);
+    if (items::isEmpty(stack)) return;
+    flap(region, pos, block, false);
+    belts::TransportedItem t;
+    t.stack   = stack;
+    auto rest = belts::insertDirect(below, t, facing, false);
+    if (!items::isEmpty(rest)) {
+        // the input changed its mind between the probe and the insertion: back into the inventory
+        auto back = items::insert(region, attachedPos(pos, facing), facing, rest, false);
+        if (!items::isEmpty(back)) spawnItem(region, back, Vec3{pos.x + .5f, pos.y + .5f, pos.z + .5f}, Vec3{0, 0, 0});
+    }
     rt.cooldown = std::max(1, config().defaultExtractionTimer);
 }
 
@@ -204,7 +270,125 @@ common::items::Handler capability() {
     return h;
 }
 
+/// The horizontal FacingID of a belt's `levitate:facing` (0 south, 1 west, 2 north, 3 east).
+int beltFace(int beltFacing) {
+    static constexpr int kFaces[] = {cf::kSouth, cf::kWest, cf::kNorth, cf::kEast};
+    return kFaces[beltFacing & 3];
+}
+
+enum class Mode { Invalid, Paused, Collect, Extract, PushingToBelt, TakingFromBelt };
+
+/// Create's FunnelBlockEntity.determineCurrentMode.
+Mode modeOf(GlobalPos const& pos, Block const& block) {
+    if (state(block, kPowered)) return Mode::Paused;
+    int shape = beltShapeOf(block);
+    if (shape == kNotOnBelt) return state(block, kExtracting) ? Mode::Extract : Mode::Collect;
+    if (shape == kBeltPulling) return Mode::TakingFromBelt;
+    if (shape == kBeltPushing) return Mode::PushingToBelt;
+    auto belt = belts::beltAt(offset(pos, cf::kDown));
+    if (!belt) return Mode::Invalid;
+    return belt->movementFace == facingOf(block) ? Mode::PushingToBelt : Mode::TakingFromBelt;
+}
+
+/// Create's BeltFunnelInteractionHandler.checkForFunnels for one segment (`c.segment`), and
+/// DirectBeltInputBehaviour.tryExportingToBeltFunnel for a depot / ejector below.
+belts::PassResult onBeltPass(belts::PassContext& c) {
+    auto* region = regionOf(c.above.dim);
+    if (!region) return belts::PassResult::Pass;
+    auto const* block = loadedBlock(*region, toBlockPos(c.above));
+    if (!block || !isFunnel(kindOf(block->getTypeName()))) return belts::PassResult::Pass;
+    int shape  = beltShapeOf(*block);
+    int facing = facingOf(*block);
+    if (shape == kNotOnBelt || !cf::isHorizontal(facing)) return belts::PassResult::Pass;
+
+    if (c.depot) {
+        if (shape != kBeltPulling || state(*block, kPowered) || items::isEmpty(c.item.stack)) return belts::PassResult::Pass;
+        // an ejector keeps funnels from pulling against its launch direction (canFunnelsPullFrom)
+        if (auto const* below = loadedBlock(*region, toBlockPos(c.segment)); below && below->getTypeName() == belts::kEjectorId) {
+            if (cf::oppositeFace(facing) == beltFace(state(*below, kFacing))) return belts::PassResult::Pass;
+        }
+        c.item.stack = funnelInsert(*region, c.above, c.item.stack, false);
+        return belts::PassResult::Pass;
+    }
+
+    int  movement = c.movementFace;
+    bool blocking = facing == cf::oppositeFace(movement);
+    if (facing == movement || shape == kBeltPushing) return belts::PassResult::Pass;
+    float entry = float(c.segmentIndex) + .5f;
+    if (shape == kBeltExtended) entry += .499f * (c.movementPositive ? -1.f : 1.f);
+    bool crossed = c.movementPositive ? c.nextOffset > entry : c.nextOffset < entry;
+    if (!crossed) return belts::PassResult::Pass;
+    if (blocking) c.item.beltPosition = entry;
+    auto const stop = blocking ? belts::PassResult::Stop : belts::PassResult::Pass;
+    if (state(*block, kPowered) || items::isEmpty(c.item.stack)) return stop;
+    if (!passesFilter(*block, c.above, c.item.stack)) return stop;
+
+    // Create's getAmountToExtract / getModeToExtract (a belt funnel supports the amount)
+    bool              brass  = isBrass(*block);
+    cf::AmountSetting amount = brass ? amountOf(c.above) : cf::AmountSetting{1, true};
+    ItemStack         toInsert = c.item.stack;
+    int               have     = items::countOf(toInsert);
+    if (!amount.upTo) {
+        if (amount.count > have) return stop;
+        toInsert = items::withCount(toInsert, std::min(amount.count, have));
+        if (!items::isEmpty(items::insert(*region, attachedPos(c.above, facing), facing, toInsert, true))) return stop;
+    }
+    auto remainder = items::insert(*region, attachedPos(c.above, facing), facing, toInsert, false);
+    if (items::countOf(remainder) == items::countOf(toInsert) && items::sameItemSameData(remainder, toInsert)) return stop;
+    int notFilled = have - items::countOf(toInsert);
+    if (!items::isEmpty(remainder)) remainder = items::withCount(remainder, items::countOf(remainder) + notFilled);
+    else if (notFilled > 0) remainder = items::withCount(c.item.stack, notFilled);
+    flap(*region, c.above, *block, true);
+    c.item.stack = items::isEmpty(remainder) ? items::empty() : remainder;
+    return stop;
+}
+
 } // namespace
+
+int beltShapeOf(Block const& block) { return std::clamp(state(block, kShape, kNotOnBelt), 0, 4); }
+
+bool onValidBelt(BlockSource& region, GlobalPos const& pos) {
+    (void)region;
+    return belts::isTransporter(offset(pos, cf::kDown));
+}
+
+int beltShapeFor(BlockSource& region, GlobalPos const& pos, int facing, bool extracting) {
+    (void)region;
+    int  preferred = extracting ? kBeltPushing : kBeltPulling;
+    auto belt      = belts::beltAt(offset(pos, cf::kDown));
+    if (!belt) return preferred;
+    return cf::axisOf(beltFace(belt->facing)) != cf::axisOf(facing) ? preferred : kBeltRetracted;
+}
+
+void updateFunnelShape(BlockSource& region, GlobalPos const& pos) {
+    auto        bp    = toBlockPos(pos);
+    auto const* block = loadedBlock(region, bp);
+    if (!block || !isFunnel(kindOf(block->getTypeName()))) return;
+    int facing = facingOf(*block);
+    if (!cf::isHorizontal(facing)) return;
+    int  shape = beltShapeOf(*block);
+    bool valid = onValidBelt(region, pos);
+    if (shape == kNotOnBelt) {
+        // Create's FunnelBlock.updateShape: a funnel that gets a belt below becomes a belt funnel
+        if (!valid) return;
+        int next = beltShapeFor(region, pos, facing, state(*block, kExtracting) != 0);
+        setStates(region, bp, {{kShape, next}});
+        log().info("funnels: funnel at {} is now on a belt (shape {})", pos.key(), next);
+        return;
+    }
+    if (!valid) {
+        // Create's BeltFunnelBlock.updateShape: back to a plain funnel
+        setStates(region, bp, {{kShape, kNotOnBelt}, {kExtracting, shape == kBeltPushing ? 1 : 0}});
+        log().info("funnels: funnel at {} left the belt", pos.key());
+        return;
+    }
+    int updated = beltShapeFor(region, pos, facing, shape == kBeltPushing);
+    if (updated == shape) return;
+    // don't revert wrenched states
+    if (updated == kBeltPushing && shape == kBeltPulling) return;
+    if (updated == kBeltRetracted && shape == kBeltExtended) return;
+    setStates(region, bp, {{kShape, updated}});
+}
 
 ItemStack funnelInsert(BlockSource& region, GlobalPos const& pos, ItemStack const& stack, bool simulate) {
     auto const* block = loadedBlock(region, toBlockPos(pos));
@@ -212,7 +396,7 @@ ItemStack funnelInsert(BlockSource& region, GlobalPos const& pos, ItemStack cons
     if (!passesFilter(*block, pos, stack)) return stack;
     int  facing = facingOf(*block);
     auto rest   = items::insert(region, attachedPos(pos, facing), facing, stack, simulate);
-    if (!simulate && items::countOf(rest) != items::countOf(stack)) flap(region, pos, *block);
+    if (!simulate && items::countOf(rest) != items::countOf(stack)) flap(region, pos, *block, true);
     return rest;
 }
 
@@ -235,24 +419,37 @@ void tickFunnel(BlockSource& region, GlobalPos const& pos, Block const& blockIn,
         block = loadedBlock(region, bp);
         if (!block) return;
     }
-    if (state(*block, kPowered)) {
-        rt.cooldown = 0; // redstone resets the extraction cooldown
-        return;
+    Mode mode = modeOf(pos, *block);
+    if (beltShapeOf(*block) != kNotOnBelt && (mode == Mode::PushingToBelt || mode == Mode::TakingFromBelt)) {
+        // the back plate shows the direction of a belt funnel (retracted / extended ones turn
+        // with the belt)
+        int extracting = mode == Mode::PushingToBelt ? 1 : 0;
+        if (state(*block, kExtracting) != extracting) {
+            setStates(region, bp, {{kExtracting, extracting}});
+            block = loadedBlock(region, bp);
+            if (!block) return;
+        }
     }
-    if (!state(*block, kExtracting)) {
-        collect(region, pos, *block);
-        return;
+    switch (mode) {
+    case Mode::Paused: rt.cooldown = 0; return; // redstone resets the extraction cooldown
+    case Mode::Invalid:
+    case Mode::TakingFromBelt: return;          // the belt hands its items over (onBeltPass)
+    case Mode::Collect: collect(region, pos, *block); return;
+    default: break;
     }
     if (rt.cooldown > 0) {
         --rt.cooldown;
         return;
     }
-    activateExtractor(region, pos, *block);
+    if (mode == Mode::PushingToBelt) activateExtractingBeltFunnel(region, pos, *block);
+    else activateExtractor(region, pos, *block);
 }
 
 bool useFunnel(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block, int face, ItemStack& held) {
     int facing = facingOf(block);
     if (face != facing) return false;
+    // Create's canInsertIntoFunnel: plain inserting funnels only (belt funnels belong to the belt)
+    if (beltShapeOf(block) != kNotOnBelt) return false;
     if (state(block, kExtracting) || state(block, kPowered)) return false;
     if (!items::isEmpty(held) && items::idOf(held) == kMechanicalArm) return false;
     if (items::isEmpty(held)) return true;
@@ -268,6 +465,26 @@ bool useFunnel(Player& player, BlockSource& region, GlobalPos const& pos, Block 
 }
 
 bool wrenchFunnel(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block) {
+    int shape = beltShapeOf(block);
+    if (shape != kNotOnBelt) {
+        // Create's BeltFunnelBlock.onWrenched: pulling <-> pushing, extended <-> retracted
+        int next = shape;
+        if (shape == kBeltPulling) next = kBeltPushing;
+        else if (shape == kBeltPushing) next = kBeltPulling;
+        else if (shape == kBeltExtended) next = kBeltRetracted;
+        else if (shape == kBeltRetracted) {
+            auto belt = belts::beltAt(offset(pos, cf::kDown));
+            next      = belt && belt->slope != 0 ? kBeltRetracted : kBeltExtended;
+        }
+        if (next == shape) return true;
+        std::vector<std::pair<std::string_view, int>> states{{kShape, next}};
+        if (next == kBeltPushing || next == kBeltPulling) states.emplace_back(kExtracting, next == kBeltPushing ? 1 : 0);
+        setStates(region, toBlockPos(pos), states);
+        playSound(region, toBlockPos(pos), "random.click", .5f, 1.2f);
+        static constexpr char const* kNames[] = {"", "retracted", "extended", "pushing", "pulling"};
+        log().info("funnels: belt funnel at {} set to {} by {}", pos.key(), kNames[next], player.getRealName());
+        return true;
+    }
     int next = state(block, kExtracting) ? 0 : 1;
     setStates(region, toBlockPos(pos), {{kExtracting, next}});
     playSound(region, toBlockPos(pos), "random.click", .5f, 1.2f);
@@ -299,14 +516,53 @@ void placeFunnel(Player* player, BlockSource& region, GlobalPos const& pos, bool
         }
     }
     auto bp = toBlockPos(pos);
-    setStates(region, bp, {{kFacing, facing}, {kExtracting, sneaking ? 0 : 1}, {kPowered, powered(region, bp) ? 1 : 0}});
+    // Create's FunnelBlock.getStateForPlacement: a horizontal funnel on a belt is a belt funnel
+    int shape = kNotOnBelt;
+    if (cf::isHorizontal(facing) && onValidBelt(region, pos)) shape = beltShapeFor(region, pos, facing, !sneaking);
+    setStates(
+        region,
+        bp,
+        {{kFacing, facing}, {kExtracting, sneaking ? 0 : 1}, {kPowered, powered(region, bp) ? 1 : 0}, {kShape, shape}}
+    );
 }
 
 void forgetFunnel(GlobalPos const& pos) { runtimes().erase(pos.key()); }
 
 void installFunnels() {
-    for (char const* id : {kAndesiteFunnel, kBrassFunnel}) common::items::registerBlock(id, capability());
-    common::filterslot::registerSlot(kBrassFunnel, {"filter", filterCentre, 0.5, nullptr});
+    for (char const* id : {kAndesiteFunnel, kBrassFunnel}) {
+        common::items::registerBlock(id, capability());
+        belts::registerAboveInteractor(id, onBeltPass);
+        // Create's DirectBeltInputBehaviour of an upward, inserting funnel (supportsDirectBeltInput)
+        belts::registerDirectInput(
+            id,
+            belts::DirectInput{
+                .canInsertFromSide =
+                    [](GlobalPos const& p, int) {
+                        auto* region = regionOf(p.dim);
+                        auto const* b = region ? loadedBlock(*region, toBlockPos(p)) : nullptr;
+                        return b && facingOf(*b) == cf::kUp && !state(*b, kExtracting) && beltShapeOf(*b) == kNotOnBelt;
+                    },
+                .insert =
+                    [](GlobalPos const& p, belts::TransportedItem const& t, int, bool simulate) {
+                        auto* region = regionOf(p.dim);
+                        auto const* b = region ? loadedBlock(*region, toBlockPos(p)) : nullptr;
+                        if (!b || state(*b, kPowered)) return t.stack;
+                        return funnelInsert(*region, p, t.stack, simulate);
+                    },
+            }
+        );
+    }
+    // Create: holding the filter slot opens its count (the "Extracted Amount" board) on funnels that
+    // support an amount (extracting / belt funnels); the separate amount box stays for vanilla
+    // players (SPEC §8)
+    common::filterslot::SlotSpec slot{"filter", filterCentre, 0.5, nullptr, nullptr};
+    slot.onHold = [](Player& p, GlobalPos const& pos) {
+        auto* region = regionOf(pos.dim);
+        auto const* b = region ? loadedBlock(*region, toBlockPos(pos)) : nullptr;
+        if (!b || (beltShapeOf(*b) == kNotOnBelt && !state(*b, kExtracting))) return; // no count to edit
+        common::valuebox::openEditor(p, pos, "amount");
+    };
+    common::filterslot::registerSlot(kBrassFunnel, std::move(slot));
     registerAmountBox(kBrassFunnel, amountCentre);
 }
 

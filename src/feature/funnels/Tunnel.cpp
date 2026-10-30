@@ -16,6 +16,7 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/belts/BeltApi.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/FunnelsExt.h"
 #include "feature/common/Items.h"
@@ -178,6 +179,20 @@ bool directInput(BlockSource& region, BlockPos const& p, int fromSide) {
     return id.starts_with("levitate:") && common::items::has(region, p, cf::oppositeFace(fromSide));
 }
 
+/// Create's DirectBeltInputBehaviour.handleInsertion at `out` for an item travelling `side`: belts,
+/// depots and other direct inputs take it from that side, other blocks through their item capability.
+/// nullopt when a direct input refuses that side (Create's canInsertFromSide).
+std::optional<ItemStack> insertTowards(BlockSource& region, BlockPos const& out, int side, ItemStack const& stack, bool simulate) {
+    auto g = game::globalPos(region, out);
+    if (belts::hasDirectInput(g)) {
+        if (!belts::canInsertDirect(g, side)) return std::nullopt;
+        belts::TransportedItem t;
+        t.stack = stack;
+        return belts::insertDirect(g, t, side, simulate);
+    }
+    return common::items::insert(region, out, cf::oppositeFace(side), stack, simulate);
+}
+
 /// Create's insertIntoTunnel: nullopt when `side` of `tunnel` is no output for `stack`.
 std::optional<ItemStack> insertIntoTunnel(BlockSource& region, GlobalPos const& tunnel, int side, ItemStack const& stack, bool simulate) {
     if (items::isEmpty(stack)) return stack;
@@ -186,10 +201,7 @@ std::optional<ItemStack> insertIntoTunnel(BlockSource& region, GlobalPos const& 
     auto     segment = beltlink::segmentAt(region, below);
     if (!segment) return std::nullopt;
     BlockPos out = offset(below, side);
-    if (directInput(region, out, side)) {
-        auto rest = common::items::insert(region, out, cf::oppositeFace(side), stack, simulate);
-        return rest;
-    }
+    if (directInput(region, out, side)) return insertTowards(region, out, side, stack, simulate);
     if (side == segment->movementFacing && !solidFace(region, out, cf::oppositeFace(side))) {
         if (!simulate) {
             auto  n     = cf::faceOffset(side);
@@ -342,13 +354,28 @@ beltlink::Passing onBeltItem(BlockSource& region, BlockPos const& above, BlockPo
             BlockPos out = offset(beltPos, d);
             if (!loadedBlock(region, out)) return beltlink::Passing::Stuck;
             if (!directInput(region, out, d)) continue;
-            auto rest = common::items::insert(region, out, cf::oppositeFace(d), items::withCount(stack, 1), false);
-            if (!items::isEmpty(rest)) return beltlink::Passing::Stuck;
+            auto rest = insertTowards(region, out, d, items::withCount(stack, 1), false);
+            if (!rest) continue; // Create: !canInsertFromSide
+            if (!items::isEmpty(*rest)) return beltlink::Passing::Stuck;
             stack = items::withCount(stack, items::countOf(stack) - 1);
             if (items::countOf(stack) <= 1) break;
         }
     }
     return beltlink::Passing::Continue;
+}
+
+/// Create's BeltBlockEntity.tryInsertingFromSide with a brass tunnel above: a distributing tunnel
+/// takes items put onto its segment from a side.
+std::optional<ItemStack> onSideInput(BlockSource& region, BlockPos const& above, ItemStack const& stack, int side, bool simulate) {
+    auto const* b = tunnelBlock(region, above);
+    if (!b || !isBrass(*b) || !distributes(region, above, *b)) return std::nullopt;
+    auto  pos = game::globalPos(region, above);
+    auto& r   = rt(pos);
+    int   from = cf::oppositeFace(side);
+    if (!items::isEmpty(r.stack)) return stack;
+    if (!testFlapFilter(region, pos, from, stack)) return stack;
+    if (!simulate) setStack(pos, r, stack, from);
+    return items::empty();
 }
 
 } // namespace
@@ -476,6 +503,7 @@ void installTunnels() {
         common::items::registerBlock(id, capability());
         beltlink::registerAbove(id, onBeltItem);
     }
+    beltlink::registerAboveSideInput(kBrassTunnel, onSideInput);
     for (int side : cf::kHorizontals) {
         common::filterslot::registerSlot(
             kBrassTunnel,

@@ -270,3 +270,43 @@ TEST(Ejector, TargetsAndLaunches) {
         EXPECT_GT(mid.second, std::max(v, 0)); // an arc above the target
     }
 }
+
+TEST(BeltPreview, StraightLineAlongTheBelt) {
+    auto l = previewLine({0, 0, 0}, {5, 0, 0}, Axis::Z);
+    ASSERT_TRUE(l.has_value());
+    EXPECT_EQ(l->step, (Vec3i{1, 0, 0}));
+    EXPECT_FLOAT_EQ(l->length, 5.f);
+}
+
+TEST(BeltPreview, ComponentAlongTheShaftIsIgnored) {
+    // shafts along z: the z difference doesn't count
+    auto l = previewLine({0, 0, 0}, {0, 3, 7}, Axis::Z);
+    ASSERT_TRUE(l.has_value());
+    EXPECT_EQ(l->step, (Vec3i{0, 1, 0}));
+    EXPECT_FLOAT_EQ(l->length, 3.f);
+}
+
+TEST(BeltPreview, SnapsToTheClosestDiagonal) {
+    // (4, 3) in the x-y plane: closer to the 45 degree diagonal than to the x axis
+    auto l = previewLine({0, 0, 0}, {4, 3, 0}, Axis::Z);
+    ASSERT_TRUE(l.has_value());
+    EXPECT_EQ(l->step, (Vec3i{1, 1, 0}));
+    EXPECT_FLOAT_EQ(l->length, 4.f);
+    // (5, 1): closer to straight along x
+    auto s = previewLine({0, 0, 0}, {5, -1, 0}, Axis::Z);
+    ASSERT_TRUE(s.has_value());
+    EXPECT_EQ(s->step, (Vec3i{1, 0, 0}));
+}
+
+TEST(BeltPreview, VerticalShaftsOnlyStraight) {
+    EXPECT_FALSE(previewLine({0, 0, 0}, {3, 0, 3}, Axis::Y).has_value());
+    auto l = previewLine({0, 0, 0}, {0, 0, -4}, Axis::Y);
+    ASSERT_TRUE(l.has_value());
+    EXPECT_EQ(l->step, (Vec3i{0, 0, -1}));
+    EXPECT_FALSE(previewLine({0, 0, 0}, {0, 0, 0}, Axis::X).has_value());
+    // the height difference doesn't count for a vertical shaft
+    auto h = previewLine({0, 0, 0}, {1, 1, 0}, Axis::Y);
+    ASSERT_TRUE(h.has_value());
+    EXPECT_EQ(h->step, (Vec3i{1, 0, 0}));
+    EXPECT_FLOAT_EQ(h->length, 1.f);
+}

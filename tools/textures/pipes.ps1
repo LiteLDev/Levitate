@@ -8,6 +8,9 @@
 #       mechanical_pump_cog,fluid_valve,fluid_valve_shaft,smart_fluid_pipe}.geo.json
 #   assets/pack/bp/blocks/<id>.json for the six blocks and the test tank (the bone visibility
 #   expressions are generated together with the bones).
+#   assets/pack/rp/textures/particle/levitate_fluid.png (the fluid particles, tinted per fluid: four
+#   4x4 bits of a light, mottled surface; levitate:fluid_particle picks one, levitate:fluid_drip the
+#   first).
 #
 # Texture layout (16x16, four 8x8 quarters): TL body side, TR end / ring, BL casing / housing,
 # BR detail (cog, handle, slot, rim). Models address the quarters by name below.
@@ -75,6 +78,27 @@ foreach ($name in $fluids.Keys) {
     $c = $fluids[$name]
     Save-PixelArt -Rows $fluidRows -Palette @{ a = $c[0]; b = $c[1]; c = $c[2] } -Path "$texOut/pipe_fluid_$name.png"
 }
+
+# fluid particles: light grey mottling, tinted with the fluid's colour by the particle
+$particleRows = @(
+    'abbacaabbbaacbba',
+    'bccbbaabcbbabccb',
+    'bccbabbbacbbbccb',
+    'abbabaabbbababba',
+    'cabbbbcaabbcabba',
+    'abccbbaabccbaabc',
+    'abccbabbbccbbabb',
+    'bbbaacabbbbaacab',
+    'abbacaabbbaacbba',
+    'bccbbaabcbbabccb',
+    'bcabbbbbacbbbcab',
+    'abbabaabbbababba',
+    'babbbbcaabbcabba',
+    'abccbbaabcabaabc',
+    'abccbabbbccbbabb',
+    'bbbaacabbbbaacab'
+)
+Save-PixelArt -Rows $particleRows -Palette @{ a = '#d8d8d8'; b = '#f4f4f4'; c = '#ffffff' } -Path (Join-Path $root 'assets/pack/rp/textures/particle/levitate_fluid.png')
 
 # encased pipe: copper casing face (whole texture)
 $encased = @(
@@ -420,7 +444,7 @@ $smartVis = $vis
 function Box([double[]]$o, [double[]]$s) { return [ordered]@{ origin = $o; size = $s } }
 function Range([int]$n) { return @(0..($n - 1)) }
 
-function Save-Block([string]$path, $states, [string]$geo, $vis, $materials, $box, [double]$seconds, [string]$category = 'items', $permutations = @(), [switch]$Hidden) {
+function Save-Block([string]$path, $states, [string]$geo, $vis, $materials, $box, [double]$seconds, [string]$category = 'items', $permutations = @(), [switch]$Hidden, [switch]$Waterlogged) {
     $desc = [ordered]@{ identifier = "levitate:$path"; menu_category = [ordered]@{ category = $(if ($Hidden) { 'none' } else { $category }) }; states = $states }
     $components = [ordered]@{
         'minecraft:geometry'                = [ordered]@{ identifier = $geo; bone_visibility = $vis }
@@ -432,6 +456,12 @@ function Save-Block([string]$path, $states, [string]$geo, $vis, $materials, $box
         'minecraft:light_dampening'         = 0
         'minecraft:map_color'               = '#c56d43'
         'minecraft:loot'                    = "loot_tables/blocks/$path.json"
+    }
+    # Create's SimpleWaterloggedBlock / ProperWaterloggedBlock: the block keeps the water it is placed in
+    if ($Waterlogged) {
+        $components['minecraft:liquid_detection'] = [ordered]@{
+            detection_rules = @([ordered]@{ liquid_type = 'water'; can_contain_liquid = $true; on_liquid_touches = 'no_reaction' })
+        }
     }
     $block = [ordered]@{ format_version = '1.21.70'; 'minecraft:block' = [ordered]@{ description = $desc; components = $components } }
     if ($permutations.Count -gt 0) { $block['minecraft:block'].permutations = @($permutations) }
@@ -452,7 +482,7 @@ $states['levitate:bracket'] = Range 3
 $mats = Merge ([ordered]@{ '*' = (Mat 'levitate_fluid_pipe') }) $brackets
 $perms = @()
 foreach ($ax in 0, 1, 2) { $perms += [ordered]@{ condition = $straight[$ax]; components = [ordered]@{ 'minecraft:collision_box' = $axisBox[$ax]; 'minecraft:selection_box' = $axisBox[$ax] } } }
-Save-Block 'fluid_pipe' $states 'geometry.levitate.fluid_pipe' $pipeVis $mats $core 0.5 'items' $perms
+Save-Block 'fluid_pipe' $states 'geometry.levitate.fluid_pipe' $pipeVis $mats $core 0.5 'items' $perms -Waterlogged
 
 # glass fluid pipe (no item of its own: it drops a fluid pipe)
 $states = [ordered]@{ 'levitate:axis' = (Range 3); 'levitate:fluid' = (Range 8); 'levitate:bracket' = (Range 3) }
@@ -460,7 +490,7 @@ $mats = [ordered]@{ '*' = (Mat 'levitate_glass_fluid_pipe' 'blend'); copper = (M
 for ($s = 1; $s -lt $slots.Count; $s++) { $mats["fluid_$($slots[$s])"] = Mat "levitate_pipe_fluid_$($slots[$s])" 'blend' }
 $perms = @()
 foreach ($ax in 0, 1, 2) { $perms += [ordered]@{ condition = $glassAxis[$ax]; components = [ordered]@{ 'minecraft:collision_box' = $axisBox[$ax]; 'minecraft:selection_box' = $axisBox[$ax] } } }
-Save-Block 'glass_fluid_pipe' $states 'geometry.levitate.glass_fluid_pipe' $glassVis $mats $axisBox[1] 0.5 'items' $perms -Hidden
+Save-Block 'glass_fluid_pipe' $states 'geometry.levitate.glass_fluid_pipe' $glassVis $mats $axisBox[1] 0.5 'items' $perms -Hidden -Waterlogged
 
 # encased fluid pipe
 $states = [ordered]@{}
@@ -471,17 +501,17 @@ Save-Block 'encased_fluid_pipe' $states 'geometry.levitate.encased_fluid_pipe' $
 # mechanical pump
 $states = [ordered]@{ 'levitate:facing' = (Range 6); 'levitate:rotor' = (Range 3) }
 $mats = [ordered]@{ '*' = (Mat 'levitate_mechanical_pump') }
-Save-Block 'mechanical_pump' $states 'geometry.levitate.mechanical_pump' $pumpVis $mats (Box @(-6, 2, -6) @(12, 12, 12)) 1.5
+Save-Block 'mechanical_pump' $states 'geometry.levitate.mechanical_pump' $pumpVis $mats (Box @(-6, 2, -6) @(12, 12, 12)) 1.5 -Waterlogged
 
 # fluid valve
 $states = [ordered]@{ 'levitate:facing' = (Range 6); 'levitate:along_first' = @(0, 1); 'levitate:enabled' = @(0, 1); 'levitate:rotor' = (Range 3) }
 $mats = [ordered]@{ '*' = (Mat 'levitate_fluid_valve') }
-Save-Block 'fluid_valve' $states 'geometry.levitate.fluid_valve' $valveVis $mats (Box @(-5, 3, -5) @(10, 10, 10)) 1.5
+Save-Block 'fluid_valve' $states 'geometry.levitate.fluid_valve' $valveVis $mats (Box @(-5, 3, -5) @(10, 10, 10)) 1.5 -Waterlogged
 
 # smart fluid pipe
 $states = [ordered]@{ 'levitate:face' = (Range 3); 'levitate:facing' = (Range 4) }
 $mats = [ordered]@{ '*' = (Mat 'levitate_smart_fluid_pipe') }
-Save-Block 'smart_fluid_pipe' $states 'geometry.levitate.smart_fluid_pipe' $smartVis $mats (Box @(-5, 3, -5) @(10, 10, 10)) 1.5
+Save-Block 'smart_fluid_pipe' $states 'geometry.levitate.smart_fluid_pipe' $smartVis $mats (Box @(-5, 3, -5) @(10, 10, 10)) 1.5 -Waterlogged
 
 # the selftests' tank (full cube, not in the creative menu)
 $tank = [ordered]@{

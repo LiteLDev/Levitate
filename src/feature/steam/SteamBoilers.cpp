@@ -41,9 +41,8 @@ struct ShaftState {
     bool                     applied      = false;
 };
 struct WhistleState {
-    bool          sounding  = false;
-    std::uint64_t nextTone  = 0;
-    int           lastPitch = -1;
+    bool sounding  = false;
+    int  lastPitch = -1;
 };
 struct EngineState {
     std::uint64_t nextChuff = 0;
@@ -256,6 +255,26 @@ std::vector<int> heatScores(BlockSource& region, TankInfo const& info) {
     return scores;
 }
 
+/// Create's BoilerData.updateOcclusion: a side's gauge (in the middle of the side, on the bottom
+/// layer) is hidden when something with a collision box stands right in front of it. Bits in
+/// Create's 2D order (south, west, north, east).
+int gaugeOcclusion(BlockSource& region, TankInfo const& info) {
+    static constexpr int dx[4]{0, -1, 0, 1}, dz[4]{1, 0, -1, 0};
+    int mask = 0, w = info.width;
+    // the middle of a side: one block for odd widths, the two middle ones for even widths
+    std::vector<int> along = w % 2 ? std::vector<int>{w / 2} : std::vector<int>{w / 2 - 1, w / 2};
+    for (int i = 0; i < 4; ++i) {
+        for (int t : along) {
+            int x = dx[i] == 0 ? t : dx[i] > 0 ? w : -1;
+            int z = dz[i] == 0 ? t : dz[i] > 0 ? w : -1;
+            BlockPos p{info.controller.x + x, info.controller.y, info.controller.z + z};
+            if (!region.hasChunksAt(p, 0, false)) continue;
+            if (!game::replaceable(region, p)) mask |= 1 << i;
+        }
+    }
+    return mask;
+}
+
 GlobalPos attachedTankOfEngine(GlobalPos const& engine, Block const& block) {
     return offset(engine, cs::opposite(engineShape(block).facing));
 }
@@ -390,6 +409,7 @@ void resetRuntime() {
     boilers().clear();
     shaftStates().clear();
     whistleStates().clear();
+    resetWhistleTones();
     engineStates().clear();
     loggedLevels().clear();
     converting().clear();
@@ -447,6 +467,7 @@ void onWhistleAdded(GlobalPos const& pos) {
 void onWhistleRemoved(GlobalPos const& pos) {
     if (index().whistles.erase(pos)) markIndexDirty();
     whistleStates().erase(pos);
+    whistleQuiet(pos);
     // extensions above can't stand without it (they drop nothing, as Create's)
     if (auto* region = regionOf(pos.dim)) {
         for (int i = 1; i <= 32; ++i) {
@@ -645,6 +666,15 @@ void tickSteam() {
         if (rt->boiler.tick(static_cast<int>(std::min<std::int64_t>(info->capacity, INT32_MAX)), info->creative)) markTankForSync(ctrl);
         int size  = info->width * info->width * info->height;
         int level = rt->boiler.display(size).passive ? -1 : rt->boiler.actualHeat(size);
+        // the gauges (Create's BoilerData.read: gauge chases this target; updateOcclusion)
+        int   forSize = rt->boiler.maxHeatForSize(size);
+        float gauge   = level < 0 ? 1.f / 8.f : forSize == 0 ? 0.f : static_cast<float>(level) / static_cast<float>(forSize);
+        int   occluded = gaugeOcclusion(*region, *info);
+        if (gauge != rt->gauge || occluded != rt->occluded) {
+            rt->gauge    = gauge;
+            rt->occluded = occluded;
+            markTankForSync(ctrl);
+        }
         auto [last, fresh] = loggedLevels().try_emplace(ctrl, level);
         if (fresh || last->second != level) {
             last->second = level;
@@ -714,15 +744,25 @@ void tickSteam() {
         if (speed != 0 && efficiency > 0 && gTick >= es.nextChuff) {
             es.nextChuff = gTick + static_cast<std::uint64_t>(std::max(4.f, 600.f / std::abs(speed)));
             playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "levitate.steam.engine", .5f, .75f + .25f * std::min(1.f, efficiency));
-            auto f = offset(pos, shape.facing);
-            particle(pos.dim, f.x + .5, f.y + .5, f.z + .5, "minecraft:water_evaporation_bucket_emitter");
+            // a steam jet out of the cylinder's front, along the facing and a little up
+            auto   f  = offset(pos, shape.facing);
+            double nx = f.x - pos.x, ny = f.y - pos.y, nz = f.z - pos.z;
+            steamJet(pos.dim, pos.x + .5 + nx * .55, pos.y + .5 + ny * .55, pos.z + .5 + nz * .55, nx * .06, ny * .06 + .02, nz * .06);
         }
     }
 
     // steam whistles
     for (auto pos : std::vector<GlobalPos>(index().whistles.begin(), index().whistles.end())) {
         auto* region = regionOf(pos.dim);
-        if (!region || !loaded(*region, pos)) continue;
+        if (!region || !loaded(*region, pos)) {
+            // an unloaded whistle stops (Create: its block entity no longer keeps the sound alive)
+            if (auto it = whistleStates().find(pos); it != whistleStates().end() && it->second.sounding) {
+                it->second.sounding  = false;
+                it->second.lastPitch = -1;
+                whistleQuiet(pos);
+            }
+            continue;
+        }
         if (idAt(*region, pos) != kWhistle) {
             onWhistleRemoved(pos);
             continue;
@@ -747,34 +787,39 @@ void tickSteam() {
         float f     = cs::whistleSoundPitch(pitch);
         static constexpr char const* sizeNames[]{"small", "medium", "large"};
         static constexpr char const* toneSounds[]{"levitate.steam.whistle_high", "levitate.steam.whistle_medium", "levitate.steam.whistle_low"};
-        if (sounding && (!ws.sounding || ws.lastPitch != cs::pitchId(pitch, size))) {
-            if (!ws.sounding)
-                playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "levitate.steam.whistle_chiff", 1.f, size == cs::WhistleSize::Small ? f + .75f : f);
+        bool started = sounding && (!ws.sounding || ws.lastPitch != cs::pitchId(pitch, size));
+        if (started) {
+            if (!ws.sounding) whistleChiff(pos,size == cs::WhistleSize::Small ? f + .75f : f);
             log().info("steam: whistle at {} sounds ({} whistle, pitch {})", at(pos), sizeNames[static_cast<int>(size)], pitch);
-            ws.nextTone  = gTick;
             ws.lastPitch = cs::pitchId(pitch, size);
         }
-        if (!sounding && ws.sounding) log().info("steam: whistle at {} is quiet", at(pos));
-        ws.sounding = sounding;
+        if (!sounding && ws.sounding) {
+            log().info("steam: whistle at {} is quiet", at(pos));
+            whistleQuiet(pos);
+        }
+        bool newSound = sounding && !ws.sounding;
+        ws.sounding   = sounding;
         if (!sounding) {
             ws.lastPitch = -1;
             continue;
         }
-        if (gTick >= ws.nextTone) {
-            ws.nextTone = gTick + 10; // the tone sample is 0.6 s long: overlapping restarts keep it continuous
-            playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, toneSounds[static_cast<int>(size)], 1.f, f);
-        }
-        if (gTick % 8 == 0) {
-            // steam out of the mouth, away from the tank (Create's SteamJetParticle)
+        // one looping instance per whistle; its pitch follows the column (Create's tickAudio)
+        whistleTone(pos, toneSounds[static_cast<int>(size)], f);
+        if (gTick % 8 == 0 || newSound) {
+            // steam out of the mouth, away from the tank (Create's SteamJetParticle): from the
+            // mouth's lip, up and out of it
             // the mouth faces away from the tank (wall) or back towards whoever placed it (floor)
             auto   facing = cs::opposite(cs::axisOf(whistleAttached(block)) == cs::Axis::Y
                                              ? dirFromName(strState(block, "minecraft:cardinal_direction"), cs::Dir::North)
                                              : whistleAttached(block));
-            auto   out    = offset(pos, facing);
-            double x = pos.x + .5 + (out.x - pos.x) * .45, z = pos.z + .5 + (out.z - pos.z) * .45;
-            particle(pos.dim, x, pos.y + .6, z, "minecraft:water_evaporation_bucket_emitter");
+            auto   out = offset(pos, facing);
+            double nx = out.x - pos.x, nz = out.z - pos.z;
+            double reach = .45 * .75 + static_cast<int>(size) / 16.0;
+            double mx = nx * 1.5, my = 1.0, mz = nz * 1.5, len = std::sqrt(mx * mx + my * my + mz * mz);
+            steamJet(pos.dim, pos.x + .5 + nx * reach, pos.y + .5 + .45 - .4, pos.z + .5 + nz * reach, mx / len * .1, my / len * .1, mz / len * .1);
         }
     }
+    tickWhistleTones();
 
     if (gIndexDirty) saveIndex();
 }

@@ -82,6 +82,9 @@ inline constexpr cs::Dir kDirs[]{cs::Dir::Down, cs::Dir::Up, cs::Dir::North, cs:
 
 void playSound(int dim, double x, double y, double z, std::string const& sound, float volume, float pitch);
 void particle(int dim, double x, double y, double z, std::string const& effect);
+/// Create's SteamJetParticle (`levitate:steam_jet`) at (x, y, z) moving by (mx, my, mz) blocks per
+/// tick, sent to the players within 64 blocks.
+void steamJet(int dim, double x, double y, double z, double mx, double my, double mz);
 void giveOrDrop(Player& player, ItemStack const& stack);
 
 // ---- tanks -----------------------------------------------------------------------------------------
@@ -131,7 +134,13 @@ void registerTankCapabilities();
 // ---- boilers, engines, whistles ---------------------------------------------------------------------
 struct BoilerRuntime {
     cs::Boiler boiler;
-    bool       evaluated   = false;
+    /// Gauge target of the boiler dials (Create's BoilerData.gauge: passive 1/8, else level /
+    /// size limit), synced to clients.
+    float      gauge = 0;
+    /// Sides whose gauge is hidden by a block in front (Create's occludedDirections), bit i =
+    /// horizontal direction i in Create's 2D order (south, west, north, east).
+    int        occluded = 0;
+    bool      evaluated   = false;
     int        sinceEval   = 0;
 };
 [[nodiscard]] std::map<GlobalPos, BoilerRuntime>& boilers();
@@ -165,6 +174,21 @@ void onPoweredShaftAdded(GlobalPos const& pos);
 inline constexpr char kTestHeater[] = "levitate:steam_test_heater";
 /// Attached engines / whistles of the tank at `removed` lose their support.
 void dropAttachmentsOf(GlobalPos const& removedTank);
+
+/// The looping tone of a sounding whistle (Create's WhistleSoundInstance, WhistleSound.cpp): one
+/// sound instance per whistle, played on the clients of the players within 64 blocks; called every
+/// tick while it sounds (a new `sound` restarts it, a new `pitch` is sent to the playing clients).
+void whistleTone(GlobalPos const& whistle, std::string const& sound, float pitch);
+/// Create's WHISTLE_CHIFF when a whistle starts: per player at .175 · (64 − distance) / 64.
+void whistleChiff(GlobalPos const& whistle, float pitch);
+/// The whistle stopped: the tone fades out (4 ticks) and stops.
+void whistleQuiet(GlobalPos const& whistle);
+/// Range changes (players entering / leaving the 64 blocks) and pending stops, once per tick.
+void tickWhistleTones();
+void resetWhistleTones();
+/// The sound handle of a whistle's tone (0: none) and its listeners (selftests).
+[[nodiscard]] std::uint64_t whistleToneHandle(GlobalPos const& whistle);
+[[nodiscard]] int           whistleToneListeners(GlobalPos const& whistle);
 
 /// Whistle interactions (Create's WhistleBlock.use / onWrenched / WhistleExtenderBlock).
 bool useOnWhistle(Player& player, GlobalPos const& pos, ItemStack const& held, bool sneaking);
