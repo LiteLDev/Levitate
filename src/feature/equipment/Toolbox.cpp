@@ -889,29 +889,38 @@ bool keepDyedToolboxData(Player& player, ItemStackBase& result) {
     return true;
 }
 
+// The crafting results of an item stack request (the server's authoritative craft, also for
+// shift-crafting): a dyed toolbox gets the data of the toolbox in the grid.
 LL_TYPE_INSTANCE_HOOK(
     ToolboxDyeingCraftHook,
     ll::memory::HookPriority::Normal,
     ItemStackRequestActionCraftHandler,
-    &ItemStackRequestActionCraftHandler::_initSingleCraftResult,
-    ItemInstance*,
-    ItemInstance const& itemInstance
+    &ItemStackRequestActionCraftHandler::_initCraftResults,
+    ItemStackNetResult,
+    std::vector<ItemInstance> const& results,
+    uchar                            numCrafts
 ) {
-    auto* result = origin(itemInstance);
     try {
-        if (!result) return result;
         Player& player = mPlayer;
-        if (player.isClientSide() || !keepDyedToolboxData(player, *result)) return result;
-        log().info("equipment: {} dyed a toolbox into {} in the crafting grid (contents kept)", player.getRealName(), result->getTypeName());
-        // the client predicted the result without the data: send the inventory again afterwards
-        auto uid = uidOf(player);
-        defer([uid] {
-            if (auto* p = playerById(uid)) p->sendInventory(false);
-        });
+        auto    any    = std::any_of(results.begin(), results.end(), [](ItemInstance const& r) { return !r.isNull() && isToolbox(r.getTypeName()); });
+        if (!player.isClientSide() && any) {
+            auto copy = results;
+            bool dyed = false;
+            for (auto& r : copy) dyed = keepDyedToolboxData(player, r) || dyed;
+            if (dyed) {
+                log().info("equipment: {} dyed a toolbox into {} in the crafting grid (contents kept)", player.getRealName(), copy.front().getTypeName());
+                // the client predicted the result without the data: send the inventory again afterwards
+                auto uid = uidOf(player);
+                defer([uid] {
+                    if (auto* p = playerById(uid)) p->sendInventory(false);
+                });
+                return origin(copy, numCrafts);
+            }
+        }
     } catch (std::exception const& e) {
         log().error("equipment: toolbox dyeing failed: {}", e.what());
     }
-    return result;
+    return origin(results, numCrafts);
 }
 
 // `/create toolbox lid <pos> <ticks>` (Levitate debug, op): holds a toolbox's lid open as if a player

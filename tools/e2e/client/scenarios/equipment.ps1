@@ -117,20 +117,18 @@ if (-not $vanilla) {
     Start-Sleep -Milliseconds 1500
     Save-Screenshot 'crafting-table' | Out-Null
     # hotbar: red dye (slot 1), the filled brown toolbox (slot 2) -> the grid's middle row
-    # (the first click after the screen opens only focuses it)
-    Move-Mouse 0.66 0.62 -Relative; Start-Sleep -Milliseconds 300
-    Click 0.66 0.62 -Relative; Start-Sleep -Milliseconds 500
-    Click 0.540 0.729 -Relative; Start-Sleep -Milliseconds 400
-    Click 0.5805 0.365 -Relative; Start-Sleep -Milliseconds 400
-    Click 0.5055 0.729 -Relative; Start-Sleep -Milliseconds 400
-    Click 0.547 0.365 -Relative; Start-Sleep -Milliseconds 800
+    # (hover each slot before clicking it: the screen only takes a click on the slot under the mouse)
+    function Click-Slot([double]$x, [double]$y) { Move-Mouse $x $y -Relative; Start-Sleep -Milliseconds 300; Click $x $y -Relative; Start-Sleep -Milliseconds 400 }
+    Click-Slot 0.540 0.729; Click-Slot 0.5805 0.365
+    Click-Slot 0.5055 0.729; Click-Slot 0.547 0.365
+    Start-Sleep -Milliseconds 400
     Save-Screenshot 'crafting-grid' | Out-Null
     # take the result and put it into the third hotbar slot
     $mark = Get-LogMark
-    Click 0.730 0.365 -Relative
+    Click-Slot 0.730 0.365
     Wait-LogLine 'equipment: .* dyed a toolbox into levitate:red_toolbox in the crafting grid \(contents kept\)' 15 -Since $mark | Out-Null
     Start-Sleep -Milliseconds 400
-    Click 0.574 0.729 -Relative; Start-Sleep -Milliseconds 600
+    Click-Slot 0.574 0.729
     Save-Screenshot 'crafted' | Out-Null
     Close-Screen
     # place the crafted toolbox on the floor and open it: it has the brown toolbox's contents
