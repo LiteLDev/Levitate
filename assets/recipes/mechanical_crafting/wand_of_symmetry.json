@@ -1,31 +1,14 @@
 {
   "type": "create:mechanical_crafting",
-<<<<<<< HEAD
-  "accept_mirrored": true,
-  "key": {
-    "G": {
-      "tag": "c:glass_blocks"
-=======
   "category": "misc",
   "accept_mirrored": true,
   "key": {
     "B": {
       "tag": "c:ingots/brass"
->>>>>>> origin/main
     },
     "E": {
       "tag": "c:ender_pearls"
     },
-<<<<<<< HEAD
-    "P": {
-      "item": "create:precision_mechanism"
-    },
-    "B": {
-      "tag": "c:ingots/brass"
-    },
-    "O": {
-      "tag": "c:obsidians"
-=======
     "G": {
       "tag": "c:glass_blocks"
     },
@@ -34,7 +17,6 @@
     },
     "P": {
       "item": "create:precision_mechanism"
->>>>>>> origin/main
     }
   },
   "pattern": [
@@ -45,10 +27,7 @@
     " O "
   ],
   "result": {
-<<<<<<< HEAD
-=======
     "count": 1,
->>>>>>> origin/main
     "id": "create:wand_of_symmetry"
   }
 }

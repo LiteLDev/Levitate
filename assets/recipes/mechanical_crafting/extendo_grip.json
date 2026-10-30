@@ -1,16 +1,11 @@
 {
   "type": "create:mechanical_crafting",
-<<<<<<< HEAD
-  "accept_mirrored": false,
-  "key": {
-=======
   "category": "misc",
   "accept_mirrored": false,
   "key": {
     "H": {
       "item": "create:brass_hand"
     },
->>>>>>> origin/main
     "L": {
       "tag": "c:ingots/brass"
     },
@@ -19,12 +14,6 @@
     },
     "S": {
       "tag": "c:rods/wooden"
-<<<<<<< HEAD
-    },
-    "H": {
-      "item": "create:brass_hand"
-=======
->>>>>>> origin/main
     }
   },
   "pattern": [
@@ -35,10 +24,7 @@
     " H "
   ],
   "result": {
-<<<<<<< HEAD
-=======
     "count": 1,
->>>>>>> origin/main
     "id": "create:extendo_grip"
   }
 }
