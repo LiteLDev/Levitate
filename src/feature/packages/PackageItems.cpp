@@ -2,12 +2,21 @@
 // throwing and the address form.
 
 #include <algorithm>
+#include <cmath>
+#include <optional>
 #include <random>
 
 #include "ll/api/form/CustomForm.h"
 
+#include "ll/api/service/Bedrock.h"
+
+#include "mc/world/actor/ActorDefinitionIdentifier.h"
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/item/Item.h"
 #include "mc/world/item/ItemStack.h"
+#include "mc/world/level/BlockSource.h"
+#include "mc/world/level/Level.h"
+#include "mc/world/level/Spawner.h"
 
 #include "core/common/Utf8.h"
 #include "core/packages/Address.h"
@@ -232,14 +241,46 @@ bool filterMatches(ItemStack const& filter, ItemStack const& stack) {
 
 // ---- player actions ----------------------------------------------------------------------------------
 
+namespace {
+/// The mob of a spawn egg (Create's SpawnEggItem.getType): the egg item's own actor identifier
+/// (villager eggs spawn `villager_v2`, ...); nullopt for other items.
+std::optional<ActorDefinitionIdentifier> spawnEggMob(ItemStack const& stack) {
+    if (items::isEmpty(stack) || !endsWith(items::idOf(stack), "_spawn_egg")) return std::nullopt;
+    auto const* item = stack.mItem.get();
+    if (!item) return std::nullopt;
+    auto id = item->getActorIdentifier(stack);
+    if (id.mIdentifier->empty()) return std::nullopt;
+    return id;
+}
+
+bool spawnFromEgg(BlockSource& region, ItemStack const& egg, Actor* spawner, cp::V3 const& at) {
+    auto mob   = spawnEggMob(egg);
+    auto level = ll::service::getLevel();
+    if (!mob || !level) return false;
+    auto* spawned = level->getSpawner().spawnMob(region, *mob, spawner, Vec3{float(at.x), float(at.y), float(at.z)}, false, false, false);
+    if (spawned) log().info("packages: a {} spawned from a package's spawn egg", *mob->mFullName);
+    return spawned != nullptr;
+}
+
+} // namespace
+
 void openPackage(Player& player) {
     ItemStack box = player.getSelectedItem();
     if (!isPackage(box)) return;
     auto contents = contentsOf(box);
     player.setSelectedItem(items::withCount(box, items::countOf(box) - 1));
     player.sendInventory(false);
+    // Create's PackageItem.open: a spawn egg spawns its mob one block in front of the player
+    // (BlockPos.containing(position + horizontal look)); the egg is used up when the mob spawned
+    auto   feet = player.getFeetPos();
+    cp::V3 look = lookVec(player);
+    look.y      = 0;
+    if (look.length() > 1e-6) look = look * (1.0 / look.length());
+    cp::V3 front{std::floor(feet.x + look.x) + 0.5, std::floor(feet.y + look.y), std::floor(feet.z + look.z) + 0.5};
     int stacks = 0;
-    for (auto const& s : contents) {
+    for (auto s : contents) {
+        if (items::isEmpty(s)) continue;
+        if (spawnEggMob(s) && spawnFromEgg(player.getDimensionBlockSource(), s, &player, front)) s = items::withCount(s, items::countOf(s) - 1);
         if (items::isEmpty(s)) continue;
         ++stacks;
         giveOrDrop(player, s);

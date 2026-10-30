@@ -15,6 +15,7 @@
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/level/BlockSource.h"
 
+#include "feature/common/Screens.h"
 #include "feature/contraption/PistonsExt.h"
 #include "feature/pistons/Pistons.h"
 #include "game/WorldDb.h"
@@ -223,7 +224,28 @@ void setContactNames(GlobalPos const& p, std::string shortName, std::string long
     log().info("elevator contact at {} {} {} named '{}' ({})", p.x, p.y, p.z, shortName, longName);
 }
 
-void openContactScreen(Player& player, GlobalPos const& p) {
+namespace {
+
+constexpr char kContactScreen[] = "pistons.elevator_contact";
+
+/// Create's ElevatorContactEditPacket checks: the contact is still there and in reach.
+bool contactInReach(Player const& player, GlobalPos const& p) {
+    if (static_cast<int>(player.getDimensionId()) != p.dim || idAt(p) != kElevatorContact) return false;
+    auto   pos = player.getFeetPos();
+    double dx = pos.x - (p.x + 0.5), dy = pos.y - (p.y + 0.5), dz = pos.z - (p.z + 0.5);
+    return dx * dx + dy * dy + dz * dz <= 20 * 20;
+}
+
+std::optional<GlobalPos> contactOf(Json const& ctx) {
+    auto a = ctx.value("pos", Json());
+    if (!a.is_array() || a.size() != 4 || !a[0].is_number_integer() || !a[1].is_number_integer() || !a[2].is_number_integer()
+        || !a[3].is_number_integer())
+        return std::nullopt;
+    return GlobalPos{a[0].get<int>(), a[1].get<int>(), a[2].get<int>(), a[3].get<int>()};
+}
+
+/// The vanilla fallback: a form with the fields of Create's ElevatorContactScreen.
+void contactForm(Player& player, GlobalPos const& p) {
     auto const* d = dataIf(p);
     std::vector<std::string> doors{
         trFor(player, "create.contraption.door_control.all", "Open All Doors"),
@@ -248,13 +270,41 @@ void openContactScreen(Player& player, GlobalPos const& p) {
         int  door = 0;
         if (auto it = result->find("door"); it != result->end())
             if (auto const* v = std::get_if<uint64>(&it->second)) door = static_cast<int>(*v);
-        if (idAt(p) != kElevatorContact) return;
-        // reach check (as the server validates Create's edit packet)
-        auto pos = pl.getFeetPos();
-        double dx = pos.x - (p.x + 0.5), dy = pos.y - (p.y + 0.5), dz = pos.z - (p.z + 0.5);
-        if (dx * dx + dy * dy + dz * dz > 20 * 20) return;
+        if (!contactInReach(pl, p)) return;
         setContactNames(p, text("short"), text("long"), door);
     });
+}
+
+struct ContactScreenRegistration {
+    ContactScreenRegistration() {
+        common::screens::registerType({
+            .id   = kContactScreen,
+            .data = [](Player& pl, Json const& ctx) -> std::optional<Json> {
+                auto p = contactOf(ctx);
+                if (!p || !contactInReach(pl, *p)) return std::nullopt;
+                auto const* d = dataIf(*p);
+                return Json{{"short", str(d, "short")}, {"long", str(d, "long")}, {"door", d ? d->value("door", 0) : 0}};
+            },
+            .action = [](Player& pl, Json const& ctx, Json const& action) {
+                auto p = contactOf(ctx);
+                if (!p || !contactInReach(pl, *p) || action.value("op", std::string()) != "confirm") return;
+                int door = action.contains("door") && action["door"].is_number_integer() ? action["door"].get<int>() : 0;
+                auto text = [&](char const* k) { return action.contains(k) && action[k].is_string() ? action[k].get<std::string>() : std::string(); };
+                setContactNames(*p, text("short"), text("long"), door);
+            },
+            .form = [](Player& pl, Json const& ctx) {
+                if (auto p = contactOf(ctx); p && contactInReach(pl, *p)) contactForm(pl, *p);
+            },
+        });
+    }
+};
+ContactScreenRegistration const gContactScreen;
+
+} // namespace
+
+/// Create's ElevatorContactBlock.use: the native screen for companions, the form otherwise.
+void openContactScreen(Player& player, GlobalPos const& p) {
+    common::screens::open(player, kContactScreen, {{"pos", Json::array({p.dim, p.x, p.y, p.z})}});
 }
 
 void trackContact(GlobalPos const& p) {

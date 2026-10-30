@@ -14,6 +14,9 @@ struct PonderConfig {
     bool comfyReading = false;
     /// Hold time scale of the Ponder key (1 = Create's ~11 ticks).
     float holdSpeed = 1.0f;
+    /// The Ponder key (Windows virtual-key code; 0x57 = W, Create's default). Rebound in game with
+    /// the "Ponder Key" button of the Ponder welcome screen.
+    int ponderKey = 0x57;
     /// Depth of a scene block in the UI pass, as a fraction of its on-screen size.
     float depthScale = 0.1f;
     /// Colour of the placeholder drawn for blocks that are not registered (ARGB).

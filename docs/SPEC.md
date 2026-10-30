@@ -1063,9 +1063,17 @@ collision 2 px (none on slopes), can't stand on another track.
   curve); 90° turns need a radius ≥ 7, 45° turns ≥ 3.25, plus room for the height change
   (90°: +2 per block above 3, 45°: +1.5 per block above 1.5); S-bends need a forward run of 3 (or
   twice the side offset) and must be flat; straight slopes need 4 blocks per block of height
-  (3 from 4 blocks up, at least 6); curves leave/enter slopes only straight. Without Sprint the
-  curve is standardised (smallest turn, straight track fills the rest); with Sprint held it takes the
-  whole space (Create's "maximized turn").
+  (3 from 4 blocks up, at least 6); curves leave/enter slopes only straight. Without Ctrl (Create's
+  sprint key mapping) the curve is standardised (smallest turn, straight track fills the rest); with
+  Ctrl held it takes the whole space (Create's "maximized turn"). The client mod reports the Ctrl key
+  (`tracks.ctrl`); for vanilla clients sprinting stands for it.
+- Placement preview (client mod, Create's TrackPlacement.clientTick): while the player holds the
+  track item with a selection (sent to the client mod on `tracks.selection`) and looks at a block,
+  the same rules run every frame on the client: both rails of the planned straight runs and of the
+  curve are drawn (1/8 block lines, 4 px above the bed) in a colour fading from Create's red
+  `#EA5C2B` to green `#95CD41` as the connection becomes valid, and the action bar shows "Can
+  Connect ✔" (green), "Place track or select a second point" (white) or the refusal (red),
+  including `not_enough_tracks` from the client's inventory.
 - Cost (survival): one track per straight block placed + `(segments + 1) / 2` for the curve
   (segments = ⌊length · 2⌋), taken from every slot but the selected one, then the selected one,
   then the off hand (`not_enough_tracks`). A block item in the off hand paves under the tracks
@@ -2277,16 +2285,30 @@ first), simulated first so nothing is lost. 64 RPM: 32 mB/t; 256 RPM: 128 mB/t.
 a cauldron or beehive (not towards a pipe, a pump on that axis, a sturdy face or a fluid handler).
 Pulling drains a source block (1000 mB; water keeps its source when two neighbouring water sources
 and a solid block or source below would refill it — Java's `waterSourceConversion`, config; lava only
-with `lavaSourceConversion`), a full cauldron (1000 mB) or a full beehive (250 mB of honey). Pushing
+with `lavaSourceConversion`), a full cauldron (1000 mB), a full beehive (250 mB of honey) or the water
+of a waterlogged block (1000 mB; the block stays, dry). A waterloggable block (Java's `WATERLOGGED`
+property: on Bedrock the block's water detection rule, vanilla blocks and custom blocks with
+`minecraft:liquid_detection`) without a sturdy face towards the pipe is an open end too. Pushing
 fills the buffer and places the fluid's source block once it holds 1000 mB (not on a source, not when
-`pipesPlaceFluidSourceBlocks` is off; water evaporates in the Nether with the fizz sound); fluids
+`pipesPlaceFluidSourceBlocks` is off; water evaporates in the Nether with the fizz sound); in front of
+a waterloggable block only water goes out, waterlogging it (not when it already is); fluids
 without a world block (milk, potions, tea, and honey / chocolate until U19 gives them blocks) are used
 up 1 mB per transfer while their effect applies. Pouring into another fluid reacts (water on a lava
 source: obsidian, on flowing lava: cobblestone; lava on a water source: stone, on flowing water:
 cobblestone). Effects on the block in front and one below (two when the pipe faces down): water every
 5 ticks puts out burning entities, fire, campfires and candles; lava every 5 ticks sets non-immune
 entities on fire for 3 s; milk every 5 ticks clears the effects of living entities; tea every 5 ticks
-gives Haste I for 21 ticks (hidden); potions apply the potion's effects on every transfer.
+gives Haste I for 21 ticks (hidden); potions apply the potion's effects on every transfer, instant ones
+(healing, harming) at half strength (`MobEffect::applyInstantaneousEffect` with scale 0.5, Create's
+PotionEffectHandler). Fluid pipes, glass pipes, pumps, valves and smart pipes are waterloggable
+(`minecraft:liquid_detection`): placed in water they keep it. Logs: `pipes: drained the water of the
+waterlogged <block> at ...`, `pipes: waterlogged the <block> at ...`.
+
+**Particles** (Create's PipeConnection / FluidFX, for every client: the server spawns the resource
+pack particles `levitate:fluid_particle` and `levitate:fluid_drip`, tinted with the fluid's colour,
+for the players within 20 blocks): every tick each pipe face with a flow pours one particle out of an
+open end (sucked in towards the face when pulling), or drips one at its rim with a chance of 1/1000;
+a flow that just started splashes once (a rim drip, at open ends the stream).
 
 **Valves**: a kinetic shaft on the axis that is neither its facing nor its pipe axis. Positive speed
 moves the pointer towards open, zero or negative towards closed, at `min(|RPM| / 320, 1)` per tick; it
@@ -2299,7 +2321,11 @@ redistributes the network.
 **Persistence**: pressures, flows and open end buffers in `lv:pipes:model` (Create saves them in the
 pipe block entities; the phase restarts after a load), valve pointers alongside, brackets in BlockData
 `data["pipes"]["bracket"]`. **Client**: glass pipes show the fluid inside through `levitate:fluid`
-(every client, mod or not); pumps' cogs and valves' shafts rotate through the kinetic renderer (U2).
+(vanilla clients); the client mod draws Create's flow fronts instead (TransparentStraightPipeRenderer:
+per face with a flow, a 6 px wide column of the fluid growing `progress / 2` blocks from the face
+(inbound) or from the centre (outbound), advanced every tick at the flow's speed; the server sends the
+flows of glass pipes over `pipes.glass` when they change, chunk meshes leave the static fluid out);
+pumps' cogs and valves' shafts rotate through the kinetic renderer (U2).
 **Command** `/create pipes <pos>` (op): pressures, flows and transfers of a pipe.
 
 #### 3.6.18 Fluid tanks, boilers, steam engines and whistles (U18)
@@ -2376,8 +2402,8 @@ the other way the engine flips its own setting. The powered shaft generates `dir
 (1 + (e ≥ 1 ? 3 : min(2, ⌊4e⌋)))` RPM (64 at full, 48 / 32 / 16 below) with a capacity of `e · 1024 /
 modifier` su per RPM (= e · 16384 su: a full engine 16384 su, a passive one 2048 su); no tank, no
 shaft or efficiency 0: speed 0. Value box "Rotation Direction" (Clockwise / Counter-Clockwise) on the
-engine's four side faces. Puffs of steam (sound `levitate.steam.engine`, evaporation particles) twice
-per shaft turn while it runs.
+engine's four side faces. Puffs of steam (sound `levitate.steam.engine`, a `levitate:steam_jet`
+particle out of the cylinder's front) twice per shaft turn while it runs.
 
 **Whistle** (WhistleBlock / BlockEntity). Pitch = 2 semitones per full extension above it, 1 for a
 half (single) one at the top (`updatePitch`, up to 25). Using a whistle item on a whistle or an
@@ -2386,17 +2412,33 @@ else a half extension is added on the next free block; the item is not used up; 
 2^(−2i/12)). Wrench: the next size (small → medium → large → small) for the whole column; sneaking
 with the wrench on the top extension shortens it by half a block. Extensions without a whistle or
 extension below vanish. Powered by redstone (polled, §8) on a boiler with heat (passive or active) it
-sounds: the `levitate.steam.whistle_chiff` hiss when it starts, then the tone: one original sample
-played at `octave · 2^(−pitch/12)` (sounds `whistle_high` / `whistle_medium` / `whistle_low` are the
-same sample at pitch 2 / 1 / .5; restarted every 10 ticks, heard up to 64 blocks), steam particles out
-of the mouth every 8 ticks. One log line when it starts / stops.
+sounds: the `levitate.steam.whistle_chiff` hiss when it starts (per player at volume
+`.175 · (64 − distance) / 64`, pitch `f + .75` for small whistles), then the tone as one looping
+sound instance per whistle (Create's WhistleSoundInstance): one original sample played at
+`f = octave · 2^(−pitch/12)` (sounds `whistle_high` / `whistle_medium` / `whistle_low` are the same
+sample at pitch 2 / 1 / .5). The server gives the instance a sound handle and plays it looping
+(PlaySoundPacket loop count −1 + server sound handle) on the clients of the players within 64 blocks;
+a player coming into range gets it, one leaving it (68 blocks) gets Stop; a pitch change (a longer
+or shorter column) is sent to the playing clients as SetPitch (ClientboundUpdateSoundDataPacket), a
+size change starts a new instance, and a whistle that stops (unpowered, no steam, removed, chunk
+unloaded) fades out over 4 ticks (Create: −.25 volume per tick) and then stops. Every client plays it
+with the game's own sound engine (no client mod needed). A `levitate:steam_jet` particle (Create's
+SteamJetParticle: a grey-white puff that grows, rises and fades) leaves the mouth when it starts and
+every 8 ticks, up and out of the mouth. One log line when it starts / stops and one when the looping
+instance starts.
 
 **Client** (client mod): the server sends tank contents (`steam.tanks`: controller, size, fluid,
-amount, capacity, windows, boiler) and engines (`steam.engines`: position, facing, shaft speed and
-axis) to companions; the client draws the fluid inside windowed tanks as Create's renderer (1/4
-caps, a 1/16 puddle, inset by the hull, the level easing towards the real one) in the fluid's colour,
-and each running engine's piston rod, crosshead and connecting rod following Create's
-`(1 − sin a) / 4 · 24/16` stroke on a crank pin turning with the shaft.
+amount, capacity, windows, boiler, and for boilers the gauge target `g` and the hidden sides `occ`)
+and engines (`steam.engines`: position, facing, shaft speed and axis) to companions; the client draws
+the fluid inside windowed tanks as Create's renderer (1/4 caps, a 1/16 puddle, inset by the hull, the
+level easing towards the real one) in the fluid's colour, and each running engine's piston rod,
+crosshead and connecting rod following Create's `(1 − sin a) / 4 · 24/16` stroke on a crank pin
+turning with the shaft. **Boiler gauges** (Create's FluidTankRenderer.renderAsBoiler): a boiler draws
+no fluid but a brass gauge in the middle of every side of its bottom layer, the needle pivot 6/16 up,
+the needle turning `145° · gauge` from its rest position; the gauge chases (Create's `chase(target,
+.125, EXP)`) the target `1/8` for a passive boiler, else `level / size limit` (Create's
+BoilerData.read); a side whose gauge position has a block with a collision box in front of it
+(Create's updateOcclusion) shows none. Vanilla clients see the tank only (§8).
 
 **Persistence**: tank parts in BlockData (`data["steam"]`: controller, width, height, window,
 fluid, amount), engines' value box there too; the engine / whistle / powered shaft index in
@@ -2423,15 +2465,25 @@ contraptions (data carrier `fluids`). Every machine exposes the U3 fluid capabil
   `len × loops` steps one result is picked by weight (Create's rollResult).
 - **Spout**: 1000 mB tank, filled from every side but the nozzle (bottom). It processes the item two
   blocks below (the block between must have no collision, funnels excepted: Create's
-  BeltProcessingBehaviour). The item is the slot 0 seen from the top through the item capability of
-  a **Levitate** block (depots, belts; vanilla containers have no processing behaviour). Filling
-  takes 20 ticks (FILLING_TIME); the item is filled 15 ticks in, one item per cycle; the result goes
-  back through the capability (leftovers drop). With too little fluid it waits. A cauldron two
-  blocks below is filled with a whole bucket (water, lava, powder snow). Sounds: start / fill.
+  BeltProcessingBehaviour). Belts and depots (U11) hold the item through their processing behaviour
+  (`belts::registerProcessor`, Create's onItemReceived / whenItemHeld): an item that can be filled
+  stops at the centre of the segment under the spout (also with an empty tank), is filled one at a
+  time (the filled one moves on, the rest of the stack stays held) and an item the fluid can't fill
+  passes. Other **Levitate** blocks exposing the item as slot 0 from the top through the item
+  capability are filled through it (the result goes back, leftovers drop; vanilla containers have no
+  processing behaviour). Filling takes 20 ticks (FILLING_TIME); the item is filled 15 ticks in, one
+  item per cycle. With too little fluid it waits. A cauldron two blocks below is filled with a whole
+  bucket (water, lava, powder snow). Sounds: start / fill. Particles for every client (U17's
+  `levitate:fluid_particle`): a drop leaves the nozzle every tick from 20 to 8 ticks left, 20 drops
+  splash off the item when it is filled. Client mod: the stream (its width follows Create's
+  `((2p − 1)² − 1) / 32`) and the nozzle drawn in three bits (top, middle, bottom) that squeeze
+  together (Create's squeeze: the stream's curve, −1 from 10 to 2 ticks left, then back; each bit
+  `3/32 · squeeze` above the one before), the chunk mesh leaving them out (`levitate:nozzle` 1).
   Logs: `spout at x y z filled <in> into <out>`, `... filled a cauldron with <fluid>`.
 - **Item drain**: 1500 mB tank, pipes extract on every side, nothing is inserted from outside.
   Items enter through the item capability (one at a time when they hold fluid, otherwise the whole
-  stack), from item entities landing on top, and travel at 1/8 block per tick away from the side
+  stack), as a direct belt input (U11's `registerDirectInput`, Create's DirectBeltInputBehaviour:
+  belt ends, saws, chutes hand items in; not travelling upwards), from item entities landing on top, and travel at 1/8 block per tick away from the side
   they came from (from above: down, starting at the centre). At the centre an item that can be
   emptied is held for 20 ticks; 15 ticks in it is emptied if all of its fluid fits (otherwise it
   waits). At the far edge it goes into the next Levitate block (belt, depot, chute, funnel, drain:
@@ -2538,7 +2590,7 @@ visitNewPosition). Placed back: magnet above the structure, ropes up to the pull
 break, dropping only when they have no collision). Rope pulleys above other top blocks of the
 structure mirror the pulley (multi-rope): they hang their own rope down and place it when the main
 pulley stops. Breaking a rope or magnet breaks the whole column and resets the pulley; breaking the
-pulley breaks the rope below. Ropes and magnets are brittle and unmovable. Stress impact 4.
+pulley breaks the rope below. Ropes and magnets are brittle and unmovable, and climbable like ladders (Create's `minecraft:climbable` tag: their block types get the Climbable property on the server and in the client mod). Stress impact 4.
 
 **Elevator pulley** (Create 6 elevators): right-click with an empty hand assembles / disassembles
 (speed only drives the motion). The cabin is the first solid block below; it needs exactly one
@@ -2552,7 +2604,7 @@ of the rest per tick). The cabin always stays a contraption (Place only when Anc
 arrival (and every 3 ticks while it stands there) the floor's contact powers (redstone 15, light 10)
 until another floor is called; elevator contacts call the cabin on a rising redstone edge (they show
 *calling*), and a contact facing a redstone contact powers too. Floors: right-click a contact (not with
-the wrench) to set the floor identifier (4 chars), description (30 chars) and door control (stored for
+the wrench) to open Create's contact screen (native for the client mod, `pistons.elevator_contact`, saved when confirmed or closed; a form for vanilla clients) with the floor identifier (4 chars), description (30 chars) and door control (stored for
 U10's sliding doors); blank identifiers are numbered from their neighbours (Create's initNames). The
 wrench turns a contact; facing away from its column it becomes a redstone contact again.
 Contraption controls (U22) integrate through the cabin's `anchorData()["elevator"]`:
@@ -2919,6 +2971,17 @@ Right-click a block with value boxes or filter slots (U3) copies them ("Copying 
 values per box id, filters per slot id), left-click pastes ("Applied settings to …"; in survival a
 filter item is taken from the inventory ⚠); right-click another clipboard merges its entries
 (duplicates skipped, pages of 12). Sneaking disables copy / paste (Create).
+Entries may carry an item icon and an amount (Create's `ClipboardEntry.displayItem`) and a
+clipboard may be read-only (Create's `Readonly`: entries can be checked off, not edited or
+erased). Other units write onto clipboards through `src/feature/display/Clipboard.h`:
+`addAddress` (U25 package ports: "#address" on the first page with at most 11 entries, "Added '…'
+to clipboard") and `makeWritten` (U29's material checklist).
+**Clipboard Actions** (client mod, Create's ClipboardValueSettingsHandler): while a clipboard is
+held and the crosshair is on a block, the client asks the server what the clipboard can do there
+(`display.clipboard_query`: copy = the block has settings, paste = the copied settings would
+apply, simulated); then the block gets a white outline and the tip "Clipboard Actions" /
+"Right-Click to Copy settings" / "Left-Click to Paste settings" (a placed clipboard: "Right-Click to
+Copy entries from this Clipboard") is drawn next to the crosshair.
 
 **Vanilla clients**: board text and nixie characters as name tags of an invisible entity
 `levitate:display_text` (one per board / tube; the client mod hides them); forms for the link
@@ -2926,7 +2989,8 @@ filter item is taken from the inventory ⚠); right-click another clipboard merg
 page per form: inputs, check toggles, page selector, erase checked).
 
 **Client mod**: the clipboard screen edits the page in place: one native text field per entry plus a
-blank one that adds an entry (512 characters each), check boxes, page buttons and Erase checked; a
+blank one that adds an entry (512 characters each), check boxes, page buttons and Erase checked
+(read-only clipboards: labels and check boxes only; item entries show the icon and amount); a
 field's text is sent with Enter or when it is left (`{op: "set", page, entries}`; blank entries are
 dropped). Text options of the display link's source (e.g. a label) are text fields too
 (`{op: "option", key, value}`, 100 characters). The screens wait with rebuilding on new data while
@@ -2953,7 +3017,9 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   `PackageOrderWithCrafts` as JSON), all in the item's user data `lv:package`. A new package picks a
   random style: one of the 4 cardboard sizes, or with a 1 in 7500 chance one of the 10 rare styles.
   Lore: `→ address` (gold), the first 3 content lines "Name xN", then "and N more...". Sneak +
-  right-click opens it into the inventory ("Package breaks" sound); holding right-click and
+  right-click opens it into the inventory ("Package breaks" sound; a spawn egg inside spawns its mob
+  in the block one step ahead of the player, using up one egg of the stack, as Create's
+  `PackageItem.open`); holding right-click and
   releasing throws it with the bow's power curve (`(t² + 2t) / 3`, t = seconds held, capped at 1,
   thrown only from 0.1; speed 2 × power, snowball sound at volume 0.5, pitch 0.5); right-click on a
   block puts it down there. Packages, shulker boxes and bundles don't fit into packages.
@@ -2998,7 +3064,10 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   Reversing the rotation moves boxes on chains to the opposite chain. Breaking a conveyor drops its
   boxes and the chains (not in creative); sneak-wrenching refunds the chains into the inventory.
   With a wrench: right-click a chain to ride it (sneak or let go of the wrench to dismount; on the
-  loop the player leaves towards the chain they look along), sneak-right-click a chain to remove it
+  loop the player leaves towards the chain they look along; Create's riding handler: every tick the
+  rider's motion becomes motion · 0.75 + (chain point − player top − 0.5) · 0.25, sent to the
+  rider's client like knockback, no fall damage; off when more than 3 blocks away or 1 below after
+  the first 20 ticks), sneak-right-click a chain to remove it
   (chains refunded). Right-click a chain with a package to hang it there; right-click a hanging box to
   take it.
 - **Frogport**: right-click a chain (loop or chain position) with the frogport item to select its
@@ -3012,13 +3081,17 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   takes 10 ticks; a sent box is hung at 0.6. "Only send packages" disables catching. Goggles can be
   put on it (right-click with goggles). Automation (item capability) can insert only packages not
   addressed to the port and extract only packages addressed to it.
+- **Ports and clipboards** (Create's `addAddressToClipboard`): right-clicking a frogport or postbox
+  with a clipboard adds "#address" to it instead of opening the screen (not for a blank address or one
+  already on the clipboard; "Added '…' to clipboard").
 - **Postbox**: the same port inventory and address; it targets a train station (right-click the
   station with the postbox, then place it within 5 blocks, below is allowed). `levitate:flag` is up
   while it holds packages, `levitate:open` while its screen is open (barrel sounds). U27's trains use
   `postboxesForStation` / `insertIntoPort` / `extractFromPort`.
 - **Package filter**: right-click sets its address (native screen `packages.package_filter` with one
-  address box for companions, a form for vanilla players); in filter slots it lets packages whose
-  address matches through (an empty one behaves like a plain item). Lore `-> address`.
+  address box for companions, a form for vanilla players); in every filter slot (U3's
+  `filter::registerMatcher`, Create's PackageFilterItemStack) it lets packages whose address matches
+  through (an empty one behaves like a plain item). Lore `-> address`.
 - **Screens**: the port screen (address, send-and-receive / send-only, the 18 package slots: click
   one to take it, click a package in the inventory to put it in) is native for companions; the
   address is typed into the screen's address box (native text field, at most 50 characters, sent
@@ -3026,7 +3099,11 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   (address, mode, take a package, put my packages in).
 - **Client mod**: draws both strands of every chain, the boxes hanging on chains (interpolated
   between the 4-tick updates), the frogport's tongue with the box it catches or sends, and the
-  packager's tray sliding in and out; the wheel turns as a kinetic rotor.
+  packager's tray sliding in and out; the wheel turns as a kinetic rotor at Create's full size
+  (`geometry.levitate.chain_conveyor_wheel`, 2.5 blocks; the block model keeps a 28 px wheel for
+  vanilla clients, block geometry stops at 30 px).
+- **Sounds**: the packager, package pop, depot plop and the frogport's open / catch / deposit are
+  original samples (`tools/sounds/packages.ps1`, `levitate.packages.*`).
 - **Log lines** (e2e): `packages: packager at <pos> activated by redstone`, `... packed a package
   for '<address>' (<n> stacks)`, `... unpacked a package ...`, `chain conveyors at A and B
   connected`, `frogport at <pos> caught a package for '<address>'`, `... sent a package ...`,
@@ -3410,7 +3487,8 @@ placement transforms, print order, replace modes, checklist, blueprint layout; g
 - **Files.** The server keeps each player's schematics in `<mod>/schematics/<player>/` (Create's
   `schematics/uploaded/<player>/`); the client mod's local folder is `<mod>/schematics/` (Create's
   `schematics/`). Files are `.mcstructure` (what the quill saves, Bedrock block states, Levitate
-  BlockData kept per block) or Create/Java `.nbt` (GZIP or raw NBT, block states mapped to Bedrock:
+  BlockData kept per block, the block entities' NBT and the entities in the area except players, as
+  Create's `fillFromWorld` with entities) or Create/Java `.nbt` (GZIP or raw NBT, block states mapped to Bedrock:
   vanilla ids with Bedrock's renames and flattened families, state names converted; `create:<path>`
   → `levitate:<path>` with `levitate:axis` / `levitate:facing` / `levitate:<bool>`; states a block
   doesn't have are dropped, alternatives tried). Block types without a Bedrock block are skipped and
@@ -3439,12 +3517,15 @@ placement transforms, print order, replace modes, checklist, blueprint layout; g
 - **Written schematic.** Item data `lv:schematic` {file, owner, deployed, anchor, rotation 0..3
   (clockwise), mirror (none, left-right = z flip, front-back = x flip), size}; lore shows the file
   (gold) or Create's invalid-item text. Placement = Create's StructurePlaceSettings: mirror, then
-  rotation about the anchor. Client mod: the held schematic's ghost (textured blocks) and bounds,
+  rotation about the anchor. Client mod: the held schematic's ghost (every block with its own model,
+  tessellated as Ponder draws blocks: Levitate geometry from the pack, other blocks through the
+  game's block tessellator; blocks hidden on all six sides are left out) and bounds,
   Alt+scroll picks a tool (Position, Move XZ, Move Y, Rotate, Mirror, Print in creative; only
   Position until deployed), Ctrl+scroll uses it (distance / push along the look axis / up-down /
   90° turns and mirroring about the footprint's centre), right-click with Position deploys with the
   target block as the bottom centre (Ctrl: at the fixed distance), Print places it instantly
-  (creative, `creativePrintIncludesAir`). Sneak-right-click: coordinates screen (x, y, z as native number fields
+  (creative, `creativePrintIncludesAir`) with its block entity NBT and its entities (positions and
+  facings turned and mirrored like the blocks, new entity ids). Sneak-right-click: coordinates screen (x, y, z as native number fields
   taking digits and `-`, Enter confirms; rotation, mirror). Vanilla: right-click a block deploys there, sneak-right-click opens the same values as a
   form (with Print for creative players), particle outline of the bounds.
 - **Schematicannon.** Slots: schematic, used schematics out, book (book / book and quill /
@@ -3463,17 +3544,29 @@ placement transforms, print order, replace modes, checklist, blueprint layout; g
   from the six neighbouring inventories (any item capability; a creative crate makes everything
   free); missing items pause with "Missing Item:" or, with Skip missing Blocks (default on), skip
   the block. A launched block flies `max(10, 4·dist^½)` ticks and is placed with its second half
-  (doors, beds, tall plants); sounds as Create (explode 0.1/1.1 per shot, note bell 1/0.7 at the
-  end). The checklist printer turns a book into a written "Material Checklist" (5 entries per page,
-  missing ones first, `xN | stacks▤ +rest`) in 20 ticks. Client mod: launched blocks drawn along
-  their arc; everyone: smoke at the barrel, particles at the target.
+  (doors, beds, tall plants); of its block entity data only a sign's text is printed (Create's
+  NBTProcessors in survival). After the blocks the printer launches the schematic's entities that
+  have an item requirement (Create's ItemRequirement.of(entity): armor stands with what they wear
+  and hold; item frames are blocks on Bedrock), one per shot. Sounds as Create (explode 0.1/1.1 per
+  shot, note bell 1/0.7 at the end). The checklist printer turns a book into a written "Material
+  Checklist" (5 entries per page, missing ones first, `xN | stacks▤ +rest`) and a clipboard into a
+  read-only "Material Checklist" clipboard (7 entries per page, each with its item icon and the
+  missing amount, completed ones checked off; Create's createWrittenClipboard) in 20 ticks. Client
+  mod: launched blocks drawn along their arc; the connector turns and the barrel pitches towards the
+  printer's current target (`schematics.cannon`; Create's angles: yaw = atan2(dx, dz), pitch =
+  atan2(distance, dy·3 + distance·2) + 10° from vertical, eased over a tick; resting: south, 40°)
+  and recoils up to 0.1 block in the 10 ticks after a shot (the block's `levitate:barrel` = 1
+  permutation hides both bones for the client mod's chunk mesh); everyone: smoke at the barrel,
+  particles at the target.
 - **Crafting blueprint.** Placed against a face (walls, floor, ceiling) as the largest of 3x3, 2x2,
   1x1 that fits (free blocks with a solid block behind each). Each section: 9 recipe slots (filters
   allowed), the display item (inferred from the crafting recipe, or set by hand) and a secondary
   display item. Right-click a configured section crafts once from the inventory (sneaking: until
   64 items or the ingredients run out); an empty section or the wrench opens the recipe screen
   (native ghost slots / form); hitting a configured section clears it; breaking any section
-  removes the blueprint and drops one item (none in creative).
+  removes the blueprint and drops one item (none in creative). Client mod (Create's
+  BlueprintRenderer): each section shows its display item (half a block) in the middle of the
+  canvas and the secondary one (a quarter) at its lower right, facing out (U33 display items).
 
 #### 3.6.30 Ponder (U30)
 
@@ -3496,8 +3589,12 @@ Client mod only (§8); the server side is `/create ponder`.
   (all on the index), windmill_sails, arm_targets, train_related (index), display_sources,
   display_targets, threshold_switch_targets.
 - **Opening**: hovering an item with scenes in any container screen (inventory, creative
-  inventory, chests) shows "Hold [W] to Ponder" with Create's progress bar; holding the Ponder key
-  (W) fills it with Create's curve (`p = min(1, p + max(0.25, p) · 0.25)` per tick, about 11
+  inventory, chests) adds "Hold [W] to Ponder" (dark gray, the key gray) below the item's name in its
+  tooltip; while the key is held Create's progress bar of `|` characters as wide as the hint (done
+  part gray) is drawn in a tooltip box at the top of the screen (Bedrock builds an item's hover text
+  once per hover, so the tooltip line itself can't change while it is shown). Holding the Ponder key (W, Create's default; rebound with the "[W]"
+  button of the welcome screen: click, press a key, Esc cancels; saved as `ponderKey` in
+  `config/ponder.json`) fills it with Create's curve (`p = min(1, p + max(0.25, p) · 0.25)` per tick, about 11
   ticks; released: −0.05 per tick) and opens the item's first scene. `/create ponder` opens the
   index, `/create ponder <id>` an entry (`shaft`, `levitate:shaft`) or a tag (`kinetic_relays`).
 - **Scene player** (PonderUI): "Pondering about..." with the scene title and the subject item
@@ -3507,7 +3604,9 @@ Client mod only (§8); the server side is `/create ponder`.
   (Create's palette colours); outlines, hand / mouse-button / item / Sneak + / Ctrl + indicators,
   redstone sparks, floating items, sections that slide and turn (contraptions), kinetic blocks
   turning at their RPM (0.3° per tick per RPM, rotor parts as the kinetics renderer); blocks fade in
-  sliding from a direction. Buttons and keys as Create: previous / next scene (A / D, mouse
+  and out translucent (blend layer, alpha in 16 steps) while sliding from a direction; water and lava
+  with their levels (`liquid_depth`: 8/9 of a block for a source, one ninth less per level, falling
+  fluid full) and Minecraft's corner averaging, the flowing texture on sloped surfaces. Buttons and keys as Create: previous / next scene (A / D, mouse
   wheel), Close (Esc), Identify (Q: pauses, the hovered block's name; "Identify mode active.
   Unpause with [Q]"), Comfy Reading (half speed while a text is shown), Replay (S), Think Back
   (back to the previous Ponder screen). When a scene ends the next button lights up with
@@ -3520,7 +3619,7 @@ Client mod only (§8); the server side is `/create ponder`.
   clients "Ponder needs the Levitate client mod.", unknown ids "There is nothing to ponder about
   <id>.".
 - **Log lines** (e2e): `ponder: loaded N scenes for M entries`, `ponder: hovering <id>`,
-  `ponder: held W over <id>`, `ponder: opened <id> (N scenes)`, `ponder: scene <id> (i/n) of
+  `ponder: held <key> over <id>`, `ponder: Ponder key set to <key>`, `ponder: opened <id> (N scenes)`, `ponder: scene <id> (i/n) of
   <component>`, `ponder: scene <id> drawn (N blocks, M placeholders)`, `ponder: identify mode
   on|off`, `ponder: replay <id>`, `ponder: closed <id>`, `ponder: tag <id> opened`,
   `ponder: index of N categories opened`.
@@ -3971,8 +4070,6 @@ matches Create's official Chinese translation wording).
 | Glue region outlines (U4) | no client-side line rendering without a client renderer for it | particles along the edges of nearby regions for players holding super glue (client mod and vanilla) |
 | Redstone input of the sticker (U4) | custom blocks get no redstone neighbour update | the sticker polls the redstone power of its neighbours every 4 ticks (redstone blocks, wire, torches, levers, buttons, repeaters, comparators, observers, anything with `redstone_signal`) |
 | Curved tracks drawn for **vanilla** clients (U5) | Bedrock block models are fixed per block state; a curve is not a block | the client mod draws the curve; vanilla clients see the straight end tracks and a track bed (`levitate:fake_track`) on every block the curve passes through |
-| Track placement preview while hovering (U5) | Create draws the planned curve and its message client-side every frame | the message (`create.track.*`) is shown in the action bar when clicking; the selection is kept per player on the server (the item is not enchanted-looking) |
-| "Hold Ctrl for maximized turn" (U5) | the server can't see a held key without the client mod | the player's sprint state is used (sprinting = maximized) |
 | Tilted tracks between two sloped curves (U5) | Create re-shapes the curves and tilts the block model at runtime | curves keep their original handles; the middle track stays flat |
 | Redstone neighbour updates of the clutch, gearshifts and sequenced gearshift (U6) | custom blocks get no redstone neighbour update | they read their neighbours' signal from the circuit system every tick (same reaction time as Create's scheduled tick); the sequenced gearshift reacts to power *changes* only, as Create's neighbour updates |
 | Comparator reading a gauge / sequenced gearshift (U6) | `getComparatorSignal` of custom blocks can't be overridden (a folded function) | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
@@ -4017,23 +4114,15 @@ matches Create's official Chinese translation wording).
 | Crafter items on the crafter's face for **vanilla** clients (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it | the client mod draws the slot item, the grouped grid, the exported grid sliding to the next crafter and the growing result with the world item renderer (U33); every client sees the blocks, the crit particles, the sounds and the result popping out |
 | Block break sounds of the moving drill per block sound type (U22) | the contraption actor (`actors/`) names the hit sound by the block id | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone`; the saw, the stationary drill and the crafter unit's moving saw / drill play the block's own hit sound (LevelSoundEvent `Hit` with its runtime id) |
 | Drill damage source name of the `actors/` drill (U22) | that actor hurts with the plain contact cause | contact damage (death message of a cactus-like cause); the saw and the drill of the crafter unit use Create's `create.mechanical_saw` / `create.mechanical_drill` death messages |
-| Fluid moving through glass pipes drawn by a block entity renderer, with the flow front advancing (U17) | custom blocks have no block entity renderer on Bedrock | the glass pipe's `levitate:fluid` state shows the fluid filling the pipe as soon as a flow starts (all clients, with or without the mod); the front's progress is not drawn |
-| Waterlogged pipes, pumps and valves (U17) | Bedrock custom blocks have no waterlogged state the server can set | open ends don't drain or fill waterlogged blocks; pipes in water are not waterlogged |
-| Pipe particles (drips at rims, splashes, the pouring stream of open ends) (U17) | Create's fluid particles need fluid-tinted particle types | not shown yet |
-| Instant potion effects from open ends at half strength (U17) | Bedrock applies instantaneous effects through `addEffect` at full strength | instant potion effects apply at full strength |
+| Glass pipe flow fronts for **vanilla** clients (U17) | no client-side rendering without the client mod; a block state per progress step, face and fluid would not fit | the client mod draws Create's advancing fronts; vanilla clients see the glass pipe's `levitate:fluid` state fill the whole pipe as soon as a flow starts |
 | Fluid inside tanks and the moving engine piston for **vanilla** clients (U18) | no client-side rendering without the client mod; a fluid level per block would need a block state per level and fluid | the client mod draws them; vanilla clients see the tank (windows show an empty inside) and a static engine |
 | Whistle redstone input (U18) | custom blocks get no redstone neighbour update | the whistle polls its neighbours' redstone power every 2 ticks (as the sticker, U4) |
-| Whistle tone as one looping sound with a changing pitch (U18) | Bedrock's server can't hold a looping sound instance on clients | the tone sample (0.6 s) is restarted every 10 ticks at the whistle's pitch, so it sounds continuous; the chiff plays when it starts |
-| Boiler gauges drawn on the tank sides (U18) | Create draws them with its block entity renderer | the goggle lines (`/create steam`, U8's overlay) show the same status |
-| Steam particles of whistles / engines as Create's custom steam jet particle (U18) | no custom particle shipped yet | vanilla's water evaporation particle at the whistle's mouth / the engine's front, for every client |
+| Boiler gauges for **vanilla** clients (U18) | the needle moves with the boiler level: client-side drawing (the client mod draws the gauges); a block state per needle position and side would need hundreds of tank states | vanilla clients see the boiler without gauges; the goggle lines (`/create steam`, U8's overlay) show the same status |
 | Flowing honey/chocolate in the world (U19) | Bedrock has no data-driven custom fluids: a custom block can't flow, be swum in or use the fluid renderer | they exist everywhere fluids are handled (pipes, tanks, basins, spouts, drains, buckets); in the world a bucket or a hose pulley places a translucent, non-colliding, non-flowing source block (`levitate:honey` / `levitate:chocolate`) that buckets and hose pulleys pick up again; entities in it are slowed (Slowness II) and take no fall damage instead of Create's viscous fluid motion; lava touching it turns into obsidian / limestone / scoria; no fog colour under it |
 | Hose drawn for **vanilla** clients (U19) | Create draws the hose with a block entity renderer; a block in its place would block the fluid it hangs in | the client mod draws the hose and its end piece; vanilla clients see the pulley only (draining and filling work the same) |
-| Spout nozzle squeeze and splash particles (U19) | client-side animation and fluid particles | the client mod draws Create's fluid stream (its width follows Create's curve over the 20 ticks); the nozzle model is static; vanilla clients hear the sounds only |
-| Spout over a moving belt item (U19 + U11) | wave-2 units can't call each other: the spout sees the item through the item capability (slot 0 from the top of a Levitate block) and can't stop a belt item itself | works on depots (and any block that exposes the item at its centre as slot 0); belt items are filled when the belt unit exposes the item under the spout that way |
+| Spout stream and nozzle squeeze for **vanilla** clients (U19) | no client-side animation without the client mod | the client mod draws Create's stream and squeezes the nozzle; vanilla clients see the static nozzle and the drops and splash (particles, every client) and hear the sounds |
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
-| Climbable ropes and magnets (U20) | data-driven blocks can't be climbable | they are thin solid blocks |
-| Native elevator contact screen (U20) | the native screen framework (U3) has no text field | the contact's form (floor identifier, description, door control) is used for every player |
 | Elevator door control acting on doors (U20) | the sliding / train doors are U10's | the mode is stored per contact (`data["pistons"]["door"]`) for U10 to apply |
 | Cart assembler and controller rail as real rails (U21) | Bedrock minecarts only ride vanilla rail blocks; a data-driven block can't be a rail | they are rail-shaped blocks without collision; a minecart on one is guided by the server: held on the rail line at rail height and moved along it at the speed the rail gives it (no off-rail friction), then the next vanilla rail takes it over. A minecart item used on them places a cart there |
 | Redstone input of the cart assembler / controller rail (U21) | custom blocks get no neighbour updates and the game's signal levels aren't exposed | power polled every 4 ticks from the neighbours' states (wire level, redstone block, torches, levers, buttons, repeaters / comparators, observers, `redstone_signal`, solid blocks on a lit torch) |
@@ -4054,17 +4143,10 @@ matches Create's official Chinese translation wording).
 | Nixie tube glyphs for **vanilla** clients (U24) | same | the two characters as a coloured name tag above each tube |
 | Display link / nixie tube redstone input (U24) | custom blocks get no redstone neighbour updates | polled every 2 ticks from the neighbours' states (wire, torches, levers, buttons, plates, repeaters, comparators, observers, redstone blocks); read with `Redstone.h` `signalFrom` (U36), so strong power through solid blocks counts |
 
-| "Clipboard Actions" hover tip and block outline while holding a clipboard (U24) | per-frame client logic for every block's settings | the action bar tells what was copied / pasted |
 | Deaths statistic of the respawn anchor source (U24) | Bedrock has no deaths statistic | Levitate counts player deaths per world (`lv:display:deaths`) |
 | Display link placement by a SimulatedPlayer (U24 selftests) | `simulateUseItemInSlotOnBlock` does not place this block item | the selftest places the block itself after the item logic; the client e2e places it for real |
 | Packages as physical entities (thrown, put down, on the ground) (U25) | Create's PackageEntity is a custom entity with its own model and physics | thrown / put-down packages are item entities (same velocity); breaking or opening is done with the item |
 | Chains, hanging packages, frogport tongue and packager tray for **vanilla** clients (U25) | no client-side rendering without the client mod | the client mod draws them; vanilla clients see the static conveyor, frogport and packager models and the postbox flag / lid states |
-| The chain conveyor wheel's size (U25) | Bedrock block geometry is limited to 30 px per axis | the wheel is 28 px across instead of Create's 2.5 blocks; the chains still start 1.25 blocks from the centre |
-| Riding chains is client-side in Create (U25) | the server can't move a vanilla client smoothly | the server moves the rider every tick (teleport towards the chain point, as Create's 0.25 pull) |
-| Create's own sounds (packager, package pop, frogport) (U25) | no original audio assets | levitate.packages.* sound events mapped to vanilla sounds |
-| Package filters in U3's filter slots (U25) | `filter::matches` (U3) only knows list / attribute filters | `packages::filterMatches` implements Create's rule; U3's matcher must delegate `levitate:package_filter` to it (follow-up, called out in the U25 PR) |
-| Spawn eggs inside opened packages spawn their mob (U25) | the server would need the egg's spawn logic | the egg is given to the player like any item |
-| Adding a port's address to a held clipboard (U25) | the clipboard and its data are U24's | no-op until U24 exposes clipboard pages |
 | Factory gauge item icons, counts and connection arrows for **vanilla** clients (U26) | no world-space item / text rendering without the client mod | the client mod draws them (U42); vanilla: the bulb is the block model |
 | "Click and hold" on a gauge panel / price tag for **vanilla** clients (U26) | the server only sees discrete clicks | client mod: as Create (U42); vanilla: sneak + empty-hand click opens the board (price tag: a click opens it, sneaking clears) |
 | JEI recipe sync of factory gauges (U26) | no recipe viewer on Bedrock | "Use Mechanical Crafting" works (U42); recipes can't be dragged in from a viewer |
@@ -4082,20 +4164,14 @@ matches Create's official Chinese translation wording).
 | Redstone input of signals (U28) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker; diodes count only when facing the signal) |
 | Comparator output of signals (U28) | Bedrock asks only containers for analog signals | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
 | Train occupancy by front/back signal listeners (U28) | not a limitation: trains report the track they cover | sections and observers follow the covered track (same results as Create's listeners, robust against skipped ticks) |
-| Crafting blueprint as a hanging entity (U29) | custom entities need their own entity definitions and renderers; a block group behaves the same for clicks and breaking | each section is a thin, non-colliding `levitate:placed_crafting_blueprint` block; the 2x2 / 3x3 group is placed and removed together; the display items are not drawn on the blueprint (shown in its screen) |
+| Crafting blueprint as a hanging entity (U29) | Create's blueprint is a hanging entity; a block group behaves the same for clicks, crafting and breaking | each section is a thin, non-colliding `levitate:placed_crafting_blueprint` block; the 2x2 / 3x3 group is placed and removed together; the client mod draws the display items on the canvas (Create's BlueprintRenderer), vanilla clients see the empty canvas |
 | Schematic files saved as Create `.nbt` (U29) | Bedrock block states have no lossless Java form | the quill saves Bedrock `.mcstructure`; Create `.nbt` files are read (uploads, `schematics/`) with best-effort Java→Bedrock state mapping, unmapped block types are reported and skipped |
-| Entities and vanilla block entity data in schematics (U29) | Bedrock entities and block actors can't be serialised / restored safely from a mod without the game's structure system | blocks, waterlogging and Levitate BlockData are saved; the cannon places blocks only (like Create's safe-NBT rule, data is not printed); creative Print restores Levitate BlockData; entities (item frames, armor stands) are not printed |
 | Schematic tools, ghost and quill outline for **vanilla** clients (U29) | no client-side input (Ctrl / Alt / scroll) or world rendering without the client mod | sprinting = Ctrl for mid-air corners; no face resizing; right-click a block deploys a schematic there, sneak-right-click opens a form for exact coordinates / rotation / mirror / Print; particle outlines of the selection and of the deployed bounds |
 | Picking local files at the schematic table for **vanilla** clients (U29) | the server can't read the player's disk | the form lists the player's schematics stored on the server (quill saves, earlier uploads) |
-| Ghost preview of exact block models (U29) | drawing every block model translucently needs the chunk tessellator | the client mod draws each block as a textured cube with its own face textures |
-| Animated schematicannon barrel (U29) | the barrel is part of the block model | static barrel; the client mod draws the launched blocks flying to their target, everyone sees smoke and placement particles |
-| Material checklist on a clipboard (U29) | the clipboard is U24's | a clipboard in the paper slot also gives a written book |
 | Ponder for **vanilla** clients (U30) | a scene player needs client-side 3D rendering of a private scene; forms can't draw blocks | Ponder is client mod only; `/create ponder` tells vanilla players it needs the client mod |
 | Ponder scenes as Create's scene code and NBT schematics (U30) | Create's scenes are Java code over its own schematics (and copying them is not allowed) | our own scene scripts as data (`assets/ponder/scenes/*.json`) teaching the same steps; titles keep Create's wording, the texts are our own |
-| Entities, flowing fluids and particles inside Ponder scenes (U30) | the scene is drawn from blocks only (no private level with entities / fluid renderers) | items float as item icons, mobs / minecarts are shown as their item, water and lava blocks as tinted still-fluid cubes, fluid flow in pipes / tanks with coloured outlines, redstone with red sparks |
-| Fading blocks in Ponder (U30) | the UI pass draws block meshes with the opaque / alpha-test block material only | blocks slide in from their direction and grow from 40 % to full size while they appear |
-| "Hold [W] to Ponder" inside the item tooltip (U30) | Bedrock's hover text is built by the UI, not by item tooltip callbacks | the hint and its progress bar are drawn at the top of the screen while a ponderable item is hovered |
-| Ponder's own rebindable key (U30) | no key binding registry for mods | W, Create's default (the scene keys A / D / Q / S as Create's) |
+| "Hold [W] to Ponder" progress bar inside the item tooltip (U30) | Bedrock builds an item's hover text once when the slot is hovered (verified: the line doesn't change while the key is held; re-hovering the slot from the mod to rebuild it can outlive the screen controller) | the hint is the tooltip's second line; while the key is held Create's `\|` bar is drawn in a tooltip box at the top of the screen |
+| Entities and particles inside Ponder scenes (U30) | the scene is drawn from blocks in the UI pass (no private level with entity renderers or a particle engine) | items float as item icons, mobs / minecarts are shown as their item, redstone with red sparks, fluid flow in pipes / tanks with coloured outlines; water and lava are drawn with their levels and sloped surfaces |
 | Holding the toolbox key on a **vanilla** client (U31) | the server can't see a held key without the client mod | `/create toolbox` opens the same entries as a form |
 | Enchantments Capacity (backtank air) and Potato Recovery as real enchantments (U31) | Bedrock's enchantment list is a fixed set of vanilla ids (0..41) that clients know by number; an unknown id would reach vanilla clients | the levels live in the item's user data and show as lore lines ("Capacity II"); the enchanting table rolls them per option with Java's algorithm, anvils merge them, grindstones remove them (§3.6.31); the table's clue and option tooltips show only vanilla enchantments, and they are not on loot or trade books |
 | Diving boots movement for **vanilla** clients (U31) | players move themselves (client-authoritative input); the server can only push them | the client mod applies Create's motion to its own player; vanilla players sink through motion packets and walk faster under water through the underwater movement speed attribute (Create's ×1.3 per tick below 0.145 b/t settles at ~0.15 b/t: +87.5 %) |

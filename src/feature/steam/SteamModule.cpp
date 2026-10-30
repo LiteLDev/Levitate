@@ -79,16 +79,26 @@ Json posJson(GlobalPos const& p) { return Json::array({p.x, p.y, p.z}); }
 std::optional<Json> tankEntry(GlobalPos const& ctrl) {
     auto info = tankAt(ctrl);
     if (!info || !(info->controller == ctrl)) return std::nullopt;
-    return Json{
-        {"p",      posJson(ctrl)                 },
-        {"w",      info->width                   },
-        {"h",      info->height                  },
-        {"f",      info->fluid                   },
-        {"a",      info->amount                  },
-        {"c",      info->capacity                },
-        {"win",    info->window                  },
-        {"boiler", boilerActive(info->controller)},
+    bool boiler = boilerActive(info->controller);
+    Json entry{
+        {"p",      posJson(ctrl)  },
+        {"w",      info->width    },
+        {"h",      info->height   },
+        {"f",      info->fluid    },
+        {"a",      info->amount   },
+        {"c",      info->capacity },
+        {"win",    info->window   },
+        {"boiler", boiler         },
     };
+    if (boiler) {
+        // the boiler gauges: dial target and the sides hidden by a block in front
+        auto const& it = boilers().find(info->controller);
+        if (it != boilers().end()) {
+            entry["g"]   = it->second.gauge;
+            entry["occ"] = it->second.occluded;
+        }
+    }
+    return entry;
 }
 
 void broadcast(std::string_view channel, Json const& payload) {

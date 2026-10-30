@@ -33,5 +33,6 @@
   "lv.packages.port.inventory": "包裹",
   "lv.packages.postbox": "邮箱",
   "lv.packages.frogport": "货物蛙港",
-  "create.packager_link.set": "目标已选取"
+  "create.packager_link.set": "目标已选取",
+  "create.clipboard.address_added": "已将“{}”添加到剪贴板"
 }

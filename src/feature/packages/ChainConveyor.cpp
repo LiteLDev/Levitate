@@ -10,6 +10,9 @@
 #include <unordered_map>
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/network/MinecraftPacketIds.h"
+#include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/SetActorMotionPacket.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
@@ -712,6 +715,17 @@ bool putPackageOnChain(Player& player, ChainPick const& pick) {
 
 // ---- riding ----------------------------------------------------------------------------------------
 
+namespace {
+void sendMotion(Player& player, Vec3 const& motion) {
+    auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::SetActorMotion);
+    if (!packet) return;
+    auto& pkt      = static_cast<SetActorMotionPacket&>(*packet);
+    pkt.mRuntimeId = player.getRuntimeID();
+    pkt.mMotion    = motion;
+    pkt.sendTo(player);
+}
+} // namespace
+
 void startRiding(Player& player, ChainPick const& pick) {
     Rider r;
     r.conveyor      = pick.conveyor;
@@ -809,8 +823,14 @@ void tickRiders() {
             stop("fell off");
             continue;
         }
-        cp::V3 next = top + d * 0.5;
-        player->teleport(Vec3{float(next.x), float(next.y - 1.8 - 0.5), float(next.z)}, DimensionType(r.conveyor.dim));
+        // Create's ChainConveyorRidingHandler: motion = motion * 0.75 + diff * 0.25, no fall damage;
+        // the motion goes to the rider's client like vanilla knockback (SetActorMotion), so every
+        // client (with or without the mod) moves smoothly and the server's movement agrees
+        Vec3 const& was = player->getPosDelta();
+        Vec3        motion{float(was.x * 0.75 + d.x * 0.25), float(was.y * 0.75 + d.y * 0.25), float(was.z * 0.75 + d.z * 0.25)};
+        const_cast<Vec3&>(player->getPosDelta()) = motion;
+        sendMotion(*player, motion);
+        player->setFallDistance(0);
         ++it;
     }
 }

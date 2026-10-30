@@ -5,6 +5,14 @@
 #   4. `/create ponder` of an entry whose blocks are not in main yet still plays (placeholders);
 #   5. the server-side selftests (`ponder.*`).
 # Screenshots: out/ponder/*.png
+if ($script:Mode -eq 'remote-vanilla') {
+    # Ponder is client mod only: the command says so, the tooltip has no hint
+    $mark = Get-LogMark
+    Invoke-Chat '/create ponder shaft'
+    Start-Sleep -Seconds 2
+    Save-Screenshot 'vanilla-refused' | Out-Null
+    return
+}
 Wait-LogLine 'companion: server accepted the handshake' 90 | Out-Null
 
 Invoke-Chat '/gamemode survival'
@@ -29,6 +37,12 @@ $found = $false
 if (-not $found) { Save-Screenshot 'hover-failed' | Out-Null; throw 'no inventory slot with the piston was hovered' }
 Start-Sleep -Milliseconds 300
 Save-Screenshot 'hover-hint' | Out-Null
+# U44: while W is held the tooltip line becomes Create's progress bar
+[BsE2E.Native]::Key(0x57, $false)   # W down
+Start-Sleep -Milliseconds 320
+Save-Screenshot 'hold-progress' | Out-Null
+[BsE2E.Native]::Key(0x57, $true)    # W up: the bar drains again
+Start-Sleep -Milliseconds 1200
 Press-Key W 1600
 $holdFailed = $null
 try { Wait-LogLine 'ponder: held W over levitate:mechanical_piston' 15 -Since $mark | Out-Null }

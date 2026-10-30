@@ -14,6 +14,9 @@
 #include "mc/network/MinecraftPacketIds.h"
 #include "mc/network/MinecraftPackets.h"
 #include "mc/network/packet/PlaySoundPacket.h"
+#include "mc/network/packet/SpawnParticleEffectPacket.h"
+#include "mc/util/MolangScriptArg.h"
+#include "mc/util/MolangVariableMap.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -28,6 +31,10 @@
 #include "feature/steam/SteamInternal.h"
 #include "game/Blocks.h"
 #include "mod/Config.h"
+
+// The game doesn't export MolangVariableMap's default constructor (same inline definition as in
+// feature/kinetics/Feedback.cpp).
+inline MolangVariableMap::MolangVariableMap() {}
 
 namespace lv::feature::steam {
 
@@ -186,6 +193,32 @@ void particle(int dim, double x, double y, double z, std::string const& effect) 
     auto dimension = level->getDimension(DimensionType(dim)).lock();
     if (!dimension) return;
     level->spawnParticleEffect(effect, Vec3{float(x), float(y), float(z)}, dimension.get());
+}
+
+void steamJet(int dim, double x, double y, double z, double mx, double my, double mz) {
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    auto setVar = [](MolangVariableMap& map, std::string const& name, float value) {
+        auto full = "variable." + name;
+        map.setMolangVariable(HashedString::computeHash(full), full.c_str(), MolangScriptArg(value), false);
+    };
+    // Create's SteamJetParticle: the motion is in blocks per tick, molang speeds per second
+    double speed = std::sqrt(mx * mx + my * my + mz * mz);
+    MolangVariableMap map;
+    setVar(map, "dir_x", static_cast<float>(speed > 0 ? mx / speed : 0));
+    setVar(map, "dir_y", static_cast<float>(speed > 0 ? my / speed : 1));
+    setVar(map, "dir_z", static_cast<float>(speed > 0 ? mz / speed : 0));
+    setVar(map, "speed", static_cast<float>(speed * 20));
+    Vec3 at{static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)};
+    level->forEachPlayer([&](Player& p) {
+        if (static_cast<int>(p.getDimensionId()) != dim) return true;
+        auto   e  = p.getPosition();
+        double dx = e.x - x, dy = e.y - y, dz = e.z - z;
+        if (dx * dx + dy * dy + dz * dz > 64.0 * 64.0) return true;
+        SpawnParticleEffectPacket pkt(SpawnParticleEffectPacketPayload(at, "levitate:steam_jet", static_cast<uchar>(dim), std::optional<MolangVariableMap>(map)));
+        pkt.sendTo(p);
+        return true;
+    });
 }
 
 void giveOrDrop(Player& player, ItemStack const& stack) {

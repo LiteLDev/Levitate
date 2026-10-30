@@ -649,6 +649,7 @@ public:
             registerRules();
             registerBoxes();
             game::db::onWorldReady([] {
+                markRopesClimbable();
                 loadActuators();
                 loadGantries();
                 loadElevators();
@@ -688,6 +689,7 @@ public:
         mListeners.push_back(bus.emplaceListener<ll::event::BlockChangedEvent>([](ll::event::BlockChangedEvent& ev) { onBlockChanged(ev); }));
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { tick(); }));
         if (game::db::available()) {
+            markRopesClimbable();
             loadActuators();
             loadGantries();
             loadElevators();
