@@ -4,10 +4,14 @@
 //
 // Hovered item: the vanilla container screens (inventory, creative inventory, chests, ...) report
 // the slot under the pointer (`ContainerScreenController::_onContainerSlotHovered`); while an
-// item with Ponder scenes is hovered, "Hold [W] to Ponder" is shown with Create's progress bar and
-// holding the Ponder key (W, Create's default) opens the item's Ponder (Create's
-// PonderTooltipHandler: ~11 ticks with its accelerating progress).
+// item with Ponder scenes is hovered, its tooltip says "Hold [W] to Ponder" below the name, which
+// turns into Create's progress bar of `|` characters while the Ponder key is held (the hover text
+// is rebuilt every frame: `ItemStackBase::getFormattedHovertext` hook), and holding the key (W,
+// Create's default, rebindable: `config/ponder.json` ponderKey, or the button of the welcome
+// screen) opens the item's Ponder (Create's PonderTooltipHandler: ~11 ticks with its
+// accelerating progress).
 
+#include <atomic>
 #include <chrono>
 #include <deque>
 #include <filesystem>
@@ -27,13 +31,16 @@
 #include "mc/client/gui/screens/controllers/CraftingScreenController.h"
 #include "mc/client/gui/screens/interfaces/ISceneStack.h"
 #include "mc/client/gui/ViewRequest.h"
+#include "mc/safety/RedactableString.h"
 #include "mc/world/item/ItemStackBase.h"
+#include "mc/world/level/Level.h"
 
 #include "client/Client.h"
 #include "client/ponder/Ponder.h"
 #include "client/ponder/PonderConfig.h"
 #include "client/screen/Screen.h"
 #include "feature/net/Net.h"
+#include "mod/Config.h"
 #include "mod/Log.h"
 #include "mod/Main.h"
 #include "mod/Module.h"
@@ -44,7 +51,6 @@ namespace lv::client::ponder {
 
 namespace {
 
-constexpr int kVkW      = 0x57; ///< Create's default Ponder key
 constexpr int kVkEscape = 0x1B;
 
 struct State {
@@ -55,7 +61,8 @@ struct State {
     bool                                keyDown   = false;
     bool                                afterSeen = false;
     bool                                leftDown  = false;
-    float                               progress  = 0;
+    std::atomic<float>                  progress  = 0; ///< read by the hover text hook
+    std::function<void(int)>            rebind;        ///< set while waiting for a new Ponder key
     float                               tickAcc   = 0;
     std::chrono::steady_clock::time_point last{};
     std::deque<std::function<void()>>   deferred;
@@ -116,18 +123,42 @@ std::unique_ptr<cp::Library> loadLibrary() {
     return lib;
 }
 
-/// "Hold [W] to Ponder" with Create's progress bar, while a ponderable item is hovered.
-void drawHoldHint(MinecraftUIRenderContext& ctx, std::string const& id, float progress) {
-    auto [sw, sh] = screen::guiSize();
-    screen::Canvas c(ctx);
-    auto           text = ctr("ponder.ui.hold_to_ponder", "Hold [{0}] to Ponder", "W");
-    float          w    = c.textWidth(text) + 12;
-    screen::Rect   box{(sw - w) / 2, 6, w, 20};
-    c.fill(box, 0xF0100010);
-    c.frame(box, 0xFF5000FF);
-    c.text(box.x + 6, box.y + 4, text, 0xFFA0A0A0);
-    c.fill({box.x + 3, box.y + 15, (box.w - 6) * progress, 2}, 0xFFFFFFFF);
-    (void)id;
+/// Width of a text in the game's default font (Create measures the hint with the font to size the
+/// progress bar): narrow / wide glyphs of the ASCII range, 9 px for other characters.
+int fontWidth(std::string const& text) {
+    int w = 0;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        unsigned char ch = static_cast<unsigned char>(text[i]);
+        if (ch == 0xC2 && i + 1 < text.size() && static_cast<unsigned char>(text[i + 1]) == 0xA7) { // section sign + code
+            i += 2;
+            continue;
+        }
+        if (ch >= 0x80) {
+            if ((ch & 0xC0) == 0xC0) w += 9; // one per code point
+            continue;
+        }
+        switch (ch) {
+        case '!': case '\'': case ',': case '.': case ':': case ';': case '|': case 'i': w += 2; break;
+        case '`': case 'l': w += 3; break;
+        case ' ': case 'I': case '[': case ']': case 't': w += 4; break;
+        case '"': case '(': case ')': case '*': case '<': case '>': case 'f': case 'k': case '{': case '}': w += 5; break;
+        case '@': case '~': w += 7; break;
+        default: w += 6; break;
+        }
+    }
+    return w;
+}
+
+/// Create's PonderTooltipHandler.makeProgressBar: "Hold [W] to Ponder" (dark gray, the key in
+/// gray) and, once the key is held, as many `|` as fit under that text, the done part gray.
+std::string holdLine(float progress) {
+    auto hint = "§8" + ctr("ponder.ui.hold_to_ponder", "Hold [{0}] to Ponder", "§7" + keyName(ponderKeyCode()) + "§8");
+    if (progress <= 0) return hint;
+    int total   = fontWidth(hint) / 2; // the width of "|"
+    int current = static_cast<int>(progress * total);
+    std::string bars = "§7" + std::string(static_cast<std::size_t>(current), '|');
+    if (progress < 1) bars += "§8" + std::string(static_cast<std::size_t>(std::max(0, total - current)), '|');
+    return bars;
 }
 
 /// Per UI layer: advances the hold progress with the clock (several layers per frame don't speed
@@ -150,12 +181,13 @@ void holdFrame(MinecraftUIRenderContext& ctx, bool after) {
     s.tickAcc += std::min(dt, 0.25f) * 20.f * config().holdSpeed;
     while (s.tickAcc >= 1.f) {
         s.tickAcc -= 1.f;
-        s.progress = cp::holdProgressStep(s.progress, s.keyDown);
+        s.progress = cp::holdProgressStep(s.progress, s.keyDown && !s.rebind);
     }
-    if (after || !s.afterSeen) drawHoldHint(ctx, id, s.progress);
+    (void)ctx;
+    (void)after;
     if (s.progress >= 1.f) {
         s.progress = 0;
-        log().info("ponder: held W over {}", id);
+        log().info("ponder: held {} over {}", keyName(ponderKeyCode()), id);
         clearHistory();
         defer([id] { openComponent(id); });
     }
@@ -168,6 +200,48 @@ cp::Library const& library() {
 }
 
 bool leftMouseDown() { return state().leftDown; }
+
+int ponderKeyCode() {
+    int vk = config().ponderKey;
+    return vk > 0 && vk < 256 ? vk : 0x57;
+}
+
+std::string keyName(int vk) {
+    if ((vk >= '0' && vk <= '9') || (vk >= 'A' && vk <= 'Z')) return std::string(1, static_cast<char>(vk));
+    if (vk >= 0x70 && vk <= 0x87) return "F" + std::to_string(vk - 0x6F);
+    if (vk >= 0x60 && vk <= 0x69) return "Num " + std::to_string(vk - 0x60);
+    switch (vk) {
+    case 0x09: return "Tab";
+    case 0x10: return "Shift";
+    case 0x11: return "Ctrl";
+    case 0x12: return "Alt";
+    case 0x14: return "Caps Lock";
+    case 0x20: return "Space";
+    case 0x25: return "Left";
+    case 0x26: return "Up";
+    case 0x27: return "Right";
+    case 0x28: return "Down";
+    case 0xBA: return ";";
+    case 0xBB: return "=";
+    case 0xBC: return ",";
+    case 0xBD: return "-";
+    case 0xBE: return ".";
+    case 0xBF: return "/";
+    case 0xC0: return "`";
+    case 0xDB: return "[";
+    case 0xDC: return "\\";
+    case 0xDD: return "]";
+    case 0xDE: return "'";
+    default: return "Key " + std::to_string(vk);
+    }
+}
+
+void rebindPonderKey(std::function<void(int)> done) {
+    state().rebind = std::move(done);
+    log().info("ponder: waiting for a new Ponder key");
+}
+
+bool rebinding() { return static_cast<bool>(state().rebind); }
 
 void pushHistory(std::function<void()> reopen) {
     auto& h = state().history;
@@ -250,6 +324,34 @@ LL_TYPE_INSTANCE_HOOK(PonderContainerLeaveHook, ll::memory::HookPriority::Normal
     origin();
 }
 
+// ---- the hint in the item tooltip ----------------------------------------------------------------
+
+LL_TYPE_INSTANCE_HOOK(
+    PonderHovertextHook,
+    ll::memory::HookPriority::Normal,
+    ItemStackBase,
+    &ItemStackBase::getFormattedHovertext,
+    Bedrock::Safety::RedactableString,
+    Level& level,
+    bool   showCategory
+) {
+    auto r = origin(level, showCategory);
+    try {
+        if (isNull() || screen::current()) return r;
+        auto id = getTypeName();
+        // only the hovered slot's tooltip (Create: the item under the mouse)
+        if (id != hovered() || !library().has(id)) return r;
+        auto line   = holdLine(state().progress.load());
+        auto insert = [&line](std::string& text) {
+            auto nl = text.find('\n');
+            text    = nl == std::string::npos ? text + "\n" + line : text.substr(0, nl) + "\n" + line + text.substr(nl);
+        };
+        insert(r.mUnredactedString);
+        if (r.mRedactedString) insert(*r.mRedactedString);
+    } catch (...) {}
+    return r;
+}
+
 // ---- module ------------------------------------------------------------------------------------
 
 class PonderModule {
@@ -262,6 +364,7 @@ public:
         PonderCraftingHoverHook::hook();
         PonderSlotUnhoverHook::hook();
         PonderContainerLeaveHook::hook();
+        PonderHovertextHook::hook();
     }
 
 private:
@@ -271,10 +374,24 @@ private:
             [](ll::event::KeyInputEvent& ev) {
                 auto& s  = state();
                 int   vk = ev.keyCode();
-                if (vk == kVkW) {
+                if (s.rebind && ev.isDown()) {
+                    // Create's key mapping screen: the next key becomes the Ponder key, Esc cancels
+                    auto done = std::move(s.rebind);
+                    s.rebind  = {};
+                    int  key  = vk == kVkEscape ? 0 : vk;
+                    if (key) {
+                        lv::config::mut<PonderConfig>().ponderKey = key;
+                        lv::config::saveAll();
+                        log().info("ponder: Ponder key set to {}", keyName(key));
+                    }
+                    deferUi([done = std::move(done), key] { done(key); });
+                    ev.cancel();
+                    return;
+                }
+                if (vk == ponderKeyCode()) {
                     if (ev.isDown() && !s.keyDown && !screen::current()) {
                         auto id = hovered();
-                        if (!id.empty() && library().has(id)) log().info("ponder: holding W over {}", id);
+                        if (!id.empty() && library().has(id)) log().info("ponder: holding {} over {}", keyName(vk), id);
                     }
                     s.keyDown = ev.isDown();
                 }
@@ -339,6 +456,7 @@ public:
         PonderCraftingHoverHook::unhook();
         PonderSlotUnhoverHook::unhook();
         PonderContainerLeaveHook::unhook();
+        PonderHovertextHook::unhook();
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();

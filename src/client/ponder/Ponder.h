@@ -17,6 +17,12 @@
 #include "core/ponder/Scene.h"
 #include "core/ponder/View.h"
 
+class Block;
+class Tessellator;
+namespace mce {
+class Mesh;
+}
+
 namespace lv::client::screen {
 class Canvas;
 }
@@ -56,6 +62,13 @@ void clearHistory();
 /// Runs `fn` before the next UI frame (screen changes must not happen inside a widget handler).
 void deferUi(std::function<void()> fn);
 
+/// The Ponder key (Create's rebindable key mapping, `config/ponder.json` ponderKey) and its name.
+[[nodiscard]] int         ponderKeyCode();
+[[nodiscard]] std::string keyName(int vk);
+/// The next key pressed becomes the Ponder key (Esc cancels); `done(vk)` runs after (0: cancelled).
+void rebindPonderKey(std::function<void(int)> done);
+[[nodiscard]] bool rebinding();
+
 // ---- rendering --------------------------------------------------------------------------------
 
 struct DrawResult {
@@ -84,6 +97,15 @@ bool drawIcon(screen::Canvas& c, std::string const& id, float x, float y, float 
 
 /// Drops cached block lookups (a new world registers block states again).
 void resetRenderCache();
+
+/// Appends the model of `block` (`def`: its id and states) to a begun tessellator at (x, y, z),
+/// as Ponder draws it: Levitate blocks from the pack's geometry, other blocks with the game's block
+/// tessellator (U29's schematic ghost uses it). Returns false when it can't be drawn.
+bool appendBlock(Tessellator& tess, cp::BlockDef const& def, Block const& block, float x, float y, float z);
+/// A cached mesh (block units, 0..1) of a Levitate block's model without the bones `hideBones`
+/// (U29's schematicannon draws its connector and barrel with it); nullptr for other blocks.
+/// Dropped with the level.
+mce::Mesh* modelPartMesh(Tessellator& tess, cp::BlockDef const& def, std::vector<std::string> const& hideBones);
 
 } // namespace lv::client::ponder
 

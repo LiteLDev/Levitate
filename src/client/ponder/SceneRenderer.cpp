@@ -17,6 +17,8 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <optional>
+#include <tuple>
 #include <set>
 #include <unordered_map>
 
@@ -37,18 +39,21 @@
 #include "mc/client/renderer/blockactor/MovingBlockActorRenderer.h"
 #include "mc/client/renderer/screen/MinecraftUIRenderContext.h"
 #include "mc/client/renderer/texture/TextureUVCoordinateSet.h"
+#include "mc/deps/core/math/Color.h"
 #include "mc/deps/core/math/Matrix.h"
 #include "mc/deps/core/math/Vec2.h"
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/core_graphics/enums/PrimitiveMode.h"
 #include "mc/deps/minecraft_renderer/renderer/MaterialPtr.h"
 #include "mc/deps/minecraft_renderer/renderer/Mesh.h"
+#include "mc/deps/minecraft_renderer/renderer/MeshContext.h"
 #include "mc/deps/minecraft_renderer/renderer/TexturePtr.h"
 #include "mc/deps/minecraft_renderer/resources/ClientTexture.h"
 #include "mc/deps/minecraft_renderer/resources/OffscreenCaptureDescription.h"
 #include "mc/deps/minecraft_renderer/resources/ServerTexture.h"
 #include "mc/deps/renderer/Camera.h"
 #include "mc/deps/renderer/MatrixStack.h"
+#include "mc/deps/renderer/ShaderColor.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/BlockRenderLayer.h"
@@ -98,6 +103,11 @@ Cache& cache() {
     static Cache c;
     return c;
 }
+
+/// Fading blocks (Create's PonderWorld fades sections in and out) are drawn with the blend layer
+/// and their vertex alpha, quantised to 16 steps so their meshes can be cached.
+int alphaStep(float alpha) { return std::clamp(static_cast<int>(std::lround(alpha * 16.f)), 1, 16); }
+float stepAlpha(int step) { return static_cast<float>(step) / 16.f; }
 
 std::string keyOf(cp::BlockDef const& def) {
     std::string key = def.id;
@@ -155,63 +165,99 @@ Models const& models() {
     return m;
 }
 
-/// A Levitate block drawn from its block file and geometry (custom geometry, bone visibility,
-/// material instances and transformations as the game resolves them); nullptr for other blocks.
-mce::Mesh* modelMesh(Tessellator& tess, cp::BlockDef const& def) {
+/// The quads of a Levitate block from its block file and geometry (custom geometry, bone
+/// visibility, material instances and transformations as the game resolves them); nullopt for
+/// other blocks.
+std::optional<std::vector<cp::Quad>> modelQuads(cp::BlockDef const& def, std::vector<std::string> const& hideBones = {}) {
     auto const& m  = models();
     auto        bf = m.blocks.find(def.id);
-    if (bf == m.blocks.end()) return nullptr;
-    auto  key = keyOf(def);
-    auto& c   = cache().modelMeshes;
-    if (auto it = c.find(key); it != c.end()) return it->second.get();
-    auto& slot     = c[key];
-    auto  resolved = cp::resolve(bf->second, def.states, def.strings);
-    auto  states   = bf->second.defaults;
+    if (bf == m.blocks.end()) return std::nullopt;
+    auto resolved = cp::resolve(bf->second, def.states, def.strings);
+    auto states   = bf->second.defaults;
     for (auto const& [k, v] : def.states) states[k] = v;
     cp::Geometry const* geo = nullptr;
     if (resolved.geometry == "minecraft:geometry.full_block") geo = &cp::fullBlock();
     else if (auto g = m.geometries.find(resolved.geometry); g != m.geometries.end()) geo = &g->second;
-    if (!geo) return nullptr;
-    auto quads = cp::buildQuads(resolved, *geo, states, {}, def.strings);
-    tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
+    if (!geo) return std::nullopt;
+    return cp::buildQuads(resolved, *geo, states, hideBones, def.strings);
+}
+
+/// Writes quads into a begun tessellator at `o` (both windings: the UI pass does not know which
+/// side faces the camera).
+void emitQuads(Tessellator& tess, std::vector<cp::Quad> const& quads, float alpha, Vec3 o = {}) {
     for (auto const& q : quads) {
         auto  tex = BlockGraphics::getTextureUVCoordinateSet(q.texture, 0, 0);
         float u0 = tex._u0, v0 = tex._v0, u1 = tex._u1, v1 = tex._v1;
         auto  uv = [&](cp::V2 const& t) { return Vec2{u0 + (u1 - u0) * t[0], v0 + (v1 - v0) * t[1]}; };
-        auto  at = [](cp::V3 const& p) { return Vec3{p[0], p[1], p[2]}; };
-        tess.color(q.shade, q.shade, q.shade, 1.f);
-        // both windings: the UI pass does not know which side faces the camera
+        auto  at = [&](cp::V3 const& p) { return Vec3{p[0] + o.x, p[1] + o.y, p[2] + o.z}; };
+        tess.color(q.shade, q.shade, q.shade, alpha);
         tess.simpleQuad(at(q.pos[0]), uv(q.uv[0]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[3]), uv(q.uv[3]));
         tess.simpleQuad(at(q.pos[3]), uv(q.uv[3]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[0]), uv(q.uv[0]));
     }
+}
+
+/// A Levitate block drawn from its block file and geometry; nullptr for other blocks.
+mce::Mesh* modelMesh(Tessellator& tess, cp::BlockDef const& def, int step = 16) {
+    auto  key = keyOf(def) + "#" + std::to_string(step);
+    auto& c   = cache().modelMeshes;
+    if (auto it = c.find(key); it != c.end()) return it->second.get();
+    auto quads = modelQuads(def);
+    if (!quads) return nullptr;
+    auto& slot = c[key];
+    tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
+    emitQuads(tess, *quads, stepAlpha(step));
     slot = std::make_unique<mce::Mesh>(tess.end(Tessellator::UploadMode::Buffered, "levitate_ponder_model", SupplementaryFieldAutoGenerationMode::None));
     return slot.get();
 }
 
 
-/// Water and lava (the block tessellator draws no liquids on their own): a 14/16 high tinted cube
-/// of the still texture.
-mce::Mesh* fluidMesh(Tessellator& tess, std::string const& id) {
-    bool water = id == "minecraft:water" || id == "minecraft:flowing_water";
-    bool lava  = id == "minecraft:lava" || id == "minecraft:flowing_lava";
+bool isWater(std::string const& id) { return id == "minecraft:water" || id == "minecraft:flowing_water"; }
+bool isLava(std::string const& id) { return id == "minecraft:lava" || id == "minecraft:flowing_lava"; }
+
+/// Minecraft's height of a fluid block (LiquidBlockRenderer): 8/9 of a block for a source, one
+/// ninth less per level (`liquid_depth` 1..7), a falling fluid (8..) fills the block.
+float fluidLevelHeight(cp::BlockDef const& def) {
+    auto it    = def.states.find("liquid_depth");
+    int  depth = it == def.states.end() ? 0 : it->second;
+    if (depth >= 8) return 1.f;
+    return static_cast<float>(8 - std::clamp(depth, 0, 7)) / 9.f;
+}
+
+/// Corner heights (x0z0, x1z0, x1z1, x0z1) of the fluid at a scene position: the average of the
+/// fluid blocks of the same kind around the corner, the full block when one has fluid above it
+/// (Minecraft's getHeight / calculateAverageHeight).
+using FluidCorners = std::array<float, 4>;
+
+/// Water and lava (the block tessellator draws no liquids on their own): the still texture when
+/// level, the flowing one when the surface slopes, tinted, with the surface at its corners' heights.
+mce::Mesh* fluidMesh(Tessellator& tess, std::string const& id, int step, FluidCorners corners) {
+    bool water = isWater(id), lava = isLava(id);
     if (!water && !lava) return nullptr;
-    auto& c = cache().modelMeshes;
-    if (auto it = c.find(id); it != c.end()) return it->second.get();
-    auto&         slot = c[id];
-    cp::ResolvedBlock block;
-    block.materials["*"] = water ? "still_water_grey" : "still_lava";
-    block.scale          = {1.f, 14.f / 16.f, 1.f};
-    block.translation    = {0.f, -1.f / 16.f, 0.f};
+    auto  q   = [](float h) { return std::to_string(static_cast<int>(std::lround(h * 72.f))); };
+    auto  key = id + "#" + std::to_string(step) + "|" + q(corners[0]) + "," + q(corners[1]) + "," + q(corners[2]) + "," + q(corners[3]);
+    auto& c   = cache().modelMeshes;
+    if (auto it = c.find(key); it != c.end()) return it->second.get();
+    auto& slot  = c[key];
+    float alpha = stepAlpha(step);
+    bool  flat  = corners[0] == corners[1] && corners[1] == corners[2] && corners[2] == corners[3];
+    auto  tex   = BlockGraphics::getTextureUVCoordinateSet(water ? (flat ? "still_water_grey" : "flowing_water_grey") : (flat ? "still_lava" : "flowing_lava"), 0, 0);
+    float u0 = tex._u0, v0 = tex._v0, u1 = tex._u1, v1 = tex._v1;
+    auto  uv = [&](float u, float v) { return Vec2{u0 + (u1 - u0) * u, v0 + (v1 - v0) * v}; };
     float r = water ? 0.25f : 1.f, g = water ? 0.46f : 1.f, b = water ? 0.92f : 1.f;
+    std::array<Vec3, 4> top{Vec3{0, corners[0], 0}, Vec3{1, corners[1], 0}, Vec3{1, corners[2], 1}, Vec3{0, corners[3], 1}};
     tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
-    for (auto const& q : cp::buildQuads(block, cp::fullBlock(), {})) {
-        auto  tex = BlockGraphics::getTextureUVCoordinateSet(q.texture, 0, 0);
-        float u0 = tex._u0, v0 = tex._v0, u1 = tex._u1, v1 = tex._v1;
-        auto  uv  = [&](cp::V2 const& t) { return Vec2{u0 + (u1 - u0) * t[0], v0 + (v1 - v0) * t[1]}; };
-        auto  at  = [](cp::V3 const& p) { return Vec3{p[0], p[1], p[2]}; };
-        tess.color(r * q.shade, g * q.shade, b * q.shade, 1.f);
-        tess.simpleQuad(at(q.pos[0]), uv(q.uv[0]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[3]), uv(q.uv[3]));
-        tess.simpleQuad(at(q.pos[3]), uv(q.uv[3]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[0]), uv(q.uv[0]));
+    auto quad = [&](std::array<Vec3, 4> const& v, std::array<Vec2, 4> const& t, float shade) {
+        tess.color(r * shade, g * shade, b * shade, alpha);
+        tess.simpleQuad(v[0], t[0], v[1], t[1], v[2], t[2], v[3], t[3]);
+        tess.simpleQuad(v[3], t[3], v[2], t[2], v[1], t[1], v[0], t[0]);
+    };
+    // the surface and the bottom
+    quad(top, {uv(0, 0), uv(1, 0), uv(1, 1), uv(0, 1)}, 1.f);
+    quad({Vec3{0, 0, 0}, Vec3{1, 0, 0}, Vec3{1, 0, 1}, Vec3{0, 0, 1}}, {uv(0, 0), uv(1, 0), uv(1, 1), uv(0, 1)}, 0.5f);
+    // the four sides up to the surface
+    for (int i = 0; i < 4; ++i) {
+        Vec3 a = top[static_cast<std::size_t>(i)], bb = top[static_cast<std::size_t>((i + 1) & 3)];
+        quad({Vec3{a.x, 0, a.z}, Vec3{bb.x, 0, bb.z}, bb, a}, {uv(0, 1), uv(1, 1), uv(1, 1 - bb.y), uv(0, 1 - a.y)}, (i & 1) ? 0.6f : 0.8f);
     }
     slot = std::make_unique<mce::Mesh>(tess.end(Tessellator::UploadMode::Buffered, "levitate_ponder_fluid", SupplementaryFieldAutoGenerationMode::None));
     return slot.get();
@@ -236,8 +282,8 @@ std::map<std::string, k::RotorModel> const& rotorModels() {
     return models;
 }
 
-mce::Mesh* rotorMesh(Tessellator& tess, fk::KineticSpec const& spec, std::string const& bone) {
-    auto  key = spec.rotorModel + "|" + bone + "|" + spec.rotorTexture;
+mce::Mesh* rotorMesh(Tessellator& tess, fk::KineticSpec const& spec, std::string const& bone, int step = 16) {
+    auto  key = spec.rotorModel + "|" + bone + "|" + spec.rotorTexture + "#" + std::to_string(step);
     auto& c   = cache().rotorMeshes;
     if (auto it = c.find(key); it != c.end()) return it->second.get();
     auto&       slot   = c[key];
@@ -251,7 +297,7 @@ mce::Mesh* rotorMesh(Tessellator& tess, fk::KineticSpec const& spec, std::string
     auto  uv = [&](std::array<float, 2> const& t) { return Vec2{u0 + (u1 - u0) * t[0], v0 + (v1 - v0) * t[1]}; };
     auto  at = [](std::array<float, 3> const& p) { return Vec3{p[0], p[1], p[2]}; };
     tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
-    tess.color(1.f, 1.f, 1.f, 1.f);
+    tess.color(1.f, 1.f, 1.f, stepAlpha(step));
     for (auto const& q : b->second) {
         tess.simpleQuad(at(q.pos[0]), uv(q.uv[0]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[3]), uv(q.uv[3]));
         tess.simpleQuad(at(q.pos[3]), uv(q.uv[3]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[0]), uv(q.uv[0]));
@@ -355,6 +401,39 @@ cp::Vec3f transformPoint(glm::mat4 const& m, cp::Vec3f p) {
 }
 
 } // namespace
+
+mce::Mesh* modelPartMesh(Tessellator& tess, cp::BlockDef const& def, std::vector<std::string> const& hideBones) {
+    auto key = keyOf(def) + "#parts";
+    for (auto const& b : hideBones) key += "-" + b;
+    auto& c = cache().modelMeshes;
+    if (auto it = c.find(key); it != c.end()) return it->second.get();
+    auto quads = modelQuads(def, hideBones);
+    if (!quads) return nullptr;
+    auto& slot = c[key];
+    tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
+    emitQuads(tess, *quads, 1.f);
+    slot = std::make_unique<mce::Mesh>(tess.end(Tessellator::UploadMode::Buffered, "levitate_model_part", SupplementaryFieldAutoGenerationMode::None));
+    return slot.get();
+}
+
+bool appendBlock(Tessellator& tess, cp::BlockDef const& def, Block const& block, float x, float y, float z) {
+    // Levitate blocks: the pack's own geometry
+    if (models().blocks.contains(def.id)) {
+        auto quads = modelQuads(def);
+        if (!quads) return false;
+        emitQuads(tess, *quads, 1.f, Vec3{x, y, z});
+        return true;
+    }
+    // other blocks: the game's block tessellator, moved to the block's place
+    auto* bt = ponderTessellator();
+    if (!bt) return false;
+    tess.resetTransform(true);
+    tess.addTranslation(Vec3{x, y, z});
+    tess.color(1.f, 1.f, 1.f, 1.f);
+    bt->appendTessellatedBlock(tess, block);
+    tess.resetTransform(true);
+    return true;
+}
 
 void resetRenderCache() {
     auto& c = cache();
@@ -468,9 +547,11 @@ DrawResult drawScene(
     auto&                  dispatcher = rc.mBlockEntityRenderDispatcher;
     auto* moving = static_cast<MovingBlockActorRenderer*>(dispatcher.mRenderers->operator[](BlockActorRendererId::MovingBlock).get());
     mce::MaterialPtr const* material = nullptr;
+    mce::MaterialPtr const* blend    = nullptr;
     std::variant<std::monostate, mce::TexturePtr, mce::ClientTexture, mce::ServerTexture> texture;
     if (moving) {
         material = &moving->mBlockMaterials[static_cast<int>(BlockRenderLayer::RenderlayerAlphatest)].get();
+        blend    = &moving->mBlockMaterials[static_cast<int>(BlockRenderLayer::RenderlayerBlend)].get();
         texture  = moving->mAtlasTexture.get();
     }
     auto*     ownTess   = ponderTessellator();
@@ -480,29 +561,75 @@ DrawResult drawScene(
     float     radius    = std::sqrt(static_cast<float>(scene.sizeX * scene.sizeX + scene.sizeZ * scene.sizeZ)) + static_cast<float>(scene.height) + 10.f;
     glm::mat4 camera    = uiCamera(view, radius);
 
+    // the alpha of the block being drawn (1: opaque, alpha-tested layer)
+    int  step     = 16;
     auto drawMesh = [&](mce::Mesh const& mesh, glm::mat4 const& model) {
         auto ref          = worldMat.push(false);
         ref.mat->_m.get() = ref.mat->_m.get() * camera * model;
-        mesh.renderMesh(sc, *material, texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+        if (step >= 16 || !blend) {
+            mesh.renderMesh(sc, *material, texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+            return;
+        }
+        // Create's fading blocks: translucent, the alpha in the vertices (our meshes) and in the
+        // shader colour (the game's tessellations)
+        ShaderColor& shader = sc.currentShaderColor;
+        auto  before      = shader.color.get();
+        shader.color.get() = mce::Color{1.f, 1.f, 1.f, stepAlpha(step)};
+        shader.dirty = true;
+        mesh.renderMesh(sc, *blend, texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+        shader.color.get() = before;
+        shader.dirty = true;
     };
 
+    // fluids of the scene by position: (water?, height) for the corner heights
+    std::map<std::tuple<int, int, int>, std::pair<bool, float>> fluids;
+    for (auto const& b : st.blocks) {
+        bool water = isWater(b.block.id);
+        if (water || isLava(b.block.id)) fluids[{b.pos.x, b.pos.y, b.pos.z}] = {water, fluidLevelHeight(b.block)};
+    }
+    auto cornersOf = [&](cp::BlockView const& b) {
+        FluidCorners out{};
+        bool         water = isWater(b.block.id);
+        auto         same  = [&](int x, int y, int z) -> std::optional<float> {
+            auto it = fluids.find({x, y, z});
+            if (it == fluids.end() || it->second.first != water) return std::nullopt;
+            return it->second.second;
+        };
+        if (same(b.pos.x, b.pos.y + 1, b.pos.z)) return FluidCorners{1.f, 1.f, 1.f, 1.f};
+        static constexpr std::array<std::array<int, 2>, 4> kCorner{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
+        for (std::size_t i = 0; i < 4; ++i) {
+            float sum = 0;
+            int   n   = 0;
+            bool  full = false;
+            for (int dx : {kCorner[i][0] - 1, kCorner[i][0]})
+                for (int dz : {kCorner[i][1] - 1, kCorner[i][1]}) {
+                    int x = b.pos.x + dx, z = b.pos.z + dz;
+                    if (same(x, b.pos.y + 1, z)) full = true;
+                    if (auto h = same(x, b.pos.y, z)) {
+                        // sources weigh ten times (Minecraft's averaging)
+                        int w = *h >= 8.f / 9.f ? 10 : 1;
+                        sum += *h * static_cast<float>(w);
+                        n += w;
+                    }
+                }
+            out[i] = full ? 1.f : (n > 0 ? sum / static_cast<float>(n) : fluidLevelHeight(b.block));
+        }
+        return out;
+    };
+    cp::BlockView const* current = nullptr;
     auto meshOf = [&](cp::BlockDef const& def, Block const& block) -> mce::Mesh* {
-        if (auto* m = modelMesh(tess, def)) return m;
-        if (auto* m = fluidMesh(tess, def.id)) return m;
+        if (auto* m = modelMesh(tess, def, step)) return m;
+        if (current && (isWater(def.id) || isLava(def.id))) return fluidMesh(tess, def.id, step, cornersOf(*current));
         return blockMesh(tess, blockTess, block);
     };
 
     std::vector<k::RotorPart> parts;
     for (auto const& it : items) {
         auto const& b = *it.b;
-        // fading blocks shrink about their centre (the UI pass has no per-mesh alpha for blocks)
-        float     s     = b.alpha >= 1.f ? 1.f : 0.4f + 0.6f * b.alpha;
+        current       = it.b;
+        // fading blocks are drawn translucent (Create's PonderWorld fade)
+        step            = b.alpha >= 1.f ? 16 : alphaStep(b.alpha);
         glm::mat4 model = it.place;
-        if (s < 1.f) {
-            model = glm::translate(model, glm::vec3(0.5f));
-            model = glm::scale(model, glm::vec3(s));
-            model = glm::translate(model, glm::vec3(-0.5f));
-        }
         auto const& info = infoOf(b.block);
         if (!info.block || !material) {
             ++res.missingBlocks;
@@ -525,7 +652,7 @@ DrawResult drawScene(
             parts.clear();
             info.spec->rotorParts(rv, parts);
             for (auto const& part : parts) {
-                auto* mesh = rotorMesh(tess, *info.spec, part.bone);
+                auto* mesh = rotorMesh(tess, *info.spec, part.bone, step);
                 if (!mesh) continue;
                 glm::mat4 m = glm::translate(model, glm::vec3(0.5f));
                 m           = glm::rotate(m, glm::radians(b.angle * part.speedFactor + part.angleOffset), axisVec(part.axis));
