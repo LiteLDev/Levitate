@@ -6,11 +6,23 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 
+#include "ll/api/command/CommandHandle.h"
 #include "ll/api/form/SimpleForm.h"
+#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
+#include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/nbt/CompoundTag.h"
+#include "mc/server/commands/CommandOrigin.h"
+#include "mc/server/commands/CommandOutput.h"
+#include "mc/server/commands/CommandPosition.h"
+#include "mc/world/level/dimension/Dimension.h"
 #include "mc/platform/UUID.h"
+#include "mc/world/PlayerUIContainer.h"
+#include "mc/world/inventory/network/crafting/ItemStackRequestActionCraftHandler.h"
+#include "mc/world/item/ItemInstance.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
@@ -20,6 +32,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "core/equipment/Toolbox.h"
+#include "core/equipment/ToolboxLid.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
@@ -29,7 +42,9 @@
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
 #include "mod/I18n.h"
+#include "mod/Commands.h"
 #include "mod/Log.h"
+#include "mod/Module.h"
 
 namespace lv::feature::equipment {
 
@@ -151,6 +166,108 @@ void unlinkBox(GlobalPos const& box) {
         }
 }
 
+// ---- lid (Create's ToolboxBlockEntity openTracker: the lid is open while anyone has the screen open) ----
+
+/// Block state of the lid: 0 closed, 1 open (vanilla clients see the open model), 2 the body only
+/// (meshed by the client mod, which draws lid and drawers animated; never set in the world).
+constexpr char kLid[] = "levitate:toolbox_lid";
+
+struct Openers {
+    std::set<std::int64_t> players;
+    std::uint64_t          holdUntil = 0; ///< `/create toolbox lid` (debug): open until this tick
+    [[nodiscard]] bool     open(std::uint64_t now) const { return !players.empty() || holdUntil > now; }
+};
+std::map<GlobalPos, Openers>& openers() {
+    static std::map<GlobalPos, Openers> m;
+    return m;
+}
+/// Toolboxes whose lid is closing: the tick of Create's iron door close sound (the lid shut).
+std::map<GlobalPos, std::uint64_t>& closing() {
+    static std::map<GlobalPos, std::uint64_t> m;
+    return m;
+}
+
+void setLid(GlobalPos const& pos, bool open) {
+    if (!isToolbox(idAt(pos)) || stateAt(pos, kLid).value_or(0) == (open ? 1 : 0)) return;
+    place(pos, idAt(pos), {{kFacing, stateAt(pos, kFacing).value_or(0)}, {kLid, open ? 1 : 0}});
+}
+
+void lidOpened(GlobalPos const& pos) {
+    closing().erase(pos);
+    setLid(pos, true);
+    // Create: iron door + chest open sounds when the lid starts to open
+    sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "open.iron_door", .25f, 1.2f + float(random01()) * .1f);
+    sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.chestopen", .1f, 1.1f + float(random01()) * .1f);
+    log().info("equipment: toolbox lid at {} {} {} opened", pos.x, pos.y, pos.z);
+}
+
+void lidClosed(GlobalPos const& pos) {
+    setLid(pos, false);
+    if (!isToolbox(idAt(pos))) return;
+    // Create: the chest close sound as the lid starts to close, the iron door when it is shut (5 ticks)
+    sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.chestclosed", .1f, 1.1f + float(random01()) * .1f);
+    closing()[pos] = currentTick() + 5;
+    log().info("equipment: toolbox lid at {} {} {} closed", pos.x, pos.y, pos.z);
+}
+
+void addOpener(GlobalPos const& pos, std::int64_t uid) {
+    auto& o       = openers()[pos];
+    bool  wasOpen = o.open(currentTick());
+    o.players.insert(uid);
+    if (!wasOpen) lidOpened(pos);
+}
+
+void removeOpener(GlobalPos const& pos, std::int64_t uid) {
+    auto it = openers().find(pos);
+    if (it == openers().end() || !it->second.players.erase(uid)) return;
+    if (it->second.open(currentTick())) return;
+    openers().erase(it);
+    lidClosed(pos);
+}
+
+/// Every 10 ticks: players that left, went away (Create's menu: 8 blocks) or toolboxes that are gone.
+void pruneOpeners() {
+    auto now = currentTick();
+    for (auto it = openers().begin(); it != openers().end();) {
+        auto const& pos = it->first;
+        auto&       o   = it->second;
+        if (!isToolbox(idAt(pos))) {
+            if (blockAt(pos)) { // loaded and gone
+                it = openers().erase(it);
+                continue;
+            }
+            ++it;
+            continue;
+        }
+        for (auto p = o.players.begin(); p != o.players.end();) {
+            auto* player = playerById(*p);
+            bool  near   = false;
+            if (player && static_cast<int>(player->getDimensionId()) == pos.dim) {
+                auto const& v  = player->getPosition();
+                double      dx = v.x - (pos.x + .5), dy = v.y - (pos.y + .5), dz = v.z - (pos.z + .5);
+                near           = dx * dx + dy * dy + dz * dz <= 64.0;
+            }
+            p = near ? std::next(p) : o.players.erase(p);
+        }
+        if (!o.open(now)) {
+            GlobalPos p = pos;
+            it          = openers().erase(it);
+            lidClosed(p);
+            continue;
+        }
+        ++it;
+    }
+    for (auto it = closing().begin(); it != closing().end();) {
+        if (it->second > now) {
+            ++it;
+            continue;
+        }
+        auto const& p = it->first;
+        if (isToolbox(idAt(p))) sound(p.dim, p.x + .5, p.y + .5, p.z + .5, "close.iron_door", .25f, 1.2f + float(random01()) * .1f);
+        it = closing().erase(it);
+    }
+}
+
 // ---- screen ----------------------------------------------------------------------------------------
 
 Json screenData(Player& player, GlobalPos const& pos) {
@@ -234,6 +351,9 @@ void registerScreen() {
         .form = [](Player& p, Json const& ctx) {
             if (auto pos = posFrom(ctx)) openForm(p, *pos);
         },
+        .closed = [](Player& p, Json const& ctx) {
+            if (auto pos = posFrom(ctx)) removeOpener(*pos, uidOf(p));
+        },
     });
 }
 
@@ -249,18 +369,19 @@ void openForm(Player& player, GlobalPos const& pos) {
         else if (!inv.filters[static_cast<std::size_t>(c)].empty())
             text = items::displayName(toItem(inv.filters[static_cast<std::size_t>(c)])) + " x0";
         else text = trFor(player, "lv.equipment.toolbox.empty", "Empty compartment");
-        form.appendButton(text, [pos, c](Player& p) {
-            if (!canUse(p, pos)) return;
-            takeFrom(p, pos, c, false);
-            openForm(p, pos);
-        });
+        form.appendButton(text);
     }
-    form.appendButton(trFor(player, "lv.equipment.toolbox.put_held", "Put the held item in"), [pos](Player& p) {
-        if (!canUse(p, pos)) return;
-        putFrom(p, pos, p.getSelectedItemSlot());
+    form.appendButton(trFor(player, "lv.equipment.toolbox.put_held", "Put the held item in"));
+    // one callback for the buttons and closing the form (the lid closes with it)
+    form.sendTo(player, [pos](Player& p, int index, ll::form::FormCancelReason reason) {
+        if (reason || index < 0 || !canUse(p, pos)) {
+            removeOpener(pos, uidOf(p));
+            return;
+        }
+        if (index < ce::kCompartments) takeFrom(p, pos, index, false);
+        else putFrom(p, pos, p.getSelectedItemSlot());
         openForm(p, pos);
     });
-    form.sendTo(player);
 }
 
 // ---- radial menu protocol ---------------------------------------------------------------------------
@@ -419,9 +540,8 @@ std::vector<GlobalPos> nearbyToolboxes(Player& player) {
 void openToolbox(Player& player, GlobalPos const& pos) {
     if (screenDebounced(player)) return;
     if (!common::screens::open(player, kScreen, {{"pos", {pos.dim, pos.x, pos.y, pos.z}}})) return;
-    // Create: iron door + chest open sounds
-    sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "open.iron_door", .25f, 1.2f + float(random01()) * .1f);
-    sound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.chestopen", .1f, 1.1f + float(random01()) * .1f);
+    // the lid opens (with Create's sounds) while anyone has the screen open
+    addOpener(pos, uidOf(player));
     log().info("equipment: toolbox at {} {} {} opened by {}", pos.x, pos.y, pos.z, player.getRealName());
 }
 
@@ -433,8 +553,9 @@ bool useToolbox(Player& player, ItemStack& held, GlobalPos const& pos) {
         std::string colour = hid.substr(10, hid.size() - 10 - 4);
         if (std::find(kColours.begin(), kColours.end(), colour) != kColours.end() && toolboxId(colour) != id) {
             int  facing = stateAt(pos, kFacing).value_or(0);
+            int  lid    = stateAt(pos, kLid).value_or(0) == 1 ? 1 : 0;
             auto doc    = bd::take(pos);
-            if (place(pos, toolboxId(colour), {{kFacing, facing}})) {
+            if (place(pos, toolboxId(colour), {{kFacing, facing}, {kLid, lid}})) {
                 if (doc) bd::put(pos, *doc);
                 // links keep pointing at the same position
                 log().info("equipment: toolbox at {} {} {} dyed {} by {}", pos.x, pos.y, pos.z, colour, player.getRealName());
@@ -470,7 +591,9 @@ void toolboxPlaced(Player& player, GlobalPos const& pos, Json const& itemData) {
     ce::ToolboxInv inv;
     if (itemData.is_object() && itemData.contains("inv")) inv = ce::ToolboxInv::fromJson(itemData["inv"]);
     store(pos, inv);
-    log().info("equipment: toolbox placed at {} {} {} by {}", pos.x, pos.y, pos.z, player.getRealName());
+    int count = 0;
+    for (int c = 0; c < ce::kCompartments; ++c) count += inv.count(c);
+    log().info("equipment: toolbox placed at {} {} {} by {} ({} items)", pos.x, pos.y, pos.z, player.getRealName(), count);
 }
 
 // ---- equipping ------------------------------------------------------------------------------------------
@@ -665,11 +788,38 @@ void tickToolboxes() {
         if (tick % 20 == 0) sendLinked(*player);
     }
     if (tick % 600 == 0) saveLinks();
+    if (!openers().empty() || !closing().empty()) {
+        if (tick % 10 == 0 || !closing().empty()) pruneOpeners();
+    }
+}
+
+void toolboxScreenClosed(Player& player, GlobalPos const& pos) { removeOpener(pos, uidOf(player)); }
+
+int toolboxOpenCount(GlobalPos const& pos) {
+    auto it = openers().find(pos);
+    return it == openers().end() ? 0 : static_cast<int>(it->second.players.size());
+}
+
+bool holdToolboxOpen(GlobalPos const& pos, int ticks) {
+    if (!isToolbox(idAt(pos))) return false;
+    auto& o       = openers()[pos];
+    bool  wasOpen = o.open(currentTick());
+    o.holdUntil   = currentTick() + static_cast<std::uint64_t>(std::max(ticks, 0));
+    if (!wasOpen && ticks > 0) lidOpened(pos);
+    if (ticks <= 0) {
+        if (o.players.empty()) {
+            openers().erase(pos);
+            if (wasOpen) lidClosed(pos);
+        }
+    }
+    return true;
 }
 
 void resetToolboxes() {
     links().clear();
     pickedUp().clear();
+    openers().clear();
+    closing().clear();
     gLinksDirty = false;
 }
 
@@ -704,4 +854,104 @@ void noteToolboxBreak(GlobalPos const& p) {
     if (!docOf(p)) store(p, ce::ToolboxInv{});
 }
 
+// ---- dyeing in the crafting grid (Create's ToolboxDyeingRecipe keeps the toolbox's data) ----------------
+
+namespace {
+
+/// The crafting grid slots of the player's UI container (3x3 crafting table, else the 2x2 grid).
+std::vector<ItemStack const*> craftingGrid(Player& player, bool table) {
+    std::vector<ItemStack const*> grid;
+    auto&                         ui = player.mPlayerUIContainer.get();
+    int                           from = table ? 32 : 28, to = table ? 40 : 31;
+    for (int i = from; i <= to; ++i) grid.push_back(&ui.getItem(i));
+    return grid;
+}
+
+/// The toolbox of a dyeing craft in the player's grid (nullptr: not a dyeing craft).
+ItemStack const* dyedToolboxSource(Player& player) {
+    for (bool table : {true, false}) {
+        auto                     grid = craftingGrid(player, table);
+        std::vector<std::string> ids;
+        for (auto const* s : grid) ids.push_back(items::isEmpty(*s) ? std::string() : items::idOf(*s));
+        if (auto slot = ce::dyeingToolboxSlot(ids)) return grid[static_cast<std::size_t>(*slot)];
+    }
+    return nullptr;
+}
+
+} // namespace
+
+bool keepDyedToolboxData(Player& player, ItemStackBase& result) {
+    if (result.isNull() || !isToolbox(result.getTypeName())) return false;
+    auto const* source = dyedToolboxSource(player);
+    if (!source || !source->mUserData) return false;
+    // the result keeps the toolbox's data: its contents and any custom name
+    result.setUserData(source->mUserData->clone());
+    return true;
+}
+
+// The crafting results of an item stack request (the server's authoritative craft, also for
+// shift-crafting): a dyed toolbox gets the data of the toolbox in the grid.
+LL_TYPE_INSTANCE_HOOK(
+    ToolboxDyeingCraftHook,
+    ll::memory::HookPriority::Normal,
+    ItemStackRequestActionCraftHandler,
+    &ItemStackRequestActionCraftHandler::_initCraftResults,
+    ItemStackNetResult,
+    std::vector<ItemInstance> const& results,
+    uchar                            numCrafts
+) {
+    try {
+        Player& player = mPlayer;
+        auto    any    = std::any_of(results.begin(), results.end(), [](ItemInstance const& r) { return !r.isNull() && isToolbox(r.getTypeName()); });
+        if (!player.isClientSide() && any) {
+            auto copy = results;
+            bool dyed = false;
+            for (auto& r : copy) dyed = keepDyedToolboxData(player, r) || dyed;
+            if (dyed) {
+                log().info("equipment: {} dyed a toolbox into {} in the crafting grid (contents kept)", player.getRealName(), copy.front().getTypeName());
+                // the client predicted the result without the data: send the inventory again afterwards
+                auto uid = uidOf(player);
+                defer([uid] {
+                    if (auto* p = playerById(uid)) p->sendInventory(false);
+                });
+                return origin(copy, numCrafts);
+            }
+        }
+    } catch (std::exception const& e) {
+        log().error("equipment: toolbox dyeing failed: {}", e.what());
+    }
+    return origin(results, numCrafts);
+}
+
+// `/create toolbox lid <pos> <ticks>` (Levitate debug, op): holds a toolbox's lid open as if a player
+// had its screen open (e2e scenarios photograph the open lid; 0 releases it).
+struct ToolboxLidParams {
+    CommandPosition pos;
+    int             ticks = 0;
+};
+
+LV_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
+    cmd.overload<ToolboxLidParams>().text("toolbox").text("lid").required("pos").required("ticks").execute(
+        [](CommandOrigin const& origin, CommandOutput& output, ToolboxLidParams const& params) {
+            if (!commands::isAdmin(origin)) return output.error(tr("lv.contraption.need_op", "You need operator permission."));
+            auto* dim = origin.getDimension();
+            if (!dim) return output.error("No dimension.");
+            auto      bp = game::blockPosOf(params.pos.getPosition(0x7FFFFFFF, origin, Vec3{0, 0, 0}));
+            GlobalPos pos{static_cast<int>(dim->getDimensionId()), bp.x, bp.y, bp.z};
+            if (!holdToolboxOpen(pos, params.ticks)) return output.error("not a toolbox: " + idAt(pos));
+            output.success("toolbox lid held open for " + std::to_string(params.ticks) + " ticks");
+        }
+    );
+});
+
+namespace {
+class ToolboxHooksModule {
+public:
+    void install() { ToolboxDyeingCraftHook::hook(); }
+    void uninstall() { ToolboxDyeingCraftHook::unhook(); }
+};
+} // namespace
+
 } // namespace lv::feature::equipment
+
+LV_REGISTER_MODULE(lv::feature::equipment::ToolboxHooksModule);

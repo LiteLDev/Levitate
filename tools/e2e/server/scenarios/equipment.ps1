@@ -15,7 +15,7 @@ Wait-LogLine 'equipment: potato projectiles collided \((potato and carrot|carrot
 Wait-LogLine 'equipment: a potato cannon cured the zombie villager at ' 10 | Out-Null
 Wait-LogLine 'equipment: .* placed a symmetry mirror|equipment: .* used the worldshaper \(Cuboid / Fill\)' 10 | Out-Null
 Wait-LogLine 'equipment: toolbox at .* dyed lime by ' 10 | Out-Null
-Wait-LogLine 'equipment: .* used tree fertilizer on minecraft:oak_sapling at .* \(grew\)' 10 | Out-Null
+Wait-LogLine 'equipment: .* used tree fertilizer on minecraft:oak_sapling at .* \(grew: dream world ' 10 | Out-Null
 
 # a toolbox, a backtank on a turning shaft and a lectern controller from the console
 Send-Console 'tickingarea add 0 -64 0 15 0 15 lv_equipment'

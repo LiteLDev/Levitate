@@ -48,13 +48,19 @@ $brass = @{ b = '#d9a548'; h = '#f2d27a'; g = '#a8742c'; k = '#2b2119' }
 foreach ($name in $dyes.Keys) {
     $dye = $dyes[$name]
     $pal = Merge-Pal $brass @{ x = (Hex $dye); y = (Hex (Shade-Color $dye 1.25)); z = (Hex (Shade-Color $dye 0.7)); o = (Hex (Shade-Color $dye 0.5)) }
-    # block texture (64x64, box UV of geometry.levitate.toolbox)
+    # block texture (64x64, box UV of geometry.levitate.toolbox*, tools/models/equipment.ps1)
     $c = New-Canvas 64 64
-    Paint-Cube $c 0 0 14 8 8 'x' 'o'
-    Side-Band $c 0 0 14 8 8 1 'b'; Side-Band $c 0 0 14 8 8 6 'z'
-    Paint-Cube $c 0 16 14 2 8 'y' 'o'
-    Side-Band $c 0 16 14 2 8 1 'g'
-    Paint-Cube $c 0 28 1 2 2 'g' 'k'; Paint-Cube $c 8 28 1 2 2 'g' 'k'; Paint-Cube $c 16 28 6 1 2 'b' 'g'; Paint-Cube $c 36 28 2 3 1 'h' 'g'
+    Paint-Cube $c 0 0 14 4 8 'x' 'o'                                      # base
+    Side-Band $c 0 0 14 4 8 2 'z'
+    Paint-Cube $c 0 12 1 4 8 'x' 'o'; Paint-Cube $c 18 12 1 4 8 'x' 'o'   # side walls
+    Paint-Cube $c 36 12 12 4 1 'z' 'o'                                    # back wall (inside)
+    Paint-Cube $c 0 24 12 2 7 'y' 'o'                                     # drawer: front / sides
+    Fill $c 7 24 18 30 'z'; Frame $c 7 24 18 30 'o'                       # drawer: the tray seen from above
+    Paint-Cube $c 38 24 4 1 1 'h' 'g'                                     # drawer knob
+    Paint-Cube $c 0 34 14 2 8 'y' 'o'                                     # lid
+    Side-Band $c 0 34 14 2 8 1 'g'
+    Paint-Cube $c 0 46 1 2 2 'g' 'k'; Paint-Cube $c 8 46 1 2 2 'g' 'k'; Paint-Cube $c 16 46 6 1 2 'b' 'g'  # handle
+    Paint-Cube $c 36 46 2 2 1 'h' 'g'                                     # latch
     Save $c $pal "$blocks/${name}_toolbox.png"
     # item icon
     $c = New-Canvas
