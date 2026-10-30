@@ -38,13 +38,17 @@ struct Catalog {
         add("horizontal_framed_glass", Kind::CtGlass, Ct::Horizontal);
         add("vertical_framed_glass", Kind::CtGlass, Ct::Vertical);
         add("tiled_glass", Kind::TiledGlass);
-        for (auto const* g : {"framed_glass", "horizontal_framed_glass", "vertical_framed_glass", "tiled_glass"})
-            add(std::string(g) + "_pane", Kind::Pane);
+        // panes use their full block's sheet (Create's GlassPaneCTBehaviour; tiled glass has none)
+        add("framed_glass_pane", Kind::Pane, Ct::Omni);
+        add("horizontal_framed_glass_pane", Kind::Pane, Ct::Horizontal);
+        add("vertical_framed_glass_pane", Kind::Pane, Ct::Vertical);
+        add("tiled_glass_pane", Kind::Pane);
         std::vector<std::string> windows(kWoods.begin(), kWoods.end());
         for (auto const* w : {"ornate_iron", "industrial_iron", "weathered_iron"}) windows.emplace_back(w);
         for (auto const& w : windows) {
-            add(w + "_window", Kind::Window, Ct::Vertical);
-            add(w + "_window_pane", Kind::Pane);
+            Ct ct = (w == "industrial_iron" || w == "weathered_iron") ? Ct::Rect : Ct::Vertical;
+            add(w + "_window", Kind::Window, ct);
+            add(w + "_window_pane", Kind::Pane, ct);
         }
         for (auto const* m : kMetals) {
             add(std::string(m) + "_bars", Kind::Bars);
@@ -117,6 +121,22 @@ std::string copperId(std::string const& shape, int age, bool waxed) {
 
 GlobalPos offset(GlobalPos const& p, int dir, int n) {
     return {p.dim, p.x + kDx[dir] * n, p.y + kDy[dir] * n, p.z + kDz[dir] * n};
+}
+
+int rotateDir(int dir, int axis, int quarters) {
+    if (dir < 0 || dir > 5) return dir;
+    int q = ((quarters % 4) + 4) % 4;
+    int v[3]{kDx[dir], kDy[dir], kDz[dir]};
+    for (int i = 0; i < q; ++i) {
+        // +90 degrees about the axis (right-hand rule): x: y -> z, y: z -> x, z: x -> y
+        int x = v[0], y = v[1], z = v[2];
+        if (axis == 0) v[1] = -z, v[2] = y;
+        else if (axis == 1) v[2] = -x, v[0] = z;
+        else v[0] = -y, v[1] = x;
+    }
+    for (int d = 0; d < 6; ++d)
+        if (kDx[d] == v[0] && kDy[d] == v[1] && kDz[d] == v[2]) return d;
+    return dir;
 }
 
 int stateOf(Block const& block, std::string_view name, int fallback) {

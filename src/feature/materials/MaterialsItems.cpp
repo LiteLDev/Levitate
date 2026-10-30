@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <random>
 #include <string>
 
@@ -12,6 +13,10 @@
 #include "mc/common/Brightness.h"
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/item/ItemActor.h"
+#include "mc/deps/core/string/HashedString.h"
+#include "mc/deps/nbt/CompoundTag.h"
+#include "mc/deps/nbt/StringTag.h"
+#include "mc/world/item/Item.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -26,6 +31,7 @@
 #include "mc/deps/vanilla_components/StateVectorComponent.h"
 #include "mc/world/actor/BuiltInActorComponents.h"
 
+#include "feature/belts/BeltApi.h"
 #include "feature/common/Items.h"
 #include "feature/materials/Materials.h"
 #include "game/Blocks.h"
@@ -33,6 +39,9 @@
 #include "mod/Log.h"
 
 namespace lv::feature::materials {
+
+namespace belts = feature::belts;
+using core::GlobalPos;
 
 namespace {
 
@@ -105,31 +114,80 @@ bool overActiveBeacon(ItemActor& a) {
     return false;
 }
 
-/// ChromaticCompoundItem.checkLight: absorbs a placed light source in line of sight.
-bool tryAbsorbLight(ItemActor& a, ItemStack& stack, BlockPos const& target) {
-    auto&        region = a.getDimensionBlockSource();
-    Block const& b      = region.getBlock(target);
+/// ChromaticCompoundItem.checkLight, the block part: a light source that is neither unbreakable
+/// nor a beacon.
+bool absorbable(Block const& b) {
     if (b.isAir() || b.getTypeName() == "minecraft:beacon") return false;
     if (b.getBlockType().getLightEmission(b).mValue == 0) return false;
-    if (b.getBlockType().getDestroySpeed() < 0) return false;
-    Vec3 from = a.getPosition() + Vec3{0, 0.5f, 0};
-    Vec3 to{target.x + 0.5f, target.y + 0.5f, target.z + 0.5f};
-    HitResult hit = region.clip(from, to, false, ShapeType::Outline, 200, false, false, nullptr, {}, false);
-    if (!(hit.mType == HitResultType::Tile && hit.mBlock == target)) return false;
+    return b.getBlockType().getDestroySpeed() >= 0;
+}
 
+/// ChromaticCompoundItem.checkLight, the sight part: the ray from the item hits `target`.
+bool inSight(ItemActor& a, BlockPos const& target) {
+    auto&     region = a.getDimensionBlockSource();
+    Vec3      from   = a.getPosition() + Vec3{0, 0.5f, 0};
+    Vec3      to{target.x + 0.5f, target.y + 0.5f, target.z + 0.5f};
+    // (the game calls the block filter unconditionally: an empty one throws)
+    static std::function<bool(BlockSource const&, Block const&, bool)> const everyBlock = [](BlockSource const&, Block const&, bool) { return true; };
+    HitResult hit = region.clip(from, to, false, ShapeType::Outline, 200, false, false, nullptr, everyBlock, false);
+    return hit.mType == HitResultType::Tile && hit.mBlock == target;
+}
+
+/// One charge more on one item of the stack (split off as its own entity).
+bool charge(ItemActor& a, ItemStack const& stack) {
     ItemStack charged = stack;
     charged.set(1);
     setChromaticLight(charged, chromaticLight(stack) + 1);
     if (!spawnLike(a, charged)) return false;
     ItemStack rest = stack;
     rest.set(stack.mCount - 1);
-    game::clearBlock(region, target);
     replaceStack(a, rest.mCount > 0 ? rest : ItemStack{});
-    lv::log().info("materials: chromatic compound absorbed {} ({} light)", b.getTypeName(), chromaticLight(charged));
+    return true;
+}
+
+/// ChromaticCompoundItem.checkLight: absorbs a placed light source in line of sight.
+bool tryAbsorbLight(ItemActor& a, ItemStack& stack, BlockPos const& target) {
+    auto&        region = a.getDimensionBlockSource();
+    Block const& b      = region.getBlock(target);
+    if (!absorbable(b) || !inSight(a, target)) return false;
+    std::string id = b.getTypeName();
+    int         light = chromaticLight(stack) + 1;
+    if (!charge(a, stack)) return false;
+    game::clearBlock(region, target);
+    lv::log().info("materials: chromatic compound absorbed {} ({} light)", id, light);
+    return true;
+}
+
+/// Create: a belt / depot (TransportedItemStackHandlerBehaviour) at the target gives up one item
+/// of the first carried stack whose block emits light.
+bool tryAbsorbFromBelt(ItemActor& a, ItemStack& stack, BlockPos const& target) {
+    int       dim = static_cast<int>(a.getDimensionId());
+    GlobalPos at{dim, target.x, target.y, target.z};
+    if (!belts::isTransporter(at)) return false;
+    std::string eaten;
+    belts::handleProcessingOnAllItems(at, [&](belts::TransportedItem& t) {
+        if (!eaten.empty() || t.stack.isNull()) return belts::TransportedResult::doNothing();
+        Block const* block = t.stack.mBlock;
+        if (!block || !absorbable(*block) || !inSight(a, target)) return belts::TransportedResult::doNothing();
+        eaten = t.stack.getTypeName();
+        if (t.stack.mCount <= 1) return belts::TransportedResult::removeItem();
+        ItemStack rest = t.stack;
+        rest.set(t.stack.mCount - 1);
+        return belts::TransportedResult::convertTo({rest});
+    });
+    if (eaten.empty()) return false;
+    int light = chromaticLight(stack) + 1;
+    charge(a, stack);
+    lv::log().info("materials: chromatic compound absorbed {} from a belt ({} light)", eaten, light);
     return true;
 }
 
 } // namespace
+
+bool absorbFromTransporter(Actor& itemActor, BlockPos const& target) {
+    auto& a = static_cast<ItemActor&>(itemActor);
+    return tryAbsorbFromBelt(a, *a.mItem, target);
+}
 
 int chromaticLight(ItemStack const& stack) {
     auto d = common::items::getData(stack, "lv:chromatic_compound");
@@ -198,6 +256,7 @@ void tickMagicalItem(Actor& actor) {
     Vec3     o = offsetRandomly(pos, 3);
     BlockPos target{static_cast<int>(std::floor(o.x)), static_cast<int>(std::floor(o.y)), static_cast<int>(std::floor(o.z))};
     if (!region.hasChunksAt(target, 0, false)) return;
+    if (tryAbsorbFromBelt(a, stack, target)) return;
     tryAbsorbLight(a, stack, target);
 }
 
@@ -230,7 +289,34 @@ LL_TYPE_INSTANCE_HOOK(MaterialsItemTickHook, ll::memory::HookPriority::Normal, I
 
 void resetItemCache() { chromaticId = shadowId = radianceId = 0; }
 
-void installMagicalItemHook() { MaterialsItemTickHook::hook(); }
-void uninstallMagicalItemHook() { MaterialsItemTickHook::unhook(); }
+bool isChromatic(Item const* item) {
+    static std::string const name = kChromatic;
+    return item && item->mFullName->getString() == name;
+}
+
+int maxStackSize(ItemStackBase const& stack, int vanilla) {
+    // Create's ChromaticCompoundItem.getMaxStackSize: 1 while the charge bar shows
+    if (!isChromatic(stack.mItem.get())) return vanilla;
+    auto const* tag = stack.mUserData.get();
+    // the item data of common::items::setData(stack, "lv:chromatic_compound", ...)
+    static std::string const key = "lv:lv:chromatic_compound";
+    if (!tag || !tag->contains(key, Tag::Type::String)) return vanilla;
+    auto j = nlohmann::json::parse(std::string((*tag)[key].get<StringTag>()), nullptr, false);
+    return j.is_object() && j.value("light", 0) > 0 ? 1 : vanilla;
+}
+
+LL_TYPE_INSTANCE_HOOK(MaterialsMaxStackHook, ll::memory::HookPriority::Normal, ItemStackBase, &ItemStackBase::getMaxStackSize, uchar) {
+    uchar vanilla = origin();
+    return static_cast<uchar>(maxStackSize(*this, vanilla));
+}
+
+void installMagicalItemHook() {
+    MaterialsItemTickHook::hook();
+    MaterialsMaxStackHook::hook();
+}
+void uninstallMagicalItemHook() {
+    MaterialsMaxStackHook::unhook();
+    MaterialsItemTickHook::unhook();
+}
 
 } // namespace lv::feature::materials

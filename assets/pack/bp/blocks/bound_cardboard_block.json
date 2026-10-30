@@ -23,6 +23,7 @@
       },
       "minecraft:map_color": "#664c33",
       "minecraft:loot": "loot_tables/blocks/bound_cardboard_block.json",
+      "tag:minecraft:is_axe_item_destructible": {},
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
         "*": {

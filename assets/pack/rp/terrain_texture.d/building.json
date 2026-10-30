@@ -335,9 +335,6 @@
   "levitate_framed_glass_15": {
     "textures": "textures/blocks/building/framed_glass_15"
   },
-  "levitate_horizontal_framed_glass_end": {
-    "textures": "textures/blocks/building/horizontal_framed_glass_end"
-  },
   "levitate_horizontal_framed_glass_0": {
     "textures": "textures/blocks/building/horizontal_framed_glass_0"
   },
@@ -563,6 +560,42 @@
   "levitate_industrial_iron_window_5": {
     "textures": "textures/blocks/building/industrial_iron_window_5"
   },
+  "levitate_industrial_iron_window_2": {
+    "textures": "textures/blocks/building/industrial_iron_window_2"
+  },
+  "levitate_industrial_iron_window_8": {
+    "textures": "textures/blocks/building/industrial_iron_window_8"
+  },
+  "levitate_industrial_iron_window_6": {
+    "textures": "textures/blocks/building/industrial_iron_window_6"
+  },
+  "levitate_industrial_iron_window_12": {
+    "textures": "textures/blocks/building/industrial_iron_window_12"
+  },
+  "levitate_industrial_iron_window_3": {
+    "textures": "textures/blocks/building/industrial_iron_window_3"
+  },
+  "levitate_industrial_iron_window_9": {
+    "textures": "textures/blocks/building/industrial_iron_window_9"
+  },
+  "levitate_industrial_iron_window_7": {
+    "textures": "textures/blocks/building/industrial_iron_window_7"
+  },
+  "levitate_industrial_iron_window_13": {
+    "textures": "textures/blocks/building/industrial_iron_window_13"
+  },
+  "levitate_industrial_iron_window_10": {
+    "textures": "textures/blocks/building/industrial_iron_window_10"
+  },
+  "levitate_industrial_iron_window_14": {
+    "textures": "textures/blocks/building/industrial_iron_window_14"
+  },
+  "levitate_industrial_iron_window_11": {
+    "textures": "textures/blocks/building/industrial_iron_window_11"
+  },
+  "levitate_industrial_iron_window_15": {
+    "textures": "textures/blocks/building/industrial_iron_window_15"
+  },
   "levitate_weathered_iron_window_end": {
     "textures": "textures/blocks/building/weathered_iron_window_end"
   },
@@ -577,6 +610,42 @@
   },
   "levitate_weathered_iron_window_5": {
     "textures": "textures/blocks/building/weathered_iron_window_5"
+  },
+  "levitate_weathered_iron_window_2": {
+    "textures": "textures/blocks/building/weathered_iron_window_2"
+  },
+  "levitate_weathered_iron_window_8": {
+    "textures": "textures/blocks/building/weathered_iron_window_8"
+  },
+  "levitate_weathered_iron_window_6": {
+    "textures": "textures/blocks/building/weathered_iron_window_6"
+  },
+  "levitate_weathered_iron_window_12": {
+    "textures": "textures/blocks/building/weathered_iron_window_12"
+  },
+  "levitate_weathered_iron_window_3": {
+    "textures": "textures/blocks/building/weathered_iron_window_3"
+  },
+  "levitate_weathered_iron_window_9": {
+    "textures": "textures/blocks/building/weathered_iron_window_9"
+  },
+  "levitate_weathered_iron_window_7": {
+    "textures": "textures/blocks/building/weathered_iron_window_7"
+  },
+  "levitate_weathered_iron_window_13": {
+    "textures": "textures/blocks/building/weathered_iron_window_13"
+  },
+  "levitate_weathered_iron_window_10": {
+    "textures": "textures/blocks/building/weathered_iron_window_10"
+  },
+  "levitate_weathered_iron_window_14": {
+    "textures": "textures/blocks/building/weathered_iron_window_14"
+  },
+  "levitate_weathered_iron_window_11": {
+    "textures": "textures/blocks/building/weathered_iron_window_11"
+  },
+  "levitate_weathered_iron_window_15": {
+    "textures": "textures/blocks/building/weathered_iron_window_15"
   },
   "levitate_framed_glass_pane": {
     "textures": "textures/blocks/building/framed_glass_pane"
@@ -713,8 +782,14 @@
   "levitate_metal_bracket": {
     "textures": "textures/blocks/building/metal_bracket"
   },
+  "levitate_metal_bracket_ring": {
+    "textures": "textures/blocks/building/metal_bracket_ring"
+  },
   "levitate_wooden_bracket": {
     "textures": "textures/blocks/building/wooden_bracket"
+  },
+  "levitate_wooden_bracket_ring": {
+    "textures": "textures/blocks/building/wooden_bracket_ring"
   },
   "levitate_white_table_cloth": {
     "textures": "textures/blocks/building/white_table_cloth"

@@ -87,6 +87,7 @@
       },
       "minecraft:map_color": "#664c33",
       "minecraft:loot": "loot_tables/blocks/cut_scoria_brick_stairs.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
       "minecraft:geometry": "geometry.levitate.materials_stairs",
       "minecraft:material_instances": {
         "*": {

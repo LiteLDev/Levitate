@@ -22,6 +22,14 @@
         "levitate:east": [
           0,
           1
+        ],
+        "levitate:c_down": [
+          0,
+          1
+        ],
+        "levitate:c_up": [
+          0,
+          1
         ]
       }
     },
@@ -78,8 +86,319 @@
     },
     "permutations": [
       {
-        "condition": "q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1",
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && !(q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1)",
         "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_bamboo_window_0",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_bamboo_window_0",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_bamboo_window_0",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_bamboo_window_0",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_bamboo_window_0",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 0 && (q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1)",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_bamboo_window_0",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_bamboo_window_0",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_bamboo_window_0",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_bamboo_window_0",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_bamboo_window_0",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && !(q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1)",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_bamboo_window_4",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_bamboo_window_4",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_bamboo_window_4",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_bamboo_window_4",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_bamboo_window_4",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 0 && (q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1)",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_bamboo_window_4",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_bamboo_window_4",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_bamboo_window_4",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_bamboo_window_4",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_bamboo_window_4",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && !(q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1)",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_bamboo_window_1",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_bamboo_window_1",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_bamboo_window_1",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_bamboo_window_1",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_bamboo_window_1",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 0 && q.block_state('levitate:c_up') == 1 && (q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1)",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_bamboo_window_1",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_bamboo_window_1",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_bamboo_window_1",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_bamboo_window_1",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_bamboo_window_1",
+              "render_method": "alpha_test"
+            }
+          },
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && !(q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1)",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_bamboo_window_5",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_bamboo_window_5",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_bamboo_window_5",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_bamboo_window_5",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_bamboo_window_5",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:c_down') == 1 && q.block_state('levitate:c_up') == 1 && (q.block_state('levitate:north') == 1 || q.block_state('levitate:south') == 1 || q.block_state('levitate:west') == 1 || q.block_state('levitate:east') == 1)",
+        "components": {
+          "minecraft:material_instances": {
+            "north": {
+              "texture": "levitate_bamboo_window_5",
+              "render_method": "alpha_test"
+            },
+            "south": {
+              "texture": "levitate_bamboo_window_5",
+              "render_method": "alpha_test"
+            },
+            "east": {
+              "texture": "levitate_bamboo_window_5",
+              "render_method": "alpha_test"
+            },
+            "west": {
+              "texture": "levitate_bamboo_window_5",
+              "render_method": "alpha_test"
+            },
+            "up": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "down": {
+              "texture": "levitate_bamboo_window_pane",
+              "render_method": "alpha_test"
+            },
+            "*": {
+              "texture": "levitate_bamboo_window_5",
+              "render_method": "alpha_test"
+            }
+          },
           "minecraft:selection_box": {
             "origin": [
               -8,

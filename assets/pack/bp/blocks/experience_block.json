@@ -17,6 +17,7 @@
       "minecraft:map_color": "#007c00",
       "minecraft:loot": "loot_tables/blocks/experience_block.json",
       "minecraft:light_emission": 15,
+      "tag:minecraft:is_pickaxe_item_destructible": {},
       "minecraft:geometry": "minecraft:geometry.full_block",
       "minecraft:material_instances": {
         "*": {

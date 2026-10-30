@@ -147,7 +147,7 @@ foreach ($w in $woodPal.Keys) {
     $c = $woodPal[$w]
     $pal = @{ F = $c[0]; H = $c[1]; S = $c[2]; d = $c[2]; n = $c[2]; g = '#d6ecf2'; m = $c[0]; q = $c[2] }
     $isIron = $w -like '*iron'
-    foreach ($mask in 0, 1, 4, 5) {
+    foreach ($mask in 0..15) {
         $g = New-Grid
         Ct-Frame $g $mask 2
         # mullions: a cross for wood, a lattice for ornate iron, a grid for industrial windows
@@ -291,6 +291,11 @@ for ($y = 0; $y -lt 16; $y++) { for ($x = 0; $x -lt 16; $x++) { $g[$y][$x] = [ch
 Save $g @{ p = '#9a9d92'; l = '#c0c3b7'; d = '#6c6f66' } 'girder_shaft'
 $g = New-Grid; Rect $g 0 0 15 15 'p'; Ct-Frame $g 0 1 -Bolts; Save $g $steel 'metal_bracket'
 $g = New-Grid; Planks $g 31; Ct-Frame $g 0 1 -Bolts; Save $g @{ F = '#6e5233'; H = '#a37d55'; S = '#4a3420'; n = '#3a2a1a'; p = '#9c7a4f'; l = '#b38f5f'; d = '#6e5233'; k = '#86683f' } 'wooden_bracket'
+# bracket rings (Create's clamp around the shaft): a band with a hole the size of the shaft (6..10)
+foreach ($b in @(@('metal_bracket', $steel), @('wooden_bracket', @{ F = '#6e5233'; H = '#a37d55'; S = '#4a3420'; n = '#3a2a1a'; p = '#9c7a4f'; l = '#b38f5f'; d = '#6e5233'; k = '#86683f' }))) {
+    $g = New-Grid; Rect $g 0 0 15 15 'F'; Rect $g 0 0 15 0 'H'; Rect $g 0 15 15 15 'S'; Rect $g 5 5 10 10 'S'; Rect $g 6 6 9 9 '.'
+    Save $g $b[1] "$($b[0])_ring"
+}
 $brass = @{ F = '#d9a646'; H = '#f4d27c'; S = '#9a6a22'; n = '#7a4f17'; p = '#3b2d22'; l = '#4a3a2c'; d = '#2a2018'; k = '#ffd76a' }
 $g = New-Grid; Rect $g 0 0 15 15 'p'; Ct-Frame $g 0 2 -Bolts; Save $g $brass 'placard'
 $g = New-Grid; Rect $g 0 0 15 15 'p'; Ct-Frame $g 0 2 -Bolts; Rect $g 2 2 13 2 'k'; Rect $g 2 13 13 13 'k'; Rect $g 2 2 2 13 'k'; Rect $g 13 2 13 13 'k'; Save $g $brass 'placard_powered'

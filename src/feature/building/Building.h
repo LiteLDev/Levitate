@@ -20,6 +20,8 @@
 #include <utility>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "core/GlobalPos.h"
 
 class Block;
@@ -81,7 +83,10 @@ enum class Kind : std::uint8_t {
     CopycatPanel,
     CopycatStep,
 };
-enum class Ct : std::uint8_t { None, Omni, Horizontal, Vertical };
+/// Connected textures (Create's CT types): Omni = OMNIDIRECTIONAL (4 edges of every face),
+/// Horizontal / Vertical = the side faces' left-right / top-bottom edges, Rect = RECTANGLE on the
+/// side faces (industrial / weathered iron windows).
+enum class Ct : std::uint8_t { None, Omni, Horizontal, Vertical, Rect };
 
 struct Info {
     std::string id; ///< "levitate:<path>"
@@ -159,6 +164,8 @@ void defer(std::function<void()> fn);
 void markDirty(GlobalPos const& p);
 /// Recomputes the connection-dependent states of the block at `p` now. Returns true if changed.
 bool updateConnections(GlobalPos const& p);
+/// Whether a block / pane of CT type `ct` has the connected-texture state levitate:c_<dir>.
+[[nodiscard]] bool ctUses(Ct ct, int dir);
 
 /// A use of `item` on the block at `pos` (face, hit inside the block 0..1). Returns true when the
 /// unit handled it (block interaction or special item placement): the game must not go on.
@@ -191,6 +198,8 @@ bool useDoor(Player* player, GlobalPos const& pos);
 bool useTrapdoor(Player* player, GlobalPos const& pos);
 void trackRedstone(GlobalPos const& pos);
 void redstoneTick();
+/// Closing doors whose panel is back lose `levitate:closing` (closed collision, sound).
+void doorAnimationTick();
 
 // placard
 bool usePlacard(Player& player, ItemStack const& item, GlobalPos const& pos);
@@ -201,10 +210,32 @@ void ensurePlacardPulse(GlobalPos const& pos);
 [[nodiscard]] std::optional<std::string> placardItem(GlobalPos const& pos);
 
 // copycats and brackets
-bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos);
+/// A use of `item` on the copycat at `pos` from `face`: apply a material, turn it (the same block
+/// again, Create's cycleMaterial) or reset it (wrench).
+bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos, int face);
 bool useBracket(Player& player, ItemStack const& item, GlobalPos const& pos, int face);
+/// Create's IWrenchableWithBracket: takes the bracket off (back to the player unless creative).
+bool removeBracket(Player* player, GlobalPos const& pos);
 [[nodiscard]] std::optional<std::string> copycatMaterial(GlobalPos const& pos);
+/// The copycat's material with its states (nullptr when none is applied).
+[[nodiscard]] Block const* copycatMaterialBlock(GlobalPos const& pos);
 [[nodiscard]] std::optional<std::string> bracketAt(GlobalPos const& pos);
+/// The bracket document {id, facing, axis, cog} (nullptr when none).
+[[nodiscard]] nlohmann::json const* bracketData(GlobalPos const& pos);
+/// `dir` turned by `quarters` quarter turns about `axis` (0 x, 1 y, 2 z; right-hand rule).
+[[nodiscard]] int rotateDir(int dir, int axis, int quarters);
+
+// client sync of copycat materials and brackets (Sync.cpp, channel "building.visuals")
+inline constexpr char kQueryChannel[]   = "building.query";
+inline constexpr char kVisualsChannel[] = "building.visuals";
+/// The client-mod document of the building data at `pos` ({x, y, z, copycat?, bracket?}).
+[[nodiscard]] nlohmann::json visualOf(GlobalPos const& pos);
+/// Sends the current copycat / bracket data of `pos` to the companion players of its dimension.
+void pushVisual(GlobalPos const& pos);
+/// Tells companion players that `pos` lost its data (the block went).
+void pushRemoved(GlobalPos const& pos);
+void installSync();
+void uninstallSync();
 
 // shapes (collision boxes in block pixels, x0 y0 z0 x1 y1 z1)
 using Box = std::array<float, 6>;

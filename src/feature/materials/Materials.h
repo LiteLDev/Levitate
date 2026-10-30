@@ -3,8 +3,10 @@
 // Materials unit (U9): Create's materials, foods, ores, world generation and decorative stone.
 // Internal header of the unit (selftests); other units refer to the items by id only.
 
+#include <array>
 #include <functional>
 #include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -15,6 +17,7 @@ class BlockSource;
 class ItemStack;
 class Player;
 class Actor;
+class Vec3;
 
 namespace lv::feature::materials {
 
@@ -23,7 +26,8 @@ namespace lv::feature::materials {
 enum class Tool { Pickaxe, Axe };
 /// Create's needs_*_tool tags (none: any pickaxe).
 enum class Tier { None, Iron };
-enum class Shape { Cube, Pillar, Haxis, Stairs, Slab, Wall };
+/// Layered / StonePillar: the palette blocks with connected textures (MaterialsConnections.cpp).
+enum class Shape { Cube, Pillar, Haxis, Stairs, Slab, Wall, Layered, StonePillar };
 /// Drop rules beyond "the block itself" (Create's loot tables).
 enum class Drop { Self, ZincOre, BoundCardboard };
 
@@ -38,6 +42,20 @@ struct BlockInfo {
 /// Every block of the unit (Create's ids under levitate:).
 [[nodiscard]] std::vector<BlockInfo> const& allBlocks();
 [[nodiscard]] BlockInfo const*              blockInfo(std::string_view id);
+/// The unit's block of `block`'s type (nullptr: not one of ours, or no world yet). Fast (type table).
+[[nodiscard]] BlockInfo const* blockInfo(Block const& block);
+/// A string / bool state of a block as text ("" when the block has no such state).
+[[nodiscard]] std::string stringState(Block const& block, std::string const& key);
+
+// ---- neighbour-dependent states (MaterialsConnections.cpp) ---------------------------------------
+
+/// Recomputes the neighbour-dependent states of the block at `pos` now (walls: Java WallBlock
+/// side heights and post; layered stone / pillars: connected-texture states). True if it changed.
+bool updateConnections(BlockSource& region, BlockPos const& pos);
+/// Collision boxes of the unit's wall in block pixels (Java WallBlock collision: 24 px high).
+[[nodiscard]] std::vector<std::array<float, 6>> wallCollision(Block const& block);
+void installConnections();
+void uninstallConnections();
 
 // ---- config: config/materials.json (Create's CWorldGen + the CRecipes keys of these items) ------
 
@@ -85,7 +103,19 @@ void applyBuildersTea(Player& player);
 void tickMagicalItem(Actor& itemActor);
 /// Light charge of a chromatic compound stack (Create's CHROMATIC_COMPOUND_COLLECTING_LIGHT).
 [[nodiscard]] int  chromaticLight(ItemStack const& stack);
+/// The chromatic compound item entity takes one light-emitting block item from the belt / depot
+/// at `target` (Create: a TransportedItemStackHandlerBehaviour there). True when it did.
+bool absorbFromTransporter(Actor& itemActor, BlockPos const& target);
 void              setChromaticLight(ItemStack& stack, int light);
+
+// ---- furnace xp and the block of experience (MaterialsFx.cpp) -----------------------------------
+
+/// Create's xp of a smelting / blasting recipe of the unit by its input (nullopt: not Create's).
+[[nodiscard]] std::optional<float> createSmeltingXp(std::string const& inputId);
+using ParticleSink = std::function<void(Vec3 const& pos, Vec3 const& velocity)>;
+/// Java ClientLevel.animateTick around `center` for the block of experience (Create's
+/// ExperienceBlock.animateTick): `emit` gets each end rod particle.
+void animateExperienceBlocks(BlockSource& region, BlockPos const& center, std::mt19937& random, ParticleSink const& emit);
 
 // ---- world generation -------------------------------------------------------------------------
 
