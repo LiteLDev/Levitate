@@ -21,6 +21,7 @@
 #include "core/advancements/Advancements.h"
 #include "feature/advancements/Advancements.h"
 #include "feature/advancements/Internal.h"
+#include "feature/common/BlockData.h"
 #include "feature/common/Screens.h"
 #include "feature/net/Net.h"
 #include "game/WorldDb.h"
@@ -36,6 +37,7 @@ namespace {
 
 constexpr char kPlayerKey[] = "lv:advancements:player:";
 constexpr char kOwnersKey[] = "lv:advancements:owners";
+constexpr char kCarriedKey[] = "advancements"; ///< BlockData key (owner while carried, counters)
 
 struct Progress {
     std::set<std::string> done;
@@ -341,6 +343,14 @@ void awardOwner(GlobalPos const& pos, std::string_view id) {
     }
 }
 
+void awardCarriedOwner(nlohmann::json const& doc, std::string_view id) {
+    auto it = doc.find(kCarriedKey);
+    if (it == doc.end() || !it->is_object()) return;
+    auto o = it->find("owner");
+    if (o == it->end() || !o->is_string()) return;
+    if (auto* p = playerByUuid(o->get<std::string>())) award(*p, id);
+}
+
 void awardOwnerIfNear(GlobalPos const& pos, std::string_view id, int maxDistance) {
     auto* p = ownerPlayer(pos, id);
     if (!p || static_cast<int>(p->getDimensionId()) != pos.dim) return;
@@ -360,6 +370,30 @@ void installProgress() {
     static bool done = false;
     if (done) return;
     done = true;
+    // Create keeps the owner in the block entity's NBT ("Owner"), so it moves with contraptions:
+    // here it rides in the block's BlockData (key "advancements") while the block is carried
+    namespace bd = common::blockdata;
+    bd::onWriteBack([](GlobalPos const* pos) {
+        if (!pos) return;
+        loadOwners();
+        auto it = owners().find(*pos);
+        if (it == owners().end()) return;
+        auto& doc = bd::edit(*pos)[kCarriedKey];
+        if (!doc.is_object()) doc = bd::Json::object();
+        doc["owner"] = it->second;
+        owners().erase(it);
+        gOwnersDirty = true;
+    });
+    bd::onPut([](GlobalPos const& pos, bd::Json const& doc) {
+        auto it = doc.find(kCarriedKey);
+        if (it == doc.end() || !it->is_object() || !it->contains("owner") || !(*it)["owner"].is_string()) return;
+        loadOwners();
+        owners()[pos] = (*it)["owner"].get<std::string>();
+        gOwnersDirty  = true;
+        auto& mine    = bd::edit(pos)[kCarriedKey];
+        mine.erase("owner");
+        if (mine.empty()) bd::edit(pos).erase(kCarriedKey);
+    });
     common::screens::registerType({
         .id     = "advancements.tree",
         .data   = [](Player& p, nlohmann::json const&) -> std::optional<nlohmann::json> { return treeData(p); },

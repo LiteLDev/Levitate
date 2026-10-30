@@ -17,6 +17,7 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/belts/BeltApi.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/FunnelsExt.h"
@@ -188,6 +189,7 @@ void setItem(GlobalPos const& pos, Runtime& r, ItemStack const& stack, float ins
         d["item"] = items::toJson(r.item);
         d["pos"]  = insertionPos;
     }
+    advancements::awardOwner(pos, "chute"); // Create's ChuteBlockEntity#setItem
 }
 
 /// Create's grabCapability: the inventory on a side; chutes don't count (they hand items over

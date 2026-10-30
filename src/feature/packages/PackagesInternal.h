@@ -285,6 +285,8 @@ inline constexpr char const* kPackageEntityId = "levitate:package";
 /// Create's PackageEntity: spawns `box` as an entity at `at` (feet) with `motion` (blocks per tick).
 /// Returns its unique id (0 when it could not spawn). The box is kept in the world DB under its id.
 std::int64_t spawnPackageEntity(int dim, cp::V3 at, ItemStack const& box, cp::V3 motion = {});
+/// Create's PackageEntity#tossedBy: the player who threw the package entity `id` (advancements).
+void setTossedBy(std::int64_t id, Player const& player);
 /// The package an entity carries (nullopt: not a package entity / unknown).
 [[nodiscard]] std::optional<ItemStack> packageEntityBox(std::int64_t uniqueId);
 /// Create's PackageItem.useOn space check: a package entity within the box a new one would take.

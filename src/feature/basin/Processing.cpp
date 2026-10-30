@@ -31,6 +31,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "core/fluids/Fluids.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/assembly/SequencedAssembly.h"
 #include "feature/basin/BasinInternal.h"
 #include "feature/belts/BeltApi.h"
@@ -519,6 +520,7 @@ void applyBasinRecipe(BlockSource& region, GlobalPos const& pos, OperatorState& 
     bool wasEmpty = basinops::canContinueProcessing(*b);
     if (!recipes::apply(region, basinPos, *b, *r)) return;
     log().info("{} at {} {} {} in the basin", press ? "press" : "mixer", pos.key(), press ? "compacted" : "mixed", r->id);
+    advancements::awardOwner(pos, press ? "compacting" : "mechanical_mixer");
     // continue mixing
     if (wasEmpty && recipes::match(region, basinPos, *b, *r)) {
         if (!press) s.runningTicks = 20;
@@ -579,9 +581,11 @@ bool tryProcessInWorld(BlockSource& region, GlobalPos const& pos, ItemActor& ent
         auto results = recipes::press(stack, count, &recipeId);
         entity.remove();
         for (auto const& out : results) spawnAt(region, at, out);
+        if (!results.empty()) advancements::onItemPressed(pos, items::idOf(results.front()), items::countOf(results.front()));
     } else {
         auto results = recipes::press(stack, 1, &recipeId);
         for (auto const& out : results) spawnAt(region, at, out);
+        if (!results.empty()) advancements::onItemPressed(pos, items::idOf(results.front()), items::countOf(results.front()));
         // the rest as a fresh entity: clients only learn a changed count from a new entity
         auto rest = items::withCount(stack, count - 1);
         entity.remove();
@@ -617,6 +621,7 @@ void applyOnBelt(GlobalPos const& pos) {
         bool        all   = bulk || count == 1;
         std::string recipeId;
         auto        outs  = recipes::press(item.stack, all ? count : 1, &recipeId);
+        for (auto const& o : outs) advancements::onItemPressed(pos, items::idOf(o), items::countOf(o));
         log().info("press at {} pressed {} on the {} ({})", pos.key(), items::idOf(item.stack),
                    belts::beltAt(below2) ? "belt" : "depot", recipeId);
         if (all) {

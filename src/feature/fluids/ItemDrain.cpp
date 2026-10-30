@@ -15,6 +15,7 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/phys/AABB.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/common/BlockData.h"
 #include "feature/belts/BeltApi.h"
 #include "feature/common/Items.h"
@@ -119,6 +120,7 @@ void output(BlockSource& region, GlobalPos const& p, Held& held) {
         }
         if (items::countOf(rest) == items::countOf(held.stack)) return;
         log().info("item drain at {} {} {} passed {} on", p.x, p.y, p.z, items::idOf(held.stack));
+        if (items::isEmpty(rest) && id == "levitate:item_drain") advancements::awardOwner(p, "chained_drain");
         // the insertion may have touched other BlockData documents: look ours up again
         if (items::isEmpty(rest)) setHeld(editData(p), std::nullopt);
         else {
@@ -174,6 +176,7 @@ void tickDrain(GlobalPos const& p) {
         held->stack = e->container;
         setHeld(d, held);
         playSound(p, "bucket.empty_water", 0.5f, 1.f);
+        advancements::awardOwner(p, "drain");
         return;
     }
     auto step = cf::stepDrainItem(held->move);

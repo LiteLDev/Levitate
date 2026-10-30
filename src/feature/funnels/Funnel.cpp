@@ -26,6 +26,7 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/belts/BeltApi.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
@@ -200,6 +201,7 @@ void activateExtractor(BlockSource& region, GlobalPos const& pos, Block const& b
     Vec3 motion{0, up ? 4 / 16.f : 0.f, 0};
     if (auto* item = spawnItem(region, stack, out, motion)) rt.lastObserved = item->getOrCreateUniqueID().rawID;
     rt.cooldown = std::max(1, config().defaultExtractionTimer);
+    advancements::awardOwner(pos, "funnel"); // Create's onTransfer
 }
 
 /// Create's FunnelBlockEntity.activateExtractingBeltFunnel: items from the inventory onto the
@@ -230,6 +232,7 @@ void activateExtractingBeltFunnel(BlockSource& region, GlobalPos const& pos, Blo
         if (!items::isEmpty(back)) spawnItem(region, back, Vec3{pos.x + .5f, pos.y + .5f, pos.z + .5f}, Vec3{0, 0, 0});
     }
     rt.cooldown = std::max(1, config().defaultExtractionTimer);
+    advancements::awardOwner(pos, "funnel"); // Create's onTransfer
 }
 
 /// Create's FunnelBlock.entityInside for item entities at the funnel's opening.
@@ -339,6 +342,7 @@ belts::PassResult onBeltPass(belts::PassContext& c) {
     if (!items::isEmpty(remainder)) remainder = items::withCount(remainder, items::countOf(remainder) + notFilled);
     else if (notFilled > 0) remainder = items::withCount(c.item.stack, notFilled);
     flap(*region, c.above, *block, true);
+    advancements::awardOwner(c.above, "funnel"); // Create's onTransfer
     c.item.stack = items::isEmpty(remainder) ? items::empty() : remainder;
     return stop;
 }
@@ -396,7 +400,10 @@ ItemStack funnelInsert(BlockSource& region, GlobalPos const& pos, ItemStack cons
     if (!passesFilter(*block, pos, stack)) return stack;
     int  facing = facingOf(*block);
     auto rest   = items::insert(region, attachedPos(pos, facing), facing, stack, simulate);
-    if (!simulate && items::countOf(rest) != items::countOf(stack)) flap(region, pos, *block, true);
+    if (!simulate && items::countOf(rest) != items::countOf(stack)) {
+        flap(region, pos, *block, true);
+        advancements::awardOwner(pos, "funnel"); // Create's onTransfer
+    }
     return rest;
 }
 
@@ -483,6 +490,14 @@ bool wrenchFunnel(Player& player, BlockSource& region, GlobalPos const& pos, Blo
         playSound(region, toBlockPos(pos), "random.click", .5f, 1.2f);
         static constexpr char const* kNames[] = {"", "retracted", "extended", "pushing", "pulling"};
         log().info("funnels: belt funnel at {} set to {} by {}", pos.key(), kNames[next], player.getRealName());
+        // Create's BeltFunnelBlock.onWrenched: two extended belt funnels facing each other
+        if (next == kBeltExtended) {
+            int         facing = facingOf(block);
+            auto const* other  = loadedBlock(region, toBlockPos(offset(pos, facing)));
+            if (other && isFunnel(kindOf(other->getTypeName())) && beltShapeOf(*other) == kBeltExtended
+                && facingOf(*other) == cf::oppositeFace(facing))
+                advancements::award(player, "belt_funnel_kiss");
+        }
         return true;
     }
     int next = state(block, kExtracting) ? 0 : 1;

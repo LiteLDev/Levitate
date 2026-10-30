@@ -20,6 +20,8 @@
 #include <string_view>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "core/GlobalPos.h"
 
 class Player;
@@ -47,6 +49,22 @@ void setOwner(GlobalPos const& pos, Player const& player);
 void awardOwner(GlobalPos const& pos, std::string_view id);
 /// Create's awardPlayerIfNear: only when the owner is within `maxDistance` blocks of the block.
 void awardOwnerIfNear(GlobalPos const& pos, std::string_view id, int maxDistance);
+
+/// The owner of a block riding on a contraption: its carried BlockData document `doc` keeps the
+/// owner (Create: the "Owner" of the block entity data in the MovementContext). Awards if online.
+void awardCarriedOwner(nlohmann::json const& doc, std::string_view id);
+/// Create's DeployerMovementBehaviour#checkForTrackPlacementAdvancement: a deployer on a minecart
+/// contraption or a train (`contraptionKind` "cart_assembler" / "train") used a rail or track
+/// block item (`usedItemId`, `placed`: the use consumed it): self_deploying for its owner.
+void onMovingDeployerUsed(std::string_view contraptionKind, nlohmann::json const& deployerDoc, std::string_view usedItemId, bool placed);
+
+/// Create's MechanicalPressBlockEntity#onItemPressed (one call per result stack): mechanical_press
+/// for the owner; tracks made count towards track_crafting_factory (1000, kept per press in its
+/// BlockData, like Create's TracksCreated).
+void onItemPressed(GlobalPos const& pos, std::string_view resultId, int count);
+/// Create's SpoutBlockEntity filling an item: spout for the owner; foods once this spout made
+/// chocolate glazed berries, a honeyed apple and a sweet roll while the owner is known.
+void onSpoutFilled(GlobalPos const& pos, std::string_view resultId);
 
 /// Opens the advancement tree for the player (native screen or form).
 void openTree(Player& player);

@@ -12,8 +12,14 @@
 #include "ll/api/service/Bedrock.h"
 #include "mc/world/level/block/BlockChangeContext.h"
 #include "mc/world/level/Level.h"
+#include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorDataIDs.h"
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/actor/SynchedActorDataEntityWrapper.h"
+#include "mc/world/actor/player/Player.h"
 
 #include "feature/actors/Actors.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/contraption/ActorsExt.h"
 #include "game/Blocks.h"
 
@@ -65,8 +71,40 @@ void till(con::MovementContext& ctx, BlockPos const& pos) {
 
 Breaker const& breaker();
 
+/// Create's PloughMovementBehaviour#throwEntity for a falling anvil (damageEntities leaves falling
+/// blocks alone: the contraptions' display entities are falling blocks too): thrown like the other
+/// entities; at 0.25 blocks per tick or faster every player within 32 blocks gets anvil_plough.
+void throwAnvils(con::MovementContext& ctx, GlobalPos const& pos) {
+    auto* region = regionOf(pos.dim);
+    auto  level  = ll::service::getLevel();
+    if (!region || !level) return;
+    auto const& here = region->getBlock(toBlockPos(pos));
+    if (!here.isAir() && here._isSolid() && hasCollision(*region, toBlockPos(pos))) return; // as damageEntities
+    cc::Vec3d lo = cc::Vec3d::of(cc::Pos{pos.x, pos.y, pos.z});
+    for (auto* a : entitiesIn(*region, lo, lo + cc::Vec3d{1, 1, 1})) {
+        if (!a || !a->isAlive() || a->getEntityTypeId() != ActorType::FallingBlock || a->hasTag("lv_contraption")) continue;
+        auto block = Block::tryGetFromRegistry(static_cast<uint>(a->mEntityData->getInt(static_cast<ushort>(ActorDataIDs::Variant))));
+        if (!block || block->getTypeName().find("anvil") == std::string::npos) continue;
+        cc::Vec3d v = ctx.motion + cc::Vec3d{0, ctx.motion.length() / 4, 0};
+        if (v.length() > 4) v = v * (4 / v.length());
+        auto& delta = const_cast<Vec3&>(a->getPosDelta());
+        delta       = Vec3{delta.x + float(v.x), delta.y + float(v.y), delta.z + float(v.z)};
+        if (delta.length() < .25f) continue;
+        auto at = a->getPosition();
+        int  bx = int(std::floor(at.x)), by = int(std::floor(at.y)), bz = int(std::floor(at.z));
+        level->forEachPlayer([&](Player& p) {
+            auto q = p.getPosition();
+            if (int(p.getDimensionId()) == pos.dim && q.x >= bx - 32 && q.x <= bx + 33 && q.y >= by - 32 && q.y <= by + 33 && q.z >= bz - 32
+                && q.z <= bz + 33)
+                advancements::award(p, "anvil_plough");
+            return true;
+        });
+    }
+}
+
 void visit(con::MovementContext& ctx, GlobalPos const& pos) {
     damageEntities(ctx, pos, false, false);
+    throwAnvils(ctx, pos);
     startBreaking(ctx, breaker(), pos);
     till(ctx, BlockPos{pos.x, pos.y - 1, pos.z});
 }

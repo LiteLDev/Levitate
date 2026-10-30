@@ -13,6 +13,7 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/belts/BeltApi.h"
 #include "feature/common/Items.h"
 #include "feature/fluids/FluidsInternal.h"
@@ -120,6 +121,7 @@ void finish(BlockSource& region, GlobalPos const& p, FluidStack& tank) {
     log().info("spout at {} {} {} filled {} into {}", p.x, p.y, p.z, in, items::idOf(out));
     playSound(p, "bucket.fill_water", 0.4f, 1.4f);
     splash(p, fluid);
+    advancements::onSpoutFilled(p, items::idOf(out));
 }
 
 // ---- belts and depots (Create's BeltProcessingBehaviour on the spout) ------------------------------
@@ -175,6 +177,7 @@ belts::ProcessingResult whenItemHeld(belts::ProcessorContext const& c, belts::Tr
         log().info("spout at {} {} {} filled {} into {}", p.x, p.y, p.z, in, items::idOf(out));
         playSound(p, "bucket.fill_water", 0.4f, 1.4f);
         splash(p, fluid);
+        advancements::onSpoutFilled(p, items::idOf(out));
     }
     return belts::ProcessingResult::Hold;
 }

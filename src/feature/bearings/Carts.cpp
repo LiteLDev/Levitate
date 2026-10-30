@@ -39,6 +39,7 @@
 #include "mc/world/level/block/BlockType.h"
 #include "mc/world/phys/AABB.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/bearings/Bearings.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
@@ -786,6 +787,7 @@ bool pickupContraption(Player& player, Actor& cart) {
         std::erase_if(state().couplings, [&](Coupling const& cp) { return cp.a == rec.cart || cp.b == rec.cart; });
     }
     // Create: the contraption entity is discarded, the item carries the structure
+    bool large = c->blocks().size() > 200; // Create's CART_PICKUP
     ct::discard(rec.id);
 
     Json itemData{{"record", *snap}, {"initial", rec.initial}, {"heading", rec.heading}, {"mode", rec.mode}};
@@ -793,6 +795,7 @@ bool pickupContraption(Player& player, Actor& cart) {
     it::setData(*item, kItemData, itemData);
     give(player, *item);
     log().info("cart contraption #{} picked up by {}", rec.id, player.getRealName());
+    if (large) advancements::award(player, "cart_pickup");
     state().carts.erase(f);
     state().dirty = true;
     cart.remove();
