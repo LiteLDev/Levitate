@@ -552,7 +552,17 @@ void installFunnels() {
             }
         );
     }
-    common::filterslot::registerSlot(kBrassFunnel, {"filter", filterCentre, 0.5, nullptr});
+    // Create: holding the filter slot opens its count (the "Extracted Amount" board) on funnels that
+    // support an amount (extracting / belt funnels); the separate amount box stays for vanilla
+    // players (SPEC §8)
+    common::filterslot::SlotSpec slot{"filter", filterCentre, 0.5, nullptr, nullptr};
+    slot.onHold = [](Player& p, GlobalPos const& pos) {
+        auto* region = regionOf(pos.dim);
+        auto const* b = region ? loadedBlock(*region, toBlockPos(pos)) : nullptr;
+        if (!b || (beltShapeOf(*b) == kNotOnBelt && !state(*b, kExtracting))) return; // no count to edit
+        common::valuebox::openEditor(p, pos, "amount");
+    };
+    common::filterslot::registerSlot(kBrassFunnel, std::move(slot));
     registerAmountBox(kBrassFunnel, amountCentre);
 }
 

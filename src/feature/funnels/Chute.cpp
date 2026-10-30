@@ -573,7 +573,12 @@ void installChutes() {
             }
         );
     }
-    common::filterslot::registerSlot(kSmartChute, {"filter", smartFilterCentre, 0.5, nullptr});
+    // Create: holding the filter slot opens its count (the "Extracted Amount" board); the separate
+    // amount box stays for vanilla players (SPEC §8)
+    common::filterslot::registerSlot(
+        kSmartChute,
+        {"filter", smartFilterCentre, 0.5, nullptr, [](Player& p, GlobalPos const& pos) { common::valuebox::openEditor(p, pos, "amount"); }}
+    );
     registerAmountBox(kSmartChute, smartAmountCentre);
     // `levitate:facing` of a chute is not in facing order (0 down, 1..4 north..east): undo the
     // common rotation, turn the real facing and keep the old one when it would leave the chute's
