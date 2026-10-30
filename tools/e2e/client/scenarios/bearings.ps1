@@ -4,18 +4,11 @@
 #   remote-vanilla:     a client without the mod sees the blocks move as falling-block displays.
 # Screenshots: out/bearings/{built,turning-a,turning-b,rails,placed,cart-placing,cart-gone,coupled}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
-# Sets a test generator's speed and waits for the server to confirm it. The game sometimes loses
-# a typed command or resolves its position oddly: then the chat is pictured and the command sent
-# again, through /execute (the position taken from the player on the server).
+# Sets a test generator's speed and waits for the server to confirm it (sent again when lost; a
+# failed attempt is pictured).
 function Set-GeneratorSpeed([string]$rel, [int]$rpm, [string]$picture) {
-    $m = Get-LogMark
-    foreach ($try in 1..3) {
-        if ($try -eq 1) { Invoke-Chat "/create kinetics $rel speed $rpm" }
-        else { Invoke-Chat "/execute as @s at @s run create kinetics $rel speed $rpm" }
-        try { Wait-LogLine "Generator at -?\d+ -?\d+ -?\d+ now turns at $rpm " 10 -Since $m | Out-Null; return }
-        catch { Save-Screenshot "$picture-try$try" | Out-Null; Write-Step "speed $rpm not confirmed (try $try)" }
-    }
-    throw "the generator at $rel never turned at $rpm"
+    try { Invoke-ChatConfirmed "/create kinetics $rel speed $rpm" "Generator at -?\d+ -?\d+ -?\d+ now turns at $rpm " | Out-Null }
+    catch { Save-Screenshot $picture | Out-Null; throw }
 }
 
 # Two pictures of a moving contraption must differ in a region of the screen (by default right of

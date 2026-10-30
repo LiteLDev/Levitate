@@ -39,13 +39,11 @@ Invoke-Chat '/setblock 2 -59 4 glass'
 # ---- schematic and quill ----
 Invoke-Chat '/give @s levitate:schematic_and_quill'
 Press-Key '1'
-Invoke-Chat '/tp @s 0.5 -60 0.5 -36.87 17.95'
-Start-Sleep -Milliseconds 600
+Invoke-Teleport '/tp @s 0.5 -60 0.5 -36.87 17.95'
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
 Start-Sleep -Milliseconds 800
-Invoke-Chat '/tp @s 0.5 -60 0.5 -47.7 10.7'
-Start-Sleep -Milliseconds 600
+Invoke-Teleport '/tp @s 0.5 -60 0.5 -47.7 10.7'
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'schematic and quill: .* selected \d+x\d+x\d+' 20 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 800
@@ -73,8 +71,7 @@ Invoke-Chat '/setblock -2 -60 0 levitate:schematic_table ["levitate:facing"=3]'
 Start-Sleep -Milliseconds 500
 Invoke-Chat '/setblock -2 -60 0 levitate:schematic_table ["levitate:facing"=3]'
 Invoke-Chat '/give @s levitate:empty_schematic'
-Invoke-Chat '/tp @s 0.5 -60 0.5 90 29'
-Start-Sleep -Milliseconds 800
+Invoke-Teleport '/tp @s 0.5 -60 0.5 90 29'
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
 if ($vanilla) {
@@ -101,8 +98,7 @@ if ($vanilla) {
 if ($vanilla) {
     # vanilla: the cannon form and the particle outlines are enough
     Invoke-Chat '/setblock 0 -60 -3 levitate:schematicannon'
-    Invoke-Chat '/tp @s 0.5 -60 0.5 180 20'
-    Start-Sleep -Milliseconds 800
+    Invoke-Teleport '/tp @s 0.5 -60 0.5 180 20'
     $mark = Get-LogMark
     Click 0.5 0.5 -Relative -Right
     Wait-LogLine 'screen schematics\.cannon opened for .* \(form\)' 20 -Since $mark | Out-Null
@@ -133,8 +129,7 @@ Invoke-Chat '/replaceitem block 4 -60 -3 slot.container 0 stone 64'
 Invoke-Chat '/replaceitem block 4 -60 -3 slot.container 1 oak_planks 64'
 Invoke-Chat '/replaceitem block 4 -60 -3 slot.container 2 glass 64'
 Invoke-Chat '/replaceitem block 4 -60 -3 slot.container 3 gunpowder 8'
-Invoke-Chat '/tp @s 0.5 -60 0.5 -135 14.8'
-Start-Sleep -Milliseconds 800
+Invoke-Teleport '/tp @s 0.5 -60 0.5 -135 14.8'
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
 $l = Layout (Wait-LogLine 'screen opened: .* panel=' 20 -Since $mark)
@@ -156,8 +151,7 @@ Save-Screenshot 'cannon-finished' | Out-Null
 Invoke-Chat '/fill -6 -60 3 -6 -58 5 stone'
 Invoke-Chat '/give @s levitate:crafting_blueprint'
 Press-Key '2'   # the written schematic went into the cannon: the blueprint takes its slot
-Invoke-Chat '/tp @s -3.5 -59 4.5 90 0'
-Start-Sleep -Milliseconds 800
+Invoke-Teleport '/tp @s -3.5 -59 4.5 90 0'
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'crafting blueprint placed at .* \(\d+x\d+\)' 20 -Since $mark | Out-Null

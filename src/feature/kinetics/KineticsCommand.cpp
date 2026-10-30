@@ -26,10 +26,10 @@ namespace lv::feature::kinetics {
 
 // Command parameter types need external linkage.
 struct KineticsCommandParams {
-    CommandPosition pos;
+    CommandPosition pos{};
 };
 struct KineticsSpeedParams {
-    CommandPosition pos;
+    CommandPosition pos{};
     float           rpm = 0;
 };
 

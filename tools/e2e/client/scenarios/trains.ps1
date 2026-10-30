@@ -33,12 +33,10 @@ Invoke-Chat '/setblock ~29 ~ ~-9 levitate:track ["levitate:shape"=1]'
 Invoke-Chat '/give @s levitate:track 64'
 Press-Key 1
 # select the east end of the line (x + 20), then click the north branch's south end (x + 29, z - 9)
-Invoke-Chat '/tp @s ~17 ~ ~ -90 25'
-Start-Sleep -Milliseconds 800
+Invoke-Teleport '/tp @s ~17 ~ ~ -90 25'
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'tracks: \S+ selected the track at' 20 -Since $mark | Out-Null
-Invoke-Chat '/tp @s ~12 ~ ~-6 180 28'
-Start-Sleep -Milliseconds 800
+Invoke-Teleport '/tp @s ~12 ~ ~-6 180 28'
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'tracks: \S+ connected .* with a curve of length' 20 -Since $mark | Out-Null
 Invoke-Chat '/fill ~-26 ~ ~6 ~-10 ~ ~6 levitate:track ["levitate:shape"=2]'
@@ -89,8 +87,7 @@ if ($script:Mode -eq 'remote-vanilla') { Close-Screen } else { Press-Key E; Star
 # the schedule editor: right-click in the air with a schedule
 Invoke-Chat '/give @s levitate:schedule 1'
 Press-Key 2
-Invoke-Chat '/tp @s ~ ~ ~ 0 -60'
-Start-Sleep -Milliseconds 600
+Invoke-Teleport '/tp @s ~ ~ ~ 0 -60'
 Click 0.5 0.5 -Relative -Right
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'schedule-screen' | Out-Null

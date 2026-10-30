@@ -670,7 +670,7 @@ private:
 // ---- `/create pipes <pos>` --------------------------------------------------------------------------
 
 struct PipesCommandParams {
-    CommandPosition pos;
+    CommandPosition pos{};
 };
 
 namespace {

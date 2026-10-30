@@ -19,15 +19,14 @@ foreach ($x in -1, 0, 1) {
 }
 Invoke-Chat '/setblock 0 -60 6 levitate:kinetics_test_source ["levitate:axis"=2]'
 Start-Sleep -Milliseconds 600
-$mark = Get-LogMark
-Invoke-Chat '/create kinetics 0 -60 6 speed 64'
+# the board shows text only while it turns: wait until the generator confirms its speed
+Invoke-ChatConfirmed '/create kinetics 0 -60 6 speed 64' 'kinetics: Generator at 0 -60 6 now turns at 64 ' | Out-Null
 # nixie tubes on the floor, the row running west to east (facing south rotated: see SPEC §3.6.24)
 Invoke-Chat '/setblock -3 -60 3 levitate:nixie_tube ["levitate:facing"=3]'
 Invoke-Chat '/setblock -2 -60 3 levitate:nixie_tube ["levitate:facing"=3]'
 Start-Sleep -Milliseconds 600
 # text: the board's controller is its top east end (the left end as seen from the front)
-Invoke-Chat '/create display text 1 -59 5 0 HELLO'
-Wait-LogLine "display text 'HELLO' written at 0:1:-59:5" 20 -Since $mark | Out-Null
+Invoke-ChatConfirmed '/create display text 1 -59 5 0 HELLO' "display text 'HELLO' written at 0:1:-59:5" | Out-Null
 Invoke-Chat '/create display text 1 -59 5 2 CREATE_6'
 Invoke-Chat '/create display text -3 -60 3 0 LV24'
 Start-Sleep -Milliseconds 4000

@@ -516,6 +516,7 @@ $script:LogDecoder = [Text.Encoding]::UTF8.GetDecoder()
 
 function Start-LogSession {
     $script:LogFile = Join-Path $script:VersionDir 'logs\latest.log'   # this slot's instance
+    $script:ClientScreen = $null
     $script:LogLines.Clear(); $script:LogTail = ''; $script:LogDecoder = [Text.Encoding]::UTF8.GetDecoder()
     $script:LogPos = if (Test-Path $script:LogFile) { (Get-Item $script:LogFile).Length } else { 0L }
 }
@@ -566,7 +567,9 @@ function Update-LeviLog {
     $script:LogTail = $parts[-1]
     for ($i = 0; $i -lt $parts.Count - 1; $i++) {
         $l = $parts[$i].TrimEnd("`r")
-        if ($l -ne '') { $script:LogLines.Add($l) }
+        if ($l -eq '') { continue }
+        $script:LogLines.Add($l)
+        if ($l -match 'client screen: (\S+)') { $script:ClientScreen = $Matches[1] }
     }
 }
 
@@ -591,15 +594,39 @@ function Get-ServerLog([int]$Since = 0) { Get-LeviLog -Since $Since }
 function Get-LogMark { Update-LeviLog; $script:LogLines.Count }
 
 # Wait for a line matching the regex in this session's log (from -Since). Returns the last match.
-function Wait-LogLine([string]$pattern, [int]$TimeoutSeconds = 120, [int]$Since = 0) {
+function Wait-LogLine([string]$pattern, [double]$TimeoutSeconds = 120, [int]$Since = 0, [int]$PollMs = 1000) {
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ($true) {
         $hit = Get-LeviLog -Since $Since | Select-String -Pattern $pattern | Select-Object -Last 1
         if ($hit) { return $hit.Line }
         if (-not (Get-GameProcess)) { throw "Game exited while waiting for log '$pattern'" }
         if ((Get-Date) -gt $deadline) { throw "Timed out after $TimeoutSeconds s waiting for log line '$pattern'" }
-        Start-Sleep -Seconds 1
+        Start-Sleep -Milliseconds $PollMs
     }
+}
+
+# Client trace lines (src/client/trace/ClientTrace.cpp): the client mod logs the top screen when it
+# changes ("client screen: chat_screen") and every teleport of the local player ("client teleported
+# to x y z"). Not available in remote-vanilla (no client mod): helpers fall back to fixed waits.
+function Test-ClientTrace { $script:Mode -ne 'remote-vanilla' }
+
+# The client's top screen as last traced ($null: unknown).
+function Get-ClientScreen { Update-LeviLog; $script:ClientScreen }
+$script:ClientScreen = $null
+
+# Waits until the HUD shows (the world is ready for chat and clicks) before a scenario starts.
+function Wait-HudReady([int]$TimeoutSeconds = 60) {
+    if (-not (Test-ClientTrace)) { Start-Sleep -Seconds 3; return }
+    try {
+        $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+        while ((Get-ClientScreen) -ne 'hud_screen') {
+            if ((Get-Date) -gt $deadline) { throw "the HUD did not show within $TimeoutSeconds s (screen: $(Get-ClientScreen))" }
+            if (-not (Get-GameProcess)) { throw 'the game exited' }
+            Start-Sleep -Milliseconds 250
+        }
+        Write-Step 'HUD ready'
+    } catch { Write-Step "warning: $_" }
+    Start-Sleep -Milliseconds 500
 }
 
 # Used by Invoke-SelfTest (common.ps1): commands are typed into chat.
@@ -833,9 +860,78 @@ function Open-Inventory { Focus-Game; Press-Key E; Start-Sleep -Milliseconds 120
 function Close-Screen { Press-Key ESC; Start-Sleep -Milliseconds 800 }
 
 # Run a chat command, e.g. Invoke-Chat '/give @s diamond 16'
-function Invoke-Chat([string]$text) {
+# With the client mod, the chat is confirmed open (client screen trace) before the text is typed,
+# and T is pressed again when the game missed it (busy machine, HUD not ready yet); the command is
+# sent once the chat closed again. Without it (remote-vanilla): fixed waits.
+function Invoke-Chat([string]$text, [int]$Attempts = 4) {
     Focus-Game
-    Press-Key T; Start-Sleep -Milliseconds 700
+    if (-not (Test-ClientTrace)) {
+        Press-Key T; Start-Sleep -Milliseconds 900
+        Type-Text $text
+        Press-Key ENTER; Start-Sleep -Milliseconds 800
+        return
+    }
+    $open = $false
+    $closed = $false
+    for ($i = 1; $i -le $Attempts -and -not $open; $i++) {
+        $screen = Get-ClientScreen
+        if ($screen -eq 'chat_screen' -and -not $closed) {
+            # a chat left open (a lost Enter): close it once, so its old text is not sent with ours
+            # (never a second Esc: on the HUD it would open the pause menu)
+            $mark = Get-LogMark
+            Press-Key ESC
+            try { Wait-LogLine 'client screen: (?!chat_screen)' 3 -Since $mark -PollMs 100 | Out-Null } catch {}
+            $closed = $true
+            continue
+        }
+        if ($screen -and $screen -ne 'hud_screen') { Write-Step "chat: the top screen is '$screen', pressing T anyway" }
+        $mark = Get-LogMark
+        Press-Key T
+        try { Wait-LogLine 'client screen: chat_screen' 3 -Since $mark -PollMs 100 | Out-Null; $open = $true }
+        catch {
+            # the line may come late on a loaded machine: look at the screen before pressing T again
+            if ((Get-ClientScreen) -eq 'chat_screen') { $open = $true }
+            else { Write-Step "chat did not open (attempt $i/$Attempts) for '$text'" }
+        }
+    }
+    if (-not $open) { Write-Step "warning: the chat never opened for '$text' (screen: $(Get-ClientScreen)); typing anyway" }
+    Start-Sleep -Milliseconds 200   # the text box takes the keyboard focus
     Type-Text $text
-    Press-Key ENTER; Start-Sleep -Milliseconds 800
+    $mark = Get-LogMark
+    Press-Key ENTER
+    try { Wait-LogLine 'client screen: (?!chat_screen)' 3 -Since $mark -PollMs 100 | Out-Null }
+    catch { Write-Step "warning: the chat stayed open after '$text'" }
+    Start-Sleep -Milliseconds 300
+}
+
+# Teleports the player with a chat command (e.g. '/tp @s 0 -60 0 90 30') and waits until the client
+# applied it, so the next click aims at the new target; the command is sent again when no teleport
+# arrives. Without the client mod: a fixed wait.
+function Invoke-Teleport([string]$command, [int]$Attempts = 3) {
+    if (-not (Test-ClientTrace)) { Invoke-Chat $command; Start-Sleep -Milliseconds 1200; return }
+    # a relative teleport sent twice would go twice as far: one try, with more patience
+    $relative = $command -match '[~^]'
+    if ($relative) { $Attempts = 1 }
+    for ($i = 1; $i -le $Attempts; $i++) {
+        $mark = Get-LogMark
+        Invoke-Chat $command
+        try {
+            Wait-LogLine '^(?!\[host\]).*client teleported to' $(if ($relative) { 12 } else { 6 }) -Since $mark -PollMs 100 | Out-Null
+            Start-Sleep -Milliseconds 400   # a few frames at the new place
+            return
+        } catch { Write-Step "no teleport after '$command' (attempt $i/$Attempts)" }
+    }
+    throw "the teleport '$command' never arrived"
+}
+
+# Sends a chat command until a log line confirms it (a lost or not applied command is sent again).
+# Returns the matching line.
+function Invoke-ChatConfirmed([string]$command, [string]$pattern, [int]$TimeoutSeconds = 10, [int]$Attempts = 3) {
+    for ($i = 1; $i -le $Attempts; $i++) {
+        $mark = Get-LogMark
+        Invoke-Chat $command
+        try { return Wait-LogLine $pattern $TimeoutSeconds -Since $mark }
+        catch { Write-Step "'$command' not confirmed (attempt $i/$Attempts)" }
+    }
+    throw "'$command' never confirmed by '$pattern'"
 }

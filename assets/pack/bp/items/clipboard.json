@@ -9,6 +9,9 @@
     },
     "components": {
       "minecraft:icon": "levitate_clipboard",
+      "minecraft:display_name": {
+        "value": "item.levitate:clipboard.name"
+      },
       "minecraft:max_stack_size": 1,
       "minecraft:block_placer": {
         "block": "levitate:clipboard",

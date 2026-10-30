@@ -242,10 +242,15 @@ $script:ContentErrorRegex = '\b(ERR|FTL)\]?\s?\[Server\]\s*(<[^>]*>\s*)?\[[A-Za-
 # { Glob, Done, Pass, Fail, Passed[], Failed[{Name,Reason}], Results[], Ok, Problems[] }.
 # The result is also recorded: run.ps1 fails the run if any selftest failed, did not finish or
 # (unless -AllowEmpty) matched no test. It does not throw on test failures.
-function Invoke-SelfTest([string]$Glob = '', [int]$TimeoutSeconds = 600, [switch]$AllowEmpty) {
+function Invoke-SelfTest([string]$Glob = '', [int]$TimeoutSeconds = 600, [switch]$AllowEmpty, [int]$StartSeconds = 30, [int]$Attempts = 3) {
     $mark = Get-LogMark
-    Send-SelfTestCommand (Format-SelfTestCommand $Glob)
     $label = if ($Glob) { $Glob } else { '*' }
+    # A typed command can get lost (client chat): send it again while the run never started.
+    for ($i = 1; $i -le $Attempts; $i++) {
+        Send-SelfTestCommand (Format-SelfTestCommand $Glob)
+        try { Wait-LogLine "SELFTEST (START|BUSY|DONE)|$script:CommandErrorRegex" $StartSeconds -Since $mark | Out-Null; break }
+        catch { if ($i -lt $Attempts) { Write-Step "selftest '$label' did not start (attempt $i/$Attempts); sending it again" } }
+    }
     try {
         $hit = Wait-LogLine "$script:SelfTestDoneRegex|$script:CommandErrorRegex" $TimeoutSeconds -Since $mark
         if ($hit -notmatch $script:SelfTestDoneRegex) { Write-Step "selftest command rejected: $hit" }

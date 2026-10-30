@@ -210,6 +210,7 @@ try {
                     Start-Sleep -Seconds 3
                 }
             }
+            Wait-HudReady
             Write-Step "running scenario '$Scenario'"
             . $scenarioFile
         } catch {
