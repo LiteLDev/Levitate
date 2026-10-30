@@ -2433,7 +2433,8 @@ contraptions (data carrier `fluids`). Every machine exposes the U3 fluid capabil
   Logs: `spout at x y z filled <in> into <out>`, `... filled a cauldron with <fluid>`.
 - **Item drain**: 1500 mB tank, pipes extract on every side, nothing is inserted from outside.
   Items enter through the item capability (one at a time when they hold fluid, otherwise the whole
-  stack), from item entities landing on top, and travel at 1/8 block per tick away from the side
+  stack), as a direct belt input (U11's `registerDirectInput`, Create's DirectBeltInputBehaviour:
+  belt ends, saws, chutes hand items in; not travelling upwards), from item entities landing on top, and travel at 1/8 block per tick away from the side
   they came from (from above: down, starting at the centre). At the centre an item that can be
   emptied is held for 20 ticks; 15 ticks in it is emptied if all of its fluid fits (otherwise it
   waits). At the far edge it goes into the next Levitate block (belt, depot, chute, funnel, drain:

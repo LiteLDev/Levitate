@@ -299,7 +299,28 @@ LV_REGISTER_SELFTEST("fluids.spout_depot", [](Context& ctx) -> ll::coro::CoroTas
     ctx.check(takeAll(ctx, p, "minecraft:potion") == 2, "the depot holds two water bottles");
 });
 
-LV_REGISTER_SELFTEST("fluids.spout_belt", [](Context& ctx) -> ll::coro::CoroTask<> {
+LV_REGISTER_SELFTEST("fluids.drain_direct_input", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = at(ctx.testPos(4042, kU40Shift), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    ctx.setBlock(p, kItemDrain);
+    co_await ctx.ticks(2);
+    ctx.require(belts::hasDirectInput(p), "the item drain is a direct belt input (belt ends, saws, chutes)");
+    belts::TransportedItem t;
+    t.stack = item(ctx, "minecraft:water_bucket", 2);
+    auto rest = belts::insertDirect(p, t, 5, false); // travelling east: enters from the west
+    ctx.check(items::countOf(rest) == 1, "one bucket at a time (it holds fluid)");
+    ctx.check(items::idOf(slot0(ctx, p)) == "minecraft:water_bucket", "the drain holds the bucket");
+    bool emptied = false;
+    for (int i = 0; i < 60 && !emptied; ++i) {
+        co_await ctx.ticks(1);
+        emptied = tank(ctx, p).amount == 1000;
+    }
+    ctx.check(emptied, "the bucket was emptied into the drain");
+    (void)items::extract(regionOf(ctx), toBlockPos(p), 1, items::any(), 64, false);
+    (void)countItemsNear(ctx, p, "minecraft:bucket", true); // an ejected bucket
+});
+
+LV_REGISTER_SELFTEST("fluids.spout_belt",[](Context& ctx) -> ll::coro::CoroTask<> {
     GlobalPos base = at(ctx.testPos(4044, kU40Shift), 0, 1, 0);
     auto      bx   = [&](int dx, int dy = 0, int dz = 1) { return at(base, dx, dy, dz); };
     ctx.require(co_await ctx.ensureLoaded(bx(5)), "test area loaded");
