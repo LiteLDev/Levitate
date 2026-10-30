@@ -855,6 +855,12 @@ public:
                 if (a.stopMoving) a.stopMoving(ctx);
             });
         }
+        if (!moving) {
+            // Create ticks every actor each tick: the ones that act while still (doors)
+            forEachActor(c, before, before, [](MovementBehaviour const& a, MovementContext& ctx, CarriedBlock&) {
+                if (a.tickWhileStill && a.tick) a.tick(ctx);
+            });
+        }
         c.mMoving = moving; // a stall keeps the actors "moving" (no new startMoving)
         if (stalled) {
             // Create: a stalled contraption holds still; the anchor's motion waits too
@@ -1147,6 +1153,34 @@ public:
         return true;
     }
 
+    /// Create's contraption entity setBlock: new states for a carried block (shape and display follow).
+    bool setBlockStates(Id id, cc::Pos const& local, cc::States const& states) {
+        auto it = live.find(id);
+        if (it == live.end()) return false;
+        auto& c = *it->second;
+        for (auto& b : c.mBlocks) {
+            if (b.local != local) continue;
+            auto const* original = detail::blockFromSnbt(b.block);
+            if (!original) return false;
+            auto const* next = detail::withStates(*original, states);
+            if (!next || next == original) return false;
+            b.block  = detail::snbtOf(*next);
+            b.states = detail::statesOf(*next);
+            b.id     = next->getTypeName();
+            if (auto* region = detail::regionOf(c.mDim)) b.collision = detail::collisionOfBlock(*region, *next, toCc(c.mAnchor));
+            c.mBoxes.clear();
+            for (auto const& o : c.mBlocks)
+                if (o.collision) c.mBoxes.push_back(o.collision->moved(cc::Vec3d::of(o.local)));
+            if (b.display) {
+                retireDisplay(c, b, c.mDisplayQuarter); // spawned again with the new block this tick
+                displaysChanged.insert(c.mId);
+            }
+            return true;
+        }
+        return false;
+    }
+    static cc::Pos toCc(core::GlobalPos const& p) { return {p.x, p.y, p.z}; }
+
     /// Create's AbstractContraptionEntity#discard: the structure goes, nothing is placed or dropped.
     bool discard(Id id) {
         auto it = live.find(id);
@@ -1244,6 +1278,21 @@ Contraption* find(Id id) {
 bool disassemble(Id id) { return Engine::get().disassemble(id); }
 
 bool discard(Id id) { return Engine::get().discard(id); }
+
+bool setBlockStates(Id id, cc::Pos const& local, cc::States const& states) { return Engine::get().setBlockStates(id, local, states); }
+
+std::optional<cc::Box> bounds(Id id) {
+    auto* c = find(id);
+    if (!c || c->blocks().empty()) return std::nullopt;
+    cc::Box b = cc::Box::unit(c->blocks().front().local);
+    for (auto const& blk : c->blocks()) {
+        auto u = cc::Box::unit(blk.local);
+        b.min  = {std::min(b.min.x, u.min.x), std::min(b.min.y, u.min.y), std::min(b.min.z, u.min.z)};
+        b.max  = {std::max(b.max.x, u.max.x), std::max(b.max.y, u.max.y), std::max(b.max.z, u.max.z)};
+    }
+    return b;
+}
+
 
 
 void setActorVisual(Id id, cc::Pos const& local, nlohmann::json visual) {

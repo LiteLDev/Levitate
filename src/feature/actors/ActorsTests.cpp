@@ -16,6 +16,8 @@
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorDefinitionIdentifier.h"
 #include "mc/world/actor/ActorFactory.h"
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/phys/AABB.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -24,6 +26,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/actors/Actors.h"
+#include "feature/contraption/U38Test.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
@@ -494,6 +497,8 @@ LV_REGISTER_SELFTEST("actors.seat_contraption", [](Context& ctx) -> ll::coro::Co
     auto* p = ll::service::getLevel()->fetchEntity(pigId, false);
     ctx.require(p != nullptr, "pig still there");
     ctx.check(std::abs(p->getFeetPos().x - (seat.x + 2.5f)) < .3f, "the pig rode along: x " + std::to_string(p->getFeetPos().x));
+    // U38 (R117): it stays seated (riding its seat entity) while the seat moves
+    ctx.check(p->getVehicle() && isSeatEntityId(p->getVehicle()->getTypeName()), "the pig stays seated while moving");
     ctx.cleanupBlock(at(g0, 2, 1, 0));
     ctx.cleanupBlock(at(g0, 2, 2, 0));
     ctx.require(con::disassemble(*r.id), "disassembled");
@@ -503,6 +508,57 @@ LV_REGISTER_SELFTEST("actors.seat_contraption", [](Context& ctx) -> ll::coro::Co
     ctx.check(sitting && sitting->getOrCreateUniqueID() == pigId, "the pig sits on the placed seat");
     if (auto* e = ll::service::getLevel()->fetchEntity(pigId, false)) e->remove();
     co_await ctx.ticks(3);
+});
+
+// U38 (R113): a harvester whose block behind it goes drops (Create's AttachedActorBlock#canSurvive)
+LV_REGISTER_SELFTEST("actors.attached_support", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto g0 = ctx.testPos(3820, ::lv::feature::contraption::kU38Dz);
+    ctx.require(co_await ctx.ensureLoaded(g0), "test area loaded");
+    clearBox(ctx, at(g0, -1, 1, -1), at(g0, 2, 2, 1));
+    auto support   = at(g0, 0, 1, 0);
+    auto harvester = at(g0, 1, 1, 0);
+    ctx.setBlock(support, "minecraft:stone");
+    ctx.setBlock(harvester, std::string(kHarvester), {{"levitate:facing", 5}}); // faces east, hangs on the stone
+    co_await ctx.ticks(2);
+    ctx.check(idAt(ctx, harvester) == kHarvester, "the harvester stays while its support is there");
+    ctx.setBlock(support, "minecraft:air");
+    co_await ctx.ticks(3);
+    ctx.check(idAt(ctx, harvester) == "minecraft:air", "the harvester dropped when the stone went: " + idAt(ctx, harvester));
+    // the dropped item
+    int items = 0;
+    for (auto* a : region(ctx).getEntities(AABB{Vec3{float(harvester.x - 1), float(harvester.y - 1), float(harvester.z - 1)}, Vec3{float(harvester.x + 2), float(harvester.y + 2), float(harvester.z + 2)}}, 0.f)) {
+        if (a && a->getEntityTypeId() == ActorType::ItemEntity) {
+            ++items;
+            a->remove();
+        }
+    }
+    ctx.check(items > 0, "it dropped as an item");
+});
+
+// U38 (R114): seats halve the fall distance (Create's SeatBlock#fallOn)
+LV_REGISTER_SELFTEST("actors.seat_fall", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto g0 = ctx.testPos(3825, ::lv::feature::contraption::kU38Dz);
+    ctx.require(co_await ctx.ensureLoaded(g0), "test area loaded");
+    clearBox(ctx, at(g0, -1, 1, -1), at(g0, 3, 12, 1));
+    auto seat  = at(g0, 0, 1, 0);
+    auto stone = at(g0, 2, 1, 0);
+    ctx.setBlock(seat, "levitate:white_seat");
+    ctx.setBlock(stone, "minecraft:stone");
+    auto* onSeat  = spawnMob(ctx, "minecraft:pig", at(seat, 0, 9, 0));
+    auto* onStone = spawnMob(ctx, "minecraft:pig", at(stone, 0, 9, 0));
+    ctx.require(onSeat && onStone, "two pigs spawned");
+    auto a = onSeat->getOrCreateUniqueID(), b = onStone->getOrCreateUniqueID();
+    float hpA = onSeat->getHealth(), hpB = onStone->getHealth();
+    co_await ctx.ticks(40);
+    auto* ea = ll::service::getLevel()->fetchEntity(a, false);
+    auto* eb = ll::service::getLevel()->fetchEntity(b, false);
+    ctx.require(ea && eb, "both pigs there");
+    float lostA = hpA - ea->getHealth(), lostB = hpB - eb->getHealth();
+    ctx.info("health lost on the seat " + std::to_string(lostA) + ", on stone " + std::to_string(lostB));
+    ctx.check(lostB > 0, "the fall onto stone hurts");
+    ctx.check(lostA < lostB, "a seat takes half the fall");
+    ea->remove();
+    eb->remove();
 });
 
 } // namespace lv::feature::actors

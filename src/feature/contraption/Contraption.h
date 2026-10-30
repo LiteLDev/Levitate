@@ -99,6 +99,9 @@ struct MovementBehaviour {
     std::function<void(MovementContext&, core::GlobalPos const&)> visitNewPosition;
     std::function<void(MovementContext&)>                        stopMoving;
     std::function<bool(MovementContext const&)>                  isActive; ///< default: true
+    /// Create runs every actor's tick each tick; the engine runs `tick` only while the contraption
+    /// moves, and also while it stands still when this is set (doors opening at a station).
+    bool tickWhileStill = false;
 };
 /// Registers the movement behaviour of block `blockId`.
 void registerActor(std::string blockId, MovementBehaviour behaviour);
@@ -257,6 +260,11 @@ bool disassemble(Id id);
 /// Removes the contraption without placing or dropping anything (Create's entity discard: a
 /// picked up minecart contraption, `/create killtrain`). Actors get `stopMoving`. False if unknown.
 bool discard(Id id);
+/// Changes the states of the carried block at `local` (Create's contraption entity setBlock:
+/// a door opening on a train). Its collision and display follow. False if unknown or unchanged.
+bool setBlockStates(Id id, cc::Pos const& local, cc::States const& states);
+/// Local bounds of the carried blocks (Create's contraption bounds); nullopt if unknown.
+[[nodiscard]] std::optional<cc::Box> bounds(Id id);
 /// All live contraptions (ids).
 [[nodiscard]] std::vector<Id> all();
 

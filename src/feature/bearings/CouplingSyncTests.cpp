@@ -13,8 +13,6 @@
 
 namespace lv::feature::bearings {
 
-using ::lv::feature::contraption::kU38Dz;
-
 namespace {
 
 using lv::selftest::Context;
@@ -38,7 +36,7 @@ std::optional<bool> lists(std::vector<core::common::Envelope> const& msgs, std::
 } // namespace
 
 LV_REGISTER_SELFTEST("bearings.coupling_sync", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto p = ctx.testPos(3890, kU38Dz);
+    auto p = ctx.testPos(3890, ::lv::feature::contraption::kU38Dz);
     p.y += 2;
     ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
     auto& r = ctx.player().getDimensionBlockSource();

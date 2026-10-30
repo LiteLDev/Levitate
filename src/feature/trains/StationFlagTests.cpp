@@ -14,8 +14,6 @@
 #include "selftest/SelfTest.h"
 
 namespace lv::feature::trains {
-
-using ::lv::feature::contraption::kU38Dz;
 std::optional<bool> stationFlagRaised(GlobalPos const& pos); // Stations.cpp
 } // namespace lv::feature::trains
 
@@ -43,7 +41,7 @@ int lastFlag(std::vector<lv::core::common::Envelope> const& msgs, GlobalPos cons
 } // namespace
 
 LV_REGISTER_SELFTEST("trains.station_flag", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = ctx.testPos(3895, kU38Dz);
+    auto base = ctx.testPos(3895, ::lv::feature::contraption::kU38Dz);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
     ctx.require(co_await ctx.ensureLoaded(at(base, 9)), "test area loaded");
     int s = int(lv::core::tracks::Shape::XO);

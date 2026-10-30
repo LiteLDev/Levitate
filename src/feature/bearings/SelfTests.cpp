@@ -9,7 +9,12 @@
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/vanilla_components/StateVectorComponent.h"
 #include "mc/server/SimulatedPlayer.h"
+#include "mc/deps/ecs/gamerefs_entity/EntityContext.h"
+#include "mc/entity/components_json_legacy/ContainerComponent.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/inventory/FillingContainer.h"
+#include "mc/world/phys/AABB.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
@@ -19,6 +24,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/bearings/Bearings.h"
+#include "feature/contraption/U38Test.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/Contraption.h"
@@ -461,6 +467,71 @@ LV_REGISTER_SELFTEST("bearings.minecart_contraption_pickup", [](Context& ctx) ->
             ctx.check(c->blocks().size() == 1 && c->blocks()[0].id == "minecraft:oak_planks", "the same planks");
         }
     }
+    for (int dx = -1; dx <= 5; ++dx)
+        for (int dz = -1; dz <= 1; ++dz) ctx.cleanupBlock(at(p, dx, 1, dz));
+});
+
+// U38 (R110 / R111): a chest minecart contraption is picked up into its own item with the cart's
+// inventory, without placing anything (Create discards the contraption entity), and comes back.
+LV_REGISTER_SELFTEST("bearings.chest_minecart_contraption_pickup", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = ctx.testPos(3810, ::lv::feature::contraption::kU38Dz);
+    p.y += 2;
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    auto& r = regionOf(ctx);
+    for (int dx = -1; dx <= 4; ++dx) place(ctx, at(p, dx, -1, 0), "minecraft:stone");
+    place(ctx, p, std::string(kCartAssembler), {{"levitate:rail_axis", 1}, {"levitate:rail_type", 0}, {"levitate:powered", 1}});
+    place(ctx, at(p, 0, 0, 1), "minecraft:redstone_block");
+    place(ctx, at(p, 0, 1, 0), "minecraft:oak_planks");
+    place(ctx, at(p, 3, 0, 0), "minecraft:rail", {{"rail_direction", 1}});
+    track(p);
+    markCreativeBreak(p);
+    Guard g;
+    auto* cart = spawnCart(r, {p.x + .5, p.y + cartRailY(), p.z + .5}, "minecraft:chest_minecart");
+    ctx.require(cart != nullptr, "chest minecart spawned");
+    if (auto inv = cart->getEntityContext().tryGetComponent<ContainerComponent>()) inv->mContainer->setItem(4, stack("minecraft:diamond", 3));
+    auto cartId = uidOf(*cart);
+    co_await ctx.ticks(12);
+    auto cid = contraptionOfCart(cartId);
+    ctx.require(cid && ct::find(*cid), "assembled on the chest minecart");
+    g.ids.push_back(*cid);
+    // something where the structure would be placed: the pickup doesn't place it (no refusal)
+    auto local = ct::find(*cid)->blocks().front().local;
+    auto spot  = ct::find(*cid)->placement(local);
+    auto& player = ctx.player();
+    for (int s = 0; s < 36; ++s) player.getInventory().setItem(s, ItemStack{});
+    player.setSelectedSlot(0);
+    cart = actorById(cartId);
+    ctx.require(cart && pickupContraption(player, *cart), "picked up with the wrench");
+    co_await ctx.ticks(2);
+    ctx.check(!ct::find(*cid), "the contraption is gone");
+    ctx.check(blk(ctx, spot) == "minecraft:air", "nothing was placed in the world");
+    ItemStack item;
+    for (int s = 0; s < 36; ++s) {
+        auto const& st = player.getInventory().getItem(s);
+        if (it::idOf(st) == kChestMinecartContraption) item = st;
+    }
+    ctx.require(it::idOf(item) == kChestMinecartContraption, "the player got a chest minecart contraption");
+    auto data = it::getData(item, "lv:minecart_contraption");
+    ctx.check(data.contains("cart_items") && data["cart_items"].size() == 1, "the cart's inventory travels in the item");
+    ctx.give(player, item, 0);
+    player.setSelectedSlot(0);
+    ctx.check(placeMinecartContraption(player, at(p, 3, 0, 0)), "placed on a rail");
+    co_await ctx.ticks(3);
+    bool restored = false;
+    for (auto cidNew : ct::all()) {
+        auto* c = ct::find(cidNew);
+        if (!c || c->anchor() != at(p, 3, 0, 0)) continue;
+        g.ids.push_back(cidNew);
+        for (auto* a : r.getEntities(AABB{Vec3{float(p.x + 2), float(p.y - 1), float(p.z - 1)}, Vec3{float(p.x + 5), float(p.y + 2), float(p.z + 2)}}, 0.f)) {
+            if (!a || a->getEntityTypeId() != ActorType::MinecartChest) continue;
+            if (auto inv = a->getEntityContext().tryGetComponent<ContainerComponent>()) {
+                auto const& s4 = inv->mContainer->getItem(4);
+                restored = it::idOf(s4) == "minecraft:diamond" && s4.mCount == 3;
+            }
+            a->remove();
+        }
+    }
+    ctx.check(restored, "a chest minecart with the same inventory carries it again");
     for (int dx = -1; dx <= 5; ++dx)
         for (int dz = -1; dz <= 1; ++dz) ctx.cleanupBlock(at(p, dx, 1, dz));
 });

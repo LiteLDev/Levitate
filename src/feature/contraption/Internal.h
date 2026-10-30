@@ -78,6 +78,8 @@ namespace detail {
 [[nodiscard]] cc::BlockInfo describe(BlockSource& region, int dim, cc::Pos const& p);
 /// Collision box of a block relative to its position (nullopt: none).
 [[nodiscard]] std::optional<cc::Box> collisionOf(BlockSource& region, cc::Pos const& p);
+/// Collision box of `block` relative to its position, as if it stood at `at` (carried blocks).
+[[nodiscard]] std::optional<cc::Box> collisionOfBlock(BlockSource& region, Block const& block, cc::Pos const& at);
 /// Redstone power reaching `p` from its neighbours.
 [[nodiscard]] bool powered(BlockSource& region, cc::Pos const& p);
 

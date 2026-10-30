@@ -1246,3 +1246,20 @@ void onPointEntered(std::function<void(std::uint64_t, core::tracks::EdgePoint co
 void onPointLeft(std::function<void(std::uint64_t, core::tracks::EdgePoint const&)> fn) { ft::ext().left.push_back(std::move(fn)); }
 
 } // namespace lv::feature::tracks::trains
+
+namespace lv::feature::trains {
+
+std::optional<DoorMode> stationDoorModeOf(std::uint64_t contraption) {
+    for (auto const& [id, t] : state().trains) {
+        if (t.invalid) continue;
+        bool mine = std::any_of(t.carriages.begin(), t.carriages.end(), [&](Carriage const& c) { return c.contraption == contraption; });
+        if (!mine) continue;
+        if (t.currentStation.empty() || std::abs(t.speed) > 1e-6) return std::nullopt;
+        auto s = state().stations.find(t.currentStation);
+        if (s == state().stations.end()) return std::nullopt;
+        return s->second.door;
+    }
+    return std::nullopt;
+}
+
+} // namespace lv::feature::trains

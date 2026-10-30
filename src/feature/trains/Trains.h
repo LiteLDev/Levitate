@@ -216,6 +216,9 @@ std::vector<std::pair<std::string, int>> arrivals(Station const& s);
 
 // ---- trains (TrainLogic.cpp) --------------------------------------------------------------------
 Train*       findTrain(std::uint64_t id);
+/// Door control of the station the train of carriage contraption `contraption` stands at (Create's
+/// getTrainStationDoorControl); nullopt when it isn't a carriage or isn't stopped at a station.
+[[nodiscard]] std::optional<DoorMode> stationDoorModeOf(std::uint64_t contraption);
 Train*       trainOfContraption(std::uint64_t contraption);
 void         tickTrains();
 /// Recomputes and applies every carriage transform (after load / assembly).

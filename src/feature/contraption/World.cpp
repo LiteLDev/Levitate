@@ -208,9 +208,10 @@ std::optional<std::int64_t> intStateOf(Block const& block, std::string const& na
     return intState(s, name.c_str());
 }
 
-std::optional<cc::Box> collisionOf(BlockSource& region, cc::Pos const& p) {
+std::optional<cc::Box> collisionOf(BlockSource& region, cc::Pos const& p) { return collisionOfBlock(region, region.getBlock(toBlockPos(p)), p); }
+
+std::optional<cc::Box> collisionOfBlock(BlockSource& region, Block const& block, cc::Pos const& p) {
     auto        bp    = toBlockPos(p);
-    auto const& block = region.getBlock(bp);
     if (block.isAir()) return std::nullopt;
     AABB box = block.getBlockType().getCollisionShape(block, region, bp, nullptr);
     if (box.max.x - box.min.x < 1e-4f || box.max.y - box.min.y < 1e-4f || box.max.z - box.min.z < 1e-4f) {
