@@ -253,6 +253,11 @@ void         onGraphChanged();
 void         setScheduleOf(ItemStack& stack, ct::Schedule const& s);
 [[nodiscard]] ItemStack makeScheduleItem(ct::Schedule const& s);
 void         openScheduleEditor(Player& player, int slot);
+/// The native schedule editor's instruction / condition (Create's editor sub-screens): the
+/// requested part checked as Create's widgets limit it (known id, ranges, text lengths, digits
+/// only thresholds, slot items); nullopt for an unknown id.
+[[nodiscard]] std::optional<ct::Part> sanitiseInstruction(ct::Part const& requested, ct::Part const& current);
+[[nodiscard]] std::optional<ct::Part> sanitiseCondition(ct::Part const& requested, ct::Part const& current);
 void         registerScheduleScreens();
 /// Right-click on a conductor (entity or blaze burner) of `t` with `held` (Create's
 /// ScheduleItem.handScheduleTo / remove with an empty hand).
