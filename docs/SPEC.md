@@ -1486,13 +1486,32 @@ names come from `tools/gen/materials.names.tsv` (Create's en_US / zh_CN wording)
   with 4 random natural texture variants), cut / polished cut / cut bricks / small bricks (each +
   stairs, slab, wall), layered (column, cap top), pillar (axis from the clicked face). Create's
   stones: hardness 1.25 (scoria / scorchia 1.5); stairs / slabs / walls have their pattern's
-  properties. Stairs: `minecraft:corner_and_cardinal_direction` + `minecraft:vertical_half`
+  properties. Connected textures (Create's CT, kept by the server in `levitate:c_<dir>`, recomputed
+  at the next tick after any change): layered stone sides HORIZONTAL_KRYPPERS (same block left /
+  right), its top / bottom the cap sheet (OMNIDIRECTIONAL over the 4 horizontal neighbours); pillar
+  sides RECTANGLE, the faces on its axis the cap sheet; pillars join along the axis with the same
+  pillar on the same axis, sideways only when both columns end at the same places (Create's
+  ConnectedPillarBlock, columns walked up to 1000 blocks). Every block of the unit carries
+  Create's mineable tags (`minecraft:is_pickaxe|axe_item_destructible`, `minecraft:iron_tier_destructible`
+  for needs_iron_tool), so the game's tool speeds and tiers apply. Stairs: `minecraft:corner_and_cardinal_direction` + `minecraft:vertical_half`
   (Bedrock computes Create's inner / outer corners, corners with any of the unit's stairs), world
   aligned quarter boxes for model and collision. Slabs: `minecraft:vertical_half` + `levitate:double`;
   using a slab on the empty half of the same single slab (clicked face, or the slab beside the
   clicked face by click height) makes it double (one item used, 2 drops); the polished slab's sides
-  use Create's slab texture. Walls: `minecraft:connection` (format 1.26.0), post unless exactly
-  straight, low sides.
+  use Create's slab texture. Walls: `minecraft:connection` (format 1.26.0) for the four connections,
+  plus Java's WallBlock rules kept by the server: a side is tall (`levitate:tall_<dir>`, 16 px) when
+  the bottom face of the block above covers it, else low (14 px); the post (`levitate:up`) shows
+  unless the wall is exactly straight, a tall straight line drops it, a wall post above or a torch /
+  sign / banner / pressure plate (WALL_POST_OVERRIDE) or a block covering the post above forces it;
+  collision 24 px (post 4..12, sides 5..11) from the collision hook.
+- **Furnace xp**: Create's recipe xp (crushed ores 0.1, raw zinc 0.7, zinc ore 1.0, dough / soul
+  sand 0) instead of the output item's Bedrock multiplier: the furnace's slots are compared between
+  ticks (`FurnaceBlockActor::canBurn`) and when the experience is taken; the total is rounded as
+  Java (whole points, the fraction as one more with its probability). Cook times are Bedrock's
+  10 s / 5 s / 30 s = Create's 200 / 100 / 600 ticks.
+- **Block of experience**: Create's animateTick (1 in 5, end rod within ±0.55 of the centre,
+  speed gaussian × 0.005) with Java's ClientLevel.animateTick sampling (667 × ±16 and ±32 per
+  tick): the client mod around its player, the server for vanilla players.
 - **Recipes**: every Create 6.0.10 crafting / smelting / blasting / smoking / campfire /
   stonecutting recipe producing these items (c: tags resolved to their single Bedrock item);
   stonecutting accepts every member of Create's `stone_types/<stone>` tag (full blocks, stairs,
@@ -1516,7 +1535,9 @@ names come from `tools/gen/materials.names.tsv` (Create's en_US / zh_CN wording)
   (y < min, falling > 10 blocks per tick) turns the stack into shadow steel (thrown up by
   `(fall distance + 3)/50`); half of the ticks it picks a random block within 3: a light source in
   line of sight (not unbreakable, not a beacon) is removed and one compound gains a charge (item data
-  `lv:chromatic_compound.light`); at `lightSourceCountForRefinedRadiance` (10) charges it becomes refined
+  `lv:chromatic_compound.light`; a charged compound stacks to 1, the client mod draws Create's charge
+  bar: width round(13 · light / N), colour 0x413c69 → white); a belt segment or depot picked instead
+  gives up one item of the first carried stack whose block emits light; at `lightSourceCountForRefinedRadiance` (10) charges it becomes refined
   radiance (+0.25 up); over an active beacon the whole stack becomes refined radiance. Shadow steel
   and refined radiance float (gravity cancelled) and shed end rod particles.
 - **World generation** (`src/core/materials/WorldGen.*`, gtest): run natively when a chunk is
@@ -1540,8 +1561,14 @@ the block-changed event: the position and its neighbours are re-evaluated at the
 `updateShape`).
 
 - **Connected textures**: casings and framed glass connect on all four edges of every face to the same
-  block (16 textures per block), horizontal framed glass left/right, vertical framed glass and windows
-  top/bottom (their top and bottom faces use an end texture). States: one per neighbour direction used.
+  block (16 textures per block), horizontal framed glass left/right (its top and bottom use the framed
+  glass sheet), vertical framed glass and wooden / ornate iron windows top/bottom, industrial and
+  weathered iron windows on all four edges of their sides (Create's RECTANGLE); window top / bottom
+  faces use an end texture. Panes (framed glass, horizontal / vertical framed glass and every window
+  pane) use their full block's sheet on every side face, joining the same pane around them (Create's
+  GlassPaneCTBehaviour). States: one per neighbour direction used. The client mod draws the inner
+  corners of the omnidirectional sheets (casings, framed glass and its panes, layered / pillar caps):
+  the frame's corner where two edges join but the block across the corner differs.
 - **Panes and bars** (Java `IronBarsBlock.attachsTo`): an arm towards a sturdy face, another pane / bars
   (ours or vanilla glass panes and bars) or a wall. Collision: 2-px post plus arms.
 - **Stairs**: facing (player's direction), `upside` (clicked the bottom face or the upper half of a side),
@@ -1569,7 +1596,11 @@ the block-changed event: the position and its neighbours are re-evaluated at the
   facing and half); breaking one half removes the other; only the lower half drops (none in creative).
   Redstone on either half, or on either half of the double door partner, opens it (`powered`).
   Andesite and copper doors fold, the others slide; sounds `open.iron_door` / `close.iron_door`,
-  pitch 0.9–1.0. Open shapes from Create's `SlidingDoorShapes`, clipped to the block.
+  pitch 0.9–1.0. Open shapes from Create's `SlidingDoorShapes`, clipped to the block. A closing door
+  keeps its open collision (`levitate:closing`) for the 7 ticks of Create's animation, then plays
+  `close.iron_door` at volume 0.5. The client mod draws the doors moving (Create's
+  SlidingDoorRenderer: a value chasing open / closed at 0.15 per tick, drawn as its square; sliding
+  panels move 13 px sideways and 0.5 px out, folding doors turn their leaves 91° / −181°).
 - **Trapdoors** (Create's `TrainTrapdoorBlock`): Java trapdoor placement (side: facing the clicked face,
   upper half when clicked high; else the player's opposite direction, top when clicking a bottom face),
   click toggles, redstone opens.
@@ -1579,10 +1610,16 @@ the block-changed event: the position and its neighbours are re-evaluated at the
   placards (and stay on solid blocks). A shaft used on a girder makes `metal_girder_encased_shaft`
   (shaft axis z if the girder had an x beam or the clicked face is on z, else x), a kinetic shaft
   (`specs::shaft`, rotor model `geometry.levitate.girder_shaft_rotor`); it drops the girder and the
-  shaft.
-- **Brackets**: a metal / wooden bracket used on a shaft, cogwheel, large cogwheel or fluid pipe is
-  stored in its `BlockData["building"]["bracket"]` and dropped when that block goes; the item is never
-  placed as a block.
+  shaft. Placement helper (Create's GirderPlacementHelper): a girder used (not sneaking) on a girder
+  or encased girder extends the line at its end in the direction nearest to the clicked point that
+  the clicked block extends along (a vertical girder up / down, a junction any way, an encased one
+  across its shaft), up to `placementAssistRange` 12 (+4 with an extendo grip in the off hand).
+- **Brackets**: a metal / wooden bracket used on a shaft, cogwheel or large cogwheel is stored in its
+  `BlockData["building"]["bracket"]` ({id, facing, axis, cog}: Create's BracketBlockItem facing, the
+  clicked face or, on an end of the shaft, the face towards the player) and dropped when that block
+  goes; another bracket swaps it, the wrench takes it off (Create's IWrenchableWithBracket); fluid
+  pipes keep their own (U17). The item is never placed as a block. The client mod draws the bracket
+  (Create's ground / wall bracket models, the mounted states of the bracket block).
 - **Table cloths**: decoration (1-px cloth with a skirt over the block below); U26 adds the shop.
 - **Placard** (Create's `PlacardBlock`): hangs on the side it was looked at (a block with a collision
   shape). Use with an item while empty: it holds one (sound item frame); use while holding a matching
@@ -1591,8 +1628,16 @@ the block-changed event: the position and its neighbours are re-evaluated at the
   sound. Punching gives the item back; breaking drops it.
 - **Copycats**: panel (3 px on the side looked at, `facing`) and step (half block, `facing`, `top`).
   Using a full, solid, non-container block item applies it as the material (one item used, kept for
-  dropping); a different material is refused while one is applied; the wrench resets it.
-- Selftests `building.*` (dx 1000..1099), e2e `tools/e2e/{server,client}/scenarios/building.ps1`.
+  dropping) in its default state turned to the clicked face (FACING / HORIZONTAL_FACING / AXIS), or
+  in the exact state of a neighbouring identical copycat with the same material; using the same
+  block again turns it (Create's cycleMaterial: FACING, HORIZONTAL_FACING clockwise, AXIS, LIT; item
+  frame sound); a different material is refused while one is applied; the wrench resets it. The
+  material is stored with its states (`BlockData["building"]["state"]`, turned with contraptions).
+  The client mod draws the copycat in its material (Create's CopycatPanelModel / CopycatStepModel:
+  the material's quads cropped and moved; faces against a solid neighbour culled); materials and
+  brackets reach it over `building.query` / `building.visuals`.
+- Selftests `building.*` (dx 1000..1099; U43 additions 4350..4399), e2e
+  `tools/e2e/{server,client}/scenarios/building.ps1`; client parts in `src/client/building/`.
 
 #### 3.6.11 Belts, depots and weighted ejectors (U11)
 
@@ -4021,20 +4066,14 @@ matches Create's official Chinese translation wording).
 | The wrench's animated cog in the hand (U8) | Bedrock items have no custom item renderer; an attachable (extruded sprite with a cog bone turning by `q.life_time`) works in third person, but its first-person transform is not solved yet (U42 tried and left it out) | a static item sprite |
 | Strikethrough in Create's speed text of an overstressed network for **vanilla** clients (U8) | Bedrock text has no strikethrough format | the client mod draws the line (`§~` spans, U42); vanilla: only dark gray |
 | Create's data-driven ore / layered ore features (U9) | Bedrock feature JSON has no layered-ore feature and no config filter | both run natively in the chunk decoration hook with Create's numbers and patterns (own RNG, so positions differ from Java for the same seed) |
-| Connected textures of layered stone and pillars (U9) | no connected textures on Bedrock | the plain layered / pillar / cap textures |
-| Tall wall sides and the post forced by a block above (U9) | the connection trait only gives the four connections | low sides, post unless straight; wall collision is 1 block high (Bedrock's limit), Java's 1.5 |
-| Mining speed per tool tier on custom blocks (U9) | not data-driven in this format | Create's hardness as destroy time; the drop rules (pickaxe / iron tier) are exact |
-| Chromatic compound charge bar, stack size 1 when charged, absorbing light from belts / depots (U9) | durability bars and per-stack max sizes aren't data-driven; belts are another unit with no transported-item contract | the charge is kept in the item data (stacks of equal charge merge up to 16); placed light sources only |
-| Furnace cook times and xp of the unit's smelting recipes (U9) | Bedrock furnace recipes have fixed times / xp | Bedrock's 10 s / 5 s / 30 s, which equal Create's 200 / 100 / 600 ticks |
-| End rod particles of the block of experience (U9) | no data-driven block particles | none |
-| Create's connected-texture corners (U10) | a Bedrock face picks its texture from block states; inner corners would need the 12 diagonal neighbours as states | faces join along their four edges (6 neighbour states, 16 textures); the small inner-corner notch of Create's CTM is not drawn; glass panes don't connect their textures |
+| Wall collision predicted by **vanilla** clients (U9) | JSON collision boxes are at most 16 px high | the server and the client mod use Java's 24 px (collision hook); vanilla clients predict 16 px and are corrected by the server's movement authority |
+| Chromatic compound charge bar and stack size 1 for **vanilla** clients (U9) | durability bars and per-stack max sizes aren't data-driven | the server and the client mod use Create's stack size (1 while charged); the client mod draws the bar; vanilla clients see no bar and predict stacks of 16 (the server corrects them) |
+| Inner corners of Create's connected textures for **vanilla** clients (U9 / U10) | a face's texture comes from block states; the inner corners would need the 12 diagonal neighbours as states (2^18 states per block) | faces join along their four edges for every client; the client mod draws the frame's inner corners over the faces (casings, framed glass and panes, layered / pillar caps) |
 | Random ticks of copper roofing (U10) | data-driven blocks get no random ticks without scripting | the unit keeps the positions of its weathering blocks (saved with the world) and ticks them at the game's `randomTickSpeed` rate |
 | Climbable ladders / scaffolding, multi-box collision (U10) | no JSON component for either | the block types get the Climbable property and a collision hook (server and client mod); vanilla clients are corrected by the server's movement authority, so climbing and stairs feel slightly rubbery for them |
-| Sliding door animation, open panel beyond the block (U10) | Bedrock models are static per state and must fit 30 px | the open state shows the slid / folded panel clipped to the model bounds, no sliding animation |
+| Sliding door animation for **vanilla** clients (U10) | Bedrock models are static per state and must fit 30 px | the client mod draws the panel sliding / folding (Create's 0.15 per tick, eased); vanilla clients see the open state clipped to the model bounds, no animation |
 | Door / trapdoor redstone input (U10) | custom blocks get no neighbour updates | polled every 2 ticks from adjacent power sources (wire, levers, buttons, torches, repeaters, comparators, observers, plates, placards, blocks strongly powered by them); read with `Redstone.h` `power` (U36: wire and diodes only into the blocks they point at) |
-| Item on the placard, copycat material, brackets drawn on vanilla clients (U10) | a block model can't show another item / block | the data and every behaviour exist on both; the client mod draws the placard's item on its plate (display item, U33); vanilla clients see the placard frame, the copycat base and the plain shaft; the copycat material and brackets are not drawn by the client mod yet (they need block models in the shape of the copycat, not items) |
-| Copycat material state cycling (U10) | Bedrock block items always place their default state | materials are applied in their default state; clicking again with the same block does nothing |
-| Placement helpers of girders (U10) | — (not done yet) | girders are placed like normal blocks (the table cloth helper is done, U42) |
+| Item on the placard, copycat material, brackets drawn on **vanilla** clients (U10) | a block model can't show another item / block | the data and every behaviour exist on both; the client mod draws the placard's item (display item, U33), the copycat in its material (Create's cropped panel / step models) and the bracket on its shaft or cogwheel; vanilla clients see the placard frame, the copycat base and the plain shaft |
 | Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer, for **vanilla** clients (U11) | Bedrock has no item renderer for vanilla clients | the client mod draws each stack (display items, U33: lying, half size, a pile for bigger stacks, interpolated between ticks) and does not draw the fallback; vanilla players see each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick); with `displayItems` off they see nothing |
 | Belt drops when removed by `/setblock ... destroy` (U11) | the block change the server sees carries no cause: a command's destroy mode looks like a replace | survival players breaking a segment and explosions (each segment with Create's 1 / radius survival chance) drop the connector / shaft; command removals drop nothing but the items on the belt |
 | Items drawn inside chutes by a block entity renderer, for **vanilla** clients (U12) | custom blocks have no block entity renderers | the client mod draws the moving stack (display item, U33, interpolated); vanilla clients get client-only item entities (packets only, never a server entity, so nobody can pick them up) that follow each moving stack |

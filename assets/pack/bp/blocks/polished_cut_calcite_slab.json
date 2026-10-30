@@ -30,6 +30,7 @@
       },
       "minecraft:map_color": "#d1b1a1",
       "minecraft:loot": "loot_tables/blocks/polished_cut_calcite_slab.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
       "minecraft:geometry": {
         "identifier": "geometry.levitate.materials_slab",
         "bone_visibility": {

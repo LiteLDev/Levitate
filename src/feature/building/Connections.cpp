@@ -135,6 +135,16 @@ void scheduleBreak(GlobalPos const& p, std::string const& id, bool dropsItem) {
 
 } // namespace
 
+bool ctUses(Ct ct, int dir) {
+    switch (ct) {
+    case Ct::Omni:
+    case Ct::Rect: return true;
+    case Ct::Horizontal: return horizontal(dir); // (horizontal framed glass: its top / bottom use these too)
+    case Ct::Vertical: return !horizontal(dir);
+    default: return false;
+    }
+}
+
 void markDirty(GlobalPos const& p) {
     auto& d = dirty();
     d.insert(p);
@@ -153,20 +163,25 @@ bool updateConnections(GlobalPos const& p) {
     case Kind::Window: {
         std::vector<std::pair<std::string, int>> s;
         for (int d = 0; d < 6; ++d) {
-            bool used = info->ct == Ct::Omni || (info->ct == Ct::Horizontal && horizontal(d)) || (info->ct == Ct::Vertical && !horizontal(d));
-            if (!used) continue;
+            if (!ctUses(info->ct, d)) continue;
             s.emplace_back(std::string("levitate:c_") + kDirNames[d], idAt(offset(p, d)) == info->id ? 1 : 0);
         }
         next = withStates(*block, s);
         break;
     }
     case Kind::Pane:
-    case Kind::Bars:
-        next = withStates(
-            *block,
-            {{"levitate:north", paneAttaches(p, North)}, {"levitate:south", paneAttaches(p, South)}, {"levitate:west", paneAttaches(p, West)}, {"levitate:east", paneAttaches(p, East)}}
-        );
+    case Kind::Bars: {
+        std::vector<std::pair<std::string, int>> s{
+            {"levitate:north", paneAttaches(p, North)}, {"levitate:south", paneAttaches(p, South)}, {"levitate:west", paneAttaches(p, West)}, {"levitate:east", paneAttaches(p, East)}};
+        // connected textures of panes: the same pane on each side (Create's GlassPaneCTBehaviour, no
+        // "blocked" check)
+        for (int d = 0; d < 6; ++d) {
+            if (!ctUses(info->ct, d)) continue;
+            s.emplace_back(std::string("levitate:c_") + kDirNames[d], idAt(offset(p, d)) == info->id ? 1 : 0);
+        }
+        next = withStates(*block, s);
         break;
+    }
     case Kind::CopperStairs: {
         int facing = hfacingOf(*block), upside = stateOf(*block, "levitate:upside");
         next       = withStates(*block, {{"levitate:shape", stairShape(p, facing, upside)}});
