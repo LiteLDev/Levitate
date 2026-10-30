@@ -107,6 +107,7 @@ struct Depot {
     float                 lid       = 0;
     int                   launchTicks = 0;
     bool                  powered   = false;
+    int                   redstoneWatch = 0; ///< common::redstone watch of an ejector (0 none)
     int                   stackSize = 0; ///< 0 = any
     int                   targetH   = 1, targetV = 0;
     std::vector<Airborne> airborne;
@@ -130,6 +131,8 @@ struct State {
     };
     std::vector<Removal>                             removals;    ///< belt segments that disappeared
     std::map<GlobalPos, bool>                        playerBroke; ///< pos -> creative
+    std::map<GlobalPos, float>                       exploded;    ///< pos -> explosion radius (this tick)
+    std::uint64_t                                    blownSegments = 0; ///< belt segments removed by explosions (selftests)
     struct PlaceIntent {
         std::string uuid;
         int         lookFacing = 0;
@@ -205,6 +208,8 @@ std::uint64_t newItemId();
 /// Drops every item of a belt / depot as item entities.
 void ejectAll(Belt& belt);
 void dropDepotContents(Depot& depot);
+/// Ends the redstone watch of an ejector that goes away.
+void releaseDepot(Depot& depot);
 void removeDisplay(StackData& data);
 void syncDisplay(GlobalPos const& dimRef, StackData& data, cb::Vec3d const& at);
 
@@ -236,7 +241,16 @@ bool onBeltWrench(Player& player, GlobalPos const& pos, int face, cb::Vec3d cons
 void processRemovals();
 /// Places the belt planned between two shafts (Create's createBelts). False if refused.
 bool createBelt(GlobalPos const& start, GlobalPos const& end);
+/// What the connector preview shows for a player with a shaft selected (Create's
+/// BeltConnectorHandler): no line = looking at nothing (the first shaft sparkles).
+struct ConnectorPreview {
+    std::optional<cb::PreviewLine> line;
+    bool                           valid = true;
+};
+[[nodiscard]] std::optional<ConnectorPreview> connectorPreviewFor(Player& player, GlobalPos const& first);
 void connectorPreview();
+/// Tells a companion player's client mod about its connector selection ("belts.connector").
+void syncConnectorSelection(Player& player);
 
 // ---- depots (Depots.cpp) --------------------------------------------------------------------------------
 void tickDepot(Depot& depot);
@@ -264,6 +278,11 @@ void unregisterProcessor(std::string const& blockId);
 // ---- hooks (BeltHooks.cpp) ------------------------------------------------------------------------------
 void installHooks();
 void uninstallHooks();
+// ---- collision (BeltShapes.cpp) ---------------------------------------------------------------------------
+/// The stepped collision boxes of a sloped segment (pixels: x0 y0 z0 x1 y1 z1); empty otherwise.
+[[nodiscard]] std::vector<std::array<float, 6>> slopeCollision(cb::SegmentState const& s);
+void installShapes();
+void uninstallShapes();
 [[nodiscard]] bool isDisplayActor(Actor const& actor);
 
 // ---- persistence --------------------------------------------------------------------------------------

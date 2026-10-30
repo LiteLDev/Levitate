@@ -478,3 +478,13 @@ LV_REGISTER_SELFTEST("funnels.tunnels", [](Context& ctx) -> ll::coro::CoroTask<>
     ctx.check(countIn(r, north, "minecraft:gravel") == 1 && countIn(r, south, "minecraft:gravel") == 1, "one to each side");
     for (auto const& p : {belt, north, south, east}) common::blockdata::erase(p);
 });
+
+LV_REGISTER_SELFTEST("funnels.hold_filter_for_amount", [](Context& ctx) {
+    // Create: holding the filter slot of a brass funnel / smart chute edits its count (U41, R60)
+    for (char const* id : {fu::kBrassFunnel, fu::kSmartChute}) {
+        auto const* slots = common::filterslot::slotsOf(id);
+        ctx.require(slots && !slots->empty(), std::string(id) + " has a filter slot");
+        ctx.check(static_cast<bool>(slots->front().onHold), std::string(id) + ": holding the slot opens the amount board");
+        ctx.check(common::valuebox::boxesOf(id) != nullptr, std::string(id) + ": the amount box stays for vanilla players");
+    }
+});
