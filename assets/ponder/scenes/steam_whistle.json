@@ -39,6 +39,7 @@
     {"modify": [3, 1, 2], "states": {"open_bit": true}},
     {"modify": [3, 2, 2], "states": {"levitate:powered": 1}},
     {"redstone": [3, 1, 2], "ticks": 40},
+    {"particles": "cloud", "at": [3.5, 2.95, 2.5], "ticks": 80, "rate": 1, "spread": [0.1, 0.05, 0.1], "motion": [0, 0.04, 0]},
     {"text": 3, "at": [3.5, 2.5, 2.5], "ticks": 70},
     {"idle": 80},
     {"modify": [3, 1, 2], "states": {"open_bit": false}},

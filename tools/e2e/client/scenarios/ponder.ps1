@@ -109,6 +109,33 @@ foreach ($entry in 'shaft', 'hand_crank', 'track_station') {
     Close-Screen
 }
 
+# ---- 4b. U46: entities (game actor renderer) and particles -------------------------------------
+# the cart assembler's minecart, the empty blaze burner's blaze, the fan's air and processing particles
+$mark = Get-LogMark
+Invoke-Chat '/create ponder cart_assembler'
+Wait-LogLine 'ponder: opened levitate:cart_assembler' 15 -Since $mark | Out-Null
+Wait-LogLine 'ponder: scene cart_assembler shows [1-9]\d* entities' 30 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'entity-minecart' | Out-Null
+Close-Screen
+$mark = Get-LogMark
+Invoke-Chat '/create ponder empty_blaze_burner'
+Wait-LogLine 'ponder: scene empty_blaze_burner shows [1-9]\d* entities' 30 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 1200
+Save-Screenshot 'entity-blaze' | Out-Null
+Close-Screen
+$mark = Get-LogMark
+Invoke-Chat '/create ponder encased_fan'
+Wait-LogLine 'ponder: scene fan_direction shows \d+ entities, [1-9]\d* item entities, [1-9]\d* particles' 30 -Since $mark | Out-Null
+Start-Sleep -Milliseconds 800
+Save-Screenshot 'particles-air' | Out-Null
+Press-Key D
+Wait-LogLine 'ponder: scene fan_processing shows \d+ entities, \d+ item entities, [1-9]\d* particles' 30 -Since $mark | Out-Null
+Start-Sleep -Seconds 6
+Save-Screenshot 'particles-blasting' | Out-Null
+Close-Screen
+if (Get-LeviLog -Since $mark | Where-Object { $_ -match 'ponder: (no entity of type|building a .* failed)' }) { throw 'a Ponder entity could not be built' }
+
 # ---- 5. selftests ------------------------------------------------------------------------------
 $r = Invoke-SelfTest 'ponder.*'
 if ($r.Pass -lt 3) { throw "expected 3 ponder selftests to pass, got $($r.Pass)" }

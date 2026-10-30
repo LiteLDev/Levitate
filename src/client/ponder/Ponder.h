@@ -17,11 +17,17 @@
 #include "core/ponder/Scene.h"
 #include "core/ponder/View.h"
 
+#include "glm/mat4x4.hpp"
+
+class BaseActorRenderContext;
 class Block;
+class MinecraftUIRenderContext;
+class ScreenContext;
 class Tessellator;
 namespace mce {
+class MaterialPtr;
 class Mesh;
-}
+} // namespace mce
 
 namespace lv::client::screen {
 class Canvas;
@@ -77,6 +83,9 @@ struct DrawResult {
     std::string hoveredBlock; ///< identify mode: id of the block under the mouse
     int         drawnBlocks   = 0;
     int         missingBlocks = 0;
+    int         drawnEntities = 0; ///< (U46) entities drawn by the game's actor renderer
+    int         itemEntities  = 0; ///< (U46) item entities drawn by the game's actor renderer
+    int         particles     = 0; ///< (U46) particle sprites drawn
 };
 
 /// Draws `state` with `view`. `identify`: pick the block under (mx, my) and outline it.
@@ -99,6 +108,25 @@ bool drawIcon(screen::Canvas& c, std::string const& id, float x, float y, float 
 
 /// Drops cached block lookups (a new world registers block states again).
 void resetRenderCache();
+
+// ---- entities and particles (SceneEntities.cpp, U46) --------------------------------------------
+
+/// Draws the scene's entities with the game's actor renderer (`camera`: scene -> UI world matrix).
+/// Returns how many were drawn.
+int drawSceneEntities(ScreenContext& sc, BaseActorRenderContext& rc, glm::mat4 const& camera, cp::SceneState const& st);
+/// Draws an item entity showing `item` at `pos` (scene coordinates); false when it can't be drawn.
+bool drawSceneItemEntity(ScreenContext& sc, BaseActorRenderContext& rc, glm::mat4 const& camera, std::string const& item, cp::Vec3f const& pos, float time);
+/// Draws the scene's particles (billboards facing `view`) with `material`. Returns the count.
+int drawSceneParticles(
+    MinecraftUIRenderContext& ui,
+    ScreenContext&            sc,
+    glm::mat4 const&          camera,
+    mce::MaterialPtr const&   material,
+    cp::SceneState const&     st,
+    cp::View const&           view
+);
+/// Drops the puppet actors the entities are drawn with (scene player closed, level left).
+void releaseScenePuppets();
 
 /// Appends the model of `block` (`def`: its id and states) to a begun tessellator at (x, y, z),
 /// as Ponder draws it: Levitate blocks from the pack's geometry, other blocks with the game's block

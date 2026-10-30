@@ -133,6 +133,7 @@ public:
 
     void onClose() override {
         if (gActive == this) gActive = nullptr;
+        releaseScenePuppets();
         log().info("ponder: closed {}", mComponent);
     }
 
@@ -182,6 +183,10 @@ public:
         if (!mLoggedDraw) {
             mLoggedDraw = true;
             log().info("ponder: scene {} drawn ({} blocks, {} placeholders)", s->id, res.drawnBlocks, res.missingBlocks);
+        }
+        if (!mLoggedEntities && (res.drawnEntities > 0 || res.particles > 0)) {
+            mLoggedEntities = true;
+            log().info("ponder: scene {} shows {} entities, {} item entities, {} particles", s->id, res.drawnEntities, res.itemEntities, res.particles);
         }
         drawTexts(c, *s, st, mView, width, mSlow);
         layoutButtons();
@@ -259,7 +264,8 @@ private:
         mTime       = 0;
         mFade       = 0;
         mIdentify   = false;
-        mLoggedDraw = false;
+        mLoggedDraw     = false;
+        mLoggedEntities = false;
         if (auto const* s = scene()) {
             mState = cp::evaluate(*s, 0);
             mView = cp::View::fit(*s, width / 2, height / 2 + 16, width * 0.8f, height * 0.72f);
@@ -365,7 +371,7 @@ private:
     int                             mIndex = 0;
     float                           mTime  = 0;
     float                           mFade  = 1;
-    bool                            mIdentify = false, mSlow = false, mLoggedDraw = false;
+    bool                            mIdentify = false, mSlow = false, mLoggedDraw = false, mLoggedEntities = false;
     cp::View                        mView;
     cp::SceneState                  mState;
     std::chrono::steady_clock::time_point mLastFrame{};

@@ -680,6 +680,15 @@ DrawResult drawScene(
         if (auto* bm = meshOf(b.block, *info.block)) drawMesh(*bm, model);
     }
 
+    // ---- entities, item entities and particles (U46) ----
+    res.drawnEntities = drawSceneEntities(sc, rc, camera, st);
+    std::vector<cp::ItemView const*> iconItems;
+    for (auto const& item : st.items) {
+        if (drawSceneItemEntity(sc, rc, camera, item.id, item.pos, st.time)) ++res.itemEntities;
+        else iconItems.push_back(&item);
+    }
+    if (blend) res.particles = drawSceneParticles(uiCtx, sc, camera, *blend, st, view);
+
     // ---- overlays ----
     for (auto const& o : st.outlines) {
         float a   = std::min({1.f, o.age / 5.f, o.left / 5.f});
@@ -706,9 +715,10 @@ DrawResult drawScene(
                     }
         }
     }
-    for (auto const& item : st.items) {
-        auto p = view.project(item.pos);
-        if (!drawIcon(c, item.id, p.x - c.originX() - 8, p.y - c.originY() - 8, 16)) {
+    for (auto const* item : iconItems) {
+        // items the actor renderer could not draw stay flat icons
+        auto p = view.project(item->pos);
+        if (!drawIcon(c, item->id, p.x - c.originX() - 8, p.y - c.originY() - 8, 16)) {
             c.text(p.x - c.originX(), p.y - c.originY() - 4, "?", cfg.placeholderColour, Align::Centre);
         }
     }
