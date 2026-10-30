@@ -742,6 +742,8 @@ void install() {
     spec.states          = {"levitate:ceiling"};
     spec.rotationAxis    = [](core::kinetics::BlockState const&) -> std::optional<core::kinetics::Axis> { return core::kinetics::Axis::Y; };
     spec.hasShaftTowards = [](core::kinetics::BlockState const& s, Face f) { return f == (s.get("levitate:ceiling") ? Face::Up : Face::Down); };
+    // Create's ArmBlock is an ICogWheel: the cog on its base meshes with cogwheels beside it (U50)
+    spec.cog             = [](core::kinetics::BlockState const&) { return core::kinetics::CogType::Small; };
     spec.impact          = 2;
     spec.rotorState      = "levitate:rotor";
     spec.rotorModel      = "geometry.levitate.mechanical_arm_cog";

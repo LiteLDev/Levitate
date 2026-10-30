@@ -281,7 +281,8 @@ Bedrock blocks (details in §3.6.14):
   the player's horizontal look axis), `levitate:rotor` (client mod: 1 = drawn without its shaft,
   pole and hand). Breaking drops the held item and the items waiting to be handed out.
 - `mechanical_arm`: states `levitate:ceiling` (placed against the bottom of a block), `levitate:rotor`.
-  Shaft input from below (above on the ceiling). Breaking drops the held item.
+  Shaft input from below (above on the ceiling) and a small cog on its base that meshes with
+  cogwheels beside it (Create's ArmBlock is an ICogWheel, U50). Breaking drops the held item.
 - Recipes (Create 6.0.10): deployer = electron tube / andesite casing / brass hand (column);
   mechanical arm = `LLI` / `L  ` / `RC ` (L brass sheet, I electron tube, R precision mechanism,
   C brass casing). Their ingredients are U9 / U10 items: the files wait in
@@ -1238,6 +1239,22 @@ CuckooClockRenderer, FlywheelBlock(Entity)). Pure rules in
   large on large: diagonal, perpendicular axis; mixed sizes: diagonal in the plane, same axis); a
   large cogwheel used on a speed controller goes on top across its shaft. One log line per assisted
   placement.
+- **Cogs placed against integrated cogs** (U50, Create's CogwheelBlockItem.onItemUseFirst): the
+  cog helpers above take every ICogWheel, not only the cogwheels: the encased cogwheels and the
+  blocks with an integrated small cog (mechanical mixer and millstone around y, mechanical arm
+  around y, mechanical crafter and display board around their facing axis, mechanical pump
+  around its facing axis), with the block's rotation axis and its hit-on-shaft test (the centre
+  of the faces on its axis). They run before the clicked block's own use (registered above the
+  blocks' handlers, below value boxes and filter slots): a cog on a crafter's front goes beside
+  the crafter unless the click is on the front's centre, where the crafter takes it into its
+  slot. When no spot fits, or the player sneaks, the block's use and the plain placement follow
+  (the axis of the small cog it is placed against). Create's IntegratedLargeCogHelper /
+  IntegratedSmallCogHelper match a subset of the states the diagonal helpers already match, and
+  `onItemUseFirst` returns the first matching helper's result, so in 6.0.10 they never decide a
+  click (they only feed the client ghost). `isValidCogwheelPosition` skips a neighbour only when
+  it has the AXIS property along the facing (cogwheels, encased cogwheels): a large cog is refused
+  beside any block with an integrated cog, whatever its axis. The mechanical arm is a small cog
+  for the kinetic network too (Create's ArmBlock implements ICogWheel).
 - **Encasing**: right-clicking a shaft / cogwheel / large cogwheel with `andesite_casing` or
   `brass_casing` (U10) turns it into the encased block without using the casing; encased cogwheels
   get a shaft end on each axis side with a neighbouring shaft facing them.
@@ -4414,7 +4431,6 @@ matches Create's official Chinese translation wording).
 | Curved tracks drawn for **vanilla** clients (U5) | Bedrock block models are fixed per block state; a curve is not a block | the client mod draws the curve; vanilla clients see the straight end tracks and a track bed (`levitate:fake_track`) on every block the curve passes through |
 | Tilted track block drawn for **vanilla** clients (U5, U48) | Bedrock block models are fixed per state; the ramp's angle is a real number per block | the curves, the graph and the trains follow Create's tilt for every client (§3.5); the client mod draws the block turned onto the ramp; vanilla clients see the flat block between the two curves' track beds |
 | Smooth gauge needle for **vanilla** clients (U6) | block models are static per state; cube rotations are limited to 22.5° steps | the needle state snaps to the nearest 22.5°; the client mod draws the eased needle |
-| Integrated-cog placement helpers (cogs placed against mixers / crafters) (U6) | those blocks are other units' | plain placement rules apply |
 | Moving cuckoo clock hands, doors and figure for **vanilla** clients (U6, U49) | block models are static per state and turn cubes only in 22.5° steps | the hands are pixel steps in 12 positions each (`levitate:hour`, `levitate:minute` in 5-minute steps), the doors stand open with the figure out while Create's doors are past half open (`levitate:cuckoo`); the client mod draws Create's chasing hands, swinging doors and sliding figure |
 | Flywheel collision and selection beyond its block (U49) | JSON collision / selection boxes are at most 16 px and inside the block | the 28 px wheel collides and is selected as its own block |
 

@@ -69,13 +69,16 @@ Axis pillarAxis(BlockSource& region, PlaceContext const& ctx, Player const& play
     return preferred && ctx.sneaking ? ck::axisOf(ctx.face) : ck::axisOf(nearestLooking(player));
 }
 
-/// Create's CogWheelBlock.isValidCogwheelPosition.
+/// Create's CogWheelBlock.isValidCogwheelPosition. A neighbour is skipped only when it has the
+/// AXIS block property (`levitate:axis`: cogwheels, encased cogwheels) along the facing; blocks
+/// with an integrated cog (mixer, crafter, pump, ...) have no AXIS property and always count.
 bool validCogPosition(BlockSource& region, bool large, GlobalPos const& pos, Axis cogAxis) {
     for (Face f : ck::kFaces) {
         if (ck::axisOf(f) == cogAxis) continue;
-        GlobalPos n = stepPos(pos, f);
-        if (auto a = rotationAxisAt(region, n); a && *a == ck::axisOf(f)) continue;
-        auto cog = cogAt(region, n);
+        GlobalPos n   = stepPos(pos, f);
+        auto      cog = cogAt(region, n);
+        if (cog == ck::CogType::None) continue;
+        if (stateAt(region, n, kAxis, -1) == axisInt(ck::axisOf(f))) continue;
         if (cog == ck::CogType::Large || (large && cog == ck::CogType::Small)) return false;
     }
     return true;
@@ -366,20 +369,27 @@ bool tryEncase(Player& player, BlockSource& region, GlobalPos const& pos, std::s
 
 } // namespace
 
+bool cogItemUseFirst(Player& player, ItemStack& item, GlobalPos const& clicked, double hx, double hy, double hz) {
+    auto* region = regionOf(clicked.dim);
+    if (!region || player.isSneaking()) return false;
+    std::string held = items::isEmpty(item) ? std::string{} : items::idOf(item);
+    if (!isDedicatedCogItem(held)) return false;
+    // DiagonalCogHelper.getStatePredicate: any ICogWheel, the cogwheels and every block with an
+    // integrated cog alike (Create's IntegratedLarge/SmallCogHelper match a subset of these
+    // states, so in 6.0.10 they never decide a click)
+    if (cogAt(*region, clicked) == ck::CogType::None) return false;
+    auto spot = cogHelper(*region, held == kLargeCogwheel, clicked, hx, hy, hz);
+    if (!spot) return false; // PlacementOffset.fail(): the block's use and the plain placement follow
+    return placeLikeHelper(player, item, *region, spot->first, held, {{kAxis, static_cast<int>(spot->second)}});
+}
+
 bool useOn(Player& player, ItemStack& item, GlobalPos const& clicked, Face face, double hx, double hy, double hz) {
     auto* region = regionOf(clicked.dim);
     if (!region) return false;
     std::string block = idAt(*region, clicked);
     std::string held  = items::isEmpty(item) ? std::string{} : items::idOf(item);
     bool        sneak = player.isSneaking();
-    (void)face;
 
-    // CogwheelBlockItem.onItemUseFirst: runs before the block's own use
-    if (isDedicatedCogItem(held) && !sneak) {
-        if (auto spot = cogHelper(*region, held == kLargeCogwheel, clicked, hx, hy, hz)) {
-            return placeLikeHelper(player, item, *region, spot->first, held, {{kAxis, static_cast<int>(spot->second)}});
-        }
-    }
     // the block's useItemOn (sneaking with an item in hand skips it, as in Java)
     if (sneak && !held.empty()) return false;
     if (block == kShaft || block == kCogwheel || block == kLargeCogwheel) {
@@ -448,8 +458,8 @@ ia::Result transmissionUseOn(ia::UseOnContext const& c) {
     auto& item = const_cast<ItemStack&>(c.item);
     gPending.reset();
 
-    // block / item interactions of the unit
-    bool ours = !blockOfItem(block).empty() || isDedicatedCogItem(held);
+    // block interactions of the unit
+    bool ours = !blockOfItem(block).empty();
     if (ours) {
         // the item may change while the interaction runs: decide on the cooldown first
         static thread_local bool busy = false;
@@ -499,6 +509,26 @@ ia::Result transmissionUseOn(ia::UseOnContext const& c) {
     return ia::Result::Pass;
 }
 
+/// Create's CogwheelBlockItem.onItemUseFirst: the cog placement helpers run before the clicked
+/// block's own use (a crafter takes a cog clicked on its slot only when no helper spot applies),
+/// so above the blocks' handlers (Normal) and below value boxes / filter slots (Highest).
+ia::Result cogUseFirst(ia::UseOnContext const& c) {
+    if (c.face > 5 || c.offhand || c.sneaking) return ia::Result::Pass;
+    auto& region = c.player.getDimensionBlockSource();
+    if (cogAt(region, c.pos) == ck::CogType::None) return ia::Result::Pass;
+    if (!cooledDown(c.player)) return ia::Result::Pass;
+    gPending.reset();
+    try {
+        if (cogItemUseFirst(c.player, ia::mutableItem(c.item), c.pos, c.hit[0], c.hit[1], c.hit[2])) {
+            c.player.sendInventory(false);
+            return ia::Result::Consume;
+        }
+    } catch (std::exception const& e) {
+        log().error("transmission: cog placement helper failed: {}", e.what());
+    }
+    return ia::Result::Pass;
+}
+
 /// Only a block this click placed takes the placement state (never re-orient an existing one).
 void transmissionPlaced(ia::PlaceContext const& c) {
     if (!gPending) return;
@@ -515,6 +545,7 @@ void transmissionPlaced(ia::PlaceContext const& c) {
 } // namespace
 
 void installPlacementHooks() {
+    for (char const* cog : {kCogwheel, kLargeCogwheel}) gHandlers.push_back(ia::onUseOn({"", cog}, cogUseFirst, ia::priority::High));
     gHandlers.push_back(ia::onUseOn({}, transmissionUseOn));
     gHandlers.push_back(ia::onPlace({}, transmissionPlaced));
 }

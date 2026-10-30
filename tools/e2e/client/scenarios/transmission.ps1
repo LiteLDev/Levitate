@@ -4,7 +4,8 @@
 #                       (log "transmission client: drawing N gauge needles"); right-clicking the
 #                       sequenced gearshift opens the native instruction screen
 #   remote-vanilla:     static models (needles at their 22.5 degree steps) and the form fallback
-# Screenshots: out/transmission/{wall,wall-b,gauges,sequencer-screen}.png
+# U50: a large cogwheel right-clicked on a mechanical mixer lands on its diagonal (placement helper).
+# Screenshots: out/transmission/{wall,wall-b,gauges,sequencer-screen,integrated-cog}.png
 $withMod = $script:Mode -ne 'remote-vanilla'
 $mark    = Get-LogMark
 
@@ -101,4 +102,24 @@ Close-Screen
 if ($withMod) {
     Wait-LogLine 'transmission: sequenced gearshift at .* configured' 20 -Since $mark2 | Out-Null
 }
+
+# U50: a large cogwheel used on the west face of a mechanical mixer (an integrated cog, axis y)
+# goes to the mixer's north-west diagonal, axis y (Create's DiagonalCogHelper), and meshes with it.
+# The mixer at eye level 3 blocks east, driven by a cogwheel south of it on a source.
+Invoke-Chat '/fill ~1 ~ ~-4 ~6 ~3 ~4 air'
+Invoke-Chat '/setblock ~3 ~1 ~ levitate:mechanical_mixer'
+Invoke-Chat '/setblock ~3 ~ ~1 levitate:kinetics_test_source ["levitate:axis"=1]'
+Invoke-Chat '/setblock ~3 ~1 ~1 levitate:cogwheel ["levitate:axis"=1]'
+Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 levitate:large_cogwheel'
+Invoke-Chat '/tp @s ~ ~ ~ -90 0'
+Start-Sleep -Milliseconds 800
+$mark3 = Get-LogMark
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'transmission: .* placed levitate:large_cogwheel at .* by placement assist' 20 -Since $mark3 | Out-Null
+Start-Sleep -Milliseconds 600
+# the source only speeds up (a logged line) when the large cog stands at the diagonal with axis y
+Invoke-ChatConfirmed '/execute if block ~2 ~1 ~-1 levitate:large_cogwheel ["levitate:axis"=1] run create kinetics ~3 ~ ~1 speed 24' 'Generator at -?\d+ -?\d+ -?\d+ now turns at 24 ' -Attempts 2 | Out-Null
+Invoke-Chat '/tp @s ~ ~ ~ -90 20'
+Start-Sleep -Seconds 2
+Save-Screenshot 'integrated-cog' | Out-Null
 Assert-NoErrors

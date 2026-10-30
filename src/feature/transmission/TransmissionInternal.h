@@ -133,7 +133,11 @@ struct PlaceContext {
 /// Create's getStateForPlacement of `itemId` (states to apply) or nullopt when it is not ours.
 [[nodiscard]] std::optional<std::vector<std::pair<std::string_view, int>>>
 stateForPlacement(BlockSource& region, std::string_view itemId, PlaceContext const& ctx, Player const& player);
-/// Handles a right-click of `player` holding `item` on a block of the unit (placement helpers,
+/// Create's CogwheelBlockItem.onItemUseFirst: a cogwheel / large cogwheel used on any block with
+/// cog teeth (cogwheels, encased cogwheels, and blocks with an integrated cog: mixer, crafter,
+/// millstone, pump, arm, display board) goes to the spot where it meshes. True when it placed one.
+bool cogItemUseFirst(Player& player, ItemStack& item, GlobalPos const& clicked, double hx, double hy, double hz);
+/// Handles a right-click of `player` holding `item` on a block of the unit (shaft helper,
 /// encasing, the sequenced gearshift screen). Returns true when the click was used.
 bool useOn(Player& player, ItemStack& item, GlobalPos const& clicked, Face face, double hx, double hy, double hz);
 void installPlacementHooks();

@@ -255,7 +255,7 @@ LV_REGISTER_SELFTEST("transmission.placement", [](Context& ctx) -> ll::coro::Cor
         // the unit's use handler directly (the SimulatedPlayer refuses clicks on side faces)
         auto cog = items::make(kCogwheel);
         ctx.require(cog.has_value(), "cogwheel item");
-        ctx.check(useOn(sim, *cog, a.at(4, 1), Face::East, 1., .5, .5), "the cog helper takes the click");
+        ctx.check(cogItemUseFirst(sim, *cog, a.at(4, 1), 1., .5, .5), "the cog helper takes the click");
     }
     co_await ctx.ticks(2);
     ctx.check(idAt(world(), a.at(5, 1)) == kCogwheel && st(a.at(5, 1), kAxis) == Y, "cog placed beside the cog with its axis");
