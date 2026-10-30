@@ -134,6 +134,7 @@ $pieces = @(
     @{ id = 'cardboard_leggings'; slot = 'slot.armor.legs'; ench = 'armor_legs'; durability = 60; geo = 'geometry.humanoid.armor.leggings'; layer = 2; setup = 'variable.leg_layer_visible = 0.0;' },
     @{ id = 'cardboard_boots'; slot = 'slot.armor.feet'; ench = 'armor_feet'; durability = 52; geo = 'geometry.humanoid.armor.boots'; layer = 1; setup = 'variable.boot_layer_visible = 0.0;' }
 )
+$hiding = "q.is_sneaking && q.is_invisible && q.is_item_name_any('slot.armor.head', 0, 'levitate:cardboard_helmet') && q.is_item_name_any('slot.armor.chest', 0, 'levitate:cardboard_chestplate') && q.is_item_name_any('slot.armor.legs', 0, 'levitate:cardboard_leggings') && q.is_item_name_any('slot.armor.feet', 0, 'levitate:cardboard_boots')"
 foreach ($p in $pieces) {
     $item = [ordered]@{
         format_version   = '1.21.70'
@@ -158,8 +159,10 @@ foreach ($p in $pieces) {
         materials          = [ordered]@{ default = 'armor'; enchanted = 'armor_enchanted' }
         textures           = [ordered]@{ default = "textures/models/armor/cardboard_$($p.layer)"; enchanted = 'textures/misc/enchanted_item_glint' }
         geometry           = [ordered]@{ default = $p.geo }
-        scripts            = [ordered]@{ parent_setup = $p.setup }
-        render_controllers = @('controller.render.armor')
+        # Bedrock still draws the armour of an invisible player: the pieces hide themselves while the
+        # wearer hides as a box (the server's invisibility marks it)
+        scripts            = [ordered]@{ parent_setup = $p.setup; pre_animation = @("v.lv_hide = $hiding;") }
+        render_controllers = @([ordered]@{ 'controller.render.armor' = '!v.lv_hide' })
     }
     Write-Json ([ordered]@{ format_version = '1.10.0'; 'minecraft:attachable' = [ordered]@{ description = $desc } }) (Join-Path $rp "attachables/$($p.id).json")
 }

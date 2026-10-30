@@ -100,8 +100,14 @@ Start-Sleep -Milliseconds 400
 # a chest with a hatch on its west side, facing it; the player holds apples and clicks the hatch
 Invoke-Chat '/tp @s ~ ~ ~ -90 20'
 Invoke-Chat '/setblock ~4 ~ ~ chest'
-Invoke-Chat '/setblock ~3 ~ ~ levitate:item_hatch ["levitate:facing"=5]'
-Invoke-Chat '/give @s apple 32'
+Invoke-Chat '/replaceitem entity @s slot.hotbar 0 levitate:item_hatch'
+Press-Key '1'
+Start-Sleep -Milliseconds 600
+# sneak-click the chest's west side (a plain click would open the chest): the hatch faces the chest
+$mark = Get-LogMark
+Hold-Key 0x10 { Start-Sleep -Milliseconds 300; Click 0.5 0.5 -Relative -Right; Start-Sleep -Milliseconds 500 }
+Wait-LogLine 'funnels: levitate:item_hatch placed at .* by ' 15 -Since $mark | Out-Null
+Invoke-Chat '/replaceitem entity @s slot.hotbar 0 apple 32'
 Start-Sleep -Milliseconds 800
 Save-Screenshot 'hatch' | Out-Null
 $mark = Get-LogMark
@@ -111,6 +117,10 @@ Start-Sleep -Milliseconds 150
 Save-Screenshot 'hatch-open' | Out-Null
 Start-Sleep -Milliseconds 1200
 Save-Screenshot 'hatch-closed' | Out-Null
+# the apples went into the chest: nothing left to clear
+$mark = Get-LogMark
+Invoke-Chat '/clear @s apple'
+Wait-LogLine 'commands\.clear\.failure\.no\.items' 10 -Since $mark | Out-Null
 
 if (-not $vanilla) {
     $r = Invoke-SelfTest 'equipment.bell*'

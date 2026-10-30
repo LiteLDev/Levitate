@@ -15,10 +15,15 @@
         "default": "geometry.humanoid.armor.chestplate"
       },
       "scripts": {
-        "parent_setup": "variable.chest_layer_visible = 0.0;"
+        "parent_setup": "variable.chest_layer_visible = 0.0;",
+        "pre_animation": [
+          "v.lv_hide = q.is_sneaking && q.is_invisible && q.is_item_name_any('slot.armor.head', 0, 'levitate:cardboard_helmet') && q.is_item_name_any('slot.armor.chest', 0, 'levitate:cardboard_chestplate') && q.is_item_name_any('slot.armor.legs', 0, 'levitate:cardboard_leggings') && q.is_item_name_any('slot.armor.feet', 0, 'levitate:cardboard_boots');"
+        ]
       },
       "render_controllers": [
-        "controller.render.armor"
+        {
+          "controller.render.armor": "!v.lv_hide"
+        }
       ]
     }
   }
