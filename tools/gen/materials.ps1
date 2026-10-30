@@ -108,6 +108,9 @@ function Base-Components($b) {
         'minecraft:map_color' $b.map `
         'minecraft:loot' "loot_tables/blocks/$($b.id).json"
     if ($b.light) { $c['minecraft:light_emission'] = $b.light }
+    # Create's mineable/<tool> + needs_iron_tool tags: the game's tool speeds and tier rules
+    $c["tag:minecraft:is_$($b.tool)_item_destructible"] = O
+    if ($b.tier -eq 'iron') { $c['tag:minecraft:iron_tier_destructible'] = O }
     $c
 }
 function Mat([string]$tex) { O texture $tex render_method 'opaque' }
@@ -198,10 +201,14 @@ foreach ($q in $quarters.Keys) {
 }
 Save-Geo 'materials_stairs.geo.json' 'geometry.levitate.materials_stairs' $stairBones
 Save-Geo 'materials_slab.geo.json' 'geometry.levitate.materials_slab' @((Geo-Bone 'bottom' @(Geo-Cube @(0, 0, 0) @(16, 8, 16))), (Geo-Bone 'top' @(Geo-Cube @(0, 8, 0) @(16, 8, 16))))
-# Java wall: post 4..12 (16 high), low sides 5..11 wide, 14 high, reaching the block edge.
+# Java wall: post 4..12 (16 high), sides 5..11 wide reaching the block edge, low 14 / tall 16 high.
 $wallSides = [ordered]@{ north = @(@(5, 0, 0), @(6, 14, 8)); south = @(@(5, 0, 8), @(6, 14, 8)); west = @(@(0, 0, 5), @(8, 14, 6)); east = @(@(8, 0, 5), @(8, 14, 6)) }
 $wallBones = @(Geo-Bone 'post' @(Geo-Cube @(4, 0, 4) @(8, 16, 8)))
-foreach ($k in $wallSides.Keys) { $wallBones += Geo-Bone $k @(Geo-Cube $wallSides[$k][0] $wallSides[$k][1]) }
+foreach ($k in $wallSides.Keys) {
+    $wallBones += Geo-Bone $k @(Geo-Cube $wallSides[$k][0] $wallSides[$k][1])
+    $tall = @($wallSides[$k][1][0], 16, $wallSides[$k][1][2])
+    $wallBones += Geo-Bone "${k}_tall" @(Geo-Cube $wallSides[$k][0] $tall)
+}
 Save-Geo 'materials_wall.geo.json' 'geometry.levitate.materials_wall' $wallBones
 
 function Box([int]$x0, [int]$y0, [int]$z0, [int]$sx, [int]$sy, [int]$sz) { O origin @(($x0 - 8), $y0, ($z0 - 8)) size @($sx, $sy, $sz) }
@@ -269,36 +276,121 @@ function Slab-Block($b, [string]$top, [string]$side, [string]$doubleTex) {
     Register-Block $b 'slab'
 }
 
+# Wall: Bedrock's connection trait gives the four connections; the mod adds Java's WallBlock
+# rules (src/feature/materials/MaterialsConnections.cpp): levitate:up (the post: unless straight,
+# or forced by the block above) and levitate:tall_<dir> (a side covered by the block above is 16
+# high instead of 14). The collision (24 px as Java) comes from the mod's collision hook; the JSON
+# boxes are what vanilla clients predict with (Bedrock caps them at 16 px).
 function Wall-Block($b, [string]$tex) {
     $c = Base-Components $b
-    $vis = O post $true
-    foreach ($k in $wallSides.Keys) { $vis[$k] = "q.block_state('minecraft:connection_$k')" }
+    $vis = O post "q.block_state('levitate:up') == 1"
+    foreach ($k in $wallSides.Keys) {
+        $vis[$k] = "q.block_state('minecraft:connection_$k') && q.block_state('levitate:tall_$k') == 0"
+        $vis["${k}_tall"] = "q.block_state('minecraft:connection_$k') && q.block_state('levitate:tall_$k') == 1"
+    }
     $c['minecraft:geometry'] = O identifier 'geometry.levitate.materials_wall' bone_visibility $vis
     $c['minecraft:material_instances'] = O '*' (Mat $tex)
     $perms = @()
-    foreach ($mask in 0..15) {
-        $n = [bool]($mask -band 1); $e = [bool]($mask -band 2); $s = [bool]($mask -band 4); $w = [bool]($mask -band 8)
-        $straight = ($n -and $s -and -not $e -and -not $w) -or ($e -and $w -and -not $n -and -not $s)
-        $boxes = @(); $x0 = 16; $z0 = 16; $x1 = 0; $z1 = 0
-        $parts = @()
-        if (-not $straight) { $parts += , @(4, 4, 8, 8) }
-        if ($n) { $parts += , @(5, 0, 6, 8) }; if ($s) { $parts += , @(5, 8, 6, 8) }
-        if ($w) { $parts += , @(0, 5, 8, 6) }; if ($e) { $parts += , @(8, 5, 8, 6) }
-        foreach ($p in $parts) {
-            $boxes += Box $p[0] 0 $p[1] $p[2] 16 $p[3]
-            $x0 = [Math]::Min($x0, $p[0]); $z0 = [Math]::Min($z0, $p[1]); $x1 = [Math]::Max($x1, $p[0] + $p[2]); $z1 = [Math]::Max($z1, $p[1] + $p[3])
+    foreach ($post in 0, 1) {
+        foreach ($mask in 0..15) {
+            $n = [bool]($mask -band 1); $e = [bool]($mask -band 2); $s = [bool]($mask -band 4); $w = [bool]($mask -band 8)
+            $boxes = @(); $x0 = 16; $z0 = 16; $x1 = 0; $z1 = 0
+            $parts = @()
+            if ($post -or $mask -eq 0) { $parts += , @(4, 4, 8, 8) }
+            if ($n) { $parts += , @(5, 0, 6, 8) }; if ($s) { $parts += , @(5, 8, 6, 8) }
+            if ($w) { $parts += , @(0, 5, 8, 6) }; if ($e) { $parts += , @(8, 5, 8, 6) }
+            foreach ($p in $parts) {
+                $boxes += Box $p[0] 0 $p[1] $p[2] 16 $p[3]
+                $x0 = [Math]::Min($x0, $p[0]); $z0 = [Math]::Min($z0, $p[1]); $x1 = [Math]::Max($x1, $p[0] + $p[2]); $z1 = [Math]::Max($z1, $p[1] + $p[3])
+            }
+            $cond = "q.block_state('levitate:up') == $post && q.block_state('minecraft:connection_north') == $([int]$n) && q.block_state('minecraft:connection_east') == $([int]$e) && q.block_state('minecraft:connection_south') == $([int]$s) && q.block_state('minecraft:connection_west') == $([int]$w)"
+            $perms += O condition $cond components (O 'minecraft:collision_box' $boxes 'minecraft:selection_box' (Box $x0 0 $z0 ($x1 - $x0) 16 ($z1 - $z0)))
         }
-        $cond = "q.block_state('minecraft:connection_north') == $([int]$n) && q.block_state('minecraft:connection_east') == $([int]$e) && q.block_state('minecraft:connection_south') == $([int]$s) && q.block_state('minecraft:connection_west') == $([int]$w)"
-        $pv = O post (-not $straight)
-        foreach ($k in $wallSides.Keys) { $pv[$k] = $vis[$k] }
-        $perms += O condition $cond components (O 'minecraft:geometry' (O identifier 'geometry.levitate.materials_wall' bone_visibility $pv) 'minecraft:collision_box' $boxes 'minecraft:selection_box' (Box $x0 0 $z0 ($x1 - $x0) 16 ($z1 - $z0)))
     }
+    $states = O 'levitate:up' @(0, 1) 'levitate:tall_north' @(0, 1) 'levitate:tall_east' @(0, 1) 'levitate:tall_south' @(0, 1) 'levitate:tall_west' @(0, 1)
     $traits = O 'minecraft:connection' (O enabled_states @('minecraft:cardinal_connections'))
-    $doc = Block-Doc $b $c $null $traits $perms
+    $doc = Block-Doc $b $c $states $traits $perms
     $doc.format_version = '1.26.0' # the minecraft:connection trait needs 1.26.0
     Save-Json "assets/pack/bp/blocks/$($b.id).json" $doc
     Save-Loot $b.id "levitate:$($b.id)"
     Register-Block $b 'wall'
+}
+
+# Connected textures of the layered stone and the stone pillars (Create's HorizontalCTBehaviour /
+# RotatedPillarCTBehaviour). The mod keeps levitate:c_<dir> (the neighbour on <dir> connects,
+# MaterialsConnections.cpp); every combination picks the face textures:
+#   layered: sides `<s>_layered_<m>` (Create's HORIZONTAL_KRYPPERS: left / right only), top and
+#            bottom `<s>_cap_<m>` (OMNIDIRECTIONAL: the four edges);
+#   pillar:  faces along the axis `<s>_cap_<m>`, sides `<s>_pillar_<m>` (RECTANGLE: four edges).
+# m = edge mask, bits 1 top, 2 right, 4 bottom, 8 left as seen from outside the face.
+$faceEdges = [ordered]@{
+    north = @('up', 'west', 'down', 'east'); south = @('up', 'east', 'down', 'west')
+    east = @('up', 'north', 'down', 'south'); west = @('up', 'south', 'down', 'north')
+    up = @('north', 'east', 'south', 'west'); down = @('south', 'east', 'north', 'west')
+}
+$ctDirs = @('down', 'up', 'north', 'south', 'west', 'east')
+function Edge-Mask([string]$face, $conn, [int[]]$edges = @(0, 1, 2, 3)) {
+    $m = 0
+    foreach ($i in $edges) { if ($conn[$faceEdges[$face][$i]]) { $m = $m -bor (1 -shl $i) } }
+    $m
+}
+function Layered-Block($b, [string]$n) {
+    $c = Base-Components $b
+    $c['minecraft:geometry'] = 'minecraft:geometry.full_block'
+    $c['minecraft:material_instances'] = O '*' (Mat "levitate_${n}_layered_0") up (Mat "levitate_${n}_cap_0") down (Mat "levitate_${n}_cap_0")
+    $hd = @('north', 'south', 'west', 'east')
+    $perms = @()
+    foreach ($bits in 0..15) {
+        $conn = @{}; $cond = @()
+        for ($i = 0; $i -lt 4; $i++) { $on = (($bits -shr $i) -band 1) -eq 1; $conn[$hd[$i]] = $on; $cond += "q.block_state('levitate:c_$($hd[$i])') == $([int]$on)" }
+        $mi = O
+        foreach ($f in $faceEdges.Keys) {
+            if ($f -in 'up', 'down') { $mi[$f] = Mat "levitate_${n}_cap_$(Edge-Mask $f $conn)" }
+            else { $mi[$f] = Mat "levitate_${n}_layered_$(Edge-Mask $f $conn @(1, 3))" }
+        }
+        $mi['*'] = $mi['north']
+        $perms += O condition ($cond -join ' && ') components (O 'minecraft:material_instances' $mi)
+    }
+    $states = O; foreach ($d in $hd) { $states["levitate:c_$d"] = @(0, 1) }
+    Save-Json "assets/pack/bp/blocks/$($b.id).json" (Block-Doc $b $c $states $null $perms)
+    Save-Loot $b.id "levitate:$($b.id)"
+    Register-Block $b 'layered'
+}
+# The pillar's model is turned onto its axis by minecraft:transformation, so a model face shows on
+# the world face the rotation takes it to: the face's edge neighbours are looked up in world space.
+$axisTurns = [ordered]@{
+    y = @{ cond = "q.block_state('minecraft:block_face') == 'up' || q.block_state('minecraft:block_face') == 'down'"; rot = @(0, 0, 0); map = @{ up = 'up'; down = 'down'; north = 'north'; south = 'south'; west = 'west'; east = 'east' } }
+    z = @{ cond = "q.block_state('minecraft:block_face') == 'north' || q.block_state('minecraft:block_face') == 'south'"; rot = @(90, 0, 0); map = @{ up = 'north'; north = 'down'; down = 'south'; south = 'up'; west = 'west'; east = 'east' } }
+    x = @{ cond = "q.block_state('minecraft:block_face') == 'east' || q.block_state('minecraft:block_face') == 'west'"; rot = @(0, 0, 90); map = @{ up = 'west'; west = 'down'; down = 'east'; east = 'up'; north = 'north'; south = 'south' } }
+}
+function StonePillar-Block($b, [string]$n) {
+    $c = Base-Components $b
+    $c['minecraft:geometry'] = 'minecraft:geometry.full_block'
+    $c['minecraft:material_instances'] = O '*' (Mat "levitate_${n}_pillar_0") up (Mat "levitate_${n}_cap_0") down (Mat "levitate_${n}_cap_0")
+    $perms = @()
+    foreach ($ax in $axisTurns.Keys) {
+        $t = $axisTurns[$ax]
+        foreach ($bits in 0..63) {
+            $world = @{}; $cond = @()
+            for ($i = 0; $i -lt 6; $i++) { $on = (($bits -shr $i) -band 1) -eq 1; $world[$ctDirs[$i]] = $on; $cond += "q.block_state('levitate:c_$($ctDirs[$i])') == $([int]$on)" }
+            # the connections seen from the model's faces
+            $conn = @{}; foreach ($d in $ctDirs) { $conn[$d] = $world[$t.map[$d]] }
+            $mi = O
+            foreach ($f in $faceEdges.Keys) {
+                if ($f -in 'up', 'down') { $mi[$f] = Mat "levitate_${n}_cap_$(Edge-Mask $f $conn)" }
+                else { $mi[$f] = Mat "levitate_${n}_pillar_$(Edge-Mask $f $conn)" }
+            }
+            $mi['*'] = $mi['north']
+            $comps = O 'minecraft:material_instances' $mi
+            if ($ax -ne 'y') { $comps['minecraft:transformation'] = O rotation $t.rot }
+            $perms += O condition "($($t.cond)) && $($cond -join ' && ')" components $comps
+        }
+    }
+    $states = O; foreach ($d in $ctDirs) { $states["levitate:c_$d"] = @(0, 1) }
+    $traits = O 'minecraft:placement_position' (O enabled_states @('minecraft:block_face'))
+    Save-Json "assets/pack/bp/blocks/$($b.id).json" (Block-Doc $b $c $states $traits $perms)
+    Save-Loot $b.id "levitate:$($b.id)"
+    Register-Block $b 'stonePillar'
 }
 
 function B([string]$id, [double]$hardness, [double]$resistance, [string]$map, [string]$sound, [string]$cat = 'construction', $more = @{}) {
@@ -356,7 +448,9 @@ $palette = [ordered]@{}      # stone -> list of @{ id; kind; base } for recipes
 foreach ($s in $stones) {
     $n = $s[0]
     $mk = { param($id, $more = @{}) B $id $s[1] $s[2] $s[3] $s[4] 'construction' $more }
-    foreach ($t in 'cut', 'polished', 'slab', 'brick', 'small_brick', 'layered', 'cap', 'pillar') { Tex "levitate_${n}_$t" "palettes/${n}_$t" }
+    foreach ($t in 'cut', 'polished', 'slab', 'brick', 'small_brick') { Tex "levitate_${n}_$t" "palettes/${n}_$t" }
+    foreach ($m in 0, 2, 8, 10) { Tex "levitate_${n}_layered_$m" "palettes/${n}_layered_$m" }
+    foreach ($m in 0..15) { Tex "levitate_${n}_cap_$m" "palettes/${n}_cap_$m"; Tex "levitate_${n}_pillar_$m" "palettes/${n}_pillar_$m" }
     $tag = [System.Collections.Generic.List[string]]::new()
     $list = [System.Collections.Generic.List[object]]::new()
     if ($s[5]) {
@@ -382,8 +476,8 @@ foreach ($s in $stones) {
         $tag.Add("levitate:$($p[0])"); $tag.Add("levitate:$($p[2])_stairs"); $tag.Add("levitate:$($p[2])_wall")
         $list.Add(@{ base = "levitate:$($p[0])"; prefix = "levitate:$($p[2])" })
     }
-    Cube-Block (& $mk "layered_$n") @{ '*' = "levitate_${n}_layered"; up = "levitate_${n}_cap"; down = "levitate_${n}_cap" }
-    Pillar-Block (& $mk "${n}_pillar") "levitate_${n}_pillar" "levitate_${n}_cap"
+    Layered-Block (& $mk "layered_$n") $n
+    StonePillar-Block (& $mk "${n}_pillar") $n
     $tag.Add("levitate:layered_$n"); $tag.Add("levitate:${n}_pillar"); $tag.Add($raw)
     $stoneTypes[$n] = $tag
     $palette[$n] = $list

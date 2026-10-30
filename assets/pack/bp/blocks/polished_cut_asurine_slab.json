@@ -30,6 +30,7 @@
       },
       "minecraft:map_color": "#334cb2",
       "minecraft:loot": "loot_tables/blocks/polished_cut_asurine_slab.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
       "minecraft:geometry": {
         "identifier": "geometry.levitate.materials_slab",
         "bone_visibility": {

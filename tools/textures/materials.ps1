@@ -91,27 +91,47 @@ foreach ($n in $stoneColors.Keys) {
     }
     Save $c $pal "$dir/${n}_small_brick.png"
 
-    # layered: horizontal strata of varying thickness
-    $c = New-Canvas; $y = 0; $band = 0
+    # Connected textures (Create's CT sheets as one file per edge mask; mask bits 1 top, 2 right,
+    # 4 bottom, 8 left: that edge continues into the neighbour, so its border is not drawn).
+    # layered (HORIZONTAL_KRYPPERS): horizontal strata, a bevelled border on the unconnected left / right edge
+    $strata = New-Canvas; $y = 0; $band = 0
     while ($y -lt 16) {
         $h = 2 + [int]((N $band 1 $seed) * 3); $k = @('3', '4', '5', '4')[$band % 4]
-        for ($yy = $y; $yy -lt [Math]::Min(16, $y + $h); $yy++) { for ($x = 0; $x -lt 16; $x++) { Set-Px $c $x $yy ($(if ((N $x $yy $seed) -gt 0.9) { '6' } elseif ((N $x $yy ($seed + 5)) -lt 0.08) { '2' } else { $k })) } }
-        if ($y + $h -lt 16) { for ($x = 0; $x -lt 16; $x++) { Set-Px $c $x ($y + $h - 1) '2' } }
+        for ($yy = $y; $yy -lt [Math]::Min(16, $y + $h); $yy++) { for ($x = 0; $x -lt 16; $x++) { Set-Px $strata $x $yy ($(if ((N $x $yy $seed) -gt 0.9) { '6' } elseif ((N $x $yy ($seed + 5)) -lt 0.08) { '2' } else { $k })) } }
+        if ($y + $h -lt 16) { for ($x = 0; $x -lt 16; $x++) { Set-Px $strata $x ($y + $h - 1) '2' } }
         $y += $h; $band++
     }
-    Save $c $pal "$dir/${n}_layered.png"
+    foreach ($m in 0, 2, 8, 10) {
+        $c = New-Canvas; for ($yy = 0; $yy -lt 16; $yy++) { for ($x = 0; $x -lt 16; $x++) { $c[$yy][$x] = $strata[$yy][$x] } }
+        if (($m -band 8) -eq 0) { for ($yy = 0; $yy -lt 16; $yy++) { Set-Px $c 0 $yy '5'; if ($c[$yy][1] -ne '2') { Set-Px $c 1 $yy '4' } } }
+        if (($m -band 2) -eq 0) { for ($yy = 0; $yy -lt 16; $yy++) { Set-Px $c 15 $yy '1'; Set-Px $c 14 $yy '2' } }
+        Save $c $pal "$dir/${n}_layered_$m.png"
+    }
 
-    # cap (top of layered / pillar): concentric bevelled squares
-    $c = New-Canvas; Noise-Fill $c 0 0 15 15 ($seed + 4) 0.15 0.88
-    Bevel $c 0 0 15 15 '5' '1'; Bevel $c 3 3 12 12 '2' '5'; Bevel $c 6 6 9 9 '5' '2'
-    Save $c $pal "$dir/${n}_cap.png"
+    # cap (OMNIDIRECTIONAL, top of layered / ends of the pillar): a bevelled rim on the open edges
+    # around concentric squares; joined caps form one bigger slab
+    foreach ($m in 0..15) {
+        $c = New-Canvas; Noise-Fill $c 0 0 15 15 ($seed + 4) 0.15 0.88
+        $top = ($m -band 1) -eq 0; $right = ($m -band 2) -eq 0; $bottom = ($m -band 4) -eq 0; $left = ($m -band 8) -eq 0
+        Bevel $c 3 3 12 12 '2' '5'; Bevel $c 6 6 9 9 '5' '2'
+        if ($top) { for ($x = 0; $x -lt 16; $x++) { Set-Px $c $x 0 '5' } }
+        if ($left) { for ($yy = 0; $yy -lt 16; $yy++) { Set-Px $c 0 $yy '5' } }
+        if ($bottom) { for ($x = 0; $x -lt 16; $x++) { Set-Px $c $x 15 '1' } }
+        if ($right) { for ($yy = 0; $yy -lt 16; $yy++) { Set-Px $c 15 $yy '1' } }
+        Save $c $pal "$dir/${n}_cap_$m.png"
+    }
 
-    # pillar side: vertical flutes with top and bottom rings
-    $c = New-Canvas '4'
-    for ($x = 0; $x -lt 16; $x++) { $k = @('5', '4', '3', '2')[$x % 4]; for ($y = 0; $y -lt 16; $y++) { Set-Px $c $x $y $k } }
-    Fill $c 0 0 15 1 '5'; Fill $c 0 14 15 15 '3'; for ($x = 0; $x -lt 16; $x++) { Set-Px $c $x 1 '2'; Set-Px $c $x 14 '6' }
-    Save $c $pal "$dir/${n}_pillar.png"
-
+    # pillar side (RECTANGLE): vertical flutes; rings where the column ends (top / bottom), a dark
+    # seam on the open left / right edges
+    foreach ($m in 0..15) {
+        $c = New-Canvas '4'
+        for ($x = 0; $x -lt 16; $x++) { $k = @('5', '4', '3', '2')[$x % 4]; for ($yy = 0; $yy -lt 16; $yy++) { Set-Px $c $x $yy $k } }
+        if (($m -band 1) -eq 0) { Fill $c 0 0 15 1 '5'; for ($x = 0; $x -lt 16; $x++) { Set-Px $c $x 1 '2' } }
+        if (($m -band 4) -eq 0) { Fill $c 0 14 15 15 '3'; for ($x = 0; $x -lt 16; $x++) { Set-Px $c $x 14 '6' } }
+        if (($m -band 8) -eq 0) { for ($yy = 0; $yy -lt 16; $yy++) { Set-Px $c 0 $yy '6' } }
+        if (($m -band 2) -eq 0) { for ($yy = 0; $yy -lt 16; $yy++) { Set-Px $c 15 $yy '1' } }
+        Save $c $pal "$dir/${n}_pillar_$m.png"
+    }
     # raw stone of Create's stones (4 natural variants for the ore-bearing ones)
     $natural = @{ asurine = 4; crimsite = 4; ochrum = 4; veridium = 4; limestone = 1; scoria = 1; scorchia = 1 }
     if ($natural.ContainsKey($n)) {

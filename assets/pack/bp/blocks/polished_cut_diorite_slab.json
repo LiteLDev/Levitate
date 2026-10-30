@@ -30,6 +30,7 @@
       },
       "minecraft:map_color": "#fffcf5",
       "minecraft:loot": "loot_tables/blocks/polished_cut_diorite_slab.json",
+      "tag:minecraft:is_pickaxe_item_destructible": {},
       "minecraft:geometry": {
         "identifier": "geometry.levitate.materials_slab",
         "bone_visibility": {

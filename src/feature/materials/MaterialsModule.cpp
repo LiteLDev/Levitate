@@ -105,6 +105,10 @@ Block const* withByteState(Block const& block, std::string const& key, uchar val
 
 } // namespace
 
+BlockInfo const* blockInfo(Block const& block) { return infoOf(block.getBlockType()); }
+
+std::string stringState(Block const& block, std::string const& key) { return strState(block, key); }
+
 std::string itemIdOf(ItemStack const& stack) { return stack.isNull() ? std::string{} : stack.getTypeName(); }
 
 ItemStack makeStack(std::string const& id, int count) {
@@ -342,6 +346,8 @@ LL_TYPE_INSTANCE_HOOK(MaterialsCompleteUsingItemHook, ll::memory::HookPriority::
 
 void installMagicalItemHook();
 void uninstallMagicalItemHook();
+void installFurnaceXp();
+void uninstallFurnaceXp();
 void installWorldGenHooks();
 void uninstallWorldGenHooks();
 
@@ -378,8 +384,12 @@ struct MaterialsModule {
         MaterialsCompleteUsingItemHook::hook();
         installMagicalItemHook();
         installWorldGenHooks();
+        installConnections();
+        installFurnaceXp();
     }
     void uninstall() {
+        uninstallFurnaceXp();
+        uninstallConnections();
         uninstallWorldGenHooks();
         uninstallMagicalItemHook();
         MaterialsCompleteUsingItemHook::unhook();

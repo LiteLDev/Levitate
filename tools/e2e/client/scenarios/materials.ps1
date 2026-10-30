@@ -1,6 +1,9 @@
 # Materials (U9) on a real client: textures and models of the ores, metal blocks, decorative stone
 # (cube, pillar, stairs incl. corners, slabs incl. double, walls with connections) and item icons.
-# Screenshots: out/materials/{blocks,palette,items}.png
+# U43: layered / pillar connected textures, tall wall sides, the block of experience at night (end
+# rod particles: client mod locally, the server for vanilla clients), the chromatic compound's
+# charge bar on the hotbar.
+# Screenshots: out/materials/{blocks,palette,connected,items}.png
 Reset-CameraPerspective
 Start-Sleep -Milliseconds 500
 Invoke-Chat '/tp @s ~ ~ ~ 0 20'
@@ -28,9 +31,24 @@ Invoke-Chat '/setblock ~6 ~ ~5 levitate:crimsite'
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'palette' | Out-Null
 
-# hotbar icons
+# U43: connected textures of layered stone and pillars, tall wall sides, the block of experience
+foreach ($b in $row2) { Invoke-Chat "/setblock ~$(-6 + [array]::IndexOf($row2, $b)) ~ ~5 air" }
+foreach ($c in @(
+        '/fill ~-6 ~ ~5 ~6 ~3 ~6 air',
+        '/fill ~-6 ~ ~5 ~-4 ~ ~5 levitate:layered_asurine', '/fill ~-6 ~1 ~5 ~-5 ~1 ~5 levitate:layered_asurine',
+        '/fill ~-2 ~ ~5 ~-1 ~1 ~5 levitate:asurine_pillar', '/setblock ~0 ~ ~5 levitate:asurine_pillar',
+        '/fill ~1 ~2 ~5 ~3 ~2 ~5 levitate:asurine_pillar ["minecraft:block_face"="east"]',
+        '/fill ~1 ~ ~5 ~3 ~ ~5 levitate:cut_asurine_wall', '/setblock ~2 ~1 ~5 levitate:cut_asurine',
+        '/setblock ~5 ~ ~5 levitate:experience_block')) { Invoke-Chat $c; Start-Sleep -Milliseconds 200 }
+Invoke-Chat '/time set night'
+Start-Sleep -Milliseconds 2500
+Save-Screenshot 'connected' | Out-Null
+Invoke-Chat '/time set noon'
+
+# hotbar icons (+ U43: the charge bar of a chromatic compound with 6 of 10 charges)
 Invoke-Chat '/clear @s'
-foreach ($i in 'zinc_ingot', 'brass_ingot', 'andesite_alloy', 'precision_mechanism', 'electron_tube', 'builders_tea', 'blaze_cake', 'crushed_raw_iron', 'iron_sheet') {
+Invoke-SelfTest 'materials.chromatic_bar_item' | Out-Null   # hotbar slot 1: the charged compound
+foreach ($i in 'zinc_ingot', 'brass_ingot', 'andesite_alloy', 'precision_mechanism', 'electron_tube', 'builders_tea', 'blaze_cake', 'iron_sheet') {
     Invoke-Chat "/give @s levitate:$i 1"
 }
 Start-Sleep -Milliseconds 1200

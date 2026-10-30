@@ -110,6 +110,7 @@ void tick() {
     detail::processDirty();
     copperTick();
     if (ticks() % 2 == 0) redstoneTick();
+    doorAnimationTick();
     placardTick();
     playerBreaks().clear();
 }
@@ -159,10 +160,12 @@ public:
         }));
         installShapes();
         installHooks();
+        installSync();
         if (game::db::available()) loadWorld(); // BDS: the world exists before mods are enabled
     }
 
     void uninstall() {
+        uninstallSync();
         uninstallHooks();
         uninstallShapes();
         auto& bus = ll::event::EventBus::getInstance();

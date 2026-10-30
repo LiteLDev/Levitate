@@ -73,7 +73,8 @@ std::optional<std::vector<Box>> collisionBoxes(Info const& info, Block const& bl
     }
     case Kind::Door: {
         int  q    = quarterOf(hfacingOf(block));
-        bool open = stateOf(block, "levitate:open") != 0;
+        // a closing door keeps its open shape until the panel is back (Create: !open && visible)
+        bool open = stateOf(block, "levitate:open") != 0 || stateOf(block, "levitate:closing") != 0;
         int  hinge = stateOf(block, "levitate:hinge");
         Box  b;
         if (!open) b = {0, 0, 13, 16, 16, 16};

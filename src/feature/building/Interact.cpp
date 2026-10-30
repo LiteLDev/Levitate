@@ -7,6 +7,8 @@
 // - start / finish breaking: placards give their item back when punched; door halves remember
 //   whether a creative player broke them.
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <unordered_map>
 #include <vector>
@@ -141,6 +143,63 @@ bool ladderHelper(Player& player, Info const& held, GlobalPos const& pos) {
     return true;
 }
 
+/// Create's GirderPlacementHelper.canExtendToward: girders extend along their beams (a vertical
+/// girder up / down, a junction any way), an encased girder shaft across its shaft.
+bool girderExtends(Block const& b, int dir) {
+    auto const* i = infoOf(b);
+    if (!i) return false;
+    int axis = axisOf(dir);
+    if (i->kind == Kind::Girder) {
+        bool x = stateOf(b, "levitate:x") != 0, z = stateOf(b, "levitate:z") != 0;
+        if (!x && !z) return axis == 1;
+        if (x && z) return true;
+        return x ? axis == 0 : axis == 2;
+    }
+    if (i->kind == Kind::GirderShaft) return horizontal(dir) && axis != stateOf(b, "levitate:axis");
+    return false;
+}
+
+bool holdsExtendoGrip(Player& player) {
+    auto const& off = player.getOffhandSlot();
+    return !off.isNull() && off.getTypeName() == "levitate:extendo_grip";
+}
+
+/// Create's GirderPlacementHelper: a girder used on a girder line extends it at its end (the
+/// direction nearest to the clicked point first, up to placementAssistRange blocks).
+bool girderHelper(Player& player, GlobalPos const& pos, Vec3 const& hit) {
+    auto const* clicked = blockAt(pos);
+    if (!clicked) return false;
+    int range = kPlacementAssistRange + (holdsExtendoGrip(player) ? 4 : 0);
+    std::array<std::pair<double, int>, 6> order;
+    for (int d = 0; d < 6; ++d) {
+        double ex = kDx[d] - (hit.x - .5), ey = kDy[d] - (hit.y - .5), ez = kDz[d] - (hit.z - .5);
+        order[d] = {ex * ex + ey * ey + ez * ez, d};
+    }
+    std::sort(order.begin(), order.end());
+    for (auto const& [dist, dir] : order) {
+        (void)dist;
+        if (!girderExtends(*clicked, dir)) continue;
+        int count = 0;
+        for (; count < range; ++count) {
+            auto const* b = blockAt(offset(pos, dir, count + 1));
+            if (!b || !girderExtends(*b, dir)) break;
+        }
+        if (count >= range) continue;
+        auto target = offset(pos, dir, count + 1);
+        if (!replaceableAt(target)) continue;
+        int  axis  = axisOf(dir);
+        auto const* girder = game::blockWith(kGirderId, {{"levitate:axis", axis}, {"levitate:x", axis == 0}, {"levitate:z", axis == 2}});
+        if (!girder) return false;
+        set(target, *girder);
+        updateConnections(target);
+        playSound(target, "use.netherite", 1.f, 0.8f);
+        consumeHeld(player);
+        log().info("building: girder extended to {} {} {}", target.x, target.y, target.z);
+        return true;
+    }
+    return false;
+}
+
 bool girderShaft(Player& player, GlobalPos const& pos, int face) {
     auto const* b = blockAt(pos);
     if (!b) return false;
@@ -162,6 +221,9 @@ bool onUse(Player& player, ItemStack const& item, GlobalPos const& pos, int face
     if (!firstEvent && !player.isSimulated()) {
         auto k = kindAt(pos);
         if (k == Kind::Door || k == Kind::Trapdoor || k == Kind::Placard) return true;
+        // copycat materials turn and girders extend once per click
+        if ((k == Kind::CopycatPanel || k == Kind::CopycatStep) && !item.isNull() && !player.isSneaking()) return true;
+        if ((k == Kind::Girder || k == Kind::GirderShaft) && !item.isNull() && item.getTypeName() == kGirderId) return true;
     }
     bool build = mayBuild(player);
     bool  sneak  = player.isSneaking();
@@ -183,10 +245,14 @@ bool onUse(Player& player, ItemStack const& item, GlobalPos const& pos, int face
     case Kind::CopycatPanel:
     case Kind::CopycatStep:
         if (sneak || !build) break;
-        if (useCopycat(player, item, pos)) return true;
+        if (useCopycat(player, item, pos, face)) return true;
         break;
     case Kind::Girder:
         if (heldId == kShaftId && build) return girderShaft(player, pos, face);
+        if (heldId == kGirderId && build && !sneak && girderHelper(player, pos, hit)) return true;
+        break;
+    case Kind::GirderShaft:
+        if (heldId == kGirderId && build && !sneak && girderHelper(player, pos, hit)) return true;
         break;
     case Kind::CopperBlock:
     case Kind::CopperStairs:
@@ -209,7 +275,6 @@ bool onUse(Player& player, ItemStack const& item, GlobalPos const& pos, int face
     default: break;
     }
     if (!build) return false;
-    if (useBracket(player, item, pos, face)) return true;
     // a slab placed into the cell of a single slab of the same kind (Java: always merges)
     if (held && held->kind == Kind::CopperSlab && !replaceableAt(pos)) {
         auto next = offset(pos, face);
@@ -342,9 +407,40 @@ std::vector<ia::HandlerId>& handlerIds() {
 
 } // namespace
 
+/// Brackets after the other units (fluid pipes take their own at the normal priority): shafts and
+/// cogwheels get one, anything else nothing (the bracket item is never placed).
+ia::Result bracketUseOn(ia::UseOnContext const& c) {
+    if (!mayBuild(c.player)) return ia::Result::Pass;
+    if (!useBracket(c.player, c.item, c.pos, c.face)) return ia::Result::Pass;
+    c.player.sendInventory(false);
+    return ia::Result::Consume;
+}
+
+std::unordered_map<std::int64_t, std::pair<std::string, std::uint64_t>>& lastBracketRemoval() {
+    static std::unordered_map<std::int64_t, std::pair<std::string, std::uint64_t>> m;
+    return m;
+}
+
+/// Create's IWrenchableWithBracket: the wrench takes the bracket off first (onWrenched); sneaking,
+/// the block is picked up after that as well (onSneakWrenched: the generic wrench goes on).
+ia::Result bracketWrench(ia::UseOnContext const& c) {
+    auto  uid  = c.player.getOrCreateUniqueID().rawID;
+    auto& last = lastBracketRemoval()[uid];
+    if (!c.firstEvent && !c.player.isSimulated()) {
+        // a held button repeats the use: the click that took the bracket off does nothing else
+        if (last.first == c.pos.key() && now() - last.second < 10) return ia::Result::Consume;
+        return bracketAt(c.pos) ? ia::Result::Consume : ia::Result::Pass;
+    }
+    if (!removeBracket(&c.player, c.pos)) return ia::Result::Pass;
+    last = {c.pos.key(), now()};
+    return c.sneaking ? ia::Result::Pass : ia::Result::Consume;
+}
+
 void installHooks() {
     auto& ids = handlerIds();
     ids.push_back(ia::onUseOn({}, useOn));
+    for (auto const* b : {"levitate:metal_bracket", "levitate:wooden_bracket"}) ids.push_back(ia::onUseOn({"", b}, bracketUseOn, ia::priority::Low));
+    for (auto const* k : {"levitate:shaft", "levitate:cogwheel", "levitate:large_cogwheel"}) ids.push_back(ia::onWrench(k, bracketWrench, ia::priority::High));
     ids.push_back(ia::onPlace({}, placed));
     ids.push_back(ia::onStartDestroy({}, startDestroy));
     ids.push_back(ia::onDestroy({}, destroy));

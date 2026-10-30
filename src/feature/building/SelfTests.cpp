@@ -364,9 +364,9 @@ LV_REGISTER_SELFTEST("building.copycat", [](Context& ctx) -> ll::coro::CoroTask<
     co_await useUntil(ctx, sp, p, Facing::East, [&] { return b::copycatMaterial(p).has_value(); });
     ctx.check(b::copycatMaterial(p) == std::optional<std::string>("minecraft:oak_planks"), "the copycat takes the material");
     ctx.give(sp, b::makeItem("minecraft:chest", 1), 0);
-    ctx.check(!b::useCopycat(sp, b::makeItem("minecraft:chest", 1), p), "containers are refused");
+    ctx.check(!b::useCopycat(sp, b::makeItem("minecraft:chest", 1), p, b::East), "containers are refused");
     ctx.setBlock(at(p, 0, 0, 2), "levitate:copycat_panel");
-    ctx.check(!b::useCopycat(sp, b::makeItem("minecraft:chest", 1), at(p, 0, 0, 2)), "containers are refused on an empty copycat");
+    ctx.check(!b::useCopycat(sp, b::makeItem("minecraft:chest", 1), at(p, 0, 0, 2), b::East), "containers are refused on an empty copycat");
     clearSlot0(ctx, sp);
 });
 

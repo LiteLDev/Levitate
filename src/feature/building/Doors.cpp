@@ -6,6 +6,7 @@
 // levitate:powered. Custom blocks get no neighbour updates, so the unit polls the redstone input
 // of the doors and trapdoors it knows every 2 ticks (SPEC §8).
 
+#include <map>
 #include <random>
 #include <set>
 
@@ -61,15 +62,30 @@ std::optional<GlobalPos> doubleDoorPartner(GlobalPos const& lower, Block const& 
     return other;
 }
 
+/// Doors animating shut (lower half -> ticks left). Create's SlidingDoorBlockEntity chases its
+/// animation at 0.15 per tick: a closing door keeps its open collision (`levitate:closing`) until
+/// the panel is back, then plays the close sound once more (volume 0.5).
+std::map<GlobalPos, int>& closingDoors() {
+    static std::map<GlobalPos, int> m;
+    return m;
+}
+constexpr int kCloseTicks = 7; // ceil(1 / 0.15)
+
 /// Sets open / powered on both halves of the door whose lower half is at `lower`.
 void setDoor(GlobalPos const& lower, int open, std::optional<int> powered) {
+    auto const* lb      = blockAt(lower);
+    bool        closing = open == 0 && lb && isKind(lb, Kind::Door) && stateOf(*lb, "levitate:open") != 0;
     for (auto const& p : {lower, offset(lower, Up)}) {
         auto const* b = blockAt(p);
         if (!isKind(b, Kind::Door)) continue;
         Block const* n = withStates(*b, {{"levitate:open", open}});
         if (powered) n = withStates(*n, {{"levitate:powered", *powered}});
+        if (closing) n = withStates(*n, {{"levitate:closing", 1}});
+        else if (open) n = withStates(*n, {{"levitate:closing", 0}});
         if (n && n != b) set(p, *n);
     }
+    if (closing) closingDoors()[lower] = kCloseTicks;
+    else if (open) closingDoors().erase(lower);
 }
 
 GlobalPos lowerHalf(GlobalPos const& p, Block const& b) { return stateOf(b, "levitate:upper") ? offset(p, Down) : p; }
@@ -110,6 +126,25 @@ bool useTrapdoor(Player* player, GlobalPos const& pos) {
     return true;
 }
 
+void doorAnimationTick() {
+    auto& m = closingDoors();
+    for (auto it = m.begin(); it != m.end();) {
+        if (--it->second > 0) {
+            ++it;
+            continue;
+        }
+        GlobalPos lower = it->first;
+        it              = m.erase(it);
+        auto const* b   = blockAt(lower);
+        if (!isKind(b, Kind::Door) || stateOf(*b, "levitate:open") != 0 || !stateOf(*b, "levitate:closing")) continue;
+        for (auto const& p : {lower, offset(lower, Up)}) {
+            auto const* h = blockAt(p);
+            if (isKind(h, Kind::Door)) set(p, *withStates(*h, {{"levitate:closing", 0}}));
+        }
+        playSound(lower, "close.iron_door", 0.5f, 1.f); // Create: the panel is back
+    }
+}
+
 void redstoneTick() {
     std::vector<GlobalPos> gone;
     for (auto const& p : tracked()) {
@@ -117,6 +152,8 @@ void redstoneTick() {
         if (!b) continue;
         auto const* info = infoOf(*b);
         if (info && info->kind == Kind::Door && !stateOf(*b, "levitate:upper")) {
+            // saved while closing: finish the animation
+            if (stateOf(*b, "levitate:closing") && !closingDoors().contains(p)) closingDoors()[p] = kCloseTicks;
             // Java isDoorPowered: either half, or either half of the double door partner
             bool powered = hasNeighborSignal(p) || hasNeighborSignal(offset(p, Up));
             int  facing  = hfacingOf(*b);
@@ -214,6 +251,7 @@ void doorHalfChanged(GlobalPos const& pos, Block const& previous, Block const& n
             if (!a || !o || a->getTypeName() != id || o->getTypeName() != id || stateOf(*o, "levitate:upper") == upper) return;
             auto const* n = withStates(*o, {{"levitate:open", stateOf(*a, "levitate:open")},
                                             {"levitate:powered", stateOf(*a, "levitate:powered")},
+                                            {"levitate:closing", stateOf(*a, "levitate:closing")},
                                             {"levitate:facing", hfacingOf(*a)},
                                             {"levitate:hinge", stateOf(*a, "levitate:hinge")}});
             if (n && n != o) set(other, *n);
@@ -247,7 +285,10 @@ void saveRedstone() {
     game::db::save(kDbRedstone, j);
     trackedDirty() = false;
 }
-void clearRedstone() { tracked().clear(); }
+void clearRedstone() {
+    tracked().clear();
+    closingDoors().clear();
+}
 
 } // namespace detail
 
