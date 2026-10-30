@@ -39,7 +39,7 @@ Start-Sleep -Milliseconds 300
 Save-Screenshot 'hover-hint' | Out-Null
 # U44: while W is held the tooltip line becomes Create's progress bar
 [BsE2E.Native]::Key(0x57, $false)   # W down
-Start-Sleep -Milliseconds 150
+Start-Sleep -Milliseconds 320
 Save-Screenshot 'hold-progress' | Out-Null
 [BsE2E.Native]::Key(0x57, $true)    # W up: the bar drains again
 Start-Sleep -Milliseconds 1200
