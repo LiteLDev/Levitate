@@ -3,7 +3,7 @@
 # signal chains), redstone input, comparator output, observer output and filters.
 $mark = Get-LogMark
 $r = Invoke-SelfTest 'signals.*'
-if ($r.Pass -lt 7) { throw "expected at least 7 signals selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 8) { throw "expected at least 8 signals selftests to pass, got $($r.Pass)" }
 Wait-LogLine 'signals: \S+ selected the track at' 10 -Since $mark | Out-Null
 Wait-LogLine 'signals: signal at \S+ bound to signal:' 10 -Since $mark | Out-Null
 Wait-LogLine 'signals: signal at \S+ switched to cross_signal' 10 -Since $mark | Out-Null
