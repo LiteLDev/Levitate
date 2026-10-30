@@ -98,7 +98,7 @@ Start-Sleep -Milliseconds 400
 
 # --- item hatch ----------------------------------------------------------------------------------------------
 # a chest with a hatch on its west side, facing it; the player holds apples and clicks the hatch
-Invoke-Chat '/tp @s ~ ~ ~ -90 20'
+Invoke-Chat '/tp @s ~ ~ ~ -90 15'      # the crosshair on the chest's west side, also with the lower eyes of a sneaking player
 Invoke-Chat '/setblock ~4 ~ ~ chest'
 Invoke-Chat '/replaceitem entity @s slot.hotbar 0 levitate:item_hatch'
 Press-Key '1'

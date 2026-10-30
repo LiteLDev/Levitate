@@ -125,6 +125,7 @@ void placed(ia::PlaceContext const& c) {
         game::clearBlock(region, toBlockPos(c.pos));
         if (!c.player.isCreative())
             if (auto item = items::make(kItemHatch, 1)) giveOrDrop(c.player, *item);
+        log().info("funnels: an item hatch can't be placed on the top or bottom of a block ({})", c.clicked.key());
         return;
     }
     setStates(region, toBlockPos(c.pos), {{kFacing, c.face ^ 1}, {kOpen, 0}});

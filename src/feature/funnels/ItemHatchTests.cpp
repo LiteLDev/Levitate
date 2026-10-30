@@ -13,7 +13,6 @@
 #include "mc/world/level/dimension/DimensionType.h"
 
 #include "feature/common/Capabilities.h"
-#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "game/Blocks.h"
@@ -68,23 +67,25 @@ LV_REGISTER_SELFTEST("funnels.item_hatch", [](Context& ctx) -> ll::coro::CoroTas
     sp.teleport(Vec3{base.x + .5f, float(base.y), base.z - 3.5f}, DimensionType(0));
     co_await ctx.ticks(2);
     auto& region = sp.getDimensionBlockSource();
-    // vanilla placed a hatch (SimulatedPlayers can't place this block item): the placement rules
-    // run as after a player's click (ItemHatchBlock#getStateForPlacement)
-    auto placeLike = [&](GlobalPos const& pos, GlobalPos const& clicked, int face) {
-        ctx.setBlock(pos, "levitate:item_hatch");
-        auto const& block = region.getBlock(bp(pos));
-        std::string itemId = "levitate:item_hatch", blockId = block.getTypeName();
-        lv::feature::common::interactions::dispatchPlace(
-            {sp, itemId, block, blockId, pos, clicked, face, lv::core::common::Vec{.5, .5, .5}, false, nullptr}
-        );
+    // a click with the hatch item (a player's block placements are 10 ticks apart at least)
+    auto click = [&](GlobalPos const& on, Facing face, Vec3 hit) -> ll::coro::CoroTask<bool> {
+        clearInventory(sp);
+        ctx.give(sp, item(ctx, "levitate:item_hatch"), 0);
+        sp.setSelectedSlot(0);
+        sp.simulateLookAt(Vec3{on.x + .5f, on.y + .5f, on.z + .5f}, sim::LookDuration::Continuous);
+        co_await ctx.ticks(10);
+        bool used = sp.simulateUseItemInSlotOnBlock(0, bp(on), face, hit);
+        co_await ctx.ticks(2);
+        co_return used;
     };
+    // the top of a block refuses a hatch
     auto floor2 = at(base, 2, 0, 0);
     ctx.require(ctx.setBlock(floor2, "minecraft:stone"), "a second floor block");
-    placeLike(at(floor2, 0, 1, 0), floor2, 1);
-    co_await ctx.ticks(1);
+    ctx.cleanupBlock(at(floor2, 0, 1, 0));
+    (void)co_await click(floor2, Facing::Up, Vec3{.5f, 1.f, .5f});
     ctx.check(lv::game::blockIdAt(region, bp(at(floor2, 0, 1, 0))) != "levitate:item_hatch", "no hatch on top of a block");
-    placeLike(hatch, chest, 2);
-    co_await ctx.ticks(1);
+    // the north side of the (future) container: facing it
+    ctx.check(co_await click(chest, Facing::North, Vec3{.5f, .5f, 0.f}), "the click places a hatch");
     ctx.require(lv::game::blockIdAt(region, bp(hatch)) == "levitate:item_hatch", "the hatch is on the chest's side");
     ctx.check(lv::game::intState(region.getBlock(bp(hatch)), "levitate:facing").value_or(-1) == 3, "facing the chest (south)");
     ctx.require(ctx.setBlock(chest, "levitate:item_vault", {{"levitate:axis", 0}}), "a container (an item vault)");
@@ -100,7 +101,7 @@ LV_REGISTER_SELFTEST("funnels.item_hatch", [](Context& ctx) -> ll::coro::CoroTas
     co_await ctx.ticks(1);
     sp.simulateLookAt(Vec3{hatch.x + .5f, hatch.y + .5f, hatch.z + .5f}, sim::LookDuration::Continuous);
     co_await ctx.ticks(3);
-    sp.simulateUseItemInSlotOnBlock(0, bp(hatch), Facing::North, Vec3{.5f, .3f, .5f});
+    sp.simulateUseItemInSlotOnBlock(0, bp(hatch), Facing::North, Vec3{.5f, .8f, .5f}); // above the filter slot
     co_await ctx.ticks(2);
     ctx.check(stored(sp, chest, "minecraft:apple") == 10, "the held apples are deposited");
     ctx.check(items::countOf(sp.getInventory().getItem(1)) == 5, "other hotbar slots stay");
@@ -114,7 +115,7 @@ LV_REGISTER_SELFTEST("funnels.item_hatch", [](Context& ctx) -> ll::coro::CoroTas
     co_await ctx.ticks(1);
     sp.simulateLookAt(Vec3{hatch.x + .5f, hatch.y + .5f, hatch.z + .5f}, sim::LookDuration::Continuous);
     co_await ctx.ticks(3);
-    sp.simulateUseItemInSlotOnBlock(1, bp(hatch), Facing::North, Vec3{.5f, .7f, .5f});
+    sp.simulateUseItemInSlotOnBlock(1, bp(hatch), Facing::North, Vec3{.5f, .8f, .5f});
     co_await ctx.ticks(2);
     sp.setSneaking(false);
     ctx.check(stored(sp, chest, "minecraft:bread") == 7, "the inventory's bread is deposited");
@@ -124,11 +125,12 @@ LV_REGISTER_SELFTEST("funnels.item_hatch", [](Context& ctx) -> ll::coro::CoroTas
 
     // nothing to put in: the hatch stays shut
     sp.getInventory().setItem(13, items::empty());
+    co_await ctx.ticks(12);
     sp.setSneaking(true);
     co_await ctx.ticks(1);
     sp.simulateLookAt(Vec3{hatch.x + .5f, hatch.y + .5f, hatch.z + .5f}, sim::LookDuration::Continuous);
     co_await ctx.ticks(3);
-    sp.simulateUseItemInSlotOnBlock(1, bp(hatch), Facing::North, Vec3{.5f, .7f, .5f});
+    sp.simulateUseItemInSlotOnBlock(1, bp(hatch), Facing::North, Vec3{.5f, .8f, .5f});
     co_await ctx.ticks(2);
     sp.setSneaking(false);
     ctx.check(lv::game::intState(region.getBlock(bp(hatch)), "levitate:open").value_or(1) == 0, "nothing deposited: closed");
