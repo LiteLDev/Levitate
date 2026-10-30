@@ -110,26 +110,26 @@ Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.5 ~'
 # the coupling between them (Create's CouplingRenderer, U38)
 Invoke-Chat '/fill ~2 ~ ~8 ~8 ~ ~8 rail ["rail_direction"=1]'
 Start-Sleep -Milliseconds 500
-Invoke-Chat '/summon minecart ~3.5 ~ ~8.5'
-Invoke-Chat '/summon minecart ~6.5 ~ ~8.5'
+Invoke-Chat '/summon minecart ~3 ~ ~8'
+Invoke-Chat '/summon minecart ~6 ~ ~8'
 Invoke-Chat '/give @s levitate:minecart_coupling 4'
 Start-Sleep -Milliseconds 800
 Press-Key 2
 $mark = Get-LogMark
-Invoke-Chat '/tp @s ~3.5 ~ ~5.5 facing ~3.5 ~0.4 ~8.5'
+Invoke-Chat '/tp @s ~3 ~ ~5 0 22' # 3 blocks north of the first cart
 Start-Sleep -Milliseconds 800
 Click 0.5 0.5 -Relative -Right
 Start-Sleep -Milliseconds 600
-Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~0.4 ~3'
+Invoke-Chat '/tp @s ~ ~ ~ -45 16' # the second cart, 3 blocks further east
 Start-Sleep -Milliseconds 800
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'minecarts -?\d+ and -?\d+ coupled' 20 -Since $mark | Out-Null
-Invoke-Chat '/tp @s ~1.5 ~1.2 ~0.5 facing ~1.5 ~0.4 ~3'
+Invoke-Chat '/tp @s ~1.5 ~ ~-1 0 20' # facing the coupling between them
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'coupled' | Out-Null
 if (-not $vanilla) { Wait-LogLine 'bearings client: drawing 1 minecart coupling' 20 -Since $mark | Out-Null }
 Invoke-Chat '/kill @e[type=minecart]'
-Invoke-Chat '/tp @s ~-5 ~-1.2 ~-6'
+Invoke-Chat '/tp @s ~-4.5 ~ ~-4'
 Invoke-Chat '/tp @s ~ ~ ~ facing ~10 ~1.5 ~'
 if (-not $vanilla) {
     $r = Invoke-SelfTest 'bearings.*'

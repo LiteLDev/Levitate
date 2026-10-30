@@ -122,7 +122,7 @@ void renderCouplings(BaseActorRenderContext& ctx) {
     tess.begin({}, mce::PrimitiveMode::QuadList, int(visible.size() * 3 * 48), false);
     for (auto const& e : visible) {
         // the coupling height on the cart body; the ends sit on the carts' facing ends
-        V      lift{0, 0.45, 0};
+        V      lift{0, 0.3, 0};
         V      from = e.a + lift, to = e.b + lift;
         V      dir  = to - from;
         double len  = dir.length();

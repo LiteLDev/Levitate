@@ -69,14 +69,15 @@ Start-Sleep -Milliseconds 1200
 Save-Screenshot 'arrived' | Out-Null
 # Demo B's station with its flag up (a train stands there; U38: the client mod draws the flag,
 # Create's StationRenderer) and the bogey wheels turned while the train ran (client mod)
-Invoke-Chat '/tp @s ~2 ~-5 ~-3 facing ~4.5 ~-6 ~-5.5'
+# on the ground east of Demo B's station (the train stands on the track west of it)
+Invoke-Chat '/tp @s ~7 ~ ~-4 124 8'
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'station-flag' | Out-Null
 if ($script:Mode -ne 'remote-vanilla') {
     Wait-LogLine 'trains client: drawing \d+ station flag' 20 -Since $mark | Out-Null
     Wait-LogLine 'trains client: turning bogey wheels' 20 -Since $mark | Out-Null
 }
-Invoke-Chat '/tp @s ~-2 ~5 ~3'
+Invoke-Chat '/tp @s ~-7 ~ ~4 -135 30'
 
 # the station screen (native with the client mod, a form without)
 Invoke-Chat '/create trains screen'
