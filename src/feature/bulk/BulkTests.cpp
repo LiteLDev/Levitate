@@ -14,7 +14,11 @@
 #include "mc/scripting/modules/minecraft/ScriptFacing.h"
 #include "mc/server/SimulatedPlayer.h"
 #include "mc/server/sim/LookDuration.h"
-#include "mc/util/VariantParameterList.h"
+#include "mc/world/actor/animal/Horse.h"
+#include "mc/deps/core/math/Vec2.h"
+#include "mc/deps/ecs/gamerefs_entity/EntityContext.h"
+#include "mc/deps/ecs/gamerefs_entity/GameRefsEntity.h"
+#include "mc/world/actor/ActorFactory.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorDamageSource.h"
 #include "mc/world/actor/player/Inventory.h"
@@ -39,6 +43,7 @@
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
 #include "mod/Config.h"
+#include "mod/Log.h"
 #include "mod/Main.h"
 #include "selftest/SelfTest.h"
 
@@ -56,11 +61,16 @@ constexpr char const* kShaft  = "levitate:kinetics_test_shaft";
 constexpr int         X = 0, Y = 1, Z = 2;
 constexpr int         kDown = 0, kUp = 1, kNorth = 2, kSouth = 3, kWest = 4, kEast = 5;
 
+/// testPos puts dx 39xx 150 blocks south, outside the run's ticking area (z ±64): the U39 tests
+/// with entities move 205 blocks north, to rows no unit uses (z -55..-51).
+constexpr int kU39Shift = -205;
+
 struct Area {
     Context& ctx;
     int      col;
+    int      zShift = 0; ///< extra dz (U39 tests: into the run's ticking area)
     GlobalPos at(int dx, int dy = 0, int dz = 0) const {
-        auto p = ctx.testPos(1300 + col + dx, dz);
+        auto p = ctx.testPos(1300 + col + dx, dz + zShift);
         p.y += dy;
         return p;
     }
@@ -539,7 +549,14 @@ ll::coro::CoroTask<GlobalPos> downCrusher(Context& ctx, Area const& a, int dy, f
     float s = cb::controllerFacing(cb::Axis::X, cb::Face::South, 64) == cb::Face::Down ? rpm : -rpm;
     kinetics::setGeneratedSpeed(a.at(0, dy, 0), s);
     kinetics::setGeneratedSpeed(a.at(0, dy, 2), -s);
-    co_await ctx.ticks(3);
+    // wait for the network and the controller (a busy server may take a few ticks)
+    auto& region = overworld(ctx);
+    for (int i = 0; i < 60; ++i) {
+        co_await ctx.ticks(1);
+        if (idAt(region, toBlockPos(ctrl)) == kController && stateOf(region.getBlock(toBlockPos(ctrl)), "levitate:valid")
+            && crushingSpeedAt(region, ctrl) > 0)
+            break;
+    }
     co_return ctrl;
 }
 
@@ -550,30 +567,52 @@ struct CrushDamage {
     ~CrushDamage() { config::mut<BulkConfig>().crushingDamage = saved; }
 };
 
+/// The U39 rows (dx 39xx) lie outside the run's ticking area: the test player watches from
+/// nearby (spectator) so entities there tick.
+ll::coro::CoroTask<> watchFrom(Context& ctx, GlobalPos const& p) {
+    static_cast<SimulatedPlayer&>(ctx.player()).teleport(Vec3{p.x + .5f, float(p.y + 4), p.z - 4.5f}, DimensionType(0));
+    co_await ctx.ticks(20); // the chunks around the player start ticking
+}
+
 Actor* spawnMob(BlockSource& region, char const* id, cb::Vec3d const& at) {
     auto level = ll::service::getLevel();
     if (!level) return nullptr;
-    return level->getSpawner().spawnMob(region, ActorDefinitionIdentifier(id), nullptr, Vec3{float(at.x), float(at.y), float(at.z)}, false, false, false);
+    // the actor factory: a spawned mob, without the spawner's spawn rules
+    auto owner = level->getActorFactory().createSpawnedActor(ActorDefinitionIdentifier(id), nullptr, Vec3{float(at.x), float(at.y), float(at.z)}, Vec2{0, 0});
+    if (!owner) return nullptr;
+    auto* mob = level->addEntity(region, std::move(owner));
+    if (mob) mob->setPersistent(); // never despawned while the test runs
+    return mob;
 }
 
 } // namespace
 
 LV_REGISTER_SELFTEST("bulk.crusher_pass_through", [](Context& ctx) -> ll::coro::CoroTask<> {
     // R64: the entity being crushed has no collision with the controller and goes through
-    Area a{ctx, 2650};
+    Area a{ctx, 2650, kU39Shift};
     ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     CrushDamage none(0);
+    co_await watchFrom(ctx, a.at(1, 3, 1));
     auto ctrl = co_await downCrusher(ctx, a, 3);
     ctx.require(stateOf(region.getBlock(toBlockPos(ctrl)), "levitate:facing") == kDown, "the controller pulls down");
     auto* pig = spawnMob(region, "minecraft:pig", {ctrl.x + .5, ctrl.y + 1.2, ctrl.z + .5});
     ctx.require(pig != nullptr, "spawn a pig above the crusher");
     auto id   = idOf(*pig);
-    bool went = false;
+    bool        went = false;
+    std::string path;
     for (int i = 0; i < 40 && !went; ++i) {
         co_await ctx.ticks(2);
         auto* e = entityById(id);
+        if (i < 8) path += e ? std::to_string(feetOf(*e).y - ctrl.y).substr(0, 5) + (e->isAlive() ? " " : "(dead) ") : "- ";
         if (e && feetOf(*e).y < ctrl.y - .2) went = true;
+    }
+    if (!went) ctx.info("pig y relative to the controller: " + path);
+    if (!went) {
+        auto* e = entityById(id);
+        ctx.info(e ? "pig at y " + std::to_string(feetOf(*e).y) + ", controller at y " + std::to_string(ctrl.y) + ", taken "
+                         + std::to_string(controllerAt(ctrl).entity == id)
+                   : std::string("pig gone"));
     }
     ctx.check(went, "the pig was pulled through the controller");
     if (auto* e = entityById(id)) e->remove();
@@ -587,10 +626,11 @@ LV_REGISTER_SELFTEST("bulk.crusher_kills", [](Context& ctx) -> ll::coro::CoroTas
         ctx.info("death message: " + msg.first);
         ctx.check(msg.first == "death.attack.create.crush", "the death message is Create's: " + msg.first);
     }
-    Area a{ctx, 2655};
+    Area a{ctx, 2655, kU39Shift};
     ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     CrushDamage lethal(100);
+    co_await watchFrom(ctx, a.at(1, 3, 1));
     auto ctrl   = co_await downCrusher(ctx, a, 3);
     int  before = lootingBoosts();
     auto* pig   = spawnMob(region, "minecraft:pig", {ctrl.x + .5, ctrl.y + 1.2, ctrl.z + .5});
@@ -599,13 +639,14 @@ LV_REGISTER_SELFTEST("bulk.crusher_kills", [](Context& ctx) -> ll::coro::CoroTas
     for (int i = 0; i < 40 && (entityById(id) || lootingBoosts() == before); ++i) co_await ctx.ticks(2);
     auto* left = entityById(id);
     ctx.check(!left || !left->isAlive(), "the crusher killed the pig");
+    if (lootingBoosts() == before) ctx.info("crushing speed " + std::to_string(crushingSpeedAt(region, ctrl)) + ", pig " + (left ? "alive" : "gone"));
     ctx.check(lootingBoosts() > before, "its drops rolled with looting (" + std::to_string(lootingBoosts() - before) + " functions)");
     removeItems(region, around(ctrl, 5));
 });
 
 LV_REGISTER_SELFTEST("bulk.placement_veto", [](Context& ctx) -> ll::coro::CoroTask<> {
     // R68: a nozzle without its fan is not placed at all (Create's canSurvive at placement)
-    Area a{ctx, 2660};
+    Area a{ctx, 2660, kU39Shift};
     ctx.require(co_await ctx.ensureLoaded(a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     auto& sp     = static_cast<SimulatedPlayer&>(ctx.player());
@@ -640,7 +681,7 @@ LV_REGISTER_SELFTEST("bulk.fan_state_tag", [](Context& ctx) -> ll::coro::CoroTas
         Slow() : saved(config::mut<BulkConfig>().fanProcessingTime) { config::mut<BulkConfig>().fanProcessingTime = 400; }
         ~Slow() { config::mut<BulkConfig>().fanProcessingTime = saved; }
     } slow;
-    Area a{ctx, 2665};
+    Area a{ctx, 2665, kU39Shift};
     ctx.require(co_await loadArea(ctx, a.at(10)), "test area loaded");
     auto& region = overworld(ctx);
     auto  fan    = a.at(1, 0, 0);
@@ -649,6 +690,7 @@ LV_REGISTER_SELFTEST("bulk.fan_state_tag", [](Context& ctx) -> ll::coro::CoroTas
     co_await ctx.ticks(2);
     kinetics::setGeneratedSpeed(a.at(0, 0, 0), cb::fanPushing(cb::Face::East, 64) ? 64 : -64);
     ctx.setBlock(a.at(2, 0, 0), "minecraft:campfire");
+    co_await watchFrom(ctx, a.at(4, 0, 0));
     co_await ctx.ticks(40);
     auto at = a.at(4, 0, 0);
     auto id = spawnItem(region, stack(ctx, "minecraft:beef"), {at.x + .5, at.y + .1, at.z + .5}, {});
@@ -670,18 +712,24 @@ LV_REGISTER_SELFTEST("bulk.fan_state_tag", [](Context& ctx) -> ll::coro::CoroTas
 
 LV_REGISTER_SELFTEST("bulk.haunted_horse", [](Context& ctx) -> ll::coro::CoroTask<> {
     // R67: a haunted horse becomes a skeleton horse with its name, owner, taming and saddle
-    Area a{ctx, 2670};
+    Area a{ctx, 2670, kU39Shift};
     ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     auto  at     = a.at(1, 0, 2);
+    co_await watchFrom(ctx, at);
+    co_await ctx.ticks(2);
     auto* horse  = spawnMob(region, "minecraft:horse", {at.x + .5, at.y + .1, at.z + .5});
     ctx.require(horse != nullptr, "spawn a horse");
     horse->setNameTag("Haunted Test");
-    horse->executeEvent("minecraft:on_tame", VariantParameterList{});
-    horse->setOwner(ctx.player().getOrCreateUniqueID());
-    co_await ctx.ticks(2);
-    ctx.info(std::string("horse tame: ") + (horse->isTame() ? "yes" : "no"));
     auto hid = idOf(*horse);
+    co_await ctx.ticks(2);
+    horse = entityById(hid);
+    ctx.require(horse != nullptr, "the horse is still there");
+    static_cast<Horse*>(horse)->tameToPlayer(ctx.player(), false);
+    co_await ctx.ticks(2);
+    horse = entityById(hid);
+    ctx.require(horse != nullptr, "the horse is still there after taming");
+    ctx.info(std::string("horse tame: ") + (horse->isTame() ? "yes" : "no"));
     for (int i = 0; i <= 101; ++i) {
         auto* h = entityById(hid);
         if (!h) break;
@@ -701,9 +749,10 @@ LV_REGISTER_SELFTEST("bulk.haunted_horse", [](Context& ctx) -> ll::coro::CoroTas
 
 LV_REGISTER_SELFTEST("bulk.fan_multibox", [](Context& ctx) -> ll::coro::CoroTask<> {
     // R71: the current reaches into blocks made of several boxes as far as Create's test points go
-    Area a{ctx, 2675};
+    Area a{ctx, 2675, kU39Shift};
     ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto fan = a.at(1, 4, 2);
+    co_await watchFrom(ctx, a.at(1, 1, 2));
     ctx.setBlock(a.at(1, 5, 2), kSource, {{"levitate:axis", Y}});
     ctx.setBlock(fan, std::string(kFan), {{"levitate:facing", kDown}});
     for (int dy = 1; dy < 4; ++dy) ctx.cleanupBlock(a.at(1, dy, 2));
@@ -720,7 +769,7 @@ LV_REGISTER_SELFTEST("bulk.fan_multibox", [](Context& ctx) -> ll::coro::CoroTask
 
 LV_REGISTER_SELFTEST("bulk.soundscapes", [](Context& ctx) -> ll::coro::CoroTask<> {
     // R69: a millstone with an input plays Create's milling soundscape to the players near it
-    Area a{ctx, 2680};
+    Area a{ctx, 2680, kU39Shift};
     ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     auto  mill   = a.at(1, 1, 2);
@@ -740,10 +789,11 @@ LV_REGISTER_SELFTEST("bulk.soundscapes", [](Context& ctx) -> ll::coro::CoroTask<
 
 LV_REGISTER_SELFTEST("bulk.nozzle_overload", [](Context& ctx) -> ll::coro::CoroTask<> {
     // R70: a pulling nozzle holding more than 256 entities explodes and the entities are gone
-    Area a{ctx, 2685};
+    Area a{ctx, 2685, kU39Shift};
     ctx.require(co_await loadArea(ctx, a.at(1)), "test area loaded");
     auto& region = overworld(ctx);
     auto  fan = a.at(2, 0, 2), nozzle = a.at(2, 1, 2);
+    co_await watchFrom(ctx, a.at(-8, 0, 2));
     ctx.setBlock(a.at(2, -1, 2), kSource, {{"levitate:axis", Y}});
     ctx.setBlock(fan, std::string(kFan), {{"levitate:facing", kUp}});
     ctx.setBlock(nozzle, std::string(kNozzle), {{"levitate:facing", kUp}});

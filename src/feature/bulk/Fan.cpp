@@ -23,12 +23,16 @@
 #include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
 #include "mc/entity/components_json_legacy/ContainerComponent.h"
 #include "mc/world/Container.h"
+#include "mc/deps/core/math/Vec2.h"
+#include "mc/deps/ecs/gamerefs_entity/EntityContext.h"
+#include "mc/deps/ecs/gamerefs_entity/GameRefsEntity.h"
+#include "mc/world/actor/ActorFactory.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/attribute/AttributeInstance.h"
 #include "mc/world/attribute/AttributeInstanceConstRef.h"
 #include "mc/world/attribute/BaseAttributeMap.h"
 #include "mc/world/attribute/SharedAttributes.h"
-#include "mc/util/VariantParameterList.h"
+#include "mc/world/actor/animal/Horse.h"
 #include "mc/world/actor/ActorDefinitionIdentifier.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/player/Player.h"
@@ -611,8 +615,14 @@ void copyHorse(Actor& horse, Actor& skeleton, BlockSource& region) {
         (void)to->setMaxValue(*attr, from->mCurrentMaxValue);
         (void)to->setCurrentValue(*attr, from->mCurrentValue);
     }
+    // a tamed or named horse stays (Create copies PersistenceRequired)
+    if (horse.isTame() || !horse.getNameTag().empty()) skeleton.setPersistent();
     if (horse.isTame()) {
-        skeleton.executeEvent("minecraft:on_tame", VariantParameterList{});
+        // Bedrock tames a horse to a player (Horse::tameToPlayer, the game's horse class covers the
+        // skeleton horse too); an owner who is offline only becomes the owner
+        auto  level = ll::service::getLevel();
+        auto* owner = level ? level->getPlayer(horse.getOwnerId()) : nullptr;
+        if (owner) static_cast<Horse&>(skeleton).tameToPlayer(*owner, false);
         skeleton.setOwner(horse.getOwnerId());
     }
     auto from = horse.getEntityContext().tryGetComponent<ContainerComponent>();
@@ -686,8 +696,11 @@ void affectEntity(Actor& e, FanType type, int dim) {
             auto level = ll::service::getLevel();
             if (!level) return;
             auto& region = e.getDimensionBlockSource();
-            auto* skeleton = level->getSpawner().spawnMob(region, ActorDefinitionIdentifier("minecraft:skeleton_horse"), nullptr,
-                                                          Vec3{float(feet.x), float(feet.y), float(feet.z)}, false, false, false);
+            // the actor factory (not the spawner, whose spawn rules may refuse it): Create's addFreshEntity
+            Actor* skeleton = nullptr;
+            if (auto owner = level->getActorFactory().createSpawnedActor(ActorDefinitionIdentifier("minecraft:skeleton_horse"), nullptr,
+                                                                         Vec3{float(feet.x), float(feet.y), float(feet.z)}, Vec2{0, 0}))
+                skeleton = level->addEntity(region, std::move(owner));
             if (skeleton) copyHorse(e, *skeleton, region);
             e.remove();
             log().info("encased fan: haunted a horse into a skeleton horse at {:.1f} {:.1f} {:.1f}", feet.x, feet.y, feet.z);
