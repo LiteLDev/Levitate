@@ -73,5 +73,11 @@
   },
   "levitate_transmission_sequencer_side_5": {
     "textures": "textures/blocks/transmission_sequencer_side_5"
+  },
+  "levitate_cuckoo_clock": {
+    "textures": "textures/blocks/cuckoo_clock"
+  },
+  "levitate_flywheel": {
+    "textures": "textures/blocks/flywheel"
   }
 }

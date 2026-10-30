@@ -51,6 +51,10 @@ inline constexpr int kPollTicks = 2;
 [[nodiscard]] bool powered(BlockSource& region, BlockPos const& pos);
 /// The signal a single neighbour at `from` sends into `to` (adjacent positions), 0..15.
 [[nodiscard]] int signalFrom(BlockSource& region, BlockPos const& from, BlockPos const& to);
+/// (U49) The block at `pos` is a conducting block the circuit powers (Bedrock's powered-block
+/// component), not a source: its strength may come from any of its neighbours, including the block
+/// asking (Bedrock's producers power the solid blocks around them, Java's weak signals don't).
+[[nodiscard]] bool isPoweredBlock(BlockSource& region, BlockPos const& pos);
 
 using WatchId = int;
 using WatchFn = std::function<void(GlobalPos const& pos, int power)>;

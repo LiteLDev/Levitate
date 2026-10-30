@@ -38,8 +38,12 @@ public:
                 clearGauges();
                 clearSequencers();
                 clearSpeedControllers();
+                clearClocks();
             });
-            net::onCompanionJoined([](Player& p) { gaugeSyncTo(p); });
+            net::onCompanionJoined([](Player& p) {
+                gaugeSyncTo(p);
+                clockSyncTo(p);
+            });
         }
         if (game::db::available()) loadTracked(); // BDS: the world exists before mods are enabled
         mListeners.push_back(bus.emplaceListener<ll::event::BlockChangedEvent>([this](ll::event::BlockChangedEvent& ev) {
@@ -57,9 +61,11 @@ public:
         });
         installPlacementHooks();
         installComparatorOutput();
+        installClockHooks();
     }
 
     void uninstall() {
+        uninstallClockHooks();
         uninstallComparatorOutput();
         uninstallPlacementHooks();
         kinetics::removeListener(mSpeedListener);
@@ -91,7 +97,10 @@ private:
                 int  dim = static_cast<int>(p.getDimensionId());
                 auto key = p.getOrCreateUniqueID().rawID;
                 auto it  = mPlayerDims.find(key);
-                if (it != mPlayerDims.end() && it->second != dim) gaugeSyncTo(p);
+                if (it != mPlayerDims.end() && it->second != dim) {
+                    gaugeSyncTo(p);
+                    clockSyncTo(p);
+                }
                 mPlayerDims[key] = dim;
                 return true;
             });

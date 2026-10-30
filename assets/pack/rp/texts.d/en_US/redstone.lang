@@ -8,3 +8,5 @@ tile.levitate:powered_toggle_latch.name=Powered Toggle Latch
 tile.levitate:content_observer.name=Smart Observer
 tile.levitate:stockpile_switch.name=Threshold Switch
 tile.levitate:redstone_contact.name=Redstone Contact
+tile.levitate:desk_bell.name=Desk Bell
+tile.levitate:rose_quartz_lamp.name=Rose Quartz Lamp

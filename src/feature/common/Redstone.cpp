@@ -167,6 +167,12 @@ int signalFrom(BlockSource& region, BlockPos const& from, BlockPos const& to) {
     }
 }
 
+bool isPoweredBlock(BlockSource& region, BlockPos const& pos) {
+    if (!region.hasChunksAt(pos, 0, false)) return false;
+    auto* comp = componentAt(region, pos);
+    return comp && !comp->mRemoved && comp->getCircuitComponentType() == CircuitComponentType::PoweredBlockComponent;
+}
+
 int power(BlockSource& region, BlockPos const& pos) {
     int best = 0;
     for (int f = 0; f < 6 && best < 15; ++f) best = std::max(best, signalFrom(region, step(pos, f), pos));

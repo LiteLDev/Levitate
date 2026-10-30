@@ -221,7 +221,52 @@ KineticSpec speedController() {
     return spec;
 }
 
+// ---- cuckoo clocks (U49): Create's HorizontalKineticBlock with a shaft at the back ---------------------------
+
+Face clockFront(BlockState const& s) { return clockFacing(s.get(kHorizontalFacing, 2)); }
+
+KineticSpec cuckooClock() {
+    auto spec            = base({kHorizontalFacing});
+    spec.impact          = 1; // Create's CStress default (config kinetics.json key cuckoo_clock)
+    spec.rotationAxis    = [](BlockState const& s) -> std::optional<Axis> { return ck::axisOf(clockFront(s)); };
+    spec.hasShaftTowards = [](BlockState const& s, Face f) { return f == ck::opposite(clockFront(s)); };
+    // CuckooClockRenderer.getRotatedModel: half a shaft at the back
+    spec.parts = [](RenderView const& v, std::vector<RotorPart>& out) {
+        Face back = ck::opposite(clockFront(*v.state));
+        out.push_back(RotorPart{halfBone(back), ck::axisOf(back), 1.f, 0.f, false});
+    };
+    return spec;
+}
+
+// ---- flywheel (U49): Create's RotatedPillarKineticBlock, a wheel and a shaft ----------------------------------
+
+KineticSpec flywheel() {
+    auto spec         = axial({kAxis}, "wheel");
+    spec.rotorModel   = "geometry.levitate.flywheel";
+    spec.rotorTexture = "levitate_flywheel";
+    spec.parts        = [](RenderView const& v, std::vector<RotorPart>& out) {
+        Axis axis = axisValue(*v.state);
+        out.push_back(RotorPart{"wheel", axis, 1.f, 0.f, false});
+        out.push_back(RotorPart{"shaft", axis, 1.f, 0.f, false});
+    };
+    return spec;
+}
+
 } // namespace
+
+Face clockFacing(int horizontalFacing) {
+    static constexpr Face faces[] = {Face::South, Face::West, Face::North, Face::East};
+    return faces[std::clamp(horizontalFacing, 0, 3)];
+}
+
+int horizontalFacingOf(Face face) {
+    switch (face) {
+    case Face::South: return 0;
+    case Face::West: return 1;
+    case Face::East: return 3;
+    default: return 2;
+    }
+}
 
 LV_REGISTER_KINETIC_BLOCK(kShaft, axial({kAxis}, "shaft"));
 LV_REGISTER_KINETIC_BLOCK(kCogwheel, cogwheel(false));
@@ -241,12 +286,16 @@ LV_REGISTER_KINETIC_BLOCK(kSequencedGearshift, sequencedGearshift());
 LV_REGISTER_KINETIC_BLOCK(kSpeedController, speedController());
 LV_REGISTER_KINETIC_BLOCK(kSpeedometer, gauge());
 LV_REGISTER_KINETIC_BLOCK(kStressometer, gauge());
+LV_REGISTER_KINETIC_BLOCK(kCuckooClock, cuckooClock());
+LV_REGISTER_KINETIC_BLOCK(kMysteriousCuckooClock, cuckooClock());
+LV_REGISTER_KINETIC_BLOCK(kFlywheel, flywheel());
 
 std::vector<std::string> const& allBlocks() {
     static std::vector<std::string> const ids{
         kShaft,      kCogwheel,      kLargeCogwheel,      kAndesiteShaft, kBrassShaft,      kAndesiteCog,
         kBrassCog,   kAndesiteLargeCog, kBrassLargeCog,   kGearbox,       kClutch,          kGearshift,
         kChainDrive, kChainGearshift, kSequencedGearshift, kSpeedController, kSpeedometer,  kStressometer,
+        kCuckooClock, kMysteriousCuckooClock, kFlywheel,
     };
     return ids;
 }
@@ -259,6 +308,7 @@ bool isEncasedCog(std::string_view id) {
 bool isEncasedShaft(std::string_view id) { return id == kAndesiteShaft || id == kBrassShaft; }
 bool isChainDrive(std::string_view id) { return id == kChainDrive || id == kChainGearshift; }
 bool isGauge(std::string_view id) { return id == kSpeedometer || id == kStressometer; }
+bool isCuckooClock(std::string_view id) { return id == kCuckooClock || id == kMysteriousCuckooClock; }
 bool readsRedstone(std::string_view id) {
     return id == kClutch || id == kGearshift || id == kChainGearshift || id == kSequencedGearshift;
 }

@@ -1,0 +1,66 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:rose_quartz_lamp",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:powered": [
+          0,
+          1
+        ],
+        "levitate:powering": [
+          0,
+          1
+        ],
+        "levitate:activate": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_rose_quartz_lamp",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.45
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0.3
+      },
+      "minecraft:map_color": "#a04d4e",
+      "minecraft:loot": "loot_tables/blocks/rose_quartz_lamp.json",
+      "minecraft:redstone_conductivity": {
+        "redstone_conductor": false,
+        "allows_wire_to_step_down": true
+      },
+      "minecraft:redstone_producer": {
+        "power": 0
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:powering') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_rose_quartz_lamp_powered",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:light_emission": 15,
+          "minecraft:redstone_producer": {
+            "power": 15
+          }
+        }
+      }
+    ]
+  }
+}

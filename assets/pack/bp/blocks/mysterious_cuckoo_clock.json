@@ -1,0 +1,187 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:mysterious_cuckoo_clock",
+      "menu_category": {
+        "category": "construction"
+      },
+      "states": {
+        "levitate:horizontal_facing": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "levitate:hour": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "levitate:minute": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "levitate:cuckoo": [
+          0,
+          1,
+          2
+        ],
+        "levitate:rotor": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.cuckoo_clock",
+        "bone_visibility": {
+          "shaft": "q.block_state('levitate:rotor') != 1",
+          "hour_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 0",
+          "hour_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 1",
+          "hour_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 2",
+          "hour_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 3",
+          "hour_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 4",
+          "hour_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 5",
+          "hour_6": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 6",
+          "hour_7": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 7",
+          "hour_8": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 8",
+          "hour_9": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 9",
+          "hour_10": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 10",
+          "hour_11": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:hour') == 11",
+          "minute_0": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 0",
+          "minute_1": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 1",
+          "minute_2": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 2",
+          "minute_3": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 3",
+          "minute_4": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 4",
+          "minute_5": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 5",
+          "minute_6": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 6",
+          "minute_7": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 7",
+          "minute_8": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 8",
+          "minute_9": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 9",
+          "minute_10": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 10",
+          "minute_11": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:minute') == 11",
+          "door_left": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:cuckoo') == 0",
+          "door_right": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:cuckoo') == 0",
+          "door_left_open": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:cuckoo') != 0",
+          "door_right_open": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:cuckoo') != 0",
+          "pig": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:cuckoo') == 1",
+          "creeper": "q.block_state('levitate:rotor') != 1 && q.block_state('levitate:cuckoo') == 2"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_cuckoo_clock",
+          "render_method": "alpha_test"
+        },
+        "shaft": {
+          "texture": "levitate_transmission_rotor",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -7,
+          0,
+          -7
+        ],
+        "size": [
+          14,
+          16,
+          14
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -7,
+          0,
+          -7
+        ],
+        "size": [
+          14,
+          16,
+          14
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 3
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:map_color": "#9e6a49",
+      "minecraft:loot": "loot_tables/blocks/mysterious_cuckoo_clock.json"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:horizontal_facing') == 0",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:horizontal_facing') == 1",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:horizontal_facing') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:horizontal_facing') == 3",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              270,
+              0
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

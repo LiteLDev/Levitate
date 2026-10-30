@@ -1,8 +1,9 @@
 # Transmission (U6) on BDS: every transmission selftest (shafts, cogs, gearbox, clutch / gearshift,
 # chain drives, speed controller, sequenced gearshift, gauges, placement rules, the sequencer
-# screen), then a line built with /setblock: a clutch powered by a redstone block from the console.
+# screen, U49: cuckoo clocks and the flywheel), then a line built with /setblock: a clutch powered by a
+# redstone block from the console, and a cuckoo clock that cuckoos at noon.
 $r = Invoke-SelfTest 'transmission.*'
-if ($r.Pass -lt 10) { throw "expected at least 10 transmission selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 14) { throw "expected at least 14 transmission selftests to pass, got $($r.Pass)" }
 Wait-LogLine 'transmission: sequenced gearshift at .* runs instruction 1 \(turn_angle\)' 10 | Out-Null
 Wait-LogLine 'transmission: speed controller at .* targets -48 RPM' 10 | Out-Null
 Wait-LogLine 'transmission: .* placed levitate:shaft at .* by placement assist' 10 | Out-Null
@@ -25,3 +26,16 @@ Wait-LogLine 'kinetics: Speed: 0 RPM' 15 -Since $mark2 | Out-Null
 Send-Console 'setblock 3 -57 6 air'
 Wait-LogLine 'transmission: levitate:clutch at .* unpowered' 15 -Since $mark | Out-Null
 Send-Console 'tickingarea remove lv_transmission'
+
+# U49: a turning cuckoo clock (shaft at its back, south) cuckoos when the world's time is noon
+Send-Console 'tickingarea add 0 -64 0 15 0 15 lv_transmission_clock'
+Wait-Seconds 3
+$mark = Get-LogMark
+Send-Console 'setblock 6 -58 6 levitate:cuckoo_clock ["levitate:horizontal_facing"=2]'
+Send-Console 'setblock 6 -58 7 levitate:kinetics_test_source ["levitate:axis"=2]'
+Wait-Seconds 1
+Send-Console 'time set 6000'
+Wait-LogLine 'transmission: cuckoo clock at .* starts the pig animation' 15 -Since $mark | Out-Null
+Send-Console 'setblock 6 -58 6 air'
+Send-Console 'setblock 6 -58 7 air'
+Send-Console 'tickingarea remove lv_transmission_clock'

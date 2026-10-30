@@ -15,5 +15,9 @@
   "create.gui.threshold_switch.not_attached": "Not attached to a block",
   "create.gui.threshold_switch.incompatible": "Incompatible block",
   "lv.redstone.transmitter": "Transmitter",
-  "lv.redstone.receiver": "Receiver"
+  "lv.redstone.receiver": "Receiver",
+  "block.create.desk_bell.tooltip.summary": "Ring for Service! Emits a _redstone signal_ when activated.",
+  "block.create.desk_bell.tooltip.condition1": "When attached to Elevator Contraption",
+  "block.create.desk_bell.tooltip.behaviour1": "_Plays a sound_ when arriving at the _target floor_.",
+  "create.subtitle.desk_bell": "Reception bell dings"
 }
