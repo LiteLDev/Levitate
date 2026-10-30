@@ -3966,18 +3966,49 @@ inventory criteria; visibility; tree layout; gtest), `src/feature/advancements/`
   contraption with drills, saws, ploughs, rollers or harvesters, to its anchor's owner);
   super_glue (a new glue region, to the nearest player holding super glue); equipment: diving_suit,
   diving_suit_lava, potato_cannon, potato_cannon_collide.
-- **Triggers that need a call in their unit** (follow-ups; the contract is in place):
-  mechanical_press, compacting, track_crafting_factory (U39 press), fan_processing (U39 fan),
-  saw_processing, millstone, mechanical_mixer (U39), funnel, belt_funnel_kiss (U41), chute,
-  package_chute_throw (U41/U44), burner via arm_blaze_burner, mechanical_arm, arm_many_targets,
-  musical_arm (U39 arm), portable_storage_interface, cart_pickup, anvil_plough, pulley_maxed,
-  self_deploying (U38), ejector_maxed (U41), spout, foods, drain, chained_drain, hose_pulley,
-  hose_pulley_lava, water_supply, honey_drain, cross_streams, steam_engine_maxed, pipe_organ (U40),
-  fist_bump (U39), display_link, display_board_0, packager, frogport, stock_ticker, table_cloth_shop,
-  factory_gauge (U42/U44), train, conductor, long_train, long_travel, train_whistle, train_portal,
-  train_roadkill, red_signal, train_crash, train_crash_backwards (U38), linked_controller (needs a
-  "listening links on a frequency" query in U42's `RedstoneLink.h`). cuckoo_clock, haunted_bell,
-  cardboard_armor and cardboard_armor_trim have no Levitate block / item yet.
+- **Triggers fired in their unit** (U49; owner = the block's placer through `awardOwner`, the
+  owner table also has packager / repackager, package frogport and factory gauge): processing:
+  mechanical_press (each pressed result, `basin/Processing.cpp` via `onItemPressed`) and
+  track_crafting_factory (1000 tracks pressed by one press, counter in its BlockData), compacting /
+  mechanical_mixer (a basin recipe applied), fan_processing (an item / stack processed by the air
+  current, `bulk/Fan.cpp`), saw_processing (`crafter/Machines.cpp` applyRecipe), millstone
+  (`bulk/Millstone.cpp` process), spout (an item filled, `fluids/Spout.cpp`) and foods (the same spout
+  made chocolate glazed berries, a honeyed apple and a sweet roll while its owner is known), drain
+  (an item emptied) / chained_drain (an item passed into another drain, `fluids/ItemDrain.cpp`),
+  hose_pulley (drained or filled a block, also from an infinite body or voided) / hose_pulley_lava
+  (infinite lava, `fluids/HosePulley.cpp`), water_supply (an open pipe drains a water source) /
+  honey_drain (honey from a beehive) / cross_streams (two fluids meet in a pipe, `pipes/OpenEnds.cpp`),
+  steam_engine_maxed (a sampled boiler at level 18) / pipe_organ (12 different whistle pitches + sizes
+  on one boiler, `steam/SteamBoilers.cpp`), fist_bump (two deployers punch, `assembly/Deployer.cpp`),
+  mechanical_arm (every deposit) / musical_arm (a disc fully inserted into a jukebox) /
+  arm_many_targets (≥ 10 outputs) / arm_blaze_burner (a blaze burner point, `assembly/Arm.cpp`);
+  logistics: funnel (a funnel transfer, `funnels/Funnel.cpp`), belt_funnel_kiss (the wrench extends a
+  belt funnel facing another extended one, to the player), chute (an item set into a chute,
+  `funnels/Chute.cpp`), package_chute_throw (a thrown package enters a chute, to the thrower,
+  `packages/PackageEntity.cpp`), ejector_maxed (a player launched ≥ 25 blocks, `belts/Depots.cpp`),
+  packager (a package made and held, `packages/Packager.cpp`), frogport (a frogport catches a package,
+  `packages/Ports.cpp`), stock_ticker (a non-empty order, to the player, `stock/Ticker.cpp`),
+  table_cloth_shop (a table cloth placed from a programmed item, `stock/Shop.cpp`), factory_gauge (a
+  gauge with connected inputs requests them, `stock/Gauge.cpp`), display_link (a link sent data,
+  `display/Link.cpp` update), display_board_0 (the station summary lists a train on a board,
+  `trains/Display.cpp`), linked_controller (a pressed controller button whose frequency a link listens
+  to in the dimension: `RedstoneLink.h` `hasListeningLinks`, `equipment/Controller.cpp`);
+  contraptions: portable_storage_interface (a transfer, `actors/Psi.cpp`), cart_pickup (a minecart
+  contraption of more than 200 blocks picked up, `bearings/Carts.cpp`), anvil_plough (a plough throws a
+  falling anvil at ≥ 0.25 blocks per tick: every player within 32 blocks, `actors/Plough.cpp`),
+  pulley_maxed (a rope pulley reaches 200 blocks, `pistons/Actuators.cpp`), self_deploying (a deployer
+  on a minecart contraption or train places a rail / track: the owner carried in the deployer's
+  BlockData, `assembly/Deployer.cpp`); trains (`trains/`): train / long_train (assembly at a station,
+  ≥ 6 carriages, station owner), conductor (a station's auto-schedule applied to an arriving train:
+  station owner; a schedule handed to a train: the player), train_whistle (a controlling player honks
+  a train with a whistle), train_roadkill (a train kills an entity: its driver), red_signal (a train
+  without a running schedule enters a signal section another train occupies: its driver),
+  train_crash (a collision: every seated player but the driver) / train_crash_backwards (the player
+  who drove it backwards that tick), long_travel (a player leaves a train seat ≥ 5000 blocks from
+  where they sat down).
+- **Not fired**: train_portal (Levitate's trains don't cross dimensions through portal tracks yet).
+  cuckoo_clock, haunted_bell, cardboard_armor and cardboard_armor_trim come with their blocks /
+  items.
 
 #### 3.6.35 Consistency (U35)
 
