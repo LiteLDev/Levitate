@@ -591,6 +591,8 @@ private:
                     auto      it = st().index.find(n);
                     if (it == st().index.end()) continue;
                     if (isChute(it->second) || isTunnel(it->second) || it->second == Kind::None) st().shapeUpdates.insert(n);
+                    // a funnel whose block below changed may get on / off a belt (Create's updateShape, DOWN)
+                    else if (isFunnel(it->second) && dx == 0 && dy == 1 && dz == 0) st().shapeUpdates.insert(n);
                 }
     }
 
@@ -633,6 +635,7 @@ private:
                 Kind k = kindAt(*region, toBlockPos(pos));
                 if (isChute(k)) updateChuteShape(*region, pos);
                 else if (isTunnel(k)) updateTunnelShape(*region, pos);
+                else if (isFunnel(k)) updateFunnelShape(*region, pos);
             }
         }
 

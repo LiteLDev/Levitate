@@ -14,6 +14,8 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/Explosion.h"
+#include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 
 #include "core/common/ValueSettings.h"
@@ -138,6 +140,21 @@ LL_TYPE_INSTANCE_HOOK(
     return origin(region, container, itemActor, item, slot, face, itemCount);
 }
 
+// explosions: remember which positions were blown up, so the belt segments among them drop their
+// loot (Create's explosion drops; players and commands are told apart in BeltEdit.cpp)
+LL_TYPE_INSTANCE_HOOK(BeltsExplosionHook, ll::memory::HookPriority::Normal, Explosion, &Explosion::explode, bool, ::IRandom& random) {
+    bool result = origin(random);
+    try {
+        BlockSource& region = mRegion;
+        if (mBreaking && !region.getLevel().isClientSide()) {
+            int dim = static_cast<int>(region.getDimensionId());
+            for (auto const& p : mAffectedBlocks.get()) state().exploded[GlobalPos{dim, p.x, p.y, p.z}] = mRadius;
+        }
+    } catch (...) {
+    }
+    return result;
+}
+
 void installHooks() {
     auto& ids = handlerIds();
     ids.push_back(ia::onUseOn({}, onUseOn));
@@ -153,9 +170,13 @@ void installHooks() {
     BeltsDisplayTouchHook::hook();
     BeltsDisplayTickHook::hook();
     BeltsDisplayHopperHook::hook();
+    BeltsExplosionHook::hook();
+    installShapes();
 }
 
 void uninstallHooks() {
+    uninstallShapes();
+    BeltsExplosionHook::unhook();
     BeltsDisplayHopperHook::unhook();
     BeltsDisplayTickHook::unhook();
     BeltsDisplayTouchHook::unhook();

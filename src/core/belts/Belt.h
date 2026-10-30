@@ -119,6 +119,16 @@ enum class ConnectError : std::uint8_t {
 /// Create's canConnect: `maxLength` is the config `maxBeltLength` (20).
 [[nodiscard]] ConnectError canConnect(ConnectWorld const& w, Vec3i const& first, Vec3i const& second, int maxLength);
 
+/// Create's BeltConnectorHandler.tick (the client's preview while a shaft is selected): the dotted
+/// line from `first` towards `selected`, with the component along the shaft `axis` removed and the
+/// direction snapped to a straight or 45 degree step. Points are `first + step * f` for f in
+/// [0, length) every 1/16 block. nullopt: nothing to draw.
+struct PreviewLine {
+    Vec3i step;
+    float length = 0;
+};
+[[nodiscard]] std::optional<PreviewLine> previewLine(Vec3i const& first, Vec3i const& selected, Axis axis);
+
 /// Create's getSlopeBetween.
 [[nodiscard]] Slope slopeBetween(Vec3i const& start, Vec3i const& end);
 /// Create's getFacingFromTo plus the vertical-belt special case of createBelts (`shaftAxis`).

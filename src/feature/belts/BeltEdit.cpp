@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <random>
 #include <set>
 
 #include "ll/api/service/Bedrock.h"
@@ -16,12 +17,14 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/network/packet/SpawnParticleEffectPacket.h"
 #include "mc/world/phys/HitResult.h"
 
 #include "feature/belts/BeltsInternal.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
 #include "feature/kinetics/Kinetics.h"
+#include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
@@ -330,13 +333,35 @@ bool createBelt(GlobalPos const& start, GlobalPos const& end) {
     return true;
 }
 
-void clearConnectorSelection(Player& player) { state().connector.erase(uuidOf(player)); }
+void syncConnectorSelection(Player& player) {
+    if (!net::isCompanion(player)) return;
+    auto& s  = state();
+    auto  it = s.connector.find(uuidOf(player));
+    if (it == s.connector.end()) {
+        net::send(player, "belts.connector", {{"clear", true}});
+        return;
+    }
+    auto const& p = it->second.pos;
+    net::send(player, "belts.connector", {{"dim", p.dim}, {"pos", {p.x, p.y, p.z}}, {"max", config().maxBeltLength}});
+}
+
+namespace {
+void selectShaft(Player& player, std::optional<GlobalPos> pos) {
+    auto& s    = state();
+    auto  uuid = uuidOf(player);
+    if (pos) s.connector[uuid] = {*pos};
+    else s.connector.erase(uuid);
+    syncConnectorSelection(player);
+}
+} // namespace
+
+void clearConnectorSelection(Player& player) { selectShaft(player, std::nullopt); }
 
 bool onConnectorUse(Player& player, GlobalPos const& pos, int /*face*/, cb::Vec3d const& hitInBlock) {
     auto& s    = state();
     auto  uuid = uuidOf(player);
     if (player.isSneaking()) {
-        s.connector.erase(uuid);
+        selectShaft(player, std::nullopt);
         return true;
     }
     if (auto st = segmentAt(pos)) {
@@ -347,7 +372,7 @@ bool onConnectorUse(Player& player, GlobalPos const& pos, int /*face*/, cb::Vec3
     auto sel = s.connector.find(uuid);
     if (sel != s.connector.end() && sel->second.pos.dim == pos.dim && shaftAxisAt(sel->second.pos)) {
         GlobalPos first = sel->second.pos;
-        s.connector.erase(sel);
+        selectShaft(player, std::nullopt);
         if (first == pos) return true;
         auto err = cb::canConnect(connectWorld(pos.dim), vecOf(first), vecOf(pos), config().maxBeltLength);
         if (err != cb::ConnectError::None) {
@@ -360,43 +385,77 @@ bool onConnectorUse(Player& player, GlobalPos const& pos, int /*face*/, cb::Vec3
         log().info("belts: {} connected a belt from {} to {} ({} blocks)", player.getRealName(), posText(first), posText(pos), info ? info->length : 0);
         return true;
     }
-    s.connector[uuid] = {pos};
+    selectShaft(player, pos);
     log().info("belts: {} selected the shaft at {}", player.getRealName(), posText(pos));
     return true;
 }
 
+namespace {
+std::mt19937& previewRng() {
+    static std::mt19937 g{std::random_device{}()};
+    return g;
+}
+
+void sendDust(Player& player, int dim, double x, double y, double z, bool valid) {
+    SpawnParticleEffectPacket pkt(SpawnParticleEffectPacketPayload(
+        Vec3{float(x), float(y), float(z)},
+        valid ? "levitate:belt_connector_valid" : "levitate:belt_connector_invalid",
+        static_cast<uchar>(dim),
+        std::nullopt
+    ));
+    pkt.sendTo(player);
+}
+} // namespace
+
+std::optional<ConnectorPreview> connectorPreviewFor(Player& player, GlobalPos const& first) {
+    auto axis = shaftAxisAt(first);
+    if (!axis) return std::nullopt;
+    ConnectorPreview out;
+    auto             hit = player.traceRay(5.5f, false, true);
+    if (hit.mType != HitResultType::Tile) return out; // looking at nothing: only the first shaft sparkles
+    GlobalPos selected = game::globalPos(first.dim, hit.mBlock);
+    auto*     region   = regionOf(first.dim);
+    if (!region || game::replaceable(*region, game::blockPos(selected))) return std::nullopt;
+    if (!shaftAxisAt(selected)) selected = offset(selected, cb::faceNormal(hit.mFacing));
+    cb::Vec3i d = vecOf(selected) - vecOf(first);
+    int       m = config().maxBeltLength;
+    if (!(d.distSqr() < 1LL * m * m)) return std::nullopt;
+    out.valid = shaftAxisAt(selected) && cb::canConnect(connectWorld(first.dim), vecOf(first), vecOf(selected), m) == cb::ConnectError::None;
+    out.line  = cb::previewLine(vecOf(first), vecOf(selected), *axis);
+    if (!out.line) return std::nullopt;
+    return out;
+}
+
 void connectorPreview() {
+    // Create's BeltConnectorHandler: dust along the planned belt every tick while the connector is
+    // held with a shaft selected. The client mod draws it for its player; the others get the
+    // particles from the server (sent to that player only, as Create's client-side particles).
     auto& s = state();
     if (s.connector.empty()) return;
     auto level = ll::service::getLevel();
     if (!level) return;
+    auto& rng = previewRng();
     level->forEachPlayer([&](Player& p) {
         auto it = s.connector.find(uuidOf(p));
-        if (it == s.connector.end()) return true;
+        if (it == s.connector.end() || net::isCompanion(p)) return true;
         if (citems::idOf(p.getSelectedItem()) != kBeltConnectorId) return true;
         GlobalPos first = it->second.pos;
         if (int(p.getDimensionId()) != first.dim) return true;
-        auto hit = p.traceRay(5.5f, false, true);
-        std::optional<GlobalPos> target;
-        if (hit.mType == HitResultType::Tile) target = game::globalPos(first.dim, hit.mBlock);
-        cb::Vec3d a{first.x + .5, first.y + .5, first.z + .5};
-        if (!target || !shaftAxisAt(*target) || *target == first) {
-            particle(first, a.x, a.y + .6, a.z, "minecraft:villager_happy");
+        auto preview = connectorPreviewFor(p, first);
+        if (!preview) return true;
+        std::uniform_real_distribution<double> jitter(-.25, .25);
+        if (!preview->line) {
+            if (rng() % 50 == 0) sendDust(p, first.dim, first.x + .5 + jitter(rng), first.y + .5 + jitter(rng), first.z + .5 + jitter(rng), true);
             return true;
         }
-        bool      ok = cb::canConnect(connectWorld(first.dim), vecOf(first), vecOf(*target), config().maxBeltLength) == cb::ConnectError::None;
-        cb::Vec3d b{target->x + .5, target->y + .5, target->z + .5};
-        cb::Vec3d d   = b - a;
-        double    len = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
-        int       n   = std::max(1, int(len * 2));
-        for (int i = 0; i <= n; ++i) {
-            auto q = a + d * (double(i) / n);
-            particle(first, q.x, q.y, q.z, ok ? "minecraft:villager_happy" : "minecraft:villager_angry");
+        auto const& line = *preview->line;
+        for (float f = 0; f < line.length; f += 1 / 16.f) {
+            if (rng() % 10 != 0) continue;
+            sendDust(p, first.dim, first.x + .5 + line.step.x * f, first.y + .5 + line.step.y * f, first.z + .5 + line.step.z * f, preview->valid);
         }
         return true;
     });
 }
-
 // ---- right-click on a belt ---------------------------------------------------------------------------
 
 bool onBeltUse(Player& player, GlobalPos const& pos, int face, cb::Vec3d const& hitInBlock) {
@@ -462,6 +521,13 @@ bool onBeltWrench(Player& player, GlobalPos const& pos, int face, cb::Vec3d cons
 }
 
 // ---- breaking ------------------------------------------------------------------------------------------
+
+namespace {
+std::mt19937& explosionRng() {
+    static std::mt19937 g{std::random_device{}()};
+    return g;
+}
+} // namespace
 
 void processRemovals() {
     auto& s = state();
@@ -535,6 +601,22 @@ void processRemovals() {
             if (shafts > 0)
                 if (auto sh = shaftItem(shafts)) spawnItem(r.pos, r.pos.x + .5, r.pos.y + .5, r.pos.z + .5, *sh);
         }
+        // segments blown up: Create's loot (a connector, plus a shaft for a pulley) of each exploded
+        // segment, each surviving the explosion with a chance of 1 / radius (survives_explosion)
+        int blown = 0;
+        for (auto const& [p, st] : gone) {
+            auto it = s.exploded.find(p);
+            if (it == s.exploded.end()) continue;
+            ++blown;
+            float chance = it->second > 1 ? 1.f / it->second : 1.f;
+            auto  roll   = [&] { return std::uniform_real_distribution<float>(0.f, 1.f)(explosionRng()) < chance; };
+            if (roll())
+                if (auto c = makeStack(kBeltConnectorId)) spawnItem(p, p.x + .5, p.y + .5, p.z + .5, *c);
+            if (cb::hasPulley(st.part) && roll())
+                if (auto sh = shaftItem(1)) spawnItem(p, p.x + .5, p.y + .5, p.z + .5, *sh);
+        }
+        s.blownSegments += std::uint64_t(blown);
+        if (blown > 0) log().info("belts: {} belt segment(s) at {} blown up", blown, posText(r.pos));
         log().info("belts: belt broken at {} ({} blocks)", posText(r.pos), gone.size() + world.size());
     }
 }

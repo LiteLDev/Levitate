@@ -196,4 +196,17 @@ $connector = @(
     '................'
 )
 Save-PixelArt -Rows $connector -Palette @{ d = '#1d1b1a'; b = '#45403c'; c = '#5d5751'; o = '#8c6b45' } -Path "$items/belt_connector.png"
+# ---- belt connector preview dust (8x8 frames shrinking over the particle's life, tinted green / red) ----
+$dust = @(
+    '..ww......w.............................',
+    '.wwww....www.....ww.....................',
+    'wwwwww..wwwww...wwww.....ww......w......',
+    'wwwwww..wwwww...wwww.....ww.............',
+    '.wwww....www.....ww.....................',
+    '..ww......w.............................',
+    '........................................',
+    '........................................'
+)
+$particles = Join-Path $PSScriptRoot '../../assets/pack/rp/textures/particle'
+Save-PixelArt -Rows $dust -Palette @{ w = '#ffffff' } -Path "$particles/levitate_belt_connector_dust.png"
 Write-Host 'belts textures written'

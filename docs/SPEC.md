@@ -1541,7 +1541,13 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   replaceable blocks or same-axis shafts in between. One connector is used (survival), wool sound.
   Shafts in between become pulleys; vertical shafts make a sideways belt, a vertical line a vertical
   belt. Sneak + use (block or air) clears the selection; any second click clears it. While a shaft
-  is selected, particles show the planned belt towards the shaft looked at (green: valid, red: not).
+  is selected and the connector held, dust shows the planned belt every tick (Create's
+  BeltConnectorHandler: from the selected shaft towards the shaft looked at, or the block in front of
+  the face looked at; the component along the axis dropped and the direction snapped to straight /
+  45 degrees; one particle per 1/16 block with a chance of 1/10; green when the shafts can be
+  connected, red when not; looking at nothing, the shaft sparkles now and then). The client mod
+  draws it itself (`belts.connector` tells it the selection); other players get the same particles
+  from the server, sent to them only.
 - **Kinetics**: a belt is a kinetic block (stress 0): pulley segments (start, end, pulley) have shaft
   ends on both faces of the rotation axis (the axis 90 degrees from the facing; sideways: y); all
   segments of one belt turn together, sloped ones through their diagonal neighbours.
@@ -1550,11 +1556,18 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   block apart, stop 0.45 before a blocked end (solid block), 0.25 before a block that takes items
   (another belt, depot, ejector, other units' direct inputs) and fall off an open end (thrown along the
   belt at max(speed, 1/8) plus 1/8 up). Vertical and sideways belts carry nothing (items fall off).
-  Belt-to-belt: the end inserts into the block after it (for slopes also the block level with the
+  Belt-to-belt: the end inserts into the block after it (any direct input: belts, depots, ejectors,
+  chutes, upward inserting funnels; for slopes also the block level with the
   last segment) with the movement direction as side; a belt refuses insertion against its movement,
-  side insertions start 0.35 off-centre and slide to the middle. Dropped item entities landing on a
+  side insertions start 0.35 off-centre and slide to the middle (a distributing brass tunnel above
+  the segment takes them instead). Items crossing into another segment are reported to the block
+  above it (tunnels, `beltlink::itemEntering`; a stuck item waits at .99 / .01 of its segment);
+  belt funnels above the segments take the items crossing their entry (Create's checkForFunnels).
+  Dropped item entities landing on a
   belt are taken whole at their segment (Create's item handler: one stack per segment until it moved
-  on). Right-click with an empty hand takes the stacks within 0.55 of that segment's centre.
+  on), except under a tunnel. Right-click with an empty hand takes the stacks within 0.55 of that
+  segment's centre. Sloped segments collide as eight 2 px steps following the band (server and client
+  mod; vanilla clients are corrected by the server).
 - **Entities** (BeltMovementHandler): mobs, items and players standing on a moving belt (|rpm| >= 1)
   move at `rpm / 480` along it, are pulled to the middle (not while walking), climb / descend slopes;
   sneaking or flying players are not carried.
@@ -1569,7 +1582,7 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   pulley's side its shaft comes out.
 - **Breaking** a segment destroys the whole belt: items drop, pulleys become shafts again, the other
   segments vanish; a survival player gets one belt connector plus a shaft if the broken segment had a
-  pulley.
+  pulley; each segment blown up by an explosion drops that loot with a chance of 1 / radius each.
 - **Depot** (DepotBehaviour): holds one stack (max stack size) and an 8-slot output buffer.
   Comparator output (depot and ejector, U36): f = (held + output buffer counts) / max stack size
   (64, the ejector's stack size setting when set); floor(14·f) + (f > 0).
@@ -1579,13 +1592,14 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   BeltProcessingBehaviour, unless the block between has a collision box), outputs go to the buffer.
   Item capability: 9 slots (0 held, 1..8 outputs), insert only into an empty depot, extract outputs
   first, the held stack when it isn't being processed. Sounds: Create's depot slide / plop (sand break
-  0.125 / 1.5, item frame add 0.25 / 1.25).
+  0.125 / 1.5, item frame add 0.25 / 1.25). A pulling belt funnel on top takes the outputs, then the
+  centred held stack (one transfer per tick; on an ejector not against its launch direction).
 - **Weighted ejector**: a depot with a launch plate; kinetic (impact 2 SU/RPM, shaft on the sides).
   Target: sneak + right-click a block with the ejector item ("Target Selected"), then place it: it
   faces the target and throws there if the target is in line with it, not straight above / below and
   within `maxEjectorDistance` (32) ("Ejecting to [x,y,z]"), else ("Target was not Valid") the block in
   front; placed without a selection it faces away from the player. Launches when charged, turning, not
-  powered by redstone (polled every 4 ticks), and an entity stands on the plate or the held stack is
+  powered by redstone (the shared redstone watch), and an entity stands on the plate or the held stack is
   centred and (stack size value box 0 = any) at least the configured size and the targeted block can take
   it. The stack flies on Create's arc (gravity 0.08, drag 0.98 / 0.91 per tick, apex 1 + 0.3 x distance
   blocks above the higher end) and is inserted into the target's belt input or dropped there; entities
@@ -1602,7 +1616,8 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   holds `items`; `depot` {held, incoming, outputs, stackSize, target, airborne, ...}; the index of
   controllers / depots / ejectors in `lv:belts:index`.
 - **Client mod**: belts are left out of the chunk mesh and drawn every frame from the same geometry:
-  the band texture scrolls at the surface speed (1 px steps), pulleys turn at Create's kinetic angle;
+  the band texture scrolls at the surface speed (1 px steps), pulleys turn at Create's kinetic angle,
+  the casing is drawn on horizontal, sloped and vertical segments (the static model shows it too);
   speeds over `belts.query` / `belts.speed`. The ejector's shaft turns through U2's rotor rendering.
 
 #### 3.6.12 Item logistics (U12)
@@ -1632,7 +1647,22 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
     above it (item capability on the funnel, Create's DirectBeltInputBehaviour).
   - Flaps: horizontal funnels flap (block state `levitate:flap` for 4 ticks, visible on every
     client) with Create's funnel flap sound (item frame turn + wool).
-  - On a belt (belt funnels, pushing / pulling by belt direction): pending U11's belt (beltlink).
+  - On a belt (Create's BeltFunnelBlock): a horizontal funnel on a belt carrying items, a depot or
+    an ejector is a belt funnel, `levitate:shape` 1 retracted / 2 extended (along the belt), 3
+    pushing / 4 pulling (across it; placed normally: pushing, sneaking: pulling). It becomes one
+    when placed there or when the block below changes, and turns back into a plain funnel
+    (pushing -> extracting) when the belt goes. Wrench: pulling <-> pushing, retracted <->
+    extended (sloped belts: retracted only). Pushing (and a retracted / extended funnel the belt
+    moves away from) extracts every `defaultExtractionTimer` ticks what the block below takes from
+    the funnel's side (andesite 1, brass the amount setting); pulling (or one the belt moves
+    towards) takes belt items crossing its entry (the segment centre; extended: the segment edge)
+    into its inventory: the whole stack (*up to*) or exactly the amount; one facing against the
+    movement holds back what it can't take (powered, filtered out, full). Belt funnels don't
+    collect item entities and aren't used by hand; the back plate follows the mode. Filter slot
+    and amount box: on the front (extended: on top).
+  - Flaps on the client mod: Create's four strips swinging after each transfer ("funnels.flap"
+    {dim, pos, inward}; damped as Create's LerpedFloat, .05 per tick); horizontal funnels are left
+    out of the chunk mesh and drawn every frame.
 - **Tunnels** (Create's BeltTunnelBlock / BrassTunnelBlockEntity) sit on a belt segment (beltlink).
   Shape: a T on each side with an output (a belt running across, or a Levitate block taking items
   from that side), cross for both; a straight tunnel between two tunnels gets a window (wrench:
@@ -1665,7 +1695,10 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
   downward funnel; upward: the inventory above an open chute, the fastest input chute, or out of
   the top. A diagonal chute is made by clicking the side of a block (not sneaking); shapes update
   with the chutes around (intersection when fed diagonally). Wrench: normal ↔ window, encased →
-  normal; industrial iron block: encase. Empty-hand right-click takes the stack out.
+  normal; industrial iron block: encase. Empty-hand right-click takes the stack out. Belts work
+  through the item capability (a chute below a belt pulls the items on that segment; a chute above
+  drops onto it) and belt ends / ejectors / tunnels insert into an open chute from any side while
+  it can pick items up (Create's DirectBeltInputBehaviour of the chute).
 - **Smart chutes**: a chute with a filter slot on each side (8, 11 px) and the "Extracted
   Amount" setting (default 64; shown while it pulls from an inventory); redstone power stops it.
 - **Item vaults** (Create's ItemVaultBlock / ConnectivityHandler): vault blocks of the same
@@ -1686,7 +1719,12 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
   `EncasedFanBlockEntity.getSpeed()`), read by chutes; `beltlink::registerSegment(blockId,
   query)` — a belt segment's movement facing, speed, slope and casing, read by tunnels; and
   `beltlink::itemEntering(region, beltPos, stack, movementFacing)` — the belt calls it when an
-  item crosses into a segment (Continue / Stuck / Taken), so the tunnel above can take or split it.
+  item crosses into a segment (Continue / Stuck / Taken), so the tunnel above can take or split it;
+  `beltlink::hasAbove` (dropped items don't land under a tunnel) and
+  `beltlink::registerAboveSideInput` / `sideInputAbove` (a distributing brass tunnel takes items
+  inserted into its segment from a side), added by U41. The belt registers `levitate:belt` as a
+  segment; funnels register as the belt's above-interactors and, like chutes, as direct inputs
+  (`belts::registerDirectInput`; `belts::canInsertDirect` added by U41).
   Items going *into* belts, depots, funnels and chutes use the item capability with `face` = the
   side they come from.
 
@@ -3750,17 +3788,12 @@ matches Create's official Chinese translation wording).
 | Copycat material state cycling (U10) | Bedrock block items always place their default state | materials are applied in their default state; clicking again with the same block does nothing |
 | Placement helpers of girders / table cloths (U10) | — (not done yet) | girders and table cloths are placed like normal blocks |
 | Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer, for **vanilla** clients (U11) | Bedrock has no item renderer for vanilla clients | the client mod draws each stack (display items, U33: lying, half size, a pile for bigger stacks, interpolated between ticks) and does not draw the fallback; vanilla players see each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick); with `displayItems` off they see nothing |
-| Sloped belt collision shape (U11) | a custom block has one collision box | slopes collide as a half slab; entities are carried up / down by the belt code |
-| Casing drawn on sloped / vertical belts (U11) | the sloped casing would leave the block geometry bounds | the casing state is kept (and removable with the wrench) but only horizontal belts draw it |
-| Belt drops when exploded or removed by commands (U11) | the server can't tell an explosion from a command removing the block | the connector / shaft drops only for survival players breaking the belt; items on it always drop |
-| Redstone input of the ejector (U11) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker) |
-| Belt connector selection preview line (U11) | Create draws it client-side every frame | server particles along the planned belt every 5 ticks while the connector is held |
+| Belt drops when removed by `/setblock ... destroy` (U11) | the block change the server sees carries no cause: a command's destroy mode looks like a replace | survival players breaking a segment and explosions (each segment with Create's 1 / radius survival chance) drop the connector / shaft; command removals drop nothing but the items on the belt |
 | Items drawn inside chutes by a block entity renderer, for **vanilla** clients (U12) | custom blocks have no block entity renderers | the client mod draws the moving stack (display item, U33, interpolated); vanilla clients get client-only item entities (packets only, never a server entity, so nobody can pick them up) that follow each moving stack |
-| Smooth (lerped) funnel flaps (U12) | no per-frame block animation for custom blocks without a renderer | the flap is a block state shown for 4 ticks after a transfer (both kinds of clients) |
+| Smooth (lerped) funnel flaps for **vanilla** clients (U12) | no per-frame block animation for custom blocks without a renderer | the flap is a block state shown for 4 ticks after a transfer; the client mod draws Create's four swinging strips |
 | Editing a filter's amount by *holding* the filter slot (U12) | the server sees no held click (see the value box row) | brass funnels and smart chutes have a separate "Extracted Amount" value box next to the filter slot |
 | Funnel / smart chute redstone input by neighbour updates (U12) | custom blocks get no redstone neighbour update | polled every 2 ticks like the sticker (same sources) |
 | Comparators reading a vault (U12) | Bedrock only asks container blocks for analog signals | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
-| Belt funnels, tunnels on belts, chutes pulling from belts (U12) | waiting for U11's belt | the hooks exist (`beltlink`, FunnelsExt.h); tunnels already work with any registered segment |
 | Crushing wheel controller letting only the crushed entity through (U13) | Bedrock block collision can't depend on the entity | the controller keeps Create's 13 px slab for everyone; the item being crushed is moved through it by the server; mobs are hurt where they stand on it |
 | Create's crushing death messages, looting 2 for crushed mobs, fan damage types (U13) | Bedrock has no data-driven damage types or per-kill looting | crushing uses the contact cause, fans fire / lava / drowning causes; drops are the mob's plain loot; the strings exist in the lang files |
 | Fan processing state kept on the item entity (U13) | Bedrock item entities can't change their item for clients and carry no free data | a processed item entity is replaced by a new one with the same motion; the processing state lives in the server's memory (restarts after a reload) |

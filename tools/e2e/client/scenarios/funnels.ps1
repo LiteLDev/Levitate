@@ -1,7 +1,9 @@
 # Item logistics (U12) on a real client: the blocks of the unit built in front of the player
 # (models, connected vault textures), then items falling through a chute (display items, drawn
 # for every client) and a funnel flapping while it extracts.
-# Screenshots: out/funnels/{blocks,vault,chute-moving,funnel-flap}.png
+# With the client mod (local / remote-mod) horizontal funnels are drawn every frame and their flap
+# strips swing after each transfer (Create's FunnelRenderer, U41).
+# Screenshots: out/funnels/{blocks,vault,chute-moving,funnel-flap,funnel-flap-b}.png
 Reset-CameraPerspective
 Invoke-Chat '/gamemode creative'
 Invoke-Chat '/tp @s ~ ~ ~ -90 15'      # look east (+x), slightly down
@@ -22,6 +24,7 @@ Invoke-Chat '/setblock ~4 ~ ~3 levitate:creative_crate'
 Invoke-Chat '/fill ~7 ~ ~-1 ~8 ~1 ~1 levitate:item_vault ["levitate:axis"=2]'
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'blocks' | Out-Null
+if ($script:Mode -ne 'remote-vanilla') { Wait-LogLine 'funnels client: drawing \d+ funnels' 30 | Out-Null }
 Wait-LogLine 'funnels: item vault at .* formed \(2x2x3\)' 20 | Out-Null
 Save-Screenshot 'vault' | Out-Null
 
@@ -40,9 +43,13 @@ Save-Screenshot 'chute-moving' | Out-Null
 Invoke-Chat '/replaceitem block ~4 ~ ~-3 slot.container 0 iron_ingot 64'
 Start-Sleep -Milliseconds 250
 Save-Screenshot 'funnel-flap' | Out-Null
+Start-Sleep -Milliseconds 300
+Save-Screenshot 'funnel-flap-b' | Out-Null
 
 if ($script:Mode -eq 'local') {
     $r = Invoke-SelfTest 'funnels.*'
     if ($r.Pass -lt 13) { throw "expected at least 13 funnels selftests to pass, got $($r.Pass)" }
+    $r = Invoke-SelfTest 'belts.link_*'
+    if ($r.Pass -lt 10) { throw "expected the 10 belt / logistics selftests to pass, got $($r.Pass)" }
 }
 Invoke-Chat '/fill ~2 ~-1 ~-4 ~9 ~6 ~4 air'
