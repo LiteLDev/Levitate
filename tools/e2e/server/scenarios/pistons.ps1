@@ -3,7 +3,7 @@
 # network (U2's test generator) with its log lines.
 $mark = Get-LogMark
 $r = Invoke-SelfTest 'pistons.*'
-if ($r.Pass -lt 12) { throw "expected at least 12 pistons selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 14) { throw "expected at least 14 pistons selftests to pass, got $($r.Pass)" }
 Wait-LogLine 'piston at -?\d+ -?\d+ -?\d+ assembled: \d+ blocks' 10 -Since $mark | Out-Null
 Wait-LogLine 'pulley at -?\d+ -?\d+ -?\d+ disassembled at offset 6' 10 -Since $mark | Out-Null
 Wait-LogLine 'gantry carriage at -?\d+ -?\d+ -?\d+ assembled' 10 -Since $mark | Out-Null

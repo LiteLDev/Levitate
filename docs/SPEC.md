@@ -2426,7 +2426,7 @@ visitNewPosition). Placed back: magnet above the structure, ropes up to the pull
 break, dropping only when they have no collision). Rope pulleys above other top blocks of the
 structure mirror the pulley (multi-rope): they hang their own rope down and place it when the main
 pulley stops. Breaking a rope or magnet breaks the whole column and resets the pulley; breaking the
-pulley breaks the rope below. Ropes and magnets are brittle and unmovable. Stress impact 4.
+pulley breaks the rope below. Ropes and magnets are brittle and unmovable, and climbable like ladders (Create's `minecraft:climbable` tag: their block types get the Climbable property on the server and in the client mod). Stress impact 4.
 
 **Elevator pulley** (Create 6 elevators): right-click with an empty hand assembles / disassembles
 (speed only drives the motion). The cabin is the first solid block below; it needs exactly one
@@ -2440,7 +2440,7 @@ of the rest per tick). The cabin always stays a contraption (Place only when Anc
 arrival (and every 3 ticks while it stands there) the floor's contact powers (redstone 15, light 10)
 until another floor is called; elevator contacts call the cabin on a rising redstone edge (they show
 *calling*), and a contact facing a redstone contact powers too. Floors: right-click a contact (not with
-the wrench) to set the floor identifier (4 chars), description (30 chars) and door control (stored for
+the wrench) to open Create's contact screen (native for the client mod, `pistons.elevator_contact`, saved when confirmed or closed; a form for vanilla clients) with the floor identifier (4 chars), description (30 chars) and door control (stored for
 U10's sliding doors); blank identifiers are numbered from their neighbours (Create's initNames). The
 wrench turns a contact; facing away from its column it becomes a redstone contact again.
 Contraption controls (U22) integrate through the cabin's `anchorData()["elevator"]`:
@@ -3815,8 +3815,6 @@ matches Create's official Chinese translation wording).
 | Spout over a moving belt item (U19 + U11) | wave-2 units can't call each other: the spout sees the item through the item capability (slot 0 from the top of a Levitate block) and can't stop a belt item itself | works on depots (and any block that exposes the item at its centre as slot 0); belt items are filled when the belt unit exposes the item under the spout that way |
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
-| Climbable ropes and magnets (U20) | data-driven blocks can't be climbable | they are thin solid blocks |
-| Native elevator contact screen (U20) | the native screen framework (U3) has no text field | the contact's form (floor identifier, description, door control) is used for every player |
 | Elevator door control acting on doors (U20) | the sliding / train doors are U10's | the mode is stored per contact (`data["pistons"]["door"]`) for U10 to apply |
 | Cart assembler and controller rail as real rails (U21) | Bedrock minecarts only ride vanilla rail blocks; a data-driven block can't be a rail | they are rail-shaped blocks without collision; a minecart on one is guided by the server: held on the rail line at rail height and moved along it at the speed the rail gives it (no off-rail friction), then the next vanilla rail takes it over. A minecart item used on them places a cart there |
 | Redstone input of the cart assembler / controller rail (U21) | custom blocks get no neighbour updates and the game's signal levels aren't exposed | power polled every 4 ticks from the neighbours' states (wire level, redstone block, torches, levers, buttons, repeaters / comparators, observers, `redstone_signal`, solid blocks on a lit torch) |
