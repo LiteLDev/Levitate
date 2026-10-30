@@ -843,10 +843,21 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   motor's ⟳ / ⟲) × columns 0..max with milestone ticks (`core/common/ValueSettings.h`: plain,
   signed and option boards; `requiresWrench` as Create's: only the wrench opens it). A box is hit
   when the click is within `scale / 2` (default 0.25)
-  blocks of its centre (Create's ValueBoxTransform.testHit). Client mod: right-click with the
-  wrench or an empty hand opens the board (pointer picks row and value, wheel ±1, Shift+wheel
-  jumps milestones, click confirms, right-click / Esc cancels); looking at a box or filter slot
-  shows its label and value next to the crosshair. Vanilla: the same right-click opens a form
+  blocks of its centre (Create's ValueBoxTransform.testHit). Client mod (U42, Create's
+  ValueSettingsClient): a right-click with the wrench or an empty hand on a box starts a *hold*:
+  the server asks the client mod to watch the use button (`valuebox.hold {token, pos}`), the client
+  answers `valuebox.release {token, state}`: held for more than 3 ticks → the board opens (pointer
+  picks row and value, wheel ±1, Shift+wheel jumps milestones, click confirms, right-click / Esc
+  cancels), released earlier → the box's `onShortClick` (Create's onShortInteract; the valve
+  handle turns, a brass diode toggles), looked away / sneaked → nothing. Repeats of the held button
+  are consumed while the hold waits (`holdPending`). The client mod watches the mouse's use button;
+  without one (gamepad, touch) a click on a box answers "hold" at once (the board opens). Filter slots with `onHold` (filters with an
+  editable amount) run it on a hold, a short click sets / clears the filter. Other units use the
+  same pair through `awaitHold(player, pos, onShort, onHold)` (gauge panels, price tags). Looking
+  at a block with boxes outlines the boxes of the looked-at face (`client/render/Outline.h`,
+  the hovered one white, the others grey; boxes needing the wrench only while holding it) and
+  shows the hovered box's label, value and "Click and hold to edit" next to the crosshair.
+  Vanilla: the same right-click opens a form
   (row dropdown + value slider; small boards as a step slider of the formatted values). Edits are
   validated server side (reach 8 blocks, value clamped to the board).
 - **Recipe loader** (`Recipes.h`): `recipes::ofType("pressing")` / `loadType` reads
@@ -869,7 +880,8 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   Units use `net::on(channel, fn)` / `net::send(player, channel, json)` on the server and
   `net::client::on` / `net::client::send` on the client; `net::onCompanionJoined` sends a player
   the full state after the handshake. Typed channels so far: `screen.open/update/close/action`,
-  `valuebox.open/set`, `common.hover`, `kinetics.sync` (§3.1), `tracks.curves` (§3.5),
+  `valuebox.open/set/hold/release`, `common.hover`, `kinetics.sync` (§3.1), `kinetics.stress` (U42: the
+  server's stress tables for item tooltips, on join and after `/create reload`), `tracks.curves` (§3.5),
   `itemrender.batch/query/reset`.
 - **Display items** (U33, server `src/feature/itemrender/DisplayItems.h`, client
   `src/client/render/WorldItems.h`): items the client mod draws in the world for blocks (Create's
@@ -1156,6 +1168,12 @@ SpeedControllerBlock(Entity), GaugeBlock, Speed/StressGaugeBlockEntity). Pure ru
 - **Encasing**: right-clicking a shaft / cogwheel / large cogwheel with `andesite_casing` or
   `brass_casing` (U10) turns it into the encased block without using the casing; encased cogwheels
   get a shaft end on each axis side with a neighbouring shaft facing them.
+- **Wrench** (U42, Create's EncasedCogwheelBlock / EncasedShaftBlock IWrenchable): the wrench on an
+  encased cogwheel's face along its axis toggles the shaft end on that side (`top_shaft` /
+  `bottom_shaft`, rotate sound); other faces rotate it as any kinetic block. Sneak + wrench on an
+  encased shaft / cogwheel takes the casing off: the block turns back into the shaft / cogwheel /
+  large cogwheel on the same axis with the casing's break particles (nothing is given, encasing
+  uses no casing).
 - **Kinetics** (specs in `Specs.cpp`): gearbox halves (Create's GearboxBlockEntity), clutch
   (powered: far half disconnected) and gearshift (powered: far half reversed); chain drives pass
   their speed ×1 along the connection axis (Create's areBlocksConnected), the adjustable chain
@@ -1194,8 +1212,16 @@ SpeedControllerBlock(Entity), GaugeBlock, Speed/StressGaugeBlockEntity). Pure ru
   capacity of the network (1.125 when overstressed, 0 when not turning). Comparator output
   `ceil(clamp(dial · 14, 0, 15))`. The client mod draws the needle on each head face (Create's
   shouldRenderHeadOnFace) easing 1/8 per tick towards the target (shaking past 1); vanilla clients
-  see the needle at the nearest 22.5° step. Goggle lines (U8's overlay) use the gauge strings
-  defined here (`create.gui.speedometer.title`, `create.gui.stressometer.*`, `create.gui.gauge.info_header`).
+  see the needle at the nearest 22.5° step. Goggle lines (U42, Create's Speed/StressGaugeBlockEntity
+  addToGoggleTooltip, replacing the kinetic defaults): "Gauge Information:", then the speedometer's
+  "Rotation Speed" + Create's formatted speed text (struck through while overstressed), or the
+  stressometer's "Network Stress" + "No Rotation" / the stress level text, "Remaining Capacity" and
+  remaining / total su coloured by the stress level. Dust (U42, Create's GaugeBlock.animateTick):
+  while the dial is not 0, each player within 32 blocks gets, with the chance the client's random
+  display ticks reach the block (667/32³ within 16 blocks, plus 667/64³ within 32), coloured
+  `levitate:gauge_dust` particles off each head face (4 when the dial is past 1, else one with a
+  chance of 1/4), 0.55 out and 0.3 to the side, coloured as Create's gauge colour (speed level
+  colour a quarter towards white; stress green → yellow → red).
 
 #### 3.6.7 Generators (U7)
 
@@ -1218,7 +1244,11 @@ new block; sides on two axes cancel out, on one axis the last in Direction order
   axis (sneaking with a preferred axis: the clicked face's axis). The wheel and the 8 cells around
   it in its plane must be replaceable; if not and the clicked face is not along the axis, it tries
   one block further along the clicked face; otherwise nothing is placed and the player sees
-  `create.large_water_wheel.not_enough_space` ("Clear Blocks for Placement") in the action bar.
+  `create.large_water_wheel.not_enough_space` ("Clear Blocks for Placement") in the action bar,
+  and the client mod draws Create's red (0xff5d6c) outline of the 3x3 room it needs for a second
+  (`generators.room {lo, hi}`, U42).
+- Hand crank and valve handles keep the water they are placed in (Create's ProperWaterloggedBlock,
+  `minecraft:liquid_detection` can_contain_liquid, U42).
 
 **Hand crank.** Right-click (any item; sneaking with an item uses the item instead) turns it for
 10 ticks at 32 RPM (`inUse = 10`, refreshed by every click; Bedrock repeats the click while the
@@ -1238,8 +1268,12 @@ or for 4 ticks after a turn. While it turns it declares a `TurnAngle` sequence c
 speed ratio). A dye of another colour dyes the handle (the block becomes
 `<colour>_valve_handle`, facing kept, the dye is not used; Create's ValveHandleBlock.clicked); its
 angle resets to 45° as Create's new block entity. Players who may not build (adventure) can't use
-it. The value box sits on the handle's front (4.5 px out from the mounting face); a click with an
-empty hand turns the handle, the wrench there opens the board (U3). The handle model turns from
+it. The value box sits on the handle's front (4.5 px out from the mounting face). Client mod
+(U42): a click on it with an empty hand or the wrench starts Create's click and hold: released
+early it turns the handle (the box's short click), held it opens the board; vanilla: an empty hand
+turns the handle, the wrench there opens the form (U3). Re-dyeing works in the crafting grid as
+Create's `#create:valve_handles` + dye: any handle (copper or dyed) with a dye of another colour
+(one generated recipe per pair, `tools/models/generators.ps1`). The handle model turns from
 0 to ±90° (angle ≤ 135) or ±180° over the turn's ticks (client mod; vanilla: static model).
 Valve handles make no sound (Create's crank sound is only for the hand crank).
 
@@ -1301,8 +1335,10 @@ filter slots keep their plain clicks, U3):
   clockwise about the clicked axis (unchanged when along it), `levitate:axis_along_first` toggles
   when the facing is along the clicked axis or the click was on top/bottom (Create's
   DirectionalAxisKineticBlock).
-- Sneak + right-click runs `onSneakWrenched`; default: survival players get the block's item
-  (inventory, the rest dropped at their feet; creative: nothing), a contraption anchored at the block
+- Sneak + right-click runs `onSneakWrenched`; default: survival players get the block's drops,
+  its loot table rolled with the wrench as the tool (`BlockType::getResourceDrops`, Create's
+  `Block.getDrops(..., player, wrench)`; U42) into the inventory (the rest dropped at their feet;
+  creative: nothing), a contraption anchored at the block
   is disassembled first, the block is destroyed without drops (break particles), remove sound
   (`levitate.wrench_remove` pop .25/.75 + `levitate.wrench_remove_hit` netherite step 1/.75, pitch
   × (0.5..1)).
@@ -1393,7 +1429,15 @@ handles 32, water wheel 8, large water wheel 4, creative motor up to 256).
   3-segment bar (low < `mediumStressImpact` ≤ medium < `highStressImpact` ≤ high; yellow / gold /
   red) with "Low / Moderate / High" — with goggles on "Nx RPM" instead; gray "Kinetic Stress
   Capacity:" (thresholds `mediumCapacity` / `highCapacity`, colours reversed) with "Small / Medium /
-  Large" or "Nx RPM" and dark gray " -> N su" ("Up to N su") from the generator speed.
+  Large" or "Nx RPM" and dark gray " -> N su" ("Up to N su") from the generator speed. The impacts
+  and capacities are the server's (Create syncs its stress config): the server sends its tables
+  as `kinetics.stress` on join and after every config reload; the client mod uses them until it
+  leaves the level (U42).
+- Overstressed speed text (Create's strikethrough): the server wraps it in `§~` markers for the
+  client mod, which draws a line through that span in the overlay (U42).
+- Recipe (U42): Create's " S " / "GPG" with any glass (`#c:glass_blocks`: glass, tinted glass, the
+  16 stained glasses, the lenses may differ): one generated recipe per pair (`tools/gen/goggles.ps1`,
+  Bedrock mirrors shaped recipes).
 - Logged actions: `wrench: <player> rotated <id> at <pos> (face f)`, `wrench: <player> dismantled
   <id> at <pos>`, `wrench: <player> broke a <minecart>`, `goggles: overlay for <player> at <pos>
   (<n> lines, client mod|action bar)` (once per new target), `goggles: overlay screen opened for`,
@@ -2661,7 +2705,8 @@ loaded (`lv:redstone:blocks`); settings live in BlockData `data["redstone"]`.
   slots on the front (Create's slot centres: upward link (8, 3.01, 10.5) first / (8, 3.01, 5.5)
   second px, sideways links first above, scale .4975): right-click with any item (not the wrench
   or a linked controller, not sneaking) copies it (count 1, never consumed), an empty hand clears;
-  a click in the overlap sets both, as Create; item-frame sound (.25, .1). Sneak + empty hand or
+  a click in the overlap sets both, as Create; item-frame sound (.25, .1). The client mod draws
+  both items in their slots (display items, Create's LinkRenderer; U42). Sneak + empty hand or
   the wrench toggles transmitter / receiver (frequencies kept). Transmitter: strength = max of
   the signal from every side plus undirected wires / powered blocks on every side but the
   attached one (Create's getPower), shown as `powered`. Networks (Create's handler): same
@@ -2683,7 +2728,9 @@ loaded (`lv:redstone:blocks`); settings live in BlockData `data["redstone"]`.
   input and output are off. Extender: on while powered, then `delay` ticks more. Timer: counts
   while unpowered, a pulse (delay 2: every other tick) per period, held at 0 while powered.
   Output 15 into the front (strong) when `powering` xor `inverted`; right-click (not sneaking,
-  not the wrench) toggles `inverted` (lever click .3, pitch .6 / .5).
+  not the wrench) toggles `inverted` (lever click .3, pitch .6 / .5). On the delay box (client
+  mod, U42) a short click toggles `inverted` too and holding opens the board (vanilla: the click
+  opens the board).
 - **Powered latch** (`powered`, `powered_side`, `powering`): back sets, either side resets, 1-tick
   scheduling; a click toggles the output only when both inputs agree. **Powered toggle latch**:
   each rising back edge toggles; a click toggles. Output 15 to the front.
@@ -2920,7 +2967,8 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   (`lv:stock:networks`); block positions in `lv:stock:blocks`; block settings in BlockData
   (`data["stock"]`).
 - **Stock** (Create's LogisticsManager): the network's stock = the target inventories of the
-  packagers its loaded stock links sit on; a link powered with 15 leaves the network; links on the
+  packagers its loaded stock links sit on; a link powered with 15 leaves the network (the power is
+  read every tick, U42: as Create's neighbour updates, custom blocks get none); links on the
   same inventory count once. Summaries are cached 20 ticks (accurate: 1 tick). Orders are split
   over the links sorted by redstone power (lowest first), one random link per shared inventory,
   each entry taken from the links in turn; requests carry the address, order id, link index, the
@@ -2957,8 +3005,14 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   panel; breaking removes the targeted panel only while others remain). A panel watches one item
   (click with the item, or with an empty hand pick it from the inventory screen; filter items are
   refused) in its network — or, when the gauge sits on a packager (restocker), in that packager's
-  inventory. Target amount 0..100 items or stacks on the value board (Sneak + empty-hand click;
-  0 = inactive). Connections: "Add new connection" then click another panel: same face and facing,
+  inventory. Target amount 0..100 items or stacks on the value board (client mod: Create's click
+  and hold with an empty hand, a short click opens the panel screen; vanilla: Sneak + empty-hand
+  click; 0 = inactive). "Use Mechanical Crafting" (U42, Create's availableCraftingRecipe): when
+  the panel's inputs are exactly the ingredients of a crafting-table recipe for its item, the
+  screen / form offers the toggle; on, the inputs' amounts and the output follow the recipe and
+  every request carries the recipe's 3x3 arrangement (`crafts`, Create's
+  PackageOrderWithCrafts.singleRecipe), so the packager boxes one craft per package in the grid's
+  slots for mechanical crafters. Connections: "Add new connection" then click another panel: same face and facing,
   same plane, closer than 16 blocks, at most 9 inputs, both with an item, the input not a
   restocker (Create's messages). Every tick a panel checks storage (satisfied / promised-satisfied /
   waiting for unloaded links); when not satisfied, not paused and its timer ran out
@@ -2974,7 +3028,10 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
 - **Table cloth shops**: a table cloth (U10) programmed at a stock ticker becomes a shop when
   placed (owner = placer, facing = towards the placer). The owner sets the price with an item on
   the price tag (front of the top face; Sneak + empty hand clears it, empty hand opens the amount
-  board 1..100, "Price per Order"). Others click the cloth with an empty hand or a shopping list:
+  board 1..100, "Price per Order"; client mod: Create's click and hold, a short empty-hand click
+  clears it, holding opens the board). A table cloth in hand on a table cloth (not sneaking)
+  extends it: Create's placement helper puts the held cloth into the free horizontal neighbour
+  nearest to the clicked point (U42). Others click the cloth with an empty hand or a shopping list:
   each click adds one purchase to the list (stock limited: "Out of Stock", "Stock limit reached";
   "Shop owner must set a price first", "Stock keeper missing"); the list's lore shows the items and
   the total cost. At the keeper the list checks out: wrong network, stock too low, cash register
@@ -2987,8 +3044,12 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   (`{op: "address", text}`, 50 characters); category names are edited in place in the category
   editor (`{op: "rename", index, name}`); the requester's and the gauge's address boxes send
   `{op: "set", address}`. Vanilla players get the same values as forms. Looking at a
-  gauge panel shows its label and "in storage / target" (Create's value box text); looking at a
-  ticker with payments shows them (owner).
+  gauge panel shows its label, "in storage / target" (Create's value box text) and "Click and hold
+  for target amount"; looking at a ticker with payments shows them (owner). On the gauges (U42,
+  Create's FactoryPanelRenderer) the client mod draws each panel's item (display items), its
+  count in storage / target coloured as the label (5x7 pixel font) and the arrows from its inputs
+  along the panel plane (bent as the wrench's arrow mode, coloured satisfied green / promised
+  gold / missing red / grey without a target); the server sends `stock.gauge` when a gauge changes.
 - **Log lines**: `stock: stock link placed at x y z on network …`, `stock: order of N item(s) in M
   stack(s) sent to 'A' through K packager(s)`, `stock: redstone requester at x y z sent its order to
   'A'`, `stock: factory gauge at x y z restocks <id> xN to 'A'`, `stock: factory gauge at x y z panel S
@@ -3559,7 +3620,13 @@ Each screen: native (client mod) + form fallback (vanilla). Owner unit in bracke
 
 One section per unit (`config/<unit>.json`, `LV_REGISTER_CONFIG`). Keys mirror Create's server
 config (CKinetics, CStress, CLogistics, CFluids, CTrains, CSchematics, CEquipment, CRecipes, CWorldGen)
-with the same defaults; each unit lists its keys here in its PR. The stress table (impact /
+with the same defaults; each unit lists its keys here in its PR. Create's config GUI is
+`/create config [section]` (U42): the sections, then a scrolled list of the section's booleans,
+numbers and texts (nested maps such as the stress table as `impact > mechanical_press`), with the
+default in the tooltip and a reset button; operators change values (the file is rewritten with the
+change merged, then every config reloads as with `/create reload`; log `config <section>.<path>
+set to <value> by <player>`), everybody else may look. `config::ConfigEntry` gained `values`,
+`defaults` and `write` for it. The stress table (impact /
 capacity per RPM, Create defaults ⚠) belongs to `config/kinetics.json` (U2) so all units read one
 place:
 
@@ -3685,6 +3752,7 @@ UI pass), `placeholderColour` (outline of unregistered blocks).
 | `/create steam <pos>` (tank / boiler goggle lines) / `steam <pos> fill <fluid> <mB>` (Levitate debug: fills, or drains when negative, through the fluid capability) | op | U18 |
 | `/create display text <x y z> <line> <text>` / `bind <x y z> <tx ty tz> <source>` (Levitate debug) | op | U24 |
 | `/create toolbox` (the toolbox radial menu as a form, for players without the client mod) | anyone | U31 |
+| `/create config [section]` (Create's config screen: sections, then their entries; native for the client mod, forms otherwise; changing a value needs op) | anyone / op | U42 |
 
 ## 7. Strings
 
@@ -3698,13 +3766,13 @@ matches Create's official Chinese translation wording).
 | Create feature | Why | What Levitate does instead |
 |---|---|---|
 | Animated parts / contraptions for **vanilla** clients | Bedrock has no client-side rendering hooks without a client mod | static block models; moving contraptions shown as their blocks only when stopped plus a placeholder entity while moving; the client mod shows everything |
-| JEI/EMI recipe viewers, Create's config GUI | no such mods on Bedrock | recipes visible in Ponder/tooltips; JSON configs + `/create reload` |
+| JEI/EMI recipe viewers | third-party Java mods with no Bedrock counterpart | recipes visible in Ponder/tooltips; the configs are edited with `/create config` (U42) or as JSON + `/create reload` |
 | Create's mod-compat crushed ores for absent mods | no such mods | items exist (as Create registers them), with the vanilla-only recipes |
 | Item / block icons of the redstone link: Create draws the upward link | block item icons use the default permutation (facing 0 = down) | `minecraft:item_visual` with the upward geometry |
 | Removing a train without placing its blocks (`/create train remove`, U27) | the contraption API only disassembles | `/create killtrain` places the carriages back as blocks where they stand |
-| Value box editing by *holding* right-click (Create opens the board after a short hold) | the server only sees discrete use packets, no release | a click opens the board; a click on the board confirms (U3) |
+| Value box editing by *holding* right-click for **vanilla** clients | the server only sees discrete use packets, no release; the client mod reports it (`valuebox.hold` / `valuebox.release`, U42) | vanilla: a click opens the form |
 | Filter slot items rendered on the block face for **vanilla** clients | no item rendering hooks for vanilla clients | the client mod draws the filter item on every face its slot is on, facing out, a quarter block big (display items, U33), and the hover label names it; vanilla players see it in the form / action messages (U3) |
-| Create's in-world value box outline and label | same | client mod: label next to the crosshair while looking at a box (U3) |
+| Value box outlines and labels for **vanilla** clients | no client-side rendering without the client mod | the client mod outlines the boxes and shows the label next to the crosshair (U3, U42) |
 | Contraption blocks drawn as one rotating model on **vanilla** clients (U4) | a vanilla client draws a falling-block entity axis-aligned and can't be told to turn it | each block is its own falling-block entity at its exact rotated position, showing the block turned by the nearest quarter turn; the client mod turns each block by the remaining angle so the structure looks exact. Displays carry no gravity (actor flag HasGravity off, NoAI on; set again after the entity is added), so a vanilla client, which simulates falling blocks itself, doesn't drop a block that has no real block under it (a train carriage over its bogey) |
 | Smooth contraption motion on **vanilla** clients (U34) | a vanilla client never applies the movement packets of a falling block that isn't falling: it stays where it was spawned | while a vanilla player is in the dimension, each display entity is spawned again at its place once it is half a block away (at most every 4 ticks per block, and where it comes to rest), so vanilla players see the structure move in half-block steps; the client mod moves the displays smoothly from the contraption's motion |
 | Contraption blocks while moving in a world opened **without** Levitate (U4, U32) | the moving blocks are vanilla falling-block entities (so vanilla clients see them); a custom entity type would be dropped by a world without our behavior pack, but vanilla clients can't draw a custom entity as an arbitrary block | display entities are never saved with the world; the blocks of a contraption that was moving when the world was last saved live only in Levitate's DB, so without the mod they are missing (with the mod they come back as the contraption). Falling blocks saved by an older build vanish on load with the mod |
@@ -3718,22 +3786,16 @@ matches Create's official Chinese translation wording).
 | Redstone neighbour updates of the clutch, gearshifts and sequenced gearshift (U6) | custom blocks get no redstone neighbour update | they read their neighbours' signal from the circuit system every tick (same reaction time as Create's scheduled tick); the sequenced gearshift reacts to power *changes* only, as Create's neighbour updates |
 | Comparator reading a gauge / sequenced gearshift (U6) | `getComparatorSignal` of custom blocks can't be overridden (a folded function) | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
 | Smooth gauge needle for **vanilla** clients (U6) | block models are static per state; cube rotations are limited to 22.5° steps | the needle state snaps to the nearest 22.5°; the client mod draws the eased needle |
-| Gauge dial particles (U6) | Create's coloured dust particles need a client particle with a colour parameter | not shown yet |
-| Wrench on transmission blocks (encased cog shaft toggling, removing casings) (U6) | the wrench (U8) has no per-block hook in the wave-1 contracts | left to U8's wrench (rotate / pick up); the shaft ends of encased cogs are set when encasing |
 | Integrated-cog placement helpers (cogs placed against mixers / crafters) (U6) | those blocks are other units' | plain placement rules apply |
 
-| Valve handle: short click turns, holding opens the angle board (U7) | the server only sees discrete clicks (U3's value box row) | a click turns the handle; the wrench on the handle's front opens the board (form for vanilla players) |
-| Re-dyeing a dyed valve handle in the crafting grid (Create's `#create:valve_handles` + dye) (U7) | custom block items have no item tags for recipe ingredients | copper valve handle + dye in the crafting grid; any handle is re-dyed in the world by right-clicking it with a dye (as Create) |
+| Valve handle "holding opens the angle board" for **vanilla** clients (U7) | the server sees no held button (value box row) | client mod: as Create; vanilla: a click turns the handle, the wrench on its front opens the form |
 | Large water wheel as one 3×3 model for **vanilla** clients (U7) | a Bedrock block model may be at most 30 px wide | the wheel and its 8 structure blocks each show their own cell of the wheel; the client mod spins the whole wheel |
-| Red outline of the missing room when a large water wheel can't be placed (U7) | client-side outline rendering | the action bar message only |
-| Waterlogged hand cranks / valve handles (Create's ProperWaterloggedBlock) (U7) | data-driven Bedrock blocks are not waterloggable | they replace water like other custom blocks |
+| Red outline of the missing room when a large water wheel can't be placed, for **vanilla** clients (U7) | no client-side line rendering without the client mod | the action bar message only (the client mod draws the outline, U42) |
 | Hand crank / water wheel / lava wheel advancements (U7) | Bedrock has no custom advancements | none |
 | Goggle overlay next to the crosshair for **vanilla** clients (U8) | no client-side drawing without a client mod | the same lines in the action bar (indentation trimmed), refreshed every `overlayInterval` ticks |
-| Kinetic stats and "Hold [Shift] for Summary" in item tooltips for **vanilla** clients (U8) | Bedrock builds item hover text on the client from the item alone | the client mod appends them to the hover text; vanilla clients see the plain name. On a server the client mod reads its own `config/kinetics.json` stress table (Create syncs the server's) |
-| The wrench's animated cog in the hand (U8) | Bedrock items have no custom item renderer | a static item sprite |
-| Strikethrough in Create's speed text of an overstressed network (U8) | Bedrock text has no strikethrough format | the text is only dark gray |
-| Drops of sneak-wrenched blocks from their loot tables (U8) | the server has no loot roll for a block that isn't broken by a tool | the block's pick item (its own item; redstone for wire, the repeater for a repeater, ...), which is what Create's `#wrench_pickup` blocks and Levitate's blocks drop |
-| Any glass (`#c:glass_blocks`) in the goggles recipe (U8) | a Bedrock recipe key is one item or an item tag, and there is no glass tag | plain glass |
+| Kinetic stats and "Hold [Shift] for Summary" in item tooltips for **vanilla** clients (U8) | Bedrock builds item hover text on the client from the item alone | the client mod appends them to the hover text, with the server's stress table (`kinetics.stress`, U42); vanilla clients see the plain name |
+| The wrench's animated cog in the hand (U8) | Bedrock items have no custom item renderer; an attachable (extruded sprite with a cog bone turning by `q.life_time`) works in third person, but its first-person transform is not solved yet (U42 tried and left it out) | a static item sprite |
+| Strikethrough in Create's speed text of an overstressed network for **vanilla** clients (U8) | Bedrock text has no strikethrough format | the client mod draws the line (`§~` spans, U42); vanilla: only dark gray |
 | Create's data-driven ore / layered ore features (U9) | Bedrock feature JSON has no layered-ore feature and no config filter | both run natively in the chunk decoration hook with Create's numbers and patterns (own RNG, so positions differ from Java for the same seed) |
 | Connected textures of layered stone and pillars (U9) | no connected textures on Bedrock | the plain layered / pillar / cap textures |
 | Tall wall sides and the post forced by a block above (U9) | the connection trait only gives the four connections | low sides, post unless straight; wall collision is 1 block high (Bedrock's limit), Java's 1.5 |
@@ -3748,7 +3810,7 @@ matches Create's official Chinese translation wording).
 | Door / trapdoor redstone input (U10) | custom blocks get no neighbour updates | polled every 2 ticks from adjacent power sources (wire, levers, buttons, torches, repeaters, comparators, observers, plates, placards, blocks strongly powered by them); read with `Redstone.h` `power` (U36: wire and diodes only into the blocks they point at) |
 | Item on the placard, copycat material, brackets drawn on vanilla clients (U10) | a block model can't show another item / block | the data and every behaviour exist on both; the client mod draws the placard's item on its plate (display item, U33); vanilla clients see the placard frame, the copycat base and the plain shaft; the copycat material and brackets are not drawn by the client mod yet (they need block models in the shape of the copycat, not items) |
 | Copycat material state cycling (U10) | Bedrock block items always place their default state | materials are applied in their default state; clicking again with the same block does nothing |
-| Placement helpers of girders / table cloths (U10) | — (not done yet) | girders and table cloths are placed like normal blocks |
+| Placement helpers of girders (U10) | — (not done yet) | girders are placed like normal blocks (the table cloth helper is done, U42) |
 | Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer, for **vanilla** clients (U11) | Bedrock has no item renderer for vanilla clients | the client mod draws each stack (display items, U33: lying, half size, a pile for bigger stacks, interpolated between ticks) and does not draw the fallback; vanilla players see each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick); with `displayItems` off they see nothing |
 | Sloped belt collision shape (U11) | a custom block has one collision box | slopes collide as a half slab; entities are carried up / down by the belt code |
 | Casing drawn on sloped / vertical belts (U11) | the sloped casing would leave the block geometry bounds | the casing state is kept (and removable with the wrench) but only horizontal belts draw it |
@@ -3816,8 +3878,8 @@ matches Create's official Chinese translation wording).
 | Seat dyeing recipe (seat + dye) (U22) | Bedrock recipes can't use an item tag of our seats | dye a placed seat with a right-click (as Create) |
 | Riders sitting on moving contraption seats (U22) | the engine (U4) carries riders by teleporting them | they stand on the seat while it moves and sit down again on the placed seat |
 | Redstone *input* callbacks for custom blocks (U23) | data-driven blocks can't be circuit capacitors (one circuit component per position: a block that outputs can't also consume) and get no neighbour-signal callback natively | outputs are native `minecraft:redstone_producer` permutations (no polling); inputs are read from the game's circuit components around each loaded block once per tick, which is also Create's block-entity tick, so latency matches Create's scheduled ticks |
-| Redstone link frequency items rendered on the block (U23) | no world-space item rendering (see filter slots above) | client mod: hovering a link shows its mode and both frequency items (icons + names) next to the crosshair; vanilla: action-bar message when a slot is set |
-| Diode value box "short click toggles, hold opens the board" (U23) | see value box row above | clicking the box opens the board; clicking elsewhere on the diode (or with any item but the wrench) toggles inverted |
+| Redstone link frequency items on the block for **vanilla** clients (U23) | no world-space item rendering without the client mod | the client mod draws both items in their slots (U42); vanilla: action-bar message when a slot is set |
+| Diode value box "short click toggles, hold opens the board" for **vanilla** clients (U23) | see the value box row above | client mod: as Create (U42); vanilla: clicking the box opens the board, clicking elsewhere on the diode (or with any item but the wrench) toggles inverted |
 | Vanilla repeater / comparator facing in the input reader (U23) | a repeater set by a command keeps an unpowered circuit, so the selftests can't build one | read from the block's `minecraft:cardinal_direction` (the input side), falling back to the circuit component's direction (`Redstone.h`, U36) |
 | Display board text for **vanilla** clients (U24) | no client-side text rendering on blocks without the client mod | the lines as a name tag in front of a turning board (invisible entity, colours as § codes, no flap animation); the client mod draws the split flaps |
 | Nixie tube glyphs for **vanilla** clients (U24) | same | the two characters as a coloured name tag above each tube |
@@ -3834,10 +3896,9 @@ matches Create's official Chinese translation wording).
 | Package filters in U3's filter slots (U25) | `filter::matches` (U3) only knows list / attribute filters | `packages::filterMatches` implements Create's rule; U3's matcher must delegate `levitate:package_filter` to it (follow-up, called out in the U25 PR) |
 | Spawn eggs inside opened packages spawn their mob (U25) | the server would need the egg's spawn logic | the egg is given to the player like any item |
 | Adding a port's address to a held clipboard (U25) | the clipboard and its data are U24's | no-op until U24 exposes clipboard pages |
-| Stock link and redstone requester redstone input (U26) | custom blocks get no redstone neighbour update | polled (links every 4 ticks, requesters every tick so short pulses count); the power is `Redstone.h` `signalFrom` (U36): the analog level of every source |
-| Factory gauge item icons, counts and connection arrows drawn on the panel (U26) | no world-space item / text renderer | the client mod shows the panel's label and "in storage / target" next to the crosshair; the bulb is the block model |
-| "Click and hold" on a gauge panel / price tag for the amount board (U26) | the server only sees discrete clicks | Sneak + empty-hand click opens the board |
-| Gauge mechanical crafting arrangement ("Use Mechanical Crafting") and JEI recipe sync (U26) | no recipe viewer; Bedrock crafting recipes are not readable as patterns from a mod | panels send their inputs as plain orders |
+| Factory gauge item icons, counts and connection arrows for **vanilla** clients (U26) | no world-space item / text rendering without the client mod | the client mod draws them (U42); vanilla: the bulb is the block model |
+| "Click and hold" on a gauge panel / price tag for **vanilla** clients (U26) | the server only sees discrete clicks | client mod: as Create (U42); vanilla: sneak + empty-hand click opens the board (price tag: a click opens it, sneaking clears) |
+| JEI recipe sync of factory gauges (U26) | no recipe viewer on Bedrock | "Use Mechanical Crafting" works (U42); recipes can't be dragged in from a viewer |
 
 | Train carriages tilting on slopes (U27) | the contraption transform turns about one axis; a carriage turns about Y on curves | carriages stay level on slopes (height from their first bogey) |
 | Wheels turning on bogeys (U27) | carriage blocks are display entities showing a block model; the client framework has no per-part animation for them yet | bogeys are drawn still (client mod and vanilla) |

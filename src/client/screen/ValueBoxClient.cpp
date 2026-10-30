@@ -5,22 +5,31 @@
 #ifdef LV_CLIENT
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <mutex>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/client/ClientExitLevelEvent.h"
+#include "ll/api/event/input/MouseInputEvent.h"
 #include "ll/api/event/render/UIRenderEvent.h"
 #include "ll/api/event/world/ClientLevelTickEvent.h"
+#include "ll/api/memory/Hook.h"
 
 #include "mc/client/gui/screens/ScreenView.h"
 #include "mc/client/player/LocalPlayer.h"
+#include "mc/client/renderer/BaseActorRenderContext.h"
+#include "mc/client/renderer/game/LevelRendererCamera.h"
+#include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/phys/HitResult.h"
 
 #include "client/Client.h"
+#include "client/render/Outline.h"
 #include "client/screen/Screen.h"
+#include "feature/common/Interactions.h"
 #include "core/common/ValueSettings.h"
 #include "feature/common/ValueBox.h"
 #include "feature/net/Net.h"
@@ -136,6 +145,120 @@ private:
     BoardScreen& mScreen;
 };
 
+// ---- click and hold (Create's ValueSettingsClient) ---------------------------------------------
+
+/// The use (right) mouse button, from the input thread; whether the mouse ever used it (a
+/// gamepad or touch use is not seen here: those clicks open the board at once, as for vanilla).
+std::atomic<bool> gUseDown{false};
+std::atomic<bool> gMouseUse{false};
+
+struct Hold {
+    bool            active = false;
+    std::uint64_t   token  = 0;
+    core::GlobalPos pos;
+    int             ticks = 0;
+};
+Hold& hold() {
+    static Hold h;
+    return h;
+}
+
+void answerHold(char const* state) {
+    auto& h = hold();
+    net::client::send("valuebox.release", {{"token", h.token}, {"state", state}});
+    log().info("valuebox client: hold {} at {}", state, h.pos.key());
+    h.active = false;
+}
+
+/// Every client tick while the server waits: released -> short click, held for more than 3
+/// ticks -> board, looked away / sneaking -> cancelled.
+void pollHold() {
+    auto& h = hold();
+    if (!h.active) return;
+    auto* player = currentPlayer();
+    if (!player || !net::client::connected()) {
+        h.active = false;
+        return;
+    }
+    auto const& hit = player->getLevel().getHitResult();
+    bool onPos = hit.mType == HitResultType::Tile && static_cast<int>(player->getDimensionId()) == h.pos.dim && hit.mBlock.x == h.pos.x
+              && hit.mBlock.y == h.pos.y && hit.mBlock.z == h.pos.z;
+    if (!onPos || player->isSneaking() || current()) return answerHold("cancel");
+    if (!gMouseUse.load()) return answerHold("hold");
+    if (!gUseDown.load()) return answerHold("short");
+    if (h.ticks > 3) return answerHold("hold");
+    ++h.ticks;
+}
+
+// ---- box outlines (Create's ValueBox / Outliner) -----------------------------------------------
+
+struct OutlineBox {
+    int                   face = 0;
+    std::array<double, 3> centre{};
+    double                size = .5;
+    bool                  highlight = false;
+};
+std::mutex& outlineMutex() {
+    static std::mutex m;
+    return m;
+}
+std::vector<OutlineBox>& outlines() {
+    static std::vector<OutlineBox> v;
+    return v;
+}
+
+/// The boxes of the looked-at face of the looked-at block (the hovered one highlighted), as
+/// Create's ScrollValueRenderer / FilteringRenderer add them to the Outliner every tick.
+void updateOutlines(LocalPlayer* player, bool sneaking) {
+    std::vector<OutlineBox> list;
+    if (player && net::client::connected() && !current()) {
+        auto const& hit = player->getLevel().getHitResult();
+        if (hit.mType == HitResultType::Tile && hit.mFacing <= 5) {
+            auto&       region = player->getDimensionBlockSource();
+            auto const& block  = region.getBlock(hit.mBlock);
+            auto        id     = block.getTypeName();
+            int         face   = hit.mFacing;
+            core::common::Vec local{hit.mPos.x - hit.mBlock.x, hit.mPos.y - hit.mBlock.y, hit.mPos.z - hit.mBlock.z};
+            auto        add = [&](core::common::Vec const& c, double scale) {
+                OutlineBox b;
+                b.face      = face;
+                b.centre    = {hit.mBlock.x + c[0], hit.mBlock.y + c[1], hit.mBlock.z + c[2]};
+                b.size      = scale;
+                b.highlight = !sneaking && core::common::testBoxHit(local, c, scale);
+                list.push_back(b);
+            };
+            auto const& held   = player->getSelectedItem();
+            bool        wrench = !held.isNull() && held.getTypeName() == lv::feature::common::interactions::kWrenchId;
+            if (auto const* boxes = lv::feature::common::valuebox::boxesOf(id)) {
+                for (auto const& b : *boxes) {
+                    if (!b.centre || (b.requiresWrench && !wrench)) continue;
+                    if (auto c = b.centre(block, face)) add(*c, b.scale);
+                }
+            }
+            if (auto const* slots = lv::feature::common::filterslot::slotsOf(id)) {
+                for (auto const& s : *slots) {
+                    if (!s.centre) continue;
+                    if (auto c = s.centre(block, face)) add(*c, s.scale);
+                }
+            }
+        }
+    }
+    std::lock_guard lock(outlineMutex());
+    outlines() = std::move(list);
+}
+
+void drawOutlines(BaseActorRenderContext& ctx) {
+    std::vector<OutlineBox> list;
+    {
+        std::lock_guard lock(outlineMutex());
+        list = outlines();
+    }
+    if (list.empty()) return;
+    render::Lines lines(ctx);
+    // Create's ValueBox: white when hovered, a dim grey frame otherwise
+    for (auto const& b : list) lines.plate(b.face, b.centre, b.size, b.highlight ? render::kWhite : render::Rgb::hex(0x7a7a7a), 1.0 / 64);
+}
+
 // ---- hover label -------------------------------------------------------------------------------
 
 struct Hover {
@@ -155,6 +278,7 @@ void pollHover() {
     auto& h = hover();
     if (h.cooldown > 0) --h.cooldown;
     auto* player = currentPlayer();
+    updateOutlines(player, player && player->isSneaking());
     if (!player || !net::client::connected() || current()) {
         h.has = false;
         return;
@@ -191,12 +315,40 @@ void pollHover() {
 }
 } // namespace
 
+LL_TYPE_INSTANCE_HOOK(
+    ValueBoxOutlineHook,
+    ll::memory::HookPriority::Normal,
+    LevelRendererCamera,
+    &LevelRendererCamera::$renderBlockEntities,
+    void,
+    BaseActorRenderContext& renderContext,
+    bool                    renderAlphaLayer
+) {
+    origin(renderContext, renderAlphaLayer);
+    if (renderAlphaLayer) return;
+    try {
+        drawOutlines(renderContext);
+    } catch (...) {
+    }
+}
+
 class ValueBoxClientModule {
 public:
     // Client input / render listeners are added at mod load, before the game's threads run:
     // hooking them while the client is running (mod enable) can deadlock the game.
-    void install() {}
+    void install() { ValueBoxOutlineHook::hook(); }
     void load() {
+        net::client::on("valuebox.hold", [](Json const& msg) {
+            auto  p = msg.value("pos", Json::array());
+            auto& h = hold();
+            if (h.active) answerHold("cancel"); // a newer click replaces it
+            if (!p.is_array() || p.size() != 4) return;
+            h        = Hold{};
+            h.active = true;
+            h.token  = msg.value("token", std::uint64_t{0});
+            h.pos    = core::GlobalPos{p[0].get<int>(), p[1].get<int>(), p[2].get<int>(), p[3].get<int>()};
+            log().info("valuebox client: holding at {}", h.pos.key());
+        });
         net::client::on("valuebox.open", [](Json const& msg) {
             auto screen = std::make_unique<BoardScreen>(msg);
             screen->add<BoardScroll>(*screen);
@@ -219,8 +371,21 @@ public:
             lastTarget = h.has ? target : std::string{};
         });
         auto& bus = ll::event::EventBus::getInstance();
-        mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) { pollHover(); }));
-        mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) { hover() = Hover{}; }));
+        mListeners.push_back(bus.emplaceListener<ll::event::MouseInputEvent>([](ll::event::MouseInputEvent& ev) {
+            if (ev.actionButtonId() != 2) return;
+            gUseDown  = ev.buttonData() != 0;
+            gMouseUse = true;
+        }));
+        mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) {
+            pollHold();
+            pollHover();
+        }));
+        mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
+            hover() = Hover{};
+            hold()  = Hold{};
+            std::lock_guard lock(outlineMutex());
+            outlines().clear();
+        }));
         mListeners.push_back(bus.emplaceListener<ll::event::AfterUIRenderEvent>([](ll::event::AfterUIRenderEvent& ev) {
             auto& h = hover();
             if (!h.has || current() || ev.screenView().getScreenName() != "hud_screen") return;
@@ -230,6 +395,7 @@ public:
         }));
     }
     void uninstall() {
+        ValueBoxOutlineHook::unhook();
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();

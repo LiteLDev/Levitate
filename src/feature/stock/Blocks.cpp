@@ -3,6 +3,7 @@
 // unit's module (tick, world lifecycle).
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 #include "ll/api/event/EventBus.h"
@@ -12,6 +13,7 @@
 #include "mc/deps/core/math/Vec2.h"
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/gamemode/GameMode.h"
 #include "mc/world/gamemode/InteractionResult.h"
@@ -22,6 +24,7 @@
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Interactions.h"
+#include "feature/common/ValueBox.h"
 #include "feature/common/Items.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
@@ -114,6 +117,41 @@ GlobalPos     gLastUsePos;
 std::uint64_t gLastPlaceTick = 0;
 std::int64_t  gLastPlacer    = 0;
 
+void afterPlaced(GlobalPos const& p, std::string const& id, ItemStack const& item, Player& player, int face);
+
+/// Create's TableClothBlock placement helper (IPlacementHelper.orderedByDistanceExceptAxis on Y):
+/// the held cloth goes into the free horizontal neighbour nearest to the clicked point, as if it
+/// were placed there (a shop cloth keeps its order). False: no free neighbour (the click goes on).
+bool extendCloth(Player& player, ItemStack const& held, GlobalPos const& p, cs::Vec3d const& hit) {
+    if (!player.canUseAbility(AbilitiesIndex::Build)) return false;
+    auto* region = regionOf(p.dim);
+    if (!region) return false;
+    static constexpr int dirs[4][2]{{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+    std::array<int, 4>   order{0, 1, 2, 3};
+    auto                 dist = [&](int d) {
+        double dx = .5 + dirs[d][0] - hit.x, dz = .5 + dirs[d][1] - hit.z;
+        return dx * dx + dz * dz;
+    };
+    std::sort(order.begin(), order.end(), [&](int a, int b) { return dist(a) < dist(b); });
+    for (int d : order) {
+        GlobalPos target{p.dim, p.x + dirs[d][0], p.y, p.z + dirs[d][1]};
+        if (!game::replaceable(*region, game::blockPos(target))) continue;
+        auto id = items::idOf(held);
+        auto const* block = game::blockWith(id);
+        if (!block || !game::setBlock(*region, game::blockPos(target), *block)) return false;
+        ItemStack copy = held;
+        afterPlaced(target, id, copy, player, 1);
+        if (!player.isCreative()) {
+            player.setSelectedItem(items::withCount(held, items::countOf(held) - 1));
+            player.sendInventory(false);
+        }
+        playSound(target, "use.cloth", 1.f, .8f);
+        log().info("stock: {} extended the table cloth at {} {} {} to {} {} {}", player.getRealName(), p.x, p.y, p.z, target.x, target.y, target.z);
+        return true;
+    }
+    return false;
+}
+
 /// Handles a right-click on one of the unit's blocks (or a keeper / shop). True = consumed.
 bool useOnBlock(Player& player, ItemStack const& held, GlobalPos const& p, int face, cs::Vec3d const& hit, std::string const& tid) {
     std::string hid      = items::isEmpty(held) ? std::string{} : items::idOf(held);
@@ -161,6 +199,8 @@ bool useOnBlock(Player& player, ItemStack const& held, GlobalPos const& p, int f
         return true;
     }
     if (isTableCloth(tid)) {
+        // Create's table cloth placement helper: a table cloth in hand extends the cloth sideways
+        if (isTableCloth(hid) && !sneaking) return extendCloth(player, held, p, hit);
         if (face == 0 || !isShop(p)) return false;
         return useShop(player, p, hit.x, hit.y, hit.z);
     }
@@ -528,8 +568,9 @@ private:
     static void tick() {
         try {
             tickNetworks();
-            if (currentTick() % 4 == 0) pollLinks();
-            // requesters every tick: short pulses (observers) must not be missed
+            // Create reacts to neighbour updates at once: links and requesters are read every
+            // tick (custom blocks get no neighbour updates), so short pulses are never missed
+            pollLinks();
             for (auto const& p : std::vector<GlobalPos>(registry().requesters.begin(), registry().requesters.end())) pollRequester(p);
             tickGauges();
         } catch (std::exception const& e) {

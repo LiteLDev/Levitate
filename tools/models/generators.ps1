@@ -213,12 +213,12 @@ function FacingPermutations() {
     }
 }
 function Material($texture) { [ordered]@{ '*' = [ordered]@{ texture = $texture; render_method = 'alpha_test' } } }
-function BlockFile($id, $category, $states, $components, $permutations) {
+function BlockFile($id, $category, $states, $components, $permutations, $format = '1.21.40') {
     $desc = [ordered]@{ identifier = "levitate:$id"; menu_category = [ordered]@{ category = $category } }
     $desc.states = $states
     $block = [ordered]@{ description = $desc; components = $components }
     if ($permutations) { $block.permutations = @($permutations) }
-    Write-Json ([ordered]@{ format_version = '1.21.40'; 'minecraft:block' = $block }) "$bp/blocks/$id.json"
+    Write-Json ([ordered]@{ format_version = $format; 'minecraft:block' = $block }) "$bp/blocks/$id.json"
 }
 function Loot($id, $drop) {
     $pools = if ($drop) { @([ordered]@{ rolls = 1; entries = @([ordered]@{ type = 'item'; name = $drop; weight = 1 }) }) } else { @() }
@@ -241,7 +241,9 @@ function HandleBlock($id, $geometry, $texture, $collision, $selection, $mapColor
         'minecraft:material_instances' = Material $texture
     }
     foreach ($e in (Common $id $seconds 3 $collision $selection $mapColor).GetEnumerator()) { $c[$e.Key] = $e.Value }
-    BlockFile $id 'construction' ([ordered]@{ 'levitate:facing' = Range 6; 'levitate:rotor' = Range 2 }) $c (FacingPermutations)
+    # Create's ProperWaterloggedBlock: placed in water, the water stays (and keeps flowing out)
+    $c['minecraft:liquid_detection'] = [ordered]@{ detection_rules = @([ordered]@{ liquid_type = 'water'; can_contain_liquid = $true; on_liquid_touches = 'no_reaction' }) }
+    BlockFile $id 'construction' ([ordered]@{ 'levitate:facing' = Range 6; 'levitate:rotor' = Range 2 }) $c (FacingPermutations) '1.21.70'
     Loot $id "levitate:$id"
 }
 
@@ -329,6 +331,17 @@ foreach ($colour in $colours) {
                 unlock = @([ordered]@{ item = 'levitate:copper_valve_handle' }); result = [ordered]@{ item = "levitate:$($colour)_valve_handle"; count = 1 }
             }
         }) "$bp/recipes/$($colour)_valve_handle.json"
+    # Create's `#create:valve_handles` + dye: a dyed handle is re-dyed too (one recipe per source
+    # colour, Bedrock block items carry no item tags to use as an ingredient)
+    foreach ($from in $colours) {
+        if ($from -eq $colour) { continue }
+        Write-Json ([ordered]@{ format_version = '1.20.10'; 'minecraft:recipe_shapeless' = [ordered]@{
+                    description = [ordered]@{ identifier = "levitate:$($colour)_valve_handle_from_$($from)" }; tags = @('crafting_table')
+                    ingredients = @([ordered]@{ item = "levitate:$($from)_valve_handle" }, [ordered]@{ item = "minecraft:$($colour)_dye" })
+                    unlock = @([ordered]@{ item = "levitate:$($from)_valve_handle" }); result = [ordered]@{ item = "levitate:$($colour)_valve_handle"; count = 1 }
+                }
+            }) "$bp/recipes/$($colour)_valve_handle_from_$($from).json"
+    }
 }
 # ingredients of other units (U9 andesite alloy / copper sheet, U6 shaft): moved into the BP when those land
 Shaped $pending 'hand_crank' @('PPP', '  A') ([ordered]@{ P = [ordered]@{ tag = 'minecraft:planks' }; A = [ordered]@{ item = 'levitate:andesite_alloy' } }) 'levitate:andesite_alloy'

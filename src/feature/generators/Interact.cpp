@@ -29,6 +29,7 @@
 #include "feature/common/Interactions.h"
 #include "feature/common/ValueBox.h"
 #include "feature/generators/Generators.h"
+#include "feature/net/Net.h"
 #include "game/Blocks.h"
 
 namespace lv::feature::generators {
@@ -97,10 +98,11 @@ std::optional<InteractionResult> useOnBlock(Player& player, ItemStack& item, Blo
     case Kind::Valve: {
         if (sneaking && held == kWrench) return std::nullopt; // the wrench's own use (U8)
         if (!player.canUseAbility(AbilitiesIndex::Build)) return std::nullopt;
-        if (held == kWrench && !sneaking) {
-            // the wrench on the value box edits the angle (U3's value box board)
-            if (common::valuebox::boxAt(clicked, face, localHit(at, hit))) return std::nullopt;
-        }
+        // the wrench on the value box edits the angle (U3's value box board); for client mod
+        // players an empty hand too: holding opens the board, a short click turns the handle
+        // (the box's onShortClick, Create's ValveHandleScrollValueBehaviour#onShortInteract)
+        bool boxClick = (held == kWrench || (held.empty() && net::isCompanion(player))) && !sneaking;
+        if (boxClick && common::valuebox::boxAt(clicked, face, localHit(at, hit))) return std::nullopt;
         useValve(player, pos, held, sneaking);
         return finish();
     }
@@ -179,6 +181,9 @@ void installHooks() {
         {},
         [](ia::UseOnContext const& c) {
             if (kindOf(c.block) != Kind::Valve || c.itemId == kWrench) return ia::Result::Pass;
+            // companions' empty-hand clicks on the box go to the value box's click and hold
+            if (c.itemId.empty() && !c.sneaking && net::isCompanion(c.player) && common::valuebox::boxAt(c.block, c.face, c.hit))
+                return ia::Result::Pass;
             return useOnHandler(c);
         },
         ia::priority::Highest + 1
@@ -196,7 +201,7 @@ void installHooks() {
             auto block = ev.block();
             if (!block || kindOf(*block) != Kind::Valve) return;
             auto const& held = ev.item();
-            suppressValveBox = held.isNull() || held.getTypeName() != kWrench;
+            suppressValveBox = (held.isNull() || held.getTypeName() != kWrench) && !net::isCompanion(ev.self());
         },
         ll::event::EventPriority::Highest
     ));
