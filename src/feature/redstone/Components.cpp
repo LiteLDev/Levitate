@@ -18,6 +18,7 @@
 
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/common/ValueBox.h"
 #include "feature/redstone/Internal.h"
 #include "feature/redstone/Redstone.h"
@@ -114,6 +115,11 @@ Block const* placementState(BlockSource& region, BlockPos const& pos, Block cons
         if (p.sneaking || hasValidContact(region, pos, placeDirection)) facing = placeDirection;
         return withStates(placed, {{sFacing, facing}, {sPowered, hasValidContact(region, pos, facing) ? 1 : 0}});
     }
+    // DeskBellBlock: the bell stands on the clicked face
+    case Kind::DeskBell: return withStates(placed, {{sFacing, p.clickedFace}, {sPowered, 0}});
+    // RoseQuartzLampBlock: POWERED follows the input it is placed into (it does not light up)
+    case Kind::RoseQuartzLamp:
+        return withStates(placed, {{sPowered, lampInput(region, pos) > 0 ? 1 : 0}, {sPowering, 0}, {sActivate, 0}});
     }
     return &placed;
 }
@@ -368,6 +374,8 @@ void tickBlock(BlockSource& region, GP const& pos, Block const& block, Runtime& 
     case Kind::SmartObserver: tickSmartObserver(region, pos, block, rt); break;
     case Kind::ThresholdSwitch: tickThresholdSwitch(region, pos, block, rt); break;
     case Kind::Contact: tickContact(region, pos, block, rt); break;
+    case Kind::DeskBell: tickDeskBell(region, pos, block, rt); break;
+    case Kind::RoseQuartzLamp: tickRoseQuartzLamp(region, pos, block, rt); break;
     }
     rt.neighbour = false;
 }
@@ -442,8 +450,14 @@ bool use(Click const& c, Block const& block, Kind kind) {
         if (wrench || (c.sneaking && !empty)) return false;
         openThresholdScreen(c.player, c.pos);
         return true;
+    case Kind::DeskBell:
+        // DeskBellBlock.useWithoutItem (the wrench rotates it, sneaking with an item uses the item)
+        if (wrench || (c.sneaking && !empty)) return false;
+        ringDeskBell(region, c.pos, &c.player);
+        return true;
     case Kind::SmartObserver:
-    case Kind::Contact: return false;
+    case Kind::Contact:
+    case Kind::RoseQuartzLamp: return false;
     }
     return false;
 }

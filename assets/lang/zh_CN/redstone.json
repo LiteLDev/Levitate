@@ -15,5 +15,9 @@
   "create.gui.threshold_switch.not_attached": "未附加到方块",
   "create.gui.threshold_switch.incompatible": "不兼容的方块",
   "lv.redstone.transmitter": "发射器",
-  "lv.redstone.receiver": "接收器"
+  "lv.redstone.receiver": "接收器",
+  "block.create.desk_bell.tooltip.summary": "“服务员！”拍击后会发出_红石脉冲_。",
+  "block.create.desk_bell.tooltip.condition1": "放置在升降机轿厢里时",
+  "block.create.desk_bell.tooltip.behaviour1": "到达_目标楼层_时_播放声音_。",
+  "create.subtitle.desk_bell": "呼唤铃：叮"
 }

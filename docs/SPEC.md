@@ -74,7 +74,8 @@ data files.
 `clutch`, `gearshift`, `encased_chain_drive`, `adjustable_chain_gearshift`, `andesite_encased_shaft`,
 `brass_encased_shaft`, `andesite_encased_cogwheel`, `brass_encased_cogwheel`,
 `andesite_encased_large_cogwheel`, `brass_encased_large_cogwheel`, `sequenced_gearshift`,
-`rotation_speed_controller`, `speedometer`, `stressometer`, `belt` connector item is U11.
+`rotation_speed_controller`, `speedometer`, `stressometer`, `cuckoo_clock`, `mysterious_cuckoo_clock`,
+`flywheel` (U49), `belt` connector item is U11.
 Encased variants are separate ids (as Create). Every block has `levitate:rotor` (0 full model,
 1 without the rotating parts for the client mod, §3.1). Block states (integers):
 
@@ -88,6 +89,8 @@ Encased variants are separate ids (as Create). Every block has `levitate:rotor` 
 | sequenced_gearshift | `axis` (Create's VERTICAL + HORIZONTAL_AXIS), `levitate:state` 0..5 (Create's STATE), `levitate:mod` (speed modifier of the running instruction: 0, 1, 2, −1, −2 as 0..4) |
 | rotation_speed_controller | `axis` 0 / 2 (HORIZONTAL_AXIS), `levitate:bracket` (large cog on top), `levitate:revision` (toggled to re-attach the network when the target speed changes) |
 | speedometer, stressometer | `levitate:facing` 0..5, `levitate:along_first`, `levitate:dial` 0..5 (static needle for vanilla clients, 22.5° steps) |
+| cuckoo_clock, mysterious_cuckoo_clock (U49) | `levitate:horizontal_facing` (0 south, 1 west, 2 north, 3 east: the dial's side), `levitate:hour` / `levitate:minute` 0..11 (static hands for vanilla clients, minutes in 5-minute steps), `levitate:cuckoo` (0 doors shut, 1 pig out, 2 creeper out) |
+| flywheel (U49) | `levitate:axis` |
 
 Drops: encased shafts drop a shaft, encased cogwheels their cogwheel / large cogwheel (as Create);
 a gearbox with a horizontal axis drops a vertical gearbox. Recipes (Create 6.0.10, `crafting/kinetics`):
@@ -98,7 +101,9 @@ shapeless; clutch = andesite casing + shaft + redstone; gearshift = andesite cas
 redstone; encased chain drive = andesite casing + 3 iron (or zinc) nuggets; adjustable chain
 gearshift = encased chain drive + electron tube; sequenced gearshift = brass casing + cogwheel +
 electron tube; rotation speed controller = precision mechanism / brass casing; speedometer = compass
-/ andesite casing. Deploying: shaft + planks → cogwheel, cogwheel + planks → large cogwheel. Recipes
+/ andesite casing; cuckoo clock = planks / andesite casing / clock; mysterious cuckoo clock = cuckoo clock with
+gunpowder on its four sides (` C / CBC / C `); flywheel = shaft surrounded by 8 brass ingots (U49).
+Deploying: shaft + planks → cogwheel, cogwheel + planks → large cogwheel. Recipes
 needing U9 / U10 items wait in `assets/pending_recipes/transmission/`.
 
 ### 2.2 Generators (U7)
@@ -218,6 +223,7 @@ and wait in `assets/pending_recipes/belts/`.
 | `smart_chute` | `levitate:powered` | itself; brass sheet, chute, electron tube (column) |
 | `item_vault` | `levitate:axis` 0 x / 2 z, connected textures `levitate:len` / `levitate:u` / `levitate:v` / `levitate:large` | itself; iron sheet, barrel, iron sheet (column) |
 | `creative_crate` | — | itself; creative only (no recipe) |
+| `item_hatch` (U49) | `levitate:facing` 2..5 (FacingID towards the container it sits on), `levitate:open` | itself; andesite alloy + iron trapdoor (shapeless) |
 
 The recipes use U9's materials (andesite alloy, brass, sheets, electron tube): they wait in
 `assets/pending_recipes/funnels/` until U9 is merged. Belt funnels (`andesite_belt_funnel`,
@@ -481,7 +487,7 @@ yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, bla
 
 `redstone_link`, `analog_lever`, `pulse_repeater`, `pulse_extender`, `pulse_timer`, `powered_latch`,
 `powered_toggle_latch`, `content_observer` (Smart Observer), `stockpile_switch` (Threshold Switch),
-`redstone_contact`. Create 6.0.10 registers the smart observer and the threshold switch under their
+`redstone_contact`, `desk_bell`, `rose_quartz_lamp` (U49). Create 6.0.10 registers the smart observer and the threshold switch under their
 old paths `content_observer` / `stockpile_switch`, so those are our ids. Every block drops itself.
 Behaviour, states and numbers: §3.6.23.
 
@@ -493,7 +499,8 @@ pulse extender = _, redstone torch / redstone, brass sheet, redstone torch / 3 s
 amethyst shard, brass sheet, redstone torch / 3 stone; redstone contact ×2 = iron sheet / cobble,
 redstone, cobble / 3 cobble; redstone link ×2 = transmitter / andesite casing; smart observer =
 electron tube / brass casing / observer; threshold switch = electron tube / brass casing /
-comparator.
+comparator. U49: desk bell = andesite casing + golden sheet; rose quartz lamp = polished rose quartz +
+redstone + zinc ingot (shapeless, in the BP).
 
 ### 2.20 Display (U24)
 
@@ -605,8 +612,23 @@ crafting table. Details in §3.6.29.
 `<colour>_toolbox` (16), `copper_backtank`, `netherite_backtank`, `copper_diving_helmet`,
 `copper_diving_boots`, `netherite_diving_helmet`, `netherite_diving_boots`, `extendo_grip`,
 `potato_cannon`, `wand_of_symmetry`, `handheld_worldshaper`, `linked_controller`, `sand_paper`,
-`red_sand_paper`, `tree_fertilizer`, `lectern_controller` (block, no item). `minecart_contraption`
+`red_sand_paper`, `tree_fertilizer`, `lectern_controller` (block, no item), and since U49
+`peculiar_bell`, `haunted_bell`, `cardboard_helmet`, `cardboard_chestplate`, `cardboard_leggings`,
+`cardboard_boots`, `cardboard_sword`. `minecart_contraption`
 is U21's (it is made by its cart assembler). Mechanics in §3.6.31.
+
+- Bells (U49): `levitate:facing` (FacingID 2..5, Java's FACING), `levitate:attachment` (0 floor,
+  1 ceiling, 2 single wall, 3 double wall), `levitate:powered`, `levitate:part` (1: the frame only,
+  the client mod's mesh; never in the world). Brittle, pickaxe, hardness 3 / resistance 6 (Create's
+  soft metal), anvil sounds; drop themselves. Peculiar bell = block of brass over a brass sheet;
+  the haunted bell is haunted from it (`assets/recipes/haunting/haunted_bell.json`, U13's fans) or
+  converted over soul fire. Models: `tools/models/curiosities.ps1`.
+- Cardboard armour (U49, Create's cardboard armour material): protection 1 each, durability 44 /
+  64 / 60 / 52, enchantability 4, repaired with cardboard, 50 s of furnace fuel, tags
+  `minecraft:is_armor` and `minecraft:trimmable_armors` (smithing-table trims). Recipes: the
+  vanilla armour shapes of cardboard. Cardboard sword: unbreakable (Create's tier has 0 uses),
+  +5 attack damage, enchantable (value 1) with Knockback only, 50 s of fuel, stacks to 1; recipe
+  2 cardboard over a stick.
 
 - States: toolboxes, backtank blocks and the lectern controller `levitate:facing` 0..3 (Java 2D
   order: south, west, north, east; the block faces the player). Toolboxes and backtanks are block
@@ -1190,7 +1212,8 @@ the details and numbers it implemented. Short reminders of the less obvious ones
 Checked against Create 6.0.10 (RotatedPillarKineticBlock, CogWheelBlock, CogwheelBlockItem,
 ShaftBlock, EncasedCogwheelBlock, GearboxBlock, VerticalGearboxItem, GearshiftBlock, ClutchBlock,
 ChainDriveBlock, ChainGearshiftBlockEntity, SequencedGearshiftBlock(Entity), Instruction,
-SpeedControllerBlock(Entity), GaugeBlock, Speed/StressGaugeBlockEntity). Pure rules in
+SpeedControllerBlock(Entity), GaugeBlock, Speed/StressGaugeBlockEntity; U49: CuckooClockBlock(Entity),
+CuckooClockRenderer, FlywheelBlock(Entity)). Pure rules in
 `src/core/transmission/` (gtest), game side in `src/feature/transmission/`, client in
 `src/client/transmission/`.
 
@@ -1231,7 +1254,7 @@ SpeedControllerBlock(Entity), GaugeBlock, Speed/StressGaugeBlockEntity). Pure ru
   as receiver; the sequenced gearshift's far half turns at the running instruction's modifier
   (idle, delay, await, end: disconnected); the speed controller drives a large cog on top
   (axis across its shaft) at its target speed with Create's getConveyedSpeed rules; gauges are
-  shafts along their rotation axis. Stress impact 0 for all.
+  shafts along their rotation axis. Stress impact 0 for all but the cuckoo clocks (1).
 - **Redstone**: clutch, gearshift, adjustable chain gearshift (analog strength) and sequenced
   gearshift read the strongest neighbour signal from the dimension's circuit system every tick
   (redstone dust beside or above, producers, powered blocks, repeaters / comparators / observers
@@ -1272,6 +1295,36 @@ SpeedControllerBlock(Entity), GaugeBlock, Speed/StressGaugeBlockEntity). Pure ru
   `levitate:gauge_dust` particles off each head face (4 when the dial is past 1, else one with a
   chance of 1/4), 0.55 out and 0.3 to the side, coloured as Create's gauge colour (speed level
   colour a quarter towards white; stress green → yellow → red).
+- **Cuckoo clocks** (U49, Create's CuckooClockBlock / CuckooClockBlockEntity / CuckooClockRenderer;
+  pure rules in `core/transmission/CuckooClock.h`): a HorizontalKineticBlock with half a shaft at
+  its back (rotation axis = facing axis, shaft end only on the back face), stress impact 1 SU/RPM
+  (`kinetics.json` keys `cuckoo_clock`, `mysterious_cuckoo_clock`). Placed with the back to a
+  horizontal shaft end facing it (two on different axes: none), else facing the player. Both clocks
+  look the same and are both named "Cuckoo Clock" (the mysterious one only differs in its recipe:
+  the clock with gunpowder on four sides). Nothing happens while it stands still (overstressed:
+  still). While it turns: time = day time (outside the overworld ×24), hours `(t/1000 + 6) % 24`,
+  minutes `(t % 1000)·60/1000`; the hands show it (hour hand jumps 30° per hour, minute hand 6° per
+  minute; the client mod chases both by a fifth per tick, vanilla clients see `levitate:hour` /
+  `levitate:minute`); note block hat ticks (1/16 volume) every 16 ticks, pitch 2 on multiples of 32,
+  else 1.5 (outside the overworld every 3 ticks, pitch 2 on multiples of 6). Overworld only: with
+  no animation running, 12:00..12:04 starts the pig, 18:32..18:35 the creeper (a mysterious clock
+  starts the surprise instead); the animation counts up each tick and ends after 100. Sounds by
+  progress: chime (volume 2, pitch .5) at 1 and (pitch .7937) at 21; for each phase 30, 45, 60
+  (surprise: every 3 from 30 to 60) chest open 5 (1) ticks before, the pig's oink (¼, 1) or
+  creeper hurt (¼, pitch 3) at it, chest close 5 (1) after; the surprise smokes from 31 and lights
+  the fuse at 40. The doors swing 0 → 135° and back around each phase (Create's renderer, including
+  its overshoot during the surprise), the figure slides half a block out with them (client mod;
+  vanilla clients see `levitate:cuckoo` with the doors open past 67.5°). When the creeper comes out
+  the owner within 32 blocks gets "Is it Time?" (`cuckoo_clock`). At progress 50 the surprise
+  removes the clock (no drops) and explodes at its centre (power 3, no fire, breaks blocks); deaths
+  by that explosion read Create's "%1$s was blown up by tampered cuckoo clock". Sounds play on the
+  server for every client (Create plays them on each client). Display sources: time of day and
+  stopwatch (U24). Item tooltips: Create's cuckoo clock description on both.
+- **Flywheel** (U49, Create's FlywheelBlock): a RotatedPillarKineticBlock (shaft ends on both axis
+  faces, the pillar placement rule), no stress impact, a brass wheel 28 px across around the shaft;
+  the client mod spins it with the network (Create eases the wheel's visual speed by 1/64 a tick:
+  here it turns at the network speed at once), vanilla clients see it still. Collision / selection:
+  its own block (Bedrock boxes are at most 16 px).
 
 #### 3.6.7 Generators (U7)
 
@@ -1871,6 +1924,19 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
   to a full stack of it, insertion voids the items (Create's BottomlessItemHandler).
 - **Items in chutes** are shown to every client (vanilla and client mod) as client-only display
   item entities that follow the stack (Display.cpp, §8).
+- **Item hatch** (U49, Create's ItemHatchBlock / ItemHatchBlockEntity / ItemHatchHandler /
+  HatchFilterSlot; `ItemHatch.cpp`): placed only against the side of a block (a click on a top or
+  bottom face places nothing), facing into it; waterloggable, netherite sounds, pickaxe, hardness 3.
+  A right-click — also while sneaking (ItemHatchHandler) — on anything but its filter slot: with
+  no item capability behind it nothing happens (Create's FAIL); sneaking with the wrench is the
+  wrench's own; else the held stack (not sneaking: the selected hotbar slot only; sneaking: every
+  main inventory slot outside the hotbar) goes into the container behind it as far as it fits
+  (insertItemStacked), skipping items that can't go into containers (shulker boxes) and items the
+  filter rejects (an empty filter passes everything). When anything went in: Create's hatch sound
+  (barrel open at .25 / 1.4 + netherite place at .75 / 1.15), `levitate:open` for 10 ticks and the
+  action bar "Held item deposited" / "Inventory items deposited". Deployers (the fake player) do
+  nothing. The filter slot is the front of the slanted door (U3 filter slot, scale 0.48); a filter
+  item in it drops with the block.
 - **Contract extension** (`src/feature/common/FunnelsExt.h`, for U11 and U13):
   `airflow::registerFan(blockId, query)` — a fan's facing and speed (Create's
   `EncasedFanBlockEntity.getSpeed()`), read by chutes; `beltlink::registerSegment(blockId,
@@ -2936,7 +3002,8 @@ Checked against Create 6.0.10 (RedstoneLinkBlock/BlockEntity, LinkBehaviour, Lin
 RedstoneLinkNetworkHandler, AnalogLeverBlock/BlockEntity, BrassDiodeBlock/BlockEntity,
 Pulse{Repeater,Extender,Timer}BlockEntity, PoweredLatchBlock, ToggleLatchBlock, SmartObserverBlock/
 BlockEntity, ThresholdSwitchBlock/BlockEntity/Screen, RedstoneContactBlock, ContactMovementBehaviour,
-CLogistics). Code: `src/core/redstone/` (state machines, link networks; gtest),
+CLogistics; U49: DeskBellBlock(Entity), DeskBellRenderer, BellMovementBehaviour, RoseQuartzLampBlock).
+Code: `src/core/redstone/` (state machines, link networks; gtest),
 `src/feature/redstone/` (world adapter), `src/client/redstone/` (screen, hover panel).
 
 **Redstone on Bedrock.** Outputs are native: every permutation of our blocks carries
@@ -3003,6 +3070,26 @@ loaded (`lv:redstone:blocks`); settings live in BlockData `data["redstone"]`.
   (or U20's elevator contact) faces it; emits 15 weakly except into its front. On a contraption
   (U4 actor) it powers the world contact it passes (active area .65 blocks in front, not on the
   first movement) until it moves on / stops.
+- **Desk bell** (U49, Create's DeskBellBlock / DeskBellBlockEntity / DeskBellRenderer /
+  BellMovementBehaviour; `facing` 0..5 = the clicked face, `powered`, `rotor`): a click (empty hand
+  or any item but the wrench, not sneaking with an item) plays `levitate.desk_bell` (our own
+  synthesised ding, `tools/sounds/redstone.ps1`; Create's "Reception bell dings") and powers it:
+  15 weakly on every side and strongly into the block it stands on, released 20 ticks after the
+  last ring. The wrench turns it (WrenchableDirectionalBlock), sneak + wrench picks it up. Placed in
+  water it keeps the water. The client mod draws the plunger dipping and the bell wobbling (the
+  animation falls 1 → 0 by 0.05 a tick; tilt `p^1.25 · 8°` along a random phase); vanilla clients
+  see the plunger pressed while it is powered. On a contraption it rings when it starts, stops and
+  turns around (an elevator: when it arrives at a floor), never on a train.
+- **Rose quartz lamp** (U49, Create's RoseQuartzLampBlock; `powered`, `powering`, `activate`):
+  placed with POWERED = its input (it does not light up). A rising input lights it (POWERED,
+  POWERING, ACTIVATE) and darkens every other lamp of its cluster (lamps connected through lamps
+  within 16 blocks, Manhattan); one tick later every lamp of the cluster takes POWERING = ACTIVATE
+  (so lamps activated in the same tick stay lit). A falling input only clears POWERED: the lamp
+  stays lit. A lit lamp emits 15 to everything but other lamps (not a conductor); a comparator
+  reading it gets 15 for a lit lamp, one less for every lamp further along the column behind it up
+  to the first lit one (0 when the column ends first). The wrench toggles a lamp (Create's
+  getRotatedBlockState cycles POWERING), sneak + wrench picks it up. Light level 15 while lit.
+  Ponder scene `rose_quartz_lamp` (U30).
 
 Config `config/redstone.json`: `linkRange` (256). Log lines: one per player action (placement,
 mode toggle, frequency change, lever change, inversion, latch click, threshold settings, a
@@ -3958,6 +4045,71 @@ replaces blocks without collision, and replaced blocks drop as broken (the grown
 nothing). A single dark oak / pale oak sapling grows nothing. One item is used (creative: none). If
 a feature can't be resolved, Bedrock's growth repeats until it grows (needs room).
 
+**Peculiar and haunted bells** (U49, Create's AbstractBellBlock(Entity), PeculiarBellBlock,
+HauntedBellBlock(Entity), HauntedBellPulser, SoulPulseEffect(Handler), BellMovementBehaviour,
+HauntedBellMovementBehaviour; `Bells.cpp`, `core/equipment/Bells.h`, gtest). Vanilla bell rules:
+placed on a floor / under a ceiling (facing the player's direction) or against a wall (facing into
+it; between two sturdy walls a double wall bell, else standing / hanging when the wall can't carry
+it); it breaks (dropping itself) when its support goes; a double wall bell losing one wall hangs on
+the other, a single wall bell gaining the opposite wall spans both. A right-click (not sneaking with
+an item) on a side of the bell below 0.8124 of its height rings it — floor / ceiling bells from the
+two sides along their facing, wall bells from the two sides across it; otherwise the click goes on
+(placing the held block). A rising redstone signal rings it along its facing (wall bells: facing
+turned clockwise). Ringing lasts 74 ticks; the client mod draws the bell swinging
+(`equipment.bell.ring`, BellRenderer: `1.2 sin(t / 1.5 / π) / (2.5 + t / 4.5)` rad about the axis
+across the hit; the chunk mesh has the frame only), vanilla clients see the bell still (§8).
+Sounds: the peculiar bell = the vanilla bell at volume 2, pitch 0.94; the haunted bell its own toll
+(`levitate.haunted_bell.use`, original, volume 4). A peculiar bell above soul fire or a soul campfire
+(placed there, or when the block below changes) becomes a haunted bell with the same states, with
+15..24 soul fire flames and `levitate.haunted_bell.convert` (original). A haunted bell placed (also
+by conversion) stirs for 20 ticks: now and then a soul particle rises with a soul-escape sound.
+- *Haunted bell*: ringing it (not again while it rang less than 65 ticks ago) sends a soul pulse of
+  10 blocks and awards `haunted_bell` to the player. Holding it in either hand (not spectating)
+  sends pulses of 3 blocks around the player's feet after a 10-tick warmup (first pulse at once,
+  then on every game tick not divisible by 8; the warmup resets after 5 ticks without it). On a
+  contraption (not a train) a haunted bell pulses 3 blocks wherever it enters a new block, then
+  waits 65 ticks, ringing each time.
+- *Soul pulses* (run on the server, seen by every client): one layer of offsets per 6 ticks (layer
+  n: rounded distance n, up to 11), skipping empty layers at once, then 100 ticks of keeping its
+  marks. A spot is a candidate where a zombie could spawn on the ground (sturdy top below that is
+  no glass / leaves / ice / barrier / bedrock / magma and gives less than 14 light; the spot and the
+  block above without full collision, signal, liquid, rail or harmful block; a 0.2 × 0.75 dummy at
+  its centre touches no collision box); pulses that don't overlap never mark a spot another running
+  pulse marked. A marked spot with block light 0 gets the soul particle (`levitate:soul`, 24
+  frames: forming, flickering, rising away, ~6 s) and the flat base ring (`levitate:soul_base`,
+  4.5–7 s). A pulse of the same origin and size as one still expanding is not started again (it
+  would mark nothing new: a held bell asks nearly every tick).
+- *Contraptions*: brittle, hanging on their attachment side; the bell sounds when the contraption
+  starts, turns around and stops (elevators: when they arrive); not on trains.
+
+**Cardboard armour** (U49, Create's CardboardArmorItem / CardboardArmorHandler(Client) /
+CardboardArmorStealthOverlay; `Cardboard.cpp`). A player in all four pieces who sneaks and isn't
+flying hides as a box: the server makes the player invisible (no body, armour, held item or name on
+any client) and keeps a `levitate:cardboard_disguise` entity at the player's feet, turned with the
+player — one of the four plain package boxes (U25's models; random each time hiding starts), bobbing
+while the player walks, not drawn for a camera closer than 1.8 blocks (Create: not in first person);
+it takes no damage, has no collision and is removed when the player stops hiding, leaves or changes
+dimension (orphans are swept every 5 s). Vanilla clients see the same. Mobs can't choose a hiding
+player as their target (Create: visibility 0), except one it just hurt (vanilla's hurt-by
+targeting ignores visibility); every 16 ticks of a mob a hiding target or last attacker is
+forgotten. Hiding awards `cardboard_armor`. The client mod fades a cardboard vignette over the HUD
+while its player hides (opacity chasing 1 / 0 by a quarter per tick). Taking a trimmed cardboard
+armour piece out of the smithing table awards `cardboard_armor_trim` (Create's SmithingMenuMixin;
+the advancement is secret; Bedrock's smithing craft request carries the result with its `Trim`
+item data). There is no cardboard trim template item in Create (trims use the vanilla templates);
+the pieces carry `minecraft:trimmable_armors` and the vanilla armour render controller draws the
+trim on the attachables (checked in the client e2e). The item description (`item.create.cardboard_armor.tooltip`) is shared by the
+four pieces.
+
+**Cardboard sword** (U49, Create's CardboardSwordItem / KnockbackPacket). Hitting a living entity
+that is not an arthropod does no damage: the "Resonant bonk" (`levitate.cardboard_sword.bonk`,
+original, .75 / 1.85) and a knockback of `(2 + Knockback + 1 when sprinting) / 2` along the
+attacker's look (minus knockback resistance; upward `min(.4, vy / 2 + strength)` on the ground;
+the target dismounts); creatures (not monsters, water mobs, ambient mobs or players) get slowness
+X for 3 s (hidden); the attacker's horizontal motion × 0.6 and sprinting stops. Arthropods take a
+normal hit. A left-click on a block plays the bonk (.5 / 1.85). Only Knockback enchants it (table,
+anvil and books).
+
 **Messages / logs**: one log line per user-visible action (`equipment: ...`), e2e scenarios wait
 for them.
 
@@ -4008,18 +4160,52 @@ inventory criteria; visibility; tree layout; gtest), `src/feature/advancements/`
   contraption with drills, saws, ploughs, rollers or harvesters, to its anchor's owner);
   super_glue (a new glue region, to the nearest player holding super glue); equipment: diving_suit,
   diving_suit_lava, potato_cannon, potato_cannon_collide.
-- **Triggers that need a call in their unit** (follow-ups; the contract is in place):
-  mechanical_press, compacting, track_crafting_factory (U39 press), fan_processing (U39 fan),
-  saw_processing, millstone, mechanical_mixer (U39), funnel, belt_funnel_kiss (U41), chute,
-  package_chute_throw (U41/U44), burner via arm_blaze_burner, mechanical_arm, arm_many_targets,
-  musical_arm (U39 arm), portable_storage_interface, cart_pickup, anvil_plough, pulley_maxed,
-  self_deploying (U38), ejector_maxed (U41), spout, foods, drain, chained_drain, hose_pulley,
-  hose_pulley_lava, water_supply, honey_drain, cross_streams, steam_engine_maxed, pipe_organ (U40),
-  fist_bump (U39), display_link, display_board_0, packager, frogport, stock_ticker, table_cloth_shop,
-  factory_gauge (U42/U44), train, conductor, long_train, long_travel, train_whistle, train_portal,
-  train_roadkill, red_signal, train_crash, train_crash_backwards (U38), linked_controller (needs a
-  "listening links on a frequency" query in U42's `RedstoneLink.h`). cuckoo_clock, haunted_bell,
-  cardboard_armor and cardboard_armor_trim have no Levitate block / item yet.
+- **Triggers fired in their unit** (U49; owner = the block's placer through `awardOwner`, the
+  owner table also has packager / repackager, package frogport and factory gauge): processing:
+  mechanical_press (each pressed result, `basin/Processing.cpp` via `onItemPressed`) and
+  track_crafting_factory (1000 tracks pressed by one press, counter in its BlockData), compacting /
+  mechanical_mixer (a basin recipe applied), fan_processing (an item / stack processed by the air
+  current, `bulk/Fan.cpp`), saw_processing (`crafter/Machines.cpp` applyRecipe), millstone
+  (`bulk/Millstone.cpp` process), spout (an item filled, `fluids/Spout.cpp`) and foods (the same spout
+  made chocolate glazed berries, a honeyed apple and a sweet roll while its owner is known), drain
+  (an item emptied) / chained_drain (an item passed into another drain, `fluids/ItemDrain.cpp`),
+  hose_pulley (drained or filled a block, also from an infinite body or voided) / hose_pulley_lava
+  (infinite lava, `fluids/HosePulley.cpp`), water_supply (an open pipe drains a water source) /
+  honey_drain (honey from a beehive) / cross_streams (two fluids meet in a pipe, `pipes/OpenEnds.cpp`),
+  steam_engine_maxed (a sampled boiler at level 18) / pipe_organ (12 different whistle pitches + sizes
+  on one boiler, `steam/SteamBoilers.cpp`), fist_bump (two deployers punch, `assembly/Deployer.cpp`),
+  mechanical_arm (every deposit) / musical_arm (a disc fully inserted into a jukebox) /
+  arm_many_targets (≥ 10 outputs) / arm_blaze_burner (a blaze burner point, `assembly/Arm.cpp`);
+  logistics: funnel (a funnel transfer, `funnels/Funnel.cpp`), belt_funnel_kiss (the wrench extends a
+  belt funnel facing another extended one, to the player), chute (an item set into a chute,
+  `funnels/Chute.cpp`), package_chute_throw (a thrown package enters a chute, to the thrower,
+  `packages/PackageEntity.cpp`), ejector_maxed (a player launched ≥ 25 blocks, `belts/Depots.cpp`),
+  packager (a package made and held, `packages/Packager.cpp`), frogport (a frogport catches a package,
+  `packages/Ports.cpp`), stock_ticker (a non-empty order, to the player, `stock/Ticker.cpp`),
+  table_cloth_shop (a table cloth placed from a programmed item, `stock/Shop.cpp`), factory_gauge (a
+  gauge with connected inputs requests them, `stock/Gauge.cpp`), display_link (a link sent data,
+  `display/Link.cpp` update), display_board_0 (the station summary lists a train on a board,
+  `trains/Display.cpp`), linked_controller (a pressed controller button whose frequency a link listens
+  to in the dimension: `RedstoneLink.h` `hasListeningLinks`, `equipment/Controller.cpp`);
+  contraptions: portable_storage_interface (a transfer, `actors/Psi.cpp`), cart_pickup (a minecart
+  contraption of more than 200 blocks picked up, `bearings/Carts.cpp`), anvil_plough (a plough throws a
+  falling anvil at ≥ 0.25 blocks per tick: every player within 32 blocks, `actors/Plough.cpp`),
+  pulley_maxed (a rope pulley reaches 200 blocks, `pistons/Actuators.cpp`), self_deploying (a deployer
+  on a minecart contraption or train places a rail / track: the owner carried in the deployer's
+  BlockData, `assembly/Deployer.cpp`); trains (`trains/`): train / long_train (assembly at a station,
+  ≥ 6 carriages, station owner), conductor (a station's auto-schedule applied to an arriving train:
+  station owner; a schedule handed to a train: the player), train_whistle (a controlling player honks
+  a train with a whistle), train_roadkill (a train kills an entity: its driver), red_signal (a train
+  without a running schedule enters a signal section another train occupies: its driver),
+  train_crash (a collision: every seated player but the driver) / train_crash_backwards (the player
+  who drove it backwards that tick), long_travel (a player leaves a train seat ≥ 5000 blocks from
+  where they sat down).
+- **Not fired**: train_portal (Levitate's trains don't cross dimensions through portal tracks yet).
+- **Fired with their content (U49)**: cuckoo_clock (the creeper animation of a turning cuckoo
+  clock starts: its owner within 32 blocks, transmission), haunted_bell (a player rings a haunted
+  bell, equipment), cardboard_armor (a sneaking player in full cardboard armour starts hiding,
+  equipment), cardboard_armor_trim (a player takes trimmed cardboard armour out of a smithing table,
+  equipment; Create's SmithingMenuMixin).
 
 #### 3.6.35 Consistency (U35)
 
@@ -4229,6 +4415,8 @@ matches Create's official Chinese translation wording).
 | Tilted track block drawn for **vanilla** clients (U5, U48) | Bedrock block models are fixed per state; the ramp's angle is a real number per block | the curves, the graph and the trains follow Create's tilt for every client (§3.5); the client mod draws the block turned onto the ramp; vanilla clients see the flat block between the two curves' track beds |
 | Smooth gauge needle for **vanilla** clients (U6) | block models are static per state; cube rotations are limited to 22.5° steps | the needle state snaps to the nearest 22.5°; the client mod draws the eased needle |
 | Integrated-cog placement helpers (cogs placed against mixers / crafters) (U6) | those blocks are other units' | plain placement rules apply |
+| Moving cuckoo clock hands, doors and figure for **vanilla** clients (U6, U49) | block models are static per state and turn cubes only in 22.5° steps | the hands are pixel steps in 12 positions each (`levitate:hour`, `levitate:minute` in 5-minute steps), the doors stand open with the figure out while Create's doors are past half open (`levitate:cuckoo`); the client mod draws Create's chasing hands, swinging doors and sliding figure |
+| Flywheel collision and selection beyond its block (U49) | JSON collision / selection boxes are at most 16 px and inside the block | the 28 px wheel collides and is selected as its own block |
 
 | Valve handle "holding opens the angle board" for **vanilla** clients (U7) | the server sees no held button (value box row) | client mod: as Create; vanilla: a click turns the handle, the wrench on its front opens the form |
 | Large water wheel as one 3×3 model for **vanilla** clients (U7) | a Bedrock block model may be at most 30 px wide | the wheel and its 8 structure blocks each show their own cell of the wheel; the client mod spins the whole wheel |
@@ -4264,6 +4452,7 @@ matches Create's official Chinese translation wording).
 | Right-clicking contraption blocks with an empty hand into the air on **vanilla** clients (U22) | a vanilla client sends nothing for an empty-hand click into the air, and display entities can't be clicked | with an item in hand, or with a world block behind, the server casts the look itself; the client mod sends the click |
 | Redstone link frequency items on the block for **vanilla** clients (U23) | no world-space item rendering without the client mod | the client mod draws both items in their slots (U42); vanilla: action-bar message when a slot is set |
 | Diode value box "short click toggles, hold opens the board" for **vanilla** clients (U23) | see the value box row above | client mod: as Create (U42); vanilla: clicking the box opens the board, clicking elsewhere on the diode (or with any item but the wrench) toggles inverted |
+| Desk bell wobble for **vanilla** clients (U23, U49) | no per-frame block animation without the client mod | the plunger is pressed while the bell is powered; the client mod draws Create's dipping plunger and wobbling bell |
 | Display board text for **vanilla** clients (U24) | no client-side text rendering on blocks without the client mod | the lines as a name tag in front of a turning board (invisible entity, colours as § codes, no flap animation); the client mod draws the split flaps |
 | Nixie tube glyphs for **vanilla** clients (U24) | same | the two characters as a coloured name tag above each tube |
 
@@ -4296,6 +4485,12 @@ matches Create's official Chinese translation wording).
 | Glowing of glow berry / glistering melon potato projectiles (U31) | Bedrock has no glowing effect | the hit has its other effects |
 | Linked controller input for **vanilla** clients (U31) | movement keys are only visible through Bedrock's movement input | the movement input the server receives is polled (the player still moves); the client mod captures the keys as Create |
 | Worldshaper preview outline for **vanilla** clients (U31) | no world-space line rendering without the client mod | the client mod draws Create's outline; vanilla players see the blocks change at once |
+| Swinging peculiar / haunted bells for **vanilla** clients (U49) | custom blocks have no block entity renderer; a state per swing frame and direction would need dozens of models | the client mod draws Create's swing; vanilla clients see the bell still (sounds, souls and particles reach everyone) |
+| Bells rung by projectiles (U49) | custom blocks get no projectile-hit callback (`BlockType::onProjectileHit` is a folded no-op shared by many blocks, it can't be hooked for ours alone) | clicks and redstone ring them |
+| Soul particles vanishing when the spot gets lit (U49) | resource-pack particles can't read the block light | the particles live their full time; new pulses only mark dark spots |
+| The hiding player's smaller hitbox and eye height (U49) | Bedrock clients size and move their own player (sneaking height is the client's); a server-side size is not used for the player's collision | the player becomes the box visually (invisible + a box entity at its feet, which hits pass through to the player); hitbox and camera stay the sneaking ones |
+| Cardboard vignette for **vanilla** clients (U49) | no HUD drawing without the client mod | the client mod draws it (in every camera view: the mod can't read the view perspective; Create: first person only) |
+| Cardboard sword's 3D in-hand model (U49) | Bedrock items have no custom item renderer, and an attachable's first-person transform is not solved (wrench row above) | the sprite in hand, as for every item |
 
 Units add rows here in their PRs (in unit order) when they find something else impossible.
 

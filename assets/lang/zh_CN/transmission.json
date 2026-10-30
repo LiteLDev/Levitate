@@ -27,5 +27,14 @@
   "create.gui.stressometer.title": "网络应力",
   "create.kinetics.speed_controller.rotation_speed": "目标的RPM转速",
   "lv.transmission.sequencer.form.value": "数值（旋转：角度，驱动元件：米，延迟：刻）",
-  "lv.transmission.sequencer.add": "添加指令"
+  "lv.transmission.sequencer.add": "添加指令",
+  "block.create.cuckoo_clock.tooltip.summary": "精致的工艺品，能够_报时_。",
+  "block.create.cuckoo_clock.tooltip.condition1": "接入动力时",
+  "block.create.cuckoo_clock.tooltip.behaviour1": "显示_当前时间_，并且一天会咕咕两次。_中午_咕咕一次，_黄昏可以睡觉_的时候咕咕一次。",
+  "block.create.mysterious_cuckoo_clock.tooltip.summary": "精致的工艺品，能够_报时_。",
+  "block.create.mysterious_cuckoo_clock.tooltip.condition1": "接入动力时",
+  "block.create.mysterious_cuckoo_clock.tooltip.behaviour1": "显示_当前时间_，并且一天会咕咕两次。_中午_咕咕一次，_黄昏可以睡觉_的时候咕咕一次。",
+  "block.create.flywheel.tooltip.summary": "使用壮观的黄铜轮子_装饰_你的_机器_。",
+  "block.create.flywheel.tooltip.condition1": "接入动力时",
+  "block.create.flywheel.tooltip.behaviour1": "开始旋转"
 }

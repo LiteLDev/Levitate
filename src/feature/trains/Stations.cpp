@@ -22,6 +22,7 @@
 #include "mc/world/level/block/BlockType.h"
 
 #include "core/trains/Assembly.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/contraption/Contraption.h"
@@ -466,6 +467,9 @@ std::optional<std::uint64_t> assemble(Station& s, Player* by) {
         s.name
     );
     if (by) playSound(s.pos.dim, {s.pos.x + .5, s.pos.y + .5, s.pos.z + .5}, "random.anvil_use", 0.5f, 1.5f);
+    // Create's StationBlockEntity#assemble
+    advancements::awardOwner(s.pos, "train");
+    if (train.carriages.size() >= 6) advancements::awardOwner(s.pos, "long_train");
     saveAll();
     return train.id;
 }

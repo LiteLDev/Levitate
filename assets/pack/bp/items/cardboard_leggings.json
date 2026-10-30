@@ -1,0 +1,48 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "levitate:cardboard_leggings",
+      "menu_category": {
+        "category": "equipment"
+      }
+    },
+    "components": {
+      "minecraft:tags": {
+        "tags": [
+          "minecraft:is_armor",
+          "minecraft:trimmable_armors"
+        ]
+      },
+      "minecraft:icon": "levitate_cardboard_leggings",
+      "minecraft:max_stack_size": 1,
+      "minecraft:display_name": {
+        "value": "item.levitate:cardboard_leggings.name"
+      },
+      "minecraft:wearable": {
+        "slot": "slot.armor.legs",
+        "protection": 1
+      },
+      "minecraft:durability": {
+        "max_durability": 60
+      },
+      "minecraft:enchantable": {
+        "slot": "armor_legs",
+        "value": 4
+      },
+      "minecraft:repairable": {
+        "repair_items": [
+          {
+            "items": [
+              "levitate:cardboard"
+            ],
+            "repair_amount": "context.other->q.remaining_durability + 0.12 * context.other->q.max_durability"
+          }
+        ]
+      },
+      "minecraft:fuel": {
+        "duration": 50
+      }
+    }
+  }
+}

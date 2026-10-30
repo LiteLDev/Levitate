@@ -314,10 +314,12 @@ void throwPackage(Player& player, int ticksHeld) {
     cp::V3 motion = lookVec(player) * (f * 2.0);
     cp::V3 at     = cp::V3{feet.x, feet.y + 0.9, feet.z} + motion;
     // Create: a PackageEntity at the player's mid-height plus the motion, keeping the motion
-    if (!spawnPackageEntity(player.getDimensionId(), at, copy, motion)) {
+    auto id = spawnPackageEntity(player.getDimensionId(), at, copy, motion);
+    if (!id) {
         if (!player.isCreative()) giveOrDrop(player, copy); // nowhere to spawn it (unloaded chunk)
         return;
     }
+    setTossedBy(id, player);
     log().info("packages: {} threw a package (power {:.2f})", player.getRealName(), f);
 }
 

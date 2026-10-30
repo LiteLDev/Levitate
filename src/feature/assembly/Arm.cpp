@@ -35,6 +35,7 @@
 
 #include "core/assembly/Arm.h"
 #include "core/common/ValueSettings.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/assembly/AssemblyInternal.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
@@ -445,7 +446,9 @@ void depositItem(GlobalPos const& pos, Runtime& r, BlockSource& region) {
         auto wp     = worldOf(pos, *p);
         auto before = items::countOf(r.held);
         auto id     = items::idOf(r.held);
-        r.held      = insertInto(region, wp, *typeOf(region, wp), r.held, false);
+        auto type   = *typeOf(region, wp);
+        r.held      = insertInto(region, wp, type, r.held, false);
+        if (type == PointType::Jukebox && items::isEmpty(r.held)) advancements::awardOwner(pos, "musical_arm");
         if (int more = 0; items::countOf(r.held) != before && detail::logAction("arm.deposit@" + pos.key() + "#" + id, more))
             log().info("arm at {} deposited {} x{}{}", pos.key(), id, before - items::countOf(r.held), detail::similar(more));
     }
@@ -454,6 +457,7 @@ void depositItem(GlobalPos const& pos, Runtime& r, BlockSource& region) {
     r.chased   = -1;
     save(pos, r);
     syncState(pos, r, region);
+    advancements::awardOwner(pos, "mechanical_arm");
 }
 
 bool hasMusic(GlobalPos const& pos, Runtime const& r, BlockSource& region) {
@@ -648,6 +652,11 @@ void onPlaced(BlockSource& region, BlockPos const& pos, Player* placer, Face cli
     }
     save(gp, r);
     log().info("mechanical arm placed at {} with {} input(s) and {} output(s)", gp.key(), listOf(r, true).size(), listOf(r, false).size());
+    // Create's initInteractionPoints (the owner is known from the placement on)
+    if (placer) advancements::setOwner(gp, *placer);
+    if (listOf(r, false).size() >= 10) advancements::awardOwner(gp, "arm_many_targets");
+    if (std::any_of(r.points.begin(), r.points.end(), [&](Point const& p) { return typeOf(region, worldOf(gp, p)) == PointType::BlazeBurner; }))
+        advancements::awardOwner(gp, "arm_blaze_burner");
 }
 
 std::pair<int, int> selectionCounts(Player const& player) {

@@ -20,6 +20,7 @@
 
 #include "core/common/ValueSettings.h"
 #include "core/crafter/Breaking.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
@@ -174,6 +175,7 @@ void applyRecipe(GlobalPos const& pos, SawState& s) {
         for (auto const& r : recipe.roll()) addToList(r, list);
     for (std::size_t slot = 0; slot < list.size() && slot + 1 < kSawSlots; ++slot) s.inv[slot + 1] = list[slot];
     log().info("saw at {} cut {} x{} ({})", pos.key(), input, rolls, recipe.id);
+    advancements::awardOwner(pos, "saw_processing");
 }
 
 void tickSaw(GlobalPos const& pos, MachineInfo const& info, float speed) {

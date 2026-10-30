@@ -21,6 +21,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "core/common/ValueSettings.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/belts/BeltsInternal.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
@@ -211,6 +212,9 @@ void launchEntity(Depot& d, Actor& a, cb::Launch const& l, int facing) {
             pkt.sendTo(static_cast<Player&>(a));
         }
     }
+    // Create's EjectorAwardPacket: a player launched 25 blocks or further
+    if (a.isPlayer() && l.horizontal * l.horizontal + l.vertical * l.vertical >= 25 * 25)
+        advancements::award(static_cast<Player&>(a), "ejector_maxed");
 }
 
 /// The target accepts the held stack (Create waits while a targeted inventory is full).

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 
+#include "feature/advancements/Advancements.h"
 #include "feature/display/Display.h"
 #include "feature/trains/Trains.h"
 #include "mod/I18n.h"
@@ -100,7 +101,10 @@ public:
         };
         summary.boardText = [](dsp::Context& ctx, dsp::TargetStats const& stats) -> std::optional<std::vector<dsp::Lines>> {
             std::vector<dsp::Lines> out;
-            for (auto const& r : summaryRows(ctx)) {
+            auto                    rows = summaryRows(ctx);
+            // Create's StationSummaryDisplaySource#provideFlapDisplayText: a train listed on a board
+            if (!rows.empty()) advancements::awardOwner(ctx.link, "display_board_0");
+            for (auto const& r : rows) {
                 out.push_back({etaText(r.ticks), r.train, r.title, r.platform});
                 if (int(out.size()) >= std::max(1, stats.maxRows)) break;
             }

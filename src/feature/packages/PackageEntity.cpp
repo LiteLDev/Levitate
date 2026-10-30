@@ -53,6 +53,7 @@
 #include "mc/world/level/dimension/DimensionType.h"
 #include "mc/world/phys/AABB.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/belts/BeltApi.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/FunnelsExt.h"
@@ -87,6 +88,7 @@ struct Tracked {
     int       insertionDelay  = kInsertionDelay;
     int       handoffCooldown = 0;
     int       airTicks        = 0; ///< ticks since it left the ground (landing sound)
+    std::int64_t tossedBy     = 0; ///< Create's tossedBy: the player who threw it (advancements)
 };
 
 struct EntityState {
@@ -265,6 +267,7 @@ bool tryInsert(Actor& a, Tracked& t, BlockSource& region) {
         belts::TransportedItem item;
         item.stack = t.box;
         if (!items::isEmpty(belts::insertDirect(gp, item, 0, false))) return false;
+        if (auto* p = t.tossedBy ? playerById(t.tossedBy) : nullptr) advancements::award(*p, "package_chute_throw");
         return finish("chute", below);
     }
     return false;
@@ -437,6 +440,10 @@ std::optional<ItemStack> packageEntityBox(std::int64_t uniqueId) {
     if (auto* a = fetch(uniqueId); a && isPackageEntity(*a))
         if (auto* t = trackedOf(*a)) return t->box;
     return std::nullopt;
+}
+
+void setTossedBy(std::int64_t id, Player const& player) {
+    if (auto it = E().live.find(id); it != E().live.end()) it->second.tossedBy = player.getOrCreateUniqueID().rawID;
 }
 
 bool packageEntityNear(int dim, cp::V3 point, double r, double h) {

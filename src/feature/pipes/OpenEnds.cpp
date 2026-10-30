@@ -26,6 +26,7 @@
 #include "mc/world/level/dimension/Dimension.h"
 #include "mc/world/phys/AABB.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/FluidRegistry.h"
 #include "feature/pipes/OpenEnds.h"
@@ -279,8 +280,12 @@ cp::Fluid openEndDrain(BlockSource& region, cp::BlockFace const& at, cp::OpenEnd
     }
     cp::Fluid peek = removeFluidFromSpace(region, out, true);
     if (peek.empty() || (!request.id.empty() && request.id != peek.id)) return {};
-    cp::Fluid drained = simulate ? peek : removeFluidFromSpace(region, out, false);
+    bool      vanillaTarget = canProvideFluidWithoutCapability(region.getBlock(out)); // beehives, cauldrons
+    cp::Fluid drained       = simulate ? peek : removeFluidFromSpace(region, out, false);
     if (drained.empty()) return {};
+    // Create's OpenEndedPipe#removeFluidFromSpace: honey from a beehive, water from a source block
+    if (!simulate && vanillaTarget && drained.id == "levitate:honey") advancements::awardOwner(at.pos, "honey_drain");
+    if (!simulate && !vanillaTarget && drained.id == "minecraft:water") advancements::awardOwner(at.pos, "water_supply");
     int       remainder = drained.amount - request.amount;
     cp::Fluid got{drained.id, std::min(request.amount, drained.amount)};
     if (!simulate) {
@@ -294,6 +299,7 @@ cp::Fluid openEndDrain(BlockSource& region, cp::BlockFace const& at, cp::OpenEnd
 void flowCollision(BlockSource& region, BlockPos const& pos, cp::Fluid const& a, cp::Fluid const& b) {
     // Create's handlePipeFlowCollision: the pipe breaks; water + lava leave cobblestone, lava and a
     // fluid with a lava interaction leave that block
+    advancements::awardOwner(game::globalPos(region, pos), "cross_streams");
     std::string result;
     auto        is = [](cp::Fluid const& f, char const* id) { return f.id == id; };
     if ((is(a, "minecraft:water") && is(b, "minecraft:lava")) || (is(a, "minecraft:lava") && is(b, "minecraft:water")))

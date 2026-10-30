@@ -92,7 +92,7 @@ void load() {
         for (auto const& e : *j) {
             if (!e.is_array() || e.size() != 5) continue;
             Runtime rt;
-            rt.kind = static_cast<Kind>(std::clamp(e[4].get<int>(), 0, static_cast<int>(Kind::Contact)));
+            rt.kind = static_cast<Kind>(std::clamp(e[4].get<int>(), 0, static_cast<int>(kLastKind)));
             u.tracked.emplace(GP{e[0].get<int>(), e[1].get<int>(), e[2].get<int>(), e[3].get<int>()}, rt);
         }
     }
@@ -314,9 +314,10 @@ public:
             registerValueBoxes();
             registerFilterSlots();
             registerThresholdScreen();
+            registerBellAndLamp();
             // our signal sources power the custom blocks of other units too (shared redstone input)
             for (auto k : {Kind::Link, Kind::Lever, Kind::PulseRepeater, Kind::PulseExtender, Kind::PulseTimer, Kind::PoweredLatch,
-                           Kind::ToggleLatch, Kind::SmartObserver, Kind::ThresholdSwitch, Kind::Contact}) {
+                           Kind::ToggleLatch, Kind::SmartObserver, Kind::ThresholdSwitch, Kind::Contact, Kind::DeskBell}) {
                 common::redstone::registerEmitter(idOf(k), [](BlockSource&, BlockPos const&, Block const& block, int towards) {
                     return ourEmission(block, towards).value_or(0);
                 });

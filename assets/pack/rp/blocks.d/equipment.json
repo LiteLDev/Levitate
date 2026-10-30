@@ -55,5 +55,11 @@
   },
   "levitate:lectern_controller": {
     "sound": "wood"
+  },
+  "levitate:peculiar_bell": {
+    "sound": "anvil"
+  },
+  "levitate:haunted_bell": {
+    "sound": "anvil"
   }
 }

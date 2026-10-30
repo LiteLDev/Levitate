@@ -12,6 +12,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "core/common/ValueSettings.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
@@ -126,6 +127,7 @@ void onClothPlaced(GlobalPos const& p, Player& player, ItemStack const& item) {
     writeShop(p, shop);
     registry().shops.insert(p);
     saveRegistry();
+    advancements::award(player, "table_cloth_shop"); // Create's TableClothBlock#setPlacedBy
     log().info("stock: table cloth shop placed at {} {} {} by {}", p.x, p.y, p.z, player.getRealName());
 }
 

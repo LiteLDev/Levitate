@@ -13,6 +13,7 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/fluids/FluidsInternal.h"
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
@@ -171,6 +172,9 @@ FluidStack pullNext(Hose const& h, bool simulate) {
             cache.drain.reset();
             return {};
         }
+        // Create's FluidDrainingBehaviour#pullNext of an infinite source
+        advancements::awardOwner(h.pos, "hose_pulley");
+        if (plan.fluid == cf::kLava) advancements::awardOwner(h.pos, "hose_pulley_lava");
         return {plan.fluid, cf::kBucket};
     }
     while (!plan.sources.empty()) {
@@ -191,6 +195,7 @@ FluidStack pullNext(Hose const& h, bool simulate) {
         plan.sources.erase(plan.sources.begin());
         playSound({h.pos.dim, q.x, q.y, q.z}, plan.fluid == cf::kLava ? "bucket.fill_lava" : "bucket.fill_water", 0.5f, 1.f);
         log().info("hose pulley at {} {} {} drained {} at {} {} {}", h.pos.x, h.pos.y, h.pos.z, plan.fluid, q.x, q.y, q.z);
+        advancements::awardOwner(h.pos, "hose_pulley");
         return {plan.fluid, cf::kBucket};
     }
     cache.drain.reset();
@@ -214,7 +219,10 @@ bool tryDeposit(Hose const& h, std::string const& fluid, bool simulate) {
     }
     auto& plan = *cache.fill;
     if (plan.infinite && !config().fillInfinite) return true; // voided into the infinite body
-    if (!config().fluidFillPlaceFluidSourceBlocks) return true; // Create: the fluid is voided
+    if (!config().fluidFillPlaceFluidSourceBlocks) { // Create: the fluid is voided
+        if (!simulate) advancements::awardOwner(h.pos, "hose_pulley");
+        return true;
+    }
     while (!plan.targets.empty()) {
         auto q = plan.targets.front();
         if (!query(q).fillable) {
@@ -233,6 +241,7 @@ bool tryDeposit(Hose const& h, std::string const& fluid, bool simulate) {
         game::setBlock(*region, BlockPos{q.x, q.y, q.z}, *b);
         playSound(at, fluid == cf::kLava ? "bucket.empty_lava" : "bucket.empty_water", 0.5f, 1.f);
         log().info("hose pulley at {} {} {} placed {} at {} {} {}", h.pos.x, h.pos.y, h.pos.z, fluid, q.x, q.y, q.z);
+        advancements::awardOwner(h.pos, "hose_pulley");
         return true;
     }
     cache.fill.reset();

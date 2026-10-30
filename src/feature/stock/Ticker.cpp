@@ -18,6 +18,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "core/common/Utf8.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
@@ -582,6 +583,7 @@ bool placeOrder(Player& player, GlobalPos const& ticker, std::vector<BigStack> c
         return true;
     }
     editData(ticker)["prevAddress"] = address;
+    if (!order.empty()) advancements::award(player, "stock_ticker"); // Create's PackageOrderRequestPacket
     bool ok = requestOrder(network, RequestType::Player, order, address);
     if (ok) {
         playSound(ticker, "levitate.stock.request", 1.0f, 1.0f);

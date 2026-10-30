@@ -14,6 +14,7 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/common/BlockData.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/contraption/PistonsExt.h"
@@ -1064,7 +1065,10 @@ void tickActuators() {
             continue;
         }
         try {
+            float before = c->offset();
             tickOne(*c, tick);
+            // Create's PulleyBlockEntity#tick
+            if (c->kind != Kind::Piston && before < 200 && c->offset() >= 200) advancements::awardOwner(p, "pulley_maxed");
         } catch (std::exception const& e) {
             log().error("{} at {} {} {} tick failed: {}", kindName(c->kind), p.x, p.y, p.z, e.what());
         }

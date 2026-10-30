@@ -92,5 +92,20 @@
   "lv.equipment.controller.active": "无线红石遥控器已启用（Esc 或右键停止）",
   "lv.equipment.controller.no_frequency": "这个无线红石信号终端没有可绑定的频率",
   "enchantment.create.capacity": "扩容",
-  "enchantment.create.potato_recovery": "土豆回收"
+  "enchantment.create.potato_recovery": "土豆回收",
+  "block.levitate.peculiar_bell": "奇异钟",
+  "block.levitate.haunted_bell": "缠魂钟",
+  "item.levitate.cardboard_helmet": "纸板头盔",
+  "item.levitate.cardboard_chestplate": "纸板胸甲",
+  "item.levitate.cardboard_leggings": "纸板护腿",
+  "item.levitate.cardboard_boots": "纸板靴子",
+  "item.levitate.cardboard_sword": "纸棍",
+  "block.create.peculiar_bell.tooltip.summary": "装饰用的_黄铜钟_。放在_灵魂火_的正上方可能会导致意料之外的结果……",
+  "block.create.haunted_bell.tooltip.summary": "_被诅咒_的钟，来自下界的迷失灵魂缠绕于其上。",
+  "block.create.haunted_bell.tooltip.condition1": "手持或鸣响时",
+  "block.create.haunted_bell.tooltip.behaviour1": "标识出附近_亮度不足_从而导致生成_敌对生物_的位置。",
+  "item.create.cardboard_armor.tooltip.summary": "_可穿戴_的_装备_，让你_隐蔽_的同时不失_风度_。",
+  "item.create.cardboard_armor.tooltip.condition1": "全套装备时",
+  "item.create.cardboard_armor.tooltip.behaviour1": "_潜行_使自己进入_伪装_状态。",
+  "item.create.cardboard_sword.tooltip.summary": "𠳐！一种_通常_情况下_无害_，但依旧不失力量的标志性武器。"
 }

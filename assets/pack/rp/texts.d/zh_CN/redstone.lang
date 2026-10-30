@@ -8,3 +8,5 @@ tile.levitate:powered_toggle_latch.name=转换锁存器
 tile.levitate:content_observer.name=智能侦测器
 tile.levitate:stockpile_switch.name=存量转信器
 tile.levitate:redstone_contact.name=接触式红石信号发生器
+tile.levitate:desk_bell.name=呼唤铃
+tile.levitate:rose_quartz_lamp.name=玫瑰石英灯

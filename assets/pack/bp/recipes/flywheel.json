@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:flywheel"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "CCC",
+      "CAC",
+      "CCC"
+    ],
+    "key": {
+      "A": {
+        "item": "levitate:shaft"
+      },
+      "C": {
+        "item": "levitate:brass_ingot"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:brass_ingot"
+      }
+    ],
+    "result": {
+      "item": "levitate:flywheel",
+      "count": 1
+    }
+  }
+}

@@ -6,3 +6,4 @@ tile.levitate:chute.name=Chute
 tile.levitate:smart_chute.name=Smart Chute
 tile.levitate:item_vault.name=Item Vault
 tile.levitate:creative_crate.name=Creative Crate
+tile.levitate:item_hatch.name=Item Hatch

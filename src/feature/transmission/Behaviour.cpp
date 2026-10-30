@@ -40,7 +40,7 @@ Tracked& tracked() {
 }
 
 bool needsTicking(std::string_view id) {
-    return readsRedstone(id) || hasComparatorOutput(id) || id == kSpeedController;
+    return readsRedstone(id) || hasComparatorOutput(id) || id == kSpeedController || isCuckooClock(id);
 }
 
 } // namespace
@@ -53,6 +53,7 @@ void untrack(GlobalPos const& pos) {
     if (tracked().positions.erase(pos)) tracked().dirty = true;
     gaugeForget(pos);
     sequencerForget(pos);
+    clockForget(pos);
 }
 
 int comparatorSignal(GlobalPos const& pos) {
@@ -94,6 +95,8 @@ void tickBlocks() {
             sequencerTick(*region, pos);
         } else if (isGauge(id)) {
             gaugeTick(*region, pos);
+        } else if (isCuckooClock(id)) {
+            clockTick(*region, pos);
         } else if (id == kSpeedController) {
             // Create's hasBracket: a dedicated large cogwheel with a horizontal axis on top
             GlobalPos above   = stepPos(pos, Face::Up);

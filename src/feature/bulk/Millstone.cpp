@@ -12,6 +12,7 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/bulk/Bulk.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
@@ -74,6 +75,7 @@ void process(GlobalPos const& pos, MillstoneView& v) {
         (void)insertStacked(v.outputs, s); // Create voids what does not fit
     }
     log().info("millstone at {} {} {}: milled {} into {} item(s)", pos.x, pos.y, pos.z, inputId, produced);
+    advancements::awardOwner(pos, "millstone");
 }
 
 void spawnParticles(GlobalPos const& pos, MillstoneView const& v, float speed) {

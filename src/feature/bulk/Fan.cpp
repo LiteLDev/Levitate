@@ -48,6 +48,7 @@
 #include "mc/world/level/block/BlockType.h"
 #include "mc/world/phys/AABB.h"
 
+#include "feature/advancements/Advancements.h"
 #include "feature/bulk/Bulk.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
@@ -482,6 +483,7 @@ void tickHandlers(BlockSource& region, GlobalPos const& fan, FanState const& st)
             }
             dropStacks(region, p, spill);
             log().info("encased fan at {} {} {}: {} processed {} x{} at {} {} {}", fan.x, fan.y, fan.z, cb::fanTypeName(type), id, items::countOf(taken), p.x, p.y, p.z);
+            advancements::awardOwner(fan, "fan_processing");
             // the results are not processed again by the same air (Create copies processedBy onto
             // every result): mark every slot now holding one of them
             for (int s = 0; s < slots; ++s) {
@@ -515,7 +517,7 @@ void tickEntities(BlockSource& region, GlobalPos const& pos, FanState& st) {
         if (isItem(*e)) {
             processingParticles(pos.dim, feet, type);
             auto* stack = itemOf(*e);
-            if (stack && canProcessEntity(*e, *stack, type)) applyProcessing(region, pos, *e, type);
+            if (stack && canProcessEntity(*e, *stack, type) && applyProcessing(region, pos, *e, type)) advancements::awardOwner(pos, "fan_processing");
             continue;
         }
         affectEntity(*e, type, pos.dim);

@@ -1,0 +1,17 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.levitate.cardboard_disguise.bob": {
+      "loop": true,
+      "bones": {
+        "box": {
+          "position": [
+            0,
+            "q.is_on_ground ? math.min(math.abs(math.cos(q.life_time * 573)) * 2, q.ground_speed * 4) : 0",
+            0
+          ]
+        }
+      }
+    }
+  }
+}

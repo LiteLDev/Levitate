@@ -3,10 +3,14 @@
 # diving helmet and the netherite set, potato cannon planting and damage, the potato projectile
 # entity (variants, sticky ammo, collisions, recovery, golden apples), Capacity / Potato Recovery
 # (backtank air, the enchanting table, anvil and grindstone), wand of symmetry,
-# worldshaper, sand paper, tree fertilizer, linked controller and lectern), then blocks set from
-# the console.
+# worldshaper, sand paper, tree fertilizer, linked controller and lectern; U49: peculiar / haunted
+# bells, soul pulses, cardboard armour and sword), then blocks set from the console.
 $r = Invoke-SelfTest 'equipment.*'
-if ($r.Pass -lt 26) { throw "expected at least 26 equipment selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 34) { throw "expected at least 34 equipment selftests to pass, got $($r.Pass)" }
+Wait-LogLine 'equipment: peculiar bell at .* became a haunted bell' 10 | Out-Null
+Wait-LogLine 'equipment: levitate:haunted_bell at .* rang' 10 | Out-Null
+Wait-LogLine 'equipment: .* hides as a cardboard box' 10 | Out-Null
+Wait-LogLine 'equipment: .* bonked minecraft:cow with a cardboard sword' 10 | Out-Null
 Wait-LogLine 'equipment: .* equipped minecraft:torch from the toolbox at ' 10 | Out-Null
 Wait-LogLine 'equipment: .* fired a potato cannon \(potato\)' 10 | Out-Null
 Wait-LogLine 'equipment: a potato cannon planted potato at ' 10 | Out-Null

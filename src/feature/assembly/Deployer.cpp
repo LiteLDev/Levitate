@@ -37,6 +37,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "core/assembly/Deployer.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/assembly/AssemblyInternal.h"
 #include "feature/assembly/SequencedAssembly.h"
 #include "feature/common/BlockData.h"
@@ -562,6 +563,7 @@ void triggerFistBump(BlockSource& region, GlobalPos const& pos, Runtime& r, Face
                       "game.player.attack.nodamage", .75f, .75f);
     ++gFistBumps;
     log().info("deployers at {} and {} fist bumped", a.key(), b.key());
+    advancements::awardOwner(pos, "fist_bump");
 }
 
 void tickOne(GlobalPos const& pos) {
@@ -767,7 +769,10 @@ void actorActivate(contraption::MovementContext& ctx, GlobalPos const& visited) 
     }
 
     std::vector<ItemStack> extra;
+    auto usedId    = items::idOf(rtv.held);
+    int  usedCount = items::countOf(rtv.held);
     act(h, rtv.held, extra, rtv.breaking);
+    advancements::onMovingDeployerUsed(ctx.contraption.kind(), doc, usedId, items::idOf(rtv.held) != usedId || items::countOf(rtv.held) < usedCount);
     // dispose of excess: the held item if the filter rejects it, everything else
     if (!items::isEmpty(rtv.held) && !pass(rtv.held)) {
         extra.push_back(rtv.held);

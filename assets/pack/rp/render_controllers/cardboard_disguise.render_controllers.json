@@ -1,0 +1,39 @@
+{
+  "format_version": "1.8.0",
+  "render_controllers": {
+    "controller.render.levitate.cardboard_disguise": {
+      "arrays": {
+        "geometries": {
+          "Array.sizes": [
+            "Geometry.s0",
+            "Geometry.s1",
+            "Geometry.s2",
+            "Geometry.s3"
+          ]
+        },
+        "textures": {
+          "Array.styles": [
+            "Texture.s0",
+            "Texture.s1",
+            "Texture.s2",
+            "Texture.s3"
+          ]
+        }
+      },
+      "geometry": "Array.sizes[math.clamp(q.variant, 0, 3)]",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.styles[math.clamp(q.variant, 0, 3)]"
+      ],
+      "part_visibility": [
+        {
+          "*": "q.distance_from_camera > 1.8"
+        }
+      ]
+    }
+  }
+}

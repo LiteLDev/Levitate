@@ -25,6 +25,7 @@
 #include "mc/world/level/block/actor/BlockActor.h"
 
 #include "feature/actors/Actors.h"
+#include "feature/advancements/Advancements.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/common/Redstone.h"
@@ -65,7 +66,11 @@ bool canTransfer(PsiState& s) {
     return s.connected && isConnected(s);
 }
 
-void onContentTransferred(PsiState& s) { s.timer = timeout() + kAnimation; }
+void onContentTransferred(PsiState& s) {
+    s.timer = timeout() + kAnimation;
+    for (auto const& [pos, st] : states())
+        if (&st == &s) advancements::awardOwner(pos, "portable_storage_interface");
+}
 
 void startTransferringTo(GlobalPos const& pos, PsiState& s, con::Id id, float distance) {
     if (s.connected == id) return;
