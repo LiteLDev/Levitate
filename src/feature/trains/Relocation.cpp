@@ -262,6 +262,12 @@ public:
             if (!repeated(c.player)) click(c.player, c.sneaking);
             return ia::Result::Consume;
         }, ia::priority::High));
+        // the carriage blocks are display entities: a click on one is an entity interaction
+        mHandlers.push_back(ia::onInteract({"minecraft:falling_block", std::string(kWrench)}, [](ia::EntityContext const& c) {
+            if (!isRelocating(c.player) && (c.sneaking || !trainLookedAt(c.player))) return ia::Result::Pass;
+            if (!repeated(c.player)) click(c.player, c.sneaking);
+            return ia::Result::Consume;
+        }, ia::priority::High));
         mTick = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) {
             if (relocating().empty() || state().tick % 2) return;
             std::vector<std::string> gone;
