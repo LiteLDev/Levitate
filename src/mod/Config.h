@@ -4,6 +4,8 @@
 #include <functional>
 #include <string>
 
+#include "nlohmann/json.hpp"
+
 #include "ll/api/Config.h"
 
 #include "mod/Registry.h"
@@ -36,6 +38,12 @@ struct ConfigEntry {
     std::string                                       section;
     std::function<bool(std::filesystem::path const&)> load; ///< path of the .json file
     std::function<bool(std::filesystem::path const&)> save;
+    /// (U42, config screen) The current values / the defaults of the section as JSON.
+    std::function<nlohmann::ordered_json()> values;
+    std::function<nlohmann::ordered_json()> defaults;
+    /// (U42, config screen) Writes the section's file with `patch` merged into the current values
+    /// (RFC 7386 merge patch; values of the wrong type are refused). Apply it with `loadAll()`.
+    std::function<bool(nlohmann::ordered_json const& patch, std::filesystem::path const&)> write;
 };
 using ConfigRegistry = StaticRegistry<ConfigEntry>;
 
@@ -64,6 +72,15 @@ struct ConfigRegistrar {
                 return true;
             },
             [](std::filesystem::path const& p) { return ll::config::saveConfig(mut<T>(), p); },
+            [] { return ll::reflection::serialize<nlohmann::ordered_json>(mut<T>()).value(); },
+            [] { return ll::reflection::serialize<nlohmann::ordered_json>(T{}).value(); },
+            [](nlohmann::ordered_json const& patch, std::filesystem::path const& p) {
+                auto data = ll::reflection::serialize<nlohmann::ordered_json>(mut<T>()).value();
+                data.merge_patch(patch);
+                T copy = mut<T>();
+                if (!ll::reflection::deserialize(copy, data)) return false;
+                return ll::config::saveConfig(copy, p);
+            },
         });
     }
 };

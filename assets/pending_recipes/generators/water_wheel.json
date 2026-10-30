@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:water_wheel"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "SSS",
+      "SAS",
+      "SSS"
+    ],
+    "key": {
+      "S": {
+        "tag": "minecraft:wooden_slabs"
+      },
+      "A": {
+        "item": "levitate:shaft"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:shaft"
+      }
+    ],
+    "result": {
+      "item": "levitate:water_wheel"
+    }
+  }
+}

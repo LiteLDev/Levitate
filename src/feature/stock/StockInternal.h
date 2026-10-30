@@ -2,6 +2,7 @@
 
 // Internals shared by the stock unit's files (not a contract; other units use Stock.h).
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -186,6 +187,15 @@ void useGauge(Player& player, GlobalPos const& p, int slot, bool sneaking);
 void removeGaugePanel(GlobalPos const& p, int slot, Player* player);
 void gaugeRemoved(GlobalPos const& p, Json const& doc);
 void tickGauges();
+
+/// (U42) Create's "Use Mechanical Crafting": the crafting-table recipe making `output` from
+/// exactly `inputs`, laid out in its 3x3 grid (`pattern[slot]` = index into `inputs`, -1 empty).
+struct CraftingArrangement {
+    std::string        recipeId;
+    std::array<int, 9> pattern{};
+    int                resultCount = 1;
+};
+[[nodiscard]] std::optional<CraftingArrangement> craftingArrangement(ItemStack const& output, std::vector<ItemStack> const& inputs);
 void registerGaugeScreens();
 /// Items that newly arrived in a packager's inventory: fulfils the promises of restocker gauges
 /// on that packager.
