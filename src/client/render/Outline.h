@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 
 #include "mc/client/renderer/BaseActorRenderContext.h"
 #include "mc/client/renderer/RenderMaterialGroup.h"
@@ -76,11 +77,36 @@ public:
         quad({Vec3{h.x, l.y, l.z}, Vec3{h.x, h.y, l.z}, Vec3{h.x, h.y, h.z}, Vec3{h.x, l.y, h.z}}, .6f);
     }
 
-    /// A straight line from `a` to `b` along one axis or diagonal (drawn as a bar `width` thick).
+    /// A straight line from `a` to `b` (a square bar `width` thick, in any direction).
     void line(P3 a, P3 b, Rgb c, double width = 1.0 / 32) {
         double w = width / 2;
-        box({std::min(a[0], b[0]) - w, std::min(a[1], b[1]) - w, std::min(a[2], b[2]) - w},
-            {std::max(a[0], b[0]) + w, std::max(a[1], b[1]) + w, std::max(a[2], b[2]) + w}, c);
+        P3     d{b[0] - a[0], b[1] - a[1], b[2] - a[2]};
+        int    nonZero = (std::abs(d[0]) > 1e-9) + (std::abs(d[1]) > 1e-9) + (std::abs(d[2]) > 1e-9);
+        if (nonZero <= 1) {
+            // along an axis: an axis-aligned box
+            box({std::min(a[0], b[0]) - w, std::min(a[1], b[1]) - w, std::min(a[2], b[2]) - w},
+                {std::max(a[0], b[0]) + w, std::max(a[1], b[1]) + w, std::max(a[2], b[2]) + w}, c);
+            return;
+        }
+        // any other direction: a prism around the segment, sides along two perpendiculars
+        double len = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+        P3     u{d[0] / len, d[1] / len, d[2] / len};
+        P3     ref = std::abs(u[1]) < .9 ? P3{0, 1, 0} : P3{1, 0, 0};
+        P3     p{u[1] * ref[2] - u[2] * ref[1], u[2] * ref[0] - u[0] * ref[2], u[0] * ref[1] - u[1] * ref[0]};
+        double pl = std::sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+        for (auto& v : p) v = v / pl * w;
+        P3 q{u[1] * p[2] - u[2] * p[1], u[2] * p[0] - u[0] * p[2], u[0] * p[1] - u[1] * p[0]};
+        auto at = [&](P3 const& o, double sp, double sq) { return rel({o[0] + p[0] * sp + q[0] * sq, o[1] + p[1] * sp + q[1] * sq, o[2] + p[2] * sp + q[2] * sq}); };
+        if (!mAny) mTess.begin({}, mce::PrimitiveMode::QuadList, 0, false);
+        mAny = true;
+        static constexpr double kCorners[5][2]{{1, 1}, {-1, 1}, {-1, -1}, {1, -1}, {1, 1}};
+        for (int s = 0; s < 4; ++s) {
+            float shade = s % 2 ? .8f : 1.f;
+            mTess.color(c.r * shade, c.g * shade, c.b * shade, 1.f);
+            for (auto const& v : {at(a, kCorners[s][0], kCorners[s][1]), at(b, kCorners[s][0], kCorners[s][1]), at(b, kCorners[s + 1][0], kCorners[s + 1][1]),
+                                  at(a, kCorners[s + 1][0], kCorners[s + 1][1])})
+                mTess.vertex(v.x, v.y, v.z);
+        }
     }
 
     /// The 12 edges of the box [lo, hi].

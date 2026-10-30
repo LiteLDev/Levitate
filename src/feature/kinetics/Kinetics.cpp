@@ -9,6 +9,8 @@
 #include <chrono>
 #include <cmath>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <set>
 #include <unordered_set>
 
@@ -55,6 +57,23 @@ constexpr int kWorldCheckTicks = 100;
 double tableValue(std::map<std::string, double> const& table, std::string const& key, double fallback) {
     auto it = table.find(key);
     return it == table.end() ? fallback : it->second;
+}
+
+/// The stress tables a server sent to this client mod (U42; Create syncs the server's CStress).
+struct SyncedStress {
+    std::map<std::string, double> impact, capacity;
+};
+std::mutex& syncedStressMutex() {
+    static std::mutex m;
+    return m;
+}
+std::shared_ptr<SyncedStress const>& syncedStressRef() {
+    static std::shared_ptr<SyncedStress const> s;
+    return s;
+}
+std::shared_ptr<SyncedStress const> syncedStress() {
+    std::lock_guard lock(syncedStressMutex());
+    return syncedStressRef();
 }
 
 /// Sequenced gearshift instructions per block that set one (not persisted; cleared per world).
@@ -556,13 +575,37 @@ SpeedLevel speedLevelOf(float speed) {
 }
 
 double stressImpactOf(std::string_view id) {
-    auto const* spec = specOf(id);
-    return tableValue(config::get<KineticsConfig>().impact, spec ? spec->stressKey : k::defaultStressKey(id), spec ? spec->impact : 0.0);
+    auto const* spec   = specOf(id);
+    auto        synced = syncedStress();
+    return tableValue(synced ? synced->impact : config::get<KineticsConfig>().impact, spec ? spec->stressKey : k::defaultStressKey(id), spec ? spec->impact : 0.0);
 }
 
 double stressCapacityOf(std::string_view id) {
-    auto const* spec = specOf(id);
-    return tableValue(config::get<KineticsConfig>().capacity, spec ? spec->stressKey : k::defaultStressKey(id), spec ? spec->capacity : 0.0);
+    auto const* spec   = specOf(id);
+    auto        synced = syncedStress();
+    return tableValue(synced ? synced->capacity : config::get<KineticsConfig>().capacity, spec ? spec->stressKey : k::defaultStressKey(id), spec ? spec->capacity : 0.0);
+}
+
+nlohmann::json stressTablesJson() {
+    auto const& cfg = config::get<KineticsConfig>();
+    return {{"impact", cfg.impact}, {"capacity", cfg.capacity}};
+}
+
+void setSyncedStressTables(nlohmann::json const& msg) {
+    auto s = std::make_shared<SyncedStress>();
+    for (auto const& [table, out] : {std::pair{"impact", &s->impact}, std::pair{"capacity", &s->capacity}}) {
+        auto it = msg.find(table);
+        if (it == msg.end() || !it->is_object()) return;
+        for (auto const& [key, v] : it->items())
+            if (v.is_number()) (*out)[key] = v.get<double>();
+    }
+    std::lock_guard lock(syncedStressMutex());
+    syncedStressRef() = std::move(s);
+}
+
+void clearSyncedStressTables() {
+    std::lock_guard lock(syncedStressMutex());
+    syncedStressRef().reset();
 }
 
 void setGeneratedSpeed(GlobalPos const& pos, float rpm) {

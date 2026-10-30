@@ -8,6 +8,9 @@
 #include <map>
 
 #include "ll/api/form/CustomForm.h"
+#include "ll/api/service/Bedrock.h"
+
+#include "mc/world/level/Level.h"
 
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
@@ -20,6 +23,7 @@
 #include "feature/common/Screens.h"
 #include "feature/common/ValueBox.h"
 #include "feature/display/Display.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "feature/net/Net.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
@@ -58,11 +62,14 @@ Json readPanel(GlobalPos const& p, int slot) {
 }
 
 void writePanel(GlobalPos const& p, int slot, Json const& panel) {
+    auto before = readPanel(p, slot);
+    bool itemChanged = before.value("filter", Json()) != panel.value("filter", Json()) || before.value("active", false) != panel.value("active", false);
     auto& d      = editData(p);
     auto& panels = d["panels"];
     if (!panels.is_object()) panels = Json::object();
     if (panel.is_null() || panel.empty()) panels.erase(slotKey(slot));
     else panels[slotKey(slot)] = panel;
+    if (itemChanged) itemrender::refresh(p); // the client mod draws the new monitored item
 }
 
 bool active(Json const& panel) { return panel.value("active", false); }
@@ -666,15 +673,131 @@ void useGauge(Player& player, GlobalPos const& p, int slot, bool sneaking) {
         statusKey(player, "create.logistically_linked.tuned", "Tuned to this network");
         return;
     }
+    std::string box = "panel" + std::to_string(slot);
     if (sneaking && hid.empty()) {
-        // "click and hold for target amount": the value settings board
-        common::valuebox::openEditor(player, p, "panel" + std::to_string(slot));
+        // vanilla players' "click and hold": sneak-click opens the target amount board
+        common::valuebox::openEditor(player, p, box);
         return;
+    }
+    // Create's FactoryPanelBehaviour: holding right-click opens the target amount board, a
+    // short click the panel's screen (client mod players; the others get the screen at once)
+    if (hid.empty()) {
+        auto ctx = Json{{"pos", posJson(p)}, {"slot", slot}};
+        if (common::valuebox::awaitHold(
+                player,
+                p,
+                [ctx](Player& q) { screens::open(q, kScreen, ctx); },
+                [p, box](Player& q) { common::valuebox::openEditor(q, p, box); }
+            ))
+            return;
     }
     screens::open(player, kScreen, {{"pos", posJson(p)}, {"slot", slot}});
 }
 
+// ---- client mod visuals (Create's FactoryPanelRenderer) ------------------------------------------
+
+namespace {
+
+/// The panel's normal (away from its support) as a Bedrock face id.
+int panelFace(GlobalPos const& p) {
+    auto s = cs::supportOffset(faceOf(p), facingOf(p));
+    return s[1] > 0 ? 0 : s[1] < 0 ? 1 : s[2] > 0 ? 2 : s[2] < 0 ? 3 : s[0] > 0 ? 4 : 5;
+}
+
+/// The monitored item of each panel, in front of the panel (display items: no client code).
+void panelItems(GlobalPos const& p, Block const&, std::vector<std::pair<std::int64_t, itemrender::DisplayItem>>& out) {
+    auto s = cs::supportOffset(faceOf(p), facingOf(p));
+    for (int slot = 0; slot < 4; ++slot) {
+        auto panel = readPanel(p, slot);
+        if (!active(panel)) continue;
+        auto filter = stackFromJson(panel.value("filter", Json()));
+        if (items::isEmpty(filter)) continue;
+        auto                    c = cs::panelCentre(faceOf(p), facingOf(p), static_cast<cs::PanelSlot>(slot));
+        itemrender::DisplayItem d;
+        d.stack    = filter;
+        d.at       = itemrender::facingFace(panelFace(p));
+        d.at.x     = p.x + c.x - s[0] * .02;
+        d.at.y     = p.y + c.y - s[1] * .02;
+        d.at.z     = p.z + c.z - s[2] * .02;
+        d.at.scale = .3f;
+        out.emplace_back(slot, std::move(d));
+    }
+}
+
+/// What the client mod draws on a gauge besides the items: per panel its count label and the
+/// arrows from the panels it takes input from (Create's FactoryPanelRenderer paths).
+Json gaugeVisual(GlobalPos const& p) {
+    Json panels = Json::array();
+    for (int slot = 0; slot < 4; ++slot) {
+        auto panel = readPanel(p, slot);
+        if (!active(panel)) continue;
+        // the path colour: Create's satisfied / promised / missing states, grey without a target
+        int  count  = panel.value("count", 0);
+        auto colour = count == 0 ? 0x888898 : panel.value("satisfied", false) ? 0x9EF173 : panel.value("promisedSatisfied", false) ? 0xF2C14E : 0xE84D4D;
+        Json from   = Json::array();
+        for (auto const& c : panel.value("targetedBy", Json::array())) {
+            auto at = posFrom(c.value("pos", Json()));
+            if (!at || at->dim != p.dim) continue;
+            from.push_back({{"pos", Json::array({at->x, at->y, at->z})}, {"slot", c.value("slot", 0)}, {"arrow", c.value("arrow", 0)}});
+        }
+        panels.push_back({{"slot", slot}, {"count", countLabel(p, slot, panel)}, {"colour", colour}, {"from", from}});
+    }
+    return {{"pos", Json::array({p.x, p.y, p.z})}, {"face", static_cast<int>(faceOf(p))}, {"facing", facingOf(p)}, {"panels", panels}};
+}
+
+struct VisualSync {
+    std::map<GlobalPos, std::string>  sent;      ///< last payload per gauge
+    std::map<std::int64_t, int>       companion; ///< companions -> dimension of their last full sync (-1: none)
+};
+VisualSync& visuals() {
+    static VisualSync v;
+    return v;
+}
+
+void sendVisuals(Player& player, int dim, Json const& gauges, bool reset) {
+    if (gauges.empty() && !reset) return;
+    net::send(player, "stock.gauge", {{"dim", dim}, {"reset", reset}, {"gauges", gauges}});
+}
+
+/// Every 10 ticks: changed gauges go to the companions of their dimension; a companion that
+/// joined or changed dimension gets every gauge of it.
+void syncVisuals() {
+    auto& v     = visuals();
+    auto  level = ll::service::getLevel();
+    if (!level) return;
+    std::map<int, Json> changed;
+    for (auto const& p : registry().gauges) {
+        if (!blockAt(p) || !isGauge(p)) continue;
+        auto payload = gaugeVisual(p);
+        auto text    = payload.dump();
+        auto it      = v.sent.find(p);
+        if (it != v.sent.end() && it->second == text) continue;
+        v.sent[p] = text;
+        if (!changed.contains(p.dim)) changed[p.dim] = Json::array();
+        changed[p.dim].push_back(payload);
+    }
+    std::erase_if(v.sent, [](auto const& e) { return !registry().gauges.contains(e.first); });
+    level->forEachPlayer([&](Player& pl) {
+        if (!net::isCompanion(pl)) return true;
+        int   dim = static_cast<int>(pl.getDimensionId());
+        auto& d   = v.companion[pl.getOrCreateUniqueID().rawID];
+        if (d != dim) {
+            d        = dim;
+            Json all = Json::array();
+            for (auto const& p : registry().gauges)
+                if (p.dim == dim && blockAt(p) && isGauge(p)) all.push_back(gaugeVisual(p));
+            sendVisuals(pl, dim, all, true);
+        } else if (auto it = changed.find(dim); it != changed.end()) {
+            sendVisuals(pl, dim, it->second, false);
+        }
+        return true;
+    });
+}
+
+} // namespace
+
 void tickGauges() {
+    if (currentTick() % 10 == 0) syncVisuals();
     std::vector<GlobalPos> gone;
     for (auto const& p : registry().gauges) {
         if (!blockAt(p)) continue;
@@ -754,6 +877,12 @@ void setPanelPaused(GlobalPos const& gauge, int slot, bool paused) {
 }
 
 void registerGaugeScreens() {
+    static bool itemsRegistered = false;
+    if (!itemsRegistered) {
+        itemsRegistered = true;
+        itemrender::registerProvider(kFactoryGauge, panelItems);
+        net::onCompanionJoined([](Player& p) { visuals().companion[p.getOrCreateUniqueID().rawID] = -1; });
+    }
     screens::registerType({
         .id   = kScreen,
         .data = [](Player& pl, Json const& ctx) -> std::optional<Json> {

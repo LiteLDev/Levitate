@@ -27,6 +27,8 @@
 #include <string_view>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "core/GlobalPos.h"
 #include "core/kinetics/Solver.h"
 #include "core/kinetics/Spec.h"
@@ -76,6 +78,12 @@ void registerBlock(std::string id, KineticSpec spec);
 /// SU per RPM a block id uses / provides according to the stress table (config `kinetics.json`).
 [[nodiscard]] double stressImpactOf(std::string_view id);
 [[nodiscard]] double stressCapacityOf(std::string_view id);
+/// (U42) The stress tables as sent to client mods: `{impact: {key: su}, capacity: {...}}`.
+[[nodiscard]] nlohmann::json stressTablesJson();
+/// (U42, client mod) The server's tables (`kinetics.stress`, Create syncs its CStress config):
+/// `stressImpactOf` / `stressCapacityOf` read them until cleared (leaving the level).
+void setSyncedStressTables(nlohmann::json const& tables);
+void clearSyncedStressTables();
 
 // ---- changes --------------------------------------------------------------------------------------------------
 /// Speed (RPM, signed) a generator at `pos` produces; Create's `updateGeneratedRotation`.

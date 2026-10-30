@@ -22,6 +22,7 @@
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Interactions.h"
+#include "feature/common/ValueBox.h"
 #include "feature/common/Items.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
@@ -296,6 +297,8 @@ ia::Result stockUseOn(ia::UseOnContext const& c) {
         // one action per click and block
         auto uid = player.getOrCreateUniqueID().rawID;
         if (uid == gLastUser && clicked == gLastUsePos && currentTick() - gLastUseTick < 5) return ia::Result::Consume;
+        // the button is held on a gauge panel / price tag whose hold waits for the client
+        if (common::valuebox::holdPending(player, clicked)) return ia::Result::Consume;
         try {
             if (useOnBlock(player, c.item, clicked, c.face, cs::Vec3d{c.hit[0], c.hit[1], c.hit[2]}, tid)) {
                 gLastUser    = uid;
@@ -528,8 +531,9 @@ private:
     static void tick() {
         try {
             tickNetworks();
-            if (currentTick() % 4 == 0) pollLinks();
-            // requesters every tick: short pulses (observers) must not be missed
+            // Create reacts to neighbour updates at once: links and requesters are read every
+            // tick (custom blocks get no neighbour updates), so short pulses are never missed
+            pollLinks();
             for (auto const& p : std::vector<GlobalPos>(registry().requesters.begin(), registry().requesters.end())) pollRequester(p);
             tickGauges();
         } catch (std::exception const& e) {

@@ -4,14 +4,31 @@
     "description": {
       "identifier": "levitate:goggles"
     },
-    "tags": ["crafting_table"],
-    "pattern": [" S ", "GPG"],
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " S ",
+      "LPL"
+    ],
     "key": {
-      "S": { "item": "minecraft:string" },
-      "G": { "item": "minecraft:glass" },
-      "P": { "item": "levitate:golden_sheet" }
+      "S": {
+        "item": "minecraft:string"
+      },
+      "L": {
+        "item": "minecraft:glass"
+      },
+      "P": {
+        "item": "levitate:golden_sheet"
+      }
     },
-    "unlock": [{ "item": "levitate:golden_sheet" }],
-    "result": { "item": "levitate:goggles" }
+    "unlock": [
+      {
+        "item": "levitate:golden_sheet"
+      }
+    ],
+    "result": {
+      "item": "levitate:goggles"
+    }
   }
 }

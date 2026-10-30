@@ -295,6 +295,28 @@ LV_REGISTER_SELFTEST("stock.gauge_restock", [](Context& ctx) -> ll::coro::CoroTa
     ctx.check(stock::gaugeInfo(gauge, 0).value("restocker", false), "a gauge on a packager restocks");
     ctx.check(lv::feature::common::valuebox::apply(p, gauge, "panel0", {0, 20}), "the target amount is set on the board");
     net::setTestCompanion(p, true);
+    {
+        // client mod: click and hold (U42): a short click opens the panel screen, holding the board
+        p.setSelectedItem(items::empty());
+        auto lastToken = [&] {
+            std::uint64_t t = 0;
+            for (auto const& m : net::takeTestMessages(p)) {
+                if (m.channel == "valuebox.hold") t = m.payload.value("token", std::uint64_t{0});
+                if (m.channel == "screen.open" || m.channel == "valuebox.open") t = ~std::uint64_t{0};
+            }
+            return t;
+        };
+        (void)net::takeTestMessages(p);
+        stock::useGauge(p, gauge, 0, false);
+        auto token = lastToken();
+        ctx.check(token != 0 && token != ~std::uint64_t{0}, "an empty-hand click waits for the hold");
+        net::injectFromClient(p, "valuebox.release", {{"token", token}, {"state", "short"}});
+        ctx.check(lastToken() == ~std::uint64_t{0}, "a short click opens the panel screen");
+        stock::useGauge(p, gauge, 0, false);
+        token = lastToken();
+        net::injectFromClient(p, "valuebox.release", {{"token", token}, {"state", "hold"}});
+        ctx.check(lastToken() == ~std::uint64_t{0}, "holding opens the target amount board");
+    }
     net::injectFromClient(p, "screen.action", {{"type", "stock.gauge"}, {"context", {{"pos", stock::posJson(gauge)}, {"slot", 0}}}, {"action", {{"op", "set"}, {"address", "Furnace"}}}});
     net::setTestCompanion(p, false);
     (void)net::takeTestMessages(p);
