@@ -2149,16 +2149,30 @@ first), simulated first so nothing is lost. 64 RPM: 32 mB/t; 256 RPM: 128 mB/t.
 a cauldron or beehive (not towards a pipe, a pump on that axis, a sturdy face or a fluid handler).
 Pulling drains a source block (1000 mB; water keeps its source when two neighbouring water sources
 and a solid block or source below would refill it — Java's `waterSourceConversion`, config; lava only
-with `lavaSourceConversion`), a full cauldron (1000 mB) or a full beehive (250 mB of honey). Pushing
+with `lavaSourceConversion`), a full cauldron (1000 mB), a full beehive (250 mB of honey) or the water
+of a waterlogged block (1000 mB; the block stays, dry). A waterloggable block (Java's `WATERLOGGED`
+property: on Bedrock the block's water detection rule, vanilla blocks and custom blocks with
+`minecraft:liquid_detection`) without a sturdy face towards the pipe is an open end too. Pushing
 fills the buffer and places the fluid's source block once it holds 1000 mB (not on a source, not when
-`pipesPlaceFluidSourceBlocks` is off; water evaporates in the Nether with the fizz sound); fluids
+`pipesPlaceFluidSourceBlocks` is off; water evaporates in the Nether with the fizz sound); in front of
+a waterloggable block only water goes out, waterlogging it (not when it already is); fluids
 without a world block (milk, potions, tea, and honey / chocolate until U19 gives them blocks) are used
 up 1 mB per transfer while their effect applies. Pouring into another fluid reacts (water on a lava
 source: obsidian, on flowing lava: cobblestone; lava on a water source: stone, on flowing water:
 cobblestone). Effects on the block in front and one below (two when the pipe faces down): water every
 5 ticks puts out burning entities, fire, campfires and candles; lava every 5 ticks sets non-immune
 entities on fire for 3 s; milk every 5 ticks clears the effects of living entities; tea every 5 ticks
-gives Haste I for 21 ticks (hidden); potions apply the potion's effects on every transfer.
+gives Haste I for 21 ticks (hidden); potions apply the potion's effects on every transfer, instant ones
+(healing, harming) at half strength (`MobEffect::applyInstantaneousEffect` with scale 0.5, Create's
+PotionEffectHandler). Fluid pipes, glass pipes, pumps, valves and smart pipes are waterloggable
+(`minecraft:liquid_detection`): placed in water they keep it. Logs: `pipes: drained the water of the
+waterlogged <block> at ...`, `pipes: waterlogged the <block> at ...`.
+
+**Particles** (Create's PipeConnection / FluidFX, for every client: the server spawns the resource
+pack particles `levitate:fluid_particle` and `levitate:fluid_drip`, tinted with the fluid's colour,
+for the players within 20 blocks): every tick each pipe face with a flow pours one particle out of an
+open end (sucked in towards the face when pulling), or drips one at its rim with a chance of 1/1000;
+a flow that just started splashes once (a rim drip, at open ends the stream).
 
 **Valves**: a kinetic shaft on the axis that is neither its facing nor its pipe axis. Positive speed
 moves the pointer towards open, zero or negative towards closed, at `min(|RPM| / 320, 1)` per tick; it
@@ -2171,7 +2185,11 @@ redistributes the network.
 **Persistence**: pressures, flows and open end buffers in `lv:pipes:model` (Create saves them in the
 pipe block entities; the phase restarts after a load), valve pointers alongside, brackets in BlockData
 `data["pipes"]["bracket"]`. **Client**: glass pipes show the fluid inside through `levitate:fluid`
-(every client, mod or not); pumps' cogs and valves' shafts rotate through the kinetic renderer (U2).
+(vanilla clients); the client mod draws Create's flow fronts instead (TransparentStraightPipeRenderer:
+per face with a flow, a 6 px wide column of the fluid growing `progress / 2` blocks from the face
+(inbound) or from the centre (outbound), advanced every tick at the flow's speed; the server sends the
+flows of glass pipes over `pipes.glass` when they change, chunk meshes leave the static fluid out);
+pumps' cogs and valves' shafts rotate through the kinetic renderer (U2).
 **Command** `/create pipes <pos>` (op): pressures, flows and transfers of a pipe.
 
 #### 3.6.18 Fluid tanks, boilers, steam engines and whistles (U18)
@@ -2311,11 +2329,20 @@ contraptions (data carrier `fluids`). Every machine exposes the U3 fluid capabil
   `len × loops` steps one result is picked by weight (Create's rollResult).
 - **Spout**: 1000 mB tank, filled from every side but the nozzle (bottom). It processes the item two
   blocks below (the block between must have no collision, funnels excepted: Create's
-  BeltProcessingBehaviour). The item is the slot 0 seen from the top through the item capability of
-  a **Levitate** block (depots, belts; vanilla containers have no processing behaviour). Filling
-  takes 20 ticks (FILLING_TIME); the item is filled 15 ticks in, one item per cycle; the result goes
-  back through the capability (leftovers drop). With too little fluid it waits. A cauldron two
-  blocks below is filled with a whole bucket (water, lava, powder snow). Sounds: start / fill.
+  BeltProcessingBehaviour). Belts and depots (U11) hold the item through their processing behaviour
+  (`belts::registerProcessor`, Create's onItemReceived / whenItemHeld): an item that can be filled
+  stops at the centre of the segment under the spout (also with an empty tank), is filled one at a
+  time (the filled one moves on, the rest of the stack stays held) and an item the fluid can't fill
+  passes. Other **Levitate** blocks exposing the item as slot 0 from the top through the item
+  capability are filled through it (the result goes back, leftovers drop; vanilla containers have no
+  processing behaviour). Filling takes 20 ticks (FILLING_TIME); the item is filled 15 ticks in, one
+  item per cycle. With too little fluid it waits. A cauldron two blocks below is filled with a whole
+  bucket (water, lava, powder snow). Sounds: start / fill. Particles for every client (U17's
+  `levitate:fluid_particle`): a drop leaves the nozzle every tick from 20 to 8 ticks left, 20 drops
+  splash off the item when it is filled. Client mod: the stream (its width follows Create's
+  `((2p − 1)² − 1) / 32`) and the nozzle drawn in three bits (top, middle, bottom) that squeeze
+  together (Create's squeeze: the stream's curve, −1 from 10 to 2 ticks left, then back; each bit
+  `3/32 · squeeze` above the one before), the chunk mesh leaving them out (`levitate:nozzle` 1).
   Logs: `spout at x y z filled <in> into <out>`, `... filled a cauldron with <fluid>`.
 - **Item drain**: 1500 mB tank, pipes extract on every side, nothing is inserted from outside.
   Items enter through the item capability (one at a time when they hold fluid, otherwise the whole
@@ -3802,17 +3829,13 @@ matches Create's official Chinese translation wording).
 | Sequenced assembly steps on the saw (U16) | the sequenced assembly state belongs to U15 | the saw cuts plain `cutting` recipes; U15 adds the sequenced cutting step |
 | Block break sounds of the drill / saw per block sound type (U16) | the server can't name a block's hit sound for a PlaySound packet | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone` by the block id |
 | Saw / drill damage source names (U16) | Bedrock has no custom damage causes | contact damage (death message of a cactus-like cause) |
-| Fluid moving through glass pipes drawn by a block entity renderer, with the flow front advancing (U17) | custom blocks have no block entity renderer on Bedrock | the glass pipe's `levitate:fluid` state shows the fluid filling the pipe as soon as a flow starts (all clients, with or without the mod); the front's progress is not drawn |
-| Waterlogged pipes, pumps and valves (U17) | Bedrock custom blocks have no waterlogged state the server can set | open ends don't drain or fill waterlogged blocks; pipes in water are not waterlogged |
-| Pipe particles (drips at rims, splashes, the pouring stream of open ends) (U17) | Create's fluid particles need fluid-tinted particle types | not shown yet |
-| Instant potion effects from open ends at half strength (U17) | Bedrock applies instantaneous effects through `addEffect` at full strength | instant potion effects apply at full strength |
+| Glass pipe flow fronts for **vanilla** clients (U17) | no client-side rendering without the client mod; a block state per progress step, face and fluid would not fit | the client mod draws Create's advancing fronts; vanilla clients see the glass pipe's `levitate:fluid` state fill the whole pipe as soon as a flow starts |
 | Fluid inside tanks and the moving engine piston for **vanilla** clients (U18) | no client-side rendering without the client mod; a fluid level per block would need a block state per level and fluid | the client mod draws them; vanilla clients see the tank (windows show an empty inside) and a static engine |
 | Whistle redstone input (U18) | custom blocks get no redstone neighbour update | the whistle polls its neighbours' redstone power every 2 ticks (as the sticker, U4) |
 | Boiler gauges for **vanilla** clients (U18) | the needle moves with the boiler level: client-side drawing (the client mod draws the gauges); a block state per needle position and side would need hundreds of tank states | vanilla clients see the boiler without gauges; the goggle lines (`/create steam`, U8's overlay) show the same status |
 | Flowing honey/chocolate in the world (U19) | Bedrock has no data-driven custom fluids: a custom block can't flow, be swum in or use the fluid renderer | they exist everywhere fluids are handled (pipes, tanks, basins, spouts, drains, buckets); in the world a bucket or a hose pulley places a translucent, non-colliding, non-flowing source block (`levitate:honey` / `levitate:chocolate`) that buckets and hose pulleys pick up again; entities in it are slowed (Slowness II) and take no fall damage instead of Create's viscous fluid motion; lava touching it turns into obsidian / limestone / scoria; no fog colour under it |
 | Hose drawn for **vanilla** clients (U19) | Create draws the hose with a block entity renderer; a block in its place would block the fluid it hangs in | the client mod draws the hose and its end piece; vanilla clients see the pulley only (draining and filling work the same) |
-| Spout nozzle squeeze and splash particles (U19) | client-side animation and fluid particles | the client mod draws Create's fluid stream (its width follows Create's curve over the 20 ticks); the nozzle model is static; vanilla clients hear the sounds only |
-| Spout over a moving belt item (U19 + U11) | wave-2 units can't call each other: the spout sees the item through the item capability (slot 0 from the top of a Levitate block) and can't stop a belt item itself | works on depots (and any block that exposes the item at its centre as slot 0); belt items are filled when the belt unit exposes the item under the spout that way |
+| Spout stream and nozzle squeeze for **vanilla** clients (U19) | no client-side animation without the client mod | the client mod draws Create's stream and squeezes the nozzle; vanilla clients see the static nozzle and the drops and splash (particles, every client) and hear the sounds |
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
 | Elevator door control acting on doors (U20) | the sliding / train doors are U10's | the mode is stored per contact (`data["pistons"]["door"]`) for U10 to apply |
