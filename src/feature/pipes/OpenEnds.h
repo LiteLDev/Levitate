@@ -19,6 +19,10 @@ struct WorldFluid {
 [[nodiscard]] std::optional<WorldFluid> worldFluidAt(BlockSource& region, BlockPos const& pos);
 /// Create's `VanillaFluidTargets.canProvideFluidWithoutCapability` (beehives, cauldrons).
 [[nodiscard]] bool canProvideFluidWithoutCapability(Block const& block);
+/// The block can be waterlogged (Java's WATERLOGGED property): its water detection rule allows water.
+[[nodiscard]] bool canContainWater(Block const& block);
+/// The block at `pos` holds a water source in its liquid layer.
+[[nodiscard]] bool waterlogged(BlockSource& region, BlockPos const& pos);
 
 /// Create's `OpenEndedPipe.removeFluidFromSpace` / `provideFluidToSpace`.
 cp::Fluid removeFluidFromSpace(BlockSource& region, BlockPos const& out, bool simulate);

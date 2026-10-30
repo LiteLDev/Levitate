@@ -16,6 +16,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "feature/common/BlockData.h"
+#include "feature/belts/BeltApi.h"
 #include "feature/common/Items.h"
 #include "feature/fluids/FluidsInternal.h"
 #include "game/Blocks.h"
@@ -104,9 +105,18 @@ void output(BlockSource& region, GlobalPos const& p, Held& held) {
     GlobalPos next = offsetPos(p, side);
     auto      id   = blockIdAt(next);
     common::Access acc{region, toBlockPos(next), cf::oppositeFace(side)};
-    if (id.starts_with("levitate:") && items::find(acc)) {
-        // Create's DirectBeltInputBehaviour of belts, depots, chutes, funnels, drains, ...
-        auto rest = items::insert(region, toBlockPos(next), cf::oppositeFace(side), held.stack, false);
+    bool direct = belts::hasDirectInput(next);
+    if (direct || (id.starts_with("levitate:") && items::find(acc))) {
+        // Create's DirectBeltInputBehaviour of belts, depots, chutes, funnels, drains, basins, ...
+        ItemStack rest;
+        if (direct) {
+            belts::TransportedItem t;
+            t.stack        = held.stack;
+            t.insertedFrom = side;
+            rest           = belts::insertDirect(next, t, side, false);
+        } else {
+            rest = items::insert(region, toBlockPos(next), cf::oppositeFace(side), held.stack, false);
+        }
         if (items::countOf(rest) == items::countOf(held.stack)) return;
         log().info("item drain at {} {} {} passed {} on", p.x, p.y, p.z, items::idOf(held.stack));
         // the insertion may have touched other BlockData documents: look ours up again
@@ -231,6 +241,14 @@ void registerDrain() {
         return out;
     };
     items::registerBlock(kItemDrain, ih);
+    // Create's ItemDrainBlockEntity has a DirectBeltInputBehaviour: belt ends, saws, chutes, ...
+    // hand their items straight in (an item travelling `side` enters through the opposite face)
+    belts::registerDirectInput(kItemDrain, belts::DirectInput{
+        .canInsertFromSide = [](GlobalPos const&, int side) { return side != 1; },
+        .insert = [](GlobalPos const& p, belts::TransportedItem const& item, int side, bool simulate) {
+            return insertInto(p, item.stack, side >= 0 && side <= 5 ? side ^ 1 : 1, simulate);
+        },
+    });
 
     // fluids: the tank, extraction only
     cfl::Handler fh;

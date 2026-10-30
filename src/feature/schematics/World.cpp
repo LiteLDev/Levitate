@@ -9,16 +9,24 @@
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/core/string/HashedString.h"
+#include "mc/dataloadhelper/DataLoadHelper.h"
+#include "mc/deps/ecs/gamerefs_entity/EntityContext.h"
+#include "mc/deps/ecs/gamerefs_entity/GameRefsEntity.h"
+#include "mc/dataloadhelper/DefaultDataLoadHelper.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/network/MinecraftPackets.h"
 #include "mc/network/packet/PlaySoundPacket.h"
 #include "mc/network/packet/TextPacket.h"
 #include "mc/network/packet/TextPacketPayload.h"
 #include "mc/network/packet/TextPacketType.h"
+#include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorFactory.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemInstance.h"
 #include "mc/world/item/ItemStack.h"
+#include "mc/world/item/SaveContext.h"
+#include "mc/world/item/SaveContextFactory.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
@@ -26,8 +34,10 @@
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/BlockChangeContext.h"
 #include "mc/world/level/block/BlockType.h"
+#include "mc/world/level/block/actor/BlockActor.h"
 #include "mc/world/level/block/actor/BlockActorType.h"
 #include "mc/world/level/dimension/Dimension.h"
+#include "mc/world/phys/AABB.h"
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
@@ -455,6 +465,134 @@ std::optional<ItemStack> makeSchematic(std::string const& file, std::string cons
     if (auto loaded = loadSchematic(owner, file)) d.size = loaded->schematic.size;
     setSchematicData(*s, d);
     return s;
+}
+
+// ---- block entities and entities (Create's StructureTemplate with entities) ----------------------
+
+namespace {
+
+cs::nbt::Tag floatList(std::initializer_list<double> v) {
+    cs::nbt::List l{cs::nbt::Type::Float, {}};
+    for (double x : v) l.items.emplace_back(static_cast<float>(x));
+    return cs::nbt::Tag(std::move(l));
+}
+
+std::vector<double> numbers(cs::nbt::Tag const* t) {
+    std::vector<double> out;
+    if (!t || !t->asList()) return out;
+    for (auto const& i : t->asList()->items) {
+        if (auto const* f = std::get_if<float>(&i.v)) out.push_back(*f);
+        else if (auto const* d = std::get_if<double>(&i.v)) out.push_back(*d);
+        else if (auto n = i.asInt()) out.push_back(static_cast<double>(*n));
+    }
+    return out;
+}
+
+/// The game's DefaultDataLoadHelper (no data: only its vtable), for loading saved NBT as is.
+DataLoadHelper& defaultLoadHelper() {
+    static void** helper = DefaultDataLoadHelper::$vftable();
+    return *reinterpret_cast<DataLoadHelper*>(&helper);
+}
+
+/// Where a point of the schematic (block units from its local origin) lands, and the transformed
+/// horizontal direction (dx, dz): mirror then rotate, as the blocks (cs::apply).
+std::pair<std::array<double, 3>, std::array<double, 2>>
+transformPoint(cs::Transform const& t, cs::Pos anchor, std::array<double, 3> local, std::array<double, 2> dir) {
+    cs::Pos o  = cs::apply(t, {0, 0, 0});
+    cs::Pos ax = cs::apply(t, {1, 0, 0}) - o;
+    cs::Pos az = cs::apply(t, {0, 0, 1}) - o;
+    cs::Pos b{static_cast<int>(std::floor(local[0])), static_cast<int>(std::floor(local[1])), static_cast<int>(std::floor(local[2]))};
+    cs::Pos wb = anchor + cs::apply(t, b);
+    double  fx = local[0] - b.x - 0.5, fz = local[2] - b.z - 0.5;
+    std::array<double, 3> at{wb.x + 0.5 + ax.x * fx + az.x * fz, wb.y + (local[1] - b.y), wb.z + 0.5 + ax.z * fx + az.z * fz};
+    std::array<double, 2> d{ax.x * dir[0] + az.x * dir[1], ax.z * dir[0] + az.z * dir[1]};
+    return {at, d};
+}
+
+} // namespace
+
+void captureExtras(int dim, cs::Pos lo, cs::Pos hi, cs::Schematic& s) {
+    auto* region = regionOf(dim);
+    if (!region) return;
+    auto ctx = SaveContextFactory::createCloneSaveContext();
+    for (int x = lo.x; x <= hi.x; ++x)
+        for (int y = lo.y; y <= hi.y; ++y)
+            for (int z = lo.z; z <= hi.z; ++z) {
+                GlobalPos g{dim, x, y, z};
+                if (!loaded(g)) continue;
+                auto* be = region->getBlockEntity(BlockPos{x, y, z});
+                if (!be) continue;
+                CompoundTag tag;
+                if (!be->save(tag, *ctx)) continue;
+                if (auto t = toCore(tag)) s.blockEntities[s.index({x - lo.x, y - lo.y, z - lo.z})] = std::move(*t);
+            }
+    // entities whose position is inside the area (Create: getEntitiesOfClass over the bounds), no players
+    AABB box{Vec3{float(lo.x), float(lo.y), float(lo.z)}, Vec3{float(hi.x + 1), float(hi.y + 1), float(hi.z + 1)}};
+    for (auto* a : region->getEntities(box, 0.f)) {
+        if (!a || a->isPlayer()) continue;
+        Vec3 const& p = a->getPosition();
+        if (p.x < lo.x || p.y < lo.y || p.z < lo.z || p.x >= hi.x + 1 || p.y >= hi.y + 1 || p.z >= hi.z + 1) continue;
+        CompoundTag tag;
+        if (!a->save(tag)) continue;
+        if (auto t = toCore(tag)) s.entityTags.push_back(std::move(*t));
+    }
+    s.entities = static_cast<int>(s.entityTags.size());
+}
+
+bool placeBlockEntity(GlobalPos const& at, cs::nbt::Tag const& data, cs::Pos origin, cs::Transform const& t, cs::Pos anchor) {
+    auto* region = regionOf(at.dim);
+    auto  level  = ll::service::getLevel();
+    if (!region || !level || !data.asCompound()) return false;
+    auto* be = region->getBlockEntity(bp(at));
+    if (!be) return false;
+    auto copy = data;
+    copy.asCompound()->set("x", cs::nbt::Tag(std::int32_t(at.x)));
+    copy.asCompound()->set("y", cs::nbt::Tag(std::int32_t(at.y)));
+    copy.asCompound()->set("z", cs::nbt::Tag(std::int32_t(at.z)));
+    // a double chest's other half (absolute pairx / pairz) moves and turns like the blocks
+    auto const* px = copy.asCompound()->find("pairx");
+    auto const* pz = copy.asCompound()->find("pairz");
+    if (px && pz && px->asInt() && pz->asInt()) {
+        cs::Pos local{static_cast<int>(*px->asInt()) - origin.x, at.y, static_cast<int>(*pz->asInt()) - origin.z};
+        cs::Pos pair = anchor + cs::apply(t, {local.x, 0, local.z});
+        copy.asCompound()->set("pairx", cs::nbt::Tag(std::int32_t(pair.x)));
+        copy.asCompound()->set("pairz", cs::nbt::Tag(std::int32_t(pair.z)));
+    }
+    auto tag = gameTag(copy);
+    if (!tag) return false;
+    be->load(*level, *tag, defaultLoadHelper());
+    be->refresh(*region);
+    return true;
+}
+
+Actor* placeEntity(int dim, cs::nbt::Tag const& data, cs::Pos origin, cs::Transform const& t, cs::Pos anchor) {
+    auto* region = regionOf(dim);
+    auto  level  = ll::service::getLevel();
+    if (!region || !level || !data.asCompound()) return nullptr;
+    auto  copy = data;
+    auto& c    = *copy.asCompound();
+    auto  pos  = numbers(c.find("Pos"));
+    if (pos.size() != 3) return nullptr;
+    auto   rot = numbers(c.find("Rotation"));
+    double yaw = rot.size() == 2 ? rot[0] : 0, pitch = rot.size() == 2 ? rot[1] : 0;
+    double rad = yaw * 3.14159265358979323846 / 180.0;
+    auto [at, dir] = transformPoint(t, anchor, {pos[0] - origin.x, pos[1] - origin.y, pos[2] - origin.z}, {-std::sin(rad), std::cos(rad)});
+    double newYaw  = std::atan2(-dir[0], dir[1]) * 180.0 / 3.14159265358979323846;
+    c.set("Pos", floatList({at[0], at[1], at[2]}));
+    c.set("Rotation", floatList({newYaw, pitch}));
+    // a new entity: the game gives it a new id; riders / leashes of the copy are not linked
+    for (auto const* k : {"UniqueID", "LinksTag", "LeasherID"}) {
+        auto i = std::find(c.keys.begin(), c.keys.end(), k);
+        if (i == c.keys.end()) continue;
+        auto n = static_cast<std::size_t>(i - c.keys.begin());
+        c.keys.erase(i);
+        c.values.erase(c.values.begin() + static_cast<std::ptrdiff_t>(n));
+    }
+    auto tag = gameTag(copy);
+    if (!tag) return nullptr;
+    auto owner = level->getActorFactory().loadActor(tag.get(), defaultLoadHelper(), region->getDimension().mHeightRange.get(), nullptr);
+    if (!owner) return nullptr;
+    return level->addEntity(*region, std::move(owner));
 }
 
 } // namespace lv::feature::schematics

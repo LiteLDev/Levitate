@@ -490,6 +490,19 @@ public:
             IndexScreen::openIndexEntries();
         });
         (void)all;
+        // Create's "Ponder" key mapping (Controls screen there): click, then press the new key
+        auto& key = add<screen::IconButton>(Rect{width - 60, height - 22, 52, 16}, keyLabel(), [this] {
+            if (rebinding()) return;
+            mKey->symbol  = "> ? <";
+            mKey->toggled = true;
+            rebindPonderKey([this](int) {
+                if (screen::current() != this) return;
+                mKey->symbol  = keyLabel();
+                mKey->toggled = false;
+            });
+        });
+        key.tooltip = {ctr("lv.ponder.key", "Ponder Key"), ctr("lv.ponder.key.rebind", "Click, then press the new key (Esc cancels)")};
+        mKey        = &key;
         log().info("ponder: index of {} categories opened", tags.size());
     }
     void renderExtra(Canvas& c, float, float) override {
@@ -497,6 +510,15 @@ public:
                                   [&](std::string const& s) { return c.textWidth(s); });
         for (std::size_t i = 0; i < lines.size() && i < 2; ++i) c.text(width / 2, height - 44 + static_cast<float>(i) * 9, lines[i], color::kTextDark, Align::Centre, false);
     }
+
+    void onClose() override {
+        PonderScreen::onClose();
+        if (rebinding()) cancelRebind(); // a key pressed later must not become the Ponder key
+    }
+
+private:
+    static std::string keyLabel() { return "[" + keyName(ponderKeyCode()) + "]"; }
+    screen::IconButton* mKey = nullptr;
 };
 
 } // namespace

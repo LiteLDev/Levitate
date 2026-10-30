@@ -96,6 +96,8 @@ void tickMillstone(BlockSource& region, GlobalPos const& pos) {
     auto const* d = blockdata::get(pos);
     if (!d || !d->contains("bulk")) return;
     auto v = load(pos);
+    // Create's tickAudio: the MILLING soundscape while there is an input
+    if (!items::isEmpty(v.input)) addScapeSource(Scape::Milling, pos, std::clamp(std::abs(speed) / 256.f + .45f, .85f, 1.f));
     // Create stops while an output slot is at its slot limit (64)
     for (auto const& s : v.outputs)
         if (items::countOf(s) == 64) return;

@@ -83,5 +83,7 @@
   "lv.display.clipboard.page": "Page",
   "lv.display.clipboard.title": "Clipboard",
   "lv.display.link.none": "(none)",
-  "lv.display.link.option_text": "Edit text options"
+  "lv.display.link.option_text": "Edit text options",
+  "lv.display.key.use": "Right-Click",
+  "lv.display.key.attack": "Left-Click"
 }

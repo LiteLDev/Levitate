@@ -13,6 +13,7 @@
 // Speeds come from the kinetic sync (client/kinetics/KineticsClient.h onSync; this file keeps its
 // own copy).
 
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -20,6 +21,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <shared_mutex>
 #include <unordered_map>
 #include <unordered_set>
@@ -71,6 +73,7 @@
 
 #include "client/Client.h"
 #include "client/kinetics/KineticsClient.h"
+#include "client/render/Outline.h"
 #include "core/generators/Generators.h"
 #include "core/kinetics/RotorModel.h"
 #include "core/kinetics/Solver.h"
@@ -420,6 +423,35 @@ LL_STATIC_HOOK(
     return origin(block, iterData, extraction, worldView, shouldGenerateFaceCulling, visualReference, tintResolver, biomeTintCache, chunkMinPos, checkIgnoreBlockTransforms);
 }
 
+namespace {
+/// Create's Outliner box of the missing room when a large water wheel can't be placed
+/// (`generators.room`, 0xff5d6c), shown for a second.
+struct RoomOutline {
+    std::array<double, 3>                 lo{}, hi{};
+    std::chrono::steady_clock::time_point until{};
+};
+std::mutex& roomMutex() {
+    static std::mutex m;
+    return m;
+}
+std::optional<RoomOutline>& room() {
+    static std::optional<RoomOutline> r;
+    return r;
+}
+
+void renderRoom(BaseActorRenderContext& ctx) {
+    std::optional<RoomOutline> r;
+    {
+        std::lock_guard lock(roomMutex());
+        if (room() && std::chrono::steady_clock::now() > room()->until) room().reset();
+        r = room();
+    }
+    if (!r) return;
+    render::Lines lines(ctx);
+    lines.outline(r->lo, r->hi, render::kRed, 1.0 / 16);
+}
+} // namespace
+
 LL_TYPE_INSTANCE_HOOK(
     GeneratorsRenderHook,
     ll::memory::HookPriority::Normal,
@@ -433,6 +465,7 @@ LL_TYPE_INSTANCE_HOOK(
     if (renderAlphaLayer) return;
     try {
         renderHandles(renderContext);
+        renderRoom(renderContext);
     } catch (...) {
     }
 }
@@ -448,6 +481,15 @@ public:
             syncRegistered = true;
             kinetics::onSync([](ks::Batch const& batch) { onSync(&batch); });
         }
+        feature::net::client::on("generators.room", [](nlohmann::json const& msg) {
+            auto lo = msg.value("lo", nlohmann::json::array()), hi = msg.value("hi", nlohmann::json::array());
+            if (lo.size() != 3 || hi.size() != 3) return;
+            std::lock_guard lock(roomMutex());
+            room() = RoomOutline{{lo[0].get<double>(), lo[1].get<double>(), lo[2].get<double>()},
+                                 {hi[0].get<double>(), hi[1].get<double>(), hi[2].get<double>()},
+                                 std::chrono::steady_clock::now() + std::chrono::seconds(1)};
+            log().info("generators client: missing room outlined at {} {} {}", lo[0].get<double>(), lo[1].get<double>(), lo[2].get<double>());
+        });
         feature::net::client::on("generators.valve", [](nlohmann::json const& msg) {
             auto pos = msg.value("pos", nlohmann::json::array());
             if (!pos.is_array() || pos.size() != 4) return;

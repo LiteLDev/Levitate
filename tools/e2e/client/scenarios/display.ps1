@@ -3,7 +3,7 @@
 #   a row of nixie tubes, the display link screen and the clipboard screen.
 #   local / remote-mod: the client mod draws the text (split flaps, nixie glyphs), native screens.
 #   remote-vanilla:     name-tag text and server forms.
-# Screenshots: out/display/{board,link-screen|link-form,clipboard-screen|clipboard-form}.png
+# Screenshots: out/display/{board,link-screen|link-form,clipboard-tip,clipboard-screen|clipboard-form}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 if (-not $vanilla) {
     Wait-LogLine 'companion: server accepted the handshake' 90 | Out-Null
@@ -62,8 +62,17 @@ if ($script:Mode -eq 'local') {
 
 # the clipboard (last: closing it may leave the inventory open): right-click in the air opens it
 Invoke-Chat '/give @s levitate:clipboard 1'
-Invoke-Chat '/tp @s ~ ~ ~ 0 -90'
 Press-Key '1'
+if (-not $vanilla) {
+    # U44: Create's "Clipboard Actions" tip and white outline on a block with settings
+    $mark = Get-LogMark
+    Invoke-Chat '/setblock ~ ~ ~2 levitate:creative_motor'
+    Invoke-Chat '/tp @s ~ ~ ~ 0 35'
+    Wait-LogLine 'clipboard: showing the Clipboard Actions tip \(2 lines\)' 20 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 600
+    Save-Screenshot 'clipboard-tip' | Out-Null
+}
+Invoke-Chat '/tp @s ~ ~ ~ 0 -90'
 Start-Sleep -Milliseconds 600
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right

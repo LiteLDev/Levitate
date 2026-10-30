@@ -1,4 +1,4 @@
-// Selftests of the pipes unit (U17, testPos dx 1700..1799), plus the test-only tank block
+// Selftests of the pipes unit (U17, testPos dx 1700..1799; U40's additions 4000..4039), plus the test-only tank block
 // `levitate:pipes_test_tank` (an 8-bucket fluid handler kept in BlockData) that stands in for the
 // fluid tanks of U18 so pumps can be tested tank to tank.
 
@@ -24,7 +24,10 @@
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "feature/kinetics/Kinetics.h"
+#include "feature/net/Net.h"
+#include "feature/pipes/FluidFX.h"
 #include "feature/pipes/OpenEnds.h"
+#include "feature/pipes/PipeEffects.h"
 #include "feature/pipes/Pipes.h"
 #include "game/Blocks.h"
 #include "selftest/SelfTest.h"
@@ -35,6 +38,7 @@ namespace {
 
 using selftest::Context;
 namespace bd = common::blockdata;
+namespace ft = common::fluidtypes;
 
 constexpr char kTestTank[] = "levitate:pipes_test_tank";
 constexpr int  kTankCap    = 8000;
@@ -85,11 +89,15 @@ struct TestTankRegistrar {
 
 // ---- helpers -------------------------------------------------------------------------------------
 
+/// testPos puts dx 40xx 155 blocks south, outside the run's ticking area (z +-64): the U40 tests
+/// move 201 blocks north, to rows no unit uses (z -46..-42), so their entities keep ticking.
+constexpr int kU40Shift = -201;
+
 struct Area {
     Context& ctx;
     int      base;
     GlobalPos at(int dx, int dy = 0, int dz = 0) const {
-        auto p = ctx.testPos(base + dx, dz);
+        auto p = ctx.testPos(base + dx, dz + (base >= 4000 ? kU40Shift : 0));
         p.y += dy + 1;
         return p;
     }
@@ -488,6 +496,144 @@ LV_REGISTER_SELFTEST("pipes.milk", [](Context& ctx) -> ll::coro::CoroTask<> {
     ctx.check(cured, "milk poured out of a pipe clears effects");
     ctx.check(tankContents(at(0)).amount < 8000, "milk left the tank");
     ctx.check(game::blockIdAt(region(), toBlockPos(out)) == "minecraft:air", "milk has no world block");
+});
+
+// ---- waterlogging (Create's SimpleWaterloggedBlock and OpenEndedPipe's WATERLOGGED paths) -------------
+
+namespace {
+bool waterlog(GlobalPos const& p) {
+    auto const* water = game::blockWith("minecraft:water");
+    return water && region().setExtraBlock(toBlockPos(p), *water, 3);
+}
+bool isWaterlogged(GlobalPos const& p) { return waterlogged(region(), toBlockPos(p)); }
+} // namespace
+
+LV_REGISTER_SELFTEST("pipes.waterloggable", [](Context& ctx) {
+    for (char const* id : {kFluidPipe, kGlassPipe, kPump, kValve, kSmartPipe, "minecraft:oak_fence"}) {
+        auto const* b = game::blockWith(id);
+        ctx.check(b && canContainWater(*b), std::string(id) + " can be waterlogged");
+    }
+    for (char const* id : {kEncasedPipe, "minecraft:stone"}) {
+        auto const* b = game::blockWith(id);
+        ctx.check(b && !canContainWater(*b), std::string(id) + " can't be waterlogged");
+    }
+});
+
+LV_REGISTER_SELFTEST("pipes.waterlogged_open_end", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 4000};
+    ctx.require(co_await ctx.ensureLoaded(a.at(5)), "test area loaded");
+    // a waterlogged fence walled in by stone, an open end pulling from it into a tank
+    auto fence = a.at(1);
+    for (auto const& p : {a.at(0), a.at(1, -1), a.at(1, 0, -1), a.at(1, 0, 1)}) ctx.setBlock(p, "minecraft:stone");
+    ctx.setBlock(fence, "minecraft:oak_fence");
+    ctx.require(waterlog(fence) && isWaterlogged(fence), "the fence is waterlogged");
+    ctx.setBlock(a.at(2), kFluidPipe, faces(kX));
+    pumpAt(ctx, a.at(3), Face::East, 128);
+    ctx.setBlock(a.at(4), kFluidPipe, faces(kX));
+    tank(ctx, a.at(5), {});
+    ctx.check(model().host().isOpenEnd(a.at(2), Face::West), "a waterloggable block is an open end");
+    bool drained = co_await waitFor([&] { return tankContents(a.at(5)).amount == 1000; }, 200);
+    ctx.check(drained, "the waterlogged fence gave a bucket of water (" + std::to_string(tankContents(a.at(5)).amount) + ")");
+    ctx.check(!isWaterlogged(fence), "the fence is no longer waterlogged");
+    ctx.check(game::blockIdAt(region(), toBlockPos(fence)) == "minecraft:oak_fence", "the fence stays");
+    co_await ctx.ticks(40);
+    ctx.check(tankContents(a.at(5)).amount == 1000, "no more water from a dry fence");
+});
+
+LV_REGISTER_SELFTEST("pipes.waterlog_fill", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 4010};
+    ctx.require(co_await ctx.ensureLoaded(a.at(5, 0, 3)), "test area loaded");
+    // water pushed out of an open end into a fence waterlogs it
+    tank(ctx, a.at(0), {"minecraft:water", 4000});
+    ctx.setBlock(a.at(1), kFluidPipe, faces(kX));
+    pumpAt(ctx, a.at(2), Face::East, 128);
+    ctx.setBlock(a.at(3), kFluidPipe, faces(kX));
+    auto fence = a.at(4);
+    ctx.setBlock(fence, "minecraft:oak_fence");
+    for (auto const& p : {a.at(5), a.at(4, -1), a.at(4, 0, -1), a.at(4, 0, 1)}) ctx.setBlock(p, "minecraft:stone");
+    bool filled = co_await waitFor([&] { return isWaterlogged(fence); }, 200);
+    ctx.check(filled, "the open end waterlogged the fence");
+    ctx.check(tankContents(a.at(0)).amount == 3000, "one bucket left the tank (" + std::to_string(tankContents(a.at(0)).amount) + ")");
+    co_await ctx.ticks(40);
+    ctx.check(tankContents(a.at(0)).amount == 3000, "a waterlogged fence takes no more");
+
+    // lava can't waterlog anything: it stays in its tank
+    auto at3 = [&](int dx) { return a.at(dx, 0, 3); };
+    tank(ctx, at3(0), {"minecraft:lava", 4000});
+    ctx.setBlock(at3(1), kFluidPipe, faces(kX));
+    ctx.setBlock(at3(2), kPump, {{"levitate:facing", static_cast<int>(Face::East)}});
+    GlobalPos cog = at3(2), src = at3(1);
+    cog.z += 1;
+    src.z += 1;
+    ctx.setBlock(cog, "levitate:kinetics_test_cog", {{"levitate:axis", 0}});
+    ctx.setBlock(src, "levitate:kinetics_test_source", {{"levitate:axis", 0}});
+    lv::kinetics::setGeneratedSpeed(src, 128);
+    ctx.setBlock(at3(3), kFluidPipe, faces(kX));
+    ctx.setBlock(at3(4), "minecraft:oak_fence");
+    co_await ctx.ticks(80);
+    ctx.check(tankContents(at3(0)).amount == 4000 && !isWaterlogged(at3(4)), "lava doesn't go into a waterloggable block");
+});
+
+// ---- instant potions at half strength (Create's PotionEffectHandler) -------------------------------
+
+LV_REGISTER_SELFTEST("pipes.instant_potion", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 4020};
+    ctx.require(co_await ctx.ensureLoaded(a.at(1)), "test area loaded");
+    auto& mob = ctx.spawnPlayer("pipes_potion");
+    auto  at  = a.at(1);
+    mob.teleport(Vec3{at.x + .5f, float(at.y), at.z + .5f}, mob.getDimensionId());
+    co_await ctx.ticks(10);
+    auto const* effect = ft::effectFor("potion:harming");
+    ctx.require(effect != nullptr, "potions have an open pipe effect");
+    ft::Area area{double(at.x), double(at.y - 1), double(at.z), double(at.x + 1), double(at.y + 1), double(at.z + 1)};
+    int before = mob.getHealth();
+    (*effect)(region(), area, {"potion:harming", 1}, 0);
+    int harmed = mob.getHealth();
+    ctx.check(before - harmed == 3, "instant damage I hurts half as much (" + std::to_string(before) + " -> " + std::to_string(harmed) + ")");
+    (*effect)(region(), area, {"potion:healing", 1}, 0);
+    int healed = mob.getHealth();
+    ctx.check(healed - harmed == 2, "instant health I heals half as much (" + std::to_string(harmed) + " -> " + std::to_string(healed) + ")");
+});
+
+// ---- particles and glass pipe flows -------------------------------------------------------------------
+
+LV_REGISTER_SELFTEST("pipes.effects", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 4030};
+    ctx.require(co_await ctx.ensureLoaded(a.at(5)), "test area loaded");
+    auto& viewer = ctx.spawnPlayer("pipes_viewer");
+    auto  stand  = a.at(2, 1, -2);
+    viewer.teleport(Vec3{stand.x + .5f, float(stand.y), stand.z + .5f}, viewer.getDimensionId());
+    net::setTestCompanion(viewer, true);
+    (void)net::takeTestMessages(viewer);
+    auto before = pipeEffectCounts();
+    auto fluid0 = fx::stats().fluid;
+    // water poured out of an open end into a closed pocket, through a glass pipe
+    tank(ctx, a.at(0), {"minecraft:water", 4000});
+    ctx.setBlock(a.at(1), kFluidPipe, faces(kX));
+    pumpAt(ctx, a.at(2), Face::East, 64);
+    ctx.setBlock(a.at(3), kGlassPipe, {{"levitate:axis", 0}});
+    auto out = a.at(4);
+    for (auto const& p : {a.at(4, -1), a.at(5), a.at(4, 0, -1), a.at(4, 0, 1)}) ctx.setBlock(p, "minecraft:stone");
+    ctx.cleanupBlock(out);
+    bool poured = co_await waitFor([&] { return pipeEffectCounts().pours > before.pours; }, 200);
+    ctx.check(poured, "the open end pours particles");
+    ctx.check(pipeEffectCounts().splashes > before.splashes, "new flows splash");
+    ctx.check(fx::stats().fluid > fluid0, "fluid particles were spawned");
+    auto glass = glassState(a.at(3));
+    ctx.check(glass && !glass->empty(), "the glass pipe's flows are known");
+    bool sent = false, water = false;
+    for (auto const& m : net::takeTestMessages(viewer)) {
+        if (m.channel != "pipes.glass") continue;
+        sent = true;
+        for (auto const& f : m.payload.value("flows", nlohmann::json::array()))
+            if (f.is_array() && f.size() == 5 && f[1] == 1) water = true;
+    }
+    ctx.check(sent && water, "companions got the glass pipe's water flows");
+    // stopping the pump empties the glass pipe for the client mod
+    lv::kinetics::setGeneratedSpeed(a.at(1, 0, 1), 0);
+    bool cleared = co_await waitFor([&] { return !glassState(a.at(3)); }, 100);
+    ctx.check(cleared, "no flows once the pump stops");
+    net::setTestCompanion(viewer, false);
 });
 
 LV_REGISTER_SELFTEST("pipes.persistence", [](Context& ctx) {

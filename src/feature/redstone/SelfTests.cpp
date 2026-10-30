@@ -21,6 +21,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "feature/net/Net.h"
 #include "feature/redstone/Internal.h"
 #include "feature/redstone/Redstone.h"
@@ -143,6 +144,10 @@ LV_REGISTER_SELFTEST("redstone.link", [](Context& ctx) -> ll::coro::CoroTask<> {
         setFrequency(gp, false, item("minecraft:gold_ingot"));
     }
     setFrequency(other, true, item("minecraft:emerald"));
+    // U42: the client mod draws both frequency items on the link (display items, Create's LinkRenderer)
+    auto shown = itemrender::itemsOf(tx);
+    ctx.check(shown.size() == 2, "both frequency items are display items, got " + std::to_string(shown.size()));
+    ctx.check(itemrender::itemsOf(other).size() == 1, "one item for a link with one frequency set");
     // an analog source: our lever at 11 next to the transmitter
     place(ctx, at(tx, -1, 0, 0), kLever, {{sFace, 0}, {sFacing, kNorth}, {sLeverState, 11}, {sPower, 11}});
     place(ctx, at(rx, 1, 0, 0), "minecraft:redstone_wire");

@@ -22,6 +22,7 @@
 #include "mc/network/MinecraftPackets.h"
 #include "mc/network/packet/PlaySoundPacket.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/Item.h"
 #include "mc/world/item/ItemStack.h"
@@ -36,6 +37,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "feature/basin/BasinInternal.h"
+#include "feature/belts/BeltApi.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Interactions.h"
@@ -431,6 +433,17 @@ public:
             });
             basinops::registerCapabilities();
             burners::registerHeat();
+            operators::registerBeltProcessor();
+            // Create's BasinBlockEntity has a DirectBeltInputBehaviour: belt ends, saws, chutes, ...
+            // hand their items straight into the basin's inputs
+            belts::registerDirectInput(kBasin, belts::DirectInput{
+                .canInsertFromSide = [](GlobalPos const&, int) { return true; },
+                .insert = [](GlobalPos const& pos, belts::TransportedItem const& item, int side, bool simulate) {
+                    auto* region = regionOf(pos.dim);
+                    if (!region) return item.stack;
+                    return common::items::insert(*region, game::blockPos(pos), side >= 0 ? oppositeFace(side) : kUp, item.stack, simulate);
+                },
+            });
             // Create's BasinValueBox: a filter slot on every horizontal side, 12 px up
             common::filterslot::registerSlot(kBasin, {
                 .id     = "filter",

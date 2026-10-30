@@ -180,7 +180,17 @@ int printInstantly(Player* player, int dim, SchematicData const& d, bool include
         }
         if (!st.isAir()) ++count;
     }
-    if (player) log().info("schematic: {} printed {} ({} blocks)", player->getRealName(), d.file, count);
+    // Create's creative print places the template with its block entity NBT and its entities
+    int  data = 0, spawned = 0;
+    bool bedrock = s.format == "mcstructure"; // Java files carry Java NBT: blocks only
+    if (bedrock) {
+        for (auto const& [i, tag] : s.blockEntities)
+            if (s.blocks[i] >= 0 && placeBlockEntity(gp(dim, d.anchor + cs::apply(d.transform, s.posOf(i))), tag, s.worldOrigin, d.transform, d.anchor)) ++data;
+        for (auto const& e : s.entityTags)
+            if (placeEntity(dim, e, s.worldOrigin, d.transform, d.anchor)) ++spawned;
+    }
+    if (player)
+        log().info("schematic: {} printed {} ({} blocks, {} block entities, {} entities)", player->getRealName(), d.file, count, data, spawned);
     return count;
 }
 

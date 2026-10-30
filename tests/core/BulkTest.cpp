@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 
 #include "core/bulk/Bulk.h"
 
@@ -62,6 +63,29 @@ TEST(Bulk, FlowLimit) {
     EXPECT_NEAR(flowLimit(20, Face::Up, [&](int i) { return i == 1 ? nozzle : FlowBlock{}; }), 1 / 32.0, 1e-6);
     // the depth when travelling down uses the box's top
     EXPECT_NEAR(findMaxDepth(slab, Face::Down), .5, 1e-9);
+}
+
+TEST(Bulk, FlowLimitMultiBox) {
+    // stairs (bottom half + back quarter on the north side): every test point hits the bottom box
+    FlowBlock stairs{FlowBlock::Kind::Partial, {0, 0, 0}, {1, .5, 1}, {{{0, .5, 0}, {1, 1, .5}}}};
+    EXPECT_NEAR(findMaxDepth(stairs, Face::Up), 0, 1e-9);
+    // travelling down, the test points under the step stop at its top, the others at .5 below
+    EXPECT_NEAR(findMaxDepth(stairs, Face::Down), .5, 1e-9);
+    // travelling south (+z) the points in the upper half meet the step at z = 0, the lower half
+    // the bottom box at z = 0 too
+    EXPECT_NEAR(findMaxDepth(stairs, Face::South), 0, 1e-9);
+    // two posts covering the left and the right quarter test points: no hole for the current
+    FlowBlock posts{FlowBlock::Kind::Partial, {.2, 0, .2}, {.3, 1, .8}, {{{.7, 0, .2}, {.8, 1, .8}}}};
+    EXPECT_TRUE(std::isinf(findMaxDepth(posts, Face::Up)));
+    // ... but with a third one at the centre, the current stops at the block
+    posts.more.push_back({{.45, 0, .45}, {.55, 1, .55}});
+    EXPECT_NEAR(findMaxDepth(posts, Face::Up), 0, 1e-9);
+    // the first box alone would let the current through (hole at the test points)
+    FlowBlock oneSide{FlowBlock::Kind::Partial, {0, 0, 0}, {1, 1, .5}};
+    EXPECT_TRUE(std::isinf(findMaxDepth(oneSide, Face::Up)));
+    oneSide.more.push_back({{0, .5, .5}, {1, 1, 1}});
+    EXPECT_NEAR(findMaxDepth(oneSide, Face::Up), .5, 1e-9);
+    EXPECT_NEAR(flowLimit(20, Face::Up, [&](int i) { return i == 3 ? oneSide : FlowBlock{}; }), 2.5 + 1 / 32.0, 1e-5);
 }
 
 TEST(Bulk, LimitOf) {

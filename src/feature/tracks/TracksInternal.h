@@ -56,6 +56,7 @@ struct State {
     ct::CurveStore curves;
     std::map<std::pair<int, ct::BlockPos3>, PortalLink> portals; ///< bound portal tracks (both sides)
     std::map<std::string, Selection>                    selections; ///< by player UUID
+    std::set<std::string>                               ctrlHeld;   ///< companions holding Ctrl (by UUID)
 
     std::set<std::tuple<int, int, int>> dirtyCurveChunks; ///< (dim, cx, cz)
     std::set<int>                       savedGraphDims;
@@ -137,6 +138,15 @@ void syncCurveRemoved(int dim, ct::Curve const& curve);
 void syncAllTo(Player& player);
 /// Companion protocol channel of the curve sync (server -> client mod).
 inline constexpr char const* kSyncChannel = "tracks.curves";
+/// The player's track selection for the client mod's placement preview (server -> client mod):
+/// {"dim", "end": TrackEnd json, "maxLength"}, or {} when the selection is gone.
+inline constexpr char const* kSelectionChannel = "tracks.selection";
+/// Ctrl (Create's sprint key) pressed / released (client mod -> server): {"down": bool}.
+inline constexpr char const* kCtrlChannel = "tracks.ctrl";
+/// Sends the player's current selection to its client mod (no-op for other players).
+void syncSelection(Player& player);
+/// Whether the player asks for a maximised turn: Ctrl held (client mod) or sprinting (vanilla).
+[[nodiscard]] bool maximiseTurn(Player const& player);
 void fireGraphChanged();
 
 } // namespace lv::feature::tracks

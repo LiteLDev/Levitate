@@ -11,6 +11,7 @@
 
 #include "ll/api/service/Bedrock.h"
 
+#include "mc/platform/UUID.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/level/Level.h"
 
@@ -45,7 +46,24 @@ void syncCurveRemoved(int dim, ct::Curve const& curve) {
     sendToCompanions({{"op", "remove"}, {"dim", dim}, {"curves", nlohmann::json::array({keyOf(curve)})}});
 }
 
+void syncSelection(Player& player) {
+    if (!net::isCompanion(player)) return;
+    auto const& sels = state().selections;
+    auto        it   = sels.find(player.getUuid().asString());
+    if (it == sels.end()) {
+        net::send(player, kSelectionChannel, nlohmann::json::object());
+        return;
+    }
+    net::send(player, kSelectionChannel, {{"dim", it->second.dim}, {"end", it->second.end.toJson()}, {"maxLength", config().maxTrackPlacementLength}});
+}
+
+bool maximiseTurn(Player const& player) {
+    if (net::isCompanion(player)) return state().ctrlHeld.contains(player.getUuid().asString());
+    return player.isSprinting(); // vanilla clients: no key state, sprinting stands for Ctrl
+}
+
 void syncAllTo(Player& player) {
+    syncSelection(player);
     if (!net::isCompanion(player)) return;
     net::send(player, kSyncChannel, {{"op", "reset"}});
     std::map<int, nlohmann::json> batches;

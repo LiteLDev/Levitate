@@ -22,6 +22,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
+#include "feature/display/Clipboard.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/net/Net.h"
 #include "feature/packages/PackagesInternal.h"
@@ -437,6 +438,19 @@ bool usePort(Player& player, GlobalPos const& pos, Kind kind) {
         setStates(pos, {{kGoggles, 1}});
         playSound(pos.dim, centre(pos), "armor.equip_gold", 0.5f, 1.f);
         log().info("packages: {} put goggles on the frogport at {}", player.getRealName(), pos.key());
+        return true;
+    }
+    // Create's PackagePortBlockEntity.use: a clipboard takes the port's address
+    // (addAddressToClipboard) instead of opening the screen
+    if (display::clipboard::isClipboard(held)) {
+        auto const& address = port(pos).address;
+        ItemStack   copy    = held;
+        if (display::clipboard::addAddress(copy, address)) {
+            player.setSelectedItem(copy);
+            player.sendInventory(false);
+            actionBar(player, trFor(player, "create.clipboard.address_added", "Added '{}' to clipboard", address));
+            log().info("packages: {} added the address '{}' of the port at {} to a clipboard", player.getRealName(), address, pos.key());
+        }
         return true;
     }
     openPortScreen(player, pos);

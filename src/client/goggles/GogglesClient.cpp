@@ -230,21 +230,30 @@ std::optional<unsigned> formatColor(char code) {
 }
 
 /// Draws text with formatting codes ("§7gray §fwhite"): the UI text call prints codes literally.
+/// `§~` toggles Create's strikethrough (the server marks overstressed speed text with it).
 void formattedText(Canvas& c, float x, float y, std::string const& text, unsigned base, float alpha) {
     static std::string const kSection = "§";
     unsigned                 color    = base;
+    bool                     strike   = false;
     std::string              segment;
     auto flush = [&] {
         if (segment.empty()) return;
         c.text(x, y, segment, scaleAlpha(color, alpha));
-        x += c.textWidth(segment);
+        float w = c.textWidth(segment);
+        // the line through the middle of the glyphs, with the text's shadow below it
+        if (strike) {
+            c.fill({x, y + 3.5f, w, 1}, scaleAlpha(color, alpha));
+            c.fill({x + 1, y + 4.5f, w, 1}, scaleAlpha(0xFF000000u | ((color >> 2) & 0x3F3F3Fu), alpha));
+        }
+        x += w;
         segment.clear();
     };
     for (std::size_t i = 0; i < text.size();) {
         if (text.compare(i, kSection.size(), kSection) == 0 && i + kSection.size() < text.size()) {
             flush();
             char code = text[i + kSection.size()];
-            if (code == 'r') color = base;
+            if (code == 'r') color = base, strike = false;
+            else if (code == '~') strike = !strike;
             else if (auto col = formatColor(code)) color = *col;
             i += kSection.size() + 1;
             continue;
@@ -581,12 +590,19 @@ public:
                 pendingScreen() = 10;
             }
         });
+        // the server's stress tables (Create syncs its stress config): item tooltips use them
+        net::client::on("kinetics.stress", [](Json const& msg) {
+            feature::kinetics::setSyncedStressTables(msg);
+            hovertextCache().clear();
+            log().info("goggles client: stress tables from the server ({} impacts)", msg.value("impact", Json::object()).size());
+        });
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) { pollTarget(); }));
         mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             overlay() = Overlay{};
             iconCache().clear();
             hovertextCache().clear();
+            feature::kinetics::clearSyncedStressTables();
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::KeyInputEvent>([](ll::event::KeyInputEvent& ev) {
             if (ev.keyCode() == kKeyShift) input().shift = ev.isDown();

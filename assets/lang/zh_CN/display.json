@@ -83,5 +83,7 @@
   "lv.display.clipboard.page": "页",
   "lv.display.clipboard.title": "剪贴板",
   "lv.display.link.none": "（无）",
-  "lv.display.link.option_text": "编辑文本选项"
+  "lv.display.link.option_text": "编辑文本选项",
+  "lv.display.key.use": "右键",
+  "lv.display.key.attack": "左键"
 }

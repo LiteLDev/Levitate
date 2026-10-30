@@ -218,6 +218,16 @@ LV_REGISTER_SELFTEST("goggles.wrench_dismantles", [](Context& ctx) -> ll::coro::
     ctx.check(idAt(ctx, hopper) == "minecraft:air", "#create:wrench_pickup: the hopper is picked up");
     ctx.check(countOf(sp, "minecraft:hopper") == hoppers + 1, "the hopper went into the inventory");
 
+    // U42: the drops come from the block's loot table (a repeater drops the repeater item)
+    auto repeater = at(ctx, 826);
+    ctx.require(ctx.setBlock(repeater, "minecraft:unpowered_repeater"), "place a repeater");
+    int repeaters = countOf(sp, "minecraft:repeater");
+    co_await ctx.ticks(10);
+    click(sp, repeater, Facing::Up);
+    co_await ctx.ticks(2);
+    ctx.check(idAt(ctx, repeater) == "minecraft:air", "the repeater is picked up");
+    ctx.check(countOf(sp, "minecraft:repeater") == repeaters + 1, "its loot (the repeater item) went into the inventory");
+
     co_await ctx.ticks(10);
     click(sp, stone, Facing::Up); // refused: the game handles it
     co_await ctx.ticks(2);

@@ -285,8 +285,18 @@ void tickAirborne(Depot& d) {
 }
 
 void tickEjector(Depot& d) {
-    auto& s = state();
-    if (s.tick % 4 == std::uint64_t(d.pos.x & 3)) d.powered = poweredAt(d.pos);
+    // Create's EjectorBlock.neighborChanged -> updateSignal: the shared redstone watch reports changes
+    if (d.redstoneWatch == 0) {
+        d.redstoneWatch = common::redstone::watch(d.pos, [](GlobalPos const& at, int power) {
+            auto& depots = state().depots;
+            if (auto it = depots.find(at); it != depots.end() && it->second->ejector) {
+                bool now = power > 0;
+                if (now != it->second->powered) log().info("belts: ejector at {} {}", posText(at), now ? "powered" : "unpowered");
+                it->second->powered = now;
+            }
+        });
+        d.powered = poweredAt(d.pos);
+    }
     float speed = kinetics::speedAt(d.pos);
     switch (d.state) {
     case EjectorState::Charged: {
@@ -315,6 +325,11 @@ void tickEjector(Depot& d) {
 }
 
 } // namespace
+
+void releaseDepot(Depot& d) {
+    if (d.redstoneWatch != 0) common::redstone::unwatch(d.redstoneWatch);
+    d.redstoneWatch = 0;
+}
 
 bool depotCanAccept(Depot const& d) { return !d.ejector || d.state == EjectorState::Charged; }
 
@@ -396,21 +411,41 @@ void tickDepot(Depot& d) {
     if (d.held && citems::isEmpty(heldStack(d))) removeHeld(d);
 
     if (d.held && cb::depotSlide(*d.held)) {
-        // a funnel / interactor on top
-        GlobalPos above = offset(d.pos, {0, 1, 0});
+        // a belt funnel on top (Create's DepotBehaviour.handleBeltFunnelOutput): the outputs
+        // first, then the held stack; one transfer per tick
+        bool      exported = false;
+        GlobalPos above    = offset(d.pos, {0, 1, 0});
         if (auto const* fn = interactorFor(idAt(above))) {
-            auto        heldId = d.held->id;
-            auto        api    = toApi(*d.held, d.stacks[heldId]);
-            PassContext ctx{d.pos, above, 0, 1, 1, true, .5f, true, api};
-            (*fn)(ctx);
-            if (d.held && d.held->id == heldId) {
-                fromApi(api, *d.held, d.stacks[heldId]);
-                if (citems::isEmpty(d.stacks[heldId].stack)) removeHeld(d);
+            for (auto& out : d.outputs) {
+                if (citems::isEmpty(out)) continue;
+                TransportedItem t;
+                t.stack          = out;
+                t.beltPosition   = .5f;
+                int         before = citems::countOf(out);
+                PassContext ctx{d.pos, above, 0, 1, 1, true, .5f, true, t};
+                (*fn)(ctx);
+                if (citems::countOf(t.stack) != before) {
+                    out      = t.stack;
+                    exported = true;
+                    break;
+                }
+            }
+            if (!exported && d.held) {
+                auto        heldId = d.held->id;
+                auto        api    = toApi(*d.held, d.stacks[heldId]);
+                int         before = citems::countOf(api.stack);
+                PassContext ctx{d.pos, above, 0, 1, 1, true, .5f, true, api};
+                (*fn)(ctx);
+                if (d.held && d.held->id == heldId) {
+                    exported = citems::countOf(api.stack) != before;
+                    fromApi(api, *d.held, d.stacks[heldId]);
+                    if (citems::isEmpty(d.stacks[heldId].stack)) removeHeld(d);
+                }
             }
         }
         // a processor 2 above (Create's BeltProcessingBehaviour on depots)
         GlobalPos procPos = offset(d.pos, {0, 2, 0});
-        if (d.held) {
+        if (d.held && !exported) {
             if (auto const* proc = processorFor(idAt(procPos))) {
                 if (d.held->locked || !processingBlocked(d.pos)) {
                     auto             heldId    = d.held->id;

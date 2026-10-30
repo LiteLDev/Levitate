@@ -21,6 +21,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include "feature/belts/BeltsInternal.h"
+#include "feature/common/FunnelsExt.h"
 #include "feature/common/Items.h"
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
@@ -192,6 +193,35 @@ public:
         return false;
     }
 
+    /// Create's BeltTunnelInteractionHandler.flapTunnelsAndCheckIfStuck: an item crossing into
+    /// another segment is reported to the block above it (tunnels, beltlink in FunnelsExt.h).
+    bool obstacles(cb::Item& item, float nextOffset) override {
+        bool positive = mSpeed > 0;
+        int  current  = int(item.beltPosition);
+        int  upcoming = int(nextOffset);
+        if (!positive && nextOffset == 0) upcoming = -1;
+        if (current == upcoming) return false;
+        // Create's getTunnelOnSegment: tunnels sit on horizontal belts only
+        if (mState.slope != cb::Slope::Horizontal || upcoming < 0 || upcoming >= mBelt.length) return false;
+        GlobalPos seg    = segmentPos(mBelt, mState, upcoming);
+        auto*     region = regionOf(seg.dim);
+        if (!region) return false;
+        auto it = mBelt.stacks.find(item.id);
+        if (it == mBelt.stacks.end()) return false;
+        auto& sd      = it->second;
+        auto  passing = common::beltlink::itemEntering(*region, game::blockPos(seg), sd.stack, mFace);
+        if (passing == common::beltlink::Passing::Stuck) {
+            item.beltPosition = float(current) + (positive ? .99f : .01f);
+            return true;
+        }
+        if (passing == common::beltlink::Passing::Taken || citems::isEmpty(sd.stack)) {
+            removeDisplay(sd);
+            sd.stack = ItemStack();
+            return true; // removed next tick (empty stack)
+        }
+        return false;
+    }
+
     bool removeItem(cb::Item& item) {
         if (auto it = mBelt.stacks.find(item.id); it != mBelt.stacks.end()) {
             removeDisplay(it->second);
@@ -336,7 +366,7 @@ void tickBelt(Belt& belt) {
             auto& item = static_cast<ItemActor&>(*a);
             if (a->getPosDelta().y > 0) continue;
             if (a->getFeetPos().y - seg.y > cb::kBeltTop + .3) continue;
-            if (interactorFor(idAt(offset(seg, {0, 1, 0})))) continue; // a tunnel on the segment
+            if (common::beltlink::hasAbove(*region, game::blockPos(seg))) continue; // a tunnel on the segment
             ItemStack stack = item.mItem;
             ItemStack rest  = insertOnSegment(seg, stack, false);
             if (citems::isEmpty(rest)) a->remove();
@@ -432,6 +462,10 @@ ItemStack insertFromSide(GlobalPos const& segment, TransportedItem const& item, 
     auto  cs  = controllerState(*belt);
     if (rpm == 0) return item.stack;
     int movementFace = cb::faceOfFacing(cb::movementFacing(rpm, cs.facing));
+    // a distributing brass tunnel above takes the item instead (Create's tryInsertingFromSide)
+    if (auto* region = regionOf(segment.dim)) {
+        if (auto taken = common::beltlink::sideInputAbove(*region, game::blockPos(segment), item.stack, side, simulate)) return *taken;
+    }
     // Create's isOccupied
     if (movementFace == cb::oppositeFace(side)) return item.stack;
     if (!belt->inv.canInsertAtFromSide(info->index, side, movementFace)) return item.stack;
@@ -439,7 +473,7 @@ ItemStack insertFromSide(GlobalPos const& segment, TransportedItem const& item, 
     float    dirSpeed = cb::directionAwareSpeed(rpm, cs.facing);
     cb::Item it;
     it.id           = newItemId();
-    it.beltPosition = info->index + .5f - (dirSpeed > 0 ? 1.f : dirSpeed < 0 ? -1.f : 0.f) / 2.f;
+    it.beltPosition = info->index + .5f - (dirSpeed > 0 ? 1.f : dirSpeed < 0 ? -1.f : 0.f) / 16.f;
     if (side != 0 && side != 1) {
         if (movementFace != side) {
             // from the side: starts off-centre and slides to the middle

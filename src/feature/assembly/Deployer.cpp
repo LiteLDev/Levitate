@@ -82,6 +82,7 @@ struct Runtime {
     std::vector<ItemStack>                     overflow;
     std::optional<std::pair<BlockPos, float>>  breaking;
     bool                                       redstone = false;
+    bool                                       fistBump = false; ///< Create's fistBump
     ItemStack                                  synced; ///< `held` as last sent to the client mod
 };
 
@@ -460,7 +461,8 @@ void processTransportItem(GlobalPos const& pos, Runtime& r, BlockSource& region,
     auto pred = [stack](ItemStack const& s) { return items::sameItemSameData(s, stack); };
     auto one  = handler->extract(at, pred, 1, false);
     if (items::isEmpty(one)) return;
-    auto outputs = deployOnItem(one, r.held, false);
+    std::string heldId  = items::idOf(r.held); // logged after the held item may be used up
+    auto        outputs = deployOnItem(one, r.held, false);
     if (!outputs || outputs->empty()) {
         // nothing came out: the item goes back where it was
         auto rest = handler->insert(at, one, false);
@@ -474,7 +476,7 @@ void processTransportItem(GlobalPos const& pos, Runtime& r, BlockSource& region,
     if (items::isEmpty(r.held)) detail::playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.break", .25f, 1.f);
     detail::playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "random.pop", .25f, .75f);
     if (int more = 0; detail::logAction("deployer.apply@" + pos.key() + "#" + items::idOf(one), more))
-        log().info("deployer at {} applied {} to {}{}", pos.key(), items::idOf(r.held), items::idOf(one), detail::similar(more));
+        log().info("deployer at {} applied {} to {}{}", pos.key(), heldId, items::idOf(one), detail::similar(more));
 }
 
 void start(GlobalPos const& pos, Runtime& r, BlockSource& region, Face facing) {
@@ -505,6 +507,61 @@ void activate(GlobalPos const& pos, Runtime& r, BlockSource& region, Face facing
         if (int more = 0; detail::logAction("deployer.use@" + pos.key() + "#" + items::idOf(before), more))
             log().info("deployer at {} used {} ({} item(s) to hand out){}", pos.key(), items::idOf(before), extra.size(), detail::similar(more));
     }
+}
+
+// ---- fist bump (Create's startFistBump / triggerFistBump) --------------------------------------------
+
+int gFistBumps = 0;
+
+/// The deployer 2..4 blocks in front (the first one found) and its distance.
+std::optional<std::pair<GlobalPos, int>> partnerOf(BlockSource& region, GlobalPos const& pos, Face facing) {
+    auto bp = game::blockPos(pos);
+    for (int i = 2; i < 5; ++i) {
+        auto other = detail::offsetPos(bp, facing, i);
+        if (!region.hasChunksAt(other, 0, false)) return std::nullopt;
+        if (region.getBlock(other).getTypeName() == kDeployerId) return std::make_pair(game::globalPos(pos.dim, other), i);
+    }
+    return std::nullopt;
+}
+
+/// Two punching deployers facing each other 2..4 blocks apart reach out to meet half way.
+bool startFistBump(BlockSource& region, GlobalPos const& pos, Face facing) {
+    auto partner = partnerOf(region, pos, facing);
+    if (!partner) return false;
+    auto const& other = region.getBlock(game::blockPos(partner->first));
+    if (facingOf(other) != core::kinetics::opposite(facing)) return false;
+    auto& pr = rt(partner->first);
+    if (pr.mode != DeployerMode::Punch || kinetics::speedAt(partner->first) == 0) return false;
+    for (auto const& [p, f] : {std::make_pair(pos, facing), std::make_pair(partner->first, core::kinetics::opposite(facing))}) {
+        auto& r    = rt(p);
+        r.fistBump = true;
+        r.reach    = (partner->second - 2) * .5f;
+        r.timer    = ca::kDeployerCycle;
+        r.state    = DeployerState::Expanding;
+        save(p, r);
+        syncState(p, r, f);
+    }
+    return true;
+}
+
+/// Both hands out: the bump (the partner retracts now, this one after its activation).
+void triggerFistBump(BlockSource& region, GlobalPos const& pos, Runtime& r, Face facing) {
+    auto partner = partnerOf(region, pos, facing);
+    if (!partner) return;
+    auto& pr = rt(partner->first);
+    if (!pr.fistBump || pr.state != DeployerState::Expanding || pr.timer > 0) return;
+    r.fistBump  = false;
+    pr.fistBump = false;
+    pr.state    = DeployerState::Retracting;
+    pr.timer    = ca::kDeployerCycle;
+    save(partner->first, pr);
+    syncState(partner->first, pr, core::kinetics::opposite(facing));
+    auto const& a = pos;
+    auto const& b = partner->first;
+    detail::playSound(pos.dim, std::floor((a.x + b.x + 1) * .5) + .5, std::floor((a.y + b.y + 1) * .5) + .5, std::floor((a.z + b.z + 1) * .5) + .5,
+                      "game.player.attack.nodamage", .75f, .75f);
+    ++gFistBumps;
+    log().info("deployers at {} and {} fist bumped", a.key(), b.key());
 }
 
 void tickOne(GlobalPos const& pos) {
@@ -560,12 +617,20 @@ void tickOne(GlobalPos const& pos) {
             r.timer = ts * 10;
             return;
         }
+        // Create checks the advancement condition before the redstone lock
+        if (r.mode == DeployerMode::Punch && !r.fistBump && startFistBump(*region, pos, facing)) return;
         if (r.redstone) return;
         start(pos, r, *region, facing);
         return;
     }
     case DeployerState::Expanding:
-        activate(pos, r, *region, facing);
+        if (r.fistBump) {
+            // the hands meet in the gap: nothing in front is punched
+            triggerFistBump(*region, pos, r, facing);
+            r.fistBump = false;
+        } else {
+            activate(pos, r, *region, facing);
+        }
         r.state = DeployerState::Retracting;
         r.timer = ca::kDeployerCycle;
         save(pos, r);
@@ -841,6 +906,7 @@ void setHeld(GlobalPos const& pos, ItemStack const& stack) {
 }
 
 std::vector<ItemStack> overflow(GlobalPos const& pos) { return rt(pos).overflow; }
+int                    fistBumps() { return gFistBumps; }
 DeployerState          state(GlobalPos const& pos) { return rt(pos).state; }
 
 void activateNow(GlobalPos const& pos) {

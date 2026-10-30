@@ -76,6 +76,20 @@ void registerAbove(std::string const& blockId, AboveHandler handler);
 /// block above the segment: Continue.
 [[nodiscard]] Passing itemEntering(BlockSource& region, BlockPos const& beltPos, ItemStack& stack, int movementFacing);
 
+/// (Added by U41) A block registered with `registerAbove` sits on the segment (Create's
+/// BeltTunnelBlock.getTunnelOnPosition: dropped item entities don't land on such a segment).
+[[nodiscard]] bool hasAbove(BlockSource& region, BlockPos const& beltPos);
+
+/// (Added by U41) Items inserted into a segment from a side (Create's
+/// BeltBlockEntity.tryInsertingFromSide): the block above may take them instead of the belt (a
+/// distributing brass tunnel). `side` is the direction the item travels. Returns nullopt when the
+/// block above leaves the item to the belt, else what it did not take.
+using SideInputHandler = std::function<
+    std::optional<ItemStack>(BlockSource& region, BlockPos const& abovePos, ItemStack const& stack, int side, bool simulate)>;
+void registerAboveSideInput(std::string const& blockId, SideInputHandler handler);
+[[nodiscard]] std::optional<ItemStack>
+sideInputAbove(BlockSource& region, BlockPos const& beltPos, ItemStack const& stack, int side, bool simulate);
+
 } // namespace beltlink
 
 } // namespace lv::feature::common

@@ -301,6 +301,14 @@ void setDiodeDelay(GP const& pos, int ticks) {
     if (auto* rt = runtimeAt(pos); rt && rt->counterLoaded && rt->counter > ticks) rt->counter = ticks;
 }
 
+/// BrassDiodeBlock: a click toggles the inverted state.
+void toggleDiode(BlockSource& region, GP const& pos, Block const& block, Kind kind) {
+    bool inverted = state(block, sInverted) != 0;
+    setStates(region, game::blockPos(pos), {{sInverted, inverted ? 0 : 1}});
+    playSound(pos.dim, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, "random.click", 0.3f, inverted ? 0.5f : 0.6f);
+    log().info("{} at {} {}", idOf(kind), posText(pos), inverted ? "no longer inverted" : "inverted");
+}
+
 void registerValueBoxes() {
     for (auto kind : {Kind::PulseRepeater, Kind::PulseExtender, Kind::PulseTimer}) {
         common::valuebox::BoxSpec box;
@@ -334,6 +342,14 @@ void registerValueBoxes() {
             playSound(pos.dim, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, "random.click", 0.25f, 2.0f);
         };
         box.format = [](Block const&, core::common::ValueSettings s) { return cr::formatDelaySettings({s.row, s.value}); };
+        // client mod: a short click on the box toggles the diode as a click elsewhere does,
+        // holding opens the board (vanilla players: the click opens the board)
+        box.onShortClick = [kind](GP const& pos, Player& player) {
+            if (!canBuild(player)) return;
+            auto& region = player.getDimensionBlockSource();
+            auto const& block = region.getBlock(game::blockPos(pos));
+            if (block.getTypeName() == idOf(kind)) toggleDiode(region, pos, block, kind);
+        };
         common::valuebox::registerBox(idOf(kind), std::move(box));
     }
 }
@@ -406,10 +422,7 @@ bool use(Click const& c, Block const& block, Kind kind) {
     case Kind::PulseExtender:
     case Kind::PulseTimer: {
         if (!canBuild(c.player) || c.sneaking || wrench) return false;
-        bool inverted = state(block, sInverted) != 0;
-        setStates(region, bp, {{sInverted, inverted ? 0 : 1}});
-        playSound(c.pos.dim, c.pos.x + 0.5, c.pos.y + 0.5, c.pos.z + 0.5, "random.click", 0.3f, inverted ? 0.5f : 0.6f);
-        log().info("{} at {} {}", idOf(kind), posText(c.pos), inverted ? "no longer inverted" : "inverted");
+        toggleDiode(region, c.pos, block, kind);
         return true;
     }
     case Kind::PoweredLatch:
