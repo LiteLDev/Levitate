@@ -219,6 +219,13 @@ void resetRopeSync();
 /// several axes).
 [[nodiscard]] std::optional<cc::Dir> preferredSide(GlobalPos const& p, bool horizontalOnly);
 
+// ---- climbing (Climb.cpp) -----------------------------------------------------------------------
+/// Gives the rope and pulley magnet block types the Climbable property (Create's
+/// `minecraft:climbable` tag). Returns false while a type is not registered yet. Both builds;
+/// the client mod also calls it for the client's own block registry.
+bool markRopesClimbable();
+[[nodiscard]] bool ropesClimbable();
+
 // ---- misc -------------------------------------------------------------------------------------
 /// Movement mode labels (value box options).
 [[nodiscard]] std::vector<std::string> movementModeNames(Player const* viewer);

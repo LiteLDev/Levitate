@@ -8,6 +8,7 @@ Wait-LogLine 'steam: tank at .* is now a boiler \(1 engines, 0 whistles\)' 10 -S
 Wait-LogLine 'steam: powered shaft at .* turns at -64 RPM \(16,384 su\)' 10 -Since $mark | Out-Null
 Wait-LogLine 'steam: boiler at .* level passive' 10 -Since $mark | Out-Null
 Wait-LogLine 'steam: whistle at .* sounds \(medium whistle, pitch 3\)' 10 -Since $mark | Out-Null
+Wait-LogLine 'steam: whistle at .* plays levitate.steam.whistle_medium as a looping sound for [1-9]' 10 -Since $mark | Out-Null
 
 # A 1x1x4 tank on a kindled test heater with an engine on top, next to the spawn, kept loaded.
 Send-Console 'tickingarea add 0 -64 0 15 0 15 lv_steam'

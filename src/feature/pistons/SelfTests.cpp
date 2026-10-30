@@ -1,12 +1,16 @@
 // Selftests of the pistons unit (testPos dx 2000..2099). The kinetic source is U2's test
 // generator (levitate:kinetics_test_source); real generators belong to U7.
 
+#include <cmath>
 #include <functional>
 
+#include "mc/deps/core/math/Vec3.h"
+#include "mc/server/SimulatedPlayer.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 
+#include "feature/common/Screens.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/contraption/PistonsExt.h"
 #include "feature/kinetics/Kinetics.h"
@@ -19,6 +23,10 @@ namespace lv::feature::pistons {
 namespace {
 
 using selftest::Context;
+
+/// testPos puts dx 40xx 155 blocks south, outside the run's ticking area (z +-64): the U40 tests
+/// move 201 blocks north, to rows no unit uses (z -46..-42), so their entities keep ticking.
+constexpr int kU40Shift = -201;
 namespace ct = feature::contraption;
 
 constexpr char kSource[] = "levitate:kinetics_test_source";
@@ -349,6 +357,50 @@ LV_REGISTER_SELFTEST("pistons.elevator_contacts", [](Context& ctx) -> ll::coro::
     ctx.check(!runningAt(pulley), "no cabin contact: not running");
     ctx.check(lastErrorAt(pulley) == "create.gui.assembly.exception.no_contacts", "no_contacts, got '" + lastErrorAt(pulley) + "'");
     columnSetActive(col, false);
+});
+
+// ---- U40: climbing, contact screen (dx 4070..4099) ---------------------------------------------
+
+LV_REGISTER_SELFTEST("pistons.climbable", [](Context& ctx) -> ll::coro::CoroTask<> {
+    ctx.check(ropesClimbable(), "ropes and pulley magnets have the Climbable property");
+    auto o = ctx.testPos(4070, kU40Shift);
+    o.y += 1;
+    ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
+    clearBox(ctx, o, -2, -1, -1, 1, 7, 1);
+    auto& p = ctx.spawnPlayer("pistons_climb");
+    // feet inside the rope's cell, west of the 4 px rope, walking east into it (Create: a ladder)
+    Vec3 start{float(o.x) + .05f, float(o.y), float(o.z) + .5f};
+    p.teleport(start, p.getDimensionId());
+    co_await Context::ticks(20);
+    float y0   = p.getFeetPos().y;
+    int   base = static_cast<int>(std::floor(y0 + .01f)) - o.y; // the cell the player stands in
+    for (int y = 0; y < 6; ++y) put(ctx, at(o, 0, base + y, 0), y == 5 ? std::string_view(kMagnet) : kRope);
+    co_await Context::ticks(2);
+    for (int i = 0; i < 40; ++i) {
+        p.simulateWorldMove(Vec3{1.f, 0.f, 0.f}, 1.f);
+        co_await Context::ticks(1);
+    }
+    float climbed = p.getFeetPos().y - y0;
+    p.simulateStopMoving();
+    ctx.check(climbed > 1.f, "a player walking into a rope climbs it (rose " + std::to_string(climbed) + " blocks)");
+});
+
+LV_REGISTER_SELFTEST("pistons.contact_screen", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto o = ctx.testPos(4080, kU40Shift);
+    o.y += 1;
+    ctx.require(co_await ctx.ensureLoaded(o), "test area loaded");
+    clearBox(ctx, o, 0, 0, 0, 0, 1, 0);
+    put(ctx, o, kElevatorContact, {{kFacing, int(cc::Dir::South)}});
+    auto& p = ctx.spawnPlayer("pistons_contact");
+    p.teleport(Vec3{float(o.x) + .5f, float(o.y), float(o.z) + 2.5f}, p.getDimensionId());
+    co_await Context::ticks(2);
+    Json ctxJson{{"pos", Json::array({o.dim, o.x, o.y, o.z})}};
+    ctx.check(common::screens::open(p, "pistons.elevator_contact", ctxJson), "the contact screen opens for a player in reach");
+    p.teleport(Vec3{float(o.x) + .5f, float(o.y), float(o.z) + 40.5f}, p.getDimensionId());
+    co_await Context::ticks(2);
+    ctx.check(!common::screens::open(p, "pistons.elevator_contact", ctxJson), "out of reach: refused");
+    Json other{{"pos", Json::array({o.dim, o.x, o.y + 1, o.z})}};
+    ctx.check(!common::screens::open(p, "pistons.elevator_contact", other), "no contact there: refused");
 });
 
 } // namespace lv::feature::pistons

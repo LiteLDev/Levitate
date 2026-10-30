@@ -5,10 +5,23 @@
       "identifier": "levitate:spout",
       "menu_category": {
         "category": "items"
+      },
+      "states": {
+        "levitate:nozzle": [
+          0,
+          1
+        ]
       }
     },
     "components": {
-      "minecraft:geometry": "geometry.levitate.spout",
+      "minecraft:geometry": {
+        "identifier": "geometry.levitate.spout",
+        "bone_visibility": {
+          "nozzle_top": "q.block_state('levitate:nozzle') == 0",
+          "nozzle_middle": "q.block_state('levitate:nozzle') == 0",
+          "nozzle_bottom": "q.block_state('levitate:nozzle') == 0"
+        }
+      },
       "minecraft:material_instances": {
         "*": {
           "texture": "levitate_spout",

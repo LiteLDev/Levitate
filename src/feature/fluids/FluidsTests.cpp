@@ -1,4 +1,4 @@
-// Selftests of the fluids unit (U19, testPos dx 1900..1999).
+// Selftests of the fluids unit (U19, testPos dx 1900..1999; U40's additions 4040..4049).
 //
 // `levitate:fluids_test_depot` stands in for Create's depot (U11) in these tests: one slot from
 // the top through the item capability, and a mounted 8000 mB tank on contraptions.
@@ -20,11 +20,13 @@
 #include "mc/world/level/dimension/DimensionType.h"
 #include "mc/world/phys/AABB.h"
 
+#include "feature/belts/BeltApi.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/fluids/FluidsInternal.h"
 #include "feature/kinetics/Kinetics.h"
+#include "feature/pipes/FluidFX.h"
 #include "game/Blocks.h"
 #include "mod/Config.h"
 #include "selftest/SelfTest.h"
@@ -40,6 +42,10 @@ namespace bd    = common::blockdata;
 namespace ctr   = feature::contraption;
 
 constexpr char kTestKey[] = "fluids_test";
+
+/// testPos puts dx 40xx 155 blocks south, outside the run's ticking area (z +-64): the U40 tests
+/// move 201 blocks north, to rows no unit uses (z -46..-42), so their entities keep ticking.
+constexpr int kU40Shift = -201;
 
 // ---- the test depot ------------------------------------------------------------------------------
 struct TestDepotRegistrar {
@@ -244,6 +250,130 @@ LV_REGISTER_SELFTEST("fluids.spout_recipes_and_waiting", [](Context& ctx) -> ll:
     ctx.setBlock(at(p, 0, 1, 0), "minecraft:stone");
     co_await ctx.ticks(25);
     ctx.check(items::idOf(slot0(ctx, p)) == "minecraft:glass_bottle", "a solid block between spout and depot blocks it");
+});
+
+// ---- spout over depots and belts (Create's BeltProcessingBehaviour, U11's processors) ---------------
+
+namespace {
+/// Takes every stack off a depot / belt segment through its item capability; counts `id`.
+int takeAll(Context& ctx, GlobalPos const& p, std::string const& id) {
+    int n = 0;
+    for (int i = 0; i < 16; ++i) {
+        auto got = items::extract(regionOf(ctx), toBlockPos(p), 1, items::any(), 64, false);
+        if (items::isEmpty(got)) break;
+        if (items::idOf(got) == id) n += items::countOf(got);
+    }
+    return n;
+}
+int countOnTransporter(GlobalPos const& p, std::string const& id) {
+    int n = 0;
+    for (auto const& t : belts::itemsAt(p))
+        if (items::idOf(t.stack) == id) n += items::countOf(t.stack);
+    return n;
+}
+} // namespace
+
+LV_REGISTER_SELFTEST("fluids.spout_depot", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = at(ctx.testPos(4040, kU40Shift), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    ctx.setBlock(p, belts::kDepotId);
+    ctx.setBlock(at(p, 0, 1, 0), "minecraft:air");
+    ctx.setBlock(at(p, 0, 2, 0), kSpout);
+    co_await ctx.ticks(2);
+    auto& region = regionOf(ctx);
+    auto  spout  = at(p, 0, 2, 0);
+    ctx.require(cfl::fill(region, toBlockPos(spout), 1, {"minecraft:water", 1000}, false) == 1000, "spout filled");
+    auto fluid0 = pipes::fx::stats().fluid;
+    ctx.require(items::isEmpty(items::insert(region, toBlockPos(p), 1, item(ctx, "minecraft:glass_bottle", 2), false)), "two bottles on the depot");
+    co_await ctx.ticks(12);
+    ctx.check(countOnTransporter(p, "minecraft:glass_bottle") == 2 && tank(ctx, spout).amount == 1000, "the depot holds them while the spout fills");
+    bool done = false;
+    for (int i = 0; i < 120 && !done; ++i) {
+        co_await ctx.ticks(1);
+        done = tank(ctx, spout).amount == 500;
+    }
+    ctx.check(done, "two bottles filled one after the other (" + std::to_string(tank(ctx, spout).amount) + " mB left)");
+    ctx.check(pipes::fx::stats().fluid >= fluid0 + 40, "stream drops and splashes for both");
+    co_await ctx.ticks(25);
+    ctx.check(tank(ctx, spout).amount == 500, "nothing more to fill");
+    ctx.check(takeAll(ctx, p, "minecraft:potion") == 2, "the depot holds two water bottles");
+});
+
+LV_REGISTER_SELFTEST("fluids.drain_direct_input", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = at(ctx.testPos(4042, kU40Shift), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    ctx.setBlock(p, kItemDrain);
+    co_await ctx.ticks(2);
+    ctx.require(belts::hasDirectInput(p), "the item drain is a direct belt input (belt ends, saws, chutes)");
+    belts::TransportedItem t;
+    t.stack = item(ctx, "minecraft:water_bucket", 2);
+    auto rest = belts::insertDirect(p, t, 5, false); // travelling east: enters from the west
+    ctx.check(items::countOf(rest) == 1, "one bucket at a time (it holds fluid)");
+    ctx.check(items::idOf(slot0(ctx, p)) == "minecraft:water_bucket", "the drain holds the bucket");
+    bool emptied = false;
+    for (int i = 0; i < 60 && !emptied; ++i) {
+        co_await ctx.ticks(1);
+        emptied = tank(ctx, p).amount == 1000;
+    }
+    ctx.check(emptied, "the bucket was emptied into the drain");
+    (void)items::extract(regionOf(ctx), toBlockPos(p), 1, items::any(), 64, false);
+    (void)countItemsNear(ctx, p, "minecraft:bucket", true); // an ejected bucket
+});
+
+LV_REGISTER_SELFTEST("fluids.spout_belt",[](Context& ctx) -> ll::coro::CoroTask<> {
+    GlobalPos base = at(ctx.testPos(4044, kU40Shift), 0, 1, 0);
+    auto      bx   = [&](int dx, int dy = 0, int dz = 1) { return at(base, dx, dy, dz); };
+    ctx.require(co_await ctx.ensureLoaded(bx(5)), "test area loaded");
+    // a 4 block belt along +x (shafts on axis z, driven from the north), a depot at its end
+    ctx.setBlock(bx(0), "levitate:kinetics_test_shaft", {{"levitate:axis", 2}});
+    ctx.setBlock(bx(3), "levitate:kinetics_test_shaft", {{"levitate:axis", 2}});
+    for (int i = 1; i < 3; ++i) ctx.cleanupBlock(bx(i));
+    ctx.setBlock(bx(0, 0, 0), "levitate:kinetics_test_source", {{"levitate:axis", 2}});
+    co_await ctx.ticks(2);
+    auto& sp = ctx.spawnPlayer("fluids_belt");
+    sp.teleport(Vec3{base.x + 1.5f, float(base.y + 1), base.z - 1.5f}, DimensionType(base.dim));
+    co_await ctx.ticks(2);
+    auto connector = item(ctx, belts::kBeltConnectorId, 4);
+    sp.setSelectedItem(connector);
+    for (auto const& shaft : {bx(0), bx(3)}) {
+        sp.teleport(Vec3{shaft.x + .5f, float(shaft.y + 1), shaft.z - 1.5f}, DimensionType(base.dim));
+        co_await ctx.ticks(5);
+        auto use = sp.getSelectedItem();
+        sp.simulateUseItemOnBlock(use, toBlockPos(shaft), ScriptModuleMinecraft::ScriptFacing::Up, Vec3{0.5f, 0.9f, 0.5f});
+        co_await ctx.ticks(5);
+    }
+    sp.setSelectedItem(ItemStack());
+    ctx.require(belts::beltAt(bx(2)).has_value(), "belt connected");
+    lv::kinetics::setGeneratedSpeed(bx(0, 0, 0), -96);
+    ctx.setBlock(bx(4), belts::kDepotId);
+    ctx.setBlock(bx(2, 1), "minecraft:air");
+    auto spout = bx(2, 2);
+    ctx.setBlock(spout, kSpout);
+    co_await ctx.ticks(3);
+    auto& region = regionOf(ctx);
+    ctx.require(cfl::fill(region, toBlockPos(spout), 1, {"minecraft:water", 1000}, false) == 1000, "spout filled");
+    ctx.require(items::isEmpty(items::insert(region, toBlockPos(bx(0)), 1, item(ctx, "minecraft:glass_bottle", 3), false)), "three bottles on the belt");
+    bool held = false;
+    for (int i = 0; i < 60 && !held; ++i) {
+        co_await ctx.ticks(1);
+        for (auto const& t : belts::itemsAt(bx(2))) held |= t.locked;
+    }
+    ctx.check(held, "the moving belt stops the bottles under the spout");
+    bool done = false;
+    for (int i = 0; i < 200 && !done; ++i) {
+        co_await ctx.ticks(1);
+        done = tank(ctx, spout).amount == 250;
+    }
+    ctx.check(done, "three bottles filled (" + std::to_string(tank(ctx, spout).amount) + " mB left)");
+    co_await ctx.ticks(40);
+    int potions = 0, bottles = 0;
+    for (int i = 0; i <= 4; ++i) {
+        potions += countOnTransporter(bx(i), "minecraft:potion");
+        bottles += countOnTransporter(bx(i), "minecraft:glass_bottle");
+    }
+    ctx.check(potions == 3 && bottles == 0, "three water bottles moved on (" + std::to_string(potions) + " water, " + std::to_string(bottles) + " empty)");
+    lv::kinetics::setGeneratedSpeed(bx(0, 0, 0), 0);
+    for (int i = 0; i <= 4; ++i) (void)takeAll(ctx, bx(i), "");
 });
 
 LV_REGISTER_SELFTEST("fluids.spout_fills_cauldron", [](Context& ctx) -> ll::coro::CoroTask<> {
