@@ -18,6 +18,8 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/item/SaveContext.h"
 #include "mc/world/item/SaveContextFactory.h"
+#include "mc/world/item/ItemDescriptor.h"
+#include "mc/world/item/alchemy/PotionBrewing.h"
 #include "mc/world/item/crafting/Recipe.h"
 #include "mc/world/item/crafting/RecipeIngredient.h"
 #include "mc/world/item/crafting/Recipes.h"
@@ -28,7 +30,10 @@
 #include "mc/world/level/Spawner.h"
 #include "mc/world/phys/AABB.h"
 
+#include "core/fluids/Fluids.h"
+#include "feature/assembly/SequencedAssembly.h"
 #include "feature/basin/BasinInternal.h"
+#include "feature/belts/BeltApi.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Filter.h"
@@ -47,6 +52,7 @@ namespace fluids = common::fluids;
 namespace cr     = common::recipes;
 namespace bd     = common::blockdata;
 namespace k      = lv::kinetics;
+namespace sa     = assembly::sequenced;
 
 // ---- recipes ---------------------------------------------------------------------------------------------
 
@@ -220,6 +226,61 @@ bool applyImpl(BlockSource& region, GlobalPos const& basinPos, BasinState& b, Ba
     return true;
 }
 
+// ---- potion brewing in the mixer (Create's PotionMixingRecipes) ----
+//
+// Create turns every brewing stand mix into a mixing recipe: the reagent + 1000 mB of the input
+// potion -> 1000 mB of the output potion, heated (potion mixes for each bottle type, container
+// mixes such as gunpowder -> splash for every potion). Bedrock keeps its mixes in PotionBrewing,
+// whose lists have no usable layout, so the recipes are made on demand from what the basin holds
+// and Bedrock's own PotionBrewing::mix decides the result.
+
+struct Brewing {
+    std::map<std::string, core::common::ProcessingRecipe> recipes; // stable addresses
+    std::map<std::string, BasinRecipe>                    basin;
+};
+
+Brewing& brewing() {
+    static Brewing b;
+    return b;
+}
+
+/// The potion fluid brewed from `fluid` with `reagent` ("" when there is no such mix).
+std::string brewedFluid(std::string const& fluid, ItemStack const& reagent) {
+    auto bottle = core::fluids::bottleFor(fluid);
+    if (!bottle || items::isEmpty(reagent) || !reagent.mItem.get()) return {};
+    auto source = items::make(bottle->id, 1, bottle->aux);
+    if (!source) return {};
+    ItemInstance   in(*source);
+    ItemDescriptor ingredient(*reagent.mItem.get(), reagent.getAuxValue());
+    if (!PotionBrewing::hasMix(in, ingredient)) return {};
+    auto out = fromInstance(PotionBrewing::mix(ingredient, in));
+    if (items::isEmpty(out)) return {};
+    auto result = core::fluids::fluidOfPotionItem(items::idOf(out), out.getAuxValue());
+    return result == fluid ? std::string{} : result;
+}
+
+BasinRecipe const* brewingRecipe(std::string const& fluid, ItemStack const& reagent) {
+    auto to = brewedFluid(fluid, reagent);
+    if (to.empty()) return nullptr;
+    auto  reagentId = items::idOf(reagent);
+    auto  id        = "levitate:potion_mixing/" + fluid + "/" + reagentId;
+    auto& br        = brewing();
+    if (auto it = br.basin.find(id); it != br.basin.end()) return &it->second;
+    core::common::ProcessingRecipe p;
+    p.id   = id;
+    p.type = "mixing";
+    p.ingredients.push_back({{reagentId}, {}});
+    p.fluidIngredients.push_back({fluid, {}, 1000});
+    p.fluidResults.push_back({to, 1000});
+    p.heat              = core::common::HeatRequirement::Heated;
+    auto const& stored  = br.recipes.emplace(id, std::move(p)).first->second;
+    BasinRecipe r;
+    r.id              = id;
+    r.processing      = &stored;
+    r.ingredientCount = 1;
+    return &br.basin.emplace(id, std::move(r)).first->second;
+}
+
 } // namespace
 
 std::vector<BasinRecipe> const& candidates(bool press) {
@@ -246,6 +307,8 @@ BasinRecipe const* byId(bool press, std::string const& id) {
     if (id.empty()) return nullptr;
     for (auto const& r : candidates(press))
         if (r.id == id) return &r;
+    if (!press)
+        if (auto it = brewing().basin.find(id); it != brewing().basin.end()) return &it->second;
     return nullptr;
 }
 
@@ -280,11 +343,54 @@ std::vector<BasinRecipe const*> matching(BlockSource& region, GlobalPos const& b
         if (r.ingredientCount > itemCount) continue; // can't match: fewer items than ingredients
         if (match(region, basinPos, b, r)) out.push_back(&r);
     }
+    if (!press && config::get<BasinConfig>().allowBrewingInMixer) {
+        for (auto* tank : basinops::combinedTanks(b)) {
+            if (tank->empty() || tank->amount < 1000) continue;
+            if (tank->id != core::fluids::kWater && !core::fluids::isPotionFluid(tank->id)) continue;
+            for (int i = 0; i < cb::kSlotCount; ++i) {
+                auto const* r = brewingRecipe(tank->id, b.in[i]);
+                if (r && std::find(out.begin(), out.end(), r) == out.end() && match(region, basinPos, b, *r)) out.push_back(r);
+            }
+        }
+    }
     std::stable_sort(out.begin(), out.end(), [](auto const* a, auto const* c) { return a->ingredientCount > c->ingredientCount; });
     return out;
 }
 
 core::common::ProcessingRecipe const* pressing(ItemStack const& stack) { return cr::findFirst("pressing", stack); }
+
+bool canPress(ItemStack const& stack) {
+    if (items::isEmpty(stack)) return false;
+    // Create's getRecipe: SequencedAssemblyRecipe.getRecipe(PRESSING) before the pressing recipes
+    return sa::findStep(sa::kPressing, stack).has_value() || pressing(stack) != nullptr;
+}
+
+std::vector<ItemStack> press(ItemStack const& stack, int count, std::string* recipeId) {
+    std::vector<ItemStack> results;
+    if (items::isEmpty(stack) || count <= 0) return results;
+    auto        step = sa::findStep(sa::kPressing, stack);
+    auto const* r    = step ? nullptr : pressing(stack);
+    if (!step && !r) return results;
+    if (recipeId) *recipeId = step ? step->recipe->id : r->id;
+    // RecipeApplier.applyRecipeOn: every item rolls its results, merged into earlier stacks
+    auto add = [&](ItemStack out) {
+        for (auto& have : results) {
+            if (items::isEmpty(out)) return;
+            if (!items::sameItemSameData(have, out)) continue;
+            int amount = std::min(maxStackOf(have) - items::countOf(have), items::countOf(out));
+            if (amount <= 0) continue;
+            have = items::withCount(have, items::countOf(have) + amount);
+            out  = items::withCount(out, items::countOf(out) - amount);
+        }
+        if (!items::isEmpty(out)) results.push_back(out);
+    };
+    for (int i = 0; i < count; ++i) {
+        if (step) add(sa::advance(*step, items::withCount(stack, 1)));
+        else
+            for (auto const& out : roll(*r)) add(out);
+    }
+    return results;
+}
 
 std::vector<ItemStack> roll(core::common::ProcessingRecipe const& r) { return cr::rollResults(r); }
 
@@ -307,6 +413,7 @@ ItemStack remainderOf(ItemStack const& ingredient) {
 void reset() {
     candidateCache(true)  = {};
     candidateCache(false) = {};
+    brewing()             = {};
 }
 
 } // namespace recipes
@@ -444,39 +551,27 @@ void spawnAt(BlockSource& region, Vec3 const& at, ItemStack const& stack) {
 /// Create's tryProcessInWorld (simulate: only whether a recipe exists).
 bool tryProcessInWorld(BlockSource& region, GlobalPos const& pos, ItemActor& entity, bool simulate) {
     auto& stack = entity.item();
-    auto const* r = recipes::pressing(stack);
-    if (!r) return false;
+    if (!recipes::canPress(stack)) return false;
     if (simulate) return true;
     auto const& cfg   = config::get<BasinConfig>();
     Vec3        at    = entity.getPosition();
     std::string input = items::idOf(stack);
     int         count = items::countOf(stack);
+    std::string recipeId;
     if (cfg.bulkPressing || count == 1) {
         // RecipeApplier.applyRecipeOn(entity): every item of the stack is processed
-        std::vector<ItemStack> results;
-        for (int i = 0; i < count; ++i) {
-            for (auto const& out : recipes::roll(*r)) {
-                bool merged = false;
-                for (auto& have : results) {
-                    if (items::sameItemSameData(have, out) && items::countOf(have) + items::countOf(out) <= maxStackOf(have)) {
-                        have   = items::withCount(have, items::countOf(have) + items::countOf(out));
-                        merged = true;
-                        break;
-                    }
-                }
-                if (!merged) results.push_back(out);
-            }
-        }
+        auto results = recipes::press(stack, count, &recipeId);
         entity.remove();
         for (auto const& out : results) spawnAt(region, at, out);
     } else {
-        for (auto const& out : recipes::roll(*r)) spawnAt(region, at, out);
+        auto results = recipes::press(stack, 1, &recipeId);
+        for (auto const& out : results) spawnAt(region, at, out);
         // the rest as a fresh entity: clients only learn a changed count from a new entity
         auto rest = items::withCount(stack, count - 1);
         entity.remove();
         spawnAt(region, at, rest);
     }
-    log().info("press at {} pressed {} ({})", pos.key(), input, r->id);
+    log().info("press at {} pressed {} ({})", pos.key(), input, recipeId);
     return true;
 }
 
@@ -494,34 +589,30 @@ void applyInWorld(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
     }
 }
 
-/// The first stack on a depot / belt below with a pressing recipe (Levitate: through the item
-/// capability of the block two below, U11's depot or belt).
-std::optional<ItemStack> pressableBelow(BlockSource& region, BlockPos const& below2) {
-    int n = common::items::slotCount(region, below2, kUp);
-    auto handler = common::items::find({region, below2, kUp});
-    if (!handler || !handler->getSlot) return std::nullopt;
-    for (int i = 0; i < n; ++i) {
-        auto st = handler->getSlot({region, below2, kUp}, i);
-        if (!items::isEmpty(st) && recipes::pressing(st)) return st;
-    }
-    return std::nullopt;
-}
-
-void applyOnBelt(BlockSource& region, GlobalPos const& pos) {
-    auto bp     = game::blockPos(pos);
-    auto below2 = offsetOf(bp, kDown, 2);
-    auto input  = pressableBelow(region, below2);
-    if (!input) return;
-    auto const* r = recipes::pressing(*input);
-    if (!r) return;
-    ItemStack kind = *input;
-    auto      got  = common::items::extract(region, below2, kUp, [kind](ItemStack const& st) { return items::sameItemSameData(st, kind); }, 1, false);
-    if (items::isEmpty(got)) return;
-    for (auto const& out : recipes::roll(*r)) {
-        auto rest = common::items::insert(region, below2, kUp, out, false);
-        if (!items::isEmpty(rest)) popItem(region, below2.x + .5f, below2.y + 1.f, below2.z + .5f, rest);
-    }
-    log().info("press at {} pressed {} on the {} ({})", pos.key(), items::idOf(got), idAt(region, below2), r->id);
+/// Create's PressingBehaviour.whenItemHeld at half cycle (BELT mode): the item held under the
+/// press on the belt segment / depot two below is pressed (tryProcessOnBelt). The belts unit calls
+/// the processor below while the item travels; the conversion runs here, in the press's own tick.
+void applyOnBelt(GlobalPos const& pos) {
+    GlobalPos below2{pos.dim, pos.x, pos.y - 2, pos.z};
+    bool      bulk = config::get<BasinConfig>().bulkPressing;
+    belts::handleCenteredProcessing(below2, .5f, [&](belts::TransportedItem& item) {
+        if (!item.locked || !recipes::canPress(item.stack)) return belts::TransportedResult::doNothing();
+        int         count = items::countOf(item.stack);
+        bool        all   = bulk || count == 1;
+        std::string recipeId;
+        auto        outs  = recipes::press(item.stack, all ? count : 1, &recipeId);
+        log().info("press at {} pressed {} on the {} ({})", pos.key(), items::idOf(item.stack),
+                   belts::beltAt(below2) ? "belt" : "depot", recipeId);
+        if (all) {
+            if (outs.empty()) return belts::TransportedResult::removeItem();
+            // the results stay under the press until it lifts (Create: outputs locked)
+            ItemStack first = outs.front();
+            outs.erase(outs.begin());
+            return belts::TransportedResult::convertToAndLeaveHeld(std::move(outs), first);
+        }
+        // one item pressed, the rest stays held for the next cycle
+        return belts::TransportedResult::convertToAndLeaveHeld(std::move(outs), items::withCount(item.stack, count - 1));
+    });
 }
 
 void onPressingCompleted(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
@@ -568,6 +659,27 @@ void save(GlobalPos const& pos, OperatorState const& s, bool press) {
 void forget(GlobalPos const& pos) { cache().erase(pos); }
 void forgetAll() { cache().clear(); }
 
+void registerBeltProcessor() {
+    // Create's PressingBehaviour.onItemReceived / whenItemHeld
+    belts::registerProcessor(kPress, belts::Processor{
+        .received = [](belts::ProcessorContext const& c, belts::TransportedItem& item) {
+            if (k::speedAt(c.processor) == 0) return belts::ProcessingResult::Pass;
+            auto* s = get(c.processor, true);
+            if (s->running) return belts::ProcessingResult::Hold;
+            if (!recipes::canPress(item.stack)) return belts::ProcessingResult::Pass;
+            startPress(c.processor, *s, cb::PressMode::Belt);
+            save(c.processor, *s, true);
+            return belts::ProcessingResult::Hold;
+        },
+        .held = [](belts::ProcessorContext const& c, belts::TransportedItem&) {
+            if (k::speedAt(c.processor) == 0) return belts::ProcessingResult::Pass;
+            auto* s = get(c.processor, true);
+            if (!s->running) return belts::ProcessingResult::Pass;
+            return belts::ProcessingResult::Hold;
+        },
+    });
+}
+
 void onSpeedChanged(GlobalPos const& pos) {
     auto& c = cache();
     if (auto it = c.find(pos); it != c.end()) it->second.basinCheck = true;
@@ -596,14 +708,8 @@ void tickPress(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
         if (s.scanCooldown > 0) --s.scanCooldown;
         auto below2 = offsetOf(bp, kDown, 2);
         auto id2    = idAt(region, below2);
-        if (beltLike(id2)) {
-            // Create's BeltProcessingBehaviour: the item under the press is pressed
-            if (pressableBelow(region, below2)) {
-                startPress(pos, s, cb::PressMode::Belt);
-                save(pos, s, true);
-            }
-            return;
-        }
+        // belts and depots call the press when an item reaches the centre (registerBeltProcessor)
+        if (belts::isTransporter({pos.dim, below2.x, below2.y, below2.z})) return;
         if (s.scanCooldown <= 0) {
             s.scanCooldown = cb::kPressEntityScan;
             if (id2 == kBasin) return;
@@ -622,7 +728,7 @@ void tickPress(BlockSource& region, GlobalPos const& pos, OperatorState& s) {
         auto mode = static_cast<cb::PressMode>(s.mode);
         if (mode == cb::PressMode::World) applyInWorld(region, pos, s);
         if (mode == cb::PressMode::Basin) applyBasinRecipe(region, pos, s, true);
-        if (mode == cb::PressMode::Belt) applyOnBelt(region, pos);
+        if (mode == cb::PressMode::Belt) applyOnBelt(pos);
         auto below2 = offsetOf(bp, kDown, 2);
         if (beltLike(idAt(region, below2)) && idAt(region, below2) == "levitate:belt") {
             playSound(pos.dim, bp, "dig.cloth", .5f, 1.f);
