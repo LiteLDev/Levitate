@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:cardboard_sword"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "P",
+      "P",
+      "S"
+    ],
+    "key": {
+      "P": {
+        "item": "levitate:cardboard"
+      },
+      "S": {
+        "item": "minecraft:stick"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:cardboard"
+      }
+    ],
+    "result": {
+      "item": "levitate:cardboard_sword",
+      "count": 1
+    }
+  }
+}

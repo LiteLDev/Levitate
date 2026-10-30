@@ -22,5 +22,8 @@
   },
   "levitate:creative_crate": {
     "sound": "wood"
+  },
+  "levitate:item_hatch": {
+    "sound": "netherite"
   }
 }

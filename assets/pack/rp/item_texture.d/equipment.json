@@ -88,5 +88,20 @@
   },
   "levitate_tree_fertilizer": {
     "textures": "textures/items/tree_fertilizer"
+  },
+  "levitate_cardboard_helmet": {
+    "textures": "textures/items/cardboard_helmet"
+  },
+  "levitate_cardboard_chestplate": {
+    "textures": "textures/items/cardboard_chestplate"
+  },
+  "levitate_cardboard_leggings": {
+    "textures": "textures/items/cardboard_leggings"
+  },
+  "levitate_cardboard_boots": {
+    "textures": "textures/items/cardboard_boots"
+  },
+  "levitate_cardboard_sword": {
+    "textures": "textures/items/cardboard_sword"
   }
 }

@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:cardboard_helmet"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "PPP",
+      "P P"
+    ],
+    "key": {
+      "P": {
+        "item": "levitate:cardboard"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:cardboard"
+      }
+    ],
+    "result": {
+      "item": "levitate:cardboard_helmet",
+      "count": 1
+    }
+  }
+}

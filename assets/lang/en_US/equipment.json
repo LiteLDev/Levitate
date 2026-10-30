@@ -92,5 +92,20 @@
   "lv.equipment.controller.active": "Linked controller active (Esc or right-click to stop)",
   "lv.equipment.controller.no_frequency": "This link has no frequency to bind",
   "enchantment.create.capacity": "Capacity",
-  "enchantment.create.potato_recovery": "Potato Recovery"
+  "enchantment.create.potato_recovery": "Potato Recovery",
+  "block.levitate.peculiar_bell": "Peculiar Bell",
+  "block.levitate.haunted_bell": "Haunted Bell",
+  "item.levitate.cardboard_helmet": "Cardboard Helmet",
+  "item.levitate.cardboard_chestplate": "Cardboard Chestplate",
+  "item.levitate.cardboard_leggings": "Cardboard Leggings",
+  "item.levitate.cardboard_boots": "Cardboard Boots",
+  "item.levitate.cardboard_sword": "Cardboard Sword",
+  "block.create.peculiar_bell.tooltip.summary": "A decorative _Brass Bell_. Placing it right above open _Soul Fire_ may have side-effects...",
+  "block.create.haunted_bell.tooltip.summary": "A _Cursed Bell_ haunted by lost souls of the Nether.",
+  "block.create.haunted_bell.tooltip.condition1": "When Held or Rang",
+  "block.create.haunted_bell.tooltip.behaviour1": "Highlights nearby _Lightless Spots_ on which _Hostile Mobs_ can spawn.",
+  "item.create.cardboard_armor.tooltip.summary": "_Wearable_ _equipment_ for increased _style_ and _stealth_.",
+  "item.create.cardboard_armor.tooltip.condition1": "When full set equipped",
+  "item.create.cardboard_armor.tooltip.behaviour1": "_Sneak_ to activate an inconspicuous _disguise_.",
+  "item.create.cardboard_sword.tooltip.summary": "Bonk. A _mostly_ _harmless_, yet powerful weapon of choice."
 }

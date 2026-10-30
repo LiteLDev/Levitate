@@ -238,5 +238,20 @@
   },
   "levitate_item_vault_end_large_1111": {
     "textures": "textures/blocks/item_vault_end_large_1111"
+  },
+  "levitate_item_hatch_front": {
+    "textures": "textures/blocks/item_hatch_front"
+  },
+  "levitate_item_hatch_front_open": {
+    "textures": "textures/blocks/item_hatch_front_open"
+  },
+  "levitate_item_hatch_back": {
+    "textures": "textures/blocks/item_hatch_back"
+  },
+  "levitate_item_hatch_side": {
+    "textures": "textures/blocks/item_hatch_side"
+  },
+  "levitate_item_hatch_door": {
+    "textures": "textures/blocks/item_hatch_door"
   }
 }

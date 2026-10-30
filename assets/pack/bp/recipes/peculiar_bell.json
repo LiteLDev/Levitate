@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:peculiar_bell"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "I",
+      "P"
+    ],
+    "key": {
+      "I": {
+        "item": "levitate:brass_block"
+      },
+      "P": {
+        "item": "levitate:brass_sheet"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:brass_sheet"
+      }
+    ],
+    "result": {
+      "item": "levitate:peculiar_bell",
+      "count": 1
+    }
+  }
+}

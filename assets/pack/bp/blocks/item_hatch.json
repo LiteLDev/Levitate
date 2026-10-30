@@ -1,0 +1,170 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:block": {
+    "description": {
+      "identifier": "levitate:item_hatch",
+      "menu_category": {
+        "category": "items"
+      },
+      "states": {
+        "levitate:facing": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "levitate:open": [
+          0,
+          1
+        ]
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 3.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 6
+      },
+      "minecraft:map_color": "#4c3e5c",
+      "minecraft:loot": "loot_tables/blocks/item_hatch.json",
+      "minecraft:light_dampening": 0,
+      "minecraft:geometry": "geometry.levitate.item_hatch",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "levitate_item_hatch_side",
+          "render_method": "alpha_test"
+        },
+        "front": {
+          "texture": "levitate_item_hatch_front",
+          "render_method": "alpha_test"
+        },
+        "back": {
+          "texture": "levitate_item_hatch_back",
+          "render_method": "alpha_test"
+        },
+        "side": {
+          "texture": "levitate_item_hatch_side",
+          "render_method": "alpha_test"
+        },
+        "door": {
+          "texture": "levitate_item_hatch_door",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -7,
+          0,
+          0
+        ],
+        "size": [
+          14,
+          16,
+          8
+        ]
+      },
+      "minecraft:collision_box": {
+        "origin": [
+          -7,
+          0,
+          0
+        ],
+        "size": [
+          14,
+          16,
+          8
+        ]
+      },
+      "minecraft:liquid_detection": {
+        "detection_rules": [
+          {
+            "liquid_type": "water",
+            "can_contain_liquid": true,
+            "on_liquid_touches": "no_reaction"
+          }
+        ]
+      }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:facing') == 2",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 3",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 4",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:facing') == 5",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:open') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.levitate.item_hatch_open",
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "levitate_item_hatch_side",
+              "render_method": "alpha_test"
+            },
+            "front": {
+              "texture": "levitate_item_hatch_front_open",
+              "render_method": "alpha_test"
+            },
+            "back": {
+              "texture": "levitate_item_hatch_back",
+              "render_method": "alpha_test"
+            },
+            "side": {
+              "texture": "levitate_item_hatch_side",
+              "render_method": "alpha_test"
+            },
+            "door": {
+              "texture": "levitate_item_hatch_door",
+              "render_method": "alpha_test"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

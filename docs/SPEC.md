@@ -215,6 +215,7 @@ and wait in `assets/pending_recipes/belts/`.
 | `smart_chute` | `levitate:powered` | itself; brass sheet, chute, electron tube (column) |
 | `item_vault` | `levitate:axis` 0 x / 2 z, connected textures `levitate:len` / `levitate:u` / `levitate:v` / `levitate:large` | itself; iron sheet, barrel, iron sheet (column) |
 | `creative_crate` | — | itself; creative only (no recipe) |
+| `item_hatch` (U49) | `levitate:facing` 2..5 (FacingID towards the container it sits on), `levitate:open` | itself; andesite alloy + iron trapdoor (shapeless) |
 
 The recipes use U9's materials (andesite alloy, brass, sheets, electron tube): they wait in
 `assets/pending_recipes/funnels/` until U9 is merged. Belt funnels (`andesite_belt_funnel`,
@@ -603,8 +604,23 @@ crafting table. Details in §3.6.29.
 `<colour>_toolbox` (16), `copper_backtank`, `netherite_backtank`, `copper_diving_helmet`,
 `copper_diving_boots`, `netherite_diving_helmet`, `netherite_diving_boots`, `extendo_grip`,
 `potato_cannon`, `wand_of_symmetry`, `handheld_worldshaper`, `linked_controller`, `sand_paper`,
-`red_sand_paper`, `tree_fertilizer`, `lectern_controller` (block, no item). `minecart_contraption`
+`red_sand_paper`, `tree_fertilizer`, `lectern_controller` (block, no item), and since U49
+`peculiar_bell`, `haunted_bell`, `cardboard_helmet`, `cardboard_chestplate`, `cardboard_leggings`,
+`cardboard_boots`, `cardboard_sword`. `minecart_contraption`
 is U21's (it is made by its cart assembler). Mechanics in §3.6.31.
+
+- Bells (U49): `levitate:facing` (FacingID 2..5, Java's FACING), `levitate:attachment` (0 floor,
+  1 ceiling, 2 single wall, 3 double wall), `levitate:powered`, `levitate:part` (1: the frame only,
+  the client mod's mesh; never in the world). Brittle, pickaxe, hardness 3 / resistance 6 (Create's
+  soft metal), anvil sounds; drop themselves. Peculiar bell = block of brass over a brass sheet;
+  the haunted bell is haunted from it (`assets/recipes/haunting/haunted_bell.json`, U13's fans) or
+  converted over soul fire. Models: `tools/models/curiosities.ps1`.
+- Cardboard armour (U49, Create's cardboard armour material): protection 1 each, durability 44 /
+  64 / 60 / 52, enchantability 4, repaired with cardboard, 50 s of furnace fuel, tags
+  `minecraft:is_armor` and `minecraft:trimmable_armors` (smithing-table trims). Recipes: the
+  vanilla armour shapes of cardboard. Cardboard sword: unbreakable (Create's tier has 0 uses),
+  +5 attack damage, enchantable (value 1) with Knockback only, 50 s of fuel, stacks to 1; recipe
+  2 cardboard over a stick.
 
 - States: toolboxes, backtank blocks and the lectern controller `levitate:facing` 0..3 (Java 2D
   order: south, west, north, east; the block faces the player). Toolboxes and backtanks are block
@@ -1866,6 +1882,19 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
   to a full stack of it, insertion voids the items (Create's BottomlessItemHandler).
 - **Items in chutes** are shown to every client (vanilla and client mod) as client-only display
   item entities that follow the stack (Display.cpp, §8).
+- **Item hatch** (U49, Create's ItemHatchBlock / ItemHatchBlockEntity / ItemHatchHandler /
+  HatchFilterSlot; `ItemHatch.cpp`): placed only against the side of a block (a click on a top or
+  bottom face places nothing), facing into it; waterloggable, netherite sounds, pickaxe, hardness 3.
+  A right-click — also while sneaking (ItemHatchHandler) — on anything but its filter slot: with
+  no item capability behind it nothing happens (Create's FAIL); sneaking with the wrench is the
+  wrench's own; else the held stack (not sneaking: the selected hotbar slot only; sneaking: every
+  main inventory slot outside the hotbar) goes into the container behind it as far as it fits
+  (insertItemStacked), skipping items that can't go into containers (shulker boxes) and items the
+  filter rejects (an empty filter passes everything). When anything went in: Create's hatch sound
+  (barrel open at .25 / 1.4 + netherite place at .75 / 1.15), `levitate:open` for 10 ticks and the
+  action bar "Held item deposited" / "Inventory items deposited". Deployers (the fake player) do
+  nothing. The filter slot is the front of the slanted door (U3 filter slot, scale 0.48); a filter
+  item in it drops with the block.
 - **Contract extension** (`src/feature/common/FunnelsExt.h`, for U11 and U13):
   `airflow::registerFan(blockId, query)` — a fan's facing and speed (Create's
   `EncasedFanBlockEntity.getSpeed()`), read by chutes; `beltlink::registerSegment(blockId,
@@ -3974,6 +4003,71 @@ replaces blocks without collision, and replaced blocks drop as broken (the grown
 nothing). A single dark oak / pale oak sapling grows nothing. One item is used (creative: none). If
 a feature can't be resolved, Bedrock's growth repeats until it grows (needs room).
 
+**Peculiar and haunted bells** (U49, Create's AbstractBellBlock(Entity), PeculiarBellBlock,
+HauntedBellBlock(Entity), HauntedBellPulser, SoulPulseEffect(Handler), BellMovementBehaviour,
+HauntedBellMovementBehaviour; `Bells.cpp`, `core/equipment/Bells.h`, gtest). Vanilla bell rules:
+placed on a floor / under a ceiling (facing the player's direction) or against a wall (facing into
+it; between two sturdy walls a double wall bell, else standing / hanging when the wall can't carry
+it); it breaks (dropping itself) when its support goes; a double wall bell losing one wall hangs on
+the other, a single wall bell gaining the opposite wall spans both. A right-click (not sneaking with
+an item) on a side of the bell below 0.8124 of its height rings it — floor / ceiling bells from the
+two sides along their facing, wall bells from the two sides across it; otherwise the click goes on
+(placing the held block). A rising redstone signal rings it along its facing (wall bells: facing
+turned clockwise). Ringing lasts 74 ticks; the client mod draws the bell swinging
+(`equipment.bell.ring`, BellRenderer: `1.2 sin(t / 1.5 / π) / (2.5 + t / 4.5)` rad about the axis
+across the hit; the chunk mesh has the frame only), vanilla clients see the bell still (§8).
+Sounds: the peculiar bell = the vanilla bell at volume 2, pitch 0.94; the haunted bell its own toll
+(`levitate.haunted_bell.use`, original, volume 4). A peculiar bell above soul fire or a soul campfire
+(placed there, or when the block below changes) becomes a haunted bell with the same states, with
+15..24 soul fire flames and `levitate.haunted_bell.convert` (original). A haunted bell placed (also
+by conversion) stirs for 20 ticks: now and then a soul particle rises with a soul-escape sound.
+- *Haunted bell*: ringing it (not again while it rang less than 65 ticks ago) sends a soul pulse of
+  10 blocks and awards `haunted_bell` to the player. Holding it in either hand (not spectating)
+  sends pulses of 3 blocks around the player's feet after a 10-tick warmup (first pulse at once,
+  then on every game tick not divisible by 8; the warmup resets after 5 ticks without it). On a
+  contraption (not a train) a haunted bell pulses 3 blocks wherever it enters a new block, then
+  waits 65 ticks, ringing each time.
+- *Soul pulses* (run on the server, seen by every client): one layer of offsets per 6 ticks (layer
+  n: rounded distance n, up to 11), skipping empty layers at once, then 100 ticks of keeping its
+  marks. A spot is a candidate where a zombie could spawn on the ground (sturdy top below that is
+  no glass / leaves / ice / barrier / bedrock / magma and gives less than 14 light; the spot and the
+  block above without full collision, signal, liquid, rail or harmful block; a 0.2 × 0.75 dummy at
+  its centre touches no collision box); pulses that don't overlap never mark a spot another running
+  pulse marked. A marked spot with block light 0 gets the soul particle (`levitate:soul`, 24
+  frames: forming, flickering, rising away, ~6 s) and the flat base ring (`levitate:soul_base`,
+  4.5–7 s). A pulse of the same origin and size as one still expanding is not started again (it
+  would mark nothing new: a held bell asks nearly every tick).
+- *Contraptions*: brittle, hanging on their attachment side; the bell sounds when the contraption
+  starts, turns around and stops (elevators: when they arrive); not on trains.
+
+**Cardboard armour** (U49, Create's CardboardArmorItem / CardboardArmorHandler(Client) /
+CardboardArmorStealthOverlay; `Cardboard.cpp`). A player in all four pieces who sneaks and isn't
+flying hides as a box: the server makes the player invisible (no body, armour, held item or name on
+any client) and keeps a `levitate:cardboard_disguise` entity at the player's feet, turned with the
+player — one of the four plain package boxes (U25's models; random each time hiding starts), bobbing
+while the player walks, not drawn for a camera closer than 1.8 blocks (Create: not in first person);
+it takes no damage, has no collision and is removed when the player stops hiding, leaves or changes
+dimension (orphans are swept every 5 s). Vanilla clients see the same. Mobs can't choose a hiding
+player as their target (Create: visibility 0), except one it just hurt (vanilla's hurt-by
+targeting ignores visibility); every 16 ticks of a mob a hiding target or last attacker is
+forgotten. Hiding awards `cardboard_armor`. The client mod fades a cardboard vignette over the HUD
+while its player hides (opacity chasing 1 / 0 by a quarter per tick). Taking a trimmed cardboard
+armour piece out of the smithing table awards `cardboard_armor_trim` (Create's SmithingMenuMixin;
+the advancement is secret; Bedrock's smithing craft request carries the result with its `Trim`
+item data). There is no cardboard trim template item in Create (trims use the vanilla templates);
+the pieces carry `minecraft:trimmable_armors` and the vanilla armour render controller draws the
+trim on the attachables (checked in the client e2e). The item description (`item.create.cardboard_armor.tooltip`) is shared by the
+four pieces.
+
+**Cardboard sword** (U49, Create's CardboardSwordItem / KnockbackPacket). Hitting a living entity
+that is not an arthropod does no damage: the "Resonant bonk" (`levitate.cardboard_sword.bonk`,
+original, .75 / 1.85) and a knockback of `(2 + Knockback + 1 when sprinting) / 2` along the
+attacker's look (minus knockback resistance; upward `min(.4, vy / 2 + strength)` on the ground;
+the target dismounts); creatures (not monsters, water mobs, ambient mobs or players) get slowness
+X for 3 s (hidden); the attacker's horizontal motion × 0.6 and sprinting stops. Arthropods take a
+normal hit. A left-click on a block plays the bonk (.5 / 1.85). Only Knockback enchants it (table,
+anvil and books).
+
 **Messages / logs**: one log line per user-visible action (`equipment: ...`), e2e scenarios wait
 for them.
 
@@ -4347,6 +4441,12 @@ matches Create's official Chinese translation wording).
 | Glowing of glow berry / glistering melon potato projectiles (U31) | Bedrock has no glowing effect | the hit has its other effects |
 | Linked controller input for **vanilla** clients (U31) | movement keys are only visible through Bedrock's movement input | the movement input the server receives is polled (the player still moves); the client mod captures the keys as Create |
 | Worldshaper preview outline for **vanilla** clients (U31) | no world-space line rendering without the client mod | the client mod draws Create's outline; vanilla players see the blocks change at once |
+| Swinging peculiar / haunted bells for **vanilla** clients (U49) | custom blocks have no block entity renderer; a state per swing frame and direction would need dozens of models | the client mod draws Create's swing; vanilla clients see the bell still (sounds, souls and particles reach everyone) |
+| Bells rung by projectiles (U49) | custom blocks get no projectile-hit callback (`BlockType::onProjectileHit` is a folded no-op shared by many blocks, it can't be hooked for ours alone) | clicks and redstone ring them |
+| Soul particles vanishing when the spot gets lit (U49) | resource-pack particles can't read the block light | the particles live their full time; new pulses only mark dark spots |
+| The hiding player's smaller hitbox and eye height (U49) | Bedrock clients size and move their own player (sneaking height is the client's); a server-side size is not used for the player's collision | the player becomes the box visually (invisible + a box entity at its feet, which hits pass through to the player); hitbox and camera stay the sneaking ones |
+| Cardboard vignette for **vanilla** clients (U49) | no HUD drawing without the client mod | the client mod draws it (in every camera view: the mod can't read the view perspective; Create: first person only) |
+| Cardboard sword's 3D in-hand model (U49) | Bedrock items have no custom item renderer, and an attachable's first-person transform is not solved (wrench row above) | the sprite in hand, as for every item |
 
 Units add rows here in their PRs (in unit order) when they find something else impossible.
 
