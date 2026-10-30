@@ -3,7 +3,10 @@
 // placement helpers and the off-hand material on placement (Create's setPlacedBy).
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/scripting/modules/minecraft/ScriptFacing.h"
 #include "mc/server/SimulatedPlayer.h"
+#include "mc/server/sim/LookDuration.h"
+#include "mc/world/level/BlockPos.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
@@ -131,5 +134,31 @@ LV_REGISTER_SELFTEST("building.copycat_helpers", [](Context& ctx) -> ll::coro::C
     co_await ctx.ticks(1);
     ctx.check(b::copycatMaterial(at(panel, -1, 0, 0)) == std::optional<std::string>("minecraft:stone"), "it takes the off-hand stone");
     sp.setOffhandSlot(ItemStack{});
+    ctx.give(sp, ItemStack{}, 0);
+});
+
+// the same through a player's use (the interaction dispatch), as a client's click arrives
+LV_REGISTER_SELFTEST("building.copycat_special_use", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = ctx.testPos(4895);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
+    GlobalPos bars = at(p, 0, 1, 0), trap = at(p, 2, 1, 0);
+    ctx.setBlock(bars, "levitate:copycat_panel", {{"levitate:facing", b::North}});
+    ctx.setBlock(trap, "levitate:copycat_panel", {{"levitate:facing", b::North}});
+    co_await ctx.ticks(2);
+    for (auto [pos, item, expect] : {std::tuple{bars, "minecraft:iron_bars", "minecraft:iron_bars"}, std::tuple{trap, "minecraft:trapdoor", "minecraft:trapdoor"}}) {
+        stand(sp, at(pos, 0, -1, -3));
+        sp.simulateLookAt(Vec3{pos.x + .5f, pos.y + .4f, pos.z + .9f}, sim::LookDuration::Instant);
+        ctx.give(sp, b::makeItem(item, 2), 0);
+        co_await ctx.ticks(2);
+        for (int i = 0; i < 4 && !b::copycatMaterial(pos); ++i) {
+            sp.simulateUseItemInSlotOnBlock(0, BlockPos{pos.x, pos.y, pos.z}, ScriptModuleMinecraft::ScriptFacing::North, Vec3{.5f, .4f, .8125f});
+            co_await ctx.ticks(6);
+        }
+        ctx.check(b::copycatMaterial(pos) == std::optional<std::string>(expect), std::string("a player's use applies ") + item + " (" + b::copycatMaterial(pos).value_or("none") + ")");
+        ctx.check(b::idAt(at(pos, 0, 0, -1)) != item, std::string("and places no ") + item);
+    }
+    ctx.cleanupBlock(at(bars, 0, 0, -1));
+    ctx.cleanupBlock(at(trap, 0, 0, -1));
     ctx.give(sp, ItemStack{}, 0);
 });

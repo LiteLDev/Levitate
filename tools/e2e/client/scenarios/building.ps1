@@ -88,7 +88,7 @@ function Use-At([double]$x, [double]$y, [double]$z, [string]$slot, [string]$expe
     Invoke-Chat "/tp @s $($x + 0.5) -60 $($z - 2.5) 0 $pitch"
     Start-Sleep -Milliseconds 700
     Press-Key $slot
-    Start-Sleep -Milliseconds 400
+    Start-Sleep -Milliseconds 900   # the server must see the new slot before the click
     $m = Get-LogMark
     Click 0.5 0.5 -Relative -Right
     Wait-LogLine $expect 20 -Since $m | Out-Null
@@ -126,14 +126,19 @@ Invoke-Chat '/give @s iron_bars 4'
 Invoke-Chat '/give @s trapdoor 4'
 Invoke-Chat '/give @s levitate:copycat_panel 4'
 Start-Sleep -Milliseconds 800
-Use-At -3 -60 10 '1' 'building: levitate:copycat_panel at -3 -60 10 takes the look of minecraft:iron_bars'
-Use-At -1 -60 10 '2' 'building: levitate:copycat_panel at -1 -60 10 takes the look of minecraft:trapdoor'
+# (each panel set again right before its click: a chat command that got lost leaves no panel)
+Invoke-Chat '/setblock -3 -60 10 levitate:copycat_panel ["levitate:facing"=2]'
+Use-At -3 -59.6 10 '1' 'building: levitate:copycat_panel at -3 -60 10 takes the look of minecraft:iron_bars'
+Invoke-Chat '/setblock -1 -60 10 levitate:copycat_panel ["levitate:facing"=2]'
+Use-At -1 -59.6 10 '2' 'building: levitate:copycat_panel at -1 -60 10 takes the look of minecraft:trapdoor'
+Invoke-Chat '/setblock 1 -60 10 levitate:copycat_panel ["levitate:facing"=1]'
 Use-At 1 -60.25 10 '2' 'building: levitate:copycat_panel at 1 -60 10 takes the look of minecraft:trapdoor'
 Invoke-Chat '/tp @s 0.5 -59 7.5 0 22'
 Start-Sleep -Milliseconds 2500
 Save-Screenshot 'copycat_specials' | Out-Null
 # the helper: holding a copycat panel while looking at one shows the ghost, the click places it
-Invoke-Chat "/tp @s 3.5 -60 7.5 0 $([Math]::Round([Math]::Atan2(-58.38 - (-60 + 0.4), 2.6) * 180 / [Math]::PI, 1))"
+Invoke-Chat '/setblock 3 -60 10 levitate:copycat_panel ["levitate:facing"=2]'
+Invoke-Chat "/tp @s 3.5 -60 7.5 0 $([Math]::Round([Math]::Atan2(-58.38 - (-59.2), 2.6) * 180 / [Math]::PI, 1))"
 Start-Sleep -Milliseconds 700
 Press-Key '3'
 Start-Sleep -Milliseconds 1200
@@ -141,7 +146,7 @@ if (-not $vanilla) { Wait-LogLine 'building client: placement helper ghost of le
 Save-Screenshot 'helper_ghost' | Out-Null
 $m = Get-LogMark
 Click 0.5 0.5 -Relative -Right
-Wait-LogLine 'building: levitate:copycat_panel placed at -?\d+ -60 10 by the placement helper' 20 -Since $m | Out-Null
+Wait-LogLine 'building: levitate:copycat_panel placed at -?\d+ -?\d+ 10 by the placement helper' 20 -Since $m | Out-Null
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'helper_placed' | Out-Null
 

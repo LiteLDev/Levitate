@@ -15,7 +15,7 @@
 #   pwsh -NoProfile -File tools/models/wrench.ps1
 param(
     # third / first person poses: position, rotation (degrees), scale of the root bone
-    [double[]]$TpPos = @(1, 9, -1), [double[]]$TpRot = @(-90, 0, -45), [double]$TpScale = 0.85,
+    [double[]]$TpPos = @(0, 0, 0), [double[]]$TpRot = @(30, 90, 0), [double]$TpScale = 0.85,
     [double[]]$FpPos = @(0, 16, 0), [double[]]$FpRot = @(25, 0, 110), [double]$FpScale = 1.15
 )
 $ErrorActionPreference = 'Stop'
@@ -45,9 +45,12 @@ $cogPixels = 'c', 'k', 'o'
 
 function Face($col, $row) { [ordered]@{ uv = @($col, $row); uv_size = @(1, 1) } }
 
-# The bones of one geometry: the root `wrench` (bound or parented as given), the body pixels, and
-# the cog. Model pixels: column `ox` / row `oy` of the sprite at the origin, x right, y up.
-function Bones($rootBone, $ox, $oy) {
+# The bones of one geometry: the root `wrench` (bound or parented as given, turning about `at`),
+# the body pixels, and the cog. Model pixels: the grip (column 2, row 14 of the sprite) at `at`,
+# x right, y up.
+function Bones($rootBone, $at) {
+    $ox = 2 - $at[0]; $oy = 14 + $at[1]; $oz = $at[2]
+    $rootBone.pivot = $at
     # the cog's centre (the 'o' pixel at column 8, row 9); the shaft runs from the grip (bottom
     # left) to the head (top right), at 45 degrees in the sprite plane
     $cx = 8 - $ox + 0.5; $cy = $oy - 9 + 0.5
@@ -59,7 +62,7 @@ function Bones($rootBone, $ox, $oy) {
             size   = $size
             uv     = [ordered]@{ north = $f; south = $f; east = $f; west = $f; up = $f; down = $f }
         }
-        if ($yaw) { $c.pivot = @($cx, $cy, 0); $c.rotation = @(0, $yaw, 0) }
+        if ($yaw) { $c.pivot = @($cx, $cy, $oz); $c.rotation = @(0, $yaw, 0) }
         $c
     }
     $body = @()
@@ -67,27 +70,27 @@ function Bones($rootBone, $ox, $oy) {
         for ($col = 0; $col -lt 16; $col++) {
             $ch = $wrench[$row][$col]
             if ($ch -eq '.' -or $cogPixels -contains [string]$ch) { continue }
-            $body += & $cube @(($col - $ox), ($oy - $row), -0.5) @(1, 1, 1) $col $row 0
+            $body += & $cube @(($col - $ox), ($oy - $row), ($oz - 0.5)) @(1, 1, 1) $col $row 0
         }
     }
     # the shaft through the cog (doesn't turn): 1 x 4 px along the shaft
-    $shaft = @(& $cube @(($cx - 0.5), ($cy - 2), -0.5) @(1, 4, 1) 8 9 0)
+    $shaft = @(& $cube @(($cx - 0.5), ($cy - 2), ($oz - 0.5)) @(1, 4, 1) 8 9 0)
     # the gear (in a frame with the shaft along y): a 2 px hub and eight teeth (two crossing bars,
     # and the same turned by 45 degrees), 1 px thick along the shaft, 5 px across
     $gear = @(
-        (& $cube @(($cx - 1), ($cy - 0.5), -1) @(2, 1, 2) 7 9 0),
-        (& $cube @(($cx - 2.5), ($cy - 0.5), -0.5) @(5, 1, 1) 8 8 0),
-        (& $cube @(($cx - 0.5), ($cy - 0.5), -2.5) @(1, 1, 5) 8 8 0),
-        (& $cube @(($cx - 2.5), ($cy - 0.5), -0.5) @(5, 1, 1) 7 9 45),
-        (& $cube @(($cx - 0.5), ($cy - 0.5), -2.5) @(1, 1, 5) 7 9 45)
+        (& $cube @(($cx - 1), ($cy - 0.5), ($oz - 1)) @(2, 1, 2) 7 9 0),
+        (& $cube @(($cx - 2.5), ($cy - 0.5), ($oz - 0.5)) @(5, 1, 1) 8 8 0),
+        (& $cube @(($cx - 0.5), ($cy - 0.5), ($oz - 2.5)) @(1, 1, 5) 8 8 0),
+        (& $cube @(($cx - 2.5), ($cy - 0.5), ($oz - 0.5)) @(5, 1, 1) 7 9 45),
+        (& $cube @(($cx - 0.5), ($cy - 0.5), ($oz - 2.5)) @(1, 1, 5) 7 9 45)
     )
     @(
         $rootBone
-        [ordered]@{ name = 'model'; parent = 'wrench'; pivot = @(0, 0, 0); cubes = $body }
+        [ordered]@{ name = 'model'; parent = 'wrench'; pivot = $at; cubes = $body }
         # the cog turns about the shaft: a frame turned onto the shaft (its y along the shaft),
         # the spinning bone, then the shaft and the gear in that frame
-        [ordered]@{ name = 'cog_axis'; parent = 'model'; pivot = @($cx, $cy, 0); rotation = @(0, 0, -45); cubes = $shaft }
-        [ordered]@{ name = 'cog'; parent = 'cog_axis'; pivot = @($cx, $cy, 0); cubes = $gear }
+        [ordered]@{ name = 'cog_axis'; parent = 'model'; pivot = @($cx, $cy, $oz); rotation = @(0, 0, -45); cubes = $shaft }
+        [ordered]@{ name = 'cog'; parent = 'cog_axis'; pivot = @($cx, $cy, $oz); cubes = $gear }
     )
 }
 
@@ -107,10 +110,10 @@ function Geometry($id, $bones) {
 $geo = [ordered]@{
     format_version       = '1.16.0'
     'minecraft:geometry' = @(
-        # third person: the sprite centred as an item model, under the player's rightItem bone
-        (Geometry 'geometry.levitate.wrench' (Bones ([ordered]@{ name = 'wrench'; parent = 'rightItem'; pivot = @(0, 0, 0) }) 8 15)),
+        # third person: under the player's rightItem bone, the grip at that bone's pivot (the hand)
+        (Geometry 'geometry.levitate.wrench' (Bones ([ordered]@{ name = 'wrench'; parent = 'rightItem' }) @(-6, 15, 1))),
         # first person: the grip at the origin, bound to the hand of the slot
-        (Geometry 'geometry.levitate.wrench.first_person' (Bones ([ordered]@{ name = 'wrench'; binding = 'q.item_slot_to_bone_name(c.item_slot)'; pivot = @(0, 0, 0) }) 2 14))
+        (Geometry 'geometry.levitate.wrench.first_person' (Bones ([ordered]@{ name = 'wrench'; binding = 'q.item_slot_to_bone_name(c.item_slot)' }) @(0, 0, 0)))
     )
 }
 $anim = [ordered]@{

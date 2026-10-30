@@ -128,9 +128,12 @@ The goggles are a wearable (`slot.armor.head`, no protection) with an attachable
 and two brass lenses on the head; a small copy in the hand). The wrench in the hand is an
 attachable too (U48, `tools/models/wrench.ps1`): the item sprite extruded into pixels with a small
 gear on the shaft that turns about the shaft while the wrench is drawn (Create's
-WrenchItemRenderer: ScrollValueHandler's passive 0.5° a tick), bound to the hand bone of the slot
-(`q.item_slot_to_bone_name`, as the vanilla spear) with its own first- and third-person poses; it
-comes with the resource pack, so vanilla clients see it too. Mechanics in §3.6.8 (U8).
+WrenchItemRenderer: ScrollValueHandler's passive 0.5° a tick). First and third person have their own
+geometry and render controller (conditional render controller entries on `c.is_first_person`):
+in third person it hangs from the player model's `rightItem` bone, turning about the hand; the
+first-person arm has no such bone, so there the root bone is bound to the slot's hand
+(`q.item_slot_to_bone_name`, as the vanilla spear); an animation controller switches the two poses.
+It comes with the resource pack, so vanilla clients see it too. Mechanics in §3.6.8 (U8).
 
 ### 2.4 Materials, food, world (U9)
 

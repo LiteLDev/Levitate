@@ -93,6 +93,8 @@ struct PlacardItems {
 Block const* blockOfItem(ItemStack const& stack) {
     if (stack.isNull()) return nullptr;
     auto const* block = stack.mBlock;
+    // a stack that came over the network may carry no block: the block item's own id
+    if (!block) block = game::blockWith(stack.getTypeName());
     if (!block || block->isAir()) return nullptr;
     return block;
 }
@@ -416,7 +418,10 @@ bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos, int
     // Create's CopycatPanelBlock.isAcceptedRegardless: bars and trapdoors in a panel
     bool panel   = info->kind == Kind::CopycatPanel;
     bool special = panel && (isBarsMaterial(*material) || isTrapdoorMaterial(*material));
-    if (!special && !acceptableMaterial(*material)) return false;
+    if (!special && !acceptableMaterial(*material)) {
+        log().info("building: {} at {} {} {} refuses {}", info->id, pos.x, pos.y, pos.z, material->getTypeName());
+        return false;
+    }
     auto current = copycatMaterial(pos);
     if (current && *current == material->getTypeName()) {
         // Create's cycleMaterial: the same block again turns the material
