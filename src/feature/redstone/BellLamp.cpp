@@ -13,6 +13,7 @@
 // lamp of the column behind it. The wrench toggles a lamp (Create's getRotatedBlockState). Light 15
 // while lit.
 
+#include <algorithm>
 #include <cmath>
 
 #include "ll/api/service/Bedrock.h"
@@ -125,7 +126,7 @@ void tickRoseQuartzLamp(BlockSource& region, GP const& pos, Block const& block, 
     // neighborChanged: the input (other lamps send nothing into a lamp)
     auto const& now   = region.getBlock(bp);
     auto        s     = lampState(now);
-    bool        input = common::redstone::powered(region, bp);
+    bool        input = lampInput(region, bp) > 0;
     switch (cr::lampNeighbourChanged(s, input)) {
     case cr::LampChange::None: break;
     case cr::LampChange::Unpower: setStates(region, bp, {{sPowered, 0}}); break;
@@ -141,6 +142,28 @@ void tickRoseQuartzLamp(BlockSource& region, GP const& pos, Block const& block, 
         break;
     }
     }
+}
+
+int lampInput(BlockSource& region, BlockPos const& pos) {
+    // Level.hasNeighborSignal. A solid block the circuit powers counts with what its other
+    // neighbours (but lamps) send into it: Bedrock lets a lit lamp's producer power the blocks
+    // around it, which in Java (weak signals) would not light the lamp again.
+    int best = 0;
+    for (int d = 0; d < 6 && best < 15; ++d) {
+        auto n = step(pos, d);
+        if (!loadedAt(region, n) || isLampAt(region, n)) continue;
+        if (common::redstone::isPoweredBlock(region, n)) {
+            for (int e = 0; e < 6; ++e) {
+                auto m = step(n, e);
+                // solid blocks never power each other (Java: no direct signal)
+                if (m == pos || isLampAt(region, m) || common::redstone::isPoweredBlock(region, m)) continue;
+                best = std::max(best, common::redstone::signalFrom(region, m, n));
+            }
+        } else {
+            best = std::max(best, common::redstone::signalFrom(region, n, pos));
+        }
+    }
+    return best;
 }
 
 int lampSignal(BlockSource& region, BlockPos const& at, Block const& block, int towards) {

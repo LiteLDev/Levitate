@@ -288,6 +288,8 @@ void tickDeskBell(BlockSource& region, GP const& pos, Block const& block, Runtim
 void tickRoseQuartzLamp(BlockSource& region, GP const& pos, Block const& block, Runtime& rt);
 /// What the lamp at t sends into its neighbour on side 	owards (RoseQuartzLampBlock.getSignal).
 [[nodiscard]] int lampSignal(BlockSource& region, BlockPos const& at, Block const& block, int towards);
+/// The input of a lamp (Level.hasNeighborSignal, without lamps feeding back through powered blocks).
+[[nodiscard]] int lampInput(BlockSource& region, BlockPos const& pos);
 /// What a comparator reads from the lamp at pos (distance to the lit lamp of its column).
 [[nodiscard]] std::optional<int> lampComparatorOutput(BlockSource& region, BlockPos const& pos);
 /// Registers the emitters, the comparator output, the wrench handlers and the bell's contraption

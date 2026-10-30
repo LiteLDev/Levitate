@@ -119,7 +119,7 @@ Block const* placementState(BlockSource& region, BlockPos const& pos, Block cons
     case Kind::DeskBell: return withStates(placed, {{sFacing, p.clickedFace}, {sPowered, 0}});
     // RoseQuartzLampBlock: POWERED follows the input it is placed into (it does not light up)
     case Kind::RoseQuartzLamp:
-        return withStates(placed, {{sPowered, common::redstone::powered(region, pos) ? 1 : 0}, {sPowering, 0}, {sActivate, 0}});
+        return withStates(placed, {{sPowered, lampInput(region, pos) > 0 ? 1 : 0}, {sPowering, 0}, {sActivate, 0}});
     }
     return &placed;
 }

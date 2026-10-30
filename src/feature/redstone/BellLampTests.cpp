@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "mc/deps/core/string/HashedString.h"
+#include "mc/deps/nbt/CompoundTag.h"
 #include "mc/server/SimulatedPlayer.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
@@ -29,11 +31,17 @@ Block const& blockAt(Context& ctx, GP const& p) { return regionOf(ctx).getBlock(
 int          st(Context& ctx, GP const& p, char const* name) { return state(blockAt(ctx, p), name, -1); }
 int          wire(Context& ctx, GP const& p) { return state(blockAt(ctx, p), "redstone_signal", -1); }
 
-bool placeVanilla(Context& ctx, GP const& p, std::string const& id, Json const& states) {
-    auto const* b = vanillaBlock(id, states);
-    if (!b) return false;
-    ctx.cleanupBlock(p);
-    return game::setBlock(regionOf(ctx), game::blockPos(p), *b);
+
+/// A vanilla comparator at `pos` whose input (rear) is on the `towards` side (as hooks' tests).
+bool placeComparator(Context& ctx, GP pos, std::string const& towards) {
+    auto def = Block::tryGetFromRegistry(HashedString("minecraft:unpowered_comparator"));
+    if (!def) return false;
+    CompoundTag nbt = def->mSerializationId.get();
+    nbt["states"].get<CompoundTag>().putString("minecraft:cardinal_direction", towards);
+    auto cb = Block::tryGetFromRegistry(nbt);
+    if (!cb) return false;
+    ctx.cleanupBlock(pos);
+    return game::setBlock(regionOf(ctx), game::blockPos(pos), *cb);
 }
 
 } // namespace
@@ -95,11 +103,13 @@ LV_REGISTER_SELFTEST("redstone.rose_quartz_lamp", [](Context& ctx) -> ll::coro::
     ctx.check(wire(ctx, at(c, 0, 0, 1)) == 15, "a lit lamp powers dust, got " + std::to_string(wire(ctx, at(c, 0, 0, 1))));
     auto& region = regionOf(ctx);
     ctx.check(lampSignal(region, game::blockPos(c), blockAt(ctx, c), kWest) == 0, "nothing into the lamp next to it");
-    ctx.require(placeVanilla(ctx, at(a, -1, 0, 0), "minecraft:unpowered_comparator", {{"minecraft:cardinal_direction", "east"}}), "comparator placed");
+    ctx.require(placeComparator(ctx, at(a, -1, 0, 0), "east"), "comparator placed");
+    ctx.setBlock(at(a, -2, 0, 0), "minecraft:redstone_wire");
     co_await ctx.ticks(2);
     auto out = lampComparatorOutput(region, game::blockPos(a));
     ctx.check(out && *out == 13, "the comparator reads 15 minus the distance to the lit lamp: 13, got " + (out ? std::to_string(*out) : std::string("none")));
-    ctx.info("comparator: " + circuitDebug(region, game::blockPos(at(a, -1, 0, 0))));
+    co_await ctx.ticks(4);
+    ctx.check(wire(ctx, at(a, -2, 0, 0)) == 13, "the comparator gives 13 to the dust behind it, got " + std::to_string(wire(ctx, at(a, -2, 0, 0))));
     // the wrench toggles a lamp
     auto const* h = goggles::wrench::handlerOf(kRoseQuartzLamp);
     ctx.require(h && h->rotate, "the lamp has a wrench rotation");
