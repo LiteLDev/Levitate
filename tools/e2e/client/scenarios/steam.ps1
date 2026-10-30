@@ -60,7 +60,7 @@ Invoke-Chat '/tp @s ~2 ~5 ~ facing ~5 ~ ~'
 Start-Sleep -Seconds 1
 Save-Screenshot 'steam-c' | Out-Null
 # the sounding whistle with its steam jets and the single boiler's gauges, from the south-west
-Invoke-Chat '/tp @s ~ ~-4 ~8 facing ~3.5 ~-4.5 ~5.5'
+Invoke-Chat '/tp @s 1.5 -59 9.5 facing 5.5 -59.5 5.5'
 Start-Sleep -Seconds 1
 Save-Screenshot 'steam-d' | Out-Null
 Assert-NoErrors
