@@ -15,6 +15,7 @@
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/client/ClientExitLevelEvent.h"
+#include "ll/api/event/client/ClientJoinLevelEvent.h"
 #include "ll/api/memory/Hook.h"
 
 #include "mc/client/gui/screens/ScreenContext.h"
@@ -31,6 +32,7 @@
 
 #include "client/Client.h"
 #include "feature/net/Net.h"
+#include "feature/pistons/Pistons.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
 
@@ -167,6 +169,9 @@ LL_TYPE_INSTANCE_HOOK(
 ) {
     origin(renderContext, renderAlphaLayer);
     if (renderAlphaLayer) return;
+    // a remote server's block types are registered after the join: keep them climbable
+    static unsigned frame = 0;
+    if (++frame % 40 == 0) feature::pistons::markRopesClimbable();
     try {
         renderRopes(renderContext);
     } catch (...) {
@@ -183,9 +188,13 @@ public:
             gRopes.clear();
             gLogged = false;
         });
+        mJoin = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientJoinLevelEvent>([](auto&) {
+            feature::pistons::markRopesClimbable();
+        });
     }
     void uninstall() {
         ll::event::EventBus::getInstance().removeListener(mExit);
+        ll::event::EventBus::getInstance().removeListener(mJoin);
         PistonsRopeRenderHook::unhook();
         std::lock_guard lock(gMutex);
         gRopes.clear();
@@ -193,6 +202,7 @@ public:
 
 private:
     ll::event::ListenerPtr mExit;
+    ll::event::ListenerPtr mJoin;
 };
 
 /// Ropes the client knows (selftests / debugging).
