@@ -336,8 +336,6 @@ ia::Result stockUseOn(ia::UseOnContext const& c) {
         // one action per click and block
         auto uid = player.getOrCreateUniqueID().rawID;
         if (uid == gLastUser && clicked == gLastUsePos && currentTick() - gLastUseTick < 5) return ia::Result::Consume;
-        // the button is held on a gauge panel / price tag whose hold waits for the client
-        if (common::valuebox::holdPending(player, clicked)) return ia::Result::Consume;
         try {
             if (useOnBlock(player, c.item, clicked, c.face, cs::Vec3d{c.hit[0], c.hit[1], c.hit[2]}, tid)) {
                 gLastUser    = uid;

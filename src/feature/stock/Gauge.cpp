@@ -192,6 +192,24 @@ std::string countLabel(GlobalPos const& p, int slot, Json const& panel) {
     return std::string(colour) + (inf ? "∞" : std::to_string(shown) + stacks) + (promised ? "⏶" : "") + "§f/" + std::to_string(count) + stacks;
 }
 
+/// The items of a panel's inputs, in connection order.
+std::vector<ItemStack> inputItems(Json const& panel) {
+    std::vector<ItemStack> out;
+    for (auto const& c : panel.value("targetedBy", Json::array())) {
+        auto from = posFrom(c.value("pos", Json()));
+        out.push_back(from ? stackFromJson(readPanel(*from, c.value("slot", 0)).value("filter", Json())) : items::empty());
+    }
+    return out;
+}
+
+/// The crafting recipe a panel could use (non-restockers with inputs only).
+std::optional<CraftingArrangement> panelRecipe(GlobalPos const& p, Json const& panel) {
+    if (isRestocker(p)) return std::nullopt;
+    auto inputs = inputItems(panel);
+    for (auto const& s : inputs)
+        if (items::isEmpty(s)) return std::nullopt;
+    return craftingArrangement(stackFromJson(panel.value("filter", Json())), inputs);
+}
 // ---- ticking (Create's tickStorageMonitor / tickRequests / tryRestock) -------------------------
 
 void tickStorageMonitor(GlobalPos const& p, int slot, Json& panel, bool& changed) {
@@ -293,6 +311,12 @@ void tickRequests(GlobalPos const& p, int slot, Json& panel) {
     // "Use Mechanical Crafting": the inputs travel as one package per craft in the recipe's grid
     // (Create's PackageOrderWithCrafts.singleRecipe)
     Json crafts = Json::array();
+    if (panel.contains("craft") && !panelRecipe(p, panel)) {
+        // the inputs changed (disconnected, other items): the arrangement no longer applies
+        panel.erase("craft");
+        writePanel(p, slot, panel);
+        log().info("stock: gauge panel at {} {} {} slot {} no longer uses mechanical crafting (inputs changed)", p.x, p.y, p.z, slot);
+    }
     if (auto craft = panel.find("craft"); craft != panel.end() && craft->is_array() && craft->size() == 9) {
         Json pattern = Json::array();
         for (auto const& cell : *craft) pattern.push_back({{"item", cell}, {"count", cell.is_null() ? 0 : 1}});
@@ -319,24 +343,6 @@ std::optional<std::pair<GlobalPos, int>> panelFrom(Player& player, Json const& c
     return std::pair{*p, slot};
 }
 
-/// The items of a panel's inputs, in connection order.
-std::vector<ItemStack> inputItems(Json const& panel) {
-    std::vector<ItemStack> out;
-    for (auto const& c : panel.value("targetedBy", Json::array())) {
-        auto from = posFrom(c.value("pos", Json()));
-        out.push_back(from ? stackFromJson(readPanel(*from, c.value("slot", 0)).value("filter", Json())) : items::empty());
-    }
-    return out;
-}
-
-/// The crafting recipe a panel could use (non-restockers with inputs only).
-std::optional<CraftingArrangement> panelRecipe(GlobalPos const& p, Json const& panel) {
-    if (isRestocker(p)) return std::nullopt;
-    auto inputs = inputItems(panel);
-    for (auto const& s : inputs)
-        if (items::isEmpty(s)) return std::nullopt;
-    return craftingArrangement(stackFromJson(panel.value("filter", Json())), inputs);
-}
 Json screenData(Player& player, GlobalPos const& p, int slot) {
     auto panel  = readPanel(p, slot);
     Json inputs = Json::array();
@@ -360,7 +366,7 @@ Json screenData(Player& player, GlobalPos const& p, int slot) {
         {"inStorage",       levelInStorage(p, panel)                           },
         {"label",           labelOf(player, p, panel)                          },
         {"craftable",       panelRecipe(p, panel).has_value()                  },
-        {"crafting",        panel.contains("craft")                            },
+        {"crafting",        panel.contains("craft") && panelRecipe(p, panel).has_value()},
     };
 }
 
@@ -417,6 +423,7 @@ void configure(Player& player, GlobalPos const& p, int slot, Json const& a) {
         for (auto const& c : inputs)
             if (!(posFrom(c.value("pos", Json())) == remove && c.value("slot", 0) == rslot)) kept.push_back(c);
         panel["targetedBy"] = kept;
+        panel.erase("craft"); // Create resets the crafting arrangement with the inputs
         writePanel(p, slot, panel);
         auto source    = readPanel(*remove, rslot);
         Json targeting = Json::array();
@@ -828,6 +835,15 @@ void syncVisuals() {
     auto& v     = visuals();
     auto  level = ll::service::getLevel();
     if (!level) return;
+    bool anyCompanion = false;
+    level->forEachPlayer([&](Player& pl) {
+        anyCompanion = anyCompanion || net::isCompanion(pl);
+        return !anyCompanion;
+    });
+    if (!anyCompanion) {
+        v.sent.clear(); // a companion joining gets everything anyway
+        return;
+    }
     std::map<int, Json> changed;
     for (auto const& p : registry().gauges) {
         if (!blockAt(p) || !isGauge(p)) continue;
@@ -839,7 +855,15 @@ void syncVisuals() {
         if (!changed.contains(p.dim)) changed[p.dim] = Json::array();
         changed[p.dim].push_back(payload);
     }
-    std::erase_if(v.sent, [](auto const& e) { return !registry().gauges.contains(e.first); });
+    // gauges that went: an empty panel list makes the client drop them
+    for (auto it = v.sent.begin(); it != v.sent.end();) {
+        if (registry().gauges.contains(it->first) && blockAt(it->first) && isGauge(it->first)) {
+            ++it;
+            continue;
+        }
+        changed[it->first.dim].push_back({{"pos", Json::array({it->first.x, it->first.y, it->first.z})}, {"panels", Json::array()}});
+        it = v.sent.erase(it);
+    }
     level->forEachPlayer([&](Player& pl) {
         if (!net::isCompanion(pl)) return true;
         int   dim = static_cast<int>(pl.getDimensionId());
@@ -1123,8 +1147,8 @@ void buildGaugeDemo(Player& player, CommandOutput& output) {
     setPanelItem(player, a, 0, make("minecraft:iron_ingot"));
     setPanelItem(player, a, 3, make("minecraft:gold_ingot"));
     setPanelItem(player, b, 2, make("minecraft:clock"));
-    connectPanels(nullptr, b, 2, a, 0);
-    connectPanels(nullptr, b, 2, a, 3);
+    (void)connectPanels(nullptr, b, 2, a, 0);
+    (void)connectPanels(nullptr, b, 2, a, 3);
     auto panel     = readPanel(b, 2);
     panel["count"] = 8;
     writePanel(b, 2, panel);

@@ -48,15 +48,20 @@ std::optional<CraftingArrangement> craftingArrangement(ItemStack const& output, 
     for (auto const& [id, recipe] : it->second) {
         if (!recipe || recipe->isMultiRecipe()) continue;
         auto const& results = recipe->getResultItems();
-        if (results.empty()) continue;
+        if (results.empty() || results.front().getTypeName() != outId) continue; // cheap check before the clone
         auto result = toStack(results.front());
         if (items::isEmpty(result) || items::idOf(result) != outId) continue;
         // every ingredient matches one of the inputs, and every input is used
         std::set<std::size_t> used;
-        auto                  pick = [&](RecipeIngredient const& ing) -> std::optional<std::size_t> {
-            for (std::size_t i = 0; i < inputs.size(); ++i)
-                if (recipe->itemValidForRecipe(ing, inputs[i])) return i;
-            return std::nullopt;
+        // an input not used yet first, so two inputs of one item both count
+        auto pick = [&](RecipeIngredient const& ing) -> std::optional<std::size_t> {
+            std::optional<std::size_t> any;
+            for (std::size_t i = 0; i < inputs.size(); ++i) {
+                if (!recipe->itemValidForRecipe(ing, inputs[i])) continue;
+                if (!used.contains(i)) return i;
+                if (!any) any = i;
+            }
+            return any;
         };
         CraftingArrangement out;
         out.pattern.fill(-1);

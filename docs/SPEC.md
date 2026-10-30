@@ -850,7 +850,8 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   picks row and value, wheel ±1, Shift+wheel jumps milestones, click confirms, right-click / Esc
   cancels), released earlier → the box's `onShortClick` (Create's onShortInteract; the valve
   handle turns, a brass diode toggles), looked away / sneaked → nothing. Repeats of the held button
-  are consumed while the hold waits (`holdPending`). Filter slots with `onHold` (filters with an
+  are consumed while the hold waits (`holdPending`). The client mod watches the mouse's use button;
+  without one (gamepad, touch) a click on a box answers "hold" at once (the board opens). Filter slots with `onHold` (filters with an
   editable amount) run it on a hold, a short click sets / clears the filter. Other units use the
   same pair through `awaitHold(player, pos, onShort, onHold)` (gauge panels, price tags). Looking
   at a block with boxes outlines the boxes of the looked-at face (`client/render/Outline.h`,
@@ -3793,7 +3794,7 @@ matches Create's official Chinese translation wording).
 | Hand crank / water wheel / lava wheel advancements (U7) | Bedrock has no custom advancements | none |
 | Goggle overlay next to the crosshair for **vanilla** clients (U8) | no client-side drawing without a client mod | the same lines in the action bar (indentation trimmed), refreshed every `overlayInterval` ticks |
 | Kinetic stats and "Hold [Shift] for Summary" in item tooltips for **vanilla** clients (U8) | Bedrock builds item hover text on the client from the item alone | the client mod appends them to the hover text, with the server's stress table (`kinetics.stress`, U42); vanilla clients see the plain name |
-| The wrench's animated cog in the hand (U8) | Bedrock items have no custom item renderer | a static item sprite |
+| The wrench's animated cog in the hand (U8) | Bedrock items have no custom item renderer; an attachable (extruded sprite with a cog bone turning by `q.life_time`) works in third person, but its first-person transform is not solved yet (U42 tried and left it out) | a static item sprite |
 | Strikethrough in Create's speed text of an overstressed network for **vanilla** clients (U8) | Bedrock text has no strikethrough format | the client mod draws the line (`§~` spans, U42); vanilla: only dark gray |
 | Create's data-driven ore / layered ore features (U9) | Bedrock feature JSON has no layered-ore feature and no config filter | both run natively in the chunk decoration hook with Create's numbers and patterns (own RNG, so positions differ from Java for the same seed) |
 | Connected textures of layered stone and pillars (U9) | no connected textures on Bedrock | the plain layered / pillar / cap textures |

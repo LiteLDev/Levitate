@@ -71,7 +71,10 @@ std::shared_ptr<SyncedStress const>& syncedStressRef() {
     static std::shared_ptr<SyncedStress const> s;
     return s;
 }
+/// Only on a client mod connected to a remote server (no level of its own): a local world's
+/// integrated server keeps reading its own config.
 std::shared_ptr<SyncedStress const> syncedStress() {
+    if (ll::service::getLevel()) return nullptr;
     std::lock_guard lock(syncedStressMutex());
     return syncedStressRef();
 }

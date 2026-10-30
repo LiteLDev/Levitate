@@ -538,7 +538,7 @@ public:
         mOutput->value = data.value("output", 1);
         mExpiry->value = data.value("promiseInterval", -1);
         if (mCrafting) {
-            mCrafting->visible = data.value("craftable", false);
+            mCrafting->visible = data.value("craftable", false) || data.value("crafting", false);
             mCrafting->toggled = data.value("crafting", false);
         }
     }

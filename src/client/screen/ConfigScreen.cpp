@@ -148,7 +148,10 @@ private:
             auto        v    = e.value("value", Json());
             auto        def  = e.value("default", Json());
             float       y    = 26 + static_cast<float>(r) * kRowH;
-            auto&       label = add<Label>(Rect{8, y + 4, 160, 9}, humanize(path), color::kTextDark);
+            // long names keep their end (the leaf), cut in front so they fit beside the editor
+            auto name = humanize(path);
+            if (name.size() > 28) name = ".." + name.substr(name.size() - 26);
+            auto&       label = add<Label>(Rect{8, y + 4, 160, 9}, name, color::kTextDark);
             label.tooltip = {humanize(path), "§7" + path, "§8" + ctr("lv.common.config.default", "Default: {}", valueText(def))};
             if (v.is_boolean()) {
                 bool  on = v.get<bool>();

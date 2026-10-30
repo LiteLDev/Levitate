@@ -172,10 +172,17 @@ void drawText(render::Lines& lines, std::string const& text, P3 const& at, Frame
         auto const& glyph = glyphOf(glyphs[g].first);
         auto        rgb   = render::Rgb::hex(glyphs[g].second);
         for (int col = 0; col < 5; ++col) {
-            for (int row = 0; row < 7; ++row) {
-                if (!(glyph[static_cast<std::size_t>(col)] >> row & 1)) continue;
+            // one box per run of lit pixels in the column (fewer quads per frame)
+            for (int row = 0; row < 7;) {
+                if (!(glyph[static_cast<std::size_t>(col)] >> row & 1)) {
+                    ++row;
+                    continue;
+                }
+                int end = row;
+                while (end < 7 && (glyph[static_cast<std::size_t>(col)] >> end & 1)) ++end;
                 P3 a = add(add(origin, f.right, (static_cast<double>(g) * 6 + col) * px), f.up, -row * px);
-                P3 b = add(add(a, f.right, px), f.up, -px);
+                P3 b = add(add(a, f.right, px), f.up, -(end - row) * px);
+                row  = end;
                 P3 lo{std::min(a[0], b[0]), std::min(a[1], b[1]), std::min(a[2], b[2])};
                 P3 hi{std::max(a[0], b[0]), std::max(a[1], b[1]), std::max(a[2], b[2])};
                 for (int i = 0; i < 3; ++i)
@@ -241,7 +248,7 @@ void renderGauges(BaseActorRenderContext& ctx) {
         auto f = frameOf(g);
         for (auto const& panel : g.panels) {
             P3 centre = panelPoint(pos, g, panel.slot, f);
-            if (!panel.count.empty()) drawText(lines, panel.count, add(centre, f.up, -.17), f, 1.0 / 128);
+            if (!panel.count.empty()) drawText(lines, panel.count, add(centre, f.up, -.16), f, 1.0 / 96);
             for (auto const& src : panel.from) {
                 auto it = s.gauges.find(src.pos);
                 if (it == s.gauges.end()) continue;

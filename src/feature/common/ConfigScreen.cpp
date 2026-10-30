@@ -105,7 +105,8 @@ std::optional<OJson> coerce(OJson const& like, Json const& input) {
     } else return std::nullopt;
     if (!std::isfinite(v)) return std::nullopt;
     if (like.is_number_integer()) {
-        if (v != std::floor(v)) return std::nullopt;
+        // config integers are `int` fields
+        if (v != std::floor(v) || v < -2147483648.0 || v > 2147483647.0) return std::nullopt;
         return OJson(static_cast<std::int64_t>(v));
     }
     return OJson(v);

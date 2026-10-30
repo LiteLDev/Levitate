@@ -311,6 +311,9 @@ LV_REGISTER_SELFTEST("integration.chassis_value_box", [](Context& ctx) -> ll::co
     std::string blockId = block.getTypeName(), wrench = ia::kWrenchId, none;
     ia::UseOnContext withWrench{player, common::items::empty(), wrench, block, blockId, p, 5, {1.0, 0.5, 0.5}, false, true};
     ctx.check(ia::dispatchUseOn(withWrench) == ia::Result::Consume, "a wrench click on the box is taken");
+    // U42: companions get Create's click and hold; the client mod reports the button held
+    for (auto const& m : net::takeTestMessages(player))
+        if (m.channel == "valuebox.hold") net::injectFromClient(player, "valuebox.release", {{"token", m.payload["token"]}, {"state", "hold"}});
     co_await ctx.ticks(2);
     auto msgs   = net::takeTestMessages(player);
     bool opened = std::any_of(msgs.begin(), msgs.end(), [](auto const& m) { return m.channel == "valuebox.open"; });

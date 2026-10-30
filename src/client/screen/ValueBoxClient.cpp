@@ -147,8 +147,10 @@ private:
 
 // ---- click and hold (Create's ValueSettingsClient) ---------------------------------------------
 
-/// The use (right) mouse button, from the input thread.
+/// The use (right) mouse button, from the input thread; whether the mouse ever used it (a
+/// gamepad or touch use is not seen here: those clicks open the board at once, as for vanilla).
 std::atomic<bool> gUseDown{false};
+std::atomic<bool> gMouseUse{false};
 
 struct Hold {
     bool            active = false;
@@ -182,6 +184,7 @@ void pollHold() {
     bool onPos = hit.mType == HitResultType::Tile && static_cast<int>(player->getDimensionId()) == h.pos.dim && hit.mBlock.x == h.pos.x
               && hit.mBlock.y == h.pos.y && hit.mBlock.z == h.pos.z;
     if (!onPos || player->isSneaking() || current()) return answerHold("cancel");
+    if (!gMouseUse.load()) return answerHold("hold");
     if (!gUseDown.load()) return answerHold("short");
     if (h.ticks > 3) return answerHold("hold");
     ++h.ticks;
@@ -369,7 +372,9 @@ public:
         });
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::MouseInputEvent>([](ll::event::MouseInputEvent& ev) {
-            if (ev.actionButtonId() == 2) gUseDown = ev.buttonData() != 0;
+            if (ev.actionButtonId() != 2) return;
+            gUseDown  = ev.buttonData() != 0;
+            gMouseUse = true;
         }));
         mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) {
             pollHold();

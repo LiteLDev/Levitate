@@ -4,7 +4,7 @@
 #                       (valve-box.png), a short click turns the handle, holding opens the board
 #                       (valve-board.png); /create config kinetics (config.png); two connected
 #                       factory gauges (gauges.png); a speedometer of an overstressed network seen
-#                       with goggles (overstressed.png); the wrench in hand (wrench.png); a blocked
+#                       with goggles (overstressed.png); a blocked
 #                       large water wheel (room.png).
 #   remote-vanilla:     the click on the box opens the form at once (valve-form.png); the config
 #                       form (config-form.png).
@@ -16,7 +16,7 @@ Invoke-Chat '/clear @s'
 Invoke-Chat '/fill 1 -60 -2 9 -57 6 air'
 # a copper valve handle on the ground, its value box on top
 Invoke-Chat '/setblock 2 -60 0 levitate:copper_valve_handle ["levitate:facing"=1]'
-Invoke-Chat '/tp @s 2.5 -60 -0.6 facing 2.5 -59.72 0.5'
+Invoke-Chat '/tp @s 2.5 -60 -0.6 0 50.6'   # looking down at the box
 Start-Sleep -Milliseconds 800
 
 if ($vanilla) {
@@ -77,7 +77,7 @@ Start-Sleep -Milliseconds 400
 $mark = Get-LogMark
 Invoke-Chat '/create stock gauges'
 Wait-LogLine 'stock: gauge demo built at' 20 -Since $mark | Out-Null
-Invoke-Chat '/tp @s 4.5 -59 2.2 facing 5 -60 3.5'
+Invoke-Chat '/tp @s 4.5 -59 1.5 -14 50'
 Wait-LogLine 'stock client: drawing \d+ gauge panels' 30 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'gauges' | Out-Null
@@ -88,18 +88,11 @@ Invoke-Chat '/replaceitem entity @s slot.armor.head 0 levitate:goggles'
 Invoke-Chat '/setblock 3 -60 5 levitate:kinetics_test_source ["levitate:axis"=0]'
 Invoke-Chat '/setblock 4 -60 5 levitate:speedometer ["levitate:facing"=2,"levitate:along_first"=1]'
 Invoke-Chat '/fill 5 -60 5 7 -60 5 levitate:kinetics_test_consumer ["levitate:axis"=0]'
-Invoke-Chat '/tp @s 4.5 -60 3.6 facing 4.5 -59.5 5.5'
+Invoke-Chat '/tp @s 4.5 -60 3.6 0 38'
 Start-Sleep -Milliseconds 2500
 Save-Screenshot 'overstressed' | Out-Null
 Invoke-Chat '/replaceitem entity @s slot.armor.head 0 air'
 
-# the wrench in hand (its cog turns)
-Invoke-Chat '/clear @s'
-Invoke-Chat '/give @s levitate:wrench'
-Press-Key '1'
-Invoke-Chat '/tp @s 2.5 -60 -3 0 0'
-Start-Sleep -Milliseconds 1500
-Save-Screenshot 'wrench' | Out-Null
 
 # a large water wheel without room: Create's red outline of the 3x3 it needs
 Invoke-Chat '/clear @s'
@@ -110,7 +103,7 @@ Invoke-Chat '/fill 7 -60 0 9 -59 0 stone'
 Invoke-Chat '/setblock 7 -60 -1 stone'
 Invoke-Chat '/setblock 9 -60 -1 stone'
 Invoke-Chat '/setblock 8 -59 -1 stone'
-Invoke-Chat '/tp @s 8.5 -60 -3.5 facing 8.5 -59.5 0'
+Invoke-Chat '/tp @s 8.5 -60 -3.5 0 17.7'
 Start-Sleep -Milliseconds 800
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
