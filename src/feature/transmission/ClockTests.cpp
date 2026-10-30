@@ -10,6 +10,7 @@
 #include "mc/world/level/dimension/DimensionType.h"
 
 #include "feature/advancements/Advancements.h"
+#include "feature/display/Display.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/transmission/TransmissionInternal.h"
 #include "game/Blocks.h"
@@ -61,6 +62,21 @@ LV_REGISTER_SELFTEST("transmission.cuckoo_clock_hands", [](Context& ctx) -> ll::
     co_await ctx.ticks(4);
     ctx.check(st(q, kHour) == 1 && st(q, kMinute) == 1, "an unpowered clock's hands stay");
     ctx.check(clockAnimation(q).first == 0, "an unpowered clock doesn't cuckoo at noon");
+    // the display unit's sources (Create's TimeOfDayDisplaySource / StopwatchDisplaySource)
+    auto textOf = [&](GlobalPos const& at, char const* id) -> std::string {
+        for (auto const* s : display::sourcesAt(world(), at)) {
+            if (s->id != id || !s->text) continue;
+            nlohmann::json   cfg = nlohmann::json::object();
+            display::Context dc{world(), at, at, at, cfg, 0};
+            auto             lines = s->text(dc, display::TargetStats{});
+            return lines.empty() ? std::string("(empty)") : lines.front();
+        }
+        return "(no source)";
+    };
+    auto shown = textOf(p, "time_of_day");
+    ctx.check(shown != "(no source)" && shown != "--:--", "a turning clock shows the time of day, got " + shown);
+    ctx.check(textOf(p, "stopwatch") != "(no source)", "and offers the stopwatch");
+    ctx.check(textOf(q, "time_of_day") == "--:--", "a still clock shows --:--, got " + textOf(q, "time_of_day"));
     // placement: the back goes to a shaft facing the new clock
     auto c = at(p, 4, 0, 0);
     ctx.setBlock(at(c, 1, 0, 0), kShaft, {{kAxis, 0}});
