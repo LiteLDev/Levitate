@@ -12,6 +12,7 @@
 #include <array>
 #include <cmath>
 #include <map>
+#include <set>
 #include <mutex>
 #include <tuple>
 #include <vector>
@@ -77,6 +78,7 @@ bool                               gLoggedFirstFrame = false;
 // tilted tracks: (dim, pos) -> smoothing angle, positions to mesh again (both gMutex)
 std::map<std::pair<int, ct::BlockPos3>, double>                      gTilts;
 std::vector<std::pair<int, ct::BlockPos3>>                           gRemesh;
+std::set<ct::BlockPos3>                                              gTiltedHere; // the player's dimension (gMutex)
 std::map<std::pair<void const*, double>, std::unique_ptr<mce::Mesh>> gTiltMeshes; // client thread
 bool                                                                 gLoggedTilt = false;
 
@@ -203,8 +205,12 @@ void renderTilts(BaseActorRenderContext& ctx, int dim, BlockSource& region) {
     {
         std::lock_guard lock(gMutex);
         remesh.swap(gRemesh);
-        for (auto const& [key, a] : gTilts)
-            if (key.first == dim) tilts.emplace_back(key.second, a);
+        gTiltedHere.clear();
+        for (auto const& [key, a] : gTilts) {
+            if (key.first != dim) continue;
+            tilts.emplace_back(key.second, a);
+            gTiltedHere.insert(key.second);
+        }
     }
     // mesh the chunk again: the tilted block leaves (or rejoins) the chunk mesh
     for (auto const& [d, p] : remesh) {
@@ -225,8 +231,8 @@ void renderTilts(BaseActorRenderContext& ctx, int dim, BlockSource& region) {
         Block const& b     = region.getBlock(bp);
         auto         shape = feature::tracks::shapeAt(region, bp);
         if (!shape) continue;
-        auto& mesh = gTiltMeshes[{&b, angle}];
-        if (!mesh) {
+        auto it = gTiltMeshes.find({&b, angle});
+        if (it == gTiltMeshes.end()) {
             std::vector<building::Quad> quads = building::quadsOf(tess, b);
             for (auto& q : quads)
                 for (auto& v : q.pos) {
@@ -234,8 +240,9 @@ void renderTilts(BaseActorRenderContext& ctx, int dim, BlockSource& region) {
                     v           = glm::vec3{float(t.x), float(t.y), float(t.z)};
                 }
             if (quads.empty()) continue;
-            mesh = building::buildMesh(tess, quads);
+            it = gTiltMeshes.emplace(std::pair{&b, angle}, building::buildMesh(tess, quads)).first;
         }
+        auto const& mesh = it->second;
         if (!mesh) continue;
         d.light(region, bp);
         d.draw(*mesh, glm::translate(glm::mat4{1.f}, glm::vec3{float(p.x), float(p.y), float(p.z)}));
@@ -310,8 +317,7 @@ LL_STATIC_HOOK(
         bool            tilted = false;
         {
             std::lock_guard lock(gMutex);
-            for (auto const& [key, a] : gTilts)
-                if (key.second == pos) tilted = true; // (the chunk's dimension isn't known here)
+            tilted = gTiltedHere.contains(pos); // tilts of the dimension the player is in
         }
         if (tilted) return std::nullopt;
     }
@@ -358,6 +364,7 @@ public:
             gCurves.clear();
             gTilts.clear();
             gRemesh.clear();
+            gTiltedHere.clear();
             gTiltMeshes.clear();
             gLoggedFirstFrame = false;
             gLoggedTilt       = false;

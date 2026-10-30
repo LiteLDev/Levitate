@@ -433,6 +433,7 @@ public:
         }
         // a moved track loses its curves, so contraptions don't carry its tilt (Create's transform)
         common::blockdata::ownCarrier(kBlockDataKey);
+        installTilt();
         installHooks();
     }
 

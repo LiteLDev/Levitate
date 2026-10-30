@@ -590,17 +590,22 @@ void renderHelperGhost(BaseActorRenderContext& ctx, LocalPlayer& player, double 
     Block const& b      = region.getBlock(hit.mBlock);
     if (b.getTypeName() != heldId) return;
     core::GlobalPos at{static_cast<int>(player.getDimensionId()), hit.mBlock.x, hit.mBlock.y, hit.mBlock.z};
-    auto off = fb::copycatHelperOffset(region, at, b, heldId, hit.mPos.x - hit.mBlock.x, hit.mPos.y - hit.mBlock.y, hit.mPos.z - hit.mBlock.z, 12);
+    // CEquipment.placementAssistRange, +4 with the extendo grip (as the server)
+    auto const& off0  = player.getOffhandSlot();
+    int         range = 12 + (!off0.isNull() && off0.getTypeName() == "levitate:extendo_grip" ? 4 : 0);
+    auto off = fb::copycatHelperOffset(region, at, b, heldId, hit.mPos.x - hit.mBlock.x, hit.mPos.y - hit.mBlock.y, hit.mPos.z - hit.mBlock.z, range);
     if (!off || !off->block) return;
     Drawer d(ctx);
     if (!d.ok()) return;
-    auto& tess  = d.tessellator();
-    auto  quads = quadsOf(tess, *off->block);
-    if (quads.empty()) return;
-    // Create's breathing alpha: between 1/4 and 3/4, a breath every 2 s
-    float alpha = 0.5f + 0.25f * float(std::sin(now / 20.0 * 3.14159265));
-    for (auto& q : quads) q.color.a = alpha;
-    auto mesh = buildMesh(tess, quads);
+    auto& tess = d.tessellator();
+    // Create's breathing alpha: between 1/4 and 3/4, a breath every 2 s (16 steps, cached meshes)
+    int         step = int(std::lround(8 + 8 * std::sin(now / 20.0 * 3.14159265)));
+    float       alpha = 0.25f + 0.5f * float(step) / 16.f;
+    mce::Mesh*  mesh  = cachedMesh("ghost|" + ptrKey(off->block) + "|" + std::to_string(step), [&] {
+        auto quads = quadsOf(tess, *off->block);
+        for (auto& q : quads) q.color.a = alpha;
+        return quads;
+    }, tess);
     if (!mesh) return;
     BlockPos tp{off->pos.x, off->pos.y, off->pos.z};
     d.light(region, tp);

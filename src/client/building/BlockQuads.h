@@ -75,6 +75,8 @@ public:
     void drawBlended(mce::Mesh const& mesh, glm::mat4 const& model);
 
 private:
+    void drawWith(void const* material, mce::Mesh const& mesh, glm::mat4 const& model);
+
     BaseActorRenderContext& mCtx;
     bool                    mOk = false;
     void const*             mMaterial = nullptr;

@@ -290,22 +290,12 @@ void Drawer::light(BlockSource& region, BlockPos const& pos) {
     ActorShaderManager::setupShaderParameters(mCtx.mScreenContext, region, pos, mCtx.mFrameAlpha, false, *lt, mCtx.mLightVolumeManager, Vec2{1.f, 1.f}, Vec4{0.f, 0.f, 0.f, 0.f});
 }
 
-void Drawer::draw(mce::Mesh const& mesh, glm::mat4 const& model) {
-    if (!mOk) return;
-    auto& screen = mCtx.mScreenContext;
-    auto& dispatcher = mCtx.mBlockEntityRenderDispatcher;
-    auto* moving     = static_cast<MovingBlockActorRenderer*>(dispatcher.mRenderers->operator[](BlockActorRendererId::MovingBlock).get());
-    if (!moving) return;
-    std::variant<std::monostate, mce::TexturePtr, mce::ClientTexture, mce::ServerTexture> texture{moving->mAtlasTexture.get()};
-    auto&     world = screen.camera.worldMatrixStack.get();
-    auto      ref   = world.push(false);
-    glm::mat4 m     = glm::translate(glm::mat4{1.f}, -mCam) * model;
-    ref.mat->_m.get() = ref.mat->_m.get() * m;
-    mesh.renderMesh(screen, *static_cast<mce::MaterialPtr const*>(mMaterial), texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
-}
+void Drawer::draw(mce::Mesh const& mesh, glm::mat4 const& model) { drawWith(mMaterial, mesh, model); }
 
-void Drawer::drawBlended(mce::Mesh const& mesh, glm::mat4 const& model) {
-    if (!mOk || !mBlend) return;
+void Drawer::drawBlended(mce::Mesh const& mesh, glm::mat4 const& model) { drawWith(mBlend, mesh, model); }
+
+void Drawer::drawWith(void const* material, mce::Mesh const& mesh, glm::mat4 const& model) {
+    if (!mOk || !material) return;
     auto& screen     = mCtx.mScreenContext;
     auto& dispatcher = mCtx.mBlockEntityRenderDispatcher;
     auto* moving     = static_cast<MovingBlockActorRenderer*>(dispatcher.mRenderers->operator[](BlockActorRendererId::MovingBlock).get());
@@ -315,7 +305,7 @@ void Drawer::drawBlended(mce::Mesh const& mesh, glm::mat4 const& model) {
     auto      ref   = world.push(false);
     glm::mat4 m     = glm::translate(glm::mat4{1.f}, -mCam) * model;
     ref.mat->_m.get() = ref.mat->_m.get() * m;
-    mesh.renderMesh(screen, *static_cast<mce::MaterialPtr const*>(mBlend), texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+    mesh.renderMesh(screen, *static_cast<mce::MaterialPtr const*>(material), texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
 }
 
 } // namespace lv::client::building

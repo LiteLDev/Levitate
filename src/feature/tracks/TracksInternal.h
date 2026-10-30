@@ -137,6 +137,10 @@ inline constexpr char const* kBlockDataKey = "tracks";
 /// curves back when it no longer has exactly two (undoSmoothing). `before`: the track as the graph
 /// last saw it, when a curve was just taken away.
 void updateTilt(int dim, ct::BlockPos3 const& pos, std::optional<ct::TrackBlockView> const& before = std::nullopt);
+/// The track at `pos` is going: its tilt is dropped without touching its curves (they go too).
+void forgetTilt(int dim, ct::BlockPos3 const& pos);
+/// Registers the BlockData erase listener that tells the companions a tilted track went.
+void installTilt();
 /// Sends the tilt of `pos` (nullopt: none) to the companions.
 void syncTilt(int dim, ct::BlockPos3 const& pos, std::optional<double> angle);
 /// Every tilted track (for the full sync).

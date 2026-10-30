@@ -361,8 +361,9 @@ bool isBarsMaterial(Block const& material) {
 
 bool isTrapdoorMaterial(Block const& material) {
     if (auto const* info = infoOf(material)) return info->kind == Kind::Trapdoor;
+    if (!material.getTypeName().ends_with("trapdoor")) return false;
     auto nbt = nbtOf(material);
-    return material.getTypeName().ends_with("trapdoor") && hasState(*nbt, "open_bit") && hasState(*nbt, "upside_down_bit")
+    return hasState(*nbt, "open_bit") && hasState(*nbt, "upside_down_bit")
         && (hasState(*nbt, "direction") || hasState(*nbt, "minecraft:cardinal_direction"));
 }
 

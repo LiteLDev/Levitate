@@ -96,6 +96,23 @@ void updateTilt(int dim, ct::BlockPos3 const& pos, std::optional<ct::TrackBlockV
     log().info("tracks: tilted the track at {} by {:.2f} degrees", pos.str(), sm->angle);
 }
 
+void forgetTilt(int dim, ct::BlockPos3 const& pos) {
+    if (tiltAt(dim, pos)) setTilt(dim, pos, std::nullopt);
+    else syncTilt(dim, pos, std::nullopt); // BlockData may have dropped it with the block already
+}
+
+void installTilt() {
+    static bool once = false; // BlockData has no removal of erase listeners
+    if (once) return;
+    once = true;
+    // a tilted track that goes (broken, replaced, taken by a contraption) is flat on the clients
+    bd::onErase([](core::GlobalPos const& pos, nlohmann::json const& doc, std::string const&) {
+        auto it = doc.find(kBlockDataKey);
+        if (it == doc.end() || !it->is_object() || !it->contains("tilt")) return;
+        syncTilt(pos.dim, {pos.x, pos.y, pos.z}, std::nullopt);
+    });
+}
+
 std::vector<std::tuple<int, ct::BlockPos3, double>> allTilts() {
     std::vector<std::tuple<int, ct::BlockPos3, double>> out;
     std::set<std::pair<int, ct::BlockPos3>>             seen;

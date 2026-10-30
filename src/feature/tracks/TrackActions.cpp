@@ -615,6 +615,7 @@ void destroyCurve(int dim, ct::Curve const& curve, bool drops, Player* refundTo)
 void onTrackRemoved(int dim, ct::BlockPos3 const& pos, ct::Shape oldShape, bool drops) {
     auto& s       = state();
     auto  oldView = viewOf(dim, pos, oldShape);
+    forgetTilt(dim, pos); // (its curves go below: nothing to put back)
     int   removed = 0;
     for (auto const& c : s.curves.curvesAt(dim, pos)) {
         removeCurveData(dim, *c, drops, nullptr);
