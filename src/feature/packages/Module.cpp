@@ -415,9 +415,16 @@ ia::Result packagesPutDown(ia::UseOnContext const& c) {
     auto& item   = ia::mutableItem(c.item);
     if (c.sneaking || !isPackage(item) || debounced(player, c.pos)) return ia::Result::Pass;
     try {
+        // Create: the entity stands at the click (below the clicked face from underneath, out of
+        // a side face by half its width); nothing happens when a package already sits there
+        auto   size = packageStyleSize(packageStyle(items::idOf(item)));
+        double h = size.second / 16.0, r = size.first / 2.0 / 16.0;
         cp::V3 at3 = absoluteHit(c);
-        if (c.face == 0) at3.y -= 1.0;
-        dropItem(player.getDimensionId(), at3 + cp::V3{0, 0.1, 0}, items::withCount(item, 1), cp::V3{});
+        if (c.face == 0) at3.y -= h + 0.25;
+        else if (c.face >= 2) at3 = at3 + cp::V3{double(faceOffset(c.face).x), 0, double(faceOffset(c.face).z)} * r;
+        if (packageEntityNear(player.getDimensionId(), at3, r, h)) return ia::Result::Pass;
+        if (!spawnPackageEntity(player.getDimensionId(), at3, items::withCount(item, 1))) return ia::Result::Pass;
+        log().info("packages: {} put down a package at {:.2f} {:.2f} {:.2f}", player.getRealName(), at3.x, at3.y, at3.z);
         if (!player.isCreative()) {
             player.setSelectedItem(items::withCount(item, items::countOf(item) - 1));
             player.sendInventory(false);
@@ -685,6 +692,7 @@ public:
             }
         }));
         installInteractions();
+        installPackageEntities();
         PackagesReleaseHook::hook();
         installPackagerCapabilities();
         installPortCapabilities();
@@ -707,6 +715,7 @@ public:
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
         PackagesReleaseHook::unhook();
+        uninstallPackageEntities();
         uninstallInteractions();
     }
 

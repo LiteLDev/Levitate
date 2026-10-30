@@ -16,15 +16,18 @@
     {"idle": 10},
     {"outline": [[0, 1, 2], [2, 1, 2]], "color": "white", "ticks": 70},
     {"item": "minecraft:feather", "at": [2.5, 1.5, 2.5], "to": [0.3, 1.5, 2.5], "ticks": 30},
+    {"particles": "cloud", "at": [1.5, 1.5, 2.5], "ticks": 80, "rate": 1, "spread": [1.2, 0.35, 0.35], "motion": [-0.12, -0.02, 0]},
     {"text": 1, "at": [3.5, 1.5, 2.5], "ticks": 70, "keyframe": true},
     {"idle": 80},
     {"rotate": [[3, 1, 2], [4, 1, 2]], "rpm": -16},
     {"idle": 10},
     {"item": "minecraft:feather", "at": [0.5, 1.5, 2.5], "to": [2.6, 1.5, 2.5], "ticks": 30},
+    {"particles": "cloud", "at": [1.5, 1.5, 2.5], "ticks": 100, "rate": 1, "spread": [1.2, 0.35, 0.35], "motion": [0.12, -0.02, 0]},
     {"text": 2, "at": [3.5, 1.5, 2.5], "ticks": 90, "keyframe": true},
     {"idle": 100},
     {"rotate": [[3, 1, 2], [4, 1, 2]], "rpm": 64},
     {"outline": [[0, 1, 2], [2, 1, 2]], "color": "fast", "ticks": 60},
+    {"particles": "cloud", "at": [1.5, 1.5, 2.5], "ticks": 60, "rate": 2, "spread": [1.2, 0.35, 0.35], "motion": [-0.25, -0.02, 0]},
     {"idle": 60}
   ]
 }

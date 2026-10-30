@@ -9,6 +9,8 @@
   "timeline": [
     {"show": "base", "from": "up"},
     {"idle": 15},
+    {"entity": "minecraft:blaze", "at": [2.5, 1.0, 2.5], "ticks": 70, "yaw": 30},
+    {"particles": "large_smoke", "at": [2.5, 2.0, 2.5], "ticks": 70, "rate": 0.3, "spread": [0.3, 0.5, 0.3]},
     {"input": [2.5, 2.5, 2.5], "action": "right", "item": "levitate:empty_blaze_burner", "ticks": 60, "keyframe": true},
     {"idle": 10},
     {"text": 1, "at": [2.5, 2.5, 2.5], "ticks": 70, "keyframe": true},

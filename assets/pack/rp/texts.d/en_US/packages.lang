@@ -33,3 +33,5 @@ item.levitate:rare_thunder_package.name=Rare Package
 item.levitate:rare_up_package.name=Rare Package
 item.levitate:rare_vector_package.name=Rare Package
 item.levitate:package_filter.name=Package Filter
+entity.levitate:package.name=Package
+action.interact.levitate.package=Pick Up

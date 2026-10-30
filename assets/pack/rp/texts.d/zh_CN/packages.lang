@@ -33,3 +33,5 @@ item.levitate:rare_thunder_package.name=稀有包裹
 item.levitate:rare_up_package.name=稀有包裹
 item.levitate:rare_vector_package.name=稀有包裹
 item.levitate:package_filter.name=包裹过滤器
+entity.levitate:package.name=包裹
+action.interact.levitate.package=拾起
