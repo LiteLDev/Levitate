@@ -4159,8 +4159,11 @@ inventory criteria; visibility; tree layout; gtest), `src/feature/advancements/`
   who drove it backwards that tick), long_travel (a player leaves a train seat ≥ 5000 blocks from
   where they sat down).
 - **Not fired**: train_portal (Levitate's trains don't cross dimensions through portal tracks yet).
-  cuckoo_clock, haunted_bell, cardboard_armor and cardboard_armor_trim come with their blocks /
-  items.
+- **Fired with their content (U49)**: cuckoo_clock (the creeper animation of a turning cuckoo
+  clock starts: its owner within 32 blocks, transmission), haunted_bell (a player rings a haunted
+  bell, equipment), cardboard_armor (a sneaking player in full cardboard armour starts hiding,
+  equipment), cardboard_armor_trim (a player takes trimmed cardboard armour out of a smithing table,
+  equipment; Create's SmithingMenuMixin).
 
 #### 3.6.35 Consistency (U35)
 
