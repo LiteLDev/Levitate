@@ -122,7 +122,10 @@ void updateListeners(GlobalPos const& pos, Tone& t) {
     std::set<std::int64_t> present;
     level->forEachPlayer([&](Player& p) {
         auto id = p.getOrCreateUniqueID().rawID;
-        if (static_cast<int>(p.getDimensionId()) != pos.dim) return true;
+        if (static_cast<int>(p.getDimensionId()) != pos.dim) {
+            if (t.listeners.contains(id)) sendEvent(p, t.handle, SoundDataEvent::Stop{}); // went through a portal
+            return true;
+        }
         double d = distanceSq(p, pos);
         if (t.listeners.contains(id)) {
             if (d > kLeave * kLeave) {

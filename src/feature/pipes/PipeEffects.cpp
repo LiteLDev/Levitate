@@ -39,6 +39,7 @@ constexpr char kGlassChannel[] = "pipes.glass";
 
 struct State {
     std::set<Key>             flows;     ///< faces with a flow last tick
+    std::map<std::int64_t, int> playerDims; ///< each player's dimension last tick
     std::map<GlobalPos, Json> glassSent; ///< what companions were told about each glass pipe
     std::uint64_t             splashes = 0, pours = 0, drips = 0;
     bool                      loggedGlass = false;
@@ -112,12 +113,19 @@ void tickPipeEffects(cp::Model& model) {
     auto& s     = st();
     auto  level = ll::service::getLevel();
     if (!level) return;
-    std::vector<Viewer> viewers;
+    std::vector<Viewer>         viewers;
+    std::map<std::int64_t, int> dims;
     level->forEachPlayer([&](Player& p) {
-        auto e = p.getPosition();
-        viewers.push_back({static_cast<int>(p.getDimensionId()), e.x, e.y, e.z});
+        auto e   = p.getPosition();
+        int  dim = static_cast<int>(p.getDimensionId());
+        viewers.push_back({dim, e.x, e.y, e.z});
+        auto id = p.getOrCreateUniqueID().rawID;
+        dims[id] = dim;
+        // went through a portal: the flows already running in the new dimension
+        if (auto it = s.playerDims.find(id); it != s.playerDims.end() && it->second != dim) syncGlassTo(p);
         return true;
     });
+    s.playerDims = std::move(dims);
 
     std::set<Key>       flowsNow;
     std::set<GlobalPos> glassSeen;

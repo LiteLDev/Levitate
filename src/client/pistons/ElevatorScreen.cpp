@@ -42,6 +42,7 @@ public:
         mLongField->onChange    = [this](std::string const& t) { mLong = t; };
         add<Label>(Rect{8, 80, 160, 10}, ctr("create.contraption.door_control", "Onboard Door Control"), color::kTextDark);
         auto& door = add<ScrollInput>(Rect{8, 91, 136, 18}, "", 0, 5, mDoor, [this](int v) { mDoor = v; });
+        mDoorInput = &door;
         door.options = {
             ctr("create.contraption.door_control.all.short", "Open All"),
             ctr("create.contraption.door_control.north.short", "North"),
@@ -63,6 +64,14 @@ public:
         // another player renamed the floor: show it unless this player is typing
         if (!mShortField->focused()) mShortField->text = mShort = data.value("short", mShort);
         if (!mLongField->focused()) mLongField->text = mLong = data.value("long", mLong);
+        if (data.contains("door")) {
+            int door = std::clamp(data.value("door", mDoor), 0, 5);
+            if (mDoor == mInitial.door) mDoorInput->value = mDoor = door; // unless this player changed it
+            mInitial.door = door;
+        }
+        // the server's values are the new baseline: closing without own changes sends nothing
+        mInitial.shortName = data.value("short", mInitial.shortName);
+        mInitial.longName  = data.value("long", mInitial.longName);
     }
 
     void onClose() override { submit(); }
@@ -87,6 +96,7 @@ private:
     Values      mInitial;
     TextField*  mShortField{};
     TextField*  mLongField{};
+    ScrollInput* mDoorInput{};
     bool        mSent = false;
 };
 

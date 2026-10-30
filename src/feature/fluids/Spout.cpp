@@ -161,12 +161,15 @@ belts::ProcessingResult whenItemHeld(belts::ProcessorContext const& c, belts::Tr
     if (!items::isEmpty(out)) {
         auto in    = items::idOf(held);
         auto fluid = tank.fluid;
+        bool converted = false;
         belts::handleCenteredProcessing(c.transporter, .5f, [&](belts::TransportedItem& it) {
-            if (!it.locked || !items::sameItemSameData(it.stack, held)) return belts::TransportedResult::doNothing();
+            if (converted || !it.locked || !items::sameItemSameData(it.stack, held)) return belts::TransportedResult::doNothing();
+            converted = true;
             int rest = items::countOf(it.stack) - 1;
             if (rest <= 0) return belts::TransportedResult::convertTo({out});
             return belts::TransportedResult::convertToAndLeaveHeld({out}, items::withCount(it.stack, rest));
         });
+        if (!converted) return belts::ProcessingResult::Hold;
         tankDrain(tank, {tank.fluid, need}, false);
         setTank(editData(p), tank);
         log().info("spout at {} {} {} filled {} into {}", p.x, p.y, p.z, in, items::idOf(out));

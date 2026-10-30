@@ -77,21 +77,24 @@ int spawn(int dim, V3 at, V3 motion, std::string const& fluid, Kind kind, double
     V3            dir   = speed > 1e-9 ? mul(motion, 1 / speed) : V3{0, -1, 0};
     Vec3          pos{float(at.x), float(at.y), float(at.z)};
     int           sent = 0;
+    std::optional<MolangVariableMap> vars;
     level->forEachPlayer([&](Player& p) {
         if (static_cast<int>(p.getDimensionId()) != dim) return true;
         auto   e  = p.getPosition();
         double dx = e.x - at.x, dy = e.y - at.y, dz = e.z - at.z;
         if (dx * dx + dy * dy + dz * dz > range * range) return true;
-        MolangVariableMap map;
-        setVar(map, "dir_x", float(dir.x));
-        setVar(map, "dir_y", float(dir.y));
-        setVar(map, "dir_z", float(dir.z));
-        setVar(map, "speed", float(speed * 20)); // blocks per tick -> per second
-        setVar(map, "r", ((c >> 16) & 0xFF) / 255.f);
-        setVar(map, "g", ((c >> 8) & 0xFF) / 255.f);
-        setVar(map, "b", (c & 0xFF) / 255.f);
+        if (!vars) {
+            vars.emplace();
+            setVar(*vars, "dir_x", float(dir.x));
+            setVar(*vars, "dir_y", float(dir.y));
+            setVar(*vars, "dir_z", float(dir.z));
+            setVar(*vars, "speed", float(speed * 20)); // blocks per tick -> per second
+            setVar(*vars, "r", ((c >> 16) & 0xFF) / 255.f);
+            setVar(*vars, "g", ((c >> 8) & 0xFF) / 255.f);
+            setVar(*vars, "b", (c & 0xFF) / 255.f);
+        }
         SpawnParticleEffectPacket pkt(SpawnParticleEffectPacketPayload(
-            pos, kind == Kind::Drip ? kDripParticle : kFluidParticle, static_cast<uchar>(dim), std::optional<MolangVariableMap>(std::move(map))));
+            pos, kind == Kind::Drip ? kDripParticle : kFluidParticle, static_cast<uchar>(dim), std::optional<MolangVariableMap>(*vars)));
         pkt.sendTo(p);
         ++sent;
         return true;
