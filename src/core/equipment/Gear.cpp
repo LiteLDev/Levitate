@@ -107,9 +107,135 @@ std::vector<PotatoType> const& potatoTypes() {
                          4, 10, 1.3f, 0.6f, 1, 1.3f, true));
         v.push_back(make("pufferfish", {"minecraft:pufferfish"}, 4, 10, 1.1f, 0.4f, 1, 1.1f, true, E::Pufferfish));
         v.push_back(make("suspicious_stew", {"minecraft:suspicious_stew"}, 3, 40, 0.8f, 0.2f, 1, 1, false, E::SuspiciousStew));
+        for (auto& t : v) {
+            // Create's renderTowardMotion(140, spin); every other built-in type tumbles
+            if (t.id == "carrot" || t.id == "fish" || t.id == "pufferfish" || t.id == "suspicious_stew") t.render = PotatoRender::TowardMotion, t.spin = 1;
+            if (t.id == "golden_carrot" || t.id == "beetroot") t.render = PotatoRender::TowardMotion, t.spin = 2;
+            // entity hit actions that report the item as used up: FoodEffects(recoverable = false) and
+            // the golden apple's CureZombieVillager (cure, else golden apple food effects)
+            if (t.effect == E::GoldenApple || t.effect == E::EnchantedGoldenApple || t.effect == E::Pufferfish) t.consumed = true;
+            if (t.effect == E::SuspiciousStew) t.dropItem = "minecraft:bowl";
+        }
         return v;
     }();
     return types;
+}
+
+std::vector<std::string> const& potatoAmmoItems() {
+    static std::vector<std::string> const list = [] {
+        std::vector<std::string> v;
+        for (auto const& t : potatoTypes())
+            for (auto const& i : t.items) v.push_back(i);
+        return v;
+    }();
+    return list;
+}
+
+int potatoAmmoIndex(std::string_view itemId) {
+    auto const& l = potatoAmmoItems();
+    for (std::size_t i = 0; i < l.size(); ++i)
+        if (l[i] == itemId) return static_cast<int>(i);
+    return -1;
+}
+
+double potatoStuckStep(double offsetY, double& fallSpeed, PotatoType const& type) {
+    fallSpeed += 0.007 * type.gravity;
+    return offsetY - fallSpeed;
+}
+
+bool potatoStuckPops(double projectileY, double entityY) { return projectileY < entityY - 0.1; }
+
+double potatoYaw(Vec3f const& m) { return -std::atan2(m.x, m.z) * 180.0 / 3.14159265358979323846; }
+
+double potatoPitch(Vec3f const& m) {
+    double h = std::sqrt(m.x * m.x + m.z * m.z);
+    return -std::atan2(m.y, h) * 180.0 / 3.14159265358979323846;
+}
+
+// ---- enchantments --------------------------------------------------------------------------------------
+
+int enchantMinCost(int level) { return 15 + 15 * (level - 1); }
+int enchantMaxCost(int level) { return 45 + 15 * (level - 1); }
+
+int enchantLevelForCost(int cost) {
+    for (int l = kEnchantMaxLevel; l >= 1; --l)
+        if (cost >= enchantMinCost(l) && cost <= enchantMaxCost(l)) return l;
+    return 0;
+}
+
+std::string enchantLevelName(int level) {
+    static constexpr char const* names[] = {"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"};
+    if (level >= 1 && level <= 10) return names[level - 1];
+    return std::to_string(level);
+}
+
+int backtankMaxAir(int airInBacktank, int perLevel, int capacityLevel) { return airInBacktank + perLevel * std::max(0, capacityLevel); }
+
+int mergeEnchantLevel(int a, int b, int maxLevel) {
+    if (a == b) return std::min(a + 1, maxLevel);
+    return std::max(a, b);
+}
+
+void JavaRandom::setSeed(std::int64_t seed) { mSeed = (seed ^ 0x5DEECE66DLL) & ((1LL << 48) - 1); }
+
+int JavaRandom::next(int bits) {
+    mSeed = (mSeed * 0x5DEECE66DLL + 0xBLL) & ((1LL << 48) - 1);
+    return static_cast<int>(static_cast<std::int64_t>(static_cast<std::uint64_t>(mSeed) >> (48 - bits)));
+}
+
+int JavaRandom::nextInt(int bound) {
+    if (bound <= 0) return 0;
+    if ((bound & -bound) == bound) return static_cast<int>((static_cast<std::int64_t>(bound) * next(31)) >> 31);
+    int bits, val;
+    do {
+        bits = next(31);
+        val  = bits % bound;
+    } while (bits - val + (bound - 1) < 0);
+    return val;
+}
+
+float JavaRandom::nextFloat() { return static_cast<float>(next(24)) / static_cast<float>(1 << 24); }
+
+namespace {
+/// Java's WeightedRandom#getRandomItem.
+std::optional<EnchantCandidate> weightedPick(JavaRandom& random, std::vector<EnchantCandidate> const& list) {
+    int total = 0;
+    for (auto const& c : list) total += c.weight;
+    if (total <= 0) return std::nullopt;
+    int r = random.nextInt(total);
+    for (auto const& c : list) {
+        r -= c.weight;
+        if (r < 0) return c;
+    }
+    return std::nullopt;
+}
+} // namespace
+
+std::vector<EnchantCandidate> selectEnchantments(
+    JavaRandom&                                                                  random,
+    int                                                                          enchantability,
+    int                                                                          cost,
+    std::function<std::vector<EnchantCandidate>(int)> const&                     available,
+    std::function<bool(EnchantCandidate const&, EnchantCandidate const&)> const& compatible
+) {
+    std::vector<EnchantCandidate> out;
+    if (enchantability <= 0) return out;
+    cost += 1 + random.nextInt(enchantability / 4 + 1) + random.nextInt(enchantability / 4 + 1);
+    float f = (random.nextFloat() + random.nextFloat() - 1.0f) * 0.15f;
+    cost    = std::max(1, static_cast<int>(std::lround(static_cast<float>(cost) + static_cast<float>(cost) * f)));
+    auto list = available(cost);
+    if (list.empty()) return out;
+    if (auto c = weightedPick(random, list)) out.push_back(*c);
+    while (random.nextInt(50) <= cost) {
+        if (!out.empty()) {
+            auto const& last = out.back();
+            std::erase_if(list, [&](EnchantCandidate const& c) { return c.key == last.key || !compatible(last, c); });
+        }
+        if (list.empty()) break;
+        if (auto c = weightedPick(random, list)) out.push_back(*c);
+        cost /= 2;
+    }
+    return out;
 }
 
 PotatoType const* potatoTypeFor(std::string_view itemId) {
@@ -131,7 +257,7 @@ Vec3f potatoStep(Vec3f v, PotatoType const& type) {
 
 double potatoSpeed(PotatoType const& type) { return 2.0 * type.velocity; }
 
-double potatoRecoveryChance(int recoveryLevel) { return 0.125 + 0.125 * std::max(0, recoveryLevel); }
+double potatoRecoveryChance(int recoveryLevel) { return recoveryLevel > 0 ? 0.125 + 0.125 * recoveryLevel : 0.0; }
 
 std::string_view controllerButtonName(int button) {
     static constexpr std::string_view names[] = {"forward", "back", "left", "right", "jump", "sneak"};
