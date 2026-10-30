@@ -77,14 +77,20 @@ void animate() {
     });
 }
 
-/// Create's ChromaticCompoundItem charge (0 when none).
+/// Create's ChromaticCompoundItem charge (0 when none): the server mirrors it into the aux value,
+/// which is all the item renderer's copy of the stack keeps (no item data).
 int chargeOf(ItemStack const& stack) {
     if (stack.isNull() || !stack.mItem || stack.mItem->mFullName->getString() != "levitate:chromatic_compound") return 0;
-    auto const* tag = stack.mUserData.get();
-    static std::string const key = "lv:lv:chromatic_compound";
-    if (!tag || !tag->contains(key, Tag::Type::String)) return 0;
-    auto j = nlohmann::json::parse(std::string((*tag)[key].get<StringTag>()), nullptr, false);
-    return j.is_object() ? j.value("light", 0) : 0;
+    return std::max(0, int(stack.mAuxValue));
+}
+
+struct PendingBar {
+    float x, y, size;
+    int   light;
+};
+std::vector<PendingBar>& pendingBars() {
+    static std::vector<PendingBar> v;
+    return v;
 }
 
 void drawBar(MinecraftUIRenderContext& ctx, float x, float y, float size, int light) {
@@ -134,19 +140,30 @@ LL_TYPE_INSTANCE_HOOK(
 ) {
     origin(ctx, client, owner, pass);
     try {
-        static int calls = 0;
-        if (calls++ == 0) lv::log().info("DEBUG bar hook called");
-        ItemStack const& it = *mItemInstance;
-        static int seen = 0;
-        if (!it.isNull() && it.getTypeName() == "levitate:chromatic_compound" && seen++ < 3)
-            lv::log().info("DEBUG bar compound data {}", it.mUserData ? it.mUserData->toSnbt(SnbtFormat::Minimize, 0) : std::string("none"));
-        int light = chargeOf(it);
+        int light = chargeOf(*mItemInstance);
         if (light <= 0) return;
         glm::vec2 pos  = *owner.mCachedPosition;
         glm::vec2 size = *owner.mSize;
-        static int dbg = 0;
-        if (dbg++ < 6) lv::log().info("DEBUG bar pass {} pos {} {} size {} {} item pos {} {}", pass, pos.x, pos.y, size.x, size.y, mPosition->x, mPosition->y);
-        drawBar(ctx, pos.x, pos.y, std::min(size.x, size.y), light);
+        // items are drawn in a shared mesh batch: the bar goes on top once the batch is done
+        pendingBars().push_back({pos.x, pos.y, std::min(size.x, size.y), light});
+    } catch (...) {
+    }
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    MaterialsChargeBarBatchHook,
+    ll::memory::HookPriority::Normal,
+    MinecraftUIRenderContext,
+    &MinecraftUIRenderContext::$endSharedMeshBatch,
+    void,
+    ::ComponentRenderBatch& renderBatch
+) {
+    origin(renderBatch);
+    if (pendingBars().empty()) return;
+    auto bars = std::move(pendingBars());
+    pendingBars().clear();
+    try {
+        for (auto const& b : bars) drawBar(*this, b.x, b.y, b.size, b.light);
     } catch (...) {
     }
 }
@@ -156,8 +173,10 @@ public:
     void install() {
         MaterialsClientTickHook::hook();
         MaterialsChargeBarHook::hook();
+        MaterialsChargeBarBatchHook::hook();
     }
     void uninstall() {
+        MaterialsChargeBarBatchHook::unhook();
         MaterialsChargeBarHook::unhook();
         MaterialsClientTickHook::unhook();
     }

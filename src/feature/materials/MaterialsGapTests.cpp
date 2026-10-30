@@ -34,6 +34,10 @@ namespace {
 using lv::selftest::Context;
 using GP = core::GlobalPos;
 
+/// testPos puts dx 43xx 170 blocks south, outside the run's ticking area (z +-64): the U43 tests
+/// with entities / block entities move 220 blocks north, to the row no unit uses (z -50..-46).
+constexpr int kU43Shift = -220;
+
 GP       at(GP const& p, int dx, int dy, int dz) { return {p.dim, p.x + dx, p.y + dy, p.z + dz}; }
 BlockPos bp(GP const& p) { return BlockPos{p.x, p.y, p.z}; }
 BlockSource& regionOf(Context& ctx) { return ctx.player().getDimensionBlockSource(); }
@@ -124,7 +128,7 @@ LV_REGISTER_SELFTEST("materials.furnace_xp", [](Context& ctx) -> ll::coro::CoroT
     ctx.check(createSmeltingXp("levitate:raw_zinc") == 0.7f, "raw zinc gives 0.7");
     ctx.check(createSmeltingXp("levitate:zinc_ore") == 1.0f, "zinc ore gives 1");
     ctx.check(!createSmeltingXp("minecraft:raw_iron").has_value(), "vanilla recipes keep theirs");
-    auto p = ctx.testPos(4320);
+    auto p = ctx.testPos(4320, kU43Shift);
     ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
     ctx.setBlock(p, "minecraft:blast_furnace");
     co_await ctx.ticks(2);
@@ -174,7 +178,7 @@ LV_REGISTER_SELFTEST("materials.chromatic_bar_item", [](Context& ctx) {
 });
 
 LV_REGISTER_SELFTEST("materials.chromatic_belt_light", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto p = ctx.testPos(4330);
+    auto p = ctx.testPos(4330, kU43Shift);
     ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
     if (!game::blockWith(belts::kDepotId)) {
         ctx.info("levitate:depot not registered (U11): skipped");

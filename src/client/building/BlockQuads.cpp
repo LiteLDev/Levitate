@@ -177,6 +177,19 @@ std::vector<Quad> gameQuads(Tessellator& tess, Block const& block) {
         }
     }
     tess.clear();
+    // the game tessellates around the block's centre: move to the block's corner
+    float lo = 1e9f;
+    for (auto const& q : out)
+        for (auto const& v : q.pos) lo = std::min({lo, v.x, v.y, v.z});
+    if (lo < -0.25f)
+        for (auto& q : out)
+            for (auto& v : q.pos) v += glm::vec3{.5f};
+    // Minecraft's directional face shading (the chunk mesh's, which this read-back has not)
+    static constexpr float kShade[6]{0.5f, 1.f, 0.8f, 0.8f, 0.6f, 0.6f};
+    for (auto& q : out) {
+        int face = cubeFace(q);
+        if (face >= 0) q.color = glm::vec4{glm::vec3{q.color} * kShade[face], q.color.a};
+    }
     return out;
 }
 

@@ -11,7 +11,9 @@
 //   block of experience hit sheds an end rod particle 1 time in 5. The client mod does it itself
 //   (client/materials); the server does it for vanilla players.
 
+#include <atomic>
 #include <cmath>
+#include <thread>
 #include <map>
 #include <random>
 #include <string>
@@ -85,7 +87,15 @@ std::map<core::GlobalPos, FurnaceView>& furnaceViews() {
     return v;
 }
 
+/// The server thread (seen by the level tick): in a local world the client level's furnace copies
+/// run the same code, with slots that lag behind.
+std::atomic<std::thread::id>& serverThread() {
+    static std::atomic<std::thread::id> id{};
+    return id;
+}
+
 void observeFurnace(FurnaceBlockActor& furnace) {
+    if (std::this_thread::get_id() != serverThread().load()) return;
     Container* box = furnace.getContainer();
     if (!box) return;
     auto const&      p    = furnace.getPosition();
@@ -200,6 +210,7 @@ void installFurnaceXp() {
     MaterialsFurnaceCanBurnHook::hook();
     MaterialsFurnaceWithdrawHook::hook();
     tickListener() = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) {
+        serverThread() = std::this_thread::get_id();
         try {
             particlesForVanillaPlayers();
         } catch (...) {

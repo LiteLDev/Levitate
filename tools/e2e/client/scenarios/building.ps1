@@ -7,7 +7,7 @@
 #   local / remote-mod: the client mod draws the copycats in their materials, the bracket, the
 #                       corner and the sliding door.
 #   remote-vanilla:     the copycat base models and the plain shaft (no client mod), same server logic.
-# Screenshots: out/building/{built,door_open,door_moving,copycats,ct}.png
+# Screenshots: out/building/{built,door_open,door_moving,copycats,bracket,ct}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 if (-not $vanilla) {
     Wait-LogLine 'companion: server accepted the handshake' 90 | Out-Null
@@ -99,6 +99,9 @@ Use-At 3 -59 4 '4' 'building: levitate:metal_bracket applied to levitate:shaft a
 Invoke-Chat '/tp @s 0.5 -59 1.5 0 22'
 Start-Sleep -Milliseconds 2500
 Save-Screenshot 'copycats' | Out-Null
+Invoke-Chat '/tp @s 3.5 -60 2 0 5'
+Start-Sleep -Milliseconds 2500
+Save-Screenshot 'bracket' | Out-Null
 Invoke-Chat '/tp @s -2 -59 4.5 0 15'
 Start-Sleep -Milliseconds 2500
 Save-Screenshot 'ct' | Out-Null

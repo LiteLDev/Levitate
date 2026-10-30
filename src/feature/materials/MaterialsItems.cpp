@@ -199,6 +199,9 @@ int chromaticLight(ItemStack const& stack) {
 
 void setChromaticLight(ItemStack& stack, int light) {
     common::items::setData(stack, "lv:chromatic_compound", light > 0 ? nlohmann::json{{"light", light}} : nlohmann::json());
+    // the charge also goes into the aux value: the client's item renderer only sees id and aux
+    // (client mod: the charge bar)
+    stack.mAuxValue = static_cast<short>(std::max(0, light));
 }
 
 void tickMagicalItem(Actor& actor) {
