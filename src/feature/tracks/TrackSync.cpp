@@ -5,6 +5,8 @@
 //   {"op":"reset"}                                  after the handshake, before the full list
 //   {"op":"add","dim":d,"curves":[<curve json>...]} new curves (primary orientation)
 //   {"op":"remove","dim":d,"curves":[[a],[b]]...}   curves removed, by their end blocks
+//   {"op":"tilt","dim":d,"pos":[x,y,z],"angle":a}   a track tilted between two sloped curves
+//                                                   (Create's smoothing angle; null: flat again)
 // The full list holds the curves of every dimension, so a dimension change needs no resync.
 // Vanilla clients get nothing; they see the straight tracks and the fake track blocks along the
 // curve (SPEC §8).
@@ -46,6 +48,10 @@ void syncCurveRemoved(int dim, ct::Curve const& curve) {
     sendToCompanions({{"op", "remove"}, {"dim", dim}, {"curves", nlohmann::json::array({keyOf(curve)})}});
 }
 
+void syncTilt(int dim, ct::BlockPos3 const& pos, std::optional<double> angle) {
+    sendToCompanions({{"op", "tilt"}, {"dim", dim}, {"pos", {pos.x, pos.y, pos.z}}, {"angle", angle ? nlohmann::json(*angle) : nlohmann::json()}});
+}
+
 void syncSelection(Player& player) {
     if (!net::isCompanion(player)) return;
     auto const& sels = state().selections;
@@ -80,6 +86,8 @@ void syncAllTo(Player& player) {
         if (b.size() >= kBatch) flush(dim);
     }
     for (auto& [dim, b] : batches) flush(dim);
+    for (auto const& [dim, pos, angle] : allTilts())
+        net::send(player, kSyncChannel, {{"op", "tilt"}, {"dim", dim}, {"pos", {pos.x, pos.y, pos.z}}, {"angle", angle}});
 }
 
 } // namespace lv::feature::tracks

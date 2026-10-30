@@ -21,6 +21,7 @@
 #include "mc/world/level/block/BlockType.h"
 #include "mc/world/level/dimension/Dimension.h"
 
+#include "feature/common/BlockData.h"
 #include "feature/net/Net.h"
 #include "feature/tracks/Tracks.h"
 #include "feature/tracks/TracksInternal.h"
@@ -430,6 +431,8 @@ public:
                 else state().ctrlHeld.erase(uuid);
             });
         }
+        // a moved track loses its curves, so contraptions don't carry its tilt (Create's transform)
+        common::blockdata::ownCarrier(kBlockDataKey);
         installHooks();
     }
 

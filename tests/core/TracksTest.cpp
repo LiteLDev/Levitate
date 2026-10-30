@@ -5,6 +5,7 @@
 #include "core/tracks/CurveStore.h"
 #include "core/tracks/Graph.h"
 #include "core/tracks/Placement.h"
+#include "core/tracks/Tilt.h"
 
 using namespace lv::core::tracks;
 
@@ -443,4 +444,138 @@ TEST(TrackCurveStore, IndexesEndsAndBlocks) {
     EXPECT_TRUE(s.remove(0, {7, 0, 7}, {0, 0, 0}));
     EXPECT_EQ(s.size(), 0u);
     EXPECT_TRUE(s.curvesThrough(0, through[0]).empty());
+}
+
+// ---- tilted tracks (Create's TrackBlockEntityTilt) ----------------------------------------------
+
+namespace {
+/// A flat track at the origin between a slope below (towards -z) and a slope above (+z),
+/// each joined to it by a sloped curve.
+struct SlopedPair {
+    Curve low, high;
+};
+std::optional<SlopedPair> slopedPair() {
+    auto up   = planConnection(request({0, 0, 0}, Shape::ZO, {0, 0, 1}, {0, 2, 5}, Shape::AS, {0, 0, 1}), Shape::ZO);
+    auto down = planConnection(request({0, 0, 0}, Shape::ZO, {0, 0, -1}, {0, -3, -5}, Shape::AS, {0, 0, -1}), Shape::ZO);
+    if (!up.valid || !down.valid || !up.curve || !down.curve) return std::nullopt;
+    if (!(up.curve->block(0) == BlockPos3{0, 0, 0}) || !(down.curve->block(0) == BlockPos3{0, 0, 0})) return std::nullopt;
+    return SlopedPair{*down.curve, *up.curve};
+}
+} // namespace
+
+TEST(TrackTilt, SlopedCurvesMeetingAtAFlatTrackTiltIt) {
+    auto pair = slopedPair();
+    ASSERT_TRUE(pair);
+    CurveStore store;
+    store.add(0, pair->low);
+    store.add(0, pair->high);
+    auto curves = store.curvesAt(0, {0, 0, 0});
+    ASSERT_EQ(curves.size(), 2u);
+
+    auto sm = trySmoothing({0, 0, 0}, Shape::ZO, false, curves);
+    ASSERT_TRUE(sm);
+    double m = (pair->high.spec().starts[1].y - pair->low.spec().starts[1].y) / (pair->low.length() + pair->high.length());
+    EXPECT_NEAR(sm->angle, std::atan(m) * 180 / 3.141592653589793, 1e-9); // rises towards +z: positive
+    // the low curve keeps its start and leaves along the ramp; the high one starts at its top
+    EXPECT_TRUE(sm->low.spec().starts[0].near(pair->low.spec().starts[0]));
+    EXPECT_NEAR(sm->low.spec().axes[0].y, -m / std::sqrt(1 + m * m), 1e-9);
+    EXPECT_NEAR(sm->high.spec().axes[0].y, m / std::sqrt(1 + m * m), 1e-9);
+    EXPECT_NEAR(sm->high.spec().starts[0].y, m / std::sqrt(1 + m * m), 1e-9);
+    EXPECT_NEAR(sm->high.spec().starts[0].z, 0.5 + 1 / std::sqrt(1 + m * m) - 1 + 0.0, 1e-9 + 0.5); // on the ramp
+    EXPECT_EQ(sm->low.spec().smoothing[0], 0);
+    EXPECT_EQ(sm->high.spec().smoothing[0], std::clamp(int(m * 16), 0, 15));
+    EXPECT_GT(sm->high.spec().smoothing[0], 0);
+    // far ends unchanged
+    EXPECT_TRUE(sm->high.spec().starts[1].near(pair->high.spec().starts[1]));
+    EXPECT_EQ(sm->high.spec().smoothing[1], 0);
+    // the straight end on the high side is raised in the graph, the low one is not
+    std::vector<std::shared_ptr<Curve const>> tilted{std::make_shared<Curve>(sm->low), std::make_shared<Curve>(sm->high)};
+    EXPECT_EQ(yOffsetForAxisEnd(tilted, {0.5, 0, 1}), sm->high.spec().smoothing[0]);
+    EXPECT_EQ(yOffsetForAxisEnd(tilted, {0.5, 0, 0}), 0);
+
+    // restoring gives the original curve back
+    Curve back = restoreToOriginalCurve(sm->high);
+    EXPECT_TRUE(back.spec().starts[0].near(pair->high.spec().starts[0]));
+    EXPECT_TRUE(back.spec().axes[0].near(pair->high.spec().axes[0]));
+    EXPECT_FALSE(back.hasSmoothing());
+    EXPECT_NEAR(back.length(), pair->high.length(), 1e-9);
+
+    // the other orientation of the same block tilts the other way
+    auto flipped = trySmoothing({0, 0, 0}, Shape::ZO, false, {std::make_shared<Curve>(pair->high), std::make_shared<Curve>(pair->low)});
+    ASSERT_TRUE(flipped);
+    EXPECT_NEAR(flipped->angle, sm->angle, 1e-12);
+}
+
+TEST(TrackTilt, OnlyBetweenTwoOpposingSlopes) {
+    auto pair = slopedPair();
+    ASSERT_TRUE(pair);
+    auto low  = std::make_shared<Curve>(pair->low);
+    auto high = std::make_shared<Curve>(pair->high);
+    EXPECT_FALSE(trySmoothing({0, 0, 0}, Shape::ZO, false, {high}));            // one curve
+    EXPECT_FALSE(trySmoothing({0, 0, 0}, Shape::ZO, true, {low, high}));        // bound to a portal
+    EXPECT_FALSE(trySmoothing({0, 0, 0}, Shape::CR_O, false, {low, high}));     // a crossing
+    EXPECT_FALSE(trySmoothing({0, 0, 0}, Shape::AS, false, {low, high}));       // a slope
+    EXPECT_FALSE(trySmoothing({0, 0, 0}, Shape::ZO, false, {high, high}));      // both on one side
+    // flat curves don't tilt anything
+    auto flat = planConnection(request({0, 0, 0}, Shape::ZO, {0, 0, 1}, {10, 0, 10}, Shape::XO, {1, 0, 0}), Shape::ZO);
+    ASSERT_TRUE(flat.valid && flat.curve);
+    EXPECT_FALSE(trySmoothing(flat.curve->block(0), Shape::ZO, false, {low, std::make_shared<Curve>(*flat.curve)}));
+}
+
+TEST(TrackTilt, CurveSmoothingSurvivesJsonAndReversal) {
+    auto pair = slopedPair();
+    ASSERT_TRUE(pair);
+    auto sm = trySmoothing({0, 0, 0}, Shape::ZO, false, {std::make_shared<Curve>(pair->low), std::make_shared<Curve>(pair->high)});
+    ASSERT_TRUE(sm);
+    auto back = Curve::fromJson(sm->high.toJson());
+    ASSERT_TRUE(back);
+    EXPECT_EQ(back->spec().smoothing[0], sm->high.spec().smoothing[0]);
+    Curve rev = sm->high.secondary();
+    EXPECT_EQ(rev.spec().smoothing[1], sm->high.spec().smoothing[0]);
+    EXPECT_EQ(rev.yOffsetAt(sm->high.spec().starts[0]), sm->high.spec().smoothing[0]);
+    EXPECT_FALSE(Curve::fromJson(pair->low.toJson())->hasSmoothing());
+}
+
+TEST(TrackTilt, GraphFollowsTheRamp) {
+    auto pair = slopedPair();
+    ASSERT_TRUE(pair);
+    auto sm = trySmoothing({0, 0, 0}, Shape::ZO, false, {std::make_shared<Curve>(pair->low), std::make_shared<Curve>(pair->high)});
+    ASSERT_TRUE(sm);
+    FakeWorld w;
+    Railways  r;
+    w.curves.add(0, sm->low);
+    w.curves.add(0, sm->high);
+    w.place(r, 0, {0, 0, 0}, Shape::ZO);
+    w.place(r, 0, pair->low.block(1), Shape::AS);
+    w.place(r, 0, pair->high.block(1), Shape::AS);
+    ASSERT_EQ(r.graphs().size(), 1u);
+    Graph* g = r.graphs().front();
+    // the raised node at the high end of the tilted block
+    NodeLocation raised = NodeLocation::of({0.5, 0, 1}, 0);
+    raised.yOffsetPixels = sm->high.spec().smoothing[0];
+    Node const* top      = g->locateNode(raised);
+    ASSERT_TRUE(top);
+    EXPECT_NEAR(top->location.location().y, raised.yOffsetPixels / 16.0, 1e-9);
+    EXPECT_FALSE(g->locateNode(NodeLocation::of({0.5, 0, 1}, 0))); // no flat node left there
+    Node const* bottom = g->locateNode(NodeLocation::of({0.5, 0, 0}, 0));
+    ASSERT_TRUE(bottom);
+    // the straight edge over the block climbs, the curves continue from its ends
+    Edge const* ramp = g->edge(bottom->id, top->id);
+    ASSERT_TRUE(ramp);
+    EXPECT_FALSE(ramp->isTurn());
+    EXPECT_EQ(g->connectionsFrom(top->id).size(), 2u);
+    EXPECT_EQ(g->connectionsFrom(bottom->id).size(), 2u);
+}
+
+TEST(TrackTilt, ModelTurnsAboutTheLowEnd) {
+    // XO rising towards +x by 45 degrees: the low end stays, the high end rises
+    Vec3d pivot = tiltModelPoint({0, .25, .5}, Shape::XO, 45);
+    EXPECT_TRUE(pivot.near({0, .25, .5}, 1e-6));
+    Vec3d end = tiltModelPoint({1, .25, .5}, Shape::XO, 45);
+    EXPECT_TRUE(end.near({std::sqrt(.5), .25 + std::sqrt(.5), .5}, 1e-6));
+    // negative angles rise towards -x, ZO towards +z
+    Vec3d back = tiltModelPoint({1, .25, .5}, Shape::XO, -45);
+    EXPECT_TRUE(back.near({1 - std::sqrt(.5), .25 + std::sqrt(.5), .5}, 1e-6));
+    Vec3d z = tiltModelPoint({.5, .25, 1}, Shape::ZO, 30);
+    EXPECT_NEAR(z.y, .25 + .5, 1e-6);
 }

@@ -1,4 +1,5 @@
 #include "core/tracks/Curve.h"
+#include "core/tracks/Tilt.h"
 
 #include <algorithm>
 #include <cmath>
@@ -23,6 +24,7 @@ Curve Curve::secondary() const {
     std::swap(s.starts[0], s.starts[1]);
     std::swap(s.axes[0], s.axes[1]);
     std::swap(s.normals[0], s.normals[1]);
+    std::swap(s.smoothing[0], s.smoothing[1]);
     return Curve(std::move(s), !mPrimary);
 }
 
@@ -255,13 +257,13 @@ bool Curve::sameShape(Curve const& other) const {
                 || !a.normals[i].near(b.normals[i]))
                 return false;
         }
-        return a.girder == b.girder;
+        return a.girder == b.girder && a.smoothing[0] == b.smoothing[0] && a.smoothing[1] == b.smoothing[1];
     };
     return same(mSpec, other.mSpec) || same(mSpec, other.secondary().mSpec);
 }
 
 nlohmann::json Curve::toJson() const {
-    return {
+    nlohmann::json j{
         {"blocks",   {posJson(mSpec.blocks[0]), posJson(mSpec.blocks[1])}    },
         {"starts",   {vecJson(mSpec.starts[0]), vecJson(mSpec.starts[1])}    },
         {"axes",     {vecJson(mSpec.axes[0]), vecJson(mSpec.axes[1])}        },
@@ -270,6 +272,15 @@ nlohmann::json Curve::toJson() const {
         {"material", mSpec.material                                          },
         {"primary",  mPrimary                                                },
     };
+    if (hasSmoothing()) j["smoothing"] = {mSpec.smoothing[0], mSpec.smoothing[1]};
+    return j;
+}
+
+int Curve::yOffsetAt(Vec3d const& end) const {
+    if (!hasSmoothing()) return 0;
+    if (compareHandles(mSpec.starts[0], end)) return mSpec.smoothing[0];
+    if (compareHandles(mSpec.starts[1], end)) return mSpec.smoothing[1];
+    return 0;
 }
 
 std::optional<Curve> Curve::fromJson(nlohmann::json const& j) {
@@ -283,6 +294,10 @@ std::optional<Curve> Curve::fromJson(nlohmann::json const& j) {
         }
         s.girder   = j.value("girder", false);
         s.material = j.value("material", std::string("andesite"));
+        if (auto it = j.find("smoothing"); it != j.end() && it->is_array() && it->size() == 2) {
+            s.smoothing[0] = it->at(0).get<int>();
+            s.smoothing[1] = it->at(1).get<int>();
+        }
         return Curve(std::move(s), j.value("primary", true));
     } catch (...) {
         return std::nullopt;

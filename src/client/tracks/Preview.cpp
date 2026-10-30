@@ -45,6 +45,7 @@
 #include "mc/world/phys/HitResult.h"
 
 #include "client/Client.h"
+#include "client/tracks/TrackRenderer.h"
 #include "core/tracks/Placement.h"
 #include "feature/net/Net.h"
 #include "feature/tracks/Tracks.h"
@@ -191,6 +192,7 @@ std::optional<ct::PlacementPlan> planFor(LocalPlayer& player, Selection const& s
     req.from         = sel.end;
     auto s1          = feature::tracks::shapeAt(region, toGame(sel.end.pos));
     req.fromIsTrack  = s1.has_value();
+    req.pos2Tilted   = tiltAt(int(player.getDimensionId()), pos2).has_value(); // "turn_start"
     auto plan        = ct::planConnection(req, s1.value_or(ct::Shape::ZO));
     if (plan.valid && !player.isCreative()) {
         int needed = plan.curve ? plan.curve->trackItemCost() : 0;

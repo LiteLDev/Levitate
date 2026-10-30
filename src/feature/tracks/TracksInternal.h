@@ -8,6 +8,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "core/GlobalPos.h"
@@ -123,6 +124,24 @@ void destroyCurve(int dim, ct::Curve const& curve, bool drops, Player* refundTo)
 void onTrackRemoved(int dim, ct::BlockPos3 const& pos, ct::Shape oldShape, bool drops);
 /// A placed / changed track: graph update and portal connection.
 void onTrackPlaced(int dim, ct::BlockPos3 const& pos);
+/// Places / removes the fake track blocks along a curve (removal keeps blocks another curve uses).
+void placeFakeTracks(int dim, ct::Curve const& curve);
+void removeFakeTracks(int dim, ct::Curve const& curve);
+
+// ---- tilted tracks (TrackTilt.cpp, Create's TrackBlockEntityTilt) -------------------------------
+/// BlockData key of the unit at a track: {"tilt": angle} while the track is tilted.
+inline constexpr char const* kBlockDataKey = "tracks";
+/// The smoothing angle of the tilted track at `pos` (nullopt: not tilted).
+[[nodiscard]] std::optional<double> tiltAt(int dim, ct::BlockPos3 const& pos);
+/// Tilts the track at `pos` when two sloped curves meet there (tryApplySmoothing) or puts its
+/// curves back when it no longer has exactly two (undoSmoothing). `before`: the track as the graph
+/// last saw it, when a curve was just taken away.
+void updateTilt(int dim, ct::BlockPos3 const& pos, std::optional<ct::TrackBlockView> const& before = std::nullopt);
+/// Sends the tilt of `pos` (nullopt: none) to the companions.
+void syncTilt(int dim, ct::BlockPos3 const& pos, std::optional<double> angle);
+/// Every tilted track (for the full sync).
+[[nodiscard]] std::vector<std::tuple<int, ct::BlockPos3, double>> allTilts();
+
 /// Re-places missing fake tracks of curves through `pos`.
 void restoreFakeTracks(int dim, ct::BlockPos3 const& pos);
 /// A portal block disappeared next to `pos`: portal tracks facing it fall off.

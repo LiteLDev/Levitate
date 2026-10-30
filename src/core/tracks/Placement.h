@@ -33,7 +33,7 @@ struct PlacementRequest {
     bool      fromIsTrack = true;   ///< the block at `from.pos` is still a track
     BlockPos3 pos2;                 ///< the clicked track, or where a new track will be placed
     Shape     shape2 = Shape::ZO;   ///< its (existing or placement) shape
-    bool      pos2Tilted = false;   ///< target is a tilted track (not built yet, SPEC §8: always false)
+    bool      pos2Tilted = false;   ///< target is a tilted track (core/tracks/Tilt.h)
     Vec3d     look{0, 0, 1};        ///< player look vector
     int       maxLength    = 32;    ///< `maxTrackPlacementLength`
     bool      maximiseTurn = false; ///< sprint held: biggest possible turn

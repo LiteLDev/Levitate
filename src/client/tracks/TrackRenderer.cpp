@@ -1,8 +1,11 @@
-// Client: draws curved tracks (Bedrock blocks can't be curved).
+// Client: draws curved tracks (Bedrock blocks can't be curved) and tilted tracks.
 //
 // The server sends every curve over the companion protocol (channel "tracks.curves", see
 // src/feature/tracks/TrackSync.cpp); this file keeps them per dimension and draws ties and rails
 // along each curve every frame, after the block entities of the opaque pass.
+// A track tilted between two sloped curves (Create's TrackBlockEntityTilt / TrackModel, op "tilt")
+// is left out of the chunk mesh and drawn every frame from its own block model turned onto the
+// ramp (core/tracks/Tilt.h tiltModelPoint); its chunk is meshed again when the tilt changes.
 
 #ifdef LV_CLIENT
 
@@ -28,10 +31,22 @@
 #include "mc/deps/core/string/HashedString.h"
 #include "mc/deps/minecraft_renderer/renderer/MaterialPtr.h"
 #include "mc/deps/minecraft_renderer/resources/OffscreenCaptureDescription.h"
+#include "mc/client/renderer/block/tessellation_pipeline/client_block_pipeline/PipelineError.h"
+#include "mc/client/renderer/block/tessellation_pipeline/client_block_pipeline/WorldExtractorStep.h"
+#include "mc/deps/minecraft_renderer/renderer/Mesh.h"
+#include "mc/world/level/BlockPos.h"
+#include "mc/world/level/BlockSource.h"
+#include "mc/world/level/block/Block.h"
+#include "mc/world/level/BlockChangedEventTarget.h"
+
+#include "glm/gtc/matrix_transform.hpp"
 
 #include "client/Client.h"
+#include "client/building/BlockQuads.h"
 #include "client/tracks/TrackRenderer.h"
 #include "core/tracks/Curve.h"
+#include "core/tracks/Tilt.h"
+#include "feature/tracks/Tracks.h"
 #include "feature/net/Net.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
@@ -58,6 +73,12 @@ using CurveKey = std::tuple<int, ct::BlockPos3, ct::BlockPos3>;
 std::mutex                         gMutex;
 std::map<CurveKey, RenderCurve>    gCurves;
 bool                               gLoggedFirstFrame = false;
+
+// tilted tracks: (dim, pos) -> smoothing angle, positions to mesh again (both gMutex)
+std::map<std::pair<int, ct::BlockPos3>, double>                      gTilts;
+std::vector<std::pair<int, ct::BlockPos3>>                           gRemesh;
+std::map<std::pair<void const*, double>, std::unique_ptr<mce::Mesh>> gTiltMeshes; // client thread
+bool                                                                 gLoggedTilt = false;
 
 // Model sizes in blocks (our own track model: ties 2 px high, rails 2 px on top of them)
 constexpr double kPx         = 1 / 16.0;
@@ -138,6 +159,19 @@ void onMessage(nlohmann::json const& msg) {
     std::lock_guard lock(gMutex);
     if (op == "reset") {
         gCurves.clear();
+        for (auto const& [key, a] : gTilts) gRemesh.push_back(key);
+        gTilts.clear();
+        return;
+    }
+    if (op == "tilt") {
+        try {
+            auto key = std::pair{dim, posOf(msg.at("pos"))};
+            auto a   = msg.find("angle");
+            if (a != msg.end() && a->is_number()) gTilts[key] = a->get<double>();
+            else gTilts.erase(key);
+            gRemesh.push_back(key);
+        } catch (...) {
+        }
         return;
     }
     for (auto const& jc : msg.value("curves", nlohmann::json::array())) {
@@ -162,10 +196,62 @@ mce::MaterialPtr& material() {
     return m;
 }
 
+/// Tilted tracks: the block's own quads turned onto the ramp, drawn as a block entity.
+void renderTilts(BaseActorRenderContext& ctx, int dim, BlockSource& region) {
+    std::vector<std::pair<int, ct::BlockPos3>>    remesh;
+    std::vector<std::pair<ct::BlockPos3, double>> tilts;
+    {
+        std::lock_guard lock(gMutex);
+        remesh.swap(gRemesh);
+        for (auto const& [key, a] : gTilts)
+            if (key.first == dim) tilts.emplace_back(key.second, a);
+    }
+    // mesh the chunk again: the tilted block leaves (or rejoins) the chunk mesh
+    for (auto const& [d, p] : remesh) {
+        if (d != dim) continue;
+        BlockPos bp{p.x, p.y, p.z};
+        if (!region.hasChunksAt(bp, 0, false)) continue;
+        Block const& b = region.getBlock(bp);
+        region.fireBlockChanged(bp, 0, b, b, 3, BlockChangedEventTarget::SelfBlock, nullptr, nullptr);
+    }
+    if (tilts.empty()) return;
+    building::Drawer d(ctx);
+    if (!d.ok()) return;
+    auto& tess  = d.tessellator();
+    int   drawn = 0;
+    for (auto const& [p, angle] : tilts) {
+        BlockPos bp{p.x, p.y, p.z};
+        if (!region.hasChunksAt(bp, 0, false)) continue;
+        Block const& b     = region.getBlock(bp);
+        auto         shape = feature::tracks::shapeAt(region, bp);
+        if (!shape) continue;
+        auto& mesh = gTiltMeshes[{&b, angle}];
+        if (!mesh) {
+            std::vector<building::Quad> quads = building::quadsOf(tess, b);
+            for (auto& q : quads)
+                for (auto& v : q.pos) {
+                    ct::Vec3d t = ct::tiltModelPoint({v.x, v.y, v.z}, *shape, angle);
+                    v           = glm::vec3{float(t.x), float(t.y), float(t.z)};
+                }
+            if (quads.empty()) continue;
+            mesh = building::buildMesh(tess, quads);
+        }
+        if (!mesh) continue;
+        d.light(region, bp);
+        d.draw(*mesh, glm::translate(glm::mat4{1.f}, glm::vec3{float(p.x), float(p.y), float(p.z)}));
+        ++drawn;
+    }
+    if (drawn && !gLoggedTilt) {
+        gLoggedTilt = true;
+        log().info("tracks: drawing {} tilted track(s)", drawn);
+    }
+}
+
 void renderCurves(BaseActorRenderContext& ctx) {
     auto* player = currentPlayer();
     if (!player) return;
     int  dim    = static_cast<int>(player->getDimensionId());
+    renderTilts(ctx, dim, player->getDimensionBlockSource());
     std::unique_ptr<BaseActorRenderContext::Impl> const& impl = ctx.mImpl;
     if (!impl) return;
     Vec3 origin = impl->mCameraTargetPosition;
@@ -201,6 +287,48 @@ void renderCurves(BaseActorRenderContext& ctx) {
 
 } // namespace
 
+// The chunk mesh leaves out tilted tracks (drawn above) while the server runs Levitate.
+LL_STATIC_HOOK(
+    TracksExtractHook,
+    ll::memory::HookPriority::Normal,
+    &ClientBlockPipeline::WorldExtractorStep::extractCustomBlock,
+    std::optional<ClientBlockPipeline::PipelineError>,
+    Block const&                                                       block,
+    ClientBlockPipeline::WorldExtractorStep::BlockIterationData const& iterData,
+    ClientBlockPipeline::WorldExtractorStep::ExtractionData&           extraction,
+    ClientBlockPipeline::WorldView::Interface*                         worldView,
+    bool                                                               shouldGenerateFaceCulling,
+    ClientBlockPipeline::VisualReference                               visualReference,
+    ClientBlockPipeline::ITintResolver&                                tintResolver,
+    BiomeTintCache*                                                    biomeTintCache,
+    BlockPos const&                                                    chunkMinPos,
+    bool                                                               checkIgnoreBlockTransforms
+) {
+    if (visualReference == ClientBlockPipeline::VisualReference::Block && feature::tracks::isTrack(block)) {
+        BlockPos const& rel = iterData.relativePos;
+        ct::BlockPos3   pos{chunkMinPos.x + rel.x, chunkMinPos.y + rel.y, chunkMinPos.z + rel.z};
+        bool            tilted = false;
+        {
+            std::lock_guard lock(gMutex);
+            for (auto const& [key, a] : gTilts)
+                if (key.second == pos) tilted = true; // (the chunk's dimension isn't known here)
+        }
+        if (tilted) return std::nullopt;
+    }
+    return origin(
+        block,
+        iterData,
+        extraction,
+        worldView,
+        shouldGenerateFaceCulling,
+        visualReference,
+        tintResolver,
+        biomeTintCache,
+        chunkMinPos,
+        checkIgnoreBlockTransforms
+    );
+}
+
 LL_TYPE_INSTANCE_HOOK(
     TracksRenderHook,
     ll::memory::HookPriority::Normal,
@@ -223,23 +351,38 @@ public:
     void install() {
         feature::net::client::on("tracks.curves", [](nlohmann::json const& msg) { onMessage(msg); });
         TracksRenderHook::hook();
+        TracksExtractHook::hook();
         // the next world (or server) sends its own curves
         mExit = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             std::lock_guard lock(gMutex);
             gCurves.clear();
+            gTilts.clear();
+            gRemesh.clear();
+            gTiltMeshes.clear();
             gLoggedFirstFrame = false;
+            gLoggedTilt       = false;
         });
     }
     void uninstall() {
         ll::event::EventBus::getInstance().removeListener(mExit);
         TracksRenderHook::unhook();
+        TracksExtractHook::unhook();
         std::lock_guard lock(gMutex);
         gCurves.clear();
+        gTilts.clear();
+        gTiltMeshes.clear();
     }
 
 private:
     ll::event::ListenerPtr mExit;
 };
+
+std::optional<double> tiltAt(int dim, core::tracks::BlockPos3 const& pos) {
+    std::lock_guard lock(gMutex);
+    auto it = gTilts.find({dim, pos});
+    if (it == gTilts.end()) return std::nullopt;
+    return it->second;
+}
 
 /// Number of curves the client knows (selftests / debugging).
 size_t knownCurves() {

@@ -24,6 +24,9 @@ struct CurveSpec {
     Vec3d       normals[2];  ///< up normals at each end
     bool        girder  = false; ///< built with metal girders under it
     std::string material = "andesite";
+    /// Pixels the graph node at each end is raised by (Create's BezierConnection.smoothing): set
+    /// on the end at a tilted track between two sloped curves (core/tracks/Tilt.h), else 0.
+    int smoothing[2] = {0, 0};
 };
 
 /// One sampled point of a curve.
@@ -80,6 +83,10 @@ public:
     /// The blocks (fake tracks) a curve occupies: for each rasterised column the block at
     /// floor(y) + 1, excluding the two end blocks.
     [[nodiscard]] std::vector<BlockPos3> occupiedBlocks() const;
+
+    /// Create's yOffsetAt: the smoothing pixels of the end whose start is at `end` (0 if none).
+    [[nodiscard]] int yOffsetAt(Vec3d const& end) const;
+    [[nodiscard]] bool hasSmoothing() const { return mSpec.smoothing[0] != 0 || mSpec.smoothing[1] != 0; }
 
     /// True when both describe the same curve (either direction), ignoring the material.
     [[nodiscard]] bool sameShape(Curve const& other) const;

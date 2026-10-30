@@ -1,4 +1,5 @@
 #include "core/tracks/Graph.h"
+#include "core/tracks/Tilt.h"
 
 #include <algorithm>
 #include <cmath>
@@ -57,20 +58,23 @@ namespace {
 bool sameLocation(NodeLocation const& a, NodeLocation const& b) { return a == b; }
 
 /// Create's ITrackBlock.addToListIfConnected.
-template <class OffsetFn, class NormalFn, class DimFn>
+template <class OffsetFn, class NormalFn, class DimFn, class YOffsetFn>
 void addToListIfConnected(
     NodeLocation const*                 fromEnd,
     std::vector<DiscoveredLocation>&    list,
     OffsetFn const&                     offset,
     NormalFn const&                     normal,
     DimFn const&                        dimension,
+    YOffsetFn const&                    yOffset,
     std::optional<Vec3d> const&         axis,
     std::shared_ptr<Curve const> const& viaTurn,
     std::string const&                  material
 ) {
     auto make = [&](bool b) {
         DiscoveredLocation d;
-        static_cast<NodeLocation&>(d) = NodeLocation::of(offset(0.5, b), dimension(b));
+        Vec3d const at                = offset(0.5, b);
+        static_cast<NodeLocation&>(d) = NodeLocation::of(at, dimension(b));
+        d.yOffsetPixels               = yOffset(at);
         d.turn                        = viaTurn;
         d.forceNode                   = viaTurn != nullptr;
         d.materialA = d.materialB = material;
@@ -116,6 +120,7 @@ std::vector<DiscoveredLocation> connectedEnds(
         Vec3d const                     center = pos.bottomCenter() + Vec3d{0, elevationAtCenter(shape), 0};
         auto                            normal = [&](bool) { return shapeNormal(shape); };
         auto                            sameDim = [&](bool) { return dim; };
+        auto                            noOffset = [](Vec3d const&) { return 0; };
 
         if (axes.size() > 1) {
             for (auto const& axis : axes) {
@@ -126,6 +131,7 @@ std::vector<DiscoveredLocation> connectedEnds(
                         [&](double d, bool b) { return axis * (b ? 0 : fromCenter ? -d : d) + center; },
                         normal,
                         sameDim,
+                        noOffset,
                         axis,
                         nullptr,
                         view.material
@@ -140,6 +146,7 @@ std::vector<DiscoveredLocation> connectedEnds(
                     [&](double d, bool b) { return axis * (b ? d : -d) + center; },
                     normal,
                     sameDim,
+                    [&](Vec3d const& end) { return yOffsetForAxisEnd(view.curves, end); },
                     axis,
                     nullptr,
                     view.material
@@ -155,6 +162,7 @@ std::vector<DiscoveredLocation> connectedEnds(
                 [&](double, bool b) { return bc->spec().starts[b ? 0 : 1]; },
                 [&](bool b) { return bc->spec().normals[b ? 0 : 1]; },
                 sameDim,
+                [&](Vec3d const& end) { return bc->yOffsetAt(end); },
                 std::nullopt,
                 bc,
                 bc->spec().material
@@ -174,6 +182,7 @@ std::vector<DiscoveredLocation> connectedEnds(
                         [&](double d, bool b) { return (b ? axis : boundAxis) * d + (b ? center : boundCenter); },
                         [&](bool b) { return b ? shapeNormal(shape) : shapeNormal(bound->shape); },
                         [&](bool b) { return b ? dim : otherDim; },
+                        noOffset,
                         axis,
                         nullptr,
                         view.material

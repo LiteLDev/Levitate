@@ -328,6 +328,7 @@ std::optional<ct::PlacementPlan> planFor(Player& player, BlockSource& region, ct
     req.fromIsTrack = s1.has_value();
     shape1          = s1.value_or(ct::Shape::ZO);
     if (auto existing = trackShapeAt(region, req.pos2)) req.shape2 = *existing;
+    req.pos2Tilted = tiltAt(dim, req.pos2).has_value(); // Create: "Cannot start connection from a Turn"
     shape2 = req.shape2;
     return ct::planConnection(req, shape1);
 }
@@ -499,8 +500,6 @@ bool onTrackItemUse(Player& player, BlockPos const& clicked, int face, Block con
 
 // ---- curves -------------------------------------------------------------------------------------
 
-namespace {
-
 void placeFakeTracks(int dim, ct::Curve const& curve) {
     auto* region = regionOf(dim);
     auto const* fake = game::blockWith(kFakeTrackId);
@@ -527,6 +526,8 @@ void removeFakeTracks(int dim, ct::Curve const& curve) {
     }
 }
 
+namespace {
+
 void setTurn(int dim, ct::BlockPos3 const& pos, bool turn) {
     auto* region = regionOf(dim);
     if (!region) return;
@@ -540,9 +541,15 @@ void setTurn(int dim, ct::BlockPos3 const& pos, bool turn) {
 
 /// Store + client sync + deferred world edits (fake tracks, end states, drops).
 void removeCurveData(int dim, ct::Curve const& curve, bool drops, Player* refundTo) {
-    auto& s       = state();
-    auto  removed = s.curves.remove(dim, curve.block(0), curve.block(1));
+    auto& s = state();
+    // a tilted end loses one of its two sloped curves: the other one goes back to its shape
+    // (Create's undoSmoothing), with the graph updated from the end as it was
+    std::vector<std::pair<ct::BlockPos3, std::optional<ct::TrackBlockView>>> tilted;
+    for (int i = 0; i < 2; ++i)
+        if (tiltAt(dim, curve.block(i))) tilted.emplace_back(curve.block(i), world().trackAt(dim, curve.block(i)));
+    auto removed = s.curves.remove(dim, curve.block(0), curve.block(1));
     if (!removed) return;
+    for (auto const& [end, before] : tilted) updateTilt(dim, end, before);
     markCurveChunkDirty(dim, removed->block(0));
     syncCurveRemoved(dim, *removed);
     if (refundTo) {
@@ -585,6 +592,9 @@ void addCurve(int dim, ct::Curve const& curve) {
     setTurn(dim, curve.block(1), true);
     s.railAdded.insert({dim, curve.block(0)});
     s.railAdded.insert({dim, curve.block(1)});
+    // Create's tryApplySmoothing on both ends (and undoSmoothing when an end has a third curve)
+    updateTilt(dim, curve.block(0));
+    updateTilt(dim, curve.block(1));
 }
 
 void destroyCurve(int dim, ct::Curve const& curve, bool drops, Player* refundTo) {
