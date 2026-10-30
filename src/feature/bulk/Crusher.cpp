@@ -12,8 +12,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <atomic>
+#include <map>
+#include <thread>
+#include <tuple>
 #include <unordered_map>
 
+#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/shared_types/legacy/Difficulty.h"
@@ -26,6 +31,9 @@
 #include "mc/world/level/GameType.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/block/BlockType.h"
+#include "mc/world/level/block/GetCollisionShapeInterface.h"
+#include "mc/world/phys/AABB.h"
 
 #include "feature/bulk/Bulk.h"
 #include "feature/common/BlockData.h"
@@ -46,11 +54,21 @@ using core::kinetics::kFaces;
 namespace {
 
 constexpr int kSlots = 32;
+constexpr char const* kCrushDeath = "death.attack.create.crush";
 
 /// Ejected items don't go back into the controller that ejected them (Create's
 /// "BypassCrushingWheel").
 std::unordered_map<std::int64_t, GlobalPos>& bypass() {
     static std::unordered_map<std::int64_t, GlobalPos> m;
+    return m;
+}
+
+/// The entity each controller is pulling through (Create's processingEntity), by position: the
+/// collision hook asks for it on every physics query, so it is not read from BlockData there.
+std::atomic<std::thread::id> gServerThread{};
+
+std::map<std::tuple<int, int, int>, std::int64_t>& processing() {
+    static std::map<std::tuple<int, int, int>, std::int64_t> m;
     return m;
 }
 
@@ -74,6 +92,8 @@ bool inventoryEmpty(ControllerView const& v) {
 }
 
 void save(GlobalPos const& pos, ControllerView const& v) {
+    if (v.entity) processing()[{pos.x, pos.y, pos.z}] = v.entity;
+    else processing().erase({pos.x, pos.y, pos.z});
     if (inventoryEmpty(v) && !v.entity) {
         if (auto const* d = blockdata::get(pos); d && d->contains("bulk")) blockdata::edit(pos).erase("bulk");
         return;
@@ -183,6 +203,7 @@ float crushingSpeedAt(BlockSource& region, GlobalPos const& pos) {
 }
 
 void tickController(BlockSource& region, GlobalPos const& pos) {
+    gServerThread.store(std::this_thread::get_id(), std::memory_order_relaxed);
     auto        bp     = toBlockPos(pos);
     auto const& block  = region.getBlock(bp);
     bool        valid  = stateOf(block, "levitate:valid") != 0;
@@ -208,6 +229,8 @@ void tickController(BlockSource& region, GlobalPos const& pos) {
         }
     }
     if (!occupied(v) || cs == 0) return;
+    // Create's tickAudio: the CRUSHING soundscape while something is inside
+    addScapeSource(Scape::Crushing, pos, std::clamp(cs / 256.f + .45f, .85f, 1.f));
 
     auto outPos   = cb::crusherOutPos(pos.x, pos.y, pos.z, facing);
     auto outSpeed = cb::crusherOutSpeed(facing);
@@ -273,7 +296,9 @@ void tickController(BlockSource& region, GlobalPos const& pos) {
         auto entityOut  = outPos + n * (.5 * std::abs(offsetSign));
         int  damage     = config().crushingDamage;
         if (isLiving(*e) && e->getHealth() - damage <= 0) moveTo(*e, entityOut);
-        e->hurtByCause(float(damage), SharedTypes::Legacy::ActorDamageCause::Contact);
+        // Create's AllDamageTypes.CRUSH (death message "death.attack.create.crush"), looting II
+        hurtBy(*e, float(damage), int(SharedTypes::Legacy::ActorDamageCause::Contact), kCrushDeath);
+        if (!e->isAlive() || e->isDead()) setCrushingVictim(e);
         if (!e->isAlive() || e->isDead()) {
             moveTo(*e, entityOut);
             // Create: the drops of a crushed mob keep no motion (they fall into place)
@@ -361,8 +386,9 @@ void removeControllersAround(BlockSource& region, GlobalPos const& pos, int /*ax
     }
 }
 
-bool wheelCanSurvive(BlockSource& region, BlockPos const& p) {
-    int axis = stateOf(region.getBlock(p), "levitate:axis", 1);
+bool wheelCanSurvive(BlockSource& region, BlockPos const& p) { return wheelCanSurvive(region, p, stateOf(region.getBlock(p), "levitate:axis", 1)); }
+
+bool wheelCanSurvive(BlockSource& region, BlockPos const& p, int axis) {
     for (auto d : kFaces) {
         auto n  = offset(p, d);
         auto id = idAt(region, n);
@@ -373,7 +399,65 @@ bool wheelCanSurvive(BlockSource& region, BlockPos const& p) {
     return true;
 }
 
-void clearCrushers() { bypass().clear(); }
+void clearCrushers() {
+    bypass().clear();
+    processing().clear();
+}
+
+// ---- collision (Create's CrushingWheelControllerBlock.getCollisionShape) -----------------------------------
+
+namespace {
+
+bool sameBox(AABB const& a, AABB const& b) { return a.min == b.min && a.max == b.max; }
+
+/// The entity of `id` is the one asking (the shape interface carries no entity, only its box).
+bool isAsking(std::int64_t id, AABB const& box) {
+    auto* a = entityById(id);
+    return a && sameBox(a->getAABB(), box);
+}
+
+/// Whether the controller at `p` has no collision for the entity whose box is `box`: the entity
+/// being crushed falls through, and items it ejected land on top of it unless it faces up.
+bool passesThrough(BlockPos const& p, int facing, AABB const& box) {
+    if (auto it = processing().find({p.x, p.y, p.z}); it != processing().end() && isAsking(it->second, box)) return true;
+    if (facing == int(cb::Face::Up)) return false;
+    for (auto const& [id, at] : bypass())
+        if (at.x == p.x && at.y == p.y && at.z == p.z && isAsking(id, box)) return true;
+    return false;
+}
+
+BlockType const* controllerType() {
+    static BlockType const* type = nullptr;
+    if (!type)
+        if (auto t = BlockType::tryGetFromRegistry(HashedString(std::string(kController)))) type = &*t;
+    return type;
+}
+
+} // namespace
+
+LL_TYPE_INSTANCE_HOOK(
+    CrusherCollisionHook,
+    ll::memory::HookPriority::Normal,
+    BlockType,
+    &BlockType::$addCollisionShapes,
+    bool,
+    ::Block const&                                     block,
+    ::IConstBlockSource const&                         region,
+    ::BlockPos const&                                  pos,
+    ::AABB const*                                      intersectTestBox,
+    ::std::vector<::AABB>&                             inoutBoxes,
+    ::optional_ref<::GetCollisionShapeInterface const> entity
+) {
+    // server thread only (the client of a local world queries its own level on another thread)
+    if (entity && std::this_thread::get_id() == gServerThread.load(std::memory_order_relaxed)
+        && (!processing().empty() || !bypass().empty()) && this == controllerType() && stateOf(block, "levitate:valid")
+        && passesThrough(pos, stateOf(block, "levitate:facing"), entity->getAABB()))
+        return false;
+    return origin(block, region, pos, intersectTestBox, inoutBoxes, entity);
+}
+
+void installCrusherCollision() { CrusherCollisionHook::hook(); }
+void uninstallCrusherCollision() { CrusherCollisionHook::unhook(); }
 
 void pruneBypass() {
     std::erase_if(bypass(), [](auto const& kv) { return entityById(kv.first) == nullptr; });

@@ -103,6 +103,15 @@ void legacyParticle(int dim, cb::Vec3d const& pos, int particleType, int data);
 /// A custom particle effect with float molang variables ("variable.<name>").
 void particleWith(int dim, cb::Vec3d const& pos, std::string const& effect, std::vector<std::pair<std::string, float>> const& vars);
 void sound(int dim, cb::Vec3d const& pos, std::string const& name, float volume, float pitch);
+/// Create's damage types: hurts with a vanilla cause and Create's death message (the translation
+/// key, e.g. "death.attack.create.crush", translated by the resource pack).
+void hurtBy(Actor& e, float damage, int cause, std::string const& deathMessage);
+/// `victim` was killed by crushing wheels: its loot rolls with looting II (Create's
+/// crushingIsFortunate). `lootingBoosts` counts the boosted loot functions (selftests).
+void setCrushingVictim(Actor const* victim);
+[[nodiscard]] int lootingBoosts();
+void installLootingHook();
+void uninstallLootingHook();
 [[nodiscard]] float random01();
 
 // ---- item helpers ---------------------------------------------------------------------------------------------
@@ -151,10 +160,17 @@ void markFanDirty(GlobalPos const& pos);
 void forgetFan(GlobalPos const& pos);
 void clearFans();
 void clearCrushers();
+/// The controller has no collision for the entity it crushes (and for the items it ejected).
+void installCrusherCollision();
+void uninstallCrusherCollision();
 /// Whether `wheel`'s placement is allowed (Create's `CrushingWheelBlock.canSurvive`).
 [[nodiscard]] bool wheelCanSurvive(BlockSource& region, BlockPos const& p);
+/// The same for a wheel with `axis` that is not placed yet.
+[[nodiscard]] bool wheelCanSurvive(BlockSource& region, BlockPos const& p, int axis);
 /// Whether a nozzle's fan is behind it (Create's `NozzleBlock.canSurvive`).
 [[nodiscard]] bool nozzleCanSurvive(BlockSource& region, BlockPos const& p);
+/// The same for a nozzle facing `facing` that is not placed yet.
+[[nodiscard]] bool nozzleCanSurvive(BlockSource& region, BlockPos const& p, cb::Face facing);
 
 // ---- millstone (Millstone.cpp) ----------------------------------------------------------------------------------
 
@@ -189,6 +205,20 @@ struct FanView {
     float          speed = 0;
 };
 [[nodiscard]] std::optional<FanView> fanAt(GlobalPos const& pos);
+
+// ---- sounds (Sounds.cpp) -------------------------------------------------------------------------------------------
+
+/// Create's MILLING / CRUSHING ambience groups.
+enum class Scape : std::uint8_t { Milling, Crushing };
+/// A machine plays its soundscape this tick (Create's tickAudio -> SoundScapes.play).
+void addScapeSource(Scape group, GlobalPos const& pos, float pitch);
+/// A player is caught in an air current this tick (Create's enableClientPlayerSound).
+void addWindListener(Actor const& player, float fanSpeed, float playerSpeed);
+/// Plays the soundscapes and the wind to the players (end of the module's tick).
+void tickSounds();
+void clearSounds();
+/// Sound packets sent so far (selftests).
+[[nodiscard]] int soundPlays();
 
 // ---- index (BulkModule.cpp) ------------------------------------------------------------------------------------------
 

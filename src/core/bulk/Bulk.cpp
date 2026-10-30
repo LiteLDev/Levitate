@@ -92,13 +92,22 @@ double findMaxDepth(FlowBlock const& box, Face face) {
         {0.75, 0.25},
         {0.75, 0.75}
     };
-    int axis = static_cast<int>(kinetics::axisOf(face));
-    int a    = (axis + 1) % 3, b = (axis + 2) % 3;
+    int  axis     = static_cast<int>(kinetics::axisOf(face));
+    int  a        = (axis + 1) % 3, b = (axis + 2) % 3;
+    bool positive = kinetics::isPositive(face);
     double maxDepth = 0;
     for (auto const& t : kTests) {
-        bool inside = box.min[a] <= t[0] && t[0] <= box.max[a] && box.min[b] <= t[1] && t[1] <= box.max[b];
-        if (!inside) return std::numeric_limits<double>::infinity();
-        double depth = kinetics::isPositive(face) ? box.min[axis] : 1.0 - box.max[axis];
+        // VoxelShape.min / max along the axis at the test point: over every box of the shape
+        double lo = std::numeric_limits<double>::infinity(), hi = -std::numeric_limits<double>::infinity();
+        auto   add = [&](std::array<double, 3> const& mn, std::array<double, 3> const& mx) {
+            if (!(mn[a] <= t[0] && t[0] <= mx[a] && mn[b] <= t[1] && t[1] <= mx[b])) return;
+            lo = std::min(lo, mn[axis]);
+            hi = std::max(hi, mx[axis]);
+        };
+        add(box.min, box.max);
+        for (auto const& m : box.more) add(m.min, m.max);
+        if (std::isinf(lo)) return std::numeric_limits<double>::infinity();
+        double depth = positive ? lo : 1.0 - hi;
         maxDepth     = std::max(maxDepth, depth);
     }
     return maxDepth;

@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <random>
+#include <unordered_map>
 
+#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
@@ -16,12 +19,18 @@
 #include "mc/network/packet/SpawnParticleEffectPacket.h"
 #include "mc/util/MolangScriptArg.h"
 #include "mc/util/MolangVariableMap.h"
+#include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorDamageSource.h"
+#include "mc/world/actor/ActorHurtResult.h"
+#include "mc/world/actor/HurtParameters.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/item/ItemActor.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemInstance.h"
 #include "mc/world/item/ItemStack.h"
+#include "mc/world/level/storage/loot/LootTableContext.h"
+#include "mc/world/level/storage/loot/functions/LootingEnchantFunction.h"
 #include "mc/world/item/crafting/Recipes.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -134,6 +143,51 @@ std::vector<Actor*> entitiesIn(BlockSource& region, cb::Box const& box) {
     }
     return out;
 }
+
+void hurtBy(Actor& e, float damage, int cause, std::string const& deathMessage) {
+    ActorDamageSource source(static_cast<SharedTypes::Legacy::ActorDamageCause>(cause), deathMessage);
+    HurtParameters    params{};
+    e.hurt(source, damage, params);
+}
+
+namespace {
+/// Entities killed by crushing wheels (unique id -> tick of the kill): Bedrock rolls a mob's loot
+/// when its death animation ends, not in the killing hit.
+std::unordered_map<std::int64_t, std::uint64_t> gCrushed;
+int                                             gLootingBoosts = 0;
+} // namespace
+
+void setCrushingVictim(Actor const* victim) {
+    std::erase_if(gCrushed, [](auto const& kv) { return currentTick() - kv.second > 200; });
+    if (victim) gCrushed[const_cast<Actor*>(victim)->getOrCreateUniqueID().rawID] = currentTick();
+}
+int lootingBoosts() { return gLootingBoosts; }
+
+// Create's crushingIsFortunate: the drops of an entity killed by crushing wheels roll with
+// looting level 2 (LootingEnchantFunction: count += round(level * uniform(min, max))).
+LL_TYPE_INSTANCE_HOOK(
+    CrushingLootingHook,
+    ll::memory::HookPriority::Normal,
+    LootingEnchantFunction,
+    &LootingEnchantFunction::$applyPreVersion,
+    void,
+    ::ItemStackBase&    item,
+    ::Random&           random,
+    ::LootTableContext& context
+) {
+    Actor* killed = context.mKilledActor;
+    if (gCrushed.empty() || !killed || !gCrushed.contains(killed->getOrCreateUniqueID().rawID)) return origin(item, random, context);
+    float bounds[2];
+    std::memcpy(bounds, &mValue, sizeof(bounds));
+    if (!(bounds[0] >= 0 && bounds[1] >= bounds[0] && bounds[1] <= 64)) return origin(item, random, context);
+    float f     = 2.f * (bounds[0] + random01() * (bounds[1] - bounds[0]));
+    int   count = item.mCount + static_cast<int>(std::lround(f));
+    item.mCount = static_cast<unsigned char>(std::clamp(count, 0, 255));
+    ++gLootingBoosts;
+}
+
+void installLootingHook() { CrushingLootingHook::hook(); }
+void uninstallLootingHook() { CrushingLootingHook::unhook(); }
 
 Actor* entityById(std::int64_t uniqueId) {
     if (!uniqueId) return nullptr;
