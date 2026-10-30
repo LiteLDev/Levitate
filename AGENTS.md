@@ -106,6 +106,9 @@ Registrations live in .cpp files linked directly into the DLL, so they are never
   `$renderBlockEntities` hook with `render::Lines lines(ctx); lines.outline(lo, hi, render::kWhite);`
   (`line`, `box`, `plate(face, centre, size, ...)` for a frame on a block face; absolute world
   coordinates, drawn when `lines` leaves scope). Don't copy the tessellator boilerplate again.
+- **Config screen** (U42): `/create config [section]` edits every `LV_REGISTER_CONFIG` section in
+  game (booleans, numbers, text, nested maps; operators only), through `config::ConfigEntry`'s
+  `values` / `defaults` / `write`. Keep config fields plain reflectable values so they show there.
 - **Client sync** (`feature/net/Net.h`): server → client-mod data goes over the companion protocol
   only (`net::send`, `net::onCompanionJoined` for the full state, `net::client::on`), never over
   private `ScriptMessagePacket`s. A channel has one client handler: other units read kinetic speeds

@@ -7,9 +7,12 @@
 #include <cmath>
 #include <map>
 
+#include "ll/api/command/CommandHandle.h"
 #include "ll/api/form/CustomForm.h"
 #include "ll/api/service/Bedrock.h"
 
+#include "mc/server/commands/CommandOrigin.h"
+#include "mc/server/commands/CommandOutput.h"
 #include "mc/world/level/Level.h"
 
 #include "mc/world/actor/player/Inventory.h"
@@ -27,6 +30,7 @@
 #include "feature/net/Net.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
+#include "mod/Commands.h"
 #include "mod/Config.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
@@ -286,9 +290,17 @@ void tickRequests(GlobalPos const& p, int slot, Json& panel) {
         orders.emplace_back(network, std::move(order));
     }
     if (failed) return;
+    // "Use Mechanical Crafting": the inputs travel as one package per craft in the recipe's grid
+    // (Create's PackageOrderWithCrafts.singleRecipe)
+    Json crafts = Json::array();
+    if (auto craft = panel.find("craft"); craft != panel.end() && craft->is_array() && craft->size() == 9) {
+        Json pattern = Json::array();
+        for (auto const& cell : *craft) pattern.push_back({{"item", cell}, {"count", cell.is_null() ? 0 : 1}});
+        crafts.push_back({{"pattern", pattern}, {"count", 1}});
+    }
     // Create checks every packager before sending anything; a busy one cancels the request
     for (auto const& [network, order] : orders)
-        if (!requestOrder(network, RequestType::Restock, order, address)) return;
+        if (!requestOrder(network, RequestType::Restock, order, address, {}, crafts)) return;
     // keep the output promise
     if (auto* net = networkInfo(panel.value("freq", std::string{}))) {
         auto filter = stackFromJson(panel.value("filter", Json()));
@@ -307,6 +319,24 @@ std::optional<std::pair<GlobalPos, int>> panelFrom(Player& player, Json const& c
     return std::pair{*p, slot};
 }
 
+/// The items of a panel's inputs, in connection order.
+std::vector<ItemStack> inputItems(Json const& panel) {
+    std::vector<ItemStack> out;
+    for (auto const& c : panel.value("targetedBy", Json::array())) {
+        auto from = posFrom(c.value("pos", Json()));
+        out.push_back(from ? stackFromJson(readPanel(*from, c.value("slot", 0)).value("filter", Json())) : items::empty());
+    }
+    return out;
+}
+
+/// The crafting recipe a panel could use (non-restockers with inputs only).
+std::optional<CraftingArrangement> panelRecipe(GlobalPos const& p, Json const& panel) {
+    if (isRestocker(p)) return std::nullopt;
+    auto inputs = inputItems(panel);
+    for (auto const& s : inputs)
+        if (items::isEmpty(s)) return std::nullopt;
+    return craftingArrangement(stackFromJson(panel.value("filter", Json())), inputs);
+}
 Json screenData(Player& player, GlobalPos const& p, int slot) {
     auto panel  = readPanel(p, slot);
     Json inputs = Json::array();
@@ -329,16 +359,46 @@ Json screenData(Player& player, GlobalPos const& p, int slot) {
         {"promised",        promisedOf(p, slot, panel, false)                  },
         {"inStorage",       levelInStorage(p, panel)                           },
         {"label",           labelOf(player, p, panel)                          },
+        {"craftable",       panelRecipe(p, panel).has_value()                  },
+        {"crafting",        panel.contains("craft")                            },
     };
 }
+
 
 /// Create's FactoryPanelConfigurationPacket.
 void configure(Player& player, GlobalPos const& p, int slot, Json const& a) {
     auto panel = readPanel(p, slot);
+    if (a.contains("crafting") && a["crafting"].is_boolean()) {
+        auto recipe = a["crafting"].get<bool>() ? panelRecipe(p, panel) : std::nullopt;
+        if (recipe) {
+            // the arrangement and, as Create's screen does, the amounts the recipe uses
+            auto inputs  = panel.value("targetedBy", Json::array());
+            Json cells   = Json::array();
+            std::vector<int> uses(inputs.size(), 0);
+            for (int i : recipe->pattern) {
+                if (i < 0 || static_cast<std::size_t>(i) >= inputs.size()) {
+                    cells.push_back(nullptr);
+                    continue;
+                }
+                auto from = posFrom(inputs[static_cast<std::size_t>(i)].value("pos", Json()));
+                cells.push_back(from ? readPanel(*from, inputs[static_cast<std::size_t>(i)].value("slot", 0)).value("filter", Json()) : Json());
+                ++uses[static_cast<std::size_t>(i)];
+            }
+            for (std::size_t i = 0; i < inputs.size(); ++i) inputs[i]["amount"] = std::max(1, uses[i]);
+            panel["targetedBy"] = inputs;
+            panel["craft"]      = cells;
+            panel["output"]     = recipe->resultCount;
+            log().info("stock: gauge panel at {} {} {} slot {} uses mechanical crafting ({})", p.x, p.y, p.z, slot, recipe->recipeId);
+        } else {
+            panel.erase("craft");
+        }
+    }
     if (a.contains("address") && a["address"].is_string()) panel["address"] = a["address"].get<std::string>().substr(0, 64);
-    if (a.contains("output") && a["output"].is_number_integer()) panel["output"] = std::clamp(a["output"].get<int>(), 1, 64);
+    // with mechanical crafting the recipe sets the amounts (Create locks them)
+    bool crafting = panel.contains("craft");
+    if (a.contains("output") && a["output"].is_number_integer() && !crafting) panel["output"] = std::clamp(a["output"].get<int>(), 1, 64);
     if (a.contains("promiseInterval") && a["promiseInterval"].is_number_integer()) panel["promiseInterval"] = std::clamp(a["promiseInterval"].get<int>(), -1, 31);
-    if (a.contains("amounts") && a["amounts"].is_array()) {
+    if (a.contains("amounts") && a["amounts"].is_array() && !crafting) {
         auto& inputs  = panel["targetedBy"];
         auto  amounts = a["amounts"];
         if (inputs.is_array())
@@ -422,6 +482,8 @@ void form(Player& player, Json const& ctx) {
         for (std::size_t i = 0; i < inputs.size(); ++i)
             f.appendSlider("in" + std::to_string(i), itemName(inputs[i].value("item", Json())), 1, 64, 1, inputs[i].value("amount", 1));
         f.appendSlider("output", trFor(player, "create.gui.factory_panel.expected_output", "Expecting {}", itemName(data.value("item", Json()))), 1, 64, 1, data.value("output", 1));
+        if (data.value("craftable", false))
+            f.appendToggle("crafting", trFor(player, "create.gui.factory_panel.activate_crafting", "Use Mechanical Crafting"), data.value("crafting", false));
     }
     f.appendInput(
         "address",
@@ -452,6 +514,7 @@ void form(Player& player, Json const& ctx) {
         for (std::size_t i = 0; i < n; ++i) amounts.push_back(num("in" + std::to_string(i), 1));
         a["amounts"] = amounts;
         if (!restocker) a["output"] = num("output", 1);
+        if (r->contains("crafting")) a["crafting"] = num("crafting", 0) != 0;
         a["promiseInterval"] = num("expiry", 0) - 1;
         a["clearPromises"]   = num("clear", 0) != 0;
         if (auto it = r->find("address"); it != r->end())
@@ -1023,6 +1086,7 @@ void registerGaugeScreens() {
                 if (!c.empty()) lines.push_back(c);
                 auto filter = stackFromJson(panel.value("filter", Json()));
                 lines.push_back("§7" + (items::isEmpty(filter) ? trFor(player, "create.logistics.filter.click_to_set", "Click with item to set") : trFor(player, "create.factory_panel.click_to_configure", "Click to configure")));
+                if (!items::isEmpty(filter)) lines.push_back("§7" + trFor(player, "create.factory_panel.hold_to_set_amount", "Click and hold for target amount"));
             }
         } else if (id == kStockTicker) {
             auto pays = payments(*p);
@@ -1036,5 +1100,46 @@ void registerGaugeScreens() {
         net::send(player, "stock.hover", {{"pos", posJson(*p)}, {"lines", lines}});
     });
 }
+
+// ---- `/create stock gauges` (Levitate debug: a connected pair of gauges to look at) --------------
+
+namespace {
+void buildGaugeDemo(Player& player, CommandOutput& output) {
+    auto* region = &player.getDimensionBlockSource();
+    auto  feet   = player.getFeetBlockPos();
+    GlobalPos a{static_cast<int>(player.getDimensionId()), feet.x + 2, feet.y, feet.z};
+    GlobalPos b{a.dim, a.x + 1, a.y, a.z};
+    std::string network = "levitate-gauge-demo";
+    for (auto const& p : {a, b}) {
+        for (int s = 0; s < 4; ++s) removeGaugePanel(p, s, nullptr);
+        auto const* block = game::blockWith(kFactoryGauge, {{"levitate:face", 0}, {"levitate:facing", 2}});
+        if (!block || !game::setBlock(*region, game::blockPos(p), *block)) return output.error("Could not place the gauges.");
+    }
+    // two inputs on the first gauge, the recipe panel on the second
+    placeGaugePanel(a, 0, network, &player);
+    placeGaugePanel(a, 3, network, &player);
+    placeGaugePanel(b, 2, network, &player);
+    auto make = [](char const* id) { return items::make(id).value_or(items::empty()); };
+    setPanelItem(player, a, 0, make("minecraft:iron_ingot"));
+    setPanelItem(player, a, 3, make("minecraft:gold_ingot"));
+    setPanelItem(player, b, 2, make("minecraft:clock"));
+    connectPanels(nullptr, b, 2, a, 0);
+    connectPanels(nullptr, b, 2, a, 3);
+    auto panel     = readPanel(b, 2);
+    panel["count"] = 8;
+    writePanel(b, 2, panel);
+    log().info("stock: gauge demo built at {} {} {} for {}", a.x, a.y, a.z, player.getRealName());
+    output.success("Built two connected factory gauges.");
+}
+} // namespace
+
+LV_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
+    cmd.overload().text("stock").text("gauges").execute([](CommandOrigin const& origin, CommandOutput& output) {
+        if (!commands::isAdmin(origin)) return output.error(tr("lv.stock.need_op", "You need operator permission."));
+        auto* player = commands::playerOf(origin);
+        if (!player) return output.error(tr("lv.stock.need_player", "Run this as a player."));
+        buildGaugeDemo(*player, output);
+    });
+});
 
 } // namespace lv::feature::stock
