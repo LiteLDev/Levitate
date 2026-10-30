@@ -28,6 +28,8 @@
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/SynchedActorDataEntityWrapper.h"
 #include "mc/world/actor/item/FallingBlockActor.h"
+#include "mc/world/level/BlockPalette.h"
+#include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 
 #include "client/contraption/Display.h"
@@ -132,6 +134,8 @@ LL_TYPE_INSTANCE_HOOK(
     if (!base) {
         auto variant = static_cast<uint>(entity.mEntityData->getInt(static_cast<ushort>(ActorDataIDs::Variant)));
         if (auto b = Block::tryGetFromRegistry(variant)) base = b.as_ptr();
+        // a remote server's block network ids: resolved through the level's block palette
+        if (!base || base->isAir()) base = &entity.getLevel().getBlockPalette().getBlock(variant);
     }
     if (!base) return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
     auto const& id = base->getTypeName();
