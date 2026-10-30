@@ -22,7 +22,7 @@ namespace lv::feature::common {
 
 // Command parameter types need external linkage.
 struct HighlightParams {
-    CommandPosition pos;
+    CommandPosition pos{};
 };
 
 namespace {

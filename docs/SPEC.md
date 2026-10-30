@@ -1021,7 +1021,7 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   moved away from where it was spawned is spawned again at its place (from half a block away, at
   most every 4 ticks per block, and once more where it comes to rest), so vanilla clients see the
   structure move in steps. A client draws a new falling block only a few frames (~125 ms) after
-  it appears, so the replaced display is removed 4 ticks later (`contraption.blocks` lists it under
+  it appears, so the replaced display is removed 3 ticks (150 ms) later (`contraption.blocks` lists it under
   `retiring`; the client mod keeps it on its block meanwhile): no gap in the structure. Display
   entities are never written to the world
   (`Actor::save` refuses them): contraptions live in our DB and spawn their displays again after a

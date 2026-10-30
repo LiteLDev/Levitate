@@ -415,10 +415,10 @@ private:
 // ---- command ---------------------------------------------------------------------------------------------
 
 struct SteamCommandParams {
-    CommandPosition pos;
+    CommandPosition pos{};
 };
 struct SteamFillParams {
-    CommandPosition pos;
+    CommandPosition pos{};
     std::string     fluid;
     int             amount = 0;
 };

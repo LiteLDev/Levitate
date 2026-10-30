@@ -434,7 +434,15 @@ void TextField::render(Canvas& c, float, float) {
     c.bevel(rect, color::kSlotDark, on ? color::kTextGold : color::kSlotDark, color::kSlotLight, true);
     float pad = 3, inner = rect.w - 2 * pad, ty = rect.y + (rect.h - kFontHeight) / 2;
     if (text.empty() && !on) {
-        c.text(rect.x + pad, ty, placeholder, color::kTextGray);
+        // clipped to the box with an ellipsis (the full hint is in the tooltip)
+        auto hint = placeholder;
+        if (c.textWidth(hint) > inner) {
+            auto u = decodeUtf8(placeholder);
+            while (!u.empty() && c.textWidth(encodeUtf8(u) + "...") > inner) u.pop_back();
+            while (!u.empty() && u.back() == U' ') u.pop_back();
+            hint = encodeUtf8(u) + "...";
+        }
+        c.text(rect.x + pad, ty, hint, color::kTextGray);
         return;
     }
     auto u = decodeUtf8(text);

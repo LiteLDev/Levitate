@@ -10,10 +10,13 @@
 #include "ll/api/command/CommandRegistrar.h"
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/command/ServerCommandRegisterEvent.h"
+#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/server/commands/CommandOrigin.h"
 #include "mc/server/commands/CommandOutput.h"
+#include "mc/server/commands/CommandOutputMessageType.h"
+#include "mc/server/commands/CommandOutputParameter.h"
 #include "mc/server/commands/CommandPermissionLevel.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/player/Player.h"
@@ -40,6 +43,30 @@ Player* playerOf(CommandOrigin const& origin) {
 
 bool isAdmin(CommandOrigin const& origin) {
     return origin.getPermissionsLevel() >= CommandPermissionLevel::GameDirectors;
+}
+
+// Command error replies go only to the sender's chat. Log them too (one line per failed command, so
+// never per tick), so e2e scenarios and server admins can see why a player's command failed.
+LL_TYPE_INSTANCE_HOOK(
+    CommandErrorLogHook,
+    ll::memory::HookPriority::Normal,
+    CommandOutput,
+    &CommandOutput::addMessage,
+    void,
+    std::string_view                           msgId,
+    std::vector<CommandOutputParameter> const& params,
+    CommandOutputMessageType                   type
+) {
+    if (type == CommandOutputMessageType::Error) {
+        std::string args;
+        for (auto const& p : params) {
+            args += args.empty() ? " [" : ", ";
+            args += p.mString;
+        }
+        if (!args.empty()) args += "]";
+        lv::log().info("Command error: {}{}", msgId, args);
+    }
+    origin(msgId, params, type);
 }
 
 namespace {
@@ -91,12 +118,16 @@ void registerAll() {
 class CommandModule {
 public:
     void install() {
+        CommandErrorLogHook::hook();
         registerAll(); // BDS: the registry already exists when mods are enabled
         mListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::command::ServerCommandRegisterEvent>(
             [](auto&) { registerAll(); } // client: every local world
         );
     }
-    void uninstall() { ll::event::EventBus::getInstance().removeListener(mListener); }
+    void uninstall() {
+        ll::event::EventBus::getInstance().removeListener(mListener);
+        CommandErrorLogHook::unhook();
+    }
 
 private:
     ll::event::ListenerPtr mListener;

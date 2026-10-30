@@ -309,7 +309,10 @@ public:
         std::string   id;
         int           quarter = 0; ///< the quarter turns its block shows
     };
-    static constexpr int  kRetireTicks = 4;
+    /// Just over the client's draw delay (~125 ms): each tick longer keeps the old display drawn
+    /// next to its successor, and with vanilla steps every 4 ticks a moving structure showed
+    /// twice (two crosses of sails) for a third of the time at 4 ticks.
+    static constexpr int  kRetireTicks = 3;
     std::vector<Retiring> retiring;
     std::set<int>                           vanillaDims; ///< dimensions with players without the client mod
     bool                                    forceVanilla = false; ///< selftests

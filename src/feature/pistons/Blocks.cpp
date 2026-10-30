@@ -149,7 +149,7 @@ k::KineticSpec gantryCarriageSpec() {
     };
     s.impact       = 0;
     s.rotorModel   = "geometry.levitate.gantry_pinion_rotor";
-    s.rotorTexture = "levitate_gantry_carriage";
+    s.rotorTexture = "levitate_gantry_pinion";
     return s;
 }
 
