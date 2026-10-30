@@ -47,6 +47,7 @@
 #include "mc/deps/core/math/Matrix.h"
 #include "mc/deps/core/math/Vec2.h"
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/core/string/HashedString.h"
 #include "mc/deps/core_graphics/enums/PrimitiveMode.h"
 #include "mc/deps/minecraft_renderer/renderer/MaterialPtr.h"
 #include "mc/deps/minecraft_renderer/renderer/Mesh.h"
@@ -113,6 +114,7 @@ struct State {
     int                                                  connectorDim = 0;
     int                                                  connectorMax = 20;
     std::uint64_t                                        previewTick  = 0;
+    bool                                                 previewLogged = false;
 };
 
 State& state() {
@@ -313,9 +315,11 @@ void connectorPreview(Level& level, LocalPlayer& player) {
     auto     axis   = shaftAxisOf(region, first);
     if (!axis) return;
     static std::mt19937 rng{std::random_device{}()};
-    auto*               dim  = &player.getDimension();
-    auto                dust = [&](double x, double y, double z, bool valid) {
-        level.spawnParticleEffect(valid ? "levitate:belt_connector_valid" : "levitate:belt_connector_invalid", Vec3{float(x), float(y), float(z)}, dim);
+    // client-side particles (Level::addParticleEffect reaches the level renderer; spawnParticleEffect
+    // would go to the server particle manager)
+    static HashedString const kValid{"levitate:belt_connector_valid"}, kInvalid{"levitate:belt_connector_invalid"};
+    auto dust = [&](double x, double y, double z, bool valid) {
+        static_cast<ILevel&>(level).addParticleEffect(valid ? kValid : kInvalid, Vec3{float(x), float(y), float(z)});
     };
     auto& hit = level.getHitResult();
     if (hit.mType != HitResultType::Tile) {
@@ -342,6 +346,10 @@ void connectorPreview(Level& level, LocalPlayer& player) {
     bool valid    = shaftAxisOf(region, selected) && cb::canConnect(w, a, b, s.connectorMax) == cb::ConnectError::None;
     auto line     = cb::previewLine(a, b, *axis);
     if (!line) return;
+    if (!s.previewLogged) {
+        s.previewLogged = true;
+        log().info("belts client: connector preview towards {} {} {} ({} blocks, {})", selected.x, selected.y, selected.z, line->length, valid ? "valid" : "invalid");
+    }
     for (float f = 0; f < line->length; f += 1 / 16.f) {
         if (rng() % 10 != 0) continue;
         dust(first.x + .5 + line->step.x * f, first.y + .5 + line->step.y * f, first.z + .5 + line->step.z * f, valid);
@@ -357,6 +365,7 @@ void onConnector(Json const& msg) {
     auto p = msg.value("pos", Json::array());
     if (!p.is_array() || p.size() != 3) return;
     s.connectorFirst = BlockPos{p[0].get<int>(), p[1].get<int>(), p[2].get<int>()};
+    s.previewLogged  = false;
     s.connectorDim   = msg.value("dim", 0);
     s.connectorMax   = msg.value("max", 20);
     log().info("belts client: connector preview from {} {} {}", p[0].get<int>(), p[1].get<int>(), p[2].get<int>());

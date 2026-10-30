@@ -47,22 +47,25 @@ Invoke-Chat '/setblock ~7 ~1 ~6 levitate:belt ["levitate:facing"=2,"levitate:slo
 Invoke-Chat '/setblock ~5 ~1 ~3 chest'
 Invoke-Chat '/setblock ~5 ~1 ~2 levitate:andesite_funnel ["levitate:facing"=2,"levitate:shape"=4]'
 Start-Sleep -Seconds 2
+Invoke-Chat '/tp @s ~ ~ ~ -40 10'      # towards the encased slope and vertical belt (+x, +z)
+Start-Sleep -Milliseconds 800
 Save-Screenshot 'belts-casing' | Out-Null
 
-# the connector preview: two shafts (axis z) 5 blocks apart in front of the player, select the
-# left one, then look at the right one
-Invoke-Chat '/fill ~2 ~ ~-3 ~9 ~2 ~-1 air'
-Invoke-Chat '/setblock ~3 ~1 ~-2 levitate:shaft ["levitate:axis"=2]'
-Invoke-Chat '/setblock ~8 ~1 ~-2 levitate:shaft ["levitate:axis"=2]'
+# the connector preview: two shafts (axis z) 3 blocks apart within reach north of the player,
+# select the left one, then look at the right one
+Invoke-Chat '/fill ~-2 ~ ~-3 ~4 ~2 ~-1 air'
+Invoke-Chat '/setblock ~-1 ~1 ~-2 levitate:shaft ["levitate:axis"=2]'
+Invoke-Chat '/setblock ~2 ~1 ~-2 levitate:shaft ["levitate:axis"=2]'
 Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 levitate:belt_connector 4'
 Start-Sleep -Milliseconds 800
-Invoke-Chat '/tp @s ~ ~ ~ facing ~3.5 ~1.5 ~-1.5'
+Invoke-Chat '/tp @s ~ ~ ~ 153 3'      # at the left shaft (1 west, 2 north)
 Start-Sleep -Milliseconds 600
 $mark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'belts: .* selected the shaft at ' 15 -Since $mark | Out-Null
 if (-not $vanilla) { Wait-LogLine 'belts client: connector preview from ' 15 -Since $mark | Out-Null }
-Invoke-Chat '/tp @s ~ ~ ~ facing ~8.5 ~1.5 ~-1.5'
+Invoke-Chat '/tp @s ~ ~ ~ -135 3'     # at the right shaft (2 east, 2 north)
+if (-not $vanilla) { Wait-LogLine 'belts client: connector preview towards .* \(3 blocks, valid\)' 15 -Since $mark | Out-Null }
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'connector-preview' | Out-Null
 Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 air'
