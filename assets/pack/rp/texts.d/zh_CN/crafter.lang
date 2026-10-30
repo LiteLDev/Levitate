@@ -1,3 +1,7 @@
 tile.levitate:mechanical_crafter.name=动力合成器
 tile.levitate:mechanical_saw.name=动力锯
 tile.levitate:mechanical_drill.name=动力钻头
+death.attack.create.mechanical_drill=%1$s被动力钻头刺穿了
+death.attack.create.mechanical_drill.player=%1$s被%2$s扔到了动力钻头前
+death.attack.create.mechanical_saw=%1$s被动力锯切成了两半
+death.attack.create.mechanical_saw.player=%1$s被%2$s扔进了动力锯

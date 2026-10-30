@@ -56,6 +56,7 @@ public:
         arm::install();
         sync::install();
         installHooks();
+        fakeplayer::install();
         mTick = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) {
             ++gTick;
             auto work = std::exchange(deferred(), {});
@@ -73,6 +74,7 @@ public:
     void uninstall() {
         ll::event::EventBus::getInstance().removeListener(mTick);
         uninstallHooks();
+        fakeplayer::uninstall();
         sync::uninstall();
         arm::uninstall();
         deployer::uninstall();

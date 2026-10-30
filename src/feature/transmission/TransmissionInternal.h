@@ -172,6 +172,8 @@ inline constexpr int kDefaultTargetSpeed = 16;
 
 // ---- gauges (Gauges.cpp) ------------------------------------------------------------------------------
 void gaugeTick(BlockSource& region, GlobalPos const& pos);
+/// (U42) Gauge dust particles sent so far (GaugeBlock.animateTick, selftests).
+[[nodiscard]] std::size_t gaugeDustSent();
 void gaugeForget(GlobalPos const& pos);
 void gaugeSyncTo(Player& player);
 void clearGauges();

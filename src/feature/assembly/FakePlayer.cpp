@@ -6,14 +6,32 @@
 // deployer there: before an action it is moved to the deployer's hand and given the deployer's
 // item, afterwards its inventory goes back to the deployer. Between actions it waits invisible,
 // invulnerable and flying above the build limit, where it can't pick anything up (SPEC §8).
+//
+// Like Create's fake player it is no player for the others: it is taken out of every client's
+// player list, command selectors (@a, @p, names) don't find it, it doesn't count for sleeping
+// through the night, and what it kills drops no experience
+// (DeployerFakePlayer.deployerKillsDoNotSpawnXP).
 
+#include <algorithm>
+#include <cmath>
 #include <map>
 
+#include "ll/api/event/EventBus.h"
+#include "ll/api/event/player/PlayerJoinEvent.h"
+#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec2.h"
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/entity/components_json_legacy/ExperienceRewardComponent.h"
+#include "mc/network/MinecraftPacketIds.h"
+#include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/PlayerListPacket.h"
+#include "mc/server/IPlayerSleepPercentageGetter.h"
+#include "mc/server/ServerPlayerSleepManager.h"
 #include "mc/server/SimulatedPlayer.h"
+#include "mc/server/commands/CommandSelectorBase.h"
+#include "mc/world/level/PlayerSleepStatus.h"
 #include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/level/GameType.h"
@@ -36,6 +54,27 @@ std::map<int, Entry>& players() {
 }
 
 std::string nameFor(int dim) { return dim == 0 ? "Deployer" : "Deployer " + std::to_string(dim); }
+
+/// Takes the deployer players out of the player list of every client (or of `only`).
+void hideFromPlayerList(Player const* only = nullptr) {
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::PlayerList);
+    if (!packet) return;
+    auto& pkt = static_cast<PlayerListPacket&>(*packet);
+    for (auto const& [dim, e] : players()) {
+        if (e.id == 0) continue;
+        auto* p = detail::playerById(e.id);
+        if (!p) continue;
+        PlayerListPacketPayload::RemoveEntry entry;
+        entry.mAction = PlayerListPacketType::Remove;
+        entry.mUUID   = p->getUuid();
+        pkt.mEntries->emplace_back(entry);
+    }
+    if (pkt.mEntries->empty()) return;
+    if (only) pkt.sendTo(*only);
+    else pkt.sendToClients();
+}
 
 void configure(SimulatedPlayer& p) {
     p.setPlayerGameType(GameType::Survival);
@@ -74,6 +113,8 @@ SimulatedPlayer* get(int dim) {
     configure(*sp);
     e.id      = sp->getOrCreateUniqueID().rawID;
     e.created = detail::currentTick();
+    // the game announces the new player to everyone: take it out again once that went out
+    detail::defer([] { detail::defer([] { hideFromPlayerList(); }); });
     log().info("assembly: deployer player created in dimension {}", dim);
     return nullptr; // usable from the next ticks on
 }
@@ -85,6 +126,13 @@ bool isFake(Player const& player) {
     return false;
 }
 
+bool isFakeId(std::int64_t uniqueId) {
+    if (uniqueId == 0 || uniqueId == -1) return false;
+    for (auto const& [dim, e] : players())
+        if (e.id == uniqueId) return true;
+    return false;
+}
+
 void forget() { players().clear(); }
 
 void removeAll() {
@@ -93,6 +141,85 @@ void removeAll() {
         if (auto* p = detail::playerById(e.id); p && p->isSimulatedPlayer()) static_cast<SimulatedPlayer*>(p)->simulateDisconnect();
     }
     players().clear();
+}
+
+namespace {
+
+// command selectors don't see the deployer players (Create's fake player is no server player)
+LL_TYPE_INSTANCE_HOOK(
+    DeployerSelectorHook,
+    ll::memory::HookPriority::Normal,
+    CommandSelectorBase,
+    &CommandSelectorBase::filter,
+    bool,
+    ::CommandOrigin const& commandOrigin,
+    ::Actor&               actor
+) {
+    if (actor.isSimulatedPlayer() && isFakeId(actor.getOrCreateUniqueID().rawID)) return false;
+    return origin(commandOrigin, actor);
+}
+
+// sleeping through the night: the deployer players are not among the players who must sleep
+LL_TYPE_INSTANCE_HOOK(
+    DeployerSleepHook,
+    ll::memory::HookPriority::Normal,
+    ServerPlayerSleepManager,
+    &ServerPlayerSleepManager::$updateSleepingPlayerList,
+    void
+) {
+    origin();
+    auto level = ll::service::getLevel();
+    if (!level || std::none_of(players().begin(), players().end(), [](auto const& kv) { return kv.second.id != 0; })) return;
+    int real = 0;
+    level->forEachPlayer([&](Player& p) {
+        if (!(p.isSimulatedPlayer() && isFakeId(p.getOrCreateUniqueID().rawID)) && !p.isSpectator()) ++real;
+        return true;
+    });
+    float goal = (*mPlayerSleepPercentageGetter)->getPlayerSleepPercentageGoal();
+    if (goal > 1.f) goal /= 100.f;
+    auto& status   = *mPlayerSleepStatus;
+    int   required = std::max(1, static_cast<int>(std::ceil(goal * static_cast<float>(real))));
+    if (required >= status.mRequiredSleepingPlayerCount) return; // never makes sleeping harder
+    status.mRequiredSleepingPlayerCount = required;
+    if (status.mSleepingPlayerCount >= required && status.mSleepingPlayerCount > 0) mEnoughPlayersAreSleeping = true;
+}
+
+// DeployerFakePlayer.deployerKillsDoNotSpawnXP
+LL_TYPE_INSTANCE_HOOK(
+    DeployerExperienceHook,
+    ll::memory::HookPriority::Normal,
+    ExperienceRewardComponent,
+    &ExperienceRewardComponent::getOnDeathExperience,
+    int,
+    ::Actor& owner
+) {
+    if (isFakeId(owner.mLastHurtByPlayerId->rawID)) return 0;
+    return origin(owner);
+}
+
+ll::event::ListenerPtr gJoin;
+
+} // namespace
+
+void install() {
+    DeployerSelectorHook::hook();
+    DeployerSleepHook::hook();
+    DeployerExperienceHook::hook();
+    gJoin = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerJoinEvent>([](ll::event::PlayerJoinEvent& ev) {
+        // the joining player got the whole list: take the deployer players out of it
+        auto id = ev.self().getOrCreateUniqueID().rawID;
+        detail::defer([id] {
+            if (auto* p = detail::playerById(id)) hideFromPlayerList(p);
+        });
+    });
+}
+
+void uninstall() {
+    DeployerSelectorHook::unhook();
+    DeployerSleepHook::unhook();
+    DeployerExperienceHook::unhook();
+    if (gJoin) ll::event::EventBus::getInstance().removeListener(gJoin);
+    gJoin = nullptr;
 }
 
 } // namespace lv::feature::assembly::fakeplayer

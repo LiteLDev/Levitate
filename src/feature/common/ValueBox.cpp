@@ -59,6 +59,35 @@ std::vector<std::function<void()>>& pending() {
     static std::vector<std::function<void()>> v;
     return v;
 }
+
+/// Server ticks since install (hold timeouts).
+std::uint64_t& serverTick() {
+    static std::uint64_t t = 0;
+    return t;
+}
+
+/// A companion's right-click waiting for the client's "held / released" answer.
+struct PendingHold {
+    std::uint64_t        token = 0;
+    core::GlobalPos      pos;
+    std::uint64_t        since = 0;
+    valuebox::HoldAction onShort, onHold;
+};
+std::unordered_map<std::int64_t, PendingHold>& holds() {
+    static std::unordered_map<std::int64_t, PendingHold> m;
+    return m;
+}
+/// Ticks a hold waits for the client's answer (the client answers after 4 ticks of holding at
+/// most, plus the round trip).
+constexpr std::uint64_t kHoldTimeout = 100;
+
+Player* playerById(std::int64_t key) {
+    auto level = ll::service::getLevel();
+    if (!level) return nullptr;
+    ActorUniqueID id;
+    id.rawID = key;
+    return level->getPlayer(id);
+}
 } // namespace
 
 // ---- value boxes -------------------------------------------------------------------------------
@@ -192,6 +221,33 @@ void openEditor(Player& player, GlobalPos const& pos, std::string const& boxId) 
     log().info("value box {} at {} opened for {} (native)", boxId, pos.key(), player.getRealName());
 }
 
+bool awaitHold(Player& player, GlobalPos const& pos, HoldAction onShort, HoldAction onHold) {
+    if (!net::isCompanion(player)) return false;
+    static std::uint64_t nextToken = 0;
+    auto key   = player.getOrCreateUniqueID().rawID;
+    auto token = ++nextToken;
+    holds()[key] = PendingHold{token, pos, serverTick(), std::move(onShort), std::move(onHold)};
+    net::send(player, "valuebox.hold", {{"token", token}, {"pos", posJson(pos)}});
+    return true;
+}
+
+bool holdPending(Player const& player, GlobalPos const& pos) {
+    auto it = holds().find(const_cast<Player&>(player).getOrCreateUniqueID().rawID);
+    return it != holds().end() && it->second.pos == pos;
+}
+
+/// The client's answer to `valuebox.hold`: {token, state: "hold" | "short" | "cancel"}.
+void onRelease(Player& player, Json const& msg) {
+    auto it = holds().find(player.getOrCreateUniqueID().rawID);
+    if (it == holds().end() || it->second.token != msg.value("token", std::uint64_t{0})) return;
+    auto hold = std::move(it->second);
+    holds().erase(it);
+    std::string what = msg.value("state", std::string{"cancel"});
+    log().info("value box hold at {} by {}: {}", hold.pos.key(), player.getRealName(), what);
+    if (what == "hold" && hold.onHold) hold.onHold(player);
+    else if (what == "short" && hold.onShort) hold.onShort(player);
+}
+
 bool apply(Player& player, GlobalPos const& pos, std::string const& boxId, ValueSettings settings) {
     auto const* block = reachableBlock(player, pos);
     if (!block) return false;
@@ -251,6 +307,11 @@ SlotSpec const* slotAt(Block const& block, int face, Vec const& hit) {
 }
 
 bool hasSlots(std::string const& blockId) { return registry().contains(blockId); }
+
+std::vector<SlotSpec> const* slotsOf(std::string const& blockId) {
+    auto it = registry().find(blockId);
+    return it == registry().end() ? nullptr : &it->second;
+}
 
 ItemStack get(GlobalPos const& pos, std::string const& slotId) {
     auto const* d = blockdata::get(pos);
@@ -354,11 +415,14 @@ Json hoverLines(Player& player, core::GlobalPos const& pos, int face, core::comm
         auto s = core::common::clampSettings(box->board(*block), box->get(pos));
         lines.push_back(valuebox::title(*box, &player));
         lines.push_back("§e" + valuebox::formatValue(*box, *block, s));
+        // ScrollValueRenderer's hover tip
+        lines.push_back("§7" + trFor(player, "create.gui.value_settings.hold_to_edit", "Click and hold to edit"));
     }
     if (auto const* slot = filterslot::slotAt(*block, face, hit)) {
         auto f = filterslot::get(pos, slot->id);
         lines.push_back(trFor(player, "create.logistics.filter", "Filter"));
         lines.push_back(items::isEmpty(f) ? "§7" + trFor(player, "lv.common.filter.empty", "(empty)") : "§e" + items::displayName(f));
+        if (slot->onHold) lines.push_back("§7" + trFor(player, "create.gui.value_settings.hold_to_edit", "Click and hold to edit"));
     }
     return lines;
 }
@@ -371,6 +435,9 @@ public:
         mHandler = interactions::onUseOn({}, [this](interactions::UseOnContext const& c) { return onClick(c); }, interactions::priority::Highest);
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([this](auto&) {
             ++mTick;
+            ++serverTick();
+            // a client that never answers (left, lagging): the hold is dropped
+            std::erase_if(holds(), [](auto const& e) { return serverTick() - e.second.since > kHoldTimeout; });
             if (pending().empty()) return;
             auto run = std::exchange(pending(), {});
             for (auto& fn : run) fn();
@@ -385,6 +452,7 @@ public:
             if (!pos) return;
             valuebox::apply(player, *pos, msg.value("box", std::string{}), {msg.value("row", 0), msg.value("value", 0)});
         });
+        net::on("valuebox.release", valuebox::onRelease);
         net::on("common.hover", [](Player& player, Json const& msg) {
             auto pos = posFrom(msg.value("pos", Json()));
             auto hit = msg.value("hit", Json::array());
@@ -399,7 +467,9 @@ public:
         mListeners.clear();
         interactions::remove(mHandler);
         net::off("valuebox.set");
+        net::off("valuebox.release");
         net::off("common.hover");
+        holds().clear();
     }
 
 private:
@@ -411,16 +481,14 @@ private:
         if (c.sneaking || player.isSpectator() || !player.canUseAbility(AbilitiesIndex::Build)) return Result::Pass;
         auto key = player.getOrCreateUniqueID().rawID;
         auto pos = c.pos;
+        // the button is still held on a box / slot whose hold waits for the client's answer
+        if (valuebox::holdPending(player, pos)) return Result::Consume;
         if (auto const* slot = filterslot::slotAt(c.block, c.face, c.hit)) {
             if (debounced(key, pos)) return Result::Consume;
-            auto slotId  = slot->id;
-            auto blockId = c.blockId;
-            pending().push_back([key, pos, slotId, blockId] {
-                auto level = ll::service::getLevel();
-                if (!level) return;
-                ActorUniqueID id;
-                id.rawID = key;
-                auto* p  = level->getPlayer(id);
+            auto slotId   = slot->id;
+            auto blockId  = c.blockId;
+            auto interact = [key, pos, slotId, blockId] {
+                auto* p  = playerById(key);
                 auto  it = filterslot::registry().find(blockId);
                 if (!p || it == filterslot::registry().end()) return;
                 // the block may have changed since the click
@@ -428,7 +496,13 @@ private:
                 if (static_cast<int>(p->getDimensionId()) != pos.dim || lv::game::blockIdAt(region, lv::game::blockPos(pos)) != blockId) return;
                 for (auto const& s : it->second)
                     if (s.id == slotId) filterslot::interact(*p, pos, s);
-            });
+            };
+            if (slot->onHold) {
+                auto onHold = slot->onHold;
+                auto onShort = [interact](Player&) { pending().push_back(interact); };
+                if (valuebox::awaitHold(player, pos, onShort, [onHold, pos](Player& p) { onHold(p, pos); })) return Result::Consume;
+            }
+            pending().push_back(interact);
             return Result::Consume;
         }
         bool wrench = c.itemId == interactions::kWrenchId;
@@ -436,14 +510,22 @@ private:
         auto const* box = valuebox::boxAt(c.block, c.face, c.hit);
         if (!box || (box->requiresWrench && !wrench)) return Result::Pass;
         if (debounced(key, pos)) return Result::Consume;
-        auto boxId = box->id;
-        pending().push_back([key, pos, boxId] {
-            auto level = ll::service::getLevel();
-            if (!level) return;
-            ActorUniqueID id;
-            id.rawID = key;
-            if (auto* p = level->getPlayer(id)) valuebox::openEditor(*p, pos, boxId);
-        });
+        auto boxId   = box->id;
+        auto blockId = c.blockId;
+        auto open    = [key, pos, boxId] {
+            if (auto* p = playerById(key)) valuebox::openEditor(*p, pos, boxId);
+        };
+        // companions: Create's click and hold (a short click is the box's onShortInteract)
+        auto shortClick = [pos, boxId, blockId](Player& p) {
+            auto const* list = valuebox::boxesOf(blockId);
+            if (!list) return;
+            auto& region = p.getDimensionBlockSource();
+            if (static_cast<int>(p.getDimensionId()) != pos.dim || lv::game::blockIdAt(region, lv::game::blockPos(pos)) != blockId) return;
+            for (auto const& b : *list)
+                if (b.id == boxId && b.onShortClick) b.onShortClick(pos, p);
+        };
+        if (valuebox::awaitHold(player, pos, shortClick, [open](Player&) { open(); })) return Result::Consume;
+        pending().push_back(open);
         return Result::Consume;
     }
 

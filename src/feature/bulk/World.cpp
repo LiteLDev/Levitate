@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <random>
+#include <unordered_map>
 
+#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
@@ -16,12 +19,20 @@
 #include "mc/network/packet/SpawnParticleEffectPacket.h"
 #include "mc/util/MolangScriptArg.h"
 #include "mc/util/MolangVariableMap.h"
+#include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorDamageSource.h"
+#include "mc/world/actor/ActorHurtResult.h"
+#include "mc/world/actor/HurtParameters.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/item/ItemActor.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemInstance.h"
 #include "mc/world/item/ItemStack.h"
+#include "mc/util/Random.h"
+#include "mc/world/level/storage/loot/LootTableContext.h"
+#include "mc/world/level/storage/loot/functions/LootItemFunction.h"
+#include "mc/world/level/storage/loot/functions/LootingEnchantFunction.h"
 #include "mc/world/item/crafting/Recipes.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -37,6 +48,7 @@
 #include "feature/common/Recipes.h"
 #include "game/Blocks.h"
 #include "mod/Config.h"
+#include "mod/Log.h"
 
 // The game doesn't export MolangVariableMap's default constructor; its members (LeviLamina typed
 // storage) construct themselves empty.
@@ -133,6 +145,83 @@ std::vector<Actor*> entitiesIn(BlockSource& region, cb::Box const& box) {
         out.push_back(a);
     }
     return out;
+}
+
+void hurtBy(Actor& e, float damage, int cause, std::string const& deathMessage) {
+    ActorDamageSource source(static_cast<SharedTypes::Legacy::ActorDamageCause>(cause), deathMessage);
+    HurtParameters    params{};
+    e.hurt(source, damage, params);
+}
+
+namespace {
+/// Server tick of the last kill by crushing wheels (+1; 0 = none). The game rolls the loot of a
+/// kill later in the same tick, with no killed actor in the loot context: loot rolled in that tick
+/// and the next counts as the crushed entity's.
+std::uint64_t gCrushKillTick = 0;
+int           gLootingBoosts = 0;
+} // namespace
+
+void crushedToDeath() { gCrushKillTick = currentTick() + 1; }
+int lootingBoosts() { return gLootingBoosts; }
+
+// Create's crushingIsFortunate: the drops of an entity killed by crushing wheels roll with
+// looting level 2 (LootingEnchantFunction: count += round(level * uniform(min, max))). The game
+// runs a looting function through applyPreVersion (older loot tables) or the base apply26U5 (it
+// has no override of its own): both are hooked, the boost is added once.
+namespace {
+bool boostLooting(LootItemFunction& fn, ItemStackBase& item, Random& random, LootTableContext& context) {
+    (void)context;
+    if (gCrushKillTick == 0 || currentTick() + 1 - gCrushKillTick > 1 || item.isNull()) return false;
+    if (fn.getFunctionType() != LootItemFunction::FunctionType::LootingEnchant) return false;
+    float bounds[2];
+    std::memcpy(bounds, &static_cast<LootingEnchantFunction&>(fn).mValue, sizeof(bounds));
+    if (!(bounds[0] >= 0 && bounds[1] >= bounds[0] && bounds[1] <= 64)) return false;
+    float f     = 2.f * (bounds[0] + random.nextFloat() * (bounds[1] - bounds[0]));
+    int   count = item.mCount + static_cast<int>(std::lround(f));
+    item.mCount = static_cast<unsigned char>(std::clamp(count, 0, 255));
+    ++gLootingBoosts;
+    return true;
+}
+thread_local bool gBoosted = false;
+} // namespace
+
+LL_TYPE_INSTANCE_HOOK(
+    CrushingLootingHook,
+    ll::memory::HookPriority::Normal,
+    LootingEnchantFunction,
+    &LootingEnchantFunction::$applyPreVersion,
+    void,
+    ::ItemStackBase&    item,
+    ::Random&           random,
+    ::LootTableContext& context
+) {
+    origin(item, random, context);
+    if (boostLooting(*this, item, random, context)) gBoosted = true;
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    CrushingLootingHook26,
+    ll::memory::HookPriority::Normal,
+    LootItemFunction,
+    &LootItemFunction::$apply26U5,
+    void,
+    ::ItemStackBase&    item,
+    ::Random&           random,
+    ::LootTableContext& context
+) {
+    gBoosted = false;
+    origin(item, random, context);
+    if (!gBoosted) boostLooting(*this, item, random, context);
+    gBoosted = false;
+}
+
+void installLootingHook() {
+    CrushingLootingHook::hook();
+    CrushingLootingHook26::hook();
+}
+void uninstallLootingHook() {
+    CrushingLootingHook::unhook();
+    CrushingLootingHook26::unhook();
 }
 
 Actor* entityById(std::int64_t uniqueId) {

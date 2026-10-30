@@ -11,8 +11,10 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/block/Block.h"
 
 #include "feature/common/Items.h"
+#include "feature/goggles/Wrenchable.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/net/Net.h"
 #include "feature/transmission/TransmissionInternal.h"
@@ -214,6 +216,13 @@ LV_REGISTER_SELFTEST("transmission.gauges", [](Context& ctx) -> ll::coro::CoroTa
     co_await ctx.ticks(3);
     ctx.check(dialTarget(a.at(2)) == 1.125f, "overstressed: the dial goes past the end");
     ctx.check(dialTarget(a.at(1)) == 0, "overstressed: the speedometer drops to 0");
+    // U42: GaugeBlock.animateTick puffs coloured dust from the stressometer's dial for players near it
+    auto& player = ctx.player();
+    auto  g      = a.at(2);
+    player.teleport(Vec3{g.x + .5f, g.y + 1.f, g.z + 3.5f}, player.getDimensionId());
+    auto puffs = gaugeDustSent();
+    co_await ctx.ticks(200);
+    ctx.check(gaugeDustSent() > puffs, "gauge dust particles are sent to players near a turning gauge");
 });
 
 LV_REGISTER_SELFTEST("transmission.placement", [](Context& ctx) -> ll::coro::CoroTask<> {
@@ -308,6 +317,38 @@ LV_REGISTER_SELFTEST("transmission.sequencer_screen", [](Context& ctx) -> ll::co
     auto list = sequencerInstructions(pos);
     ctx.check(list.size() == 2 && list[0].type == ct::Instr::Await, "the screen action configures the instructions");
     net::setTestCompanion(player, false);
+});
+
+
+LV_REGISTER_SELFTEST("transmission.wrench_encased", [](Context& ctx) -> ll::coro::CoroTask<> {
+    namespace wrench = goggles::wrench;
+    Area a{ctx, 4220};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    auto& player = ctx.player();
+    auto  click  = [&](GlobalPos const& p, int face, bool sneak) {
+        auto const* block = &world().getBlock(game::blockPos(p));
+        auto const* h     = wrench::handlerOf(block->getTypeName());
+        if (!h) return false;
+        wrench::Context c{player, world(), p, *block, face};
+        auto const&     fn = sneak ? h->onSneakWrenched : h->onWrenched;
+        return fn && fn(c) == wrench::Result::Success;
+    };
+    a.put(a.at(0, 1), kAndesiteCog, {{kAxis, Y}, {kTopShaft, 0}, {kBottomShaft, 0}});
+    ctx.check(click(a.at(0, 1), 1, false), "the wrench on the top face is handled");
+    ctx.check(st(a.at(0, 1), kTopShaft) == 1 && st(a.at(0, 1), kBottomShaft) == 0, "the top shaft end is toggled on");
+    click(a.at(0, 1), 0, false);
+    ctx.check(st(a.at(0, 1), kBottomShaft) == 1, "the bottom shaft end is toggled on");
+    click(a.at(0, 1), 1, false);
+    ctx.check(st(a.at(0, 1), kTopShaft) == 0 && st(a.at(0, 1), kBottomShaft) == 1, "and off again");
+    ctx.check(click(a.at(0, 1), 1, true), "sneak-wrench is handled");
+    ctx.check(idAt(world(), a.at(0, 1)) == kCogwheel && st(a.at(0, 1), kAxis) == Y, "the casing comes off: a cogwheel on the same axis");
+    a.put(a.at(2, 1), kBrassShaft, {{kAxis, X}});
+    click(a.at(2, 1), 1, true);
+    ctx.check(idAt(world(), a.at(2, 1)) == kShaft && st(a.at(2, 1), kAxis) == X, "an encased shaft turns back into a shaft");
+    a.put(a.at(4, 1), kBrassLargeCog, {{kAxis, Z}, {kTopShaft, 0}, {kBottomShaft, 0}});
+    click(a.at(4, 1), 1, true);
+    ctx.check(idAt(world(), a.at(4, 1)) == kLargeCogwheel, "an encased large cogwheel turns back into a large cogwheel");
+    for (int dx : {0, 2, 4}) ctx.cleanupBlock(a.at(dx, 1));
 });
 
 } // namespace lv::feature::transmission
