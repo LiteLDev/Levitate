@@ -158,6 +158,8 @@ LV_REGISTER_SELFTEST("pack.server_names", [](lv::selftest::Context& ctx) {
     for (auto const& [id, name] : std::initializer_list<std::pair<char const*, char const*>>{
              {"levitate:goggles",       "Engineer's Goggles"},
              {"levitate:clipboard",     "Clipboard"         },
+             {"levitate:belt_connector", "Mechanical Belt"  },
+             {"levitate:copper_backtank", "Copper Backtank" },
              {"levitate:display_board", "Display Board"     },
              {"levitate:nixie_tube",    "Nixie Tube"        },
     }) {

@@ -9,6 +9,9 @@
     },
     "components": {
       "minecraft:icon": "levitate_belt_connector",
+      "minecraft:display_name": {
+        "value": "item.levitate:belt_connector.name"
+      },
       "minecraft:max_stack_size": 64
     }
   }
