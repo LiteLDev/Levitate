@@ -500,31 +500,4 @@ bool sandBlock(Player& player, ItemStack& held, GlobalPos const& pos) {
     return true;
 }
 
-// ---- tree fertilizer --------------------------------------------------------------------------------------
-
-bool useTreeFertilizer(Player& player, ItemStack& held, GlobalPos const& pos) {
-    std::string id = idAt(pos);
-    bool sapling = id.ends_with("_sapling") || id == "minecraft:mangrove_propagule" || id == "minecraft:azalea" || id == "minecraft:flowering_azalea"
-                || id == "minecraft:sapling";
-    if (!sapling) return false;
-    if (id == "minecraft:mangrove_propagule" && stateAt(pos, "hanging").value_or(0)) return true; // Create: nothing on a hanging propagule
-    auto* region = regionOf(pos.dim);
-    if (!region) return false;
-    BlockPos bp{pos.x, pos.y, pos.z};
-    // grow at once: fertilize until the sapling turns into a tree (Bedrock's own growth, incl. 2x2)
-    for (int i = 0; i < 64 && idAt(pos) == id; ++i) {
-        auto const& b = region->getBlock(bp);
-        b.getBlockType().onFertilized(*region, bp, &player, FertilizerType::Rapid);
-    }
-    bool grew = idAt(pos) != id;
-    if (!player.isCreative()) {
-        held.remove(1);
-        player.sendInventory(false);
-    }
-    for (int i = 0; i < 12; ++i)
-        particle(pos.dim, pos.x + random01(), pos.y + random01(), pos.z + random01(), "minecraft:crop_growth_emitter");
-    log().info("equipment: {} used tree fertilizer on {} at {} {} {} ({})", player.getRealName(), id, pos.x, pos.y, pos.z, grew ? "grew" : "no room");
-    return true;
-}
-
 } // namespace lv::feature::equipment
