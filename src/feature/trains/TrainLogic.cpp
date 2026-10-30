@@ -40,6 +40,7 @@
 #include "feature/tracks/TrainsExt.h"
 #include "feature/trains/Trains.h"
 #include "game/Blocks.h"
+#include "game/WorldDb.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
 
@@ -688,8 +689,18 @@ sig::GroupId leadSection(Train& t) {
 
 /// Create's CarriageContraptionEntity#addPassenger / AbstractContraptionEntity#getDismountLocationForPassenger:
 /// a player who leaves a train seat 5000 blocks or more from where they sat down gets long_travel.
+std::map<std::int64_t, Vec3d>& mountedAtMap() {
+    static std::map<std::int64_t, Vec3d> m;
+    static bool                           hooked = [] {
+        game::db::onWorldClosed([] { m.clear(); }); // actor ids belong to one world
+        return true;
+    }();
+    (void)hooked;
+    return m;
+}
+
 void trackRiders() {
-    static std::map<std::int64_t, Vec3d> mountedAt;
+    auto& mountedAt = mountedAtMap();
     std::set<std::int64_t>              seated;
     for (auto const& [id, t] : state().trains) {
         for (auto const& c : t.carriages) {

@@ -74,6 +74,7 @@ constexpr char kDisguiseTag[] = "lv_cardboard_disguise";
 struct State {
     std::set<std::int64_t>                 hiding;    ///< players hiding as a box (uids)
     std::map<std::int64_t, std::int64_t>   disguises; ///< player uid -> box entity uid
+    std::set<std::int64_t>                 seen;      ///< players whose invisibility was checked once
     std::uint64_t                          tick = 0;
 };
 State& st() {
@@ -179,6 +180,7 @@ void tickHiding() {
         if (p.isClientSide()) return true;
         auto uid  = uidOf(p);
         bool hide = p.isAlive() && hidingAsBox(p);
+        bool first = s.seen.insert(uid).second;
         if (hide) {
             now.insert(uid);
             if (!p.isInvisible()) p.setInvisible(true);
@@ -188,6 +190,10 @@ void tickHiding() {
                 advancements::award(p, "cardboard_armor");
                 log().info("equipment: {} hides as a cardboard box", p.getRealName());
             }
+        } else if (first) {
+            // a player who left (or the world closed) while hiding keeps the saved invisible flag:
+            // back to what the effects say the first time we see them not hiding
+            if (p.isInvisible()) p.updateInvisibilityStatus();
         } else if (s.hiding.contains(uid)) {
             p.updateInvisibilityStatus(); // back to what the effects say
             removeDisguise(uid);
@@ -202,6 +208,7 @@ void tickHiding() {
             continue;
         }
         if (auto* box = actorById(it->second)) box->remove();
+        s.seen.erase(it->first); // checked again when they come back
         it = s.disguises.erase(it);
     }
     if (s.tick % 100 == 0) sweepDisguises();

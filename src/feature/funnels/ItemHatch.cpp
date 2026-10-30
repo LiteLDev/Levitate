@@ -143,11 +143,12 @@ void placed(ia::PlaceContext const& c) {
     log().info("funnels: levitate:item_hatch placed at {} by {}", c.pos.key(), c.player.getRealName());
 }
 
-void tick() {
+/// Closes the hatches whose close is due (`all`: every pending one; the schedule is not saved, so a
+/// world save closes them rather than leaving them open after a reload).
+void closeDue(bool all) {
     auto& s = st();
-    ++s.tick;
     for (auto it = s.closeAt.begin(); it != s.closeAt.end();) {
-        if (it->second > s.tick) {
+        if (!all && it->second > s.tick) {
             ++it;
             continue;
         }
@@ -158,6 +159,12 @@ void tick() {
         }
         it = s.closeAt.erase(it);
     }
+}
+
+void tick() {
+    auto& s = st();
+    ++s.tick;
+    closeDue(false);
     if (s.lastUse.size() > 256) s.lastUse.clear();
 }
 
@@ -187,6 +194,7 @@ public:
                         if (auto s = items::fromJson(v); common::filter::isFilterItem(s)) drops.push_back(s);
                 dropLater(pos, std::move(drops));
             });
+            game::db::onWorldSave([] { closeDue(true); });
             game::db::onWorldClosed([] { st() = State{}; });
         }
         mIds.push_back(ia::onUseOn({.block = kItemHatch}, use));

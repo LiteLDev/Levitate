@@ -107,6 +107,9 @@ void ringDeskBell(BlockSource& region, GP const& pos, Player* player) {
 int deskBellRings() { return gRings; }
 
 void tickDeskBell(BlockSource& region, GP const& pos, Block const& block, Runtime& rt) {
+    // a pressed bell whose release was lost (world reloaded, carried by a contraption): release it
+    // as Create's scheduled tick (saved with the chunk) would
+    if (rt.scheduledAt == 0 && state(block, sPowered)) rt.scheduledAt = gameTickCounter() + cr::kDeskBellPulse;
     if (rt.scheduledAt == 0 || gameTickCounter() < rt.scheduledAt) return;
     rt.scheduledAt = 0;
     if (state(block, sPowered)) setStates(region, game::blockPos(pos), {{sPowered, 0}}); // DeskBellBlock.unPress
@@ -116,6 +119,8 @@ void tickDeskBell(BlockSource& region, GP const& pos, Block const& block, Runtim
 
 void tickRoseQuartzLamp(BlockSource& region, GP const& pos, Block const& block, Runtime& rt) {
     auto bp = game::blockPos(pos);
+    // a pending activation whose scheduled tick was lost (world reloaded, carried by a contraption)
+    if (rt.scheduledAt == 0 && lampState(block).activate) rt.scheduledAt = gameTickCounter() + 1;
     // the scheduled tick
     if (rt.scheduledAt != 0 && gameTickCounter() >= rt.scheduledAt) {
         rt.scheduledAt = 0;

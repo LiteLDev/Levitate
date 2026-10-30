@@ -1068,7 +1068,7 @@ void tickActuators() {
             float before = c->offset();
             tickOne(*c, tick);
             // Create's PulleyBlockEntity#tick
-            if (before < 200 && c->offset() >= 200) advancements::awardOwner(p, "pulley_maxed");
+            if (c->kind != Kind::Piston && before < 200 && c->offset() >= 200) advancements::awardOwner(p, "pulley_maxed");
         } catch (std::exception const& e) {
             log().error("{} at {} {} {} tick failed: {}", kindName(c->kind), p.x, p.y, p.z, e.what());
         }

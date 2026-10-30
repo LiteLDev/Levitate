@@ -170,6 +170,7 @@ void untrack(GlobalPos const& pos) {
 void loadIndex() {
     auto& s = st();
     s.index.clear();
+    for (auto const& [pos, id] : s.watches) rs::unwatch(id);
     s.watches.clear();
     s.loaded = true;
     if (auto j = game::db::load(kDbKey); j && j->is_array()) {
