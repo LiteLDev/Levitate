@@ -4,7 +4,7 @@
 #   pwsh tools/models/equipment.ps1
 #
 # A toolbox is a body with two drawers in front under a lid with a handle; front = +z (south) for
-# levitate:facing 0. Block state levitate:lid picks the geometry:
+# levitate:facing 0. Block state levitate:toolbox_lid picks the geometry:
 #   0  geometry.levitate.toolbox        closed (nobody has it open)
 #   1  geometry.levitate.toolbox_open   open: lid turned 135 degrees back, drawers out (Create's
 #                                       renderer at rest), set by the server while the screen is open
@@ -39,12 +39,12 @@ $body = @(
 )
 # a drawer at height `y`, slid out by `out` pixels
 function Drawer([double]$y, [double]$out) {
-    @((Cube @(-6, $y, (-3 + $out)) @(12, 2, 7) @(0, 24)), (Cube @(-2, $y, (4 + $out)) @(4, 1, 1) @(38, 24)))
+    @((Cube @(-6, $y, [math]::Round(-3 + $out, 4)) @(12, 2, 7) @(0, 24)), (Cube @(-2, $y, [math]::Round(4 + $out, 4)) @(4, 1, 1) @(38, 24)))
 }
 # the lid with its handle and latch; turned about its back bottom edge when `deg` is set
 $hinge = @(0, 8, -4)
 function Lid($deg) {
-    $r = if ($deg) { @($deg, 0, 0) } else { $null }
+    $r = if ($deg) { @([double]$deg, 0, 0) } else { $null }
     @(
         (Cube @(-7, 8, -4) @(14, 2, 8) @(0, 34) $hinge $r),
         (Cube @(-3, 10, -1) @(1, 2, 2) @(0, 46) $hinge $r),
@@ -63,7 +63,7 @@ function Bone([string]$name, $cubes) { [ordered]@{ name = $name; pivot = @(0, 0,
 
 # Create's ToolboxRenderer at rest when open: lid 135 degrees, lower drawer 0.35 blocks out, upper 0.175
 $closed = @($body) + (Drawer 4 0) + (Drawer 6 0) + (Lid $null)
-$open = @($body) + (Drawer 4 5.6) + (Drawer 6 2.8) + (Lid -135)
+$open = @($body) + (Drawer 4 5.6) + (Drawer 6 2.8) + (Lid (-135))
 $geo = [ordered]@{
     format_version      = '1.12.0'
     'minecraft:geometry' = @(
@@ -84,7 +84,7 @@ foreach ($c in $colours) {
         $perms += [ordered]@{ condition = "q.block_state('levitate:facing') == $f"; components = [ordered]@{ 'minecraft:transformation' = [ordered]@{ rotation = @(0, $facingRotation[$f], 0) } } }
     }
     for ($l = 1; $l -lt 3; $l++) {
-        $perms += [ordered]@{ condition = "q.block_state('levitate:lid') == $l"; components = [ordered]@{ 'minecraft:geometry' = $lidGeometry[$l] } }
+        $perms += [ordered]@{ condition = "q.block_state('levitate:toolbox_lid') == $l"; components = [ordered]@{ 'minecraft:geometry' = $lidGeometry[$l] } }
     }
     $block = [ordered]@{
         format_version   = '1.21.70'
@@ -92,7 +92,7 @@ foreach ($c in $colours) {
             description  = [ordered]@{
                 identifier    = "levitate:${c}_toolbox"
                 menu_category = [ordered]@{ category = 'equipment' }
-                states        = [ordered]@{ 'levitate:facing' = @(0, 1, 2, 3); 'levitate:lid' = @(0, 1, 2) }
+                states        = [ordered]@{ 'levitate:facing' = @(0, 1, 2, 3); 'levitate:toolbox_lid' = @(0, 1, 2) }
             }
             components   = [ordered]@{
                 'minecraft:geometry'                  = $lidGeometry[0]

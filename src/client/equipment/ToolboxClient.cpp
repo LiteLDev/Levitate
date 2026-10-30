@@ -2,9 +2,9 @@
 
 // Client side of the toolbox lid and drawers (U31 / U45; Create's ToolboxRenderer), client mod only.
 //
-// The server sets the block state `levitate:lid` to 1 while anyone has the toolbox's screen open
+// The server sets the block state `levitate:toolbox_lid` to 1 while anyone has the toolbox's screen open
 // (vanilla clients show the open model, tools/models/equipment.ps1). The client mod meshes every
-// toolbox with `levitate:lid` = 2 (the body only) and draws the lid and the two drawers itself each
+// toolbox with `levitate:toolbox_lid` = 2 (the body only) and draws the lid and the two drawers itself each
 // frame, chasing the state like Create's ToolboxBlockEntity (lid linear, drawers exponential, 0.2
 // per tick; core/equipment/ToolboxLid.h): the lid turns up to 135° about its back edge, the lower
 // drawer slides 0.35 blocks out, the upper one half of that. The block state is the sync: it
@@ -91,8 +91,8 @@ struct PosEq {
 
 /// A toolbox block state as the client mod draws it (computed once per Block).
 struct Info {
-    Block const* hidden = nullptr; ///< the `levitate:lid` = 2 variant (body only); nullptr: not ours
-    bool         open   = false;   ///< `levitate:lid` = 1
+    Block const* hidden = nullptr; ///< the `levitate:toolbox_lid` = 2 variant (body only); nullptr: not ours
+    bool         open   = false;   ///< `levitate:toolbox_lid` = 1
     int          facing = 0;
     std::string  texture;          ///< terrain texture of the colour
 };
@@ -122,9 +122,9 @@ Info computeInfo(Block const& block) {
     Info        info;
     std::string id = block.getTypeName();
     if (!id.starts_with("levitate:") || !id.ends_with("_toolbox")) return info;
-    int lid = game::intState(block, "levitate:lid").value_or(-1);
+    int lid = game::intState(block, "levitate:toolbox_lid").value_or(-1);
     if (lid != 0 && lid != 1) return info;
-    if (auto const* st = block.getBlockType().getBlockState(HashedString("levitate:lid"))) {
+    if (auto const* st = block.getBlockType().getBlockState(HashedString("levitate:toolbox_lid"))) {
         if (auto b = block.setState(*st, 2)) info.hidden = b.as_ptr();
     }
     info.open    = lid == 1;

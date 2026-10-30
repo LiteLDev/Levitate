@@ -170,7 +170,7 @@ void unlinkBox(GlobalPos const& box) {
 
 /// Block state of the lid: 0 closed, 1 open (vanilla clients see the open model), 2 the body only
 /// (meshed by the client mod, which draws lid and drawers animated; never set in the world).
-constexpr char kLid[] = "levitate:lid";
+constexpr char kLid[] = "levitate:toolbox_lid";
 
 struct Openers {
     std::set<std::int64_t> players;
@@ -591,7 +591,9 @@ void toolboxPlaced(Player& player, GlobalPos const& pos, Json const& itemData) {
     ce::ToolboxInv inv;
     if (itemData.is_object() && itemData.contains("inv")) inv = ce::ToolboxInv::fromJson(itemData["inv"]);
     store(pos, inv);
-    log().info("equipment: toolbox placed at {} {} {} by {}", pos.x, pos.y, pos.z, player.getRealName());
+    int count = 0;
+    for (int c = 0; c < ce::kCompartments; ++c) count += inv.count(c);
+    log().info("equipment: toolbox placed at {} {} {} by {} ({} items)", pos.x, pos.y, pos.z, player.getRealName(), count);
 }
 
 // ---- equipping ------------------------------------------------------------------------------------------

@@ -154,7 +154,7 @@ LV_REGISTER_SELFTEST("equipment.tree_fertilizer_propagule", [](Context& ctx) -> 
 });
 
 // Create's ToolboxBlockEntity openTracker: the lid is open while anyone has the screen open (the
-// block state `levitate:lid` = 1, which vanilla clients show as the open model).
+// block state `levitate:toolbox_lid` = 1, which vanilla clients show as the open model).
 LV_REGISTER_SELFTEST("equipment.toolbox_lid", [](Context& ctx) -> ll::coro::CoroTask<> {
     auto base = at(ctx.testPos(4570), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
@@ -162,7 +162,7 @@ LV_REGISTER_SELFTEST("equipment.toolbox_lid", [](Context& ctx) -> ll::coro::Coro
     ctx.require(ctx.setBlock(base, "levitate:cyan_toolbox", {{"levitate:facing", 3}}), "toolbox placed");
     p.teleport(Vec3{base.x + 2.5f, float(base.y), base.z + .5f}, DimensionType(0));
     co_await ctx.ticks(12);
-    auto lid = [&] { return eq::stateAt(base, "levitate:lid").value_or(-1); };
+    auto lid = [&] { return eq::stateAt(base, "levitate:toolbox_lid").value_or(-1); };
     ctx.check(lid() == 0, "a closed toolbox shows its closed lid");
     // the form (vanilla players): open while the form is up
     eq::openToolbox(p, base);

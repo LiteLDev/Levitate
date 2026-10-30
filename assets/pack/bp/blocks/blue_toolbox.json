@@ -13,7 +13,7 @@
           2,
           3
         ],
-        "levitate:lid": [
+        "levitate:toolbox_lid": [
           0,
           1,
           2
@@ -112,13 +112,13 @@
         }
       },
       {
-        "condition": "q.block_state('levitate:lid') == 1",
+        "condition": "q.block_state('levitate:toolbox_lid') == 1",
         "components": {
           "minecraft:geometry": "geometry.levitate.toolbox_open"
         }
       },
       {
-        "condition": "q.block_state('levitate:lid') == 2",
+        "condition": "q.block_state('levitate:toolbox_lid') == 2",
         "components": {
           "minecraft:geometry": "geometry.levitate.toolbox_body"
         }
