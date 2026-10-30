@@ -300,7 +300,7 @@ ia::Result vetoPlacement(ia::UseOnContext const& c) {
     if (!c.sneaking && c.block.getBlockType().isInteractiveBlock()) return ia::Result::Pass;
     BlockPos at{c.pos.x, c.pos.y, c.pos.z};
     if (placementSurvives(c.player, at, c.face, *kind)) return ia::Result::Pass;
-    if (c.firstEvent) lv::log().info("{} at {}: can't be placed there (canSurvive)", c.itemId, c.pos.key());
+    if (c.firstEvent || c.player.isSimulatedPlayer()) lv::log().info("{} at {}: can't be placed there (canSurvive)", c.itemId, c.pos.key());
     return ia::Result::Deny;
 }
 

@@ -1722,8 +1722,10 @@ once 0.25 past the centre; the controller has no collision for the entity it cru
 through) nor, unless it faces up, for the items it ejected (they land on it); the inventory (32 slots) counts `processing_time` (crushing recipe, else
 milling, else 100) down by `clamp(4 · crushingSpeed / log2(count), 0.25, 20)` per tick (20 for one
 item), applies the recipe once per item below 20 (no recipe: the items are destroyed, as Create)
-and at 0 outputs: into the Levitate block below / in front when it has an item handler (Create's
-DirectBeltInputBehaviour: belts, depots, chutes, ...), else as item entities 0.55 past the centre
+and at 0 outputs: into the block below / in front with Create's DirectBeltInputBehaviour (the belts
+unit's direct inputs: belts, depots, ejectors, basins, saws, crushers, which may refuse the side —
+the items wait —; chutes and item drains through their item capability), else as item entities 0.55
+past the centre
 with Create's out-speed (0.25 sideways, 0.5 up, 0 down). Other entities get `crushingDamage` (4) per
 hit (Bedrock's hurt cooldown applies; Create's `create.crush` death message, "%1$s was processed by
 Crushing Wheels") and are moved out below the wheels before a lethal hit; their drops roll with

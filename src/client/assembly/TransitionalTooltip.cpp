@@ -30,6 +30,9 @@ namespace lv::client::assembly {
 
 namespace sa = feature::assembly::sequenced;
 
+/// The item data tag of the sequenced assembly progress (common/Items.h stores data as "lv:<key>").
+std::string const kDataTag = "lv:" + std::string(sa::kDataKey);
+
 namespace {
 
 /// Removes every line of `text` that ends with one of the lore `lines` (the game puts its own
@@ -37,7 +40,7 @@ namespace {
 void removeLore(std::string& text, std::vector<std::string> const& lines) {
     for (auto const& l : lines) {
         if (l.empty()) continue;
-        auto at = text.find(l);
+        auto at = text.rfind(l); // the lore comes after the name
         if (at == std::string::npos) continue;
         auto start = text.rfind('\n', at);
         if (start == std::string::npos) start = at;
@@ -63,7 +66,7 @@ LL_TYPE_INSTANCE_HOOK(
     bool   showCategory
 ) {
     auto r = origin(level, showCategory);
-    if (isNull() || !mUserData) return r;
+    if (isNull() || !mUserData || !mUserData->contains(kDataTag)) return r;
     auto id = getTypeName();
     if (!id.starts_with("levitate:")) return r;
     // `this` may be an ItemInstance: the item data goes onto a stack of our own

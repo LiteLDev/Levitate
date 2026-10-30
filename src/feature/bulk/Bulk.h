@@ -106,9 +106,9 @@ void sound(int dim, cb::Vec3d const& pos, std::string const& name, float volume,
 /// Create's damage types: hurts with a vanilla cause and Create's death message (the translation
 /// key, e.g. "death.attack.create.crush", translated by the resource pack).
 void hurtBy(Actor& e, float damage, int cause, std::string const& deathMessage);
-/// `victim` was killed by crushing wheels: its loot rolls with looting II (Create's
+/// Crushing wheels killed an entity: its loot rolls with looting II (Create's
 /// crushingIsFortunate). `lootingBoosts` counts the boosted loot functions (selftests).
-void setCrushingVictim(Actor const* victim);
+void crushedToDeath();
 [[nodiscard]] int lootingBoosts();
 void installLootingHook();
 void uninstallLootingHook();

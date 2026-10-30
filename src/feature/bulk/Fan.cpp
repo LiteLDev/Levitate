@@ -843,16 +843,6 @@ void tickNozzle(BlockSource& region, GlobalPos const& pos) {
         setMotion(*e, motionOf(*e) + *push);
         e->setFallDistance(0);
     }
-    // Create: a pulling nozzle holding more than 256 entities explodes (power 2, no block damage)
-    // and the entities are gone
-    if (!st.pushing && st.entities.size() > kNozzleEntityLimit) {
-        if (auto level = ll::service::getLevel())
-            level->explode(region, nullptr, Vec3{float(centre.x), float(centre.y), float(centre.z)}, 2.f, false, false, 0.f, false);
-        log().info("nozzle at {} {} {}: {} entities, exploded", pos.x, pos.y, pos.z, st.entities.size());
-        for (auto id : st.entities)
-            if (auto* e = entityById(id); e && !e->isPlayer()) e->remove();
-        st.entities.clear();
-    }
     if (st.lazy-- > 0 || range == 0) return;
     st.lazy = 5;
     cb::Box bb{centre - cb::Vec3d{range / 2.0, range / 2.0, range / 2.0}, centre + cb::Vec3d{range / 2.0, range / 2.0, range / 2.0}};
@@ -866,6 +856,20 @@ void tickNozzle(BlockSource& region, GlobalPos const& pos) {
             continue;
         }
         if (std::find(st.entities.begin(), st.entities.end(), id) == st.entities.end()) st.entities.push_back(id);
+    }
+    // Create's lazyTick: a pulling nozzle holding more than 256 entities explodes (power 2, no
+    // block damage) and the entities are gone (players stay: Bedrock can't discard them)
+    std::erase_if(st.entities, [](std::int64_t id) {
+        auto* e = entityById(id);
+        return !e || !e->isAlive();
+    });
+    if (!st.pushing && st.entities.size() > kNozzleEntityLimit) {
+        if (auto level = ll::service::getLevel())
+            level->explode(region, nullptr, Vec3{float(centre.x), float(centre.y), float(centre.z)}, 2.f, false, false, 0.f, false);
+        log().info("nozzle at {} {} {}: {} entities, exploded", pos.x, pos.y, pos.z, st.entities.size());
+        for (auto id : st.entities)
+            if (auto* e = entityById(id); e && !e->isPlayer()) e->remove();
+        st.entities.clear();
     }
 }
 

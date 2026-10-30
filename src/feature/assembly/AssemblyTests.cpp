@@ -395,7 +395,9 @@ LV_REGISTER_SELFTEST("assembly.fist_bump", [](Context& ctx) -> ll::coro::CoroTas
 });
 
 LV_REGISTER_SELFTEST("assembly.fake_player_hidden", [](Context& ctx) -> ll::coro::CoroTask<> {
-    // R77 / R81: selectors don't find the deployer player; what it kills drops no experience
+    // R77: selectors don't find the deployer player (the test player, spawned first, is found)
+    auto& self = ctx.player();
+    co_await Context::ticks(2);
     SimulatedPlayer* fake = nullptr;
     for (int i = 0; i < 20 && !fake; ++i) {
         fake = fakeplayer::get(0);
@@ -411,7 +413,7 @@ LV_REGISTER_SELFTEST("assembly.fake_player_hidden", [](Context& ctx) -> ll::coro
         if (pl && pl->getOrCreateUniqueID().rawID == fakeId) again = static_cast<Player*>(pl);
     ctx.require(again != nullptr, "the deployer player is still there");
     ctx.check(!again->hasTag("lv_selftest_seen"), "@a doesn't select the deployer player");
-    ctx.check(ctx.player().hasTag("lv_selftest_seen"), "@a selects the test player");
+    ctx.check(self.hasTag("lv_selftest_seen"), "@a selects the test player");
     runServerCommand("tag @a remove lv_selftest_seen");
 });
 

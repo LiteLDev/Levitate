@@ -746,7 +746,11 @@ LV_REGISTER_SELFTEST("basin.hollow", [](Context& ctx) -> ll::coro::CoroTask<> {
     stand(static_cast<SimulatedPlayer&>(ctx.player()), a.at(-6, 0, 6));
     co_await ctx.ticks(2);
     // from three blocks up: it falls fast through the rim
-    ctx.info(spawnItem(p, 3.f, stack("minecraft:apple", 3)));
+    {
+        auto* e = ll::service::getLevel()->getSpawner().spawnItem(region0(), stack("minecraft:apple", 3), nullptr, Vec3{p.x + .5f, p.y + 3.f, p.z + .5f}, 10);
+        ctx.require(e != nullptr, "an apple above the basin");
+        const_cast<Vec3&>(e->getPosDelta()) = Vec3{0.f, 0.f, 0.f}; // straight down
+    }
     auto&       b = basinAt(ctx, p);
     std::string path;
     for (int i = 0; i < 60 && countIn(b.in, "minecraft:apple") < 3; ++i) {

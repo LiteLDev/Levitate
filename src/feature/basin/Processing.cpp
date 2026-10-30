@@ -237,6 +237,7 @@ bool applyImpl(BlockSource& region, GlobalPos const& basinPos, BasinState& b, Ba
 struct Brewing {
     std::map<std::string, core::common::ProcessingRecipe> recipes; // stable addresses
     std::map<std::string, BasinRecipe>                    basin;
+    std::map<std::string, std::string>                    outcomes; ///< "<fluid>/<reagent>#<aux>" -> brewed fluid ("" none)
 };
 
 Brewing& brewing() {
@@ -246,17 +247,23 @@ Brewing& brewing() {
 
 /// The potion fluid brewed from `fluid` with `reagent` ("" when there is no such mix).
 std::string brewedFluid(std::string const& fluid, ItemStack const& reagent) {
-    auto bottle = core::fluids::bottleFor(fluid);
-    if (!bottle || items::isEmpty(reagent) || !reagent.mItem.get()) return {};
+    if (items::isEmpty(reagent) || !reagent.mItem.get()) return {};
+    auto key = fluid + "/" + items::idOf(reagent) + "#" + std::to_string(reagent.getAuxValue());
+    auto& outcomes = brewing().outcomes;
+    if (auto it = outcomes.find(key); it != outcomes.end()) return it->second;
+    auto& result = outcomes[key];
+    auto  bottle = core::fluids::bottleFor(fluid);
+    if (!bottle) return result;
     auto source = items::make(bottle->id, 1, bottle->aux);
     if (!source) return {};
     ItemInstance   in(*source);
     ItemDescriptor ingredient(*reagent.mItem.get(), reagent.getAuxValue());
     if (!PotionBrewing::hasMix(in, ingredient)) return {};
     auto out = fromInstance(PotionBrewing::mix(ingredient, in));
-    if (items::isEmpty(out)) return {};
-    auto result = core::fluids::fluidOfPotionItem(items::idOf(out), out.getAuxValue());
-    return result == fluid ? std::string{} : result;
+    if (items::isEmpty(out)) return result;
+    auto brewed = core::fluids::fluidOfPotionItem(items::idOf(out), out.getAuxValue());
+    if (brewed != fluid) result = brewed;
+    return result;
 }
 
 BasinRecipe const* brewingRecipe(std::string const& fluid, ItemStack const& reagent) {
@@ -307,8 +314,17 @@ BasinRecipe const* byId(bool press, std::string const& id) {
     if (id.empty()) return nullptr;
     for (auto const& r : candidates(press))
         if (r.id == id) return &r;
-    if (!press)
+    if (!press) {
         if (auto it = brewing().basin.find(id); it != brewing().basin.end()) return &it->second;
+        // a brewing recipe saved by a mixer before a reload: "levitate:potion_mixing/<fluid>/<reagent>"
+        constexpr std::string_view kPrefix = "levitate:potion_mixing/";
+        if (id.starts_with(kPrefix)) {
+            auto rest  = id.substr(kPrefix.size());
+            auto slash = rest.rfind('/');
+            if (slash != std::string::npos)
+                if (auto reagent = items::make(rest.substr(slash + 1))) return brewingRecipe(rest.substr(0, slash), *reagent);
+        }
+    }
     return nullptr;
 }
 
