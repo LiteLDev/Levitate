@@ -154,12 +154,21 @@ int roundHalfUp(double v) { return static_cast<int>(std::floor(v + 0.5)); }
 
 int quarterTurnsOf(double degrees) { return roundHalfUp(degrees / 90.0); }
 
+Vec3d Transform::rotateVector(Vec3d const& v) const {
+    return rotate(tilt == 0 ? v : rotate(v, tiltAxis, tilt), axis, angle);
+}
+
+Vec3d Transform::unrotateVector(Vec3d const& v) const {
+    Vec3d u = rotate(v, axis, -angle);
+    return tilt == 0 ? u : rotate(u, tiltAxis, -tilt);
+}
+
 Vec3d Transform::toWorld(Vec3d const& local) const {
-    return origin + offset + pivot + rotate(local - pivot, axis, angle);
+    return origin + offset + pivot + rotateVector(local - pivot);
 }
 
 Vec3d Transform::toLocal(Vec3d const& world) const {
-    return pivot + rotate(world - origin - offset - pivot, axis, -angle);
+    return pivot + unrotateVector(world - origin - offset - pivot);
 }
 
 Pos Transform::originBlock() const {
@@ -170,6 +179,15 @@ Pos Transform::placeBlock(Pos const& p) const {
     Vec3d rounded{double(roundHalfUp(offset.x)), double(roundHalfUp(offset.y)), double(roundHalfUp(offset.z))};
     Vec3d c = origin + rounded + pivot + rotate(Vec3d::center(p) - pivot, axis, placeQuarterTurns() * 90.0);
     return {int(std::floor(c.x + 1e-6)), int(std::floor(c.y + 1e-6)), int(std::floor(c.z + 1e-6))};
+}
+
+std::pair<Axis, double> pitchTilt(int ax, int az, Vec3d const& dir) {
+    double flat  = std::sqrt(dir.x * dir.x + dir.z * dir.z);
+    double pitch = std::atan2(dir.y, flat) * 180.0 / 3.14159265358979323846;
+    if (std::abs(pitch) < 1e-4) pitch = 0;
+    // (1,0,0) turned about Z rises with a positive angle; (0,0,1) turned about X sinks
+    if (ax != 0) return {Axis::Z, ax > 0 ? pitch : -pitch};
+    return {Axis::X, az > 0 ? -pitch : pitch};
 }
 
 bool Box::intersects(Box const& o, double eps) const {

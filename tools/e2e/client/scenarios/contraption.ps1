@@ -6,6 +6,7 @@
 #   turned   - after a quarter turn
 #   moving   - while rising
 #   placed   - after disassembly (real blocks again)
+$vanilla = $script:Mode -eq 'remote-vanilla'
 Reset-CameraPerspective
 Start-Sleep -Milliseconds 500
 $mark = Get-LogMark
@@ -48,6 +49,32 @@ Wait-LogLine "contraption #$id disassembled: 5 placed, 0 dropped" 30 -Since $mar
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'placed' | Out-Null
 
+# Super glue outlines (U38, Create's SuperGlueSelectionHandler): a row of stone west of the player;
+# the first glue click selects, the second one glues. Client mod: outlines drawn by the client
+# (selection in the highlight green, then the region); vanilla: particles along the edges.
+# Screenshots: glue-selecting.png, glue-region.png
+$glueMark = Get-LogMark
+Invoke-Chat '/fill ~-3 ~ ~-1 ~-3 ~ ~1 stone'
+Invoke-Chat '/clear @s levitate:super_glue'
+Invoke-Chat '/replaceitem entity @s slot.hotbar 0 levitate:super_glue'
+Press-Key '1'
+Invoke-Chat '/tp @s ~ ~ ~ 90 30'
+Start-Sleep -Milliseconds 800
+$mark = Get-LogMark
+Click 0.5 0.5 -Relative -Right
+Start-Sleep -Milliseconds 600
+Invoke-Chat '/tp @s ~ ~ ~ 70 30'
+Start-Sleep -Milliseconds 800
+if (-not $vanilla) { Wait-LogLine 'contraption client: drawing \d+ super glue outline' 20 -Since $glueMark | Out-Null }
+Save-Screenshot 'glue-selecting' | Out-Null
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'super glue applied by' 20 -Since $mark | Out-Null
+Invoke-Chat '/tp @s ~ ~ ~ 80 30'
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'glue-region' | Out-Null
+Invoke-Chat '/create glue clear 8'
+Invoke-Chat '/fill ~-3 ~ ~-1 ~-3 ~ ~1 air'
+Invoke-Chat '/clear @s levitate:super_glue'
 # the selftests on this world's server too (integrated or BDS host)
 $r = Invoke-SelfTest 'contraption.*'
 if ($r.Pass -lt 16) { throw "expected at least 16 contraption selftests to pass, got $($r.Pass)" }

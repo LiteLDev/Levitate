@@ -18,6 +18,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace lv::core::contraption {
 
@@ -104,12 +105,17 @@ struct Transform {
     Axis   axis  = Axis::Y;     ///< rotation axis
     double angle = 0;           ///< degrees
     Vec3d  pivot{0.5, 0.5, 0.5}; ///< rotation center in local coordinates
+    /// A second turn applied first, about a local axis through the pivot (a train carriage pitched
+    /// on a slope): `world(p) = origin + offset + pivot + R(axis, angle) R(tiltAxis, tilt) (p - pivot)`.
+    /// Disassembly ignores it (placement stays grid aligned).
+    Axis   tiltAxis = Axis::X;
+    double tilt     = 0; ///< degrees
 
     [[nodiscard]] Vec3d toWorld(Vec3d const& local) const;
     [[nodiscard]] Vec3d toLocal(Vec3d const& world) const;
     /// Rotates a direction vector (no translation).
-    [[nodiscard]] Vec3d rotateVector(Vec3d const& v) const { return rotate(v, axis, angle); }
-    [[nodiscard]] Vec3d unrotateVector(Vec3d const& v) const { return rotate(v, axis, -angle); }
+    [[nodiscard]] Vec3d rotateVector(Vec3d const& v) const;
+    [[nodiscard]] Vec3d unrotateVector(Vec3d const& v) const;
 
     /// Grid-aligned placement used at disassembly: the angle rounded to quarter turns and the
     /// offset rounded to whole blocks. Returns the world block of local block `p`.
@@ -117,6 +123,10 @@ struct Transform {
     [[nodiscard]] int  placeQuarterTurns() const { return normQuarter(quarterTurnsOf(angle)); }
     [[nodiscard]] Pos  originBlock() const;
 };
+
+/// The tilt that pitches a structure built along the horizontal local direction (ax, 0, az) up to
+/// the slope of `dir` (a train carriage between its bogeys): {tiltAxis, degrees} for Transform.
+[[nodiscard]] std::pair<Axis, double> pitchTilt(int ax, int az, Vec3d const& dir);
 
 /// An axis-aligned box in double coordinates.
 struct Box {

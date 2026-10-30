@@ -315,19 +315,25 @@ public:
     bool                                    forceVanilla = false; ///< selftests
 
     // -- client mod sync (channel "contraption.*", see client/contraption/ContraptionClient.h) --
-    /// [axis, angle, tx, ty, tz, px, py, pz]: world = t + p + R(local - p) (t = origin + offset).
+    /// [axis, angle, tx, ty, tz, px, py, pz, tiltAxis, tilt]: world = t + p + R(local - p)
+    /// (t = origin + offset, R = the turn about axis after the tilt, see cc::Transform).
     static json transformJson(cc::Transform const& t) {
         auto o = t.origin + t.offset;
-        return json::array({int(t.axis), t.angle, o.x, o.y, o.z, t.pivot.x, t.pivot.y, t.pivot.z});
+        return json::array({int(t.axis), t.angle, o.x, o.y, o.z, t.pivot.x, t.pivot.y, t.pivot.z, int(t.tiltAxis), t.tilt});
     }
     static bool sameTransform(cc::Transform const& a, cc::Transform const& b) {
         auto d = (a.origin + a.offset) - (b.origin + b.offset);
-        return a.axis == b.axis && a.angle == b.angle && d.lengthSqr() == 0 && (a.pivot - b.pivot).lengthSqr() == 0;
+        return a.axis == b.axis && a.angle == b.angle && d.lengthSqr() == 0 && (a.pivot - b.pivot).lengthSqr() == 0
+            && a.tiltAxis == b.tiltAxis && a.tilt == b.tilt;
     }
     json blocksMessage(Contraption const& c) const {
         json blocks = json::array();
-        for (auto const& b : c.mBlocks)
-            if (b.display) blocks.push_back(json::array({b.display, b.local.x, b.local.y, b.local.z, b.id}));
+        for (auto const& b : c.mBlocks) {
+            if (!b.display) continue;
+            // [display, x, y, z, id, collision box (local, relative to the block) or null]
+            json box = b.collision ? json::array({b.collision->min.x, b.collision->min.y, b.collision->min.z, b.collision->max.x, b.collision->max.y, b.collision->max.z}) : json();
+            blocks.push_back(json::array({b.display, b.local.x, b.local.y, b.local.z, b.id, std::move(box)}));
+        }
         json old = json::array();
         for (auto const& r : retiring)
             if (r.contraption == c.mId) old.push_back(json::array({r.display, r.local.x, r.local.y, r.local.z, r.id, r.quarter}));
@@ -456,7 +462,9 @@ public:
             {"offset", vec(t.offset)       },
             {"axis",   int(t.axis)         },
             {"angle",  t.angle             },
-            {"pivot",  vec(t.pivot)        }
+            {"pivot",  vec(t.pivot)        },
+            {"tiltAxis", int(t.tiltAxis)   },
+            {"tilt",   t.tilt              }
         };
         j["motion"] = {
             {"velocity", vec(c.mMotion.velocity)    },
@@ -500,6 +508,8 @@ public:
         c->mTransform.axis   = static_cast<cc::Axis>(std::clamp(t.value("axis", 1), 0, 2));
         c->mTransform.angle  = t.value("angle", 0.0);
         c->mTransform.pivot  = vecOf(t.value("pivot", json::array({0.5, 0.5, 0.5})));
+        c->mTransform.tiltAxis = static_cast<cc::Axis>(std::clamp(t.value("tiltAxis", 0), 0, 2));
+        c->mTransform.tilt     = t.value("tilt", 0.0);
         auto const& m        = j.value("motion", json::object());
         c->mMotion.velocity        = vecOf(m.value("velocity", json::array({0, 0, 0})));
         c->mMotion.angularVelocity = m.value("angular", 0.0);
@@ -542,6 +552,7 @@ public:
             if (b.collision) c.mBoxes.push_back(b.collision->moved(cc::Vec3d::of(b.local)));
             if (b.display) displays.insert(b.display);
         }
+        refreshBoxBlocks(c);
         auto storage = std::make_unique<MergedStorage>(c);
         storage->build(c.mBlocks);
         c.mStorage = std::move(storage);
@@ -577,7 +588,9 @@ public:
     }
 
     void clear() {
+        collisionCache.clear();
         live.clear();
+
         displays.clear();
         displaysChanged.clear();
         visuals.clear();
@@ -734,14 +747,17 @@ public:
             });
         }
         std::unordered_set<::Actor*> seen;
+        // seated entities and the seat entities they ride move with their seat, not as passengers
+        for (auto const& s : c.mSeated) {
+            if (auto* rider = fetchActor(s.second)) {
+                seen.insert(rider);
+                if (auto* v = rider->getVehicle()) seen.insert(v);
+            }
+        }
         for (auto* a : candidates) {
             if (!seen.insert(a).second) continue;
             if (!a || !a->isAlive()) continue;
             if (a->getEntityTypeId() == ActorType::FallingBlock && detail::isDisplayActor(*a)) continue;
-            if (std::any_of(c.mSeated.begin(), c.mSeated.end(), [&](auto const& s) {
-                    return s.second == a->getOrCreateUniqueID().rawID;
-                }))
-                continue;
             out.push_back(a);
         }
         return out;
@@ -778,7 +794,10 @@ public:
         if (!retiring.empty())
             for (Id id : removeRetiring([&](Retiring const& r) { return r.removeAt <= tickCount; }))
                 if (live.contains(id)) displaysChanged.insert(id);
-        if (live.empty()) return;
+        if (live.empty()) {
+            collisionCache.clear();
+            return;
+        }
         vanillaDims.clear();
         if (auto level = ll::service::getLevel()) {
             level->forEachPlayer([&](Player& p) {
@@ -788,6 +807,7 @@ public:
         }
         if (forceVanilla)
             for (auto const& [id, c] : live) vanillaDims.insert(c->mDim);
+        collisionCache.clear();
         std::vector<Id> ids;
         for (auto const& [id, c] : live) ids.push_back(id);
         for (Id id : ids) {
@@ -799,7 +819,50 @@ public:
                 log().error("contraption #{} tick failed: {}", id, e.what());
             }
         }
+        rebuildCollisionCache();
         syncClients();
+    }
+
+    // -- block collision for entity movement (Create: contraption colliders) --
+    struct CollisionEntry {
+        int                  dim = 0;
+        AABB                 bounds;
+        std::vector<AABB>    boxes; ///< world boxes (the bounding box of each turned block box)
+        std::vector<Block const*> blocks; ///< the carried block of each box
+    };
+    std::vector<CollisionEntry> collisionCache;
+
+    static AABB worldBox(cc::Transform const& t, cc::Box const& b) {
+        cc::Vec3d lo{1e18, 1e18, 1e18}, hi{-1e18, -1e18, -1e18};
+        for (int i = 0; i < 8; ++i) {
+            cc::Vec3d corner{i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z};
+            auto      w = t.toWorld(corner);
+            lo          = {std::min(lo.x, w.x), std::min(lo.y, w.y), std::min(lo.z, w.z)};
+            hi          = {std::max(hi.x, w.x), std::max(hi.y, w.y), std::max(hi.z, w.z)};
+        }
+        return AABB{mcVec(lo), mcVec(hi)};
+    }
+
+    void rebuildCollisionCache() {
+        collisionCache.clear();
+        for (auto const& [id, c] : live) {
+            if (c->mBoxes.empty()) continue;
+            CollisionEntry e;
+            e.dim    = c->mDim;
+            e.bounds = worldBounds(*c, 0.0);
+            e.boxes.reserve(c->mBoxes.size());
+            for (auto const& b : c->mBoxes) e.boxes.push_back(worldBox(c->mTransform, b));
+            e.blocks = c->mBoxBlocks;
+            collisionCache.push_back(std::move(e));
+        }
+    }
+
+    void forEachCollision(int dim, AABB const& query, std::function<void(AABB const&, Block const*)> const& fn) const {
+        for (auto const& e : collisionCache) {
+            if (e.dim != dim || !e.bounds.intersects(query)) continue;
+            for (std::size_t i = 0; i < e.boxes.size(); ++i)
+                if (e.boxes[i].intersects(query)) fn(e.boxes[i], i < e.blocks.size() ? e.blocks[i] : nullptr);
+        }
     }
 
     void tickOne(Contraption& c) {
@@ -828,7 +891,8 @@ public:
             }
         }
         bool moving = next.offset.x != before.offset.x || next.offset.y != before.offset.y || next.offset.z != before.offset.z
-                   || next.angle != before.angle || next.axis != before.axis;
+                   || next.angle != before.angle || next.axis != before.axis || next.tilt != before.tilt;
+
 
         // actors
         if (moving && !c.mMoving) {
@@ -838,7 +902,7 @@ public:
         }
         bool stalled = false;
         if (moving) {
-            forEachActor(c, next, before, [&](MovementBehaviour const& a, MovementContext& ctx, CarriedBlock& b) {
+            if (!c.mActorsPaused) forEachActor(c, next, before, [&](MovementBehaviour const& a, MovementContext& ctx, CarriedBlock& b) {
                 if (a.tick) a.tick(ctx);
                 cc::Pos wp{ctx.worldPos.x, ctx.worldPos.y, ctx.worldPos.z};
                 if (!b.visited || *b.visited != wp) {
@@ -850,6 +914,12 @@ public:
         } else if (c.mMoving) {
             forEachActor(c, before, before, [](MovementBehaviour const& a, MovementContext& ctx, CarriedBlock&) {
                 if (a.stopMoving) a.stopMoving(ctx);
+            });
+        }
+        if (!moving && c.mTicksWhileStill) {
+            // Create ticks every actor each tick: the ones that act while still (doors)
+            forEachActor(c, before, before, [](MovementBehaviour const& a, MovementContext& ctx, CarriedBlock&) {
+                if (a.tickWhileStill && a.tick) a.tick(ctx);
             });
         }
         c.mMoving = moving; // a stall keeps the actors "moving" (no new startMoving)
@@ -891,7 +961,10 @@ public:
             for (auto const& b : c.mBlocks)
                 if (b.local == it->first) h = detail::seatHeight(b.id).value_or(0.5);
             cc::Vec3d seatFeet = c.mTransform.toWorld(cc::Vec3d::of(it->first) + cc::Vec3d{0.5, h, 0.5});
-            moveActorBy(*a, seatFeet - ccVec(a->getFeetPos()));
+            // a rider sitting on a seat entity stays mounted: the vehicle moves and carries it
+            // (teleporting the rider would make it dismount)
+            if (auto* vehicle = a->getVehicle()) moveActorBy(*vehicle, seatFeet - ccVec(a->getFeetPos()));
+            else moveActorBy(*a, seatFeet - ccVec(a->getFeetPos()));
             ++it;
         }
         syncDisplays(c, *region);
@@ -1003,6 +1076,8 @@ public:
             cc::Pos wp = b.local + anchor;
             for (auto* a : region->getEntities(AABB{mcVec(cc::Vec3d::of(wp)), mcVec(cc::Vec3d::of(wp) + cc::Vec3d{1, 1, 1})}, 0.0f)) {
                 if (!a || a->getEntityTypeId() == ActorType::FallingBlock) continue;
+                if (a->hasPassenger()) continue; // the seat entity: its rider is the seated one
+
                 if (game::blockPosOf(a->getFeetPos()) != detail::toBlockPos(wp)) continue;
                 c->mSeated.emplace_back(b.local, a->getOrCreateUniqueID().rawID);
                 break;
@@ -1135,13 +1210,80 @@ public:
             addGlue(c.mDim, cc::transformBox(g, [&](cc::Pos const& p) { return c.mTransform.placeBlock(p); }));
         }
         log().info("contraption #{} disassembled: {} placed, {} dropped", c.mId, placed, dropped);
+        forget(it);
+        return true;
+    }
+
+    /// Create's contraption entity setBlock: new states for a carried block (shape and display follow).
+    bool setBlockStates(Id id, cc::Pos const& local, cc::States const& states) {
+        auto it = live.find(id);
+        if (it == live.end()) return false;
+        auto& c = *it->second;
+        for (auto& b : c.mBlocks) {
+            if (b.local != local) continue;
+            auto const* original = detail::blockFromSnbt(b.block);
+            if (!original) return false;
+            auto const* next = detail::withStates(*original, states);
+            if (!next || next == original) return false;
+            b.block  = detail::snbtOf(*next);
+            b.states = detail::statesOf(*next);
+            b.id     = next->getTypeName();
+            if (auto* region = detail::regionOf(c.mDim)) b.collision = detail::collisionOfBlock(*region, *next, toCc(c.mAnchor));
+            c.mBoxes.clear();
+            for (auto const& o : c.mBlocks)
+                if (o.collision) c.mBoxes.push_back(o.collision->moved(cc::Vec3d::of(o.local)));
+            refreshBoxBlocks(c);
+            if (b.display) {
+                retireDisplay(c, b, c.mDisplayQuarter); // spawned again with the new block this tick
+                displaysChanged.insert(c.mId);
+            }
+            return true;
+        }
+        return false;
+    }
+    static cc::Pos toCc(core::GlobalPos const& p) { return {p.x, p.y, p.z}; }
+
+    /// The block of each collision box (entity movement collides with them) and whether an actor
+    /// ticks while the contraption stands still: cached when the blocks change.
+    static void refreshBoxBlocks(Contraption& c) {
+        c.mBoxBlocks.clear();
+        c.mTicksWhileStill = false;
+        for (auto const& b : c.mBlocks) {
+            if (b.collision) c.mBoxBlocks.push_back(detail::blockFromSnbt(b.block));
+            if (auto const* a = detail::actorFor(b.id); a && a->tickWhileStill) c.mTicksWhileStill = true;
+        }
+    }
+
+    /// Create's AbstractContraptionEntity#discard: the structure goes, nothing is placed or dropped.
+    bool discard(Id id) {
+        auto it = live.find(id);
+        if (it == live.end()) return false;
+        auto& c = *it->second;
+        if (c.mMoving) {
+            forEachActor(c, c.mTransform, c.mTransform, [](MovementBehaviour const& a, MovementContext& ctx, CarriedBlock&) {
+                if (a.stopMoving) a.stopMoving(ctx);
+            });
+        }
+        for (auto& b : c.mBlocks) removeDisplay(b);
+        removeRetiring([id](Retiring const& r) { return r.contraption == id; });
+        log().info("contraption #{} discarded: {} blocks", c.mId, c.mBlocks.size());
+        forget(it);
+        return true;
+    }
+
+    /// Drops a contraption whose displays are gone: its record, the companions' copy, the caches.
+    static cc::Box boundsOf(Contraption const& c) { return c.mBounds; }
+
+    void forget(std::map<Id, std::unique_ptr<Contraption>>::iterator it) {
+
+        auto& c = *it->second;
         game::db::erase(kDbPrefix + std::to_string(c.mId));
         sendToDim(c.mDim, "contraption.remove", {{"id", c.mId}});
         sentTransforms.erase(c.mId);
         std::erase_if(visuals, [id = c.mId](auto const& e) { return std::get<0>(e.first) == id; });
         displaysChanged.erase(c.mId);
         live.erase(it);
-        return true;
+        rebuildCollisionCache(); // its blocks stop colliding at once
     }
 
     /// Puts the carried items into the placed container when the block entity didn't take them.
@@ -1212,6 +1354,19 @@ Contraption* find(Id id) {
 
 bool disassemble(Id id) { return Engine::get().disassemble(id); }
 
+bool discard(Id id) { return Engine::get().discard(id); }
+
+bool setBlockStates(Id id, cc::Pos const& local, cc::States const& states) { return Engine::get().setBlockStates(id, local, states); }
+
+std::optional<cc::Box> bounds(Id id) {
+    auto& live = Engine::get().live;
+    auto  it   = live.find(id);
+    if (it == live.end() || it->second->blocks().empty()) return std::nullopt;
+    return Engine::boundsOf(*it->second);
+}
+
+
+
 void setActorVisual(Id id, cc::Pos const& local, nlohmann::json visual) {
     auto& e  = Engine::get();
     auto  it = e.live.find(id);
@@ -1239,6 +1394,13 @@ void reloadAll() {
     Engine::get().loadAll();
 }
 bool ownsDisplay(std::int64_t uniqueId) { return Engine::get().displays.contains(uniqueId); }
+void appendCollision(int dim, AABB const& query, std::vector<AABB>& out) {
+    Engine::get().forEachCollision(dim, query, [&](AABB const& box, Block const*) { out.push_back(box); });
+}
+void forEachCollision(int dim, AABB const& query, std::function<void(AABB const&, Block const*)> const& fn) {
+    Engine::get().forEachCollision(dim, query, fn);
+}
+
 void forceVanillaViewers(bool on) { Engine::get().forceVanilla = on; }
 bool isDisplayActor(::Actor const& actor) {
     return ownsDisplay(actor.getOrCreateUniqueID().rawID) || actor.hasTag(kDisplayTag);

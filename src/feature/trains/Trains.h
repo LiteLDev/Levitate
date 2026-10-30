@@ -216,10 +216,23 @@ std::vector<std::pair<std::string, int>> arrivals(Station const& s);
 
 // ---- trains (TrainLogic.cpp) --------------------------------------------------------------------
 Train*       findTrain(std::uint64_t id);
+/// Door control of the station the train of carriage contraption `contraption` stands at (Create's
+/// getTrainStationDoorControl); nullopt when it isn't a carriage or isn't stopped at a station.
+[[nodiscard]] std::optional<DoorMode> stationDoorModeOf(std::uint64_t contraption);
 Train*       trainOfContraption(std::uint64_t contraption);
 void         tickTrains();
 /// Recomputes and applies every carriage transform (after load / assembly).
 void         placeCarriages(Train& t);
+/// Where the carriages of `t` would stand on the graph with `body` (Create's relocation preview).
+[[nodiscard]] std::vector<std::pair<std::uint64_t, cc::Transform>> carriageTransforms(Train const& t, ct::Body const& body);
+/// The train's body with its front on the track nearest to `point` (within `maxDistance`), facing
+/// along `dir`, every point on track (nullopt: it doesn't fit there).
+[[nodiscard]] std::optional<ct::Body> bodyAt(Train const& t, ct::Vec3d const& point, ct::Vec3d const& dir, double maxDistance);
+/// Create's TrainRelocator.relocate: puts the stopped train on `body` (from `bodyAt`).
+void relocate(Train& t, ct::Body body);
+/// A wrench click for the relocation (starts on a train, confirms on a track, sneak: aborts).
+bool relocationClick(Player& player, bool sneaking);
+[[nodiscard]] bool isRelocating(Player const& player);
 /// Starts navigation to a station. Returns the schedule start result.
 /// `anyOf` (station keys) replaces the name filter when not empty (package instructions).
 ct::StartResult navigateTo(
@@ -253,6 +266,11 @@ void         onGraphChanged();
 void         setScheduleOf(ItemStack& stack, ct::Schedule const& s);
 [[nodiscard]] ItemStack makeScheduleItem(ct::Schedule const& s);
 void         openScheduleEditor(Player& player, int slot);
+/// The native schedule editor's instruction / condition (Create's editor sub-screens): the
+/// requested part checked as Create's widgets limit it (known id, ranges, text lengths, digits
+/// only thresholds, slot items); nullopt for an unknown id.
+[[nodiscard]] std::optional<ct::Part> sanitiseInstruction(ct::Part const& requested, ct::Part const& current);
+[[nodiscard]] std::optional<ct::Part> sanitiseCondition(ct::Part const& requested, ct::Part const& current);
 void         registerScheduleScreens();
 /// Right-click on a conductor (entity or blaze burner) of `t` with `held` (Create's
 /// ScheduleItem.handScheduleTo / remove with an empty hand).

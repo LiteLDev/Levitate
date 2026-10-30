@@ -1,0 +1,27 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:brown_seat_from_white_seat"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:white_seat"
+      },
+      {
+        "item": "minecraft:brown_dye"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:white_seat"
+      }
+    ],
+    "result": {
+      "item": "levitate:brown_seat"
+    }
+  }
+}

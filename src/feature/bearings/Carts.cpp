@@ -19,7 +19,10 @@
 #include "mc/deps/ecs/gamerefs_entity/EntityContext.h"
 #include "mc/deps/ecs/gamerefs_entity/GameRefsEntity.h"
 #include "mc/deps/vanilla_components/StateVectorComponent.h"
+#include "mc/entity/components_json_legacy/ContainerComponent.h"
 #include "mc/world/Container.h"
+#include "mc/world/inventory/FillingContainer.h"
+
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorDefinitionIdentifier.h"
 #include "mc/world/actor/ActorFactory.h"
@@ -39,9 +42,11 @@
 #include "feature/bearings/Bearings.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
+#include "feature/common/Redstone.h"
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/BearingsExt.h"
 #include "feature/contraption/Contraption.h"
+#include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
 #include "mod/Config.h"
@@ -102,6 +107,7 @@ struct State {
     std::map<GP, std::uint64_t>                         cooldown;    // assembler -> last action tick
     std::map<GP, int>                                   railTypes;   // assembler -> rail type (drops)
     std::set<GP>                                        creativeBroken;
+    std::map<GP, common::redstone::WatchId>             railWatches; // assembler / controller rail -> redstone watch
     double                                              railY = 0.35; ///< cart y above its rail block (measured on BDS 1.26.51, calibrated)
     bool                                                dirty = false;
     bool                                                calibrated = false;
@@ -428,6 +434,40 @@ void guide(BlockSource& region, GP const& pos, Actor& cart, double speed, bool a
     (void)region;
 }
 
+// ---- couplings drawn by the client mod (Create's CouplingRenderer) ------------------------------
+
+/// The coupled cart pairs as companions get them: [[a, b], ...] (ActorUniqueIDs).
+Json couplingsMessage() {
+    Json list = Json::array();
+    for (auto const& c : state().couplings) list.push_back(Json::array({c.a, c.b}));
+    return {{"couplings", std::move(list)}};
+}
+
+/// Sends the couplings to the companions when they changed (and the full list to joining ones).
+/// The couplings message last sent to the companions (reset with the world).
+Json& lastCouplings() {
+    static Json last;
+    return last;
+}
+
+void syncCouplings() {
+    static bool joined = false; // join listeners can't be removed: registered once
+    if (!joined) {
+        joined = true;
+        feature::net::onCompanionJoined([](Player& p) { feature::net::send(p, "bearings.couplings", couplingsMessage()); });
+    }
+    auto& last = lastCouplings();
+
+    Json        msg = couplingsMessage();
+    if (msg == last) return;
+    last       = msg;
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    level->forEachPlayer([&](Player& p) {
+        feature::net::send(p, "bearings.couplings", msg);
+        return true;
+    });
+}
 } // namespace
 
 // ---- rails ------------------------------------------------------------------------------------
@@ -437,15 +477,20 @@ void tickRail(BlockSource& region, GP const& pos, Kind kind) {
     auto const& block = region.getBlock(bp(pos));
     bool        axisX = game::intState(block, "levitate:rail_axis").value_or(0) == 1;
 
-    // redstone (Create reacts to neighbour updates; polled every 4 ticks, SPEC §8)
-    if ((currentTick() + std::uint64_t(pos.x * 7 + pos.z)) % 4 == 0) {
-        int signal = redstoneSignal(region, ccp(pos));
-        if (kind == Kind::CartAssembler) {
-            int powered = signal > 0 ? 1 : 0;
-            if (game::intState(block, "levitate:powered").value_or(0) != powered) setStates(region, pos, {{"levitate:powered", powered}});
-        } else if (game::intState(block, "levitate:power").value_or(0) != signal) {
-            setStates(region, pos, {{"levitate:power", signal}});
-        }
+    // redstone: Create's neighborChanged (common::redstone watch, set up once per rail)
+    if (!st.railWatches.contains(pos)) {
+        st.railWatches[pos] = common::redstone::watch(pos, [](GP const& at, int signal) {
+            auto* r = regionOf(at.dim);
+            if (!r || !loaded(*r, at)) return;
+            auto const& b  = r->getBlock(bp(at));
+            auto const& id = b.getTypeName();
+            if (id == kCartAssembler) {
+                int powered = signal > 0 ? 1 : 0;
+                if (game::intState(b, "levitate:powered").value_or(0) != powered) setStates(*r, at, {{"levitate:powered", powered}});
+            } else if (id == kControllerRail) {
+                if (game::intState(b, "levitate:power").value_or(0) != signal) setStates(*r, at, {{"levitate:power", signal}});
+            }
+        });
     }
     auto const& now = region.getBlock(bp(pos));
     if (kind == Kind::CartAssembler) st.railTypes[pos] = game::intState(now, "levitate:rail_type").value_or(0);
@@ -520,6 +565,10 @@ void railRemoved(GP const& pos, Kind kind) {
     }
     st.creativeBroken.erase(pos);
     st.cooldown.erase(pos);
+    if (auto w = st.railWatches.find(pos); w != st.railWatches.end()) {
+        common::redstone::unwatch(w->second);
+        st.railWatches.erase(w);
+    }
 }
 
 Actor* spawnCart(BlockSource& region, cc::Vec3d const& at, std::string const& entityId) { return spawnMinecart(region, at, entityId, 0); }
@@ -569,6 +618,7 @@ void tickCarts() {
         cc::Vec3d p    = ccv(cart->getPosition());
         cc::Vec3d diff = p - rec.last;
         rec.last       = p;
+        double headingBefore = rec.heading;
         if (rec.coupled) {
             if (auto* other = actorById(rec.coupled)) {
                 auto o      = ccv(other->getPosition());
@@ -591,6 +641,13 @@ void tickCarts() {
                 rec.heading += std::clamp(approach, -max, max);
                 if (std::abs(cb::shortestAngleDiff(rec.heading, target)) < 1) rec.heading = target;
             }
+        }
+        // Create's OrientedContraptionEntity#isActorActive: "Pause actors while rotating"
+        bool rotating = std::abs(cb::shortestAngleDiff(headingBefore, rec.heading)) > 1e-3;
+        bool paused   = static_cast<cb::CartMovementMode>(rec.mode) == cb::CartMovementMode::RotatePaused && rotating;
+        if (paused != c->actorsPaused()) {
+            c->setActorsPaused(paused);
+            log().info("cart contraption #{}: actors {} while rotating", rec.id, paused ? "paused" : "resumed");
         }
         follow(*c, p, rec.baseY, rec.heading - rec.initial);
     }
@@ -649,6 +706,7 @@ void tickCarts() {
     for (auto i = broken.rbegin(); i != broken.rend(); ++i) st.couplings.erase(st.couplings.begin() + static_cast<long long>(*i));
     if (!broken.empty()) st.dirty = true;
     if (st.dirty && currentTick() % 20 == 0) saveCarts();
+    syncCouplings();
 }
 
 // ---- couplings --------------------------------------------------------------------------------
@@ -691,7 +749,8 @@ bool pickupContraption(Player& player, Actor& cart) {
     if (!config::get<Config>().survivalContraptionPickup && !player.isCreative()) return false;
     auto f = state().carts.find(uidOf(cart));
     if (f == state().carts.end() || f->second.pending) return false;
-    if (cart.getEntityTypeId() != ActorType::MinecartRideable) return false;
+    bool chest = cart.getEntityTypeId() == ActorType::MinecartChest;
+    if (cart.getEntityTypeId() != ActorType::MinecartRideable && !chest) return false; // (no furnace minecart on Bedrock)
     auto& rec = f->second;
     auto* c   = ct::find(rec.id);
     auto* region = regionOf(rec.dim);
@@ -703,36 +762,35 @@ bool pickupContraption(Player& player, Actor& cart) {
         }
     }
     auto snap = ct::ext::snapshot(rec.id);
-    if (!snap || snap->dump().size() > kMaxItemData) {
+    // Create's chest minecart contraption: the cart's own inventory travels in the item too
+    Json                         cartItems = Json::array();
+    std::optional<ContainerComponent*> cartInventory;
+    if (chest) {
+        if (auto inv = cart.getEntityContext().tryGetComponent<ContainerComponent>()) {
+            auto& container = *inv->mContainer;
+            cartInventory   = &*inv;
+            for (int i = 0; i < container.getContainerSize(); ++i) {
+                auto const& s = container.getItem(i);
+                if (!s.isNull() && s.mCount > 0) cartItems.push_back({{"slot", i}, {"item", it::toJsonWithCount(s, s.mCount)}});
+            }
+        }
+    }
+    if (!snap || snap->dump().size() + cartItems.dump().size() > kMaxItemData) {
         actionBar(player, "§c" + trFor(player, "create.contraption.minecart_contraption_too_big", "This Cart Contraption seems too big to pick up"));
         return true;
     }
-    // the engine has no "discard": place the blocks and take them away again (SPEC §8)
-    std::vector<GP> targets;
-    for (auto const& b : c->blocks()) {
-        GP t = c->placement(b.local);
-        if (!loaded(*region, t) || !game::replaceable(*region, bp(t))) {
-            actionBar(player, "§c" + trFor(player, "lv.bearings.pickup_blocked", "Something is in the way of this Cart Contraption"));
-            return true;
-        }
-        targets.push_back(t);
-    }
+    auto item = it::make(chest ? kChestMinecartContraption : kMinecartContraption);
+    if (!item) return false;
+    if (cartInventory) (*cartInventory)->mContainer->removeAllItems(); // (nothing drops when the cart goes)
     if (rec.coupled) {
         std::erase_if(state().couplings, [&](Coupling const& cp) { return cp.a == rec.cart || cp.b == rec.cart; });
     }
-    ct::disassemble(rec.id);
-    auto const* air = game::blockWith("minecraft:air");
-    for (auto const& t : targets) {
-        (void)bd::take(t); // the carried data travels in the item
-        if (auto container = region->tryGetContainer(bp(t))) container->removeAllItems();
-        BlockChangeContext ctx{};
-        if (air) region->setBlock(bp(t), *air, 2, nullptr, ctx);
-        ct::removeGlueAt(rec.dim, ccp(t));
-    }
-    for (auto const& t : targets) region->updateNeighborsAt(bp(t));
-    auto item = it::make(kMinecartContraption);
-    if (!item) return false;
-    it::setData(*item, kItemData, {{"record", *snap}, {"initial", rec.initial}, {"heading", rec.heading}, {"mode", rec.mode}});
+    // Create: the contraption entity is discarded, the item carries the structure
+    ct::discard(rec.id);
+
+    Json itemData{{"record", *snap}, {"initial", rec.initial}, {"heading", rec.heading}, {"mode", rec.mode}};
+    if (chest) itemData["cart_items"] = std::move(cartItems);
+    it::setData(*item, kItemData, itemData);
     give(player, *item);
     log().info("cart contraption #{} picked up by {}", rec.id, player.getRealName());
     state().carts.erase(f);
@@ -745,7 +803,9 @@ bool placeMinecartContraption(Player& player, GP const& rail) {
     auto* region = regionOf(rail.dim);
     if (!region) return false;
     auto const& held = player.getSelectedItem();
-    if (it::idOf(held) != kMinecartContraption) return false;
+    std::string heldId = it::idOf(held);
+    bool        chest  = heldId == kChestMinecartContraption;
+    if (heldId != kMinecartContraption && !chest) return false;
     std::string id = idAt(*region, rail);
     if (!isVanillaRail(id) && id != kCartAssembler && id != kControllerRail) return false;
     auto data = it::getData(held, kItemData);
@@ -759,8 +819,17 @@ bool placeMinecartContraption(Player& player, GP const& rail) {
     double heading = cb::headingOf(fx, fz);
     double initial = data.value("initial", 0.0);
     cc::Vec3d at{rail.x + .5, rail.y + state().railY, rail.z + .5};
-    auto* cart = spawnMinecart(*region, at, "minecraft:minecart", 0);
+    auto* cart = spawnMinecart(*region, at, chest ? "minecraft:chest_minecart" : "minecraft:minecart", 0);
     if (!cart) return false;
+    if (chest) {
+        if (auto inv = cart->getEntityContext().tryGetComponent<ContainerComponent>()) {
+            auto& container = *inv->mContainer;
+            for (auto const& e : data.value("cart_items", Json::array())) {
+                int slot = e.value("slot", -1);
+                if (slot >= 0 && slot < container.getContainerSize()) container.setItem(slot, it::fromJson(e.value("item", Json())));
+            }
+        }
+    }
     cc::Transform t;
     t.origin = cc::Vec3d::of(ccp(rail));
     t.axis   = cc::Axis::Y;
@@ -966,6 +1035,7 @@ void saveCarts() {
 }
 
 void forgetCarts() {
+    lastCouplings() = Json();
     auto railY = state().railY;
     state()    = State{};
     state().railY = railY;

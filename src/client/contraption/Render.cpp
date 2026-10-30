@@ -64,12 +64,14 @@ LL_TYPE_INSTANCE_HOOK(
     float       degrees = 0;
     Vec3        at      = pos;
     DisplayPose pose;
+    bool        tilted = false;
     if (displayPose(entity, context.mFrameAlpha, pose)) {
         // from the straight line between its places onto the contraption's arc
         at      = Vec3{pos.x + float(pose.shift.x), pos.y + float(pose.shift.y), pos.z + float(pose.shift.z)};
         axis    = pose.axis;
         degrees = pose.degrees;
-        if (std::abs(degrees) <= 0.01f) return origin(context, entity, cameraTargetPos, at, rot, ignoreLighting);
+        tilted  = std::abs(pose.tilt) > 0.01f;
+        if (std::abs(degrees) <= 0.01f && !tilted) return origin(context, entity, cameraTargetPos, at, rot, ignoreLighting);
     } else if (!turnedDisplay(entity, axis, degrees)) {
         return origin(context, entity, cameraTargetPos, pos, rot, ignoreLighting);
     }
@@ -82,8 +84,19 @@ LL_TYPE_INSTANCE_HOOK(
     glm::vec3 pivot(at.x, at.y + 0.5f, at.z);
     glm::vec3 dir(axis == 0 ? 1.f : 0.f, axis == 1 ? 1.f : 0.f, axis == 2 ? 1.f : 0.f);
     m = glm::translate(m, pivot);
-    m = glm::rotate(m, glm::radians(degrees), dir);
+    if (tilted) {
+        // the block shows the quarter turns already: undo them, tilt in the contraption's frame
+        // and turn by the whole angle (world = R(axis, angle) R(tiltAxis, tilt) local)
+        float     quarter = static_cast<float>(pose.quarter) * 90.f;
+        glm::vec3 tdir(pose.tiltAxis == 0 ? 1.f : 0.f, pose.tiltAxis == 1 ? 1.f : 0.f, pose.tiltAxis == 2 ? 1.f : 0.f);
+        m = glm::rotate(m, glm::radians(degrees + quarter), dir);
+        m = glm::rotate(m, glm::radians(pose.tilt), tdir);
+        m = glm::rotate(m, glm::radians(-quarter), dir);
+    } else {
+        m = glm::rotate(m, glm::radians(degrees), dir);
+    }
     m = glm::translate(m, -pivot);
+
     origin(context, entity, cameraTargetPos, at, rot, ignoreLighting);
 }
 

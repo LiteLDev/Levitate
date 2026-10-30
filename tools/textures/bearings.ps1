@@ -178,6 +178,26 @@ $contraption = @(
     '................'
 )
 Save-PixelArt -Rows $contraption -Palette @{ k = '#2b2b2b'; m = '#7d7d7d'; n = '#a0a0a0'; w = '#4a4a4a'; p = '#6f4f2c'; l = '#c09560'; d = '#a47b4a' } -Path "$items/minecart_contraption.png"
+# Create's chest minecart contraption: the cart carries a chest under the structure
+$chestContraption = @(
+    '................',
+    '.....pppppp.....',
+    '....pllllllp....',
+    '....pllllllp....',
+    '....pldddllp....',
+    '....pppppppp....',
+    '..kkkkkkkkkkkk..',
+    '..kmbbbbbbbbmk..',
+    '..kmbccccccbmk..',
+    '..kmbbbyybbbmk..',
+    '...kmbbbbbbmk...',
+    '...kkkkkkkkkk...',
+    '...kwk....kwk...',
+    '....k......k....',
+    '................',
+    '................'
+)
+Save-PixelArt -Rows $chestContraption -Palette @{ k = '#2b2b2b'; m = '#7d7d7d'; w = '#4a4a4a'; p = '#6f4f2c'; l = '#c09560'; d = '#a47b4a'; b = '#8a5a26'; c = '#b07a3a'; y = '#d8c060' } -Path "$items/chest_minecart_contraption.png"
 if ($Preview) {
     Save-PixelArt -Rows $coupling -Palette @{ k = '#2e2e2e'; A = '#a49e8a'; S = '#c8c8c8' } -Path (Join-Path $root 'tools/textures/preview/minecart_coupling.png') -Scale 8
 }

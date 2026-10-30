@@ -23,3 +23,4 @@ entity.levitate:seat.name=Seat
 action.hint.exit.levitate:seat=Press Sneak to leave the Seat
 entity.levitate:player_seat.name=Seat
 action.hint.exit.levitate:player_seat=Press Sneak to leave the Seat
+death.attack.create.roller=%1$s was flattened by a Mechanical Roller

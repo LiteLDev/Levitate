@@ -15,6 +15,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/common/Interactions.h"
+#include "feature/common/Items.h"
 #include "feature/goggles/Wrenchable.h"
 #include "feature/signals/SignalsInternal.h"
 #include "game/Blocks.h"
@@ -33,21 +34,75 @@ void deny(Player& player, std::string const& key, std::string const& fallback) {
     log().info("signals: {} was refused: {}", player.getRealName(), key);
 }
 
+nlohmann::json targetJson(Target const& t) {
+    return {
+        {"d", t.dim                                     },
+        {"t", nlohmann::json::array({t.track.x, t.track.y, t.track.z})},
+        {"v", nlohmann::json::array({t.dir.x, t.dir.y, t.dir.z})},
+        {"c", t.curve                                   },
+        {"a", nlohmann::json::array({t.at.x, t.at.y, t.at.z})},
+    };
+}
+
+std::optional<Target> targetOf(nlohmann::json const& j) {
+    try {
+        if (!j.is_object()) return std::nullopt;
+        Target t;
+        t.dim   = j.at("d").get<int>();
+        auto tr = j.at("t");
+        t.track = {tr.at(0).get<int>(), tr.at(1).get<int>(), tr.at(2).get<int>()};
+        auto v  = j.at("v");
+        t.dir   = {v.at(0).get<double>(), v.at(1).get<double>(), v.at(2).get<double>()};
+        t.curve = j.value("c", false);
+        auto a  = j.value("a", nlohmann::json::array({0, 0, 0}));
+        t.at    = {a.at(0).get<double>(), a.at(1).get<double>(), a.at(2).get<double>()};
+        return t;
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
 } // namespace
 
-bool onTargetingItemUse(Player& player, std::string const& item, BlockPos const& clicked, int face) {
+std::optional<Selection> selectionOf(ItemStack const& stack) {
+    std::string id = common::items::idOf(stack);
+    if (id != api::kSignalId && id != api::kObserverId) return std::nullopt;
+    auto t = targetOf(common::items::getData(stack, kTargetData));
+    if (!t) return std::nullopt;
+    return Selection{*t, id};
+}
+
+void setSelection(ItemStack& stack, std::optional<Target> const& target) {
+    if (common::items::isEmpty(stack)) return;
+    common::items::setData(stack, kTargetData, target ? targetJson(*target) : nlohmann::json(nullptr));
+}
+
+void setHeldSelection(Player& player, std::optional<Target> const& target) {
+    ItemStack copy = player.getSelectedItem();
+    if (common::items::isEmpty(copy)) return;
+    setSelection(copy, target);
+    player.setSelectedItem(copy);
+    player.sendInventory(false);
+}
+
+/// In a click: the click's own stack (the game writes it back to the hand after the use, over a
+/// slot set meanwhile) and the hand slot (SimulatedPlayers use a copy that isn't written back).
+void writeSelection(Player& player, ItemStack& held, std::optional<Target> const& target) {
+    setSelection(held, target);
+    if (&held != &player.getSelectedItem() && common::items::idOf(player.getSelectedItem()) == common::items::idOf(held)) setHeldSelection(player, target);
+}
+
+bool onTargetingItemUse(Player& player, ItemStack& held, std::string const& item, BlockPos const& clicked, int face) {
     auto&       s    = state();
     std::string uuid = player.getUuid().asString();
     Kind        kind = item == api::kSignalId ? Kind::Signal : Kind::Observer;
-    auto        sel  = s.selections.find(uuid);
-    if (sel != s.selections.end() && sel->second.item != item) {
-        s.selections.erase(sel); // a selection belongs to the item it was made with
-        sel = s.selections.end();
-    }
+    // Create: the selection is the item stack's own (it travels with the item)
+    auto sel = selectionOf(held);
+    if (sel && sel->item != item) sel.reset();
 
     // sneak-click with a selection clears it
-    if (player.isSneaking() && sel != s.selections.end()) {
-        s.selections.erase(sel);
+    if (player.isSneaking() && sel) {
+        writeSelection(player, held, std::nullopt);
         actionbar(player, "create.track_target.clear", "Cleared track selection", 'f');
         playSound(player, "random.click", 1, .5f);
         log().info("signals: {} cleared the track selection", player.getRealName());
@@ -68,7 +123,7 @@ bool onTargetingItemUse(Player& player, std::string const& item, BlockPos const&
             return true;
         case Overlap::Valid: break;
         }
-        s.selections[uuid] = Selection{*target, item};
+        writeSelection(player, held, *target);
         actionbar(player, "create.track_target.set", "Targeted track selected", 'a');
         playSound(player, "random.click", 1, 1);
         log().info(
@@ -81,7 +136,8 @@ bool onTargetingItemUse(Player& player, std::string const& item, BlockPos const&
         return true;
     }
 
-    if (sel == s.selections.end()) {
+    if (!sel) {
+
         deny(player, "create.track_target.missing", "Right-click the targeted train track first");
         return true;
     }
@@ -93,13 +149,13 @@ bool onTargetingItemUse(Player& player, std::string const& item, BlockPos const&
         static int const dx[] = {0, 0, 0, 0, -1, 1}, dy[] = {-1, 1, 0, 0, 0, 0}, dz[] = {0, 0, -1, 1, 0, 0};
         if (face >= 0 && face < 6) placed = BlockPos{clicked.x + dx[face], clicked.y + dy[face], clicked.z + dz[face]};
     }
-    auto const& t  = sel->second.target;
+    auto const& t  = sel->target;
     double      ex = placed.x - t.track.x, ey = placed.y - t.track.y, ez = placed.z - t.track.z;
     if (t.dim != int(player.getDimensionId()) || std::sqrt(ex * ex + ey * ey + ez * ez) >= kMaxDistance) {
         deny(player, "create.track_target.too_far", "Targeted track is too far from here");
         return true;
     }
-    s.intents[game::globalPos(region, placed)] = {uuid, sel->second};
+    s.intents[game::globalPos(region, placed)] = {uuid, *sel};
     return false; // vanilla places the block; SignalsModule binds it (and clears the selection)
 }
 
@@ -138,7 +194,7 @@ void installHooks() {
     for (std::string item : {std::string(api::kSignalId), std::string(api::kObserverId)}) {
         gHandlers.push_back(ia::onUseOn({{}, item},[](ia::UseOnContext const& c) {
             BlockPos at{c.pos.x, c.pos.y, c.pos.z};
-            if (!onTargetingItemUse(c.player, c.itemId, at, c.face)) return ia::Result::Pass;
+            if (!onTargetingItemUse(c.player, ia::mutableItem(c.item), c.itemId, at, c.face)) return ia::Result::Pass;
             c.player.sendInventory(false);
             return ia::Result::Consume;
         }));

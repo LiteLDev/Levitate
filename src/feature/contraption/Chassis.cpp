@@ -26,6 +26,7 @@
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Interactions.h"
+#include "feature/common/Redstone.h"
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/Internal.h"
 #include "game/Blocks.h"
@@ -53,6 +54,18 @@ constexpr char kDataKey[] = "chassis";
 std::set<std::pair<int, cc::Pos>>& stickers() {
     static std::set<std::pair<int, cc::Pos>> s;
     return s;
+}
+/// The redstone watch of each tracked sticker (Create: neighborChanged updates the sticker).
+std::map<std::pair<int, cc::Pos>, common::redstone::WatchId>& stickerWatches() {
+    static std::map<std::pair<int, cc::Pos>, common::redstone::WatchId> w;
+    return w;
+}
+void watchSticker(int dim, cc::Pos const& pos) {
+    auto key = std::make_pair(dim, pos);
+    if (stickerWatches().contains(key)) return;
+    stickerWatches()[key] = common::redstone::watch({dim, pos.x, pos.y, pos.z}, [](core::GlobalPos const& at, int) {
+        if (auto* region = detail::regionOf(at.dim)) detail::updateSticker(*region, at.dim, {at.x, at.y, at.z});
+    });
 }
 std::vector<std::function<void()>>& deferred() {
     static std::vector<std::function<void()>> d;
@@ -140,13 +153,16 @@ struct ChassisLifecycle {
                 game::db::erase(kDbChassis);
                 log().info("contraption: moved {} chassis ranges into block data", count);
             }
+            stickerWatches().clear();
             if (auto j = game::db::load(kDbStickers); j && j->is_array()) {
                 for (auto const& e : *j)
                     if (e.is_array() && e.size() == 4) stickers().insert({e[0].get<int>(), {e[1].get<int>(), e[2].get<int>(), e[3].get<int>()}});
             }
+            for (auto const& [dim, p] : stickers()) watchSticker(dim, p);
         });
         game::db::onWorldClosed([] {
             stickers().clear();
+            stickerWatches().clear(); // (the redstone watches are dropped with the world)
             deferred().clear();
         });
         // chassis ranges travel with the blocks in BlockData (Create keeps them in the chassis
@@ -243,11 +259,16 @@ void orientPlaced(BlockSource& region, cc::Pos const& pos, cc::Dir clickedFace, 
 
 void trackSticker(int dim, cc::Pos const& pos) {
     if (stickers().insert({dim, pos}).second) persistStickers();
+    watchSticker(dim, pos);
 }
 
 void updateSticker(BlockSource& region, int dim, cc::Pos const& pos) {
     if (blockIdAt(region, pos) != kSticker) {
         if (stickers().erase({dim, pos})) persistStickers();
+        if (auto it = stickerWatches().find({dim, pos}); it != stickerWatches().end()) {
+            common::redstone::unwatch(it->second);
+            stickerWatches().erase(it);
+        }
         return;
     }
     auto states   = statesOf(region.getBlock(toBlockPos(pos)));
@@ -407,11 +428,12 @@ private:
                 log().error("contraption: deferred action failed: {}", ex.what());
             }
         }
-        if (mTicks % 4 == 0) {
+        // stickers that were mined or carried away (their redstone watch only reports power changes)
+        if (mTicks % 200 == 0) {
             for (auto [dim, pos] : std::vector<std::pair<int, cc::Pos>>(stickers().begin(), stickers().end())) {
                 auto* region = detail::regionOf(dim);
-                if (!region || !region->hasChunksAt(detail::toBlockPos(pos), 0, false)) continue;
-                detail::updateSticker(*region, dim, pos);
+                if (region && region->hasChunksAt(detail::toBlockPos(pos), 0, false) && blockIdAt(*region, pos) != kSticker)
+                    detail::updateSticker(*region, dim, pos); // forgets it
             }
         }
         if (mTicks % 10 == 0 && config::get<Config>().glueOutlines) {

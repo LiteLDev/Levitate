@@ -22,6 +22,5 @@
   "create.minecart_coupling.removed": "从矿车上移除所有矿车连轴器",
   "create.contraption.minecart_contraption_too_big": "这一矿车结构似乎太大了，无法拾起",
   "create.contraption.minecart_contraption_illegal_pickup": "一股神秘的力量将这一结构与世界牢牢绑定在了一起",
-  "lv.bearings.pickup_blocked": "有东西挡住了这个矿车装置",
   "lv.bearings.coupling_too_close": "矿车之间距离过近，无法组成双矿车装置"
 }

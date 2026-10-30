@@ -111,6 +111,12 @@ void spawnItem(BlockSource& region, ItemStack const& item, cc::Vec3d const& pos,
 void collectOrDrop(con::MovementContext& ctx, ItemStack const& stack);
 /// Create's damageEntities: hurts (damage > 0) and/or throws the entities in a block.
 void damageEntities(con::MovementContext& ctx, GlobalPos const& pos, bool hurt, bool roller);
+/// Death message of the roller's damage source (Create's CreateDamageSources.roller), a
+/// translation key of the resource pack (actors.lang).
+inline constexpr char kRollerDeathMessage[] = "death.attack.create.roller";
+/// Plays the block's own hit sound at `pos` (Create's getSoundType().getHitSound()) for the
+/// players nearby: the game's hit sound event, resolved by every client from the block.
+void playHitSound(int dim, BlockPos const& pos, Block const& block);
 
 /// Create's BlockBreakingMovementBehaviour state in the actor data.
 struct Breaker {
@@ -174,7 +180,13 @@ bool sitDown(Actor& entity, GlobalPos const& pos);
 /// Whether an entity sits on the seat block at `pos`.
 [[nodiscard]] Actor* seatedAt(GlobalPos const& pos);
 void seatsTick(std::uint64_t tick);
+/// Puts a rider seated on a contraption seat on a seat entity there (the engine moves it with
+/// the seat, so the rider stays seated while the contraption moves).
+void mountOnContraptionSeat(con::Contraption& c, cc::Pos const& local, Actor& rider);
+/// Gets an entity off the seat entity it rides (removing that seat entity).
+void leaveSeat(Actor& rider);
 void seatsInstall();
+void seatsUninstall();
 
 // ---- roller (Roller.cpp) ----------------------------------------------------------------------
 

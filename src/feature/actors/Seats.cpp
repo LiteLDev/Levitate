@@ -5,19 +5,28 @@
 // blocks; a mob sitting there is replaced by the player. Dye of another colour recolours it (the
 // dye is not used). Mobs that stand on a free seat sit down (hostile ones when seatHostileMobs).
 // On a contraption the
-// engine carries the seated entities (`registerSeat`); a moving seat picks up mobs it touches
-// and drops its rider on top of a solid block it moves into; at disassembly the riders sit down
-// on the placed seats again.
+// engine carries the seated entities (`registerSeat`) by moving the seat entity they ride, so
+// they stay seated while it moves; a moving seat picks up mobs it touches and drops its rider on
+// top of a solid block it moves into; at disassembly the riders sit down on the placed seats again.
+// Seats halve fall damage and bounce what lands on them without sitting down (Create's
+// SeatBlock#fallOn / updateEntityAfterFallOn).
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
+#include <unordered_set>
 
+#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec2.h"
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/ecs/gamerefs_entity/EntityContext.h"
 #include "mc/deps/ecs/gamerefs_entity/GameRefsEntity.h"
+#include "mc/deps/vanilla_components/StateVectorComponent.h"
+#include "mc/network/MinecraftPacketIds.h"
+#include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/SetActorMotionPacket.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorCategory.h"
 #include "mc/world/actor/ActorDefinitionIdentifier.h"
@@ -74,13 +83,34 @@ std::vector<Actor*> seatEntitiesAt(BlockSource& region, GlobalPos const& pos) {
     return out;
 }
 
-Actor* spawnSeatEntity(BlockSource& region, GlobalPos const& pos, bool forPlayer) {
+Actor* spawnSeatEntityAt(BlockSource& region, Vec3 const& at, bool forPlayer) {
     auto level = ll::service::getLevel();
     if (!level) return nullptr;
-    Vec3 at{float(pos.x + .5), float(pos.y + (forPlayer ? kPlayerSeatEntityY : kSeatEntityY)), float(pos.z + .5)};
     auto owner = level->getActorFactory().createSpawnedActor(ActorDefinitionIdentifier(std::string(forPlayer ? kPlayerSeatEntity : kSeatEntity)), nullptr, at, Vec2{0, 0});
     if (!owner) return nullptr;
     return level->addEntity(region, std::move(owner));
+}
+
+Actor* spawnSeatEntity(BlockSource& region, GlobalPos const& pos, bool forPlayer) {
+    Vec3 at{float(pos.x + .5), float(pos.y + (forPlayer ? kPlayerSeatEntityY : kSeatEntityY)), float(pos.z + .5)};
+    return spawnSeatEntityAt(region, at, forPlayer);
+}
+
+/// Riders seated on a contraption (their seat entities are carried, not removed).
+std::unordered_set<std::int64_t> carriedRiders() {
+    std::unordered_set<std::int64_t> out;
+    for (auto id : con::all())
+        if (auto* c = con::find(id))
+            for (auto const& s : c->seated()) out.insert(s.second);
+    return out;
+}
+
+/// Gets an entity off its seat entity (which goes with it).
+void leaveSeatEntity(Actor& rider) {
+    auto* v = rider.getVehicle();
+    if (!v || !isSeatEntity(*v)) return;
+    rider.stopRiding(true, false, false, false);
+    v->remove();
 }
 
 Actor* fetch(std::int64_t uid) {
@@ -177,14 +207,33 @@ bool seatUse(Player& player, GlobalPos const& pos, ItemStack const& held) {
     return true;
 }
 
+void leaveSeat(Actor& rider) { leaveSeatEntity(rider); }
+
+void mountOnContraptionSeat(con::Contraption& c, cc::Pos const& local, Actor& rider) {
+    auto* region = regionOf(c.dimension());
+    if (!region) return;
+    if (auto* v = rider.getVehicle()) {
+        if (isSeatEntity(*v)) leaveSeatEntity(rider);
+        else rider.stopRiding(true, false, false, false);
+    }
+    bool      player = rider.isPlayer();
+    cc::Vec3d at     = c.toWorld(cc::Vec3d::of(local) + cc::Vec3d{.5, player ? kPlayerSeatEntityY : kSeatEntityY, .5});
+    auto*     seat   = spawnSeatEntityAt(*region, Vec3{float(at.x), float(at.y), float(at.z)}, player);
+    if (!seat) return;
+    if (!rider.startRiding(*seat, true)) seat->remove(); // the engine carries it standing then
+}
+
 void seatsTick(std::uint64_t tick) {
     if (tick % 2 != 0) return;
     auto level = ll::service::getLevel();
     if (!level) return;
+    auto carried = carriedRiders();
     for (auto* a : level->getRuntimeActorList()) {
         if (!a || a->isDead()) continue;
         auto& region = a->getDimensionBlockSource();
         if (isSeatEntity(*a)) {
+            // on a moving contraption: the engine moves it with its seat
+            if (auto* p = a->getFirstPassenger(); p && carried.contains(p->getOrCreateUniqueID().rawID)) continue;
             // Create's SeatEntity.tick: gone without a rider or without its seat block
             auto bp = seatBlockOf(*a);
             if (!a->hasPassenger() || !region.hasChunksAt(bp, 0, false) || !isSeat(region.getBlock(bp).getTypeName())) {
@@ -235,6 +284,7 @@ void seatActorTick(con::MovementContext& ctx) {
     for (auto* a : region->getEntities(box, 0.f)) {
         if (!a || a->getVehicle() || !canBePickedUp(*a)) continue;
         if (ctx.contraption.seat(ctx.localPos, a->getOrCreateUniqueID().rawID)) {
+            mountOnContraptionSeat(ctx.contraption, ctx.localPos, *a);
             logAction(a->getTypeName() + " picked up by a seat of contraption #" + std::to_string(ctx.contraption.id()));
         }
         return;
@@ -256,6 +306,7 @@ void seatVisit(con::MovementContext& ctx, GlobalPos const& pos) {
     auto* rider = riderOf(ctx.contraption, ctx.localPos);
     if (!rider) return;
     ctx.contraption.unseat(rider->getOrCreateUniqueID().rawID);
+    leaveSeatEntity(*rider);
     Vec3 to{float(pos.x + .5), float(pos.y + (slab ? .5 : 1.0)), float(pos.z + .5)};
     if (rider->isPlayer()) static_cast<Player*>(rider)->teleport(to, rider->getDimensionId());
     else rider->teleportTo(to, true, 0, 0, false);
@@ -279,14 +330,8 @@ struct Registrar {
             "actors",
             [](BlockSource& region, core::GlobalPos const& pos) -> std::optional<Json> {
                 std::string id = region.getBlock(toBlockPos(pos)).getTypeName();
-                if (isSeat(id)) {
-                    // the rider leaves the seat entity: the engine carries it from now on
-                    for (auto* s : seatEntitiesAt(region, pos)) {
-                        if (auto* p = s->getFirstPassenger()) p->stopRiding(true, false, false, false);
-                        s->remove();
-                    }
-                    return Json{{"seat", true}};
-                }
+                // (a seat keeps its seat entity and rider: the engine moves them with the seat)
+                if (isSeat(id)) return Json{{"seat", true}};
                 if (id == kControls) return Json{{"controls", true}};
                 return std::nullopt;
             },
@@ -300,10 +345,11 @@ struct Registrar {
                 cc::Vec3d p{pos.x + .5, pos.y + kCarriedHeight, pos.z + .5};
                 cc::Vec3d lo{double(pos.x), double(pos.y), double(pos.z)};
                 for (auto* a : entitiesIn(region, lo, lo + cc::Vec3d{1, 1.5, 1})) {
-                    if (!a || a->getVehicle() || isSeatEntity(*a) || a->getEntityTypeId() == ActorType::FallingBlock
+                    if (!a || isSeatEntity(*a) || a->getEntityTypeId() == ActorType::FallingBlock
                         || a->getEntityTypeId() == ActorType::ItemEntity) {
                         continue;
                     }
+                    if (auto* v = a->getVehicle(); v && !isSeatEntity(*v)) continue;
                     auto f = a->getFeetPos();
                     if (std::abs(f.x - p.x) > .25 || std::abs(f.z - p.z) > .25 || std::abs(f.y - p.y) > .3) continue;
                     // after the block is in place (this runs inside the disassembly)
@@ -322,6 +368,64 @@ Registrar const gRegistrar;
 
 } // namespace
 
-void seatsInstall() {}
+// ---- landing on a seat (Create's SeatBlock#fallOn / updateEntityAfterFallOn) ------------------
+
+namespace {
+
+/// The seat block an entity stands on (its feet on the cushion or on the block below them).
+std::optional<GlobalPos> seatUnder(Actor& a) {
+    auto& region = a.getDimensionBlockSource();
+    auto  f      = a.getFeetPos();
+    for (float dy : {-0.01f, -0.51f}) {
+        BlockPos bp{int(std::floor(f.x)), int(std::floor(f.y + dy)), int(std::floor(f.z))};
+        if (!region.hasChunksAt(bp, 0, false)) return std::nullopt;
+        if (isSeat(region.getBlock(bp).getTypeName())) return GlobalPos{static_cast<int>(a.getDimensionId()), bp.x, bp.y, bp.z};
+    }
+    return std::nullopt;
+}
+
+void bounce(Actor& a, float ya) {
+    // Create: vy = -vy * 0.66 (0.8 times that for non-living entities)
+    double factor = a.hasCategory(ActorCategory::Mob) ? 1.0 : 0.8;
+    Vec3&  delta  = *a.mBuiltInComponents->mStateVectorComponent->mPosDelta;
+    delta.y       = static_cast<float>(-ya * 0.66 * factor);
+    if (a.isPlayer()) {
+        // players move themselves: their client gets the motion
+        auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::SetActorMotion);
+        if (!packet) return;
+        auto& pkt      = static_cast<SetActorMotionPacket&>(*packet);
+        pkt.mRuntimeId = a.getRuntimeID();
+        pkt.mMotion    = delta;
+        pkt.sendTo(static_cast<Player&>(a));
+    }
+}
+
+} // namespace
+
+LL_TYPE_INSTANCE_HOOK(SeatFallHook, ll::memory::HookPriority::Normal, Actor, &Actor::checkFallDamage, void, float ya, bool onGround, bool recheckLiquid) {
+    // a real landing (not the gravity tick of an entity standing still) on a seat
+    if (onGround && ya < -0.1f && !isClientSide() && !isSeatEntity(*this) && !getVehicle()) {
+        try {
+            if (auto seat = seatUnder(*this)) {
+                float fall = getFallDistance();
+                if (fall > 0) setFallDistance(fall * 0.5f); // Create: fallOn(..., fallDistance * 0.5F)
+                bool sits = !isPlayer() && canBePickedUp(*this) && !seatedAt(*seat); // sits down (seatsTick)
+                bool suppress = isPlayer() && isSneaking(); // Entity#isSuppressingBounce
+                if (!sits && !suppress) {
+                    origin(ya, onGround, recheckLiquid);
+                    bounce(*this, ya);
+                    return;
+                }
+            }
+        } catch (std::exception const& e) {
+            log().error("actors: seat landing failed: {}", e.what());
+        }
+    }
+    origin(ya, onGround, recheckLiquid);
+}
+
+void seatsInstall() { SeatFallHook::hook(); }
+void seatsUninstall() { SeatFallHook::unhook(); }
+
 
 } // namespace lv::feature::actors

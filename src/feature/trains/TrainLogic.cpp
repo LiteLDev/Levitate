@@ -197,19 +197,19 @@ Train* trainOfContraption(std::uint64_t contraptionId) {
 
 // ---- carriages ----------------------------------------------------------------------------------
 
-void placeCarriages(Train& t) {
-    t.spansDirty = true;
+std::vector<std::pair<std::uint64_t, cc::Transform>> carriageTransforms(Train const& t, ct::Body const& body) {
+    std::vector<std::pair<std::uint64_t, cc::Transform>> out;
     auto& r   = rail();
-    auto  pts = t.body.points(r);
-    if (pts.size() != t.body.offsets.size()) return;
+    auto  pts = body.points(r);
+    if (pts.size() != body.offsets.size()) return out;
     auto posAt = [&](double offset) -> std::optional<Vec3d> {
-        for (size_t i = 0; i < t.body.offsets.size(); ++i)
-            if (std::abs(t.body.offsets[i] - offset) < 1e-6) return ct::positionOf(r, pts[i]);
-        auto p = t.body.pointAt(r, offset);
+        for (size_t i = 0; i < body.offsets.size(); ++i)
+            if (std::abs(body.offsets[i] - offset) < 1e-6) return ct::positionOf(r, pts[i]);
+        auto p = body.pointAt(r, offset);
         return p ? ct::positionOf(r, *p) : std::nullopt;
     };
     double baseYaw = ct::yawOf({double(t.ax), 0, double(t.az)});
-    for (auto& c : t.carriages) {
+    for (auto const& c : t.carriages) {
         auto* con = contraption::find(c.contraption);
         if (!con || c.bogeyOffsets.empty()) continue;
         double o1 = c.bogeyOffsets.front();
@@ -230,11 +230,25 @@ void placeCarriages(Train& t) {
         tr.axis          = cc::Axis::Y;
         tr.pivot         = {0.5, 0, 0.5};
         tr.angle         = normAngle(ct::yawOf(dir) - baseYaw);
+        // Create's carriage pitch from its bogeys: tilt about the local horizontal axis across
+        // the carriage (it runs along the assembly direction), before the yaw
+        auto [tiltAxis, tilt] = cc::pitchTilt(t.ax, t.az, {dir.x, dir.y, dir.z});
+        tr.tiltAxis           = tiltAxis;
+        tr.tilt               = tilt;
+
         cc::Vec3d target{p1->x, p1->y + t.lift, p1->z};
         tr.offset = target - tr.origin - tr.pivot;
-        con->setTransform(tr);
+        out.emplace_back(c.contraption, tr);
     }
+    return out;
 }
+
+void placeCarriages(Train& t) {
+    t.spansDirty = true;
+    for (auto const& [id, tr] : carriageTransforms(t, t.body))
+        if (auto* con = contraption::find(id)) con->setTransform(tr);
+}
+
 
 // ---- status -------------------------------------------------------------------------------------
 
@@ -805,25 +819,33 @@ void transferMail(Train& t, Station const& st) {
     }
 }
 
-/// Tries to put a train whose track changed back on the graph (Create's reattachToTracks).
-bool reattach(Train& t) {
-    auto loc = rail().nearestEdge(t.dim, t.lastFront, 0.6);
-    if (!loc) return false;
+} // namespace
+
+std::optional<ct::Body> bodyAt(Train const& t, Vec3d const& point, Vec3d const& dir, double maxDistance) {
+    auto loc = rail().nearestEdge(t.dim, point, maxDistance);
+    if (!loc) return std::nullopt;
     auto p = ct::fromGraph(rail(), *loc);
     auto a = p.from.location(), b = p.to.location();
-    if ((b - a).dot(t.lastDir) < 0) p = ct::reverse(rail(), p);
+    if ((b - a).dot(dir) < 0) p = ct::reverse(rail(), p);
     ct::Body body = t.body;
     body.front    = p;
     body.route.clear();
     for (auto const& pt : body.points(rail()))
-        if (!ct::resolve(rail(), pt)) return false;
-    // the whole train must still be on track
-    auto back = body.pointAt(rail(), body.length());
-    if (!back) return false;
-    t.body = std::move(body);
-    return true;
+        if (!ct::resolve(rail(), pt)) return std::nullopt;
+    // the whole train must be on track
+    if (!body.pointAt(rail(), body.length())) return std::nullopt;
+    return body;
 }
 
+namespace {
+
+/// Tries to put a train whose track changed back on the graph (Create's reattachToTracks).
+bool reattach(Train& t) {
+    auto body = bodyAt(t, t.lastFront, t.lastDir, 0.6);
+    if (!body) return false;
+    t.body = std::move(*body);
+    return true;
+}
 void tickTrain(Train& t) {
     auto& r     = rail();
     auto  stats = t.stats();
@@ -1084,8 +1106,8 @@ void removeTrain(std::uint64_t id) {
     if (it == m.end()) return;
     Train& t = it->second;
     if (!t.controller.empty()) stopControlling(t, false);
-    for (auto const& c : t.carriages)
-        if (contraption::find(c.contraption)) contraption::disassemble(c.contraption);
+    // Create's /create train remove: the carriage entities are discarded, nothing is placed
+    for (auto const& c : t.carriages) contraption::discard(c.contraption);
     t.carriages.clear();
     for (auto const& pid : t.occupied)
         if (auto const* p = rail().point(pid))
@@ -1246,3 +1268,20 @@ void onPointEntered(std::function<void(std::uint64_t, core::tracks::EdgePoint co
 void onPointLeft(std::function<void(std::uint64_t, core::tracks::EdgePoint const&)> fn) { ft::ext().left.push_back(std::move(fn)); }
 
 } // namespace lv::feature::tracks::trains
+
+namespace lv::feature::trains {
+
+std::optional<DoorMode> stationDoorModeOf(std::uint64_t contraption) {
+    for (auto const& [id, t] : state().trains) {
+        if (t.invalid) continue;
+        bool mine = std::any_of(t.carriages.begin(), t.carriages.end(), [&](Carriage const& c) { return c.contraption == contraption; });
+        if (!mine) continue;
+        if (t.currentStation.empty() || std::abs(t.speed) > 1e-6) return std::nullopt;
+        auto s = state().stations.find(t.currentStation);
+        if (s == state().stations.end()) return std::nullopt;
+        return s->second.door;
+    }
+    return std::nullopt;
+}
+
+} // namespace lv::feature::trains

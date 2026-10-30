@@ -935,7 +935,8 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   portals, ...) stop assembly with the reason shown.
 - **Moving**: the structure becomes a server entity carrying block states + BlockData; it moves
   (translation / rotation about an axis / following a cart or train) each tick; entities standing
-  on it are carried; players collide with its blocks (server collision boxes); seats can be ridden.
+  on it are carried; entities collide with its blocks through the game's own collision (the server's,
+  and the client mod's for the local player); seats can be ridden, the riders stay seated.
 - **Actors**: blocks on a contraption may act while moving (`contraption::registerActor`): drills
   break, saws cut, harvesters harvest, ploughs plough, rollers pave, deployers use, PSIs transfer,
   controls toggle actors.
@@ -944,10 +945,14 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
 - **Disassembly**: placing back aligned to the grid (rounding as Create), blocks that can't be placed
   drop as items.
 - **Super glue**: drag-select a box (two clicks) with super glue to glue a region (max 24 ⚠ blocks
-  in each axis); glued regions render as faint outlines with the client mod; removed by hitting with
-  glue / breaking.
+  in each axis); while the player holds super glue the client mod outlines the regions (passive green
+  0x4D9162, the one under the crosshair 0x68C586) and the selection from the first click to the
+  looked-at block (green when it can be glued, yellow 0xC5B548 when too big or not connected); the
+  server sends the regions within 48 blocks on `contraption.glue`; vanilla players see particles along
+  the edges. Removed by hitting with glue / breaking.
 - **Chassis**: linear (sticky faces via slime ball, range by scroll value), secondary linear, radial
-  (range radius); stickers stick the block in front when powered. The range is a U3 value box on
+  (range radius); stickers stick the block in front when powered (their redstone input through the
+  shared `redstone::watch`, Create's neighborChanged). The range is a U3 value box on
   every face of the chassis, opened with the wrench only (Create's `requiresWrench`), 1..
   `maxChassisRange` with milestones every 10, labelled "Range of Sticky Sides" (radial: "Radius when
   Sticky"); a value set on one chassis goes to its connected group. Stored in BlockData
@@ -961,10 +966,14 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   includeAnchor}) -> AssembleResult{id | errorKey, errorText}`; `find(id)` → `Contraption&` with
   `setTransform(t)` (anchors that compute their position each tick: bearings, pistons),
   `setMotion({velocity, angularVelocity, follow, ticks})` (velocity per tick, follow an actor),
-  `stop()`, `storage()`, `anchorData()`, `seat()`; `disassemble(id)`; `all()`. Ids are persisted:
+  `stop()`, `storage()`, `anchorData()`, `seat()` / `seated()`, `setActorsPaused(bool)` (Create's
+  isActorActive of a cart turning in "Pause actors while rotating"); `disassemble(id)`; `discard(id)`
+  (Create's entity discard: gone without placing or dropping anything); `setBlockStates(id, local,
+  states)` (a carried block changes, its collision and display follow: doors); `bounds(id)`; `all()`. Ids are persisted:
   keep the id in your BlockData, never the pointer. Transform: local block coordinates relative to
   the anchor; `world = origin + offset + pivot + R(local - pivot)`, R = rotation by `angle` degrees
-  about `axis` (right-hand rule). `/create contraption assemble|move|rotate|stop|disassemble|list|
+  about `axis` (right-hand rule) after an optional `tilt` about the local `tiltAxis` (a train carriage
+  pitched on a slope; disassembly ignores it). `/create contraption assemble|move|rotate|stop|disassemble|list|
   demo` is the test anchor.
 - **Assembly rules** (Create's `Contraption#moveBlock`, pure code in `src/core/contraption/Assembly`):
   BFS from the start positions; a neighbour joins when both are in one glue region, when it is
@@ -995,11 +1004,17 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   tanks through `registerFluidStorage(blockId, {read, write})` on the carried data.
 - **Movement each tick**: the anchor's transform or the motion; actors (`registerActor(blockId,
   MovementBehaviour{startMoving, tick, visitNewPosition, stopMoving, isActive})`, Create's
-  MovementBehaviour; an actor may `stall` the contraption); entities standing on it are carried
-  (the point under their feet follows the transform, rotation included); players and mobs are pushed
-  out of its blocks (also while it stands still: the blocks are gone from the world, the contraption
-  is the floor); seated entities (`registerSeat(blockId, height)`, entities in a seat block at assembly
-  or `seat()`) follow their seat, players leave by sneaking. Unloaded anchor chunk: frozen.
+  MovementBehaviour; an actor may `stall` the contraption; `tickWhileStill` actors also tick while it
+  stands still, as Create ticks every actor each tick); entities standing on it are carried
+  (the point under their feet follows the transform, rotation included); entities collide with its
+  blocks: a hook of `BlockSource::fetchCollisionShapes` / `fetchCollisionShapesAndBlocks` adds each
+  carried block's collision box (the bounding box of the turned box, Create's oriented colliders
+  approximated) on the server, and from the synced transforms on the client mod's side (the local
+  player's prediction; `contraption.blocks` carries each block's box); players and mobs are still
+  pushed out of its blocks for vanilla clients (also while it stands still: the blocks are gone from
+  the world, the contraption is the floor); seated entities (`registerSeat(blockId, height)`, entities
+  in a seat block at assembly or `seat()`) follow their seat: one riding a seat entity stays mounted
+  and the engine moves the seat entity; players leave by sneaking. Unloaded anchor chunk: frozen.
 - **Disassembly**: angle rounded to the nearest quarter turn, offset to whole blocks; block states
   rotated (`facing_direction`, `minecraft:facing_direction`, `minecraft:block_face`,
   `minecraft:cardinal_direction`, `pillar_axis`, `direction`, `weirdo_direction`,
@@ -2738,7 +2753,9 @@ the bearing's state (running, angle, contraption ids, mode) lives in its BlockDa
   structure at the assembler turned to the assembler's direction (coupled: both carts must be on
   disassembling assemblers; it keeps its orientation). **Cart Movement Mode** box: Always face toward
   motion (the structure turns towards the cart's motion along the rail by at most
-  `|motion| · 12 / max(1, width / 6)`° per tick) / Pause actors while rotating / Lock rotation.
+  `|motion| · 12 / max(1, width / 6)`° per tick) / Pause actors while rotating (the same, its actors
+  don't act while it turns) / Lock rotation. The assembler's and the controller rail's redstone input
+  comes from the shared `redstone::watch`.
   If the cart breaks, the structure is placed where it is.
 - **Controller rail**: a cart on it is driven at `0.4 · power / 15` b/t in the rail's direction when
   powered and not moving against it; otherwise it is braked to the rail's centre.
@@ -2748,10 +2765,13 @@ the bearing's state (running, angle, contraption ids, mode) lives in its BlockDa
   Coupled carts keep their distance (Create's soft collision step: each cart corrected along the
   coupling by the predicted stretch, clamped to 1.75, projected on its rail, speeds ≤ 0.4). Wrench on
   a coupled cart removes its couplings (items dropped, "Removed all couplings from minecart"); a
-  broken cart drops its couplings.
+  broken cart drops its couplings. The client mod draws each coupling between the carts (Create's
+  CouplingRenderer: a ring on each cart's end and the connector between them, following both carts
+  every frame; pairs sent on `bearings.couplings`).
 - **Minecart contraption** (item, stack 1): wrench right-click on a cart carrying a contraption
   (survival only when `survivalContraptionPickup`) picks it up as `minecart_contraption` with the
-  structure; refused for spawners ("A mystical force…") and for structures over 512 KB of data
+  structure (a chest minecart: `chest_minecart_contraption`, carrying the cart's inventory too); the
+  contraption is discarded (nothing is placed); refused for spawners ("A mystical force…") and for structures over 512 KB of data
   ("…too big to pick up"). Using the item on a rail places a minecart with the structure, facing the
   player's view along the rail.
 - **Config** `config/bearings.json` (Create's CKinetics keys and defaults): `windmillSailsPerRPM` 8,
@@ -2784,8 +2804,13 @@ block, the actor *visits* it. Common rules (Create's MovementBehaviour / BlockBr
   to move. Breaking is cancelled when the actor stops.
 - **Entities** in a visited block (unless it is a solid full block) are thrown: the motion plus a
   quarter of its length upwards, capped at 4 blocks per tick (players get the motion packet).
-  The roller also hurts them: `clamp(6 · |motion|^0.4 + 1, 2, 10)`. Items, display entities and
-  seat entities are left alone.
+  The roller also hurts them: `clamp(6 · |motion|^0.4 + 1, 2, 10)`, with its own death message
+  (`death.attack.create.roller`, "%1$s was flattened by a Mechanical Roller"). Items, display
+  entities and seat entities are left alone. A block being broken plays its own hit sound (the game's
+  `Hit` sound event with the block's runtime id, Create's getSoundType().getHitSound()).
+- **Support**: harvesters, ploughs and rollers hang on the block behind them (Create's
+  AttachedActorBlock): placing one where that block has no collision shape is refused (the item
+  comes back), and one whose block behind goes drops as an item (block changes watched centrally).
 - **Contraption controls** can disable an actor type (below); a disabled actor does nothing.
 
 Actors:
@@ -2844,7 +2869,10 @@ Actors:
 - **Seats**: right-click sits the player (an invisible rideable `levitate:seat` entity, as Create's
   SeatEntity; sneak to leave), or a mob the player leads on a leash within 10 blocks; a mob already
   sitting there is ejected for the player, a player there keeps the seat. A dye of another colour
-  recolours it (the dye stays). A living mob (not a shulker / armor stand; hostile ones only with
+  recolours it (the dye stays); in the crafting grid any seat + a dye gives the seat of that colour
+  (one recipe per pair, `tools/gen/seats.ps1`). An entity landing on a seat takes half the fall
+  distance; one that doesn't sit down (players, non-pickable mobs, a taken seat) bounces
+  (`vy = −vy · 0.66`, 0.8 of that for non-living; sneaking players don't). A living mob (not a shulker / armor stand; hostile ones only with
   `seatHostileMobs`) standing on a free seat sits down (checked every 2 ticks); the seat entity
   disappears when its seat or rider is gone and puts a mob rider half a block up. On a contraption
   the engine carries seated entities (assembled riders stay seated); a moving seat picks up mobs it
@@ -3308,7 +3336,9 @@ without a schedule of its own); with an auto-schedule held → it is given back;
 screen. Default name "Track Station" (max 25 chars); train names max 35.
 
 **Assembly** (station screen "Create new Train" on straight orthogonal track → assembly mode; the
-station's flag rises, no train may pass or approach it). The assembly track starts one block past
+station's flag rises, no train may pass or approach it; the client mod draws Create's flag on the
+station, raised while a train stands there or in assembly mode, waving while it settles, sent on
+`trains.flags`). The assembly track starts one block past
 the station's track, against the station's direction, and runs while the same straight track
 continues (up to `maxAssemblyLength` 128). Train casing on a track of the area creates a small bogey
 on top (consumed unless creative; at index 0 or ≥ 3 and not within 2 of another bogey; the block
@@ -3332,7 +3362,12 @@ station marker, each bogey centre 1 block behind the previous index and its whee
 points follow the junction choices of the leading point (both directions), so carriages keep their
 spacing exactly along the track. Each carriage's contraption is placed every tick: first bogey at its
 point (+1 block up), yaw from the first to the last bogey (one-bogey carriages: from its wheel
-points). Entities standing on carriages are carried, players collide with them (U4).
+points); on a slope the carriage is pitched from its first to its last bogey (the transform's tilt,
+  Create's carriage pitch); the client mod turns the bogeys' wheels with the distance travelled
+  (Create's BogeyRenderer). Entities standing on carriages are carried, entities collide with them (U4).
+  Carried sliding / train doors open while the train stands at a station whose door control allows
+  their side (and close as it leaves), as at an elevator floor (contact door control): Create's
+  SlidingDoorMovementBehaviour (`src/feature/building/DoorMovement.cpp`).
 
 **Speed** (per tick): navigation (Create's Navigation.tick): final approach snaps onto the target
 when `target + 0.25 − |speed| < 1/32`; within 10 blocks the speed is pulled towards `top · d / 10`;
@@ -3405,7 +3440,13 @@ yaw a multiple of 90°: the carriages are aligned to the marker and placed back 
 remembers the train's name; a schedule goes back to the player.
 
 **Derailment and collisions.** Track removed under a train: it detaches (`track_missing`, derailed)
-and tries to re-attach to the track at its last position every 40 ticks (`back_on_track`). A dead end
+and tries to re-attach to the track at its last position every 40 ticks (`back_on_track`).
+Wrench relocation (Create's TrainRelocator): right-clicking a standing train with the wrench selects
+it ("Click a Track to Relocate {0} to. Sneak-Click to abort"; a moving one: "Cannot relocate a
+moving Train"); while the wrench is held the looked-at track is checked (the train must fit there,
+facing the look direction, within 24 blocks: valid / invalid / too far in the action bar, the client
+mod draws the carriages at the target); a click puts the train there stopped ("Relocation
+successful"), a sneak-click aborts. A dead end
 stops it (`end_of_track`). The leading point of a moving train touching another train's segments
 (within 0.5 block, height within 3): both trains bounce back (speed `−clamp(v, −0.5, 0.5)`) and derail
 (`collision`, "In <dim> near [x,y,z]"); combined speed > 0.2 b/t makes an explosion of power
@@ -3431,8 +3472,8 @@ schedule title, platform) and "Train Schedule Status" ("Departs in …").
 carriages with their contraption ids, speed, runtime, navigation); carriages persist with U4.
 
 **Commands.** `/create trains` (train summary: networks, stations, every train's status line),
-`/create killtrain <name|id>` (Create 6.0.10's `/create train remove`; the carriages are placed back
-as blocks where they are, see §8).
+`/create killtrain <name|id>` and `/create train remove <name|id>` (Create 6.0.10's `/create train
+remove`: the carriages vanish, nothing is placed).
 
 **Screens.** Station (native for companions, forms for vanilla; the station name is the native
 screen's title text field, 25 characters, the present train's name a text field, 35): idle (create new train / why not),
@@ -3441,7 +3482,13 @@ assembly (bogey count, how-to, errors, assemble / cancel), train present (name, 
 control (Open All / North / East / South / West / None), arriving trains with Create's ETA texts
 (now, `N min`, `Ns`). Schedule editor: entries with their summaries, edit / type / move / remove,
 conditions with edit / remove, add condition (AND) / alternative condition (OR), add action, Loop
-Forever, Reset Progress, Skip current Stop; the vanilla forms edit everything field by field.
+Forever, Reset Progress, Skip current Stop. Its instruction and condition editors are native
+sub-screens (Create's editor of ScheduleScreen): a type selector, text fields for station names,
+schedule titles (25 characters) and package addresses (50), scroll inputs for throttle, durations,
+time of day, operators and player counts, a digits-only threshold field, and ghost item slots for
+the reference item and the redstone link frequency, filled from the inventory. Confirming, or
+closing the screen with an editor open, sends the part (`set_instruction` / `set_condition`); the
+server checks it against the same limits. The vanilla forms edit everything field by field.
 
 #### 3.6.28 Signals and observers (U28)
 
@@ -3460,7 +3507,10 @@ track markers in `src/client/signals/`, contract `src/feature/tracks/SignalsExt.
 - Right-click elsewhere: places the block when it is closer than 16 blocks to the selected track
   (else `too_far`); without a selection `missing`. Success: "Successfully bound to targeted track",
   the selection is used up. Sneak-right-click a block with a selection clears it
-  (`create.track_target.clear`). Selections are per player and per item (§8).
+  (`create.track_target.clear`). The selection (track, direction, curve point) is stored on the
+  item stack (item data `lv:track_target`) and travels with it; placing clears it from the held
+  stack. While the held stack carries one, the client mod outlines the selected track (Create's
+  TrackTargetingClient); the glint of Create's isFoil isn't drawn (§8).
 - The block keeps its target. When the track graph around it is rebuilt or removed, it binds
   again; while its track is gone the signal is dark (`Invalid`) and the boundary is gone.
 
@@ -3497,8 +3547,8 @@ is occupied by any train or reserved through another signal; for a cross signal,
 would be green but a signal leading out of its section (on the way forward, no turns sharper
 than Create's 7/8 rule) is red; green otherwise; off when unbound. The block shows it with its
 lamp (`levitate:signal_state`, vanilla clients and the client mod alike). Comparators reading a
-signal output 15 while it is red, 0 otherwise. Redstone input sets `levitate:powered` (polled
-every 4 ticks, §8).
+signal output 15 while it is red, 0 otherwise. Redstone input sets `levitate:powered` (the shared
+`redstone::watch`; powered track observers are signal sources there).
 
 **Track observers** (edge point type `levitate:observer`, never shared, can't be within 0.75 of
 another point): powered while a train covers its position, and for 8 ticks after (Create's
@@ -4130,16 +4180,12 @@ matches Create's official Chinese translation wording).
 | JEI/EMI recipe viewers | third-party Java mods with no Bedrock counterpart | recipes visible in Ponder/tooltips; the configs are edited with `/create config` (U42) or as JSON + `/create reload` |
 | Create's mod-compat crushed ores for absent mods | no such mods | items exist (as Create registers them), with the vanilla-only recipes |
 | Item / block icons of the redstone link: Create draws the upward link | block item icons use the default permutation (facing 0 = down) | `minecraft:item_visual` with the upward geometry |
-| Removing a train without placing its blocks (`/create train remove`, U27) | the contraption API only disassembles | `/create killtrain` places the carriages back as blocks where they stand |
 | Value box editing by *holding* right-click for **vanilla** clients | the server only sees discrete use packets, no release; the client mod reports it (`valuebox.hold` / `valuebox.release`, U42) | vanilla: a click opens the form |
 | Filter slot items rendered on the block face for **vanilla** clients | no item rendering hooks for vanilla clients | the client mod draws the filter item on every face its slot is on, facing out, a quarter block big (display items, U33), and the hover label names it; vanilla players see it in the form / action messages (U3) |
 | Value box outlines and labels for **vanilla** clients | no client-side rendering without the client mod | the client mod outlines the boxes and shows the label next to the crosshair (U3, U42) |
 | Contraption blocks drawn as one rotating model on **vanilla** clients (U4) | a vanilla client draws a falling-block entity axis-aligned and can't be told to turn it | each block is its own falling-block entity at its exact rotated position, showing the block turned by the nearest quarter turn; the client mod turns each block by the remaining angle so the structure looks exact. Displays carry no gravity (actor flag HasGravity off, NoAI on; set again after the entity is added), so a vanilla client, which simulates falling blocks itself, doesn't drop a block that has no real block under it (a train carriage over its bogey) |
 | Smooth contraption motion on **vanilla** clients (U34) | a vanilla client never applies the movement packets of a falling block that isn't falling: it stays where it was spawned | while a vanilla player is in the dimension, each display entity is spawned again at its place once it is half a block away (at most every 4 ticks per block, and where it comes to rest), so vanilla players see the structure move in half-block steps; the client mod moves the displays smoothly from the contraption's motion |
 | Contraption blocks while moving in a world opened **without** Levitate (U4, U32) | the moving blocks are vanilla falling-block entities (so vanilla clients see them); a custom entity type would be dropped by a world without our behavior pack, but vanilla clients can't draw a custom entity as an arbitrary block | display entities are never saved with the world; the blocks of a contraption that was moving when the world was last saved live only in Levitate's DB, so without the mod they are missing (with the mod they come back as the contraption). Falling blocks saved by an older build vanish on load with the mod |
-| Contraption collision computed by the client (U4) | Bedrock clients only collide with real blocks and a few entity types | the server pushes players out of the contraption and carries them (teleports); with lag this is less smooth than Create's client-side collision |
-| Glue region outlines (U4) | no client-side line rendering without a client renderer for it | particles along the edges of nearby regions for players holding super glue (client mod and vanilla) |
-| Redstone input of the sticker (U4) | custom blocks get no redstone neighbour update | the sticker polls the redstone power of its neighbours every 4 ticks (redstone blocks, wire, torches, levers, buttons, repeaters, comparators, observers, anything with `redstone_signal`) |
 | Curved tracks drawn for **vanilla** clients (U5) | Bedrock block models are fixed per block state; a curve is not a block | the client mod draws the curve; vanilla clients see the straight end tracks and a track bed (`levitate:fake_track`) on every block the curve passes through |
 | Tilted tracks between two sloped curves (U5) | Create re-shapes the curves and tilts the block model at runtime | curves keep their original handles; the middle track stays flat |
 | Redstone neighbour updates of the clutch, gearshifts and sequenced gearshift (U6) | custom blocks get no redstone neighbour update | they read their neighbours' signal from the circuit system every tick (same reaction time as Create's scheduled tick); the sequenced gearshift reacts to power *changes* only, as Create's neighbour updates |
@@ -4177,8 +4223,6 @@ matches Create's official Chinese translation wording).
 | Transitional item progress bar (U15) | item bars come only from item durability, which the game also uses for item behaviour (breaking, repairing); custom items have none | no bar. The tooltip is Create's: the item's lore in the server's language for vanilla clients, rebuilt in the game's language by the client mod |
 | Redstone input of the mechanical crafter (U16) | custom blocks get no redstone neighbour update | the crafter polls the power of its neighbours every tick (same sources as the sticker) |
 | Crafter items on the crafter's face for **vanilla** clients (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it | the client mod draws the slot item, the grouped grid, the exported grid sliding to the next crafter and the growing result with the world item renderer (U33); every client sees the blocks, the crit particles, the sounds and the result popping out |
-| Block break sounds of the moving drill per block sound type (U22) | the contraption actor (`actors/`) names the hit sound by the block id | `hit.wood` / `hit.grass` / `hit.gravel` / `hit.sand` / `hit.stone`; the saw, the stationary drill and the crafter unit's moving saw / drill play the block's own hit sound (LevelSoundEvent `Hit` with its runtime id) |
-| Drill damage source name of the `actors/` drill (U22) | that actor hurts with the plain contact cause | contact damage (death message of a cactus-like cause); the saw and the drill of the crafter unit use Create's `create.mechanical_saw` / `create.mechanical_drill` death messages |
 | Glass pipe flow fronts for **vanilla** clients (U17) | no client-side rendering without the client mod; a block state per progress step, face and fluid would not fit | the client mod draws Create's advancing fronts; vanilla clients see the glass pipe's `levitate:fluid` state fill the whole pipe as soon as a flow starts |
 | Fluid inside tanks and the moving engine piston for **vanilla** clients (U18) | no client-side rendering without the client mod; a fluid level per block would need a block state per level and fluid | the client mod draws them; vanilla clients see the tank (windows show an empty inside) and a static engine |
 | Whistle redstone input (U18) | custom blocks get no redstone neighbour update | the whistle polls its neighbours' redstone power every 2 ticks (as the sticker, U4) |
@@ -4188,18 +4232,9 @@ matches Create's official Chinese translation wording).
 | Spout stream and nozzle squeeze for **vanilla** clients (U19) | no client-side animation without the client mod | the client mod draws Create's stream and squeezes the nozzle; vanilla clients see the static nozzle and the drops and splash (particles, every client) and hear the sounds |
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Redstone input of gantry shafts and elevator contacts (U20) | custom blocks get no neighbour updates | polled every tick (shafts) / every 2 ticks (contacts), like the sticker |
-| Elevator door control acting on doors (U20) | the sliding / train doors are U10's | the mode is stored per contact (`data["pistons"]["door"]`) for U10 to apply |
 | Cart assembler and controller rail as real rails (U21) | Bedrock minecarts only ride vanilla rail blocks; a data-driven block can't be a rail | they are rail-shaped blocks without collision; a minecart on one is guided by the server: held on the rail line at rail height and moved along it at the speed the rail gives it (no off-rail friction), then the next vanilla rail takes it over. A minecart item used on them places a cart there |
-| Redstone input of the cart assembler / controller rail (U21) | custom blocks get no neighbour updates and the game's signal levels aren't exposed | power polled every 4 ticks from the neighbours' states (wire level, redstone block, torches, levers, buttons, repeaters / comparators, observers, `redstone_signal`, solid blocks on a lit torch) |
-| "Pause actors while rotating" (U21) | the contraption engine has no API to pause a contraption's actors | the mode is kept and turns the structure like "Always face toward motion" |
-| Furnace minecart contraptions and the chest minecart contraption item (U21) | Bedrock has no furnace minecart; a chest minecart's own inventory can't travel in the item | contraptions ride rideable and chest minecarts; only rideable carts are picked up (`minecart_contraption`) |
-| Picking up a minecart contraption (U21) | the engine has no "discard" | the structure is placed and its blocks removed again silently (refused when something is in the way: `lv.bearings.pickup_blocked`); the item carries the engine's own record of the structure |
-| Coupling chains drawn between carts (U21) | no client-side line rendering for entities | couplings work but aren't drawn |
-| Actors dropping off when the block behind them goes (U22) | data-driven blocks get no neighbour updates and placement filters can't follow a facing state | they stay; they still move with the block behind them |
-| Seats halving fall damage, mobs bouncing on seats (U22) | no fall-damage or bounce hook for data-driven blocks | normal landing; mobs that land on a free seat sit down |
+| Furnace minecart contraptions (U21) | Bedrock has no furnace minecart entity | contraptions ride rideable and chest minecarts; the wrench picks them up as `minecart_contraption` / `chest_minecart_contraption` (the chest cart's own inventory travels in the item) |
 | Right-clicking contraption blocks with an empty hand into the air on **vanilla** clients (U22) | a vanilla client sends nothing for an empty-hand click into the air, and display entities can't be clicked | with an item in hand, or with a world block behind, the server casts the look itself; the client mod sends the click |
-| Seat dyeing recipe (seat + dye) (U22) | Bedrock recipes can't use an item tag of our seats | dye a placed seat with a right-click (as Create) |
-| Riders sitting on moving contraption seats (U22) | the engine (U4) carries riders by teleporting them | they stand on the seat while it moves and sit down again on the placed seat |
 | Redstone *input* callbacks for custom blocks (U23) | data-driven blocks can't be circuit capacitors (one circuit component per position: a block that outputs can't also consume) and get no neighbour-signal callback natively | outputs are native `minecraft:redstone_producer` permutations (no polling); inputs are read from the game's circuit components around each loaded block once per tick, which is also Create's block-entity tick, so latency matches Create's scheduled ticks |
 | Redstone link frequency items on the block for **vanilla** clients (U23) | no world-space item rendering without the client mod | the client mod draws both items in their slots (U42); vanilla: action-bar message when a slot is set |
 | Diode value box "short click toggles, hold opens the board" for **vanilla** clients (U23) | see the value box row above | client mod: as Create (U42); vanilla: clicking the box opens the board, clicking elsewhere on the diode (or with any item but the wrench) toggles inverted |
@@ -4216,17 +4251,14 @@ matches Create's official Chinese translation wording).
 | "Click and hold" on a gauge panel / price tag for **vanilla** clients (U26) | the server only sees discrete clicks | client mod: as Create (U42); vanilla: sneak + empty-hand click opens the board (price tag: a click opens it, sneaking clears) |
 | JEI recipe sync of factory gauges (U26) | no recipe viewer on Bedrock | "Use Mechanical Crafting" works (U42); recipes can't be dragged in from a viewer |
 
-| Train carriages tilting on slopes (U27) | the contraption transform turns about one axis; a carriage turns about Y on curves | carriages stay level on slopes (height from their first bogey) |
-| Wheels turning on bogeys (U27) | carriage blocks are display entities showing a block model; the client framework has no per-part animation for them yet | bogeys are drawn still (client mod and vanilla) |
-| Opening train doors at stations (U27) | the contraption API can't change a carried block's state | the station's door control setting is stored and shown; doors stay as assembled |
-| Station flag animation (U27) | the flag is a block state | the station's texture shows assembly mode |
+| Train carriages tilting on slopes for **vanilla** clients (U27) | a falling-block entity is always drawn level | the blocks stand at their tilted places, each drawn level; the client mod draws the carriage pitched (Create's pitch from its bogeys) |
+| Wheels turning on bogeys for **vanilla** clients (U27) | a display entity shows a fixed block model | still wheels; the client mod turns them with the distance travelled (Create's BogeyRenderer) |
+| Station flag animation for **vanilla** clients (U27) | the flag would need a per-frame model | the station's texture shows the flag (green in assembly mode); the client mod raises and waves Create's flag |
 | Train HUD, mouse-wheel throttle and horn for **vanilla** clients (U27) | the server can't see the mouse wheel or the sprint key, nor draw a HUD | action-bar prompts; throttle from schedules; the client mod has Create's HUD, throttle and horn (§3.6.27) |
 | Train map colours / map markers (U27) | no map mods on Bedrock | none |
-| Wrench relocation of derailed trains (U27) | needs U8's wrench and Create's client-side placement preview | derailed trains re-attach when the track under their front returns; otherwise disassemble them with `/create killtrain` |
-| Text fields in the native schedule editor (U27) | Create's instruction / condition editors are whole sub-screens of the schedule screen | their edit buttons open the server's form for that entry; station and train names are native text fields in the station screen |
-| Signal / observer track selection stored on the item (U28) | changing the held item's data from the server re-sends the slot and breaks the click flow; the glint isn't controllable | the selection is kept per player and per item id on the server (lost on relog); no glint, no outline of the selected track |
+| Train relocation preview for **vanilla** clients (U27) | the server can't draw the train's outline on a vanilla client | relocation works with action-bar prompts (valid / invalid / too far); the client mod draws the carriages at the target |
+| Glint of a signal / track observer item carrying a track selection (Create's isFoil) (U28) | Bedrock draws no enchantment glint on items shown with their block's model (verified: a per-item vtable override of `isGlint` returns true and nothing is drawn) | the selection is on the item stack and travels with it; the client mod outlines the selected track while the item is held |
 | Signal lamp rendered toward the track, track overlay for vanilla clients (U28) | Bedrock block models are fixed per state and can't face an edge point | the lamp shows on all four sides of the signal head (block state); the client mod draws Create's arrows / squares on the track |
-| Redstone input of signals (U28) | custom blocks get no redstone neighbour update | polled every 4 ticks (as U4's sticker; diodes count only when facing the signal) |
 | Comparator output of signals (U28) | Bedrock asks only containers for analog signals | the shared comparator registry (`Redstone.h` `registerAnalog`, U36) hands the block's output to the comparator's circuit component before it evaluates (directly behind, or behind a solid block) |
 | Train occupancy by front/back signal listeners (U28) | not a limitation: trains report the track they cover | sections and observers follow the covered track (same results as Create's listeners, robust against skipped ticks) |
 | Crafting blueprint as a hanging entity (U29) | Create's blueprint is a hanging entity; a block group behaves the same for clicks, crafting and breaking | each section is a thin, non-colliding `levitate:placed_crafting_blueprint` block; the 2x2 / 3x3 group is placed and removed together; the client mod draws the display items on the canvas (Create's BlueprintRenderer), vanilla clients see the empty canvas |

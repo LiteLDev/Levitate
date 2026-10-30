@@ -1,0 +1,27 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:light_gray_seat_from_pink_seat"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:pink_seat"
+      },
+      {
+        "item": "minecraft:light_gray_dye"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:pink_seat"
+      }
+    ],
+    "result": {
+      "item": "levitate:light_gray_seat"
+    }
+  }
+}

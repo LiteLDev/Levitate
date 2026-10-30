@@ -13,7 +13,11 @@
 #include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
 #include "mc/network/MinecraftPacketIds.h"
 #include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/LevelSoundEventPacket.h"
 #include "mc/network/packet/SetActorMotionPacket.h"
+#include "mc/world/actor/ActorDamageSource.h"
+#include "mc/world/actor/ActorHurtResult.h"
+#include "mc/world/actor/HurtParameters.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/item/ItemActor.h"
@@ -239,7 +243,14 @@ void damageEntities(con::MovementContext& ctx, GlobalPos const& pos, bool hurt, 
         if (isSeatEntityId(a->getTypeName())) continue;
         if (hurt) {
             float damage = std::clamp(6.f * static_cast<float>(std::pow(speed, 0.4)) + 1.f, 2.f, 10.f);
-            a->hurtByCause(damage, roller ? SharedTypes::Legacy::ActorDamageCause::Contact : SharedTypes::Legacy::ActorDamageCause::Override);
+            if (roller) {
+                // Create's CreateDamageSources.roller: its own death message (RP texts, actors.lang)
+                ActorDamageSource source(SharedTypes::Legacy::ActorDamageCause::Contact, std::string(kRollerDeathMessage));
+                HurtParameters    params{};
+                a->hurt(source, damage, params);
+            } else {
+                a->hurtByCause(damage, SharedTypes::Legacy::ActorDamageCause::Override);
+            }
         }
         // Create: thrown by the motion plus a quarter of its length upwards, at most 4 blocks/tick
         cc::Vec3d v = ctx.motion + cc::Vec3d{0, ctx.motion.length() / 4, 0};
@@ -250,7 +261,24 @@ void damageEntities(con::MovementContext& ctx, GlobalPos const& pos, bool hurt, 
 
 // ---- breaking (Create's BlockBreakingMovementBehaviour) ---------------------------------------
 
+void playHitSound(int dim, BlockPos const& pos, Block const& block) {
+    // the game's block hit sound event: each client picks the sound of the block's sound type
+    // from the block runtime id (as when a player mines it)
+    auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::LevelSoundEvent);
+    if (!packet) return;
+    auto& pkt                       = static_cast<LevelSoundEventPacket&>(*packet);
+    pkt.mSoundEvent->mSound     = SharedTypes::Legacy::LevelSoundEvent::Hit;
+    pkt.mPos                    = Vec3{pos.x + .5f, pos.y + .5f, pos.z + .5f};
+    pkt.mData                   = static_cast<int>(block.mNetworkId);
+    pkt.mActorIdentifier->clear();
+    pkt.mActor->rawID           = -1;
+    pkt.mIsGlobal               = false;
+    pkt.mIsBaby                 = false;
+    pkt.sendTo(pos, DimensionType(dim));
+}
+
 bool isLiquid(std::string const& id) {
+
     return id == "minecraft:water" || id == "minecraft:flowing_water" || id == "minecraft:lava" || id == "minecraft:flowing_lava"
         || id == "minecraft:bubble_column";
 }
@@ -333,7 +361,7 @@ void tickBreaking(con::MovementContext& ctx, Breaker const& b) {
     int   progress = ctx.data.value("Progress", 0);
     int   step     = hardness <= 0 ? 10 - progress : std::clamp(static_cast<int>(speed / hardness), 1, 10 - progress);
     progress += step;
-    ext::playSound(pos.dim, cc::Vec3d::center(cc::Pos{pos.x, pos.y, pos.z}), "hit.stone", .25f, 1.f);
+    playHitSound(pos.dim, bp, block); // Create: the block's own hit sound (getSoundType().getHitSound())
     if (progress >= 10) {
         cancelBreaking(ctx);
         if (b.breakBlock) b.breakBlock(ctx, block, bp);

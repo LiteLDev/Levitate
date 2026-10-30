@@ -1,7 +1,8 @@
 # Signals (U28) on a real client: a track with signal / observer blocks in every lamp state (the
 # block states vanilla clients see), and a signal placed with the item the Create way (right-click
 # the track, then right-click where the signal goes), bound to the track and showing green.
-#   local / remote-mod: the client mod also draws the track marker (log "signals: rendering ...")
+#   local / remote-mod: the client mod also draws the track marker (log "signals: rendering ..."),
+#                       and the outline of the track the held item has selected
 #   remote-vanilla:     the block lamps only
 # Screenshots: out/signals/{lamps,selected,placed,above}.png
 $mark = Get-LogMark
@@ -43,6 +44,9 @@ Invoke-Chat '/tp @s ~ ~ ~ -90 25'
 Start-Sleep -Milliseconds 800
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'signals: \S+ selected the track at' 20 -Since $mark | Out-Null
+# U38: the selection is on the held stack: the client mod outlines the selected track (Create's
+# TrackTargetingClient)
+if ($withMod) { Wait-LogLine 'signals: outlining the selected track' 20 -Since $mark | Out-Null }
 Start-Sleep -Milliseconds 400
 Save-Screenshot 'selected' | Out-Null
 

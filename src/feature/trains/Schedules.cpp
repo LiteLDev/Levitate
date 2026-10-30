@@ -14,6 +14,7 @@
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 
+#include "core/common/Utf8.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/trains/Trains.h"
@@ -414,6 +415,77 @@ void mainForm(Player& p, int slot) {
     form.sendTo(p);
 }
 
+/// An item of an editor slot (null: empty), as the condition data keeps it.
+ct::Json slotItem(ct::Json const& j) {
+    if (!j.is_object()) return nullptr;
+    auto stack = items::fromJson(j);
+    if (items::isEmpty(stack)) return nullptr;
+    return items::toJson(stack);
+}
+
+int intIn(ct::Json const& d, char const* key, int fallback, int lo, int hi) {
+    auto it = d.find(key);
+    int  v  = it != d.end() && it->is_number() ? it->get<int>() : fallback;
+    return std::clamp(v, lo, hi);
+}
+
+} // namespace
+
+std::optional<ct::Part> sanitiseInstruction(ct::Part const& requested, ct::Part const& current) {
+    auto id   = ct::normaliseId(requested.id);
+    auto list = ct::instructionIds();
+    if (std::find(list.begin(), list.end(), id) == list.end()) return std::nullopt;
+    ct::Part out  = ct::defaultInstruction(id);
+    auto const& d = requested.data.is_object() ? requested.data : ct::Json::object();
+    if (out.data.contains("Text")) {
+        // Create's edit boxes: station names / titles 25, package addresses 50 characters
+        std::string text = d.value("Text", std::string());
+        if (!d.contains("Text") && id == current.id) text = current.data.value("Text", std::string());
+        size_t max = id == ids::kPackageRetrieval ? 50 : 25;
+        out.data["Text"] = core::utf8Prefix(text, max);
+    }
+    if (id == ids::kThrottle) out.data["Value"] = intIn(d, "Value", 100, 5, 100) / 5 * 5;
+    return out;
+}
+
+std::optional<ct::Part> sanitiseCondition(ct::Part const& requested, ct::Part const& current) {
+    (void)current;
+    auto id   = ct::normaliseId(requested.id);
+    auto list = ct::conditionIds();
+    if (std::find(list.begin(), list.end(), id) == list.end()) return std::nullopt;
+    ct::Part    out = ct::defaultCondition(id);
+    auto const& d   = requested.data.is_object() ? requested.data : ct::Json::object();
+    auto&       o   = out.data;
+    if (id == ids::kDelay || id == ids::kIdle) {
+        o["Value"]    = intIn(d, "Value", 5, 0, 120);
+        o["TimeUnit"] = intIn(d, "TimeUnit", 1, 0, 2);
+    } else if (id == ids::kTimeOfDay) {
+        o["Hour"]     = intIn(d, "Hour", 8, 0, 23);
+        o["Minute"]   = intIn(d, "Minute", 0, 0, 59);
+        o["Rotation"] = intIn(d, "Rotation", 5, 0, 9);
+    } else if (id == ids::kItemThreshold || id == ids::kFluidThreshold) {
+        o["Operator"] = intIn(d, "Operator", 0, 0, 2);
+        // Create's threshold box takes digits only
+        std::string t;
+        for (char ch : d.value("Threshold", std::string("10")))
+            if (ch >= '0' && ch <= '9' && t.size() < 4) t.push_back(ch);
+        o["Threshold"] = t.empty() ? std::string("0") : t;
+        o["Measure"]   = id == ids::kItemThreshold ? intIn(d, "Measure", 0, 0, 1) : 0;
+        char const* slot = id == ids::kItemThreshold ? "Item" : "Bucket";
+        o[slot]          = slotItem(d.value(slot, ct::Json()));
+    } else if (id == ids::kRedstoneLink) {
+        auto f         = d.value("Frequency", ct::Json::array());
+        o["Frequency"] = ct::Json::array({slotItem(f.is_array() && f.size() > 0 ? f[0] : ct::Json()), slotItem(f.is_array() && f.size() > 1 ? f[1] : ct::Json())});
+        o["Inverted"]  = intIn(d, "Inverted", 0, 0, 1);
+    } else if (id == ids::kPlayerCount) {
+        o["Count"] = intIn(d, "Count", 1, 0, 20);
+        o["Exact"] = intIn(d, "Exact", 0, 0, 1);
+    }
+    return out;
+}
+
+namespace {
+
 /// Texts the native editor shows (the client mod has the lang files too, but summaries need
 /// the same rules on both sides: the server sends them).
 ct::Json editorData(Player& p, ct::Schedule const& s) {
@@ -427,7 +499,11 @@ ct::Json editorData(Player& p, ct::Schedule const& s) {
         }
         entries.push_back({{"title", instructionName(p, e.instruction.id)}, {"summary", instructionSummary(p, e.instruction)}, {"conditions", cols}, {"supports", ct::supportsConditions(e.instruction.id)}});
     }
-    return {{"schedule", s.toJson()}, {"texts", entries}};
+    // the type selectors of the native instruction / condition editors (Create's menu order)
+    ct::Json instr = ct::Json::array(), conds = ct::Json::array();
+    for (auto id : ct::instructionIds()) instr.push_back({{"id", std::string(id)}, {"name", instructionName(p, id)}});
+    for (auto id : ct::conditionIds()) conds.push_back({{"id", std::string(id)}, {"name", conditionName(p, id)}});
+    return {{"schedule", s.toJson()}, {"texts", entries}, {"instructions", instr}, {"conditions", conds}};
 }
 
 } // namespace
@@ -476,6 +552,24 @@ void registerScheduleScreens() {
                 s->entries[e].instruction = ct::defaultInstruction(list[next]);
                 if (ct::supportsConditions(list[next]) && s->entries[e].conditions.empty())
                     s->entries[e].conditions.push_back({ct::defaultCondition(ids::kDelay)});
+            } else if (op == "set_instruction" && valid) {
+                // the native instruction editor (Create's ScheduleScreen#stopEditing)
+                auto& entry = s->entries[e];
+                auto  next  = sanitiseInstruction(ct::Part::fromJson(action.value("part", ct::Json::object())), entry.instruction);
+                if (!next) return;
+                bool changed = next->id != entry.instruction.id;
+                entry.instruction = std::move(*next);
+                if (changed && ct::supportsConditions(entry.instruction.id) && entry.conditions.empty())
+                    entry.conditions.push_back({ct::defaultCondition(ids::kDelay)});
+                log().info("trains: {} edited instruction {} of a schedule: {}", p.getRealName(), e + 1, instructionSummary(p, entry.instruction));
+            } else if (op == "set_condition" && valid) {
+                int   c = action.value("column", -1), i = action.value("index", -1);
+                auto& cols = s->entries[e].conditions;
+                if (c < 0 || c >= int(cols.size()) || i < 0 || i >= int(cols[c].size())) return;
+                auto next = sanitiseCondition(ct::Part::fromJson(action.value("part", ct::Json::object())), cols[c][i]);
+                if (!next) return;
+                cols[c][i] = std::move(*next);
+                log().info("trains: {} edited condition {}.{}.{} of a schedule: {}", p.getRealName(), e + 1, c + 1, i + 1, conditionSummary(p, cols[c][i]));
             } else if (op == "edit_instruction" && valid) {
                 writeSchedule(p, slot, *s);
                 instructionForm(p, slot, e);

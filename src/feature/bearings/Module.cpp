@@ -199,7 +199,7 @@ ia::Result onUseOn(ia::UseOnContext const& c) {
         });
         return handled(player);
     }
-    if (build && held == kMinecartContraption) {
+    if (build && (held == kMinecartContraption || held == kChestMinecartContraption)) {
         if (!debounce(player)) defer([uid, pos] {
             if (auto* p = playerById(uid)) placeMinecartContraption(*p, pos);
         });

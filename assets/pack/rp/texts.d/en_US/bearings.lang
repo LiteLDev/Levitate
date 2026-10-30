@@ -23,3 +23,4 @@ tile.levitate:cart_assembler.name=Cart Assembler
 tile.levitate:controller_rail.name=Controller Rail
 item.levitate:minecart_coupling.name=Minecart Coupling
 item.levitate:minecart_contraption.name=Minecart Contraption
+item.levitate:chest_minecart_contraption.name=Chest Minecart Contraption

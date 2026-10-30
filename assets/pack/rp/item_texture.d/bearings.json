@@ -4,5 +4,8 @@
   },
   "levitate_minecart_contraption": {
     "textures": "textures/items/minecart_contraption"
+  },
+  "levitate_chest_minecart_contraption": {
+    "textures": "textures/items/chest_minecart_contraption"
   }
 }

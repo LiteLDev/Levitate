@@ -20,6 +20,7 @@ class Block;
 class BlockPos;
 class BlockSource;
 class Player;
+class ItemStack;
 
 namespace lv::feature::signals {
 
@@ -51,7 +52,8 @@ struct BlockRec {
     bool        powered = false; ///< signals: redstone input (cached block state)
 };
 
-/// A player's selected track (Create keeps it on the item stack).
+/// A selected track. As Create's TrackTargetingBlockItem it lives on the item stack (item data
+/// `lv:track_target`, see selectionOf / setHeldSelection) and travels with the item.
 struct Selection {
     Target      target;
     std::string item;
@@ -67,9 +69,9 @@ enum class Overlap { Valid, Occupied, Junction, NoTrack };
 
 struct State {
     std::map<GlobalPos, BlockRec>      blocks;
+    std::map<GlobalPos, int>           watches; ///< signal -> common::redstone watch id
     cs::SignalSystem                   system;
     std::map<std::string, ObserverRun> observers;  ///< by point id
-    std::map<std::string, Selection>   selections; ///< by player UUID
     std::map<GlobalPos, std::pair<std::string, Selection>> intents; ///< placement in progress: uuid, selection
     std::vector<std::function<void()>> tasks;      ///< run at the start of the next tick
     api::CargoProvider                 cargo;
@@ -116,8 +118,18 @@ void runTick();
 void refresh();
 
 // ---- item use (SignalsHooks.cpp) ---------------------------------------------------------------
+/// Item data key (common/Items.h) of the selected track on a signal / observer stack.
+inline constexpr char kTargetData[] = "track_target";
+/// The selection carried by a stack (nullopt: none, or not a signal / observer item).
+[[nodiscard]] std::optional<Selection> selectionOf(ItemStack const& stack);
+/// Writes (nullopt: clears) the selection on a stack (in a click: the click's own stack, which
+/// the game writes back to the hand after the use).
+void setSelection(ItemStack& stack, std::optional<Target> const& target);
+/// Writes (nullopt: clears) the selection on the player's held stack and sends the slot
+/// (outside a click).
+void setHeldSelection(Player& player, std::optional<Target> const& target);
 /// Right-click with the signal / observer item. Returns true when vanilla must not place.
-bool onTargetingItemUse(Player& player, std::string const& item, BlockPos const& clicked, int face);
+bool onTargetingItemUse(Player& player, ItemStack& held, std::string const& item, BlockPos const& clicked, int face);
 void installHooks();
 void uninstallHooks();
 

@@ -1,0 +1,27 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:gray_seat_from_green_seat"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:green_seat"
+      },
+      {
+        "item": "minecraft:gray_dye"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:green_seat"
+      }
+    ],
+    "result": {
+      "item": "levitate:gray_seat"
+    }
+  }
+}

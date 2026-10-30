@@ -23,3 +23,4 @@ tile.levitate:cart_assembler.name=矿车装配站
 tile.levitate:controller_rail.name=控制铁轨
 item.levitate:minecart_coupling.name=矿车连接器
 item.levitate:minecart_contraption.name=矿车装置
+item.levitate:chest_minecart_contraption.name=运输矿车装置

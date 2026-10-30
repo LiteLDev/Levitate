@@ -34,6 +34,7 @@
 #include "core/contraption/Glue.h"
 #include "core/contraption/StateRotation.h"
 
+class Block;
 class BlockSource;
 class BlockPos;
 class ItemStack;
@@ -99,6 +100,9 @@ struct MovementBehaviour {
     std::function<void(MovementContext&, core::GlobalPos const&)> visitNewPosition;
     std::function<void(MovementContext&)>                        stopMoving;
     std::function<bool(MovementContext const&)>                  isActive; ///< default: true
+    /// Create runs every actor's tick each tick; the engine runs `tick` only while the contraption
+    /// moves, and also while it stands still when this is set (doors opening at a station).
+    bool tickWhileStill = false;
 };
 /// Registers the movement behaviour of block `blockId`.
 void registerActor(std::string blockId, MovementBehaviour behaviour);
@@ -178,6 +182,10 @@ public:
     /// Sets the transform for the next tick (anchors that compute their own position).
     void setTransform(cc::Transform const& t) { mTarget = t; }
     void setMotion(Motion const& m) { mMotion = m; }
+    /// Pauses the actors (no tick / visitNewPosition while moving) without stopping the motion:
+    /// Create's isActorActive of a cart in "Pause actors while rotating" mode while it turns.
+    void setActorsPaused(bool paused) { mActorsPaused = paused; }
+    [[nodiscard]] bool actorsPaused() const { return mActorsPaused; }
     void stop() { mMotion = {}; mTarget.reset(); }
     /// World position of a local point at the current transform.
     [[nodiscard]] cc::Vec3d toWorld(cc::Vec3d const& local) const { return mTransform.toWorld(local); }
@@ -186,6 +194,9 @@ public:
     /// Seats `actorUniqueId` on the seat at `local` (false if no free seat there).
     bool seat(cc::Pos const& local, std::int64_t actorUniqueId);
     void unseat(std::int64_t actorUniqueId);
+    /// The seated entities (seat block, ActorUniqueID). A rider that rides a vehicle (a seat
+    /// entity) is carried by moving that vehicle, so it stays mounted.
+    [[nodiscard]] std::vector<std::pair<cc::Pos, std::int64_t>> const& seated() const { return mSeated; }
     /// Writable carried data (carrier name -> data) of the block at `local`, persisted with the
     /// contraption (e.g. contraption controls toggling actors); nullptr when no block is there.
     [[nodiscard]] nlohmann::json* blockData(cc::Pos const& local) {
@@ -215,7 +226,10 @@ private:
     nlohmann::json                    mAnchorData = nlohmann::json::object();
     std::unique_ptr<Storage>          mStorage;
     bool                              mMoving = false;
+    bool                              mActorsPaused = false;
     std::vector<cc::Box>              mBoxes;           ///< local collision boxes (cache)
+    std::vector<Block const*>         mBoxBlocks;       ///< the block of each collision box (cache)
+    bool                              mTicksWhileStill = false; ///< an actor ticks while it stands still (cache)
     cc::Box                           mBounds;          ///< local bounds of all blocks (cache)
     int                               mDisplayQuarter = 0; ///< quarter turns shown by the display entities
 };
@@ -246,6 +260,14 @@ AssembleResult assemble(AssembleOptions const& options);
 [[nodiscard]] Contraption* find(Id id);
 /// Places the blocks back (grid aligned); drops what can't be placed. Returns false if unknown.
 bool disassemble(Id id);
+/// Removes the contraption without placing or dropping anything (Create's entity discard: a
+/// picked up minecart contraption, `/create killtrain`). Actors get `stopMoving`. False if unknown.
+bool discard(Id id);
+/// Changes the states of the carried block at `local` (Create's contraption entity setBlock:
+/// a door opening on a train). Its collision and display follow. False if unknown or unchanged.
+bool setBlockStates(Id id, cc::Pos const& local, cc::States const& states);
+/// Local bounds of the carried blocks (Create's contraption bounds); nullopt if unknown.
+[[nodiscard]] std::optional<cc::Box> bounds(Id id);
 /// All live contraptions (ids).
 [[nodiscard]] std::vector<Id> all();
 
