@@ -17,6 +17,9 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/Level.h"
+#include "mc/world/level/Spawner.h"
+#include "ll/api/service/Bedrock.h"
 #include "mc/world/level/dimension/DimensionType.h"
 #include "mc/world/phys/AABB.h"
 
@@ -220,6 +223,16 @@ LV_REGISTER_SELFTEST("packages.entity_from_dropped_item", [](Context& ctx) -> ll
     ctx.require(found.size() == 1, "a dropped package becomes a package entity");
     auto kept = pk::packageEntityBox(found.front()->getOrCreateUniqueID().rawID);
     ctx.check(kept && items::idOf(pk::contentsOf(*kept)[0]) == "minecraft:apple", "with its contents");
+    clearAround(pos);
+    // display item entities of other units (belt / depot items: pickup delay 32767) stay items
+    auto* region = pk::regionOf(pos.dim);
+    auto  level  = ll::service::getLevel();
+    ctx.require(region && level, "level");
+    auto* shown = level->getSpawner().spawnItem(*region, box, nullptr, Vec3{pos.x + .5f, pos.y + .5f, pos.z + .5f}, 0);
+    ctx.require(shown != nullptr, "display item spawned");
+    shown->mPickupDelay = 0x7fff;
+    co_await ctx.ticks(3);
+    ctx.check(droppedItems(pos, items::idOf(box).c_str()) == 1 && packageEntities(pos).empty(), "a display item entity is not converted");
     clearAround(pos);
 });
 

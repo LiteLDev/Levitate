@@ -448,6 +448,7 @@ void resetRenderCache() {
     c.modelQuads.clear();
     c.tessellator.reset();
     c.tessRegion = nullptr;
+    forgetScenePuppets(); // called when the level is left
 }
 
 std::string itemName(std::string const& id) {

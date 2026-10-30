@@ -90,9 +90,7 @@ Actor* puppet(std::string const& type, std::string const& item = {}) {
     Level& level = player->getLevel();
     auto&  p     = puppets();
     if (p.level != &level) {
-        // another level: the old puppets belong to its entity registry, which is gone or going
-        for (auto& [k, v] : p.byKey) (void)v.owner.release();
-        p.byKey.clear();
+        forgetScenePuppets(); // another level: the old puppets belong to its entity registry
         p.level = &level;
     }
     std::string key  = item.empty() ? type : type + "|" + item;
@@ -170,8 +168,21 @@ constexpr float kModelScale = 1.f / 16.f;
 } // namespace
 
 void releaseScenePuppets() {
-    auto& p = puppets();
+    auto& p      = puppets();
+    auto* player = currentPlayer();
+    if (!player || &player->getLevel() != p.level) {
+        forgetScenePuppets(); // the level that owns them is gone or going
+        return;
+    }
     p.byKey.clear(); // the actors were never added to the level: their entity contexts go with them
+}
+
+void forgetScenePuppets() {
+    auto& p = puppets();
+    // their entity registry belongs to a level that is going away: never destroy them later
+    for (auto& [k, v] : p.byKey) (void)v.owner.release();
+    p.byKey.clear();
+    p.level = nullptr;
 }
 
 int drawSceneEntities(ScreenContext& sc, BaseActorRenderContext& rc, glm::mat4 const& camera, cp::SceneState const& st) {
@@ -205,7 +216,7 @@ bool drawSceneItemEntity(ScreenContext& sc, BaseActorRenderContext& rc, glm::mat
     ref.mat->_m.get() = ref.mat->_m.get() * camera;
     // the item entity's slow spin (dropped items turn as they lie)
     float yaw = std::fmod(time * 4.f, 360.f);
-    // item entities are drawn from a quarter block below their centre
+    // the scene's item points are their centres: the entity stands an eighth of a block lower
     dispatcher->render(rc, *a, Vec3{0, 0, 0}, Vec3{pos.x, pos.y - .125f, pos.z}, Vec2{0, yaw}, true);
     return true;
 }

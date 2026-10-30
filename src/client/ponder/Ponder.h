@@ -125,8 +125,10 @@ int drawSceneParticles(
     cp::SceneState const&     st,
     cp::View const&           view
 );
-/// Drops the puppet actors the entities are drawn with (scene player closed, level left).
+/// Drops the puppet actors the entities are drawn with (scene player closed).
 void releaseScenePuppets();
+/// Lets go of the puppets without destroying them (the level that owns them is going away).
+void forgetScenePuppets();
 
 /// Appends the model of `block` (`def`: its id and states) to a begun tessellator at (x, y, z),
 /// as Ponder draws it: Levitate blocks from the pack's geometry, other blocks with the game's block

@@ -107,6 +107,14 @@ EntityState& E() {
     return s;
 }
 
+/// Our own item spawns (contents, funnel hand-offs) are not converted.
+struct OwnSpawn {
+    OwnSpawn() { E().spawningOwn = true; }
+    ~OwnSpawn() { E().spawningOwn = false; }
+    OwnSpawn(OwnSpawn const&)            = delete;
+    OwnSpawn& operator=(OwnSpawn const&) = delete;
+};
+
 std::string keyOf(std::int64_t id) { return kKeyPrefix + std::to_string(id); }
 
 std::int64_t uidOf(Actor& a) { return a.getOrCreateUniqueID().rawID; }
@@ -159,7 +167,19 @@ void iconParticle(int dim, cp::V3 at, ItemStack const& stack) {
     pkt.mEventId = 0x4000 | 14; // LevelEvent::ParticleLegacyEvent | IconCrack
     pkt.mPos     = Vec3{float(at.x), float(at.y), float(at.z)};
     pkt.mData    = (int(stack.getId()) << 16) | (stack.getAuxValue() & 0xffff);
-    for (int i = 0; i < 6; ++i) pkt.sendTo(BlockPos{int(std::floor(at.x)), int(std::floor(at.y)), int(std::floor(at.z))}, DimensionType(dim));
+    // one particle per event: a few around the box
+    static constexpr float kOffsets[][3] = {
+        {0,     0,     0    },
+        {.2f,   .1f,   -.15f},
+        {-.2f,  -.1f,  .15f },
+        {.1f,   -.15f, .2f  }
+    };
+    BlockPos     block{int(std::floor(at.x)), int(std::floor(at.y)), int(std::floor(at.z))};
+    DimensionType type(dim);
+    for (auto const& o : kOffsets) {
+        pkt.mPos = Vec3{float(at.x) + o[0], float(at.y) + o[1], float(at.z) + o[2]};
+        pkt.sendTo(block, type);
+    }
 }
 
 void removeLater(std::int64_t id) {
@@ -206,12 +226,15 @@ bool tryInsert(Actor& a, Tracked& t, BlockSource& region) {
     if (t.handoffCooldown == 0 && isOneOf(idAtPos(mid), kFunnels)) {
         cp::V3 c{mid.x + .5, mid.y + .5, mid.z + .5};
         if (!centerPackage(a, t, c - cp::V3{0, size.second / 32.0, 0})) return false;
-        auto level = ll::service::getLevel();
-        E().spawningOwn = true;
-        auto* item      = level ? level->getSpawner().spawnItem(region, t.box, nullptr, Vec3{float(c.x), float(c.y), float(c.z)}, 0) : nullptr;
-        E().spawningOwn = false;
+        auto       level = ll::service::getLevel();
+        ItemActor* item  = nullptr;
+        {
+            OwnSpawn own;
+            item = level ? level->getSpawner().spawnItem(region, t.box, nullptr, Vec3{float(c.x), float(c.y), float(c.z)}, 0) : nullptr;
+        }
         if (!item) return false;
         item->lerpMotion(Vec3{0, 0, 0});
+        item->mPickupDelay = kHandoffTicks + 5; // only the funnel may take it
         E().handoffs[uidOf(*item)] = E().tick;
         return finish("funnel", mid);
     }
@@ -236,11 +259,12 @@ bool tryInsert(Actor& a, Tracked& t, BlockSource& region) {
     BlockPos below{at.x, int(std::floor(feet.y + .5)) - 1, at.z};
     if (isOneOf(idAtPos(below), kChutes) && a.isOnGround()) {
         auto gp = game::globalPos(region, below);
-        if (!belts::canInsertDirect(gp, 1)) return false;
+        // the package travels down into the chute (insertDirect's side = direction of travel)
+        if (!belts::canInsertDirect(gp, 0)) return false;
         if (!centerPackage(a, t, {below.x + .5, below.y + 1.0, below.z + .5})) return false;
         belts::TransportedItem item;
         item.stack = t.box;
-        if (!items::isEmpty(belts::insertDirect(gp, item, 1, false))) return false;
+        if (!items::isEmpty(belts::insertDirect(gp, item, 0, false))) return false;
         return finish("chute", below);
     }
     return false;
@@ -271,22 +295,32 @@ void tickEntity(std::int64_t id, Tracked& t) {
 }
 
 /// Package item entities become package entities (Create's PackageEntity.fromDroppedItem).
+/// Item entities other units show things with (belt / depot displays, potato cannon shots: pickup
+/// delay 32767, Java's mark of an item entity that is not a real drop; tagged ones) stay items.
+bool isDisplayItem(Actor& a) {
+    return static_cast<ItemActor&>(a).mPickupDelay >= 0x7fff || a.hasTags();
+}
+
 void convertItem(std::int64_t itemId, int cooldown) {
     auto* a = fetch(itemId);
-    if (!a || !a->isAlive() || a->getEntityTypeId() != ActorType::ItemEntity) return;
+    if (!a || !a->isAlive() || a->getEntityTypeId() != ActorType::ItemEntity || isDisplayItem(*a)) return;
     auto& item = static_cast<ItemActor&>(*a);
     if (!isPackage(item.item())) return;
-    ItemStack box = item.item();
-    auto      v   = a->getPosDelta();
-    cp::V3    at  = feetOf(*a);
-    int       dim = int(a->getDimensionId());
-    a->remove();
-    int count = items::countOf(box);
-    for (int i = 0; i < count; ++i) {
+    ItemStack box  = item.item();
+    auto      v    = a->getPosDelta();
+    cp::V3    at   = feetOf(*a);
+    int       dim  = int(a->getDimensionId());
+    int       left = items::countOf(box);
+    for (int i = items::countOf(box); i > 0; --i) {
         auto id = spawnPackageEntity(dim, at, items::withCount(box, 1), cp::V3{v.x, v.y, v.z} * 1.5);
-        if (auto it = E().live.find(id); id && it != E().live.end()) it->second.handoffCooldown = cooldown;
+        if (!id) break; // could not spawn: the rest stays an item entity
+        --left;
+        if (auto it = E().live.find(id); it != E().live.end()) it->second.handoffCooldown = cooldown;
     }
+    if (left <= 0) a->remove();
+    else if (left != items::countOf(box)) item.item() = items::withCount(box, left);
 }
+
 
 void tickAll() {
     auto& s = E();
@@ -305,10 +339,15 @@ void tickAll() {
         convertItem(it->first, kHandoffCooldown);
         it = s.handoffs.erase(it);
     }
-    // package entities loaded with their chunks
+    // package entities loaded with their chunks; package item entities loaded with theirs (a world
+    // saved during a funnel hand-off)
     if (s.tick % 20 == 0) {
         if (auto level = ll::service::getLevel()) {
+            std::vector<std::int64_t> loose;
             for (auto* a : level->getRuntimeActorList()) {
+                if (a && a->getEntityTypeId() == ActorType::ItemEntity && a->isAlive() && !isDisplayItem(*a)
+                    && isPackage(static_cast<ItemActor*>(a)->item()) && !s.handoffs.contains(uidOf(*a)))
+                    loose.push_back(uidOf(*a));
                 if (!a || !isPackageEntity(*a) || !a->isAlive()) continue;
                 auto id = uidOf(*a);
                 if (s.live.contains(id) || s.dying.contains(id)) continue;
@@ -317,6 +356,7 @@ void tickAll() {
                     a->remove();
                 }
             }
+            for (auto id : loose) convertItem(id, 0);
         }
     }
     std::vector<std::int64_t> ids;
@@ -426,9 +466,7 @@ void destroyPackageEntity(Actor& entity) {
             if (spawnFromEgg(entity.getDimensionBlockSource(), s, nullptr, block)) s = items::withCount(s, items::countOf(s) - 1);
             if (items::isEmpty(s)) continue;
             ++stacks;
-            E().spawningOwn = true;
-            dropItem(dim, at, s);
-            E().spawningOwn = false;
+            dropItem(dim, at, s); // never a package (packages don't go into packages)
         }
         iconParticle(dim, mid, box);
     }
