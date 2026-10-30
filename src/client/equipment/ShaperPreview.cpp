@@ -4,6 +4,7 @@
 
 #ifdef LV_CLIENT
 
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -41,8 +42,10 @@ std::mutex& previewMutex() {
     static std::mutex m;
     return m;
 }
-std::vector<ce::Edge>& previewEdges() {
-    static std::vector<ce::Edge> e;
+using EdgesPtr = std::shared_ptr<std::vector<ce::Edge> const>;
+/// The outline drawn every frame (swapped, never copied, when it changes).
+EdgesPtr& previewEdges() {
+    static EdgesPtr e;
     return e;
 }
 
@@ -100,9 +103,7 @@ std::vector<ce::IPos> brushPositions(LocalPlayer& p, ce::ShaperSettings const& s
 }
 
 void tickPreview() {
-    static std::string    lastKey;
-    static std::vector<ce::Edge> lastEdges;
-    std::vector<ce::Edge> edges;
+    static std::string lastKey;
     if (auto* lp = currentPlayer(); lp && inLevel()) {
         if (auto st = heldSettings(*lp)) {
             // the outline of a big brush costs: rebuild it only when the aim or the settings change
@@ -110,30 +111,30 @@ void tickPreview() {
             std::string key = st->toJson().dump() + "@" + std::to_string(hit.mBlock.x) + "," + std::to_string(hit.mBlock.y) + ","
                             + std::to_string(hit.mBlock.z) + "," + std::to_string(static_cast<int>(hit.mFacing)) + ","
                             + std::to_string(static_cast<int>(hit.mType));
-            if (key != lastKey) {
-                lastKey   = key;
-                lastEdges = ce::clusterEdges(brushPositions(*lp, *st));
-            }
-            edges = lastEdges;
+            if (key == lastKey) return; // (lastKey is only used on the client tick)
+            lastKey = key;
+            auto next = std::make_shared<std::vector<ce::Edge> const>(ce::clusterEdges(brushPositions(*lp, *st)));
+            std::lock_guard lock(previewMutex());
+            previewEdges() = std::move(next);
+            return;
         }
     }
-    if (edges.empty()) lastKey.clear();
+    lastKey.clear();
     std::lock_guard lock(previewMutex());
-    previewEdges() = std::move(edges);
+    previewEdges().reset();
 }
 
 void renderPreview(BaseActorRenderContext& ctx) {
-    std::vector<ce::Edge> edges;
+    EdgesPtr edges;
     {
         std::lock_guard lock(previewMutex());
         edges = previewEdges();
     }
-    if (edges.empty()) return;
+    if (!edges || edges->empty()) return;
     render::Lines lines(ctx);
-    for (auto const& e : edges)
+    for (auto const& e : *edges)
         lines.line({double(e.a.x), double(e.a.y), double(e.a.z)}, {double(e.b.x), double(e.b.y), double(e.b.z)}, render::Rgb::hex(0xbfbfbf), 1.0 / 32);
 }
-
 } // namespace
 
 LL_TYPE_INSTANCE_HOOK(
@@ -155,14 +156,13 @@ LL_TYPE_INSTANCE_HOOK(
 
 class ShaperPreviewModule {
 public:
-    void install() {}
-    void load() {
+    void install() {
         ShaperPreviewRenderHook::hook();
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ClientLevelTickEvent>([](auto&) { tickPreview(); }));
         mListeners.push_back(bus.emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             std::lock_guard lock(previewMutex());
-            previewEdges().clear();
+            previewEdges().reset();
         }));
     }
     void uninstall() {

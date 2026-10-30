@@ -85,6 +85,7 @@ void loadOwners() {
     if (!j || !j->is_array()) return;
     for (auto const& e : *j) {
         if (!e.is_array() || e.size() != 5 || !e[4].is_string()) continue;
+        if (!e[0].is_number_integer() || !e[1].is_number_integer() || !e[2].is_number_integer() || !e[3].is_number_integer()) continue;
         owners()[GlobalPos{e[0].get<int>(), e[1].get<int>(), e[2].get<int>(), e[3].get<int>()}] = e[4].get<std::string>();
     }
 }

@@ -11,6 +11,7 @@
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/legacy/ActorRuntimeID.h"
 #include "mc/network/MinecraftPacketIds.h"
 #include "mc/network/MinecraftPackets.h"
 #include "mc/network/packet/PlayerFogPacket.h"
@@ -134,6 +135,7 @@ struct DiverState {
     int  netherite  = -1; ///< netherite pieces counted in the knockback resistance modifier
     int  bootsSpeed = -1; ///< 1 while the diving boots' speed modifier is applied
     int  fog        = -1; ///< 0 none, 1 diving helmet, 2 netherite diving helmet
+    std::uint64_t runtime = 0; ///< the player's runtime id the state belongs to (a rejoin starts over)
 };
 
 // ---- netherite diving gear: armour toughness and knockback resistance (Create: ArmorMaterials.NETHERITE) ---------
@@ -366,6 +368,11 @@ void tickDivingGear() {
         if (p.isClientSide() || !p.isAlive()) return true;
         auto  uid  = uidOf(p);
         auto& st   = divers()[uid];
+        // a rejoined player is a new client session: resend fog and modifiers
+        if (auto rt = p.getRuntimeID().rawID; st.runtime != rt) {
+            st         = DiverState{};
+            st.runtime = rt;
+        }
         auto  head = items::idOf(p.getArmor(ArmorSlot::Head));
         auto  feet = items::idOf(p.getArmor(ArmorSlot::Feet));
         auto const* tank = wornBacktank(p);

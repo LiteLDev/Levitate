@@ -176,11 +176,14 @@ int mergeEnchantLevel(int a, int b, int maxLevel) {
     return std::max(a, b);
 }
 
-void JavaRandom::setSeed(std::int64_t seed) { mSeed = (seed ^ 0x5DEECE66DLL) & ((1LL << 48) - 1); }
+void JavaRandom::setSeed(std::int64_t seed) { mSeed = static_cast<std::int64_t>((static_cast<std::uint64_t>(seed) ^ 0x5DEECE66DULL) & ((1ULL << 48) - 1)); }
 
 int JavaRandom::next(int bits) {
-    mSeed = (mSeed * 0x5DEECE66DLL + 0xBLL) & ((1LL << 48) - 1);
-    return static_cast<int>(static_cast<std::int64_t>(static_cast<std::uint64_t>(mSeed) >> (48 - bits)));
+    // Java's long arithmetic wraps: unsigned here (signed overflow is undefined in C++)
+    auto s = (static_cast<std::uint64_t>(mSeed) * 0x5DEECE66DULL + 0xBULL) & ((1ULL << 48) - 1);
+    mSeed  = static_cast<std::int64_t>(s);
+    // Java: (int)(seed >>> (48 - bits)), the low 32 bits as a signed int
+    return static_cast<int>(static_cast<std::uint32_t>(s >> (48 - bits)));
 }
 
 int JavaRandom::nextInt(int bound) {
@@ -190,7 +193,7 @@ int JavaRandom::nextInt(int bound) {
     do {
         bits = next(31);
         val  = bits % bound;
-    } while (bits - val + (bound - 1) < 0);
+    } while (static_cast<std::int32_t>(static_cast<std::uint32_t>(bits) - static_cast<std::uint32_t>(val) + static_cast<std::uint32_t>(bound - 1)) < 0);
     return val;
 }
 

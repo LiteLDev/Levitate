@@ -308,11 +308,13 @@ LL_TYPE_INSTANCE_HOOK(
     ItemStackNetResult,
     ItemStackRequestActionCraftBase const& action
 ) {
-    Player* prev     = eq::gEnchanting;
-    eq::gEnchanting  = &static_cast<Player&>(mPlayer);
-    auto result      = origin(action);
-    eq::gEnchanting  = prev;
-    return result;
+    // restored also when the craft throws (a stale player must never reach onEnchanted)
+    struct Restore {
+        Player* prev;
+        ~Restore() { eq::gEnchanting = prev; }
+    } restore{eq::gEnchanting};
+    eq::gEnchanting = &static_cast<Player&>(mPlayer);
+    return origin(action);
 }
 
 LL_TYPE_INSTANCE_HOOK(

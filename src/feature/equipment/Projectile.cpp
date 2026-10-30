@@ -541,6 +541,7 @@ bool firePotatoCannon(Player& player) {
         // the ammo (vanilla getProjectile order: off hand, main hand, inventory)
         auto check = [&](ItemStack const& s) { return !items::isEmpty(s) && ce::potatoTypeFor(items::idOf(s)); };
         if (check(player.getOffhandSlot())) ammo = player.getOffhandSlot(), slot = -2;
+        else if (check(player.getSelectedItem())) ammo = player.getSelectedItem(), slot = player.getSelectedItemSlot();
         else {
             auto& inv = player.getInventory();
             for (int i = 0; i < inv.getContainerSize(); ++i)
