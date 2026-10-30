@@ -38,6 +38,10 @@ namespace pk    = lv::feature::packages;
 namespace items = lv::feature::common::items;
 using lv::core::GlobalPos;
 
+/// U44's tests (dx 4400..): row 44 lies outside the area the run keeps ticking (z spawn-60..+60),
+/// where entities vanish; this z offset moves them to its free strip at spawn - 55.
+constexpr int kRowDz = -230;
+
 GlobalPos at(Context& ctx, int dx, int dy = 0, int dz = 0) {
     auto p = ctx.testPos(dx, dz);
     p.y += dy;
@@ -431,7 +435,7 @@ LV_REGISTER_SELFTEST("packages.postbox", [](Context& ctx) -> ll::coro::CoroTask<
 
 // U44 (dx 4410..4419): right-clicking a port with a clipboard adds "#address" to it
 LV_REGISTER_SELFTEST("packages.port_clipboard", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto box = at(ctx, 4410);
+    auto box = at(ctx, 4410, 0, kRowDz);
     ctx.require(co_await ctx.ensureLoaded(box), "test area loaded");
     ctx.require(ctx.setBlock(box, "levitate:blue_postbox"), "postbox placed");
     pk::track(box, pk::Kind::Postbox);
@@ -466,7 +470,7 @@ LV_REGISTER_SELFTEST("packages.port_clipboard", [](Context& ctx) -> ll::coro::Co
 
 // U44 (dx 4420..4429): spawn eggs in an opened package spawn their mob in front of the player
 LV_REGISTER_SELFTEST("packages.open_spawn_egg", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto pos = at(ctx, 4420);
+    auto pos = at(ctx, 4420, 0, kRowDz);
     ctx.require(co_await ctx.ensureLoaded(pos), "test area loaded");
     auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
     sp.teleport(Vec3{pos.x + 0.5f, pos.y + 0.f, pos.z + 0.5f}, DimensionType(pos.dim));

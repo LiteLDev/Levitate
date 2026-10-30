@@ -4,9 +4,10 @@
 //
 // Hovered item: the vanilla container screens (inventory, creative inventory, chests, ...) report
 // the slot under the pointer (`ContainerScreenController::_onContainerSlotHovered`); while an
-// item with Ponder scenes is hovered, its tooltip says "Hold [W] to Ponder" below the name, which
-// turns into Create's progress bar of `|` characters while the Ponder key is held (the hover text
-// is rebuilt every frame: `ItemStackBase::getFormattedHovertext` hook), and holding the key (W,
+// item with Ponder scenes is hovered, its tooltip says "Hold [W] to Ponder" below the name
+// (`ItemStackBase::getFormattedHovertext` hook). Bedrock builds the hover text once per hover, so
+// while the key is held Create's progress bar of `|` characters is drawn in a tooltip box at the
+// top of the screen; holding the key (W,
 // Create's default, rebindable: `config/ponder.json` ponderKey, or the button of the welcome
 // screen) opens the item's Ponder (Create's PonderTooltipHandler: ~11 ticks with its
 // accelerating progress).
@@ -183,8 +184,19 @@ void holdFrame(MinecraftUIRenderContext& ctx, bool after) {
         s.tickAcc -= 1.f;
         s.progress = cp::holdProgressStep(s.progress, s.keyDown && !s.rebind);
     }
-    (void)ctx;
-    (void)after;
+    // Bedrock builds an item's hover text once per hover, so the tooltip keeps the hint: while the
+    // key is held Create's bar of `|` is drawn in a tooltip box at the top of the screen
+    if (s.progress.load() > 0 && (after || !s.afterSeen)) {
+        auto [sw, sh] = screen::guiSize();
+        (void)sh;
+        screen::Canvas c(ctx);
+        auto           bar = holdLine(s.progress.load());
+        float          w   = c.textWidth(bar) + 8;
+        screen::Rect   box{(sw - w) / 2, 6, w, 14};
+        c.fill(box, 0xF0100010);
+        c.frame(box, 0xFF5000FF);
+        c.text(box.x + 4, box.y + 3, bar, 0xFFFFFFFF);
+    }
     if (s.progress >= 1.f) {
         s.progress = 0;
         log().info("ponder: held {} over {}", keyName(ponderKeyCode()), id);

@@ -3401,8 +3401,9 @@ Client mod only (§8); the server side is `/create ponder`.
   display_targets, threshold_switch_targets.
 - **Opening**: hovering an item with scenes in any container screen (inventory, creative
   inventory, chests) adds "Hold [W] to Ponder" (dark gray, the key gray) below the item's name in its
-  tooltip; while the key is held the line becomes Create's progress bar of `|` characters as wide as
-  the hint (done part gray). Holding the Ponder key (W, Create's default; rebound with the "[W]"
+  tooltip; while the key is held Create's progress bar of `|` characters as wide as the hint (done
+  part gray) is drawn in a tooltip box at the top of the screen (Bedrock builds an item's hover text
+  once per hover, so the tooltip line itself can't change while it is shown). Holding the Ponder key (W, Create's default; rebound with the "[W]"
   button of the welcome screen: click, press a key, Esc cancels; saved as `ponderKey` in
   `config/ponder.json`) fills it with Create's curve (`p = min(1, p + max(0.25, p) · 0.25)` per tick, about 11
   ticks; released: −0.05 per tick) and opens the item's first scene. `/create ponder` opens the
@@ -3903,6 +3904,7 @@ matches Create's official Chinese translation wording).
 | Picking local files at the schematic table for **vanilla** clients (U29) | the server can't read the player's disk | the form lists the player's schematics stored on the server (quill saves, earlier uploads) |
 | Ponder for **vanilla** clients (U30) | a scene player needs client-side 3D rendering of a private scene; forms can't draw blocks | Ponder is client mod only; `/create ponder` tells vanilla players it needs the client mod |
 | Ponder scenes as Create's scene code and NBT schematics (U30) | Create's scenes are Java code over its own schematics (and copying them is not allowed) | our own scene scripts as data (`assets/ponder/scenes/*.json`) teaching the same steps; titles keep Create's wording, the texts are our own |
+| "Hold [W] to Ponder" progress bar inside the item tooltip (U30) | Bedrock builds an item's hover text once when the slot is hovered (verified: the line doesn't change while the key is held; re-hovering the slot from the mod to rebuild it can outlive the screen controller) | the hint is the tooltip's second line; while the key is held Create's `\|` bar is drawn in a tooltip box at the top of the screen |
 | Entities and particles inside Ponder scenes (U30) | the scene is drawn from blocks in the UI pass (no private level with entity renderers or a particle engine) | items float as item icons, mobs / minecarts are shown as their item, redstone with red sparks, fluid flow in pipes / tanks with coloured outlines; water and lava are drawn with their levels and sloped surfaces |
 | Holding the toolbox key on a **vanilla** client (U31) | the server can't see a held key without the client mod | `/create toolbox` opens the same entries as a form |
 | Dyeing a toolbox in the crafting grid keeps its contents (U31) | Bedrock crafting results carry no data of the ingredients | the crafted toolbox is empty; right-clicking a placed toolbox with a dye recolours it with its contents (as Create does too) |
