@@ -417,6 +417,13 @@ public:
         if (!joinRegistered) {
             joinRegistered = true;
             net::onCompanionJoined([](Player& player) { syncAllTo(player); }); // after the handshake
+            // Create's keySprint (Ctrl) held for a maximised turn: the client mod reports the key
+            net::on(kCtrlChannel, [](Player& player, nlohmann::json const& msg) {
+                bool down = msg.value("down", false);
+                auto uuid = player.getUuid().asString();
+                if (down) state().ctrlHeld.insert(uuid);
+                else state().ctrlHeld.erase(uuid);
+            });
         }
         installHooks();
     }
@@ -444,6 +451,7 @@ struct WorldHooks {
             s.curves.clear();
             s.portals.clear();
             s.selections.clear();
+            s.ctrlHeld.clear();
             s.shapeFixes.clear();
             s.tasks.clear();
             s.railAdded.clear();

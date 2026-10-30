@@ -369,6 +369,7 @@ void executeConnection(PendingConnection const& pc) {
     if (paving) pave(region, *plan, *paving, false);
     placeTracks(region, pc.dim, *plan, shape1, shape2);
     state().selections.erase(pc.uuid);
+    syncSelection(*player);
     playSound(*player, "dig.stone", 1, 0.8f);
     if (plan->curve) {
         log().info(
@@ -407,6 +408,7 @@ void playSound(Player& player, std::string const& name, float volume, float pitc
 
 void clearSelection(Player& player) {
     state().selections.erase(uuidOf(player));
+    syncSelection(player);
     actionbar(player, "create.track.selection_cleared", "Selection Cleared");
     playSound(player, "block.itemframe.remove_item", 0.75f, 1);
     log().info("tracks: {} cleared the track selection", player.getRealName());
@@ -440,6 +442,7 @@ bool onTrackItemUse(Player& player, BlockPos const& clicked, int face, Block con
         selection.dim = dim;
         selection.end = ct::selectEnd(toCore(clicked), *clickedShape, lookOf(player));
         s.selections[uuid] = selection;
+        syncSelection(player);
         playSound(player, "block.itemframe.add_item", 0.75f, 1);
         actionbar(player, "create.track.second_point", "Place track or select a second point");
         log().info("tracks: {} selected the track at {}", player.getRealName(), toCore(clicked).str());
@@ -477,7 +480,7 @@ bool onTrackItemUse(Player& player, BlockPos const& clicked, int face, Block con
     req.pos2         = pos2;
     req.look         = lookOf(player);
     req.maxLength    = config().maxTrackPlacementLength;
-    req.maximiseTurn = player.isSprinting();
+    req.maximiseTurn = maximiseTurn(player);
     req.girder       = player.getOffhandSlot().getTypeName() == kGirderId;
 
     ct::Shape shape1{}, shape2{};
