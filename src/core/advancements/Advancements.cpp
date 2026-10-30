@@ -60,11 +60,11 @@ constexpr Def kDefs[] = {
     {"frogport", "stock_ticker", "levitate:package_frogport", Noisy},
     {"table_cloth_shop", "frogport", "levitate:red_table_cloth", Noisy},
     {"factory_gauge", "table_cloth_shop", "levitate:factory_gauge", Noisy},
-    {"cardboard_armor", "factory_gauge", "levitate:cardboard", Normal},
+    {"cardboard_armor", "factory_gauge", "levitate:cardboard_chestplate", Normal},
 
     // Logistics - secret
     {"package_chute_throw", "cardboard_armor", "levitate:cardboard_package_12x12", Secret},
-    {"cardboard_armor_trim", "cardboard_armor", "levitate:cardboard", Secret},
+    {"cardboard_armor_trim", "cardboard_armor", "levitate:cardboard_chestplate", Secret},
 
     // Copper - central branch
     {"copper", "burner", "minecraft:copper_ingot", Silent, {"minecraft:copper_ingot"}},
@@ -107,7 +107,7 @@ constexpr Def kDefs[] = {
     {"crushing_wheel", "mechanical_crafter", "levitate:crushing_wheel", Noisy},
 
     // Brass - top branch
-    {"haunted_bell", "brass", "minecraft:bell", Noisy},
+    {"haunted_bell", "brass", "levitate:haunted_bell", Noisy},
     {"clockwork_bearing", "haunted_bell", "levitate:clockwork_bearing", Noisy},
     {"display_link", "clockwork_bearing", "levitate:display_link", Normal},
     {"potato_cannon", "display_link", "levitate:potato_cannon", Noisy},

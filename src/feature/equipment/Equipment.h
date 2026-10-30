@@ -261,6 +261,47 @@ int shapeAt(Player& player, core::equipment::ShaperSettings const& st, GlobalPos
 void tickShaper();
 void installShaper();
 
+// ---- peculiar / haunted bells (Bells.cpp, U49) ---------------------------------------------------
+inline constexpr std::string_view kPeculiarBell = "levitate:peculiar_bell";
+inline constexpr std::string_view kHauntedBell  = "levitate:haunted_bell";
+inline constexpr char kBellAttachment[] = "levitate:attachment"; ///< 0 floor, 1 ceiling, 2 single wall, 3 double wall
+inline constexpr char kBellPowered[]    = "levitate:powered";
+inline constexpr char kBellPart[]       = "levitate:part";       ///< 1: frame only (client mod meshing)
+[[nodiscard]] bool isBell(std::string_view id);
+/// Create's AbstractBellBlock#ring: rings the bell at `pos` as hit from `direction` (FacingID; the
+/// swing turns about the axis across it). False when it can't (a haunted bell recharging).
+bool ringBell(GlobalPos const& pos, int direction, Player* player);
+/// The ringing state of a bell (Create's AbstractBellBlockEntity / HauntedBellBlockEntity).
+struct BellInfo {
+    bool ringing      = false;
+    int  ringingTicks = 0;
+    int  direction    = 3;
+    int  effectTicks  = 0;
+};
+[[nodiscard]] BellInfo bellInfo(GlobalPos const& pos);
+/// Create's HauntedBellPulser#sendPulse: an expanding search for dark spots where mobs can spawn
+/// around `pos`, marked with soul particles.
+void soulPulse(GlobalPos const& pos, int distance);
+/// Create's SoulPulseEffect#canSpawnSoulAt (ignoring light) and #isDark.
+[[nodiscard]] bool canSpawnSoulAt(GlobalPos const& pos);
+[[nodiscard]] bool soulDark(GlobalPos const& pos);
+/// Spots marked by soul pulses since the last call (selftests), and the pulses running.
+[[nodiscard]] std::vector<GlobalPos> takeSoulMarks();
+[[nodiscard]] std::size_t soulPulseCount();
+
+// ---- cardboard armour and sword (Cardboard.cpp, U49) ---------------------------------------------
+inline constexpr std::string_view kCardboardHelmet     = "levitate:cardboard_helmet";
+inline constexpr std::string_view kCardboardChestplate = "levitate:cardboard_chestplate";
+inline constexpr std::string_view kCardboardLeggings   = "levitate:cardboard_leggings";
+inline constexpr std::string_view kCardboardBoots      = "levitate:cardboard_boots";
+inline constexpr std::string_view kCardboardSword      = "levitate:cardboard_sword";
+[[nodiscard]] bool isCardboardArmor(std::string_view id);
+/// Create's CardboardArmorHandler#testForStealth: full cardboard set, sneaking, not flying.
+[[nodiscard]] bool hidingAsBox(Actor const& actor);
+/// Create's CardboardSwordItem#cardboardSwordsCannotHurtYou: the bonk replacing an attack. False
+/// when the attack stays a normal one (arthropods, non-living targets, another item).
+bool cardboardBonk(Player& attacker, Actor& target);
+
 // ---- linked controller (Controller.cpp) ----------------------------------------------------------
 bool controllerUse(Player& player, ItemStack& held);
 bool controllerUseOn(Player& player, ItemStack& held, GlobalPos const& pos);
