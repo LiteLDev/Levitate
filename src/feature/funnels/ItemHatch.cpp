@@ -2,6 +2,7 @@
 // HatchFilterSlot. Placed on the side of a container; a right-click puts the held item (sneaking:
 // every inventory item outside the hotbar) into that container, through its filter.
 
+#include <functional>
 #include <map>
 #include <vector>
 
@@ -86,22 +87,32 @@ ia::Result use(ia::UseOnContext const& c) {
     int                    selected = player.getSelectedItemSlot();
     std::vector<ItemStack> failed;
     bool                   any = false;
-    for (int i = 0; i < 36 && i < inv.getContainerSize(); ++i) {
-        bool hotbar = i < 9;
-        if (hotbar != depositHeld) continue;
-        if (depositHeld && i != selected) continue;
-        ItemStack item = inv.getItem(i);
-        if (items::isEmpty(item) || !fitsInContainers(item)) continue;
-        if (hasFilter && !common::filterslot::matches(c.pos, item)) continue;
+    // one stack: the selected hotbar slot (not sneaking: the use's own stack, which the game writes
+    // back to the hand afterwards) or an inventory slot outside the hotbar (sneaking)
+    auto deposit = [&](ItemStack item, std::function<void(ItemStack const&)> const& keep) {
+        if (items::isEmpty(item) || !fitsInContainers(item)) return;
+        if (hasFilter && !common::filterslot::matches(c.pos, item)) return;
         int  count = items::countOf(item);
         auto rest  = items::insert(region, target, -1, item, true);
         int  fit   = count - (items::isEmpty(rest) ? 0 : items::countOf(rest));
-        if (fit <= 0) continue;
-        inv.setItem(i, fit >= count ? items::empty() : items::withCount(item, count - fit));
+        if (fit <= 0) return;
+        keep(fit >= count ? items::empty() : items::withCount(item, count - fit));
         auto left = items::insert(region, target, -1, items::withCount(item, fit), false);
         any       = true;
         // the remainder might not be empty in item handler edge cases
         if (!items::isEmpty(left)) failed.push_back(left);
+    };
+    if (depositHeld) {
+        if (c.offhand) return ia::Result::Consume; // Create: the main hand's slot only
+        // the hand slot too when the use's stack is a copy of it
+        bool slotToo = selected >= 0 && selected < 9 && &inv.getItem(selected) != &c.item
+                    && items::sameItemSameData(inv.getItem(selected), c.item) && items::countOf(inv.getItem(selected)) == items::countOf(c.item);
+        deposit(c.item, [&](ItemStack const& k) {
+            ia::mutableItem(c.item) = k;
+            if (slotToo) inv.setItem(selected, k);
+        });
+    } else {
+        for (int i = 9; i < 36 && i < inv.getContainerSize(); ++i) deposit(inv.getItem(i), [&](ItemStack const& k) { inv.setItem(i, k); });
     }
     for (auto const& f : failed) giveOrDrop(player, f);
     player.sendInventory(false);

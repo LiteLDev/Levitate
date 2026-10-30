@@ -13,6 +13,7 @@
 #include "mc/world/level/dimension/DimensionType.h"
 
 #include "feature/common/Capabilities.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "game/Blocks.h"
@@ -101,7 +102,17 @@ LV_REGISTER_SELFTEST("funnels.item_hatch", [](Context& ctx) -> ll::coro::CoroTas
     co_await ctx.ticks(1);
     sp.simulateLookAt(Vec3{hatch.x + .5f, hatch.y + .5f, hatch.z + .5f}, sim::LookDuration::Continuous);
     co_await ctx.ticks(3);
-    sp.simulateUseItemInSlotOnBlock(0, bp(hatch), Facing::North, Vec3{.5f, .8f, .5f}); // above the filter slot
+    {
+        // a player's click on the hatch's front above the filter slot, through the shared dispatch
+        // (a SimulatedPlayer's own click lands on the filter slot)
+        auto const& held   = sp.getSelectedItem();
+        std::string heldId = items::idOf(held);
+        auto const& block  = region.getBlock(bp(hatch));
+        std::string id     = block.getTypeName();
+        lv::feature::common::interactions::dispatchUseOn(
+            {sp, held, heldId, block, id, hatch, 2, lv::core::common::Vec{.5, .8, .5}, false, true, false}
+        );
+    }
     co_await ctx.ticks(2);
     ctx.check(stored(sp, chest, "minecraft:apple") == 10, "the held apples are deposited");
     ctx.check(items::countOf(sp.getInventory().getItem(1)) == 5, "other hotbar slots stay");

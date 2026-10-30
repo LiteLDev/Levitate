@@ -3995,8 +3995,10 @@ targeting ignores visibility); every 16 ticks of a mob a hiding target or last a
 forgotten. Hiding awards `cardboard_armor`. The client mod fades a cardboard vignette over the HUD
 while its player hides (opacity chasing 1 / 0 by a quarter per tick). Taking a trimmed cardboard
 armour piece out of the smithing table awards `cardboard_armor_trim` (Create's SmithingMenuMixin;
-the advancement is secret). There is no cardboard trim template item in Create (trims use the
-vanilla templates). The item description (`item.create.cardboard_armor.tooltip`) is shared by the
+the advancement is secret; Bedrock's smithing craft request carries the result with its `Trim`
+item data). There is no cardboard trim template item in Create (trims use the vanilla templates);
+the pieces carry `minecraft:trimmable_armors` and the vanilla armour render controller draws the
+trim on the attachables (checked in the client e2e). The item description (`item.create.cardboard_armor.tooltip`) is shared by the
 four pieces.
 
 **Cardboard sword** (U49, Create's CardboardSwordItem / KnockbackPacket). Hitting a living entity
