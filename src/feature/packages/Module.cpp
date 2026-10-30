@@ -23,6 +23,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/common/BlockData.h"
+#include "feature/common/Filter.h"
 #include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/packages/PackagesInternal.h"
@@ -676,6 +677,13 @@ public:
         installPortScreens();
         installItemScreens();
         installConveyorKinetics();
+        // Create's PackageFilterItem is a FilterItem: filter slots (funnels, smart observers, ...)
+        // test it with PackageFilterItemStack.
+        static bool filterMatcher = false;
+        if (!std::exchange(filterMatcher, true))
+            common::filter::registerMatcher(kPackageFilterId, [](ItemStack const& f, ItemStack const& s, bool) {
+                return filterMatches(f, s);
+            });
         static bool eraseListener = false;
         if (!std::exchange(eraseListener, true)) blockdata::onErase(onErase);
         if (game::db::available()) loadIndex();
