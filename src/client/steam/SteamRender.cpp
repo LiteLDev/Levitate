@@ -10,13 +10,17 @@
 #include <cmath>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <vector>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/client/ClientExitLevelEvent.h"
 #include "ll/api/memory/Hook.h"
 
+#include "mc/client/game/ClientInstance.h"
 #include "mc/client/gui/screens/ScreenContext.h"
+#include "mc/client/sound/SoundEngine.h"
+#include "mc/deps/core/file/Path.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
 #include "mc/client/renderer/RenderMaterialGroup.h"
@@ -59,6 +63,8 @@ struct Tank {
     double      amount = 0, capacity = 1;
     bool        window = true, boiler = false;
     double      shown  = -1; ///< displayed fill (0..1), chases the real one
+    double      gauge = 0, gaugeShown = 0; ///< boiler dial: target and displayed (Create's LerpedFloat)
+    int         occluded = 0;              ///< sides without a gauge (south, west, north, east bits)
 };
 struct Engine {
     int   dim = 0, x = 0, y = 0, z = 0, facing = 1, axis = 0;
@@ -130,6 +136,50 @@ void bar(std::vector<Quad>& out, V3 a, V3 b, double hw, float r, float g, float 
     out.push_back({{rb[3], rb[2], rb[1], rb[0]}, r * .6f, g * .6f, bl * .6f});
 }
 
+/// Create's boiler gauges (FluidTankRenderer.renderAsBoiler): on every side of the structure not
+/// hidden by a block in front, a brass gauge in the middle of the side's bottom layer whose needle
+/// turns `-145 * gauge + 90` degrees around its pivot (6/16 up). The needle chases the server's
+/// target like Create's `gauge.chase(target, .125, EXP)`. Returns true when a gauge was drawn.
+bool drawGauges(std::vector<Quad>& out, Tank& t, V3 const& eye, double dt) {
+    V3 centre{t.x + t.w / 2.0, t.y + .5, t.z + t.w / 2.0};
+    if ((centre - eye).length() > 64) return false;
+    t.gaugeShown += (t.gauge - t.gaugeShown) * std::min(1.0, .125 * dt * 20);
+    double const px    = 1 / 16.0;
+    double const pivot = t.y + 6 * px;
+    // Create's 2D order: south, west, north, east
+    static V3 const normals[4]{{0, 0, 1}, {-1, 0, 0}, {0, 0, -1}, {1, 0, 0}};
+    V3 const        up{0, 1, 0};
+    bool            drawn = false;
+    for (int i = 0; i < 4; ++i) {
+        if (t.occluded & (1 << i)) continue;
+        V3 n     = normals[i];
+        V3 right = V3{n.z, 0, -n.x}; // the viewer's right, looking at the side
+        V3 face  = V3{centre.x, pivot, centre.z} + n * (t.w / 2.0);
+        // a box on the side: `hw` / `hh` half sizes along the side, from `a` to `b` out of it
+        auto slab = [&](V3 c, double a, double b, double hw, double hh, float r, float g, float bl) {
+            V3 p0 = c + n * a - right * hw - up * hh, p1 = c + n * b + right * hw + up * hh;
+            box(out, {std::min(p0.x, p1.x), std::min(p0.y, p1.y), std::min(p0.z, p1.z)},
+                {std::max(p0.x, p1.x), std::max(p0.y, p1.y), std::max(p0.z, p1.z)}, r, g, bl);
+        };
+        slab(face, 0, 1.5 * px, 4 * px, 4 * px, .62f, .42f, .14f);          // brass housing
+        slab(face, 1.5 * px, 1.75 * px, 3 * px, 3 * px, .86f, .84f, .76f);  // dial
+        // tick marks at the ends of the scale
+        for (double deg : {0.0, 145.0}) {
+            double a  = deg * 3.14159265358979 / 180.0;
+            V3     d  = right * -std::cos(a) + up * std::sin(a);
+            slab(face + d * (2.4 * px), 1.75 * px, 1.9 * px, .3 * px, .3 * px, .2f, .2f, .2f);
+        }
+        // the needle: from the left (0) clockwise over the top to 145 degrees (1)
+        double a      = std::clamp(t.gaugeShown, 0.0, 1.2) * 145.0 * 3.14159265358979 / 180.0;
+        V3     dir    = right * -std::cos(a) + up * std::sin(a);
+        V3     base   = face + n * (1.95 * px);
+        bar(out, base - dir * (.5 * px), base + dir * (2.6 * px), .3 * px, .55f, .06f, .04f);
+        slab(face, 1.75 * px, 2.2 * px, .6 * px, .6 * px, .25f, .22f, .2f); // hub
+        drawn = true;
+    }
+    return drawn;
+}
+
 void onTanks(Json const& msg) {
     std::lock_guard lock(gMutex);
     static bool first = true;
@@ -148,7 +198,10 @@ void onTanks(Json const& msg) {
             auto const& p = s.at("p");
             std::array<int, 3> key{p[0].get<int>(), p[1].get<int>(), p[2].get<int>()};
             Tank t;
-            if (auto it = tanks.find(key); it != tanks.end()) t.shown = it->second.shown;
+            if (auto it = tanks.find(key); it != tanks.end()) {
+                t.shown      = it->second.shown;
+                t.gaugeShown = it->second.gaugeShown;
+            }
             t.x        = key[0];
             t.y        = key[1];
             t.z        = key[2];
@@ -159,6 +212,8 @@ void onTanks(Json const& msg) {
             t.capacity = std::max(1.0, s.value("c", 1.0));
             t.window   = s.value("win", true);
             t.boiler   = s.value("boiler", false);
+            t.gauge    = s.value("g", 0.0);
+            t.occluded = s.value("occ", 0);
             tanks[key] = t;
         } catch (...) {
         }
@@ -190,7 +245,38 @@ mce::MaterialPtr& material() {
     return m;
 }
 
+/// Watches the game's sound engine for a whistle tone: the server plays it once as a looping
+/// instance, so a tone that keeps playing for 3 s (the sample is 0.6 s long) proves the loop.
+/// One log line per level (the e2e scenario waits for it).
+void probeWhistleLoop() {
+    static int  frame = 0;
+    static bool logged = false;
+    static std::optional<std::chrono::steady_clock::time_point> since;
+    if (logged || ++frame % 10 != 0) return;
+    auto* ci = currentClient();
+    if (!ci) return;
+    auto* engine = ci->getSoundEngine().get().get();
+    if (!engine) return;
+    bool playing = false;
+    for (char const* name : {"levitate.steam.whistle_high", "levitate.steam.whistle_medium", "levitate.steam.whistle_low"})
+        playing = playing || engine->isPlayingSound(Core::Path(name));
+    auto now = std::chrono::steady_clock::now();
+    if (!playing) {
+        since.reset();
+        return;
+    }
+    if (!since) since = now;
+    if (now - *since >= std::chrono::seconds(3)) {
+        logged = true;
+        log().info("steam client: whistle loop still playing after 3 s");
+    }
+}
+
 void drawSteam(BaseActorRenderContext& ctx) {
+    try {
+        probeWhistleLoop();
+    } catch (...) {
+    }
     auto* player = currentPlayer();
     if (!player) return;
     int dim = static_cast<int>(player->getDimensionId());
@@ -205,13 +291,17 @@ void drawSteam(BaseActorRenderContext& ctx) {
     gLastFrame     = now;
 
     std::vector<Quad> quads;
-    int               tankCount = 0, engineCount = 0;
+    int               tankCount = 0, engineCount = 0, gaugeCount = 0;
     {
         std::lock_guard lock(gMutex);
         // fluids (Create's FluidTankRenderer: 1/4 caps, a 1/16 puddle, inset by the hull)
         if (auto it = gTanks.find(dim); it != gTanks.end()) {
             for (auto& [key, t] : it->second) {
-                if (!t.window || t.boiler || t.fluid.empty() || t.amount <= 0) continue;
+                if (t.boiler) {
+                    if (drawGauges(quads, t, o, dt)) ++gaugeCount;
+                    continue;
+                }
+                if (!t.window || t.fluid.empty() || t.amount <= 0) continue;
                 V3 c{t.x + t.w / 2.0, t.y + t.h / 2.0, t.z + t.w / 2.0};
                 if ((c - o).length() > 128) continue;
                 double fill = std::clamp(t.amount / t.capacity, 0.0, 1.0);
@@ -259,6 +349,11 @@ void drawSteam(BaseActorRenderContext& ctx) {
     if (!gLogged && tankCount > 0) {
         gLogged = true;
         log().info("steam client: drawing {} tank fluid(s)", tankCount);
+    }
+    static bool loggedGauges = false;
+    if (!loggedGauges && gaugeCount > 0) {
+        loggedGauges = true;
+        log().info("steam client: drawing the gauges of {} boiler(s)", gaugeCount);
     }
     if (!loggedEngines && engineCount > 0) {
         loggedEngines = true;

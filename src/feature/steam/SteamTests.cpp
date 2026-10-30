@@ -4,6 +4,7 @@
 
 #include "ll/api/coro/CoroTask.h"
 
+#include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -354,6 +355,78 @@ LV_REGISTER_SELFTEST("steam.whistle", [](Context& ctx) -> ll::coro::CoroTask<> {
     clear(a.at(0, 2));
     co_await ctx.ticks(2);
     ctx.check(blockAt(a.at(0, 3)) != kExtension, "extensions vanish with their whistle");
+});
+
+// ---- U40: gauges, the looping whistle tone (test area dx 4050..4069) ---------------------------------
+
+LV_REGISTER_SELFTEST("steam.gauges", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 4050};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    // 1x1x4 boiler (size limit 1) on a kindled heater, an engine on top
+    place(ctx, a.at(0, 0), kTestHeater, {{"levitate:heat", 3}});
+    tankBox(ctx, a, 0, 1, 0, 1, 4);
+    place(ctx, a.at(0, 5), kEngine, {}, {{"minecraft:block_face", "up"}});
+    place(ctx, a.at(0, 1, 1), "minecraft:stone"); // in front of the south gauge
+    co_await ctx.ticks(2);
+    auto ctrl = a.at(0, 1);
+    for (int i = 0; i < 30; ++i) {
+        fill(ctrl, "minecraft:water", 20);
+        co_await ctx.ticks(1);
+    }
+    auto* rt = boilerOf(ctrl);
+    ctx.require(rt && rt->boiler.isActive(), "the tank is a boiler");
+    auto t = tank(ctrl);
+    ctx.check(t && t->boilerLevel == 1, "boiler level 1 (size 4 blocks): " + std::to_string(t ? t->boilerLevel : -1));
+    ctx.check(rt->gauge == 1.f, "level 1 of a size limit 1: the gauge is full, got " + std::to_string(rt->gauge));
+    ctx.check(rt->occluded == 1, "only the south gauge is hidden (stone in front), mask " + std::to_string(rt->occluded));
+    // passive heat: Create's 1/8
+    place(ctx, a.at(0, 0), kTestHeater, {{"levitate:heat", 1}});
+    for (int i = 0; i < 4; ++i) {
+        fill(ctrl, "minecraft:water", 20);
+        co_await ctx.ticks(1);
+    }
+    ctx.check(rt->gauge == 1.f / 8.f, "passive: the gauge shows 1/8, got " + std::to_string(rt->gauge));
+});
+
+LV_REGISTER_SELFTEST("steam.whistle_tone", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 4060};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    place(ctx, a.at(0, 0), kTestHeater, {{"levitate:heat", 3}});
+    place(ctx, a.at(0, 1), kTank);
+    place(ctx, a.at(0, 2), kWhistle, {}, {{"minecraft:block_face", "up"}});
+    for (int i = 3; i <= 5; ++i) ctx.cleanupBlock(a.at(0, i));
+    auto& p    = ctx.player();
+    auto  near = a.at(3, 2);
+    p.teleport(Vec3{near.x + .5f, static_cast<float>(near.y), near.z + .5f}, p.getDimensionId());
+    co_await ctx.ticks(2);
+    auto w = a.at(0, 2);
+    ctx.check(whistleToneHandle(w) == 0, "no tone without power");
+    place(ctx, a.at(1, 2), "minecraft:redstone_block");
+    co_await ctx.ticks(4);
+    ctx.require(whistleSounding(w), "the whistle sounds");
+    auto handle = whistleToneHandle(w);
+    ctx.check(handle != 0, "one looping instance");
+    ctx.check(whistleToneListeners(w) >= 1, "the player nearby hears it");
+    // a longer column changes the pitch of the same instance
+    p.setSelectedItem(item(ctx, kWhistle));
+    useOnWhistle(p, w, p.getSelectedItem(), false);
+    p.setSelectedItem(common::items::empty());
+    co_await ctx.ticks(2);
+    ctx.check(whistleToneHandle(w) == handle, "a pitch change keeps the instance");
+    // a new size (octave) is a new instance
+    if (auto* r = regionOf(w.dim)) setStates(*r, w, {{"levitate:size", 2}});
+    co_await ctx.ticks(2);
+    auto large = whistleToneHandle(w);
+    ctx.check(large != 0 && large != handle, "a new size restarts the instance");
+    // out of range: the listener is dropped
+    auto far = a.at(3, 2, 100);
+    p.teleport(Vec3{far.x + .5f, static_cast<float>(far.y), far.z + .5f}, p.getDimensionId());
+    co_await ctx.ticks(4);
+    ctx.check(whistleToneListeners(w) == 0, "a player 100 blocks away stops hearing it");
+    // quiet: it fades out and stops
+    clear(a.at(1, 2));
+    co_await ctx.ticks(8);
+    ctx.check(whistleToneHandle(w) == 0, "unpowered: the tone stopped");
 });
 
 } // namespace lv::feature::steam

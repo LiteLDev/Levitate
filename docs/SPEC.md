@@ -2248,8 +2248,8 @@ the other way the engine flips its own setting. The powered shaft generates `dir
 (1 + (e ≥ 1 ? 3 : min(2, ⌊4e⌋)))` RPM (64 at full, 48 / 32 / 16 below) with a capacity of `e · 1024 /
 modifier` su per RPM (= e · 16384 su: a full engine 16384 su, a passive one 2048 su); no tank, no
 shaft or efficiency 0: speed 0. Value box "Rotation Direction" (Clockwise / Counter-Clockwise) on the
-engine's four side faces. Puffs of steam (sound `levitate.steam.engine`, evaporation particles) twice
-per shaft turn while it runs.
+engine's four side faces. Puffs of steam (sound `levitate.steam.engine`, a `levitate:steam_jet`
+particle out of the cylinder's front) twice per shaft turn while it runs.
 
 **Whistle** (WhistleBlock / BlockEntity). Pitch = 2 semitones per full extension above it, 1 for a
 half (single) one at the top (`updatePitch`, up to 25). Using a whistle item on a whistle or an
@@ -2258,17 +2258,33 @@ else a half extension is added on the next free block; the item is not used up; 
 2^(−2i/12)). Wrench: the next size (small → medium → large → small) for the whole column; sneaking
 with the wrench on the top extension shortens it by half a block. Extensions without a whistle or
 extension below vanish. Powered by redstone (polled, §8) on a boiler with heat (passive or active) it
-sounds: the `levitate.steam.whistle_chiff` hiss when it starts, then the tone: one original sample
-played at `octave · 2^(−pitch/12)` (sounds `whistle_high` / `whistle_medium` / `whistle_low` are the
-same sample at pitch 2 / 1 / .5; restarted every 10 ticks, heard up to 64 blocks), steam particles out
-of the mouth every 8 ticks. One log line when it starts / stops.
+sounds: the `levitate.steam.whistle_chiff` hiss when it starts (per player at volume
+`.175 · (64 − distance) / 64`, pitch `f + .75` for small whistles), then the tone as one looping
+sound instance per whistle (Create's WhistleSoundInstance): one original sample played at
+`f = octave · 2^(−pitch/12)` (sounds `whistle_high` / `whistle_medium` / `whistle_low` are the same
+sample at pitch 2 / 1 / .5). The server gives the instance a sound handle and plays it looping
+(PlaySoundPacket loop count −1 + server sound handle) on the clients of the players within 64 blocks;
+a player coming into range gets it, one leaving it (68 blocks) gets Stop; a pitch change (a longer
+or shorter column) is sent to the playing clients as SetPitch (ClientboundUpdateSoundDataPacket), a
+size change starts a new instance, and a whistle that stops (unpowered, no steam, removed, chunk
+unloaded) fades out over 4 ticks (Create: −.25 volume per tick) and then stops. Every client plays it
+with the game's own sound engine (no client mod needed). A `levitate:steam_jet` particle (Create's
+SteamJetParticle: a grey-white puff that grows, rises and fades) leaves the mouth when it starts and
+every 8 ticks, up and out of the mouth. One log line when it starts / stops and one when the looping
+instance starts.
 
 **Client** (client mod): the server sends tank contents (`steam.tanks`: controller, size, fluid,
-amount, capacity, windows, boiler) and engines (`steam.engines`: position, facing, shaft speed and
-axis) to companions; the client draws the fluid inside windowed tanks as Create's renderer (1/4
-caps, a 1/16 puddle, inset by the hull, the level easing towards the real one) in the fluid's colour,
-and each running engine's piston rod, crosshead and connecting rod following Create's
-`(1 − sin a) / 4 · 24/16` stroke on a crank pin turning with the shaft.
+amount, capacity, windows, boiler, and for boilers the gauge target `g` and the hidden sides `occ`)
+and engines (`steam.engines`: position, facing, shaft speed and axis) to companions; the client draws
+the fluid inside windowed tanks as Create's renderer (1/4 caps, a 1/16 puddle, inset by the hull, the
+level easing towards the real one) in the fluid's colour, and each running engine's piston rod,
+crosshead and connecting rod following Create's `(1 − sin a) / 4 · 24/16` stroke on a crank pin
+turning with the shaft. **Boiler gauges** (Create's FluidTankRenderer.renderAsBoiler): a boiler draws
+no fluid but a brass gauge in the middle of every side of its bottom layer, the needle pivot 6/16 up,
+the needle turning `145° · gauge` from its rest position; the gauge chases (Create's `chase(target,
+.125, EXP)`) the target `1/8` for a passive boiler, else `level / size limit` (Create's
+BoilerData.read); a side whose gauge position has a block with a collision box in front of it
+(Create's updateOcclusion) shows none. Vanilla clients see the tank only (§8).
 
 **Persistence**: tank parts in BlockData (`data["steam"]`: controller, width, height, window,
 fluid, amount), engines' value box there too; the engine / whistle / powered shaft index in
@@ -3792,9 +3808,7 @@ matches Create's official Chinese translation wording).
 | Instant potion effects from open ends at half strength (U17) | Bedrock applies instantaneous effects through `addEffect` at full strength | instant potion effects apply at full strength |
 | Fluid inside tanks and the moving engine piston for **vanilla** clients (U18) | no client-side rendering without the client mod; a fluid level per block would need a block state per level and fluid | the client mod draws them; vanilla clients see the tank (windows show an empty inside) and a static engine |
 | Whistle redstone input (U18) | custom blocks get no redstone neighbour update | the whistle polls its neighbours' redstone power every 2 ticks (as the sticker, U4) |
-| Whistle tone as one looping sound with a changing pitch (U18) | Bedrock's server can't hold a looping sound instance on clients | the tone sample (0.6 s) is restarted every 10 ticks at the whistle's pitch, so it sounds continuous; the chiff plays when it starts |
-| Boiler gauges drawn on the tank sides (U18) | Create draws them with its block entity renderer | the goggle lines (`/create steam`, U8's overlay) show the same status |
-| Steam particles of whistles / engines as Create's custom steam jet particle (U18) | no custom particle shipped yet | vanilla's water evaporation particle at the whistle's mouth / the engine's front, for every client |
+| Boiler gauges for **vanilla** clients (U18) | the needle moves with the boiler level: client-side drawing (the client mod draws the gauges); a block state per needle position and side would need hundreds of tank states | vanilla clients see the boiler without gauges; the goggle lines (`/create steam`, U8's overlay) show the same status |
 | Flowing honey/chocolate in the world (U19) | Bedrock has no data-driven custom fluids: a custom block can't flow, be swum in or use the fluid renderer | they exist everywhere fluids are handled (pipes, tanks, basins, spouts, drains, buckets); in the world a bucket or a hose pulley places a translucent, non-colliding, non-flowing source block (`levitate:honey` / `levitate:chocolate`) that buckets and hose pulleys pick up again; entities in it are slowed (Slowness II) and take no fall damage instead of Create's viscous fluid motion; lava touching it turns into obsidian / limestone / scoria; no fog colour under it |
 | Hose drawn for **vanilla** clients (U19) | Create draws the hose with a block entity renderer; a block in its place would block the fluid it hangs in | the client mod draws the hose and its end piece; vanilla clients see the pulley only (draining and filling work the same) |
 | Spout nozzle squeeze and splash particles (U19) | client-side animation and fluid particles | the client mod draws Create's fluid stream (its width follows Create's curve over the 20 ticks); the nozzle model is static; vanilla clients hear the sounds only |
