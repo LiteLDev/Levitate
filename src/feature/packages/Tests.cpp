@@ -3,6 +3,9 @@
 #include <algorithm>
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/phys/AABB.h"
 #include "mc/scripting/modules/minecraft/ScriptFacing.h"
 #include "mc/server/SimulatedPlayer.h"
 #include "mc/server/sim/LookDuration.h"
@@ -19,6 +22,8 @@
 #include "core/packages/Address.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
+#include "feature/common/Filter.h"
+#include "feature/display/Clipboard.h"
 #include "feature/common/Items.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/packages/Packages.h"
@@ -136,6 +141,11 @@ LV_REGISTER_SELFTEST("packages.package_items", [](Context& ctx) {
     pk::setAddress(filter, "farm_*");
     ctx.check(pk::filterMatches(filter, addressed), "address filter matches the package");
     ctx.check(!pk::filterMatches(filter, stack("minecraft:stone", 1)), "address filter rejects non-packages");
+    // filter slots (Create's FilterItemStack.of -> PackageFilterItemStack)
+    ctx.check(lv::feature::common::filter::isFilterItem(filter), "the package filter counts as a filter item");
+    ctx.check(lv::feature::common::filter::matches(filter, addressed), "filter slots match packages by address");
+    ctx.check(!lv::feature::common::filter::matches(filter, stack("minecraft:stone", 1)), "filter slots reject non-packages");
+    ctx.check(lv::feature::common::filter::predicate(filter)(addressed), "filter predicate matches packages by address");
 });
 
 LV_REGISTER_SELFTEST("packages.packager_redstone", [](Context& ctx) -> ll::coro::CoroTask<> {
@@ -417,6 +427,67 @@ LV_REGISTER_SELFTEST("packages.postbox", [](Context& ctx) -> ll::coro::CoroTask<
     pk::savePort(box);
     co_await ctx.ticks(1);
     ctx.check(pk::stateAt(box, pk::kFlag).value_or(1) == 0, "the flag is down again");
+});
+
+// U44 (dx 4410..4419): right-clicking a port with a clipboard adds "#address" to it
+LV_REGISTER_SELFTEST("packages.port_clipboard", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto box = at(ctx, 4410);
+    ctx.require(co_await ctx.ensureLoaded(box), "test area loaded");
+    ctx.require(ctx.setBlock(box, "levitate:blue_postbox"), "postbox placed");
+    pk::track(box, pk::Kind::Postbox);
+    pk::port(box).address = "Farm";
+    pk::savePort(box);
+    auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
+    sp.teleport(Vec3{box.x + 0.5f, box.y + 0.f, box.z + 2.5f}, DimensionType(box.dim));
+    co_await ctx.ticks(2);
+    sp.simulateSetItem(stack("levitate:clipboard", 1), true, 0);
+    co_await ctx.ticks(1);
+    sp.simulateUseItemInSlotOnBlock(0, lv::game::blockPos(box), ScriptModuleMinecraft::ScriptFacing::South, Vec3{0.5f, 0.5f, 1.f});
+    co_await ctx.ticks(3);
+    auto c = lv::feature::display::clipboard::ofItem(sp.getSelectedItem());
+    ctx.check(c.pages.size() == 1 && c.pages[0].size() == 1 && c.pages[0][0].text == "#Farm" && c.type == 2,
+              "the port's address is on the clipboard");
+    co_await ctx.ticks(25);
+    sp.simulateUseItemInSlotOnBlock(0, lv::game::blockPos(box), ScriptModuleMinecraft::ScriptFacing::South, Vec3{0.5f, 0.5f, 1.f});
+    co_await ctx.ticks(3);
+    c = lv::feature::display::clipboard::ofItem(sp.getSelectedItem());
+    ctx.check(c.pages.size() == 1 && c.pages[0].size() == 1, "an address already on the clipboard is not added twice");
+    // pages hold up to 12 addresses
+    ItemStack full = stack("levitate:clipboard", 1);
+    for (int i = 0; i < 12; ++i) ctx.check(lv::feature::display::clipboard::addAddress(full, "a" + std::to_string(i)), "address added");
+    ctx.check(!lv::feature::display::clipboard::addAddress(full, "  "), "blank addresses are not added");
+    auto fc = lv::feature::display::clipboard::ofItem(full);
+    ctx.check(fc.pages.size() == 1 && fc.pages[0].size() == 12, "a page takes 12 addresses");
+    lv::feature::display::clipboard::addAddress(full, "a12");
+    fc = lv::feature::display::clipboard::ofItem(full);
+    ctx.check(fc.pages.size() == 2 && fc.pages[0].size() == 12 && fc.pages[1].size() == 1, "the 13th address goes on a new page");
+    sp.simulateSetItem(ItemStack::EMPTY_ITEM(), true, 0);
+});
+
+// U44 (dx 4420..4429): spawn eggs in an opened package spawn their mob in front of the player
+LV_REGISTER_SELFTEST("packages.open_spawn_egg", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto pos = at(ctx, 4420);
+    ctx.require(co_await ctx.ensureLoaded(pos), "test area loaded");
+    auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
+    sp.teleport(Vec3{pos.x + 0.5f, pos.y + 0.f, pos.z + 0.5f}, DimensionType(pos.dim));
+    co_await ctx.ticks(2);
+    auto& region = sp.getDimensionBlockSource();
+    AABB  area{Vec3{pos.x - 4.f, pos.y - 2.f, pos.z - 4.f}, Vec3{pos.x + 5.f, pos.y + 4.f, pos.z + 5.f}};
+    auto  pigs = [&] { return region.getEntities(area, 0.f, ActorType::Pig).size(); };
+    auto  before = pigs();
+    auto  box    = pk::containing({stack("minecraft:pig_spawn_egg", 2), stack("minecraft:coal", 3)});
+    sp.simulateSetItem(box, true, 0);
+    sp.simulateSneaking();
+    co_await ctx.ticks(2);
+    sp.simulateUseItemInSlot(0);
+    co_await ctx.ticks(2);
+    sp.simulateStopSneaking();
+    ctx.check(pigs() == before + 1, "one pig spawned from the egg stack (Create shrinks the stack by one)");
+    ctx.check(countPlayer(sp, "minecraft:pig_spawn_egg") == 1, "the rest of the eggs go to the inventory");
+    ctx.check(countPlayer(sp, "minecraft:coal") == 3, "other items go to the inventory");
+    for (auto* a : region.getEntities(area, 0.f, ActorType::Pig)) a->remove();
+    auto& inv = sp.getInventory();
+    for (int i = 0; i < inv.getContainerSize(); ++i) inv.setItem(i, items::empty());
 });
 
 LV_REGISTER_SELFTEST("packages.chain_package_pick", [](Context& ctx) -> ll::coro::CoroTask<> {
