@@ -130,6 +130,7 @@ namespace {
 
 constexpr char kDustEffect[] = "levitate:gauge_dust";
 std::size_t    gDustSent     = 0;
+bool           gForceAnimate = false;
 
 /// GaugeBlockEntity.color: Create's SpeedGauge (the speed level's colour, a quarter towards
 /// white) and StressGauge (green -> yellow -> red with the dial) colours.
@@ -179,7 +180,7 @@ void animateGauge(BlockSource& region, GlobalPos const& pos, std::string const& 
         double dx = std::fabs(e.x - pos.x - .5), dy = std::fabs(e.y - pos.y - .5), dz = std::fabs(e.z - pos.z - .5);
         double d  = std::max({dx, dy, dz});
         float  chance = (d <= 16 ? 667.f / (32 * 32 * 32) : 0.f) + (d <= 32 ? 667.f / (64 * 64 * 64) : 0.f);
-        if (chance <= 0 || rnd() >= chance) return true;
+        if (chance <= 0 || (!gForceAnimate && rnd() >= chance)) return true;
         for (Face face : ck::kFaces) {
             if (!ct::gaugeHeadOnFace(facing, along, face)) continue;
             auto np = stepPos(pos, face);
@@ -215,6 +216,7 @@ void animateGauge(BlockSource& region, GlobalPos const& pos, std::string const& 
 } // namespace
 
 std::size_t gaugeDustSent() { return gDustSent; }
+void        forceGaugeAnimation(bool on) { gForceAnimate = on; }
 
 void gaugeTick(BlockSource& region, GlobalPos const& pos) {
     auto  id     = idAt(region, pos);

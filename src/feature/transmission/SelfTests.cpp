@@ -221,8 +221,14 @@ LV_REGISTER_SELFTEST("transmission.gauges", [](Context& ctx) -> ll::coro::CoroTa
     auto& player = ctx.player();
     auto  g      = a.at(2);
     player.teleport(Vec3{g.x + .5f, g.y + 1.f, g.z + 3.5f}, player.getDimensionId());
+    // the client picks the gauge at random (about 2% a tick: 200 ticks still miss one run in a
+    // hundred): pick it on every tick here
+    struct Forced {
+        Forced() { forceGaugeAnimation(true); }
+        ~Forced() { forceGaugeAnimation(false); }
+    } forced;
     auto puffs = gaugeDustSent();
-    co_await ctx.ticks(200);
+    co_await ctx.ticks(5);
     ctx.check(gaugeDustSent() > puffs, "gauge dust particles are sent to players near a turning gauge");
 });
 
