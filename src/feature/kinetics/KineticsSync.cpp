@@ -60,7 +60,8 @@ std::vector<ks::Entry> entriesOf(int dim) {
     std::vector<ks::Entry> out;
     detail::solver().forEachNode([&](NodeInfo const& n) {
         if (n.pos.dim != dim) return;
-        out.push_back(ks::Entry{n.pos.x, n.pos.y, n.pos.z, n.speed, sourceFaceOf(n.pos, n.source), false, n.overstressed});
+        // the same rule as the deltas: overstressed while the effective speed is 0 and the theoretical is not
+        out.push_back(ks::Entry{n.pos.x, n.pos.y, n.pos.z, n.speed, sourceFaceOf(n.pos, n.source), false, n.speed == 0 && n.theoreticalSpeed != 0});
     });
     return out;
 }

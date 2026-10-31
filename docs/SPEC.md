@@ -1398,8 +1398,8 @@ new block; sides on two axes cancel out, on one axis the last in Direction order
   another water wheel along their shared axis (WaterWheelBlock): a placement or a wrench turn
   against that is refused.
 - Vanilla clients see the large water wheel's missing room as red particles along the box's
-  edges, every quarter block, for 1.5 s (`levitate:water_wheel_room`, sent to that player only;
-  U52).
+  edges, every quarter block, for 1.5 s (`levitate:water_wheel_room`, sent to that player only, at most
+  once a second while the button is held; U52).
 
 **Hand crank.** Right-click (any item but the wrench, also while sneaking with an item in hand:
 Create's ItemUseOverrides; sneak + wrench picks it up) turns it for
@@ -1560,9 +1560,12 @@ Create's panel at `centre + (32, −12)` (Create's default offset plus the hover
 tooltip frame (`textures/ui/levitate_goggle_tooltip`, nine-slice, drawn by
 `tools/textures/goggles.ps1`), indentation kept. When the target goes the server sends an
 unmarked invisible title (`§r`) for one tick (the HUD keeps the last title text; a clear does not
-change it), then resets the title times (log `goggles: overlay hidden for <player>`). Config `vanillaOverlay` (off: nothing) and
-`vanillaOverlayHud` (off: the old action-bar text, indentation trimmed, for clients that refused
-the resource pack). The goggles icon is not drawn for vanilla clients.
+change it), then resets the title times (log `goggles: overlay hidden for <player>`). Config `vanillaOverlay` (off: nothing; a panel that is up is taken away) and
+`vanillaOverlayHud` (off: the old action-bar text, indentation trimmed). The HUD panel is only used
+while the server requires the resource pack (`requireResourcePack`, the default): without it a
+client that refused the pack would see the lines as a big vanilla title, so it gets the action
+bar. The panel shares the title channel: while it is up it replaces another title (a `/title`,
+U31's subtitle messages). The goggles icon is not drawn for vanilla clients.
 
 `/create overlay` (anyone, client mod) opens Create's position screen: the sample tooltip
 (`create.gui.config.overlay1..8`) follows clicks / drags (clamped as Create), Esc saves the offset

@@ -255,7 +255,9 @@ void frameUpdate(ClientInstance& ci) {
         s.level = level;
     }
     if (!level || !player) return;
-    s.dim = static_cast<int>(player->getDimensionId());
+    int dim = static_cast<int>(player->getDimensionId());
+    if (dim != s.dim || s.eased.size() > 4096) s.eased.clear(); // eased parts are per dimension
+    s.dim = dim;
 }
 
 /// The client level's tick (0 outside a level).

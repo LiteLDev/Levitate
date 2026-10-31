@@ -373,7 +373,7 @@ void onBlockChanged(ll::event::BlockChangedEvent& ev) {
     auto const& prev = ev.previousBlock();
     // HandCrankBlock.neighborChanged: a crank / valve handle whose block behind lost its
     // collision shape pops off (checked on the next tick, out of the block change)
-    if (!prev.isAir() && !hasCollision(region, ev.pos(), now))
+    if (!prev.isAir() && hasCollision(region, ev.pos(), prev) && !hasCollision(region, ev.pos(), now))
         for (Face f : k::kFaces) s.supportCheck.insert(shifted(pos, k::offsetOf(f)));
     Kind        kn = kindOf(now), kp = kindOf(prev);
     if (kn == Kind::None && kp == Kind::None) return;
@@ -723,8 +723,18 @@ void noRoom(Player& player, GlobalPos const& at, Axis axis) {
     double lo[3]{at.x - 1.0, at.y - 1.0, at.z - 1.0}, hi[3]{at.x + 2.0, at.y + 2.0, at.z + 2.0};
     lo[a] += 1;
     hi[a] -= 1;
-    if (net::isCompanion(player)) net::send(player, "generators.room", {{"lo", {lo[0], lo[1], lo[2]}}, {"hi", {hi[0], hi[1], hi[2]}}});
-    else roomParticles(player, at.dim, lo, hi);
+    if (net::isCompanion(player)) {
+        net::send(player, "generators.room", {{"lo", {lo[0], lo[1], lo[2]}}, {"hi", {hi[0], hi[1], hi[2]}}});
+        return;
+    }
+    // Bedrock repeats the use while the button is held: one outline per player per second (the
+    // particles last 1.5 s)
+    static std::unordered_map<std::int64_t, std::uint64_t> lastOutline;
+    auto  now  = state().tick;
+    auto& last = lastOutline[player.getOrCreateUniqueID().rawID];
+    if (last != 0 && now - last < 20) return;
+    last = now == 0 ? 1 : now;
+    roomParticles(player, at.dim, lo, hi);
 }
 
 bool placeLargeWheel(Player& player, ItemStack& held, GlobalPos const& placement, Face clickedFace) {

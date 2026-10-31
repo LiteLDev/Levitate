@@ -40,6 +40,7 @@
 #include "mod/Commands.h"
 #include "mod/Config.h"
 #include "mod/Log.h"
+#include "mod/ModConfig.h"
 #include "mod/Module.h"
 
 LV_REGISTER_CONFIG("goggles", lv::feature::goggles::GogglesConfig);
@@ -581,11 +582,19 @@ private:
     void tick() {
         ++mTick;
         auto const& cfg = config::get<GogglesConfig>();
-        if (!cfg.vanillaOverlay || mTick % static_cast<std::uint64_t>(std::max(1, cfg.overlayInterval)) != 0) return;
+        if (mTick % static_cast<std::uint64_t>(std::max(1, cfg.overlayInterval)) != 0) return;
         auto level = ll::service::getLevel();
         if (!level) return;
-        level->forEachPlayer([this](Player& player) {
-            if (net::isCompanion(player) || player.isSimulatedPlayer()) return true;
+        level->forEachPlayer([this, &cfg](Player& player) {
+            if (player.isSimulatedPlayer()) return true;
+            if (!cfg.vanillaOverlay || net::isCompanion(player)) {
+                // turned off (or the player is now a companion): take a HUD panel that is up away
+                if (auto it = mShown.find(player.getOrCreateUniqueID().rawID); it != mShown.end() && it->second.hud) {
+                    hudHide(player);
+                    it->second = Shown{};
+                }
+                return true;
+            }
             vanillaOverlay(player);
             return true;
         });
@@ -600,7 +609,8 @@ private:
             pos = game::globalPos(player.getDimensionBlockSource(), hit.mBlock);
             o   = overlayFor(player, pos);
         }
-        bool useHud = config::get<GogglesConfig>().vanillaOverlayHud;
+        // the HUD panel needs Levitate's resource pack: only when the server requires it
+        bool useHud = config::get<GogglesConfig>().vanillaOverlayHud && config::get<ModConfig>().requireResourcePack;
         if (o.lines.empty() || (s.hud && !useHud)) {
             // the action bar fades by itself (a blank one would erase other units' messages); the
             // HUD panel is a title, taken away at once
