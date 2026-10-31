@@ -70,7 +70,8 @@ public:
         if (next == StartResult::Navigating) nav = true;
         return next;
     }
-    StartResult startPackages(bool, std::string const&) override { return StartResult::NoTarget; }
+    StartResult packages = StartResult::NoTarget;
+    StartResult startPackages(bool, std::string const&) override { return packages; }
     void        rename(std::string const& t) override { title = t; }
     void        setThrottle(double t) override { throttle = t; }
     bool        navigating() const override { return nav; }
@@ -174,7 +175,9 @@ TEST(TrainPhysics, HitsAndCollisions) {
 TEST(TrainAssembly, BogeyRules) {
     EXPECT_TRUE(canPlaceBogey(0, {}));
     EXPECT_FALSE(canPlaceBogey(2, {}));
-    EXPECT_TRUE(canPlaceBogey(3, {}));
+    EXPECT_FALSE(canPlaceBogey(3, {})) << "Create: the first bogey goes to the station marker";
+    EXPECT_TRUE(canPlaceBogey(3, {0}));
+    EXPECT_FALSE(canPlaceBogey(2, {0}));
     EXPECT_FALSE(canPlaceBogey(5, {3}));
     EXPECT_TRUE(canPlaceBogey(6, {3}));
     EXPECT_EQ(checkBogeys({}, 20)->key, "create.train_assembly.no_bogeys");
@@ -339,7 +342,107 @@ TEST(TrainSchedule, ColumnsAreAlternativesAndFailuresWait) {
     EXPECT_TRUE(back.hasSchedule);
 }
 
+TEST(TrainSchedule, PackageInstructionsWithoutPackagesSkipTheirEntry) {
+    // Create's DeliverPackagesInstruction / FetchPackagesInstruction: nothing to do skips the entry
+    // with its conditions (Fetch waits the retry interval first)
+    Schedule s;
+    Entry    deliver;
+    deliver.instruction = defaultInstruction(ids::kPackageDelivery);
+    deliver.conditions  = {{defaultCondition(ids::kPowered)}};
+    s.entries.push_back(deliver);
+    s.entries.push_back(Entry::makeDefault());
+    Runtime    rt;
+    FakeDriver d;
+    rt.setSchedule(s, false);
+    d.packages = StartResult::Skip;
+    rt.tick(d);
+    EXPECT_EQ(rt.currentEntry, 1);
+    EXPECT_EQ(rt.state, RuntimeState::PreTransit);
+    EXPECT_TRUE(d.statuses.empty());
+    rt.currentEntry = 0;
+    d.packages      = StartResult::SkipCooldown;
+    rt.tick(d);
+    EXPECT_EQ(rt.currentEntry, 1);
+    EXPECT_EQ(rt.cooldown, Runtime::kInterval);
+}
+
+TEST(TrainSchedule, PredictionsAccumulateLearnedTransitsAndStays) {
+    // Create's ScheduleRuntime.submitPredictions
+    Schedule s;
+    auto     stop = [](std::string const& to, int delayTicks) {
+        auto e                              = Entry::makeDefault();
+        e.instruction.data["Text"]          = to;
+        e.conditions[0][0].data["Value"]    = delayTicks;
+        e.conditions[0][0].data["TimeUnit"] = 0;
+        return e;
+    };
+    s.entries = {stop("A", 100), stop("B", 40), stop("C*", 20)};
+    Runtime rt;
+    rt.setSchedule(s, false);
+    rt.predictionTicks = {300, 500, -1};
+    // standing at A (entry 0 reached)
+    rt.state = RuntimeState::PostTransit;
+    Runtime::PredictionInput in;
+    in.currentStation = "Station A";
+    auto p            = rt.predictions(in);
+    ASSERT_EQ(p.size(), 3u);
+    EXPECT_EQ(p[0].destination, "Station A");
+    EXPECT_EQ(p[0].ticks, 0);
+    EXPECT_EQ(p[0].title, "B") << "the next destination's filter is the title";
+    EXPECT_EQ(p[1].destination, "B");
+    EXPECT_EQ(p[1].ticks, 100 + 500) << "the stay at A, then B's learned transit";
+    EXPECT_EQ(p[2].destination, "C*");
+    EXPECT_EQ(p[2].ticks, -1) << "C's transit is not known yet";
+    EXPECT_EQ(p[2].title, "A");
+
+    // travelling to A: half the plain estimate and half the learned time, scaled by the distance left
+    rt.state                 = RuntimeState::InTransit;
+    in                       = {};
+    in.navDestination        = "Station A";
+    in.distanceToDestination = 50;
+    in.distanceStartedAt     = 100;
+    in.speed                 = 1;
+    p                        = rt.predictions(in);
+    ASSERT_GE(p.size(), 2u);
+    EXPECT_EQ(p[0].ticks, (100 + 150) / 2);
+    EXPECT_EQ(p[1].ticks, 125 + 100 + 500);
+
+    // a non-cyclic schedule stops at its end
+    s.cyclic = false;
+    rt.setSchedule(s, false);
+    rt.predictionTicks = {300, 500, 200};
+    rt.currentEntry    = 1;
+    rt.state           = RuntimeState::PostTransit;
+    in                 = {};
+    in.currentStation  = "Station B";
+    p                  = rt.predictions(in);
+    ASSERT_EQ(p.size(), 2u);
+    EXPECT_EQ(p[1].destination, "C*");
+    EXPECT_EQ(p[1].ticks, 40 + 200);
+}
+
 // ---- motion -------------------------------------------------------------------------------------
+
+TEST(TrainMotion, MildStraightSlopesDontSlowTrains) {
+    // Create's Navigation turn listener ignores straight curves on a mild slope
+    tk::CurveSpec ramp;
+    ramp.starts[0]  = {0.5, 0, 1};
+    ramp.starts[1]  = {0.5, 2, 11};
+    ramp.axes[0]    = tk::Vec3d{0, 0.2, 1}.normalize();
+    ramp.axes[1]    = tk::Vec3d{0, -0.2, -1}.normalize();
+    ramp.normals[0] = ramp.normals[1] = {0, 1, 0};
+    EXPECT_FALSE(slowsForCurve(tk::Curve(ramp)));
+    auto steep      = ramp;
+    steep.starts[1] = {0.5, 4, 11};
+    EXPECT_TRUE(slowsForCurve(tk::Curve(steep))) << "too steep";
+    tk::CurveSpec turn;
+    turn.starts[0]  = {0.5, 0, 1};
+    turn.starts[1]  = {5, 0, 5.5};
+    turn.axes[0]    = {0, 0, 1};
+    turn.axes[1]    = {1, 0, 0};
+    turn.normals[0] = turn.normals[1] = {0, 1, 0};
+    EXPECT_TRUE(slowsForCurve(tk::Curve(turn)));
+}
 
 TEST(TrainMotion, WalksAStraightLineAndStopsAtTheEnd) {
     World        w;

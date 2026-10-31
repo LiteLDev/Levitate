@@ -809,3 +809,18 @@ void uninstall() {
 }
 
 } // namespace lv::feature::assembly::arm
+
+// Create's ArmBlockEntity#addToTooltip (U59): an arm without interaction points hints at selecting
+// some ("create.hint.mechanical_arm_no_targets").
+#include "feature/goggles/GoggleInfo.h"
+namespace lv::feature::assembly::arm {
+LV_REGISTER_GOGGLE_INFO(kArmId, {.hover = [](goggles::InfoContext const& c, goggles::Tooltip& t) {
+    if (c.sneaking) return false;
+    auto [inputs, outputs] = pointCounts(c.pos);
+    if (inputs != 0 || outputs != 0) return false;
+    t.push_back(goggles::line(std::string(core::goggles::fmt::kGold) + c.tr("create.hint.mechanical_arm_no_targets.title", "No Targets")));
+    goggles::addHint(t, c.tr("create.hint.mechanical_arm_no_targets",
+                             "It appears this _Mechanical_ _Arm_ has not been assigned any _targets._ Select belts, depots, funnels and other blocks by _right-clicking_ them while _holding_ the _Mechanical_ _Arm_ in your _hand_."));
+    return true;
+}});
+} // namespace lv::feature::assembly::arm

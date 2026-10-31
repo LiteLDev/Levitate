@@ -22,6 +22,9 @@
   "create.recipe.assembly.deploying_item": "Deploy {0}",
   "create.recipe.assembly.cutting": "Cut with Saw",
   "create.recipe.assembly.repeat": "Repeat Sequence {0} Times",
-  "create.recipe.assembly.junk": "Random salvage"
-
+  "create.recipe.assembly.junk": "Random salvage",
+  "create.hint.full_deployer.title": "Deployer cannot activate",
+  "create.hint.full_deployer": "It appears this _Deployer_ contains _excess_ _items_ that need to be _extracted._ Use a _hopper,_ _funnel_ or other means to free it from its overflow.",
+  "create.hint.mechanical_arm_no_targets.title": "No Targets",
+  "create.hint.mechanical_arm_no_targets": "It appears this _Mechanical_ _Arm_ has not been assigned any _targets._ Select belts, depots, funnels and other blocks by _right-clicking_ them while _holding_ the _Mechanical_ _Arm_ in your _hand_."
 }

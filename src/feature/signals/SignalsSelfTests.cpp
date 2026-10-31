@@ -248,6 +248,9 @@ LV_REGISTER_SELFTEST("signals.sections", [](Context& ctx) -> ll::coro::CoroTask<
     // a train in the middle section
     ctx.require(train("selftest-a", at(base, 14), at(base, 20)), "train reported");
     co_await ctx.ticks(3);
+    // Create's SignalBlockEntity.enterState: a green signal turns red only 15 ticks later
+    ctx.check(api::signalState(s1) == cs::SignalState::Green, "signal 1 still green right after the train entered");
+    co_await ctx.ticks(14);
     ctx.check(api::signalState(s1) == cs::SignalState::Red, "signal 1 red behind the train");
     ctx.check(lampAt(s1) == lamp(cs::SignalState::Red), "the lamp shows red");
     ctx.check(api::signalState(s2back) == cs::SignalState::Red, "signal 2 into the occupied section red");
@@ -264,12 +267,14 @@ LV_REGISTER_SELFTEST("signals.sections", [](Context& ctx) -> ll::coro::CoroTask<
     // redstone forces red
     GlobalPos rs = at(base, 25, 0, 2);
     ctx.setBlock(rs, "minecraft:redstone_block");
-    co_await ctx.ticks(10);
+    co_await ctx.ticks(18);
     ctx.check(api::signalState(s2) == cs::SignalState::Red, "a powered signal is red");
     auto stop = ask("selftest-b", at(base, 20), at(base, 38), 1, 20);
     ctx.check(!stop.clear && std::abs(stop.stopDistance - 5) < 0.01, "a train stops at the powered signal");
     ctx.setBlock(rs, "minecraft:air");
-    co_await ctx.ticks(10);
+    co_await ctx.ticks(3);
+    ctx.check(sg::state().blocks.at(s2).powered, "losing power waits 4 ticks (Create's SignalBlock.neighborChanged)");
+    co_await ctx.ticks(7);
     ctx.check(api::signalState(s2) == cs::SignalState::Green, "the signal is released");
     api::removeTrain("selftest-b");
 });
@@ -290,12 +295,12 @@ LV_REGISTER_SELFTEST("signals.reservation", [](Context& ctx) -> ll::coro::CoroTa
     ctx.check(a.clear && a.reserved.size() == 1, "train A may enter and reserves the section");
     auto b = ask("selftest-b", at(base, 30), at(base, 1), -1, 16);
     ctx.check(!b.clear && std::abs(b.stopDistance - 5) < 0.01, "train B waits at its signal");
-    co_await ctx.ticks(2);
+    co_await ctx.ticks(17);
     ctx.check(api::signalState(east) == cs::SignalState::Green, "the signal train A was let through stays green");
     ctx.check(api::signalState(west) == cs::SignalState::Red, "the other signal shows red");
     // A enters: occupied; leaves: B may go
     ctx.require(train("selftest-a", at(base, 9), at(base, 14)), "train A enters");
-    co_await ctx.ticks(2);
+    co_await ctx.ticks(17);
     ctx.check(api::signalState(east) == cs::SignalState::Red, "red once the train is in");
     api::removeTrain("selftest-a");
     auto b2 = ask("selftest-b", at(base, 30), at(base, 1), -1, 16);
@@ -337,18 +342,19 @@ LV_REGISTER_SELFTEST("signals.cross_signal", [](Context& ctx) -> ll::coro::CoroT
     auto* region = sg::regionOf(entry.dim);
     ctx.check(lv::game::intState(region->getBlock(lv::game::blockPos(entry)), api::kTypeState).value_or(0) == 1, "the block shows the cross type");
 
-    // a train standing after the exit signal: the cross signal turns yellow
+    // a train standing after the exit signal: Create's resolveSignalChain turns the cross signal
+    // red too (every signal leading out of its section is red; yellow only when some are free)
     ctx.require(train("selftest-parked", at(base, 19), at(base, 23)), "parked train");
-    co_await ctx.ticks(3);
+    co_await ctx.ticks(17);
     ctx.check(api::signalState(exitSig) == cs::SignalState::Red, "exit signal red");
-    ctx.check(api::signalState(entry) == cs::SignalState::Yellow, "cross signal yellow");
-    ctx.check(lampAt(entry) == lamp(cs::SignalState::Yellow), "the lamp shows yellow");
+    ctx.check(api::signalState(entry) == cs::SignalState::Red, "cross signal red");
+    ctx.check(lampAt(entry) == lamp(cs::SignalState::Red), "the lamp shows red");
     auto wait = ask("selftest-t", at(base, 3), at(base, 23), 1, 16);
     ctx.check(!wait.clear && std::abs(wait.stopDistance - 5) < 0.01, "a train waits at the cross signal, not in the crossing");
     api::removeTrain("selftest-parked");
     auto go = ask("selftest-t", at(base, 3), at(base, 23), 1, 16);
     ctx.check(go.clear && go.reserved.size() == 2, "with the exit free it reserves the crossing and the section after it");
-    co_await ctx.ticks(2);
+    co_await ctx.ticks(17);
     ctx.check(api::signalState(ns1) == cs::SignalState::Red, "the crossing line's signal shows the reservation");
     api::removeTrain("selftest-t");
     co_await ctx.ticks(2);

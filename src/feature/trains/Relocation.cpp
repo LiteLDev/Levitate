@@ -167,6 +167,8 @@ void evaluate(Player& player, Relocating& r) {
     auto      look = player.getViewVector();
     ct::Vec3d dir{look.x, 0, look.z};
     auto      body = bodyAt(*t, point, dir, 1.0);
+    if (body && overlapsOtherTrain(*t, *body)) body.reset(); // Create: another train is in the way
+    if (body && crossesPortal(*body)) body.reset();       // Create: the probe may not pass a portal
     if (!body) {
         say(player, r, "create.train.relocate.invalid", "Cannot relocate Train to here", 'c');
         // Create shows where it would stand: the train's points on the nearest track anyway

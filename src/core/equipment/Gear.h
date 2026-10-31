@@ -153,6 +153,13 @@ struct EnchantCandidate {
     std::function<bool(EnchantCandidate const&, EnchantCandidate const&)> const& compatible
 );
 
+// ---- netherite diving boots in lava ---------------------------------------------------------------
+
+/// Create's DivingBootsItem#getMovementMultiplier (applied by LavaSwimmingMixin after each lava
+/// travel step of a wearer of netherite diving boots): the factors for the motion (x, y, z).
+/// `lavaGrounded` is the "LavaGrounded" marker the step reads and updates.
+[[nodiscard]] Vec3f lavaBootsMultiplier(double yMotion, bool onGround, bool jumping, bool sprinting, bool eyeInLava, bool& lavaGrounded);
+
 // ---- linked controller -----------------------------------------------------------------------------
 
 /// The six buttons in Create's order: forward, back, left, right, jump, sneak.

@@ -47,28 +47,32 @@ std::vector<std::string> splitLines(std::string const& s) {
     return out;
 }
 
-/// Writes `lines` into the front text of a sign starting at `line` (Create's SignDisplayTarget).
+/// Writes `lines` into both sides of a sign starting at `line` (Create's SignDisplayTarget sets
+/// the front and the back text).
 void writeSign(BlockSource& region, GlobalPos const& pos, int line, Lines const& lines) {
     auto* be = actorOf(region, pos, BlockActorType::Sign);
     if (!be) return;
-    auto& sign = static_cast<SignBlockActor&>(*be);
-    auto* text = sign.mTextFront.get();
-    if (!text) return;
-    auto current = splitLines(text->getMessage());
-    current.resize(kSignLines);
-    bool changed = false;
-    for (int i = 0; i < static_cast<int>(lines.size()) && line + i < kSignLines; ++i) {
-        auto value = truncateGlyphs(lines[static_cast<std::size_t>(i)], 64);
-        if (current[static_cast<std::size_t>(line + i)] == value) continue;
-        current[static_cast<std::size_t>(line + i)] = value;
-        changed                                    = true;
+    auto& sign    = static_cast<SignBlockActor&>(*be);
+    bool  changed = false;
+    for (auto* text : {sign.mTextFront.get(), sign.mTextBack.get()}) {
+        if (!text) continue;
+        auto current = splitLines(text->getMessage());
+        current.resize(kSignLines);
+        bool sideChanged = false;
+        for (int i = 0; i < static_cast<int>(lines.size()) && line + i < kSignLines; ++i) {
+            auto value = truncateGlyphs(lines[static_cast<std::size_t>(i)], 64);
+            if (current[static_cast<std::size_t>(line + i)] == value) continue;
+            current[static_cast<std::size_t>(line + i)] = value;
+            sideChanged                                = true;
+        }
+        if (!sideChanged) continue;
+        while (!current.empty() && current.back().empty()) current.pop_back();
+        std::string joined;
+        for (std::size_t i = 0; i < current.size(); ++i) joined += (i ? "\n" : "") + current[i];
+        text->setMessage(joined);
+        changed = true;
     }
-    if (!changed) return;
-    while (!current.empty() && current.back().empty()) current.pop_back();
-    std::string joined;
-    for (std::size_t i = 0; i < current.size(); ++i) joined += (i ? "\n" : "") + current[i];
-    text->setMessage(joined);
-    be->refresh(region);
+    if (changed) be->refresh(region);
 }
 
 /// The text of every page of a book item.
@@ -137,10 +141,8 @@ struct Registration {
                 .id    = "lectern",
                 .stats = [](BlockSource&, GlobalPos const&) { return TargetStats{kBookPages, kPageColumns, "lectern"}; },
                 .accept = [](BlockSource& region, GlobalPos const& t, int line, Lines const& lines, Context&) {
-                    // a multi-line source fills one page with its lines
-                    std::string page;
-                    for (std::size_t i = 0; i < lines.size(); ++i) page += (i ? "\n" : "") + lines[i];
-                    writeLectern(region, t, line, {page});
+                    // Create's LecternDisplayTarget: each text is a page (value lists put 8 entries on a page)
+                    writeLectern(region, t, line, lines);
                 },
                 .acceptSections = nullptr,
                 .lineName = [](int line, Player const& p) { return trFor(p, "create.display_target.page", "Page {}", line + 1); },

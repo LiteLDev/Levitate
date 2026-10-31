@@ -38,7 +38,12 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/Tick.h"
 
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/actor/item/ItemActor.h"
+#include "mc/world/phys/AABB.h"
+
 #include "client/Client.h"
+#include "feature/net/Net.h"
 #include "feature/materials/Materials.h"
 #include "mod/Config.h"
 #include "mod/Log.h"
@@ -53,6 +58,60 @@ namespace {
 std::mt19937& rng() {
     static std::mt19937 r{std::random_device{}()};
     return r;
+}
+
+int chargeOf(ItemStack const& stack);
+
+float rnd() { return std::uniform_real_distribution<float>(0, 1)(rng()); }
+/// VecHelper.offsetRandomly: every axis moved by up to +-r.
+Vec3 offsetRandomly(Vec3 const& v, float r) { return {v.x + (rnd() * 2 - 1) * r, v.y + (rnd() * 2 - 1) * r, v.z + (rnd() * 2 - 1) * r}; }
+
+/// The client parts of Create's NoGravMagicalDohickyItem / ChromaticCompoundItem
+/// #onEntityItemUpdate for the item entities near our player, once per game tick: shadow steel and
+/// refined radiance drip end rod particles (count-based chance, falling at 0.1 blocks per tick); a
+/// charged chromatic compound draws end rod particles in from up to 3 blocks around it, more the
+/// more light it holds (light / (N + 20)).
+void magicalItems(Level& level, BlockSource& region, Vec3 const& around) {
+    AABB box{around - Vec3{32, 32, 32}, around + Vec3{32, 32, 32}};
+    int  n = std::max(1, config::get<fm::MaterialsConfig>().lightSourceCountForRefinedRadiance);
+    for (auto* e : region.getEntities(box, 0.0f)) {
+        if (!e || !e->isType(ActorType::ItemEntity)) continue;
+        auto const& s = static_cast<ItemActor*>(e)->item();
+        if (s.isNull() || !s.mItem) continue;
+        auto const& id  = s.mItem->mFullName->getString();
+        Vec3        pos = e->getPosition();
+        if (id == "levitate:shadow_steel" || id == "levitate:refined_radiance") {
+            float lo = 5.f;
+            if (id == "levitate:shadow_steel") lo = std::clamp(e->getPosDelta().y * 20.f, 5.f, 20.f);
+            float chance = std::clamp(float(s.mCount) - 10.f, lo, 100.f) / 64.f;
+            if (rnd() < chance) {
+                Vec3 at = offsetRandomly(pos, .5f);
+                level.addParticle(ParticleType::EndRod, Vec3{at.x, pos.y, at.z}, Vec3{0, -.1f, 0}, 0, nullptr, false);
+            }
+        } else if (id == "levitate:chromatic_compound") {
+            int light = chargeOf(s);
+            if (light <= 0 || std::uniform_int_distribution<int>(0, n + 19)(rng()) >= light) continue;
+            Vec3  start = offsetRandomly(pos, 3);
+            Vec3  d     = pos - start;
+            float len   = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+            if (len < 1e-4f) continue;
+            level.addParticle(ParticleType::EndRod, start, d * (.2f / len), 0, nullptr, false);
+        }
+    }
+}
+
+/// Create's NoGravMagicalDohickyItem "PlayEffects": a flash, then 20 witch and 20 end rod
+/// particles bursting upwards from a freshly converted item.
+void createdEffect(Vec3 const& at) {
+    auto* ci    = currentClient();
+    auto* level = ci ? ci->getLevel() : nullptr;
+    if (!level) return;
+    level->addParticle(ParticleType::FireworksOverlay, at, Vec3{0, 0, 0}, 0, nullptr, false);
+    for (int i = 0; i < 20; ++i) {
+        Vec3 m = offsetRandomly(Vec3{0, 1, 0}, 1);
+        level->addParticle(ParticleType::WitchSpell, at, m, 0, nullptr, false);
+        level->addParticle(ParticleType::EndRod, at, m, 0, nullptr, false);
+    }
 }
 
 std::uint64_t& lastTick() {
@@ -75,6 +134,7 @@ void animate() {
     fm::animateExperienceBlocks(region, center, rng(), [&](Vec3 const& at, Vec3 const& velocity) {
         level->addParticle(ParticleType::EndRod, at, velocity, 0, nullptr, false);
     });
+    magicalItems(*level, region, p);
 }
 
 /// Create's ChromaticCompoundItem charge (0 when none): the server mirrors it into the aux value,
@@ -171,6 +231,9 @@ LL_TYPE_INSTANCE_HOOK(
 class MaterialsClientModule {
 public:
     void install() {
+        feature::net::client::on("materials.created", [](nlohmann::json const& msg) {
+            createdEffect(Vec3{msg.value("x", 0.f), msg.value("y", 0.f), msg.value("z", 0.f)});
+        });
         MaterialsClientTickHook::hook();
         MaterialsChargeBarHook::hook();
         MaterialsChargeBarBatchHook::hook();

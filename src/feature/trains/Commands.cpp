@@ -1,12 +1,15 @@
-// `/create trains` (Create's train summary) and `/create killtrain <name>` (removes trains by
-// name or id; Create 6.0.10's `/create train remove <uuid>`). Op only.
+// `/create trains` (Create's train summary), `/create killtrain <name>` / `/create train remove
+// <name>` (removes trains by name or id; Create 6.0.10's `/create train remove <uuid>`) and
+// `/create train tp <name>` (Create's teleport to a train). Op only.
 
 #include "ll/api/command/CommandHandle.h"
 
 #include "mc/server/commands/CommandOrigin.h"
 #include "mc/server/commands/CommandOutput.h"
 
+#include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/level/dimension/Dimension.h"
 
 #include "feature/contraption/Contraption.h"
 #include "feature/tracks/Tracks.h"
@@ -140,6 +143,31 @@ LV_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
     };
     cmd.overload<KillTrainParams>().text("killtrain").required("name").execute(removeByName);
     cmd.overload<KillTrainParams>().text("train").text("remove").required("name").execute(removeByName);
+    // Create's /create train tp <train>: creative or spectator players go 5 blocks above the train
+    cmd.overload<KillTrainParams>().text("train").text("tp").required("name").execute([](Origin& origin, CommandOutput& output, KillTrainParams const& p) {
+        if (!commands::isAdmin(origin)) return output.error(tr("lv.trains.need_op", "You need operator permission."));
+        auto* player = commands::playerOf(origin);
+        if (!player) return output.error("players only");
+        if (!player->isCreative() && !player->isSpectator())
+            return output.error(tr("lv.trains.tp_mode", "Can only teleport to train when in Creative or Spectator Mode!"));
+        Train* t = nullptr;
+        for (auto& [id, train] : state().trains)
+            if (!train.invalid && (train.name == p.name || std::to_string(id) == p.name || "#" + std::to_string(id) == p.name)) t = &train;
+        if (!t) return output.error(tr("lv.trains.no_train", "No Train with name '{0}' was found", p.name));
+        // Create's getPositionInDimension: the first carriage present in the first dimension
+        std::optional<cc::Vec3d> at;
+        int                      dim = t->dim;
+        for (auto const& c : t->carriages)
+            if (auto* con = contraption::find(c.contraption)) {
+                dim = con->dimension();
+                at  = con->toWorld(c.bogeyLocal.empty() ? cc::Vec3d{} : cc::Vec3d::center(c.bogeyLocal.front()));
+                break;
+            }
+        if (!at) return output.error(tr("lv.trains.tp_none", "Unable to teleport to Train. No valid location found"));
+        player->teleport(Vec3{float(std::floor(at->x)), float(std::floor(at->y) + 5), float(std::floor(at->z))}, DimensionType(dim));
+        log().info("trains: {} teleported to train #{} '{}'", player->getRealName(), t->id, t->name);
+        output.success(tr("lv.trains.tp_done", "Teleported to Train '{0}' successfully", t->name));
+    });
 
 });
 

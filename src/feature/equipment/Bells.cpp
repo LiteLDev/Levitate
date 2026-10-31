@@ -18,9 +18,12 @@
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/world/BlockChangedEvent.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
+#include "ll/api/memory/Hook.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/entity/components_json_legacy/ProjectileComponent.h"
+#include "mc/world/actor/Mob.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -31,6 +34,7 @@
 #include "mc/world/level/block/BlockType.h"
 #include "mc/world/level/block/BrightnessPair.h"
 #include "mc/world/phys/AABB.h"
+#include "mc/world/phys/HitResult.h"
 
 #include "core/equipment/Bells.h"
 #include "feature/advancements/Advancements.h"
@@ -332,6 +336,13 @@ BellInfo bellInfo(GlobalPos const& pos) {
     return BellInfo{it->second.ringing, it->second.ringingTicks, it->second.direction, it->second.effectTicks};
 }
 
+bool bellHit(GlobalPos const& pos, int face, double height, Player* player) {
+    auto const* b = blockAt(pos);
+    if (!b || !isBell(b->getTypeName())) return false;
+    if (!ce::bellRingsFrom(stateOf(*b), face, height)) return false;
+    return ringBell(pos, face, player);
+}
+
 bool ringBell(GlobalPos const& pos, int direction, Player* player) {
     auto const* b = blockAt(pos);
     if (!b || !isBell(b->getTypeName())) return false;
@@ -627,6 +638,46 @@ private:
 
 } // namespace
 
+/// BellBlock#onProjectileHit for Create's bells: any vanilla projectile (arrow, trident, snowball,
+/// ...) hitting one rings it as a click on that face would (the shooter as the ringing player).
+void bellProjectileHit(Actor& projectile, HitResult const& hit) {
+    if (hit.mType != HitResultType::Tile || projectile.isClientSide()) return;
+    GlobalPos pos = game::globalPos(static_cast<int>(projectile.getDimensionId()), hit.mBlock);
+    auto const* b = blockAt(pos);
+    if (!b || !isBell(b->getTypeName())) return;
+    Player* shooter = nullptr;
+    if (auto* owner = projectile.getOwner(); owner && owner->isPlayer()) shooter = static_cast<Player*>(static_cast<Actor*>(owner));
+    if (bellHit(pos, hit.mFacing, double(hit.mPos.y) - hit.mBlock.y, shooter))
+        log().info("equipment: a projectile rang the bell at {} {} {}", pos.x, pos.y, pos.z);
+}
+
+} // namespace lv::feature::equipment
+
+LL_TYPE_INSTANCE_HOOK(
+    EquipmentBellProjectileHook,
+    ll::memory::HookPriority::Normal,
+    ProjectileComponent,
+    &ProjectileComponent::onHit,
+    void,
+    Actor&           owner,
+    HitResult const& hit
+) {
+    origin(owner, hit);
+    try {
+        lv::feature::equipment::bellProjectileHit(owner, hit);
+    } catch (std::exception const& e) {
+        lv::log().error("equipment: bell projectile hit failed: {}", e.what());
+    }
+}
+
+namespace lv::feature::equipment {
+namespace {
+struct BellProjectileHookModule {
+    void install() { EquipmentBellProjectileHook::hook(); }
+    void uninstall() { EquipmentBellProjectileHook::unhook(); }
+};
+} // namespace
 } // namespace lv::feature::equipment
 
 LV_REGISTER_MODULE(lv::feature::equipment::BellsModule);
+LV_REGISTER_MODULE(lv::feature::equipment::BellProjectileHookModule);

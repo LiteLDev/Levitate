@@ -54,3 +54,6 @@ item.levitate:cardboard_chestplate.name=纸板胸甲
 item.levitate:cardboard_leggings.name=纸板护腿
 item.levitate:cardboard_boots.name=纸板靴子
 item.levitate:cardboard_sword.name=纸棍
+entity.levitate:potato_projectile.name=被发射的蔬菜
+death.attack.create.potato_cannon=%1$s被%2$s使用土豆加农炮射杀
+death.attack.create.potato_cannon.item=%1$s被%2$s发射的%3$s射杀

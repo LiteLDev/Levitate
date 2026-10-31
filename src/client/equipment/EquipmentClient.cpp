@@ -14,11 +14,14 @@
 #include "ll/api/event/input/KeyInputEvent.h"
 #include "ll/api/event/render/UIRenderEvent.h"
 #include "ll/api/event/world/ClientLevelTickEvent.h"
+#include "ll/api/memory/Hook.h"
 
 #include "mc/client/gui/screens/ScreenView.h"
 #include "mc/client/player/LocalPlayer.h"
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
+#include "mc/deps/shared_types/v1_26_20/block/MaterialType.h"
+#include "mc/world/level/BlockSource.h"
 #include "mc/world/item/ItemStack.h"
 
 #include "client/Client.h"
@@ -27,6 +30,7 @@
 #include "core/equipment/Shaper.h"
 #include "feature/common/Items.h"
 #include "feature/net/Net.h"
+#include "game/Blocks.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
 
@@ -472,12 +476,36 @@ void drawHud(MinecraftUIRenderContext& ctx) {
 /// Create's DivingBootsItem#accelerateDescentUnderwater for our own player (the client moves it;
 /// the server leaves companions to us): sink 0.05 per tick, jump 0.5 off the ground, and walk
 /// 1.3 times faster per tick below 0.145 blocks per tick.
+bool gLavaGrounded = false; ///< Create's "LavaGrounded" marker for our own player
+
+bool lavaAt(LocalPlayer& lp, Vec3 const& at) {
+    auto id = game::blockIdAt(lp.getDimensionBlockSource(), game::blockPosOf(at));
+    return id == "minecraft:lava" || id == "minecraft:flowing_lava";
+}
+
 void divingBoots() {
     auto* lp = currentPlayer();
     if (!lp || !net::client::connected()) return;
     auto feet = items::idOf(lp->getArmor(SharedTypes::Legacy::ArmorSlot::Feet));
-    if (feet != "levitate:copper_diving_boots" && feet != "levitate:netherite_diving_boots") return;
-    if (!lp->isInWater() || lp->isSwimming() || lp->isFlying()) return;
+    if (feet != "levitate:copper_diving_boots" && feet != "levitate:netherite_diving_boots") {
+        gLavaGrounded = false;
+        return;
+    }
+    // Create's HeavyBootsOnPlayerMixin: no swimming while the boots are worn (startSwimming is
+    // refused by the hook below; this ends a swim that began before they were put on)
+    if (lp->isSwimming()) lp->stopSwimming();
+    // Create's LavaSwimmingMixin: netherite boots multiply the lava travel motion
+    // (DivingBootsItem#getMovementMultiplier)
+    bool eyeInLava = lp->isUnderLiquid(SharedTypes::v1_26_20::MaterialType::Lava);
+    if (feet == "levitate:netherite_diving_boots" && !lp->isFlying() && (eyeInLava || lavaAt(*lp, lp->getFeetPos()))) {
+        Vec3 v = lp->getPosDelta();
+        auto m = ce::lavaBootsMultiplier(v.y, lp->isOnGround(), lp->isJumping(), lp->isSprinting(), eyeInLava, gLavaGrounded);
+        v.x = float(v.x * m.x), v.y = float(v.y * m.y), v.z = float(v.z * m.z);
+        const_cast<Vec3&>(lp->getPosDelta()) = v;
+        return;
+    }
+    gLavaGrounded = false;
+    if (!lp->isInWater() || lp->isFlying()) return;
     Vec3 v      = lp->getPosDelta();
     bool ground = lp->isOnGround();
     if (lp->isJumping() && ground) v.y += .5f;
@@ -489,10 +517,26 @@ void divingBoots() {
 
 } // namespace
 
+bool wearsDivingBoots(Player const& p) {
+    auto feet = items::idOf(p.getArmor(SharedTypes::Legacy::ArmorSlot::Feet));
+    return feet == "levitate:copper_diving_boots" || feet == "levitate:netherite_diving_boots";
+}
+
+} // namespace lv::client::equipment
+
+// Create's HeavyBootsOnPlayerMixin (isUnderWater is false for a wearer): our own player doesn't
+// start swimming while it wears diving boots
+LL_TYPE_INSTANCE_HOOK(EquipmentNoSwimHook, ll::memory::HookPriority::Normal, Player, &Player::$startSwimming, void) {
+    if (isClientSide() && lv::client::equipment::wearsDivingBoots(*this) && lv::feature::net::client::connected()) return;
+    origin();
+}
+
+namespace lv::client::equipment {
+
 class EquipmentClientModule {
 public:
     // Client input / render listeners are added at mod load (see screen/Screen.cpp).
-    void install() {}
+    void install() { EquipmentNoSwimHook::hook(); }
     void load() {
         registerServerScreen("equipment.toolbox", [](Json const& data, SendFn send) { return std::make_unique<ToolboxScreen>(data, std::move(send)); });
         registerServerScreen("equipment.symmetry", [](Json const& data, SendFn send) { return std::make_unique<SymmetryScreen>(data, std::move(send)); });
@@ -587,6 +631,7 @@ public:
         }));
     }
     void uninstall() {
+        EquipmentNoSwimHook::unhook();
         auto& bus = ll::event::EventBus::getInstance();
         for (auto& l : mListeners) bus.removeListener(l);
         mListeners.clear();
@@ -601,3 +646,6 @@ private:
 LV_REGISTER_MODULE(lv::client::equipment::EquipmentClientModule);
 
 #endif // LV_CLIENT
+
+// Create's potato cannon tooltip (U59)
+#include "client/equipment/PotatoTooltip.inc"

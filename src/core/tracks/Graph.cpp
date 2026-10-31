@@ -814,7 +814,10 @@ std::optional<PathResult> Railways::findPath(PathQuery const& q) const {
             if (d.dim == n->location.dim) best = std::min(best, n->location.location().distanceTo(d.position));
         return best == std::numeric_limits<double>::max() ? 0.0 : best;
     };
-    auto penaltyOf = [&](Edge const& e) { return q.edgePenalty ? q.edgePenalty(*g, e) : 0.0; };
+    auto costOf = [&](Edge const& e) -> EdgeCost {
+        if (q.edgeCost) return q.edgeCost(*g, e);
+        return {q.edgePenalty ? q.edgePenalty(*g, e) : 0.0};
+    };
 
     struct Entry {
         double                  distance, penalty, remaining;
@@ -829,15 +832,18 @@ std::optional<PathResult> Railways::findPath(PathQuery const& q) const {
     std::set<std::pair<NodeId, NodeId>>                            visited;
 
     auto key0 = std::make_pair(q.start.node1, q.start.node2);
+    auto startCost = costOf(*startEdge);
+    // a barrier behind the start doesn't matter
+    double startBarrier = startCost.barrier + 1e-9 < q.start.position ? std::numeric_limits<double>::infinity() : startCost.barrier;
     // destinations ahead on the start edge
     if (auto it = destByEdge.find(key0); it != destByEdge.end()) {
         for (auto const& [idx, position] : it->second) {
-            if (position + 1e-9 < q.start.position) continue;
+            if (position + 1e-9 < q.start.position || position > startBarrier + 1e-9) continue;
             frontier.push({position - q.start.position, 0, 0, key0, long(idx)});
         }
     }
-    double startPenalty = penaltyOf(*startEdge);
-    frontier.push({g->edgeLength(*startEdge) - q.start.position, startPenalty, remaining(q.start.node2), key0, -1});
+    if (startBarrier == std::numeric_limits<double>::infinity())
+        frontier.push({g->edgeLength(*startEdge) - q.start.position, startCost.penalty, remaining(q.start.node2), key0, -1});
 
     while (!frontier.empty()) {
         Entry entry = frontier.top();
@@ -866,14 +872,17 @@ std::optional<PathResult> Railways::findPath(PathQuery const& q) const {
             auto key = std::make_pair(next.node1, next.node2);
             if (visited.contains(key)) continue;
             if (!parentOf.contains(key)) parentOf[key] = entry.edge;
-            double newPenalty = entry.penalty + penaltyOf(next);
+            auto   cost       = costOf(next);
+            double newPenalty = entry.penalty + cost.penalty;
             if (auto it = destByEdge.find(key); it != destByEdge.end()) {
                 for (auto const& [idx, position] : it->second) {
+                    if (position > cost.barrier + 1e-9) continue; // behind a one-way signal
                     Entry arrival{entry.distance + position, newPenalty, 0, key, long(idx)};
                     frontier.push(arrival);
                 }
             }
-            frontier.push({entry.distance + g->edgeLength(next), newPenalty, remaining(next.node2), key, -1});
+            if (cost.barrier == std::numeric_limits<double>::infinity())
+                frontier.push({entry.distance + g->edgeLength(next), newPenalty, remaining(next.node2), key, -1});
         }
     }
     return std::nullopt;

@@ -10,6 +10,7 @@
 // Everything here runs on the server thread.
 
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -201,6 +202,14 @@ struct PathResult {
     size_t                destinationIndex = 0;
 };
 
+/// What entering an edge costs a path: an extra `penalty` and a `barrier` (distance from the edge's
+/// node1 at which travel must stop, e.g. a one-way signal; infinity: none). Destinations before
+/// the barrier are still reached.
+struct EdgeCost {
+    double penalty = 0;
+    double barrier = std::numeric_limits<double>::infinity();
+};
+
 struct PathQuery {
     GraphLocation              start;        ///< travelling towards start.node2
     std::vector<GraphLocation> destinations; ///< reached when passing their position on their directed edge
@@ -208,6 +217,8 @@ struct PathQuery {
     double maxCost     = 1e9;
     /// Extra cost for entering an edge (signals, occupied blocks, ...); 0 by default.
     std::function<double(Graph const&, Edge const&)> edgePenalty;
+    /// Penalty and barrier of an edge; replaces `edgePenalty` when set (called once per edge entered).
+    std::function<EdgeCost(Graph const&, Edge const&)> edgeCost;
 };
 
 /// Holds every track graph of a world. Owned by the feature module; tests own their own.

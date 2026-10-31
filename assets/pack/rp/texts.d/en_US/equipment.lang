@@ -54,3 +54,6 @@ item.levitate:cardboard_chestplate.name=Cardboard Chestplate
 item.levitate:cardboard_leggings.name=Cardboard Leggings
 item.levitate:cardboard_boots.name=Cardboard Boots
 item.levitate:cardboard_sword.name=Cardboard Sword
+entity.levitate:potato_projectile.name=Potato Projectile
+death.attack.create.potato_cannon=%1$s was shot by %2$s's Potato Cannon
+death.attack.create.potato_cannon.item=%1$s was shot by %2$s using %3$s

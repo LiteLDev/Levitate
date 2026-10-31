@@ -21,6 +21,7 @@
 #include "core/trains/Physics.h"
 #include "core/trains/Schedule.h"
 
+class Actor;
 class Player;
 class BlockSource;
 class BlockPos;
@@ -107,12 +108,17 @@ struct Navigation {
     double      distance = 0; ///< left to the station point
     bool        behind   = false; ///< reversing (destination behind the train)
     bool        manual   = false; ///< "hold space to approach"
+    double      total    = 0;     ///< manual approach: the distance when it started (progress bar)
+    /// What the schedule asked for (re-routing picks again among the same stations).
+    std::string              filter;
+    std::vector<std::string> anyOf;
 };
 
 struct Train {
     std::uint64_t         id = 0;
     std::string           name;
     std::string           owner; ///< player UUID
+    std::string           icon = "traditional"; ///< Create's TrainIconType: traditional, electric, modern
     int                   dim = 0;
     ct::Body              body;
     std::vector<Carriage> carriages;
@@ -122,6 +128,7 @@ struct Train {
     bool                  derailed  = false;
     bool                  doubleEnded = false;
     int                   fuelTicks = 0;
+    std::optional<double> speedBeforeStall; ///< Create's Train.speedBeforeStall (a carriage stalls)
     ct::Runtime           runtime;
     std::optional<Navigation> nav;
     std::string           currentStation; ///< station key while stopped at one
@@ -145,6 +152,13 @@ struct Train {
     std::size_t cargoHash = 0;
     bool        testConductor = false; ///< selftests: a conductor in both directions
     std::vector<std::string> occupied; ///< edge points between the train's ends
+    // Create's Navigation signal state (not saved)
+    int    signalWaitTicks  = 0;     ///< ticksWaitingForSignal
+    double distanceToSignal = 1e18;  ///< to the signal it waits for
+    bool   waitingAtCross   = false; ///< that signal is a cross signal
+    bool   reserving        = false; ///< it holds reserved sections ahead
+    std::string   approachPrompt;          ///< the manual driving prompt shown (Create's TrainPromptPacket)
+    std::uint64_t approachPromptTick = 0;
 
     [[nodiscard]] Json               toJson() const;
     [[nodiscard]] static Train       fromJson(Json const& j);
@@ -159,12 +173,11 @@ struct State {
     std::uint64_t                           graphVersion = 0;
     bool                                    stationsDirty = false;
     std::vector<std::function<void()>>      deferred;
-    /// Track targeting selections of the station item, by player UUID.
+    /// A track targeted with the station item (Create keeps it on the stack: Hooks.cpp).
     struct Target {
         GlobalPos track;
         int       fx = 1, fz = 0;
     };
-    std::map<std::string, Target>           targets;
     std::map<GlobalPos, std::pair<Target, std::string>> pendingStations; ///< placed this tick
     std::map<std::string, std::uint64_t>    lastUse; ///< debounce per player
 };
@@ -189,6 +202,9 @@ void defer(std::function<void()> fn);
 // ---- stations (Stations.cpp) --------------------------------------------------------------------
 Station*             stationAt(GlobalPos const& pos);
 Station*             stationByKey(std::string const& key);
+/// Create's OverlapResult.OCCUPIED: an edge point (other than `except`) within 3/4 of a block of
+/// where a station targeting `track` (direction fx/fz) would go.
+[[nodiscard]] bool   pointOccupied(GlobalPos const& track, int fx, int fz, std::string const& except);
 /// Registers a station bound to `track` (arrival direction fx/fz). Returns false if not possible.
 bool                 createStation(GlobalPos const& pos, GlobalPos const& track, int fx, int fz, std::string* errorKey = nullptr);
 void                 removeStation(GlobalPos const& pos);
@@ -214,6 +230,21 @@ void                 registerStationScreens();
 /// Predictions of trains heading to a station: (train name, ticks).
 std::vector<std::pair<std::string, int>> arrivals(Station const& s);
 
+// ---- auto-schedule (AutoSchedule.cpp) -----------------------------------------------------------
+/// The schedule held by the station (Create's depot behaviour), an empty stack when none.
+[[nodiscard]] ItemStack autoScheduleOf(Station const& s);
+/// Create's applyAutoSchedule: the train standing at the station follows the station's schedule
+/// (replacing its own). False when there is no schedule or no train.
+bool      applyAutoSchedule(Station& s);
+/// Puts one schedule from `stack` into the empty slot (and applies it). False when not accepted.
+bool      setAutoSchedule(Station& s, ItemStack const& stack);
+/// Takes the schedule out (an empty stack when none).
+ItemStack takeAutoSchedule(Station& s);
+/// The station block is gone: the schedule drops.
+void      dropAutoSchedule(Station& s);
+void      tickAutoSchedules();
+void      installAutoSchedule();
+
 // ---- trains (TrainLogic.cpp) --------------------------------------------------------------------
 Train*       findTrain(std::uint64_t id);
 /// Door control of the station the train of carriage contraption `contraption` stands at (Create's
@@ -223,11 +254,24 @@ Train*       trainOfContraption(std::uint64_t contraption);
 void         tickTrains();
 /// Recomputes and applies every carriage transform (after load / assembly).
 void         placeCarriages(Train& t);
+/// Where a carriage stands on the graph: its transform in dimension `dim` (its first bogey's).
+struct CarriagePlace {
+    std::uint64_t contraption = 0;
+    cc::Transform transform;
+    int           dim = 0;
+};
+[[nodiscard]] std::vector<CarriagePlace> carriagePlaces(Train const& t, ct::Body const& body);
+/// The dimension of a graph position (a portal edge: the side the point is past).
+[[nodiscard]] int dimOf(ct::TrackPos const& p);
+/// Whether a body has points in more than one dimension (it spans a portal track).
+[[nodiscard]] bool crossesPortal(ct::Body const& body);
 /// Where the carriages of `t` would stand on the graph with `body` (Create's relocation preview).
 [[nodiscard]] std::vector<std::pair<std::uint64_t, cc::Transform>> carriageTransforms(Train const& t, ct::Body const& body);
 /// The train's body with its front on the track nearest to `point` (within `maxDistance`), facing
 /// along `dir`, every point on track (nullopt: it doesn't fit there).
 [[nodiscard]] std::optional<ct::Body> bodyAt(Train const& t, ct::Vec3d const& point, ct::Vec3d const& dir, double maxDistance);
+/// Whether the train standing on `body` would overlap another train (Create's findCollidingTrain).
+[[nodiscard]] bool overlapsOtherTrain(Train const& t, ct::Body const& body);
 /// Create's TrainRelocator.relocate: puts the stopped train on `body` (from `bodyAt`).
 void relocate(Train& t, ct::Body body);
 /// A wrench click for the relocation (starts on a train, confirms on a track, sneak: aborts).
@@ -240,14 +284,20 @@ ct::StartResult navigateTo(
     std::string const&              filter,
     bool                            manual      = false,
     std::string const&              onlyStation = {},
-    std::vector<std::string> const& anyOf       = {}
+    std::vector<std::string> const& anyOf       = {},
+    int                             approachDir = 0 ///< manual approach: +1 ahead only, -1 behind only
 );
 void         cancelNavigation(Train& t);
 /// Removes a train (carriages vanish, as Create's /create train remove).
 void         removeTrain(std::uint64_t id);
 void         statusMessage(Train& t, std::string const& key, std::vector<std::string> const& args, bool good);
-/// Conductors facing the train's forward / backward direction.
+/// Conductors facing the train's forward / backward direction (Create's checkConductors: a blaze
+/// burner, or a non-player passenger seated on a seat, behind controls that face it).
 [[nodiscard]] bool hasConductor(Train const& t, bool forward);
+/// The train on whose conductor seat `entity` sits (nullptr: none).
+[[nodiscard]] Train* conductorTrainOf(Actor const& entity);
+/// The train on whose seat `entity` sits (nullptr: none).
+[[nodiscard]] Train* seatedTrainOf(Actor const& entity);
 /// The train arrived at the station point (called by the movement and at assembly).
 void         arriveAt(Train& t, Station& s);
 /// Whether the world block / contraption the player looks at is a controls block of a train;
@@ -258,6 +308,20 @@ void         stopControlling(Train& t, bool message = true);
 /// Manual input of a controlling player (auth input packet, the client mod or selftests).
 void         setInput(Player& player, int throttle, int steer, bool jump, bool sneak);
 void         onGraphChanged();
+/// Create's TrainStatusDisplaySource: what the train standing at a station waits for (the first
+/// condition column's current condition), "" when nothing (paused, travelling, last stop).
+[[nodiscard]] std::string waitingStatusText(Train& t);
+/// Create's ScheduleRuntime.submitPredictions for the train (empty when it is paused, has no
+/// schedule or is derailed).
+[[nodiscard]] std::vector<ct::Runtime::Prediction> predictionsOf(Train& t);
+/// One row of a station summary (Create's TrainDeparturePrediction as the display shows it).
+struct SummaryRow {
+    int         ticks = -1;
+    std::string train, title, platform;
+};
+/// Create's GlobalTrainDisplayData.prepare: the predictions whose destination matches `filter`
+/// (soonest first, at most `maxRows`), with the platform column of a wildcard filter.
+[[nodiscard]] std::vector<SummaryRow> stationSummaryRows(std::string const& filter, int maxRows);
 /// Text of a train for commands and displays.
 [[nodiscard]] std::string statusLine(Train const& t);
 
@@ -304,5 +368,11 @@ void controlsChanged(Train const& t, Player* player, bool active);
 /// Horn sounds and the controlling companions' HUD data (every tick).
 void tickControls();
 void resetControls();
+
+// ---- train sounds and particles (TrainSounds.cpp) -------------------------------------------------
+/// Create's CarriageSounds / CarriageParticles (as world sounds and particles) and the arrival
+/// sound queue, every tick.
+void tickTrainEffects();
+void resetTrainEffects();
 
 } // namespace lv::feature::trains
