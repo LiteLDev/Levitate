@@ -866,6 +866,7 @@ void closeWorld() {
     s.removals.clear();
     s.playerBroke.clear();
     s.exploded.clear();
+    s.commandDestroyed.clear();
     s.placeIntents.clear();
     s.connector.clear();
     s.ejectorTargets.clear();
@@ -889,6 +890,7 @@ void runTick() {
     }
     processRemovals();
     s.exploded.clear();
+    s.commandDestroyed.clear();
 
     std::vector<GlobalPos> idx(s.index.begin(), s.index.end());
     for (auto const& p : idx) {

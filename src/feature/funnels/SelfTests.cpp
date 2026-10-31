@@ -25,6 +25,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "feature/funnels/FunnelsInternal.h"
+#include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
 #include "selftest/SelfTest.h"
 
@@ -319,27 +320,34 @@ LV_REGISTER_SELFTEST("funnels.smart_chute", [](Context& ctx) -> ll::coro::CoroTa
 });
 
 LV_REGISTER_SELFTEST("funnels.chute_fans", [](Context& ctx) -> ll::coro::CoroTask<> {
-    auto base = at(ctx.testPos(1270), 0, 1, 0);
+    // (U55) a real encased fan (registered by U13 through airflow::registerFan), driven by the
+    // kinetics test source below it
+    auto base = at(ctx.testPos(5510), 0, 1, 0);
     ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
-    auto& r   = region(ctx);
-    auto  fan = base, chute = at(base, 0, 1, 0), top = at(base, 0, 2, 0);
-    // a test fan (U13 registers the encased fan): lodestone blowing up at 64 RPM, removed on exit
-    struct TestFan {
-        TestFan() {
-            common::airflow::registerFan("minecraft:lodestone", [](BlockSource&, BlockPos const&, Block const&) {
-                return std::optional<common::airflow::Fan>(common::airflow::Fan{cf::kUp, 64.f});
-            });
-        }
-        ~TestFan() { common::airflow::unregisterFan("minecraft:lodestone"); }
-    } fanGuard;
-    ctx.require(ctx.setBlock(fan, "minecraft:lodestone"), "fan");
+    auto& r      = region(ctx);
+    auto  source = base, fan = at(base, 0, 1, 0), chute = at(base, 0, 2, 0), top = at(base, 0, 3, 0);
+    ctx.require(ctx.setBlock(source, "levitate:kinetics_test_source", {{"levitate:axis", 1}}), "kinetic source");
+    ctx.require(ctx.setBlock(fan, "levitate:encased_fan", {{"levitate:facing", cf::kUp}}), "encased fan facing up");
     ctx.require(ctx.setBlock(chute, fu::kChute), "chute");
     ctx.require(ctx.setBlock(top, "minecraft:chest"), "chest above");
     co_await ctx.ticks(2);
+    lv::kinetics::setGeneratedSpeed(source, 64);
+    co_await ctx.ticks(3);
+    auto f = common::airflow::fanAt(r, bp(fan));
+    ctx.require(f && f->facing == cf::kUp && std::abs(f->speed) == 64.f, "the encased fan is registered (facing up, 64 RPM)");
+    if (f->speed < 0) {
+        // the chute takes the fan's signed speed: make it blow upwards
+        lv::kinetics::setGeneratedSpeed(source, -64);
+        co_await ctx.ticks(3);
+        f = common::airflow::fanAt(r, bp(fan));
+    }
+    ctx.require(f && f->speed > 0, "the fan pushes up");
     auto rest = items::insert(r, bp(chute), -1, item(ctx, "minecraft:cobblestone", 9), false);
     ctx.check(items::isEmpty(rest), "chute takes the stack");
     co_await ctx.ticks(40);
     ctx.check(countIn(r, top, "minecraft:cobblestone") == 9, "a fan below pushes items up into the inventory above");
+    lv::kinetics::setGeneratedSpeed(source, 0);
+    for (auto p : {top, chute, fan, source}) ctx.setBlock(p, "minecraft:air");
 });
 
 LV_REGISTER_SELFTEST("funnels.vault", [](Context& ctx) -> ll::coro::CoroTask<> {

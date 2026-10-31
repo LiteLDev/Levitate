@@ -22,6 +22,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "feature/funnels/FunnelsInternal.h"
+#include "feature/goggles/GoggleInfo.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
 #include "mod/I18n.h"
@@ -233,10 +234,16 @@ std::vector<std::pair<BlockPos, int>> validOutputs(BlockSource& region, BlockPos
                 if (dir == cf::oppositeFace(movement)) continue;
                 if (!contains(sides, dir)) continue;
                 BlockPos o = offset(offset(t, cf::kDown), dir);
+                // a pulling belt funnel beside the tunnel facing that way takes the items itself
+                if (auto const* fb = loadedBlock(region, offset(o, cf::kUp));
+                    fb && isFunnel(kindOf(fb->getTypeName())) && beltShapeOf(*fb) == kBeltPulling && state(*fb, kFacing) == dir)
+                    continue;
                 if (!directInput(region, o, dir)) {
                     if (dir == movement && !solidFace(region, o, cf::oppositeFace(dir))) out.emplace_back(t, dir);
                     continue;
                 }
+                // Create: only a direct input that takes items from that side
+                if (auto g = game::globalPos(region, o); belts::hasDirectInput(g) && !belts::canInsertDirect(g, dir)) continue;
                 out.emplace_back(t, dir);
             }
         }
@@ -476,6 +483,26 @@ void updateTunnelShape(BlockSource& region, GlobalPos const& pos) {
     auto const* b  = tunnelBlock(region, bp);
     if (!b) return;
     BlockPos below = offset(bp, cf::kDown);
+    // Create's BeltTunnelBlock.canSurvive / neighborChanged: a tunnel needs a horizontal, encased
+    // belt below; else it breaks (and drops itself)
+    if (loadedBlock(region, below)) {
+        auto seg = beltlink::segmentAt(region, below);
+        // a tunnel placed before U55 never cased its belt: case it now (once) instead of breaking it
+        if (seg && seg->horizontal && !seg->casing) {
+            auto const* d = docOf(pos);
+            if ((!d || !d->value("cased", false)) && belts::setCasing(toGlobal(pos.dim, below), isBrass(*b) ? 2 : 1)) {
+                editDoc(pos)["cased"] = true;
+                seg = beltlink::segmentAt(region, below);
+            }
+        }
+        if (!seg || !seg->horizontal || !seg->casing) {
+            std::string id = b->getTypeName();
+            if (auto const* air = game::blockWith("minecraft:air")) game::setBlock(region, bp, *air);
+            if (auto drop = items::make(id)) dropLater(pos, {*drop});
+            log().info("funnels: tunnel at {} broke (no encased horizontal belt below)", pos.key());
+            return;
+        }
+    }
     int      axis  = axisOf(*b);
     if (auto seg = beltlink::segmentAt(region, below); seg && cf::isHorizontal(seg->movementFacing)) axis = cf::axisOf(seg->movementFacing);
     // Create's hasValidOutput: a belt across, or something taking items from that side
@@ -487,18 +514,61 @@ void updateTunnelShape(BlockSource& region, GlobalPos const& pos) {
     };
     int  left       = cf::tunnelLeft(axis);
     int  fw         = cf::positiveFace(axis);
-    bool canWindow  = tunnelBlock(region, offset(bp, fw)) && tunnelBlock(region, offset(bp, cf::oppositeFace(fw)));
+    // Create's BeltTunnelBlock.canHaveWindow: a tunnel, or an extended belt funnel facing this
+    // tunnel, on both ends
+    auto closedBy = [&](int dir) {
+        BlockPos n = offset(bp, dir);
+        if (tunnelBlock(region, n)) return true;
+        auto const* fb = loadedBlock(region, n);
+        return fb && isFunnel(kindOf(fb->getTypeName())) && beltShapeOf(*fb) == kBeltExtended && state(*fb, kFacing) == cf::oppositeFace(dir);
+    };
+    bool canWindow  = closedBy(fw) && closedBy(cf::oppositeFace(fw));
     auto shape      = cf::tunnelShape(output(left), output(cf::oppositeFace(left)), canWindow);
     auto current    = shapeOf(*b);
     // Create keeps the wrench's window / closed choice while the tunnel stays straight between
     // two tunnels
     if (axis == axisOf(*b) && shape == cf::TunnelShape::Window && current == cf::TunnelShape::Closed) shape = current;
     setStates(region, bp, {{kAxis, axis}, {kShape, static_cast<int>(shape)}});
+    // Create's BrassTunnelBlockEntity.updateTunnelConnections: a tunnel that joins a group takes the
+    // distribution mode of the tunnel it connects to (the adjacent one answers with its own mode)
+    if (auto const* nb = tunnelBlock(region, bp); nb && isBrass(*nb)) {
+        auto const* d = docOf(pos);
+        if (!d || !d->contains("mode")) {
+            int mode = static_cast<int>(modeOf(pos));
+            for (bool left : {true, false}) {
+                if (!connected(region, bp, *nb, left)) continue;
+                auto n = adjacent(region, bp, *nb, left);
+                if (!n) continue;
+                auto const* nd = docOf(toGlobal(pos.dim, *n));
+                if (!nd || !nd->contains("mode")) continue;
+                mode = static_cast<int>(modeOf(toGlobal(pos.dim, *n)));
+                break;
+            }
+            editDoc(pos)["mode"] = mode;
+        }
+    }
 }
 
 void forgetTunnel(GlobalPos const& pos) { runtimes().erase(pos.key()); }
 
+namespace {
+/// Create's BrassTunnelBlockEntity.addToGoggleTooltip: the stacks of the group being distributed.
+bool tunnelGoggle(goggles::InfoContext const& c, goggles::Tooltip& t) {
+    if (!isBrass(c.block)) return false;
+    std::vector<ItemStack> stacks;
+    for (auto const& g : groupOf(c.region, toBlockPos(c.pos)))
+        if (auto const& s = rt(toGlobal(c.pos.dim, g)).stack; !items::isEmpty(s)) stacks.push_back(s);
+    if (stacks.empty()) return false;
+    t.push_back(goggles::line("§f" + c.tr("create.tooltip.brass_tunnel.contains", "Currently distributing:")));
+    for (auto const& s : stacks)
+        t.push_back(goggles::line("§7" + c.tr("create.tooltip.brass_tunnel.contains_entry", "> {0} x{1}", items::displayName(s), items::countOf(s))));
+    t.push_back(goggles::line("§8" + c.tr("create.tooltip.brass_tunnel.retrieve", "Right-Click to retrieve")));
+    return true;
+}
+} // namespace
+
 void installTunnels() {
+    goggles::registerBlock(kBrassTunnel, {.goggle = tunnelGoggle, .replaceDefaults = true});
     for (char const* id : {kAndesiteTunnel, kBrassTunnel}) {
         common::items::registerBlock(id, capability());
         beltlink::registerAbove(id, onBeltItem);
@@ -528,6 +598,11 @@ void installTunnels() {
         return std::array<double, 3>{.5, 1., .5};
     };
     mode.get = [](GlobalPos const& p) { return core::common::ValueSettings{0, static_cast<int>(modeOf(p))}; };
+    mode.activeAt = [](GlobalPos const& p) {
+        auto* region = regionOf(p.dim);
+        auto const* b = region ? tunnelBlock(*region, toBlockPos(p)) : nullptr;
+        return b && distributes(*region, toBlockPos(p), *b);
+    };
     mode.set = [](GlobalPos const& p, core::common::ValueSettings v, Player&) {
         int value = std::clamp(v.value, 0, cf::kSelectionModes - 1);
         // the whole group takes the setting (Create propagates it to connected tunnels)
