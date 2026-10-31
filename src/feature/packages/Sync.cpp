@@ -2,6 +2,8 @@
 // and packager tray animations, sent to companion players near them (SPEC §3.3 protocol).
 // Vanilla clients see the static block models only (SPEC §8).
 
+#include <set>
+
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/world/actor/player/Player.h"
@@ -111,6 +113,32 @@ void syncConveyors() {
         if (!list.empty()) net::send(p, "packages.conveyors", {{"dim", dim}, {"list", list}});
         return true;
     });
+}
+
+void syncVanillaChains() {
+    // only while a player without the client mod is around (the others draw the boxes)
+    bool anyVanilla = false;
+    if (auto level = ll::service::getLevel()) level->forEachPlayer([&](Player& p) {
+            anyVanilla = anyVanilla || (!p.isSimulatedPlayer() && !net::isCompanion(p));
+            return !anyVanilla;
+        });
+    std::set<std::string> keep;
+    if (anyVanilla) {
+        for (auto const& pos : tracked(Kind::ChainConveyor)) {
+            if (!isLoaded(pos) || !hasConveyor(pos)) continue;
+            auto& s   = conveyor(pos);
+            auto  add = [&](ChainPackage const& b) {
+                // the box hangs under the chain (Create's ChainConveyorRenderer)
+                auto key = "chain:" + std::to_string(b.netId);
+                showVanillaItem(key, pos.dim, b.item, {b.world.x, b.world.y - .9, b.world.z});
+                keep.insert(key);
+            };
+            for (auto const& b : s.looping) add(b);
+            for (auto const& [c, list] : s.travelling)
+                for (auto const& b : list) add(b);
+        }
+    }
+    hideVanillaItems("chain:", keep);
 }
 
 void resetState() {

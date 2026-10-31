@@ -66,6 +66,24 @@ Invoke-Chat '/clear @s'
 Invoke-Chat '/tp @s 0 -60 0'
 Start-Sleep -Milliseconds 800
 
+# --- U56: a frogport placed from the side faces the player (levitate:yaw, 22.5 degree steps) ------
+Invoke-Chat '/replaceitem entity @s slot.hotbar 4 levitate:package_frogport 1'
+Press-Key '5'
+Invoke-Chat '/tp @s 7.5 -60 -0.5 facing 5.5 -61 -2.5'
+Start-Sleep -Milliseconds 1200
+$mark = Get-LogMark
+Click 0.5 0.5 -Relative -Right
+$line = Wait-LogLine 'packages: frogport placed at 0:-?\d+:-?\d+:-?\d+' 20 -Since $mark
+$m = [regex]::Match($line, 'placed at 0:(-?\d+):(-?\d+):(-?\d+)')
+$fx = [int]$m.Groups[1].Value; $fy = [int]$m.Groups[2].Value; $fz = [int]$m.Groups[3].Value
+Invoke-Chat "/tp @s $($fx + 0.5) $($fy + 3.5) $($fz + 0.5) facing $($fx + 0.5) $fy $($fz + 0.5)"
+Start-Sleep -Milliseconds 1500
+Save-Screenshot 'frogport-yaw' | Out-Null   # seen from above: the frog's eyes point towards +x +z (the player)
+Invoke-Chat "/setblock $fx $fy $fz air"
+Invoke-Chat '/replaceitem entity @s slot.hotbar 4 air'   # (creative keeps the placed item)
+Invoke-Chat '/tp @s 0 -60 0'
+Start-Sleep -Milliseconds 600
+
 # --- the port screen ---------------------------------------------------------------------------
 Invoke-Chat '/setblock 5 -60 -3 levitate:package_frogport'
 Invoke-Chat '/tp @s 5.5 -60 0.5 180 25'

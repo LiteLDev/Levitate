@@ -24,10 +24,13 @@
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/display/Clipboard.h"
+#include "feature/goggles/GoggleInfo.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/net/Net.h"
+#include "feature/packages/AddressForm.h"
 #include "feature/packages/PackagesInternal.h"
 #include "game/Blocks.h"
+#include "game/WorldDb.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
 
@@ -54,6 +57,89 @@ std::map<GlobalPos, PortState>& states() {
 std::map<GlobalPos, std::set<GlobalPos>>& stationPorts() {
     static std::map<GlobalPos, std::set<GlobalPos>> m;
     return m;
+}
+
+/// Create's GlobalPackagePort: what a station knows of a postbox while its chunk is unloaded (its
+/// address and an 18-slot offline buffer trains load from and deliver to). Saved in the world DB.
+struct StationPort {
+    GlobalPos              station;
+    std::string            blockId;
+    std::string            address;
+    bool                   accepts = true;
+    std::vector<ItemStack> buffer  = std::vector<ItemStack>(kPortSlots);
+    bool                   primed  = false; ///< the buffer changed while unloaded: restore it on load
+};
+constexpr char const* kStationPortsKey = "lv:packages:station_ports";
+struct StationPorts {
+    std::map<GlobalPos, StationPort> ports; ///< by postbox position
+    bool                             dirty  = false;
+    bool                             loaded = false;
+};
+StationPorts& stationRecords() {
+    static StationPorts s;
+    return s;
+}
+
+Json posJsonOf(GlobalPos const& p) { return Json::array({p.dim, p.x, p.y, p.z}); }
+std::optional<GlobalPos> posOf(Json const& j) {
+    if (!j.is_array() || j.size() != 4) return std::nullopt;
+    return GlobalPos{j[0].get<int>(), j[1].get<int>(), j[2].get<int>(), j[3].get<int>()};
+}
+
+void saveStationPorts() {
+    auto& r = stationRecords();
+    if (!r.dirty || !game::db::available()) return;
+    Json list = Json::array();
+    for (auto const& [pos, sp] : r.ports) {
+        Json buffer = Json::array();
+        for (auto const& s : sp.buffer) buffer.push_back(items::toJson(s));
+        list.push_back({{"pos", posJsonOf(pos)}, {"station", posJsonOf(sp.station)}, {"block", sp.blockId}, {"address", sp.address}, {"accepts", sp.accepts}, {"buffer", buffer}, {"primed", sp.primed}});
+    }
+    game::db::save(kStationPortsKey, list);
+    r.dirty = false;
+}
+
+void loadStationPorts() {
+    auto& r = stationRecords();
+    if (r.loaded || !game::db::available()) return;
+    r.loaded = true;
+    r.ports.clear();
+    auto j = game::db::load(kStationPortsKey);
+    if (!j || !j->is_array()) return;
+    for (auto const& e : *j) {
+        auto pos     = posOf(e.value("pos", Json()));
+        auto station = posOf(e.value("station", Json()));
+        if (!pos || !station) continue;
+        StationPort sp;
+        sp.station = *station;
+        sp.blockId = e.value("block", std::string{});
+        sp.address = e.value("address", std::string{});
+        sp.accepts = e.value("accepts", true);
+        sp.primed  = e.value("primed", false);
+        auto buf   = e.value("buffer", Json::array());
+        for (std::size_t i = 0; i < buf.size() && i < sp.buffer.size(); ++i) sp.buffer[i] = items::fromJson(buf[i]);
+        stationPorts()[sp.station].insert(*pos);
+        r.ports.emplace(*pos, std::move(sp));
+    }
+}
+
+struct StationPortsLifecycle {
+    StationPortsLifecycle() {
+        game::db::onWorldReady([] {
+            stationRecords().loaded = false;
+            loadStationPorts();
+        });
+        game::db::onWorldSave([] { saveStationPorts(); });
+        game::db::onWorldClosed([] { stationRecords() = {}; });
+    }
+} const gStationPortsLifecycle;
+
+/// The record of an unloaded postbox (nullptr when the postbox is loaded or unknown).
+StationPort* offlinePort(GlobalPos const& pos) {
+    loadStationPorts();
+    if (isLoaded(pos)) return nullptr;
+    auto it = stationRecords().ports.find(pos);
+    return it == stationRecords().ports.end() ? nullptr : &it->second;
 }
 std::unordered_map<std::int64_t, PendingTarget>& pending() {
     static std::unordered_map<std::int64_t, PendingTarget> m;
@@ -181,7 +267,22 @@ void tryPushingDown(GlobalPos const& pos, PortState& s) {
 
 // ---- state ---------------------------------------------------------------------------------------
 
-PortState& port(GlobalPos const& pos) {
+namespace {
+/// Create's GlobalPackagePort.restoreOfflineBuffer: what trains moved while the postbox was
+/// unloaded becomes its inventory as soon as it is used again.
+void restoreOfflineBuffer(GlobalPos const& pos, PortState& s) {
+    auto& r = stationRecords();
+    if (r.ports.empty()) return;
+    auto it = r.ports.find(pos);
+    if (it == r.ports.end() || !it->second.primed || !isLoaded(pos)) return;
+    it->second.primed = false;
+    s.inventory       = it->second.buffer;
+    r.dirty           = true;
+    savePort(pos);
+    log().info("packages: postbox at {} restored its offline buffer", pos.key());
+}
+
+PortState& loadPort(GlobalPos const& pos) {
     auto& m  = states();
     auto  it = m.find(pos);
     if (it != m.end()) return it->second;
@@ -209,6 +310,13 @@ PortState& port(GlobalPos const& pos) {
         s.passiveYaw       = j.value("yaw", 0.f);
     }
     return m.emplace(pos, std::move(s)).first->second;
+}
+} // namespace
+
+PortState& port(GlobalPos const& pos) {
+    auto& s = loadPort(pos);
+    restoreOfflineBuffer(pos, s);
+    return s;
 }
 
 void savePort(GlobalPos const& pos) {
@@ -239,6 +347,16 @@ void savePort(GlobalPos const& pos) {
     }
     blockdata::edit(pos)["packages"] = j;
     updateFlag(pos, s);
+    // Create's PostboxBlockEntity.saveOfflineBuffer: the station keeps a copy for when it unloads
+    if (s.target && s.target->type == PortTarget::Type::Station) {
+        auto& r = stationRecords();
+        if (auto it = r.ports.find(pos); it != r.ports.end() && !it->second.primed) {
+            it->second.buffer  = s.inventory;
+            it->second.address = s.address;
+            it->second.accepts = s.acceptsPackages;
+            r.dirty            = true;
+        }
+    }
 }
 
 void forgetPort(GlobalPos const& pos) {
@@ -274,7 +392,23 @@ void registerWithTarget(GlobalPos const& pos) {
     auto& s = port(pos);
     if (!s.target) return;
     if (s.target->type == PortTarget::Type::Station) {
-        stationPorts()[offset(pos, s.target->relative)].insert(pos);
+        // Create's StationBlockEntity.attachPackagePort: a new GlobalPackagePort, or the offline
+        // buffer the trains used while the postbox was unloaded goes back into its inventory
+        auto station = offset(pos, s.target->relative);
+        stationPorts()[station].insert(pos);
+        loadStationPorts();
+        auto& r  = stationRecords();
+        auto  it = r.ports.find(pos);
+        if (it == r.ports.end() || it->second.station != station) {
+            StationPort sp;
+            sp.station = station;
+            sp.blockId = idAt(pos);
+            sp.address = s.address;
+            sp.accepts = s.acceptsPackages;
+            sp.buffer  = s.inventory;
+            r.ports[pos] = std::move(sp);
+            r.dirty      = true;
+        }
         return;
     }
     auto conv = offset(pos, s.target->relative);
@@ -310,6 +444,8 @@ void deregisterFromTarget(GlobalPos const& pos) {
     if (s.target->type == PortTarget::Type::Station) {
         auto st = stationPorts().find(offset(pos, s.target->relative));
         if (st != stationPorts().end()) st->second.erase(pos);
+        // Create's removePackagePort
+        if (stationRecords().ports.erase(pos)) stationRecords().dirty = true;
         return;
     }
     auto conv = offset(pos, s.target->relative);
@@ -333,6 +469,7 @@ void tickPort(GlobalPos const& pos, Kind kind, bool lazy) {
         }
         return;
     }
+    if (lazy) updateFrogYaw(pos);
     if (lazy && !s.animating) {
         bool prevFail = s.failedLastExport;
         tryPushingDown(pos, s);
@@ -363,6 +500,21 @@ void tickPort(GlobalPos const& pos, Kind kind, bool lazy) {
     }
     s.animatedPackage = items::empty();
     savePort(pos);
+}
+
+void updateFrogYaw(GlobalPos const& pos) {
+    // Create's FrogportBlockEntity.getYaw: towards the target, else the yaw it was placed with;
+    // the block shows it in 22.5 degree steps (tools/models/packages.ps1)
+    auto& s   = port(pos);
+    float yaw = s.passiveYaw;
+    if (s.target)
+        if (auto at = targetLocation(pos, *s.target)) {
+            auto c = centre(pos);
+            yaw    = float(std::atan2(at->x - c.x, at->z - c.z) * 180.0 / 3.14159265358979) + 180.f;
+        }
+    int step = int(std::lround(yaw / 22.5f)) % 16;
+    if (step < 0) step += 16;
+    setStates(pos, {{kYaw, step}});
 }
 
 void startFrogAnimation(GlobalPos const& pos, ItemStack const& box, bool deposit) {
@@ -424,12 +576,20 @@ void onPortPlaced(Player* player, GlobalPos const& pos, Kind kind) {
                 s.target = target;
                 actionBar(*player, "§a" + trFor(*player, "create.package_port.valid", "Can Connect ✔"));
                 log().info("packages: {} at {} targets {}", kind == Kind::Postbox ? "postbox" : "frogport", pos.key(), t.targetPos.key());
+                // Create's PackagePortPlacementPacket.handle ends with ppbe.use(player): the port's
+                // screen opens (after the placement finished)
+                auto uid = player->getOrCreateUniqueID().rawID;
+                defer([uid, pos, kind] {
+                    auto* p = playerById(uid);
+                    if (p && kindOf(idAt(pos)) == kind) usePort(*p, pos, kind);
+                });
             }
             pending().erase(it);
         }
     }
     savePort(pos);
     registerWithTarget(pos);
+    if (kind == Kind::Frogport) updateFrogYaw(pos);
 }
 
 // ---- interaction / screens -------------------------------------------------------------------------
@@ -484,8 +644,9 @@ void setOpen(GlobalPos const& pos, bool open) {
     if (setStates(pos, {{kOpen, open ? 1 : 0}})) playSound(pos.dim, centre(pos), open ? "random.barrel_open" : "random.barrel_close");
 }
 
-void setAddressOf(GlobalPos const& pos, std::string const& address, Player& by) {
-    auto& s = port(pos);
+void setAddressOf(GlobalPos const& pos, std::string const& typed, Player& by) {
+    auto  address = utf8Prefix(typed, kAddressMaxLength); // Create's address box: 25 characters
+    auto& s       = port(pos);
     if (s.address == address) return;
     deregisterFromTarget(pos);
     s.address = address;
@@ -539,6 +700,7 @@ std::optional<Json> portData(Player& player, Json const& ctx) {
         {"accepts", s.acceptsPackages},
         {"postbox", kindOf(idAt(*pos)) == Kind::Postbox},
         {"target", s.target.has_value()},
+        {"suggestions", addressSuggestions(player)},
     };
 }
 
@@ -552,6 +714,8 @@ void portForm(Player& player, Json const& ctx) {
     form.appendLabel(trFor(player, "create.gui.package_port.catch_packages", "Catch packages addressed to..."));
     form.appendInput("address", trFor(player, "create.gui.package_port.catch_packages_wildcard", "Use * as a text wildcard"), "", s.address,
                      trFor(player, "create.gui.package_port.catch_packages_empty", "Leave empty to match non-addressed"));
+    auto suggestions = addressSuggestions(player);
+    appendAddressSuggestions(form, player, suggestions);
     form.appendToggle("accepts", trFor(player, "create.gui.package_port.send_and_receive", "Send and receive packages"), s.acceptsPackages);
     std::vector<std::string> options{trFor(player, "lv.packages.form.keep", "(none)")};
     std::vector<int>         slots{-1};
@@ -568,11 +732,11 @@ void portForm(Player& player, Json const& ctx) {
     form.appendToggle("insert", trFor(player, "lv.packages.form.insert", "Put the packages from my inventory in"), false);
     auto at = *pos;
     setOpen(at, true);
-    form.sendTo(player, [at, slots, shown](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
+    form.sendTo(player, [at, slots, shown, suggestions](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
         setOpen(at, false);
         if (!result || !contextPort(p, {{"pos", posJson(at)}})) return;
         if (auto it = result->find("address"); it != result->end())
-            if (auto const* t = std::get_if<std::string>(&it->second)) setAddressOf(at, *t, p);
+            if (auto const* t = std::get_if<std::string>(&it->second)) setAddressOf(at, chosenSuggestion(result, suggestions).value_or(*t), p);
         if (auto it = result->find("accepts"); it != result->end()) {
             if (auto const* v = std::get_if<uint64>(&it->second)) setAccepts(at, *v != 0, p);
             else if (auto const* d = std::get_if<double>(&it->second)) setAccepts(at, *d != 0, p);
@@ -616,7 +780,7 @@ void portAction(Player& player, Json const& ctx, Json const& action) {
     else if (op == "insert") insertFromInventory(player, *pos, action.value("slot", -1));
     else if (op == "accepts") setAccepts(*pos, action.value("value", true), player);
     else if (op == "address") {
-        if (action.contains("text")) setAddressOf(*pos, utf8Prefix(action.value("text", std::string{}), 50), player);
+        if (action.contains("text")) setAddressOf(*pos, action.value("text", std::string{}), player);
         else {
             screens::close(player, kPortScreen);
             addressForm(player, *pos);
@@ -701,13 +865,26 @@ std::optional<PortInfo> portAt(GlobalPos const& pos) {
 }
 
 std::vector<PortInfo> postboxesForStation(GlobalPos const& station) {
+    loadStationPorts();
     std::vector<PortInfo> out;
     auto                  it = stationPorts().find(station);
     if (it == stationPorts().end()) return out;
     for (auto const& p : std::vector<GlobalPos>(it->second.begin(), it->second.end())) {
+        // Create's connectedPorts: an unloaded postbox still takes part through its offline buffer
+        if (auto const* off = offlinePort(p); off && off->station == station) {
+            PortInfo info;
+            info.pos             = p;
+            info.blockId         = off->blockId;
+            info.address         = off->address;
+            info.acceptsPackages = off->accepts;
+            info.station         = station;
+            out.push_back(info);
+            continue;
+        }
         auto info = portAt(p);
         if (!info || !info->station || *info->station != station) {
             it->second.erase(p);
+            if (isLoaded(p) && stationRecords().ports.erase(p)) stationRecords().dirty = true;
             continue;
         }
         out.push_back(*info);
@@ -716,11 +893,25 @@ std::vector<PortInfo> postboxesForStation(GlobalPos const& station) {
 }
 
 std::vector<ItemStack> portInventory(GlobalPos const& pos) {
+    if (auto const* off = offlinePort(pos)) return off->buffer;
     if (!isPort(pos)) return {};
     return port(pos).inventory;
 }
 
 ItemStack insertIntoPort(GlobalPos const& pos, ItemStack const& box, bool simulate) {
+    if (auto* off = offlinePort(pos); off && isPackage(box)) {
+        // Create's runMailTransfer into the offline buffer (primed: restored when the postbox loads)
+        for (auto& slot : off->buffer) {
+            if (!items::isEmpty(slot)) continue;
+            if (!simulate) {
+                slot                    = items::withCount(box, 1);
+                off->primed             = true;
+                stationRecords().dirty = true;
+            }
+            return items::withCount(box, items::countOf(box) - 1);
+        }
+        return box;
+    }
     if (!isPort(pos) || !isPackage(box)) return box;
     auto& s = port(pos);
     for (auto& slot : s.inventory) {
@@ -735,6 +926,19 @@ ItemStack insertIntoPort(GlobalPos const& pos, ItemStack const& box, bool simula
 }
 
 ItemStack extractFromPort(GlobalPos const& pos, std::function<bool(ItemStack const&)> const& filter, bool simulate) {
+    if (auto* off = offlinePort(pos)) {
+        for (auto& slot : off->buffer) {
+            if (items::isEmpty(slot) || (filter && !filter(slot))) continue;
+            auto box = slot;
+            if (!simulate) {
+                slot                    = items::empty();
+                off->primed             = true;
+                stationRecords().dirty = true;
+            }
+            return box;
+        }
+        return items::empty();
+    }
     if (!isPort(pos)) return items::empty();
     auto& s = port(pos);
     for (auto& slot : s.inventory) {
@@ -747,6 +951,83 @@ ItemStack extractFromPort(GlobalPos const& pos, std::function<bool(ItemStack con
         return box;
     }
     return items::empty();
+}
+
+// Create's FrogportBlockEntity.addToTooltip: a frogport whose caught packages could not go into
+// the inventory below shows the "Contains Packages" hint.
+LV_REGISTER_GOGGLE_INFO(kFrogportId, {
+    .hover = [](goggles::InfoContext const& c, goggles::Tooltip& t) {
+        if (!port(c.pos).failedLastExport) return false;
+        t.push_back(goggles::line(std::string(core::goggles::fmt::kGold) + c.tr("create.hint.blocked_frogport.title", "Contains Packages")));
+        goggles::addHint(
+            t,
+            c.tr("create.hint.blocked_frogport", "A _Package_ caught by this _Frogport_ could not be transferred to the _inventory_ _below._ Could it be full?")
+        );
+        return true;
+    },
+});
+
+std::vector<std::string> addressSuggestions(Player& player, std::string const& localAddress) {
+    // Create's AddressEditBoxHelper.createSuggestions: the local address first, then the unchecked
+    // "#address" entries of the clipboards in the inventory and of the clipboards placed within 32
+    // blocks, each once
+    // screens ask for their data several times per action: reuse a scan for a second
+    struct Cached {
+        std::uint64_t            tick = 0;
+        std::string              local;
+        std::vector<std::string> list;
+    };
+    static std::unordered_map<std::int64_t, Cached> cache;
+    auto& c = cache[player.getOrCreateUniqueID().rawID];
+    if (c.tick != 0 && c.local == localAddress && currentTick() - c.tick < 20) return c.list;
+    std::vector<std::string> out;
+    std::set<std::string>    seen;
+    if (!localAddress.empty() && seen.insert(localAddress).second) out.push_back(localAddress);
+    auto addFrom = [&](display::clipboard::Contents const& c) {
+        for (auto const& page : c.pages) {
+            for (auto const& e : page) {
+                if (e.checked || e.text.size() < 2 || e.text[0] != '#') continue;
+                auto address = e.text.substr(1);
+                auto first   = address.find_first_not_of(" \t");
+                if (first == std::string::npos) continue;
+                auto last = address.find_last_not_of(" \t");
+                address   = address.substr(first, last - first + 1);
+                if (seen.insert(address).second) out.push_back(address);
+            }
+        }
+    };
+    auto& inv = player.getInventory();
+    for (int i = 0; i < std::min(36, inv.getContainerSize()); ++i) {
+        auto const& s = inv.getItem(i);
+        if (display::clipboard::isClipboard(s)) addFrom(display::clipboard::ofItem(s));
+    }
+    auto const& at  = player.getPosition();
+    int         dim = int(player.getDimensionId());
+    int         cx  = int(std::floor(at.x)) >> 4, cz = int(std::floor(at.z)) >> 4;
+    for (int dx = -2; dx <= 2; ++dx) {
+        for (int dz = -2; dz <= 2; ++dz) {
+            blockdata::forEachInChunk(dim, cx + dx, cz + dz, [&](GlobalPos const& p, Json const& doc) {
+                auto it = doc.find("clipboard");
+                if (it == doc.end() || idAt(p) != display::kClipboardId) return;
+                double ddx = p.x + .5 - at.x, ddy = p.y + .5 - at.y, ddz = p.z + .5 - at.z;
+                if (ddx * ddx + ddy * ddy + ddz * ddz > 32.0 * 32.0) return;
+                addFrom(display::clipboard::fromJson(*it));
+            });
+        }
+    }
+    c = {std::max<std::uint64_t>(currentTick(), 1), localAddress, out};
+    return out;
+}
+
+void addStationPortRecord(GlobalPos const& port, GlobalPos const& station, std::string const& address) {
+    loadStationPorts();
+    StationPort sp;
+    sp.station                     = station;
+    sp.blockId                     = postboxIds().front();
+    sp.address                     = address;
+    stationRecords().ports[port]   = std::move(sp);
+    stationRecords().dirty         = true;
+    stationPorts()[station].insert(port);
 }
 
 void notifyDelivered(GlobalPos const& pos) {

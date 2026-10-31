@@ -1,6 +1,7 @@
 # Stock network (U26) on a real client.
 #   local / remote-mod: the blocks' models, the redstone requester screen and the stock keeper
-#                       request screen (a pig seated in a boat beside a stock ticker is its keeper)
+#                       request screen (a pig sitting on a seat beside a stock ticker is its keeper;
+#                       U56: Create only counts riders of seats)
 #                       as native screens; the selftests pass on the (integrated) server.
 #   remote-vanilla:     the same right-clicks open the form fallbacks.
 # Screenshots: out/stock/{built,requester,keeper}.png
@@ -36,13 +37,13 @@ Start-Sleep -Milliseconds 1200
 Save-Screenshot 'requester' | Out-Null
 Close-StockScreen
 
-# a stock ticker with a keeper: a pig in a boat beside it
+# a stock ticker with a keeper: a pig sitting on a seat beside it (mobs on a free seat sit down)
 Invoke-Chat '/fill ~3 ~ ~-1 ~3 ~2 ~1 air'
 Invoke-Chat '/setblock ~3 ~ ~ levitate:stock_ticker ["levitate:facing"=1]'
-Invoke-Chat '/summon boat ~3 ~ ~1'
+Invoke-Chat '/setblock ~3 ~ ~1 levitate:white_seat'
 Invoke-Chat '/summon pig ~3 ~ ~1'
 Start-Sleep -Milliseconds 500
-Invoke-Chat '/ride @e[type=pig,c=1] start_riding @e[type=boat,c=1] teleport_rider'
+Start-Sleep -Milliseconds 1000   # the pig sits down on the seat
 Start-Sleep -Milliseconds 800
 Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~-0.9 ~1'   # the eyes are 1.62 above the feet: aim at the seated pig
 Start-Sleep -Milliseconds 600
@@ -53,7 +54,7 @@ Start-Sleep -Milliseconds 1200
 Save-Screenshot 'keeper' | Out-Null
 Close-StockScreen
 Invoke-Chat '/kill @e[type=pig]'
-Invoke-Chat '/kill @e[type=boat]'
+Invoke-Chat '/setblock ~3 ~ ~1 air'
 
 if ($script:Mode -eq 'local') {
     $r = Invoke-SelfTest 'stock.*'

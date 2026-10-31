@@ -158,5 +158,8 @@
   "lv.stock.screen.add_filter": "Shift-click a filter in your inventory to add a category",
   "lv.stock.screen.target": "Target: {}",
   "lv.stock.screen.in_storage": "In storage: {}",
-  "lv.stock.screen.promised": "Promised: {}"
+  "lv.stock.screen.promised": "Promised: {}",
+  "create.gui.stock_keeper.schematic_list.no_results": "No items from your checklist are in stock",
+  "create.gui.stock_keeper.schematic_list.requesting": "Click 'Send' to request all available items from your checklist",
+  "lv.stock.form.collapse_category": "Collapse {}"
 }

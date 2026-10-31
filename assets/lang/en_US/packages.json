@@ -34,5 +34,11 @@
   "lv.packages.postbox": "Postbox",
   "lv.packages.frogport": "Package Frogport",
   "create.packager_link.set": "Target selected",
-  "create.clipboard.address_added": "Added '{}' to clipboard"
+  "create.clipboard.address_added": "Added '{}' to clipboard",
+  "create.gui.address_box.clipboard_tip": "Keeping Track",
+  "create.gui.address_box.clipboard_tip_1": "Entries starting with '#' on",
+  "create.gui.address_box.clipboard_tip_2": "held or nearby clipboards will",
+  "create.gui.address_box.clipboard_tip_3": "help auto-complete this input.",
+  "create.gui.address_box.clipboard_tip_4": "(e.g. #storage, #factory)",
+  "lv.packages.form.typed_address": "(the address typed above)"
 }

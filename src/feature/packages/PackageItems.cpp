@@ -22,6 +22,7 @@
 #include "core/packages/Address.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
+#include "feature/packages/AddressForm.h"
 #include "feature/packages/PackagesInternal.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
@@ -168,6 +169,10 @@ ItemStack containing(std::vector<ItemStack> const& stacks) {
 bool fitsInPackage(ItemStack const& stack) {
     if (isPackage(stack)) return false;
     auto id = items::idOf(stack);
+    // Create's canFitInsideContainerItems: toolboxes (UncontainableBlockItem) and minecart
+    // contraptions (config minecartContraptionInContainers, false) are bulky too
+    if (id == "levitate:minecart_contraption" || id == "levitate:chest_minecart_contraption") return false;
+    if (id.starts_with("levitate:") && endsWith(id, "_toolbox")) return false;
     return !endsWith(id, "shulker_box") && !endsWith(id, "bundle");
 }
 
@@ -235,7 +240,7 @@ void updateLore(ItemStack& box) {
 
 bool filterMatches(ItemStack const& filter, ItemStack const& stack) {
     auto address = addressOf(filter);
-    if (cp::isBlank(address)) return items::sameItem(filter, stack); // a plain filter item
+    if (cp::isBlank(address) && items::sameItem(filter, stack)) return true; // a plain filter item
     return isPackage(stack) && matchAddress(addressOf(stack), address);
 }
 
@@ -328,10 +333,11 @@ constexpr char kFilterScreen[] = "packages.package_filter";
 
 using core::utf8Prefix;
 
-/// Writes the address of the package filter in the player's hand (Create: 50 characters at most).
+/// Writes the address of the package filter in the player's hand (Create's AddressEditBox: 25
+/// characters at most).
 void setFilterAddress(Player& p, std::string const& address) {
     if (!isPackageFilter(p.getSelectedItem())) return;
-    std::string text   = utf8Prefix(address, 50);
+    std::string text   = utf8Prefix(address, kAddressMaxLength);
     ItemStack   filter = p.getSelectedItem();
     if (cp::isBlank(text)) clearAddress(filter);
     else setAddress(filter, text);
@@ -356,13 +362,15 @@ void openPackageFilterForm(Player& player) {
         "",
         addressOf(player.getSelectedItem())
     );
-    form.sendTo(player, [slot](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
+    auto suggestions = addressSuggestions(player);
+    appendAddressSuggestions(form, player, suggestions);
+    form.sendTo(player, [slot, suggestions](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
         if (!result || p.getSelectedItemSlot() != slot || !isPackageFilter(p.getSelectedItem())) return;
         auto it = result->find("address");
         if (it == result->end()) return;
         auto const* text = std::get_if<std::string>(&it->second);
         if (!text) return;
-        setFilterAddress(p, *text);
+        setFilterAddress(p, chosenSuggestion(result, suggestions).value_or(*text));
     });
 }
 
@@ -377,7 +385,7 @@ void installItemScreens() {
         .id   = kFilterScreen,
         .data = [](Player& p, Json const& ctx) -> std::optional<Json> {
             if (!filterInHand(p, ctx)) return std::nullopt;
-            return Json{{"address", addressOf(p.getSelectedItem())}};
+            return Json{{"address", addressOf(p.getSelectedItem())}, {"suggestions", addressSuggestions(p)}};
         },
         .action = [](Player& p, Json const& ctx, Json const& action) {
             if (!filterInHand(p, ctx) || action.value("op", std::string{}) != "address") return;

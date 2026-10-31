@@ -34,5 +34,11 @@
   "lv.packages.postbox": "邮箱",
   "lv.packages.frogport": "货物蛙港",
   "create.packager_link.set": "目标已选取",
-  "create.clipboard.address_added": "已将“{}”添加到剪贴板"
+  "create.clipboard.address_added": "已将“{}”添加到剪贴板",
+  "create.gui.address_box.clipboard_tip": "快捷输入",
+  "create.gui.address_box.clipboard_tip_1": "手持或附近的剪贴板上以“#”开头",
+  "create.gui.address_box.clipboard_tip_2": "的条目，可以作为包裹地址。",
+  "create.gui.address_box.clipboard_tip_3": "在此处直接选择以快捷输入它们。",
+  "create.gui.address_box.clipboard_tip_4": "（例如：#storage、#factory）",
+  "lv.packages.form.typed_address": "（使用上面输入的地址）"
 }

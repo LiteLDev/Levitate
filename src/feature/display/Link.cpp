@@ -287,6 +287,15 @@ void notify(GlobalPos const& source) {
     }
 }
 
+void notifyLink(GlobalPos const& l) {
+    if (!links().contains(l)) return;
+    auto* region = regionOf(l.dim);
+    auto const* b = region ? loadedBlock(*region, game::blockPos(l)) : nullptr;
+    if (!b || intState(*b, kPowered).value_or(0)) return; // powered links don't send
+    refreshTicks()[l].ticks = 0;
+    update(l);
+}
+
 void itemsPassed(GlobalPos const& source, int count) {
     for (auto const& l : links()) {
         if (l.dim != source.dim) continue;

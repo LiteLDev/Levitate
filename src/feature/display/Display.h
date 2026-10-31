@@ -120,6 +120,10 @@ void registerTargetProvider(std::function<bool(BlockSource&, GlobalPos const&, B
 /// Create's DisplayLinkBlock.notifyGatherers: links attached to `source` refresh now (a nixie
 /// tube changed, a station's train arrived, ...).
 void notifyGatherers(GlobalPos const& source);
+/// (U56) The display link at `link` refreshes now (Create's FactoryPanelSupportBehaviour.notifyLink:
+/// a factory gauge panel connected to the link changed). Nothing when no link is there or it is
+/// powered.
+void refreshLink(GlobalPos const& link);
 /// Create's sendToGatherers for item throughput: a tunnel / funnel at `source` passed `count`
 /// items (the item_throughput and accumulate_items sources count them).
 void itemsPassed(GlobalPos const& source, int count);

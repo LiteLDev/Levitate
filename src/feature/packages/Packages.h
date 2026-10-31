@@ -14,8 +14,10 @@
 // (`lv:package`). Everything here mirrors Create 6.0.10's PackageItem / PackagerBlockEntity /
 // PackagePortBlockEntity behaviour.
 
+#include <array>
 #include <functional>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -28,6 +30,7 @@
 #include "mc/world/item/ItemStack.h"
 
 class BlockSource;
+class Player;
 class BlockPos;
 
 namespace lv::feature::packages {
@@ -46,6 +49,9 @@ inline constexpr char const* kStationId = "levitate:track_station";
 /// Slots of a package (Create's PackageItem.SLOTS) and of a frogport / postbox.
 inline constexpr int kPackageSlots = 9;
 inline constexpr int kPortSlots    = 18;
+/// Create's AddressEditBox: addresses are at most 25 characters (ports, package filters, the stock
+/// keeper, requesters, factory gauges).
+inline constexpr int kAddressMaxLength = 25;
 
 /// Every package item id (4 cardboard sizes, then the 10 rare styles).
 [[nodiscard]] std::vector<std::string> const& packageIds();
@@ -73,7 +79,7 @@ void                      clearAddress(ItemStack& stack);
 /// The first box style (`levitate:cardboard_package_12x12`), empty.
 [[nodiscard]] ItemStack defaultBox();
 /// Whether an item may go into a package (Create's canFitInsideContainerItems: not a package,
-/// a shulker box or a bundle).
+/// a shulker box, a bundle, a toolbox or a minecart contraption).
 [[nodiscard]] bool fitsInPackage(ItemStack const& stack);
 
 /// Create's PackageOrderData (fragmentation of an order into packages).
@@ -98,8 +104,8 @@ void updateLore(ItemStack& box);
 
 // ---- package filter ------------------------------------------------------------------------------------
 [[nodiscard]] bool isPackageFilter(ItemStack const& stack);
-/// Create's PackageFilterItemStack.test: an empty address behaves like a plain filter item (only
-/// the filter itself matches); otherwise packages whose address matches pass.
+/// Create's PackageFilterItemStack.test: packages whose address matches the filter's pass (a
+/// blank filter: unaddressed packages); a blank filter also matches itself like a plain filter.
 [[nodiscard]] bool filterMatches(ItemStack const& filter, ItemStack const& stack);
 
 // ---- packagers (U26 stock links / requesters) ----------------------------------------------------------
@@ -156,5 +162,23 @@ struct PortInfo {
 [[nodiscard]] ItemStack extractFromPort(GlobalPos const& pos, std::function<bool(ItemStack const&)> const& filter, bool simulate);
 /// Postbox flag / particles after a train delivered (Create's spawnParticles).
 void notifyDelivered(GlobalPos const& pos);
+
+// ---- address boxes (U56) --------------------------------------------------------------------------------
+/// Create's AddressEditBoxHelper: addresses offered by an address box, `localAddress` first, then
+/// the unchecked "#address" entries of the clipboards in the player's inventory and of the
+/// clipboards placed within 32 blocks (each once).
+[[nodiscard]] std::vector<std::string> addressSuggestions(Player& player, std::string const& localAddress = {});
+
+// ---- items shown to vanilla clients (U56, SPEC §8) -----------------------------------------------------
+/// Shows `stack` to players without the client mod (within 64 blocks) as an item entity that
+/// exists only on their client (no gravity, nobody can pick it up), at `at` (its feet). One item
+/// per `key`; calling again moves it (or replaces it when the item differs). Players with the client
+/// mod draw these things themselves (hanging packages, the packager tray, factory gauge items).
+void showVanillaItem(std::string const& key, int dim, ItemStack const& stack, std::array<double, 3> const& at);
+void hideVanillaItem(std::string const& key);
+/// Hides every item whose key starts with `prefix`, except the keys in `keep`.
+void hideVanillaItems(std::string const& prefix, std::set<std::string> const& keep = {});
+/// Items with keys starting with `prefix` (selftests).
+[[nodiscard]] std::size_t vanillaItemCount(std::string const& prefix);
 
 } // namespace lv::feature::packages

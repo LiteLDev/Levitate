@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "core/stock/Logistics.h"
+#include "feature/packages/Packages.h"
 #include "feature/stock/Stock.h"
 
 class Block;
@@ -36,6 +37,8 @@ inline constexpr char kDataKey[]      = "stock";            ///< BlockData top-l
 inline constexpr char kFreqData[]     = "stock_freq";       ///< item user data: the tuned network
 inline constexpr char kRequestData[]  = "stock_request";    ///< item user data: an encoded order
 inline constexpr char kListData[]     = "shopping_list";    ///< item user data: a shopping list
+/// Create's AddressEditBox: package addresses are at most 25 characters.
+inline constexpr int kAddressMaxLength = packages::kAddressMaxLength;
 
 [[nodiscard]] bool isTableCloth(std::string_view id);
 [[nodiscard]] bool isLinkedItem(std::string_view id); ///< Create's LogisticallyLinkedBlockItem
@@ -206,6 +209,52 @@ void startConnection(Player& player, GlobalPos const& p, int slot);
 [[nodiscard]] int  targetedSlotAt(GlobalPos const& p, double lx, double ly, double lz);
 /// Gauge state for selftests / hover: {"item", "amount", "upTo", "inStorage", "promised", ...}.
 [[nodiscard]] Json gaugeInfo(GlobalPos const& p, int slot);
+/// A panel's JSON in the gauge's BlockData ({} when none) and writing it back (U56: GaugeLinks.cpp).
+[[nodiscard]] Json readGaugePanel(GlobalPos const& p, int slot);
+void               writeGaugePanel(GlobalPos const& p, int slot, Json const& panel);
+/// The panel plane's outward normal as a FacingID (Create's FactoryPanelBlock.connectedDirection).
+[[nodiscard]] int gaugePanelFace(GlobalPos const& p);
+/// Sets the request timer of a panel (Create's `timer = 1` after a redstone change).
+void setGaugeTimer(GlobalPos const& p, int slot, int ticks);
+/// Recomputes the `levitate:panels` mask of a gauge block.
+void updateGaugePanelsState(GlobalPos const& p);
+
+// ---- gauge connections to links, pending clicks, relocation (GaugeLinks.cpp, U56) ---------------
+
+inline constexpr char kRedstoneLinkId[] = "levitate:redstone_link";
+inline constexpr char kDisplayLinkId[]  = "levitate:display_link";
+
+/// Create's FactoryPanelConnectionHandler.startRelocating ("Move this gauge").
+void startRelocation(Player& player, GlobalPos const& p, int slot);
+/// Create's panelClicked: a gauge panel clicked while a connection is pending. True = handled.
+bool pendingPanelClicked(Player& player, GlobalPos const& p, int slot);
+/// The player's pending connection / relocation: (gauge, slot, relocating), nullopt when none.
+struct PendingConnection {
+    GlobalPos     pos;
+    int           slot       = 0;
+    bool          relocating = false;
+    std::uint64_t since      = 0;
+};
+[[nodiscard]] std::optional<PendingConnection> pendingConnectionOf(Player const& player);
+/// Create's clientTick: drops pending connections whose player went more than 16 blocks away or
+/// whose panel is gone; repeats the prompt in the action bar.
+void tickPendingConnections();
+void resetPendingConnections();
+void installGaugeLinks();
+void uninstallGaugeLinks();
+/// Create's onRightClick on a FactoryPanelSupportBehaviour: connects the panel to the redstone /
+/// display link at `link` (checks orientation, surface and distance). True when connected.
+bool connectPanelToLink(Player* player, GlobalPos const& gauge, int slot, GlobalPos const& link);
+/// Create's disconnectAllLinks.
+void disconnectPanelLinks(GlobalPos const& gauge, int slot, Json& panel);
+/// Create's checkForRedstoneInput: a receiving redstone link with a signal pauses the panel.
+void checkPanelRedstoneInput(GlobalPos const& gauge, int slot, Json& panel, bool& changed);
+/// Create's notifyRedstoneOutputs: transmitting redstone links and display links of the panel update.
+void notifyPanelLinkOutputs(Json const& panel);
+/// Create's FactoryPanelBehaviour.moveTo. True when the panel moved.
+bool movePanel(Player* player, GlobalPos const& from, int fromSlot, GlobalPos const& to, int toSlot);
+/// Panels connected to a display / redstone link (its BlockData), as (gauge, slot).
+[[nodiscard]] std::vector<std::pair<GlobalPos, int>> linkedPanelsOf(GlobalPos const& link);
 
 // ---- table cloth shops (Shop.cpp) ---------------------------------------------------------------
 
@@ -224,6 +273,12 @@ struct Baked {
 };
 [[nodiscard]] Baked bakeList(Json const& list, std::optional<GlobalPos> ignore);
 void                shopRemoved(GlobalPos const& p, Json const& doc);
+/// Create's TableClothBlockEntity.use on a plain cloth: up to 4 held items are put on it, an empty
+/// hand takes the last one back. True when consumed.
+bool                useClothItems(Player& player, GlobalPos const& p);
+[[nodiscard]] bool  hasClothItems(GlobalPos const& p);
+/// Shows the items on plain cloths to vanilla clients again (world ready).
+void                restoreClothItemDisplays();
 void                registerShopValueBoxes();
 
 } // namespace lv::feature::stock

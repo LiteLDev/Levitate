@@ -322,7 +322,10 @@ void savePackager(GlobalPos const& pos) {
 }
 
 void resetPackagers() { states().clear(); }
-void forgetPackager(GlobalPos const& pos) { states().erase(pos); }
+void forgetPackager(GlobalPos const& pos) {
+    states().erase(pos);
+    hideVanillaItem("tray:" + pos.key());
+}
 
 // ---- ticking ---------------------------------------------------------------------------------------
 
@@ -338,10 +341,29 @@ void activate(GlobalPos const& pos, bool repackager) {
     if (s.buttonCooldown <= 0) s.buttonCooldown = 40;
     savePackager(pos);
 }
+
+/// Create's getRenderedBox: the finished box stays on the tray until something takes it. The
+/// client mod hears when it is taken; vanilla players see it as a client-only item (U56).
+void updateTray(GlobalPos const& pos, PackagerState& s) {
+    bool has = !items::isEmpty(s.held);
+    auto key = "tray:" + pos.key();
+    if (has) {
+        int    facing = stateAt(pos, kFacing).value_or(1);
+        auto   o      = faceOffset(facing);
+        cp::V3 at     = centre(pos) + cp::V3{double(o.x), double(o.y), double(o.z)} * .6;
+        showVanillaItem(key, pos.dim, s.held, {at.x, at.y - .4, at.z});
+    } else {
+        hideVanillaItem(key);
+    }
+    if (has == s.trayShown) return;
+    s.trayShown = has;
+    if (s.animationTicks == 0) syncPackager(pos, s);
+}
 } // namespace
 
 void tickPackager(GlobalPos const& pos, bool repackager, bool lazy) {
     auto& s = packager(pos);
+    updateTray(pos, s);
     // neighbour updates (Create's neighborChanged): rising edge activates
     bool power = redstonePowered(pos);
     if (power != s.lastPowerSeen) {

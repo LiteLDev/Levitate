@@ -140,8 +140,14 @@ LV_REGISTER_SELFTEST("packages.package_items", [](Context& ctx) {
     auto filter = stack(pk::kPackageFilterId, 1);
     auto addressed = pk::containing({stack("minecraft:stone", 1)});
     pk::setAddress(addressed, "farm_1");
-    ctx.check(!pk::filterMatches(filter, addressed), "an empty package filter only matches itself");
+    ctx.check(!pk::filterMatches(filter, addressed), "an empty package filter rejects addressed packages");
     ctx.check(pk::filterMatches(filter, filter), "an empty package filter matches package filters");
+    // U56 (Create's PackageFilterItemStack.test): a blank filter matches unaddressed packages
+    ctx.check(pk::filterMatches(filter, pk::containing({stack("minecraft:stone", 1)})), "an empty package filter matches unaddressed packages");
+    ctx.check(!pk::filterMatches(filter, stack("minecraft:stone", 1)), "an empty package filter rejects other items");
+    // U56 (Create's canFitInsideContainerItems): toolboxes and minecart contraptions are bulky
+    ctx.check(!pk::fitsInPackage(stack("levitate:minecart_contraption", 1)) || items::isEmpty(stack("levitate:minecart_contraption", 1)), "minecart contraptions don't fit");
+    ctx.check(!pk::fitsInPackage(stack("levitate:brown_toolbox", 1)) || items::isEmpty(stack("levitate:brown_toolbox", 1)), "toolboxes don't fit");
     pk::setAddress(filter, "farm_*");
     ctx.check(pk::filterMatches(filter, addressed), "address filter matches the package");
     ctx.check(!pk::filterMatches(filter, stack("minecraft:stone", 1)), "address filter rejects non-packages");

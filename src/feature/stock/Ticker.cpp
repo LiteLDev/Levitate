@@ -18,11 +18,15 @@
 #include "mc/world/phys/AABB.h"
 
 #include "core/common/Utf8.h"
+#include "feature/actors/Actors.h"
 #include "feature/advancements/Advancements.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
+#include "feature/display/Clipboard.h"
 #include "feature/net/Net.h"
+#include "feature/packages/AddressForm.h"
+#include "feature/packages/Packages.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
 #include "mod/I18n.h"
@@ -128,7 +132,7 @@ Json stockGroups(GlobalPos const& ticker, Player& player, std::string const& sea
     Json unsorted = Json::array();
     for (std::size_t i = 0; i < all.size(); ++i)
         if (!taken[i]) unsorted.push_back({{"item", stackToJson(all[i].stack)}, {"count", all[i].count}});
-    groups.push_back({{"name", trFor(player, "create.gui.stock_keeper.unsorted_category", "Unsorted")}, {"items", unsorted}, {"index", -1}, {"hidden", false}});
+    groups.push_back({{"name", trFor(player, "create.gui.stock_keeper.unsorted_category", "Unsorted")}, {"items", unsorted}, {"index", -1}, {"hidden", std::find(hidden.begin(), hidden.end(), Json(-1)) != hidden.end()}}); // Create: Unsorted collapses too
     return groups;
 }
 
@@ -138,10 +142,47 @@ std::optional<GlobalPos> tickerFrom(Player& player, Json const& ctx) {
     return p;
 }
 
+/// Create's StockKeeperRequestScreen with a clipboard in hand (schematic list mode): the
+/// clipboard's item entries (e.g. a schematicannon checklist) become the order, each as much as is
+/// in stock. nullopt when the held item is no clipboard with item entries.
+std::optional<std::vector<BigStack>> checklistOrder(Player const& player, Stock const& stock) {
+    auto const& held = player.getSelectedItem();
+    if (!display::clipboard::isClipboard(held)) return std::nullopt;
+    std::vector<BigStack> order;
+    bool                  anyItems = false;
+    for (auto const& page : display::clipboard::ofItem(held).pages) {
+        for (auto const& e : page) {
+            auto icon = e.icon.is_null() ? items::empty() : stackFromJson(e.icon);
+            if (items::isEmpty(icon)) continue;
+            anyItems    = true;
+            int toOrder = std::min(e.amount, stock.countOf(icon));
+            if (toOrder > 0) order.push_back({items::withCount(icon, 1), toOrder});
+        }
+    }
+    if (!anyItems) return std::nullopt;
+    return order;
+}
+
 Json requestData(Player& player, GlobalPos const& ticker) {
     auto const& network = freqOf(ticker);
     auto const& stock   = summaryOf(network, false);
     auto const* d       = dataOf(ticker);
+    if (auto list = checklistOrder(player, stock)) {
+        // the screen shows the checklist as the order and closes after sending
+        return {
+            {"pos",       posJson(ticker)                                           },
+            {"groups",    Json::array()                                             },
+            {"checklist", orderToJson(*list)                                        },
+            {"search",    std::string{}                                             },
+            {"address",   d ? d->value("prevAddress", std::string{}) : std::string{}},
+            {"links",     stock.summary.contributingLinks                           },
+            {"canLock",   false                                                     },
+            {"locked",    isLocked(network)                                         },
+            {"program",   false                                                     },
+            {"maxSlots",  cs::kMaxOrderSlots                                        },
+            {"suggestions", packages::addressSuggestions(player)                    },
+        };
+    }
     return {
         {"pos",          posJson(ticker)                                                          },
         {"groups",       stockGroups(ticker, player, searches()[uuidOf(player)])                  },
@@ -152,7 +193,22 @@ Json requestData(Player& player, GlobalPos const& ticker) {
         {"locked",       isLocked(network)                                                        },
         {"program",      holdsProgrammable(player)                                                },
         {"maxSlots",     cs::kMaxOrderSlots                                                       },
+        {"suggestions",  packages::addressSuggestions(player)                                     },
     };
+}
+
+/// Create's StockKeeperCategoryHidingPacket: categories a player collapsed in the request screen.
+void toggleHidden(GlobalPos const& ticker, Player const& player, int index) {
+    auto& d      = editData(ticker);
+    auto& hidden = d["hidden"];
+    if (!hidden.is_object()) hidden = Json::object();
+    auto& list = hidden[uuidOf(player)];
+    if (!list.is_array()) list = Json::array();
+    auto it       = std::find(list.begin(), list.end(), Json(index));
+    bool collapse = it == list.end();
+    if (collapse) list.push_back(index);
+    else list.erase(it);
+    log().info("stock: {} {} category {} of the stock ticker at {} {} {}", player.getRealName(), collapse ? "collapsed" : "expanded", index, ticker.x, ticker.y, ticker.z);
 }
 
 /// The vanilla request screen: search / address / category first, then amounts.
@@ -226,6 +282,31 @@ void requestForm(Player& player, Json const& ctx) {
     if (!ticker) return;
     auto data    = requestData(player, *ticker);
     auto network = freqOf(*ticker);
+    if (data.contains("checklist")) {
+        // Create's schematic list mode: the clipboard's items as one order
+        auto                 order = orderFromJson(data["checklist"]);
+        ll::form::CustomForm list(trFor(player, "create.gui.stock_keeper.title", "Stock Keeper"));
+        if (order.empty()) list.appendLabel(trFor(player, "create.gui.stock_keeper.schematic_list.no_results", "No items from your checklist are in stock"));
+        else {
+            list.appendLabel(trFor(player, "create.gui.stock_keeper.schematic_list.requesting", "Click 'Send' to request all available items from your checklist"));
+            std::string lines;
+            for (auto const& e : order) lines += "§7" + items::displayName(e.stack) + " x" + std::to_string(e.count) + "\n";
+            list.appendLabel(lines);
+        }
+        list.appendInput("address", trFor(player, "create.gui.stock_keeper.package_address", "Package Address"), "", data.value("address", std::string{}));
+        list.appendToggle("send", trFor(player, "create.gui.stock_keeper.send", "Send"), !order.empty());
+        GlobalPos t = *ticker;
+        list.sendTo(player, [t, order](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
+            if (!result || !isTickerAt(t) || order.empty()) return;
+            if (auto it = result->find("send"); it != result->end())
+                if (auto const* v = std::get_if<uint64>(&it->second); v && !*v) return;
+            std::string address;
+            if (auto it = result->find("address"); it != result->end())
+                if (auto const* s = std::get_if<std::string>(&it->second)) address = *s;
+            placeOrder(p, t, order, address, false);
+        });
+        return;
+    }
     ll::form::CustomForm form(trFor(player, "create.gui.stock_keeper.title", "Stock Keeper"));
     if (data.value("links", 0) == 0) {
         form.appendLabel("§c" + trFor(player, "create.gui.stock_keeper.no_packagers_linked", "No Packagers Linked"));
@@ -236,15 +317,19 @@ void requestForm(Player& player, Json const& ctx) {
     }
     std::vector<std::string> cats{trFor(player, "lv.stock.form.all_categories", "(all categories)")};
     std::vector<int>         catIndex{-2};
+    std::vector<std::pair<int, std::string>> collapsible; // Create: clicking a category header hides it
     for (auto const& g : data["groups"]) {
         auto name = g.value("name", std::string{});
         if (name.empty()) name = trFor(player, "create.gui.stock_ticker.empty_category_name_placeholder", "(Empty)");
         cats.push_back(name + " (" + std::to_string(g.value("items", Json::array()).size()) + ")");
         catIndex.push_back(g.value("index", -1));
+        if (data["groups"].size() > 1 && !g.value("items", Json::array()).empty()) collapsible.emplace_back(g.value("index", -1), name);
     }
     form.appendInput("search", trFor(player, "create.gui.stock_keeper.search_items", "Search Items"), "", "");
     form.appendDropdown("category", trFor(player, "lv.stock.form.category", "Category"), cats, 0);
     form.appendInput("address", trFor(player, "create.gui.stock_keeper.package_address", "Package Address"), "", data.value("address", std::string{}));
+    auto suggestions = packages::addressSuggestions(player);
+    packages::appendAddressSuggestions(form, player, suggestions);
     bool canLock = data.value("canLock", false);
     if (canLock) {
         form.appendToggle(
@@ -254,9 +339,22 @@ void requestForm(Player& player, Json const& ctx) {
             data.value("locked", false)
         );
     }
+    std::vector<bool> wasHidden;
+    for (auto const& [index, name] : collapsible) {
+        bool hidden = false;
+        for (auto const& g : data["groups"])
+            if (g.value("index", -2) == index) hidden = g.value("hidden", false);
+        wasHidden.push_back(hidden);
+        form.appendToggle("hide" + std::to_string(index), trFor(player, "lv.stock.form.collapse_category", "Collapse {}", name), hidden);
+    }
     GlobalPos t = *ticker;
-    form.sendTo(player, [t, catIndex, canLock, network](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
+    form.sendTo(player, [t, catIndex, canLock, network, collapsible, wasHidden, suggestions](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
         if (!result || !isTickerAt(t)) return;
+        for (std::size_t i = 0; i < collapsible.size(); ++i) {
+            auto it = result->find("hide" + std::to_string(collapsible[i].first));
+            if (it == result->end()) continue;
+            if (auto const* v = std::get_if<uint64>(&it->second); v && (*v != 0) != wasHidden[i]) toggleHidden(t, p, collapsible[i].first);
+        }
         auto str = [&](char const* k) {
             auto it = result->find(k);
             if (it == result->end()) return std::string{};
@@ -275,7 +373,7 @@ void requestForm(Player& player, Json const& ctx) {
                 }
             }
         }
-        amountsForm(p, t, str("search"), str("address"), cat == -2 ? -1 : cat);
+        amountsForm(p, t, str("search"), packages::chosenSuggestion(result, suggestions).value_or(str("address")), cat == -2 ? -1 : cat);
     });
 }
 
@@ -285,8 +383,13 @@ void requestAction(Player& player, Json const& ctx, Json const& action) {
     auto op      = action.value("op", std::string{});
     auto network = freqOf(*ticker);
     if (op == "order") {
+        // a clipboard checklist (Create's schematic list mode) is sent whole, as the server reads it
+        if (auto list = checklistOrder(player, summaryOf(network, false))) {
+            placeOrder(player, *ticker, *list, action.value("address", std::string{}), false);
+            return;
+        }
         auto order = orderFromJson(action.value("items", Json::array()));
-        if (static_cast<int>(order.size()) > cs::kMaxOrderSlots) order.resize(cs::kMaxOrderSlots);
+        if (static_cast<int>(order.size()) > cs::kMaxOrderSlots) order.resize(cs::kMaxOrderSlots); // the 9 order slots
         placeOrder(player, *ticker, order, action.value("address", std::string{}), action.value("encode", false));
     } else if (op == "lock") {
         if (!mayAdministrate(network, player) || !isLockable(network)) return;
@@ -294,20 +397,12 @@ void requestAction(Player& player, Json const& ctx, Json const& action) {
         setLocked(network, now);
         log().info("stock: {} {} network {}", player.getRealName(), now ? "locked" : "opened", network.substr(0, 8));
     } else if (op == "hide") {
-        int   index  = action.value("index", -1);
-        auto& d      = editData(*ticker);
-        auto& hidden = d["hidden"];
-        if (!hidden.is_object()) hidden = Json::object();
-        auto& list = hidden[uuidOf(player)];
-        if (!list.is_array()) list = Json::array();
-        auto it = std::find(list.begin(), list.end(), Json(index));
-        if (it == list.end()) list.push_back(index);
-        else list.erase(it);
+        toggleHidden(*ticker, player, action.value("index", -1));
     } else if (op == "search") {
         searches()[uuidOf(player)] = utf8Prefix(action.value("text", std::string{}), 50);
     } else if (op == "address") {
         // the native screen's address box (Create keeps the last used address on the ticker)
-        editData(*ticker)["prevAddress"] = utf8Prefix(action.value("text", std::string{}), 50);
+        editData(*ticker)["prevAddress"] = utf8Prefix(action.value("text", std::string{}), kAddressMaxLength);
     } else if (op == "search_form") {
         ll::form::CustomForm form(trFor(player, "create.gui.stock_keeper.search_items", "Search Items"));
         form.appendInput("text", trFor(player, "create.gui.stock_keeper.search_items", "Search Items"), "", searches()[uuidOf(player)]);
@@ -328,7 +423,7 @@ void requestAction(Player& player, Json const& ctx, Json const& action) {
             if (!result || !isTickerAt(t)) return;
             auto it = result->find("address");
             if (it == result->end()) return;
-            if (auto const* s = std::get_if<std::string>(&it->second)) editData(t)["prevAddress"] = *s;
+            if (auto const* s = std::get_if<std::string>(&it->second)) editData(t)["prevAddress"] = utf8Prefix(*s, kAddressMaxLength);
             screens::open(p, kRequestScreen, {{"pos", posJson(t)}});
         });
     }
@@ -391,7 +486,7 @@ void moveCategory(GlobalPos const& ticker, int index, int delta, bool toEnd) {
 void renameCategory(GlobalPos const& ticker, int index, std::string const& name) {
     auto& cats = editData(ticker)["categories"];
     if (!cats.is_array() || index < 0 || index >= static_cast<int>(cats.size())) return;
-    cats[static_cast<std::size_t>(index)]["name"] = name.substr(0, 64);
+    cats[static_cast<std::size_t>(index)]["name"] = utf8Prefix(name, 28); // Create's category name box
 }
 
 void categoryAction(Player& player, Json const& ctx, Json const& action) {
@@ -500,7 +595,9 @@ bool keeperPresent(GlobalPos const& ticker) {
             if (!blockAt(seat)) continue;
             AABB box{Vec3{float(seat.x), float(seat.y), float(seat.z)}, Vec3{seat.x + 1.0f, seat.y + 1.0f, seat.z + 1.0f}};
             for (auto* a : region->getEntities(box, 0.0f)) {
-                if (!a || a->isPlayer() || !a->getVehicle()) continue;
+                // Create: a seat entity with a passenger (any rider, players too) beside the ticker
+                auto const* vehicle = a ? a->getVehicle() : nullptr;
+                if (!vehicle || !actors::isSeatEntityId(vehicle->getTypeName())) continue;
                 return true;
             }
             // Create: a blaze burner block entity, i.e. a burner with a blaze (heat above none)
@@ -567,7 +664,8 @@ void useKeeper(Player& player, GlobalPos const& ticker) {
     screens::open(player, kRequestScreen, {{"pos", posJson(ticker)}});
 }
 
-bool placeOrder(Player& player, GlobalPos const& ticker, std::vector<BigStack> const& order, std::string const& address, bool encode) {
+bool placeOrder(Player& player, GlobalPos const& ticker, std::vector<BigStack> const& order, std::string const& typedAddress, bool encode) {
+    auto address = utf8Prefix(typedAddress, kAddressMaxLength);
     auto network = freqOf(ticker);
     if (!mayInteract(network, player)) return false;
     if (encode) {

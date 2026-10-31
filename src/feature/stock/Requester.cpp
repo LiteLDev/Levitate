@@ -8,8 +8,11 @@
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 
+#include "core/common/Utf8.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
+#include "feature/packages/AddressForm.h"
+#include "feature/packages/Packages.h"
 #include "feature/stock/StockInternal.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
@@ -42,7 +45,7 @@ Json screenData(GlobalPos const& p) {
 /// Create's RedstoneRequesterConfigurationPacket: address, partial flag and amounts (1..256).
 void configure(GlobalPos const& p, std::optional<std::string> const& address, std::optional<bool> partial, Json const& amounts) {
     auto& d = editData(p);
-    if (address) d["address"] = address->substr(0, 64);
+    if (address) d["address"] = core::utf8Prefix(*address, kAddressMaxLength);
     if (partial) d["partial"] = *partial;
     if (amounts.is_array()) {
         auto& order = d["order"];
@@ -100,9 +103,11 @@ void form(Player& player, Json const& ctx) {
         {trFor(player, "create.gui.redstone_requester.dont_allow_partial", "Must send all items"), trFor(player, "create.gui.redstone_requester.allow_partial", "Allow partial orders")},
         data.value("partial", false) ? 1 : 0
     );
+    auto suggestions = packages::addressSuggestions(player);
+    packages::appendAddressSuggestions(f, player, suggestions);
     GlobalPos at = *p;
     std::size_t n = order.size();
-    f.sendTo(player, [at, n](Player& q, ll::form::CustomFormResult const& r, ll::form::FormCancelReason) {
+    f.sendTo(player, [at, n, suggestions](Player& q, ll::form::CustomFormResult const& r, ll::form::FormCancelReason) {
         if (!r || idAt(at) != kRedstoneRequester || !mayInteract(networkAt(at), q)) return;
         Json amounts = Json::array();
         for (std::size_t i = 0; i < n; ++i) {
@@ -116,7 +121,7 @@ void form(Player& player, Json const& ctx) {
         std::optional<std::string> address;
         std::optional<bool>        partial;
         if (auto it = r->find("address"); it != r->end())
-            if (auto const* s = std::get_if<std::string>(&it->second)) address = *s;
+            if (auto const* s = std::get_if<std::string>(&it->second)) address = packages::chosenSuggestion(r, suggestions).value_or(*s);
         if (auto it = r->find("partial"); it != r->end())
             if (auto const* v = std::get_if<uint64>(&it->second)) partial = *v == 1;
         configure(at, address, partial, amounts);
@@ -192,7 +197,9 @@ void registerRequesterScreens() {
         .data = [](Player& pl, Json const& ctx) -> std::optional<Json> {
             auto p = requesterFrom(pl, ctx);
             if (!p) return std::nullopt;
-            return screenData(*p);
+            auto data           = screenData(*p);
+            data["suggestions"] = packages::addressSuggestions(pl);
+            return data;
         },
         .action = action,
         .form   = form,

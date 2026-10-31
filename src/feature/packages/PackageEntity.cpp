@@ -34,7 +34,11 @@
 #include "mc/deps/shared_types/legacy/actor/ActorDamageCause.h"
 #include "mc/network/packet/LevelEventPacket.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/deps/vanilla_components/ActorDataDirtyFlagsComponent.h"
+#include "mc/deps/vanilla_components/ActorDataFlagComponent.h"
 #include "mc/world/actor/ActorCategory.h"
+#include "mc/world/actor/ActorFlags.h"
+#include "mc/world/actor/SynchedActorDataEntityWrapper.h"
 #include "mc/world/actor/ActorDamageSource.h"
 #include "mc/world/actor/BuiltInActorComponents.h"
 #include "mc/world/actor/Mob.h"
@@ -89,6 +93,7 @@ struct Tracked {
     int       handoffCooldown = 0;
     int       airTicks        = 0; ///< ticks since it left the ground (landing sound)
     std::int64_t tossedBy     = 0; ///< Create's tossedBy: the player who threw it (advancements)
+    std::int64_t restingOn    = 0; ///< the package entity it stands on (gravity off meanwhile)
 };
 
 struct EntityState {
@@ -273,6 +278,70 @@ bool tryInsert(Actor& a, Tracked& t, BlockSource& region) {
     return false;
 }
 
+void setGravity(Actor& a, bool on) {
+    auto& data  = a.mEntityData.get();
+    auto* flags = data.mFlagData.get();
+    if (flags->mValue.test(static_cast<std::size_t>(ActorFlags::HasGravity)) == on) return;
+    flags->mValue.set(static_cast<std::size_t>(ActorFlags::HasGravity), on);
+    data.mDirtyFlags.get()->mDirtyFlags.get().set(0); // the flags data item
+}
+
+bool overlapsXZ(AABB const& a, AABB const& b) {
+    return a.min.x < b.max.x && a.max.x > b.min.x && a.min.z < b.max.z && a.max.z > b.min.z;
+}
+
+/// Create's PackageEntity.canCollideWith: a package collides with the packages below it (whose top
+/// is under its bottom + 1/8), so packages pile up; nothing else collides with them. Bedrock
+/// collides entities per type, so the server rests a falling package on the one below: it stands
+/// at that package's top without gravity until the package below is gone or moved.
+void restOnPackages(Actor& a, Tracked& t) {
+    AABB const& me = a.getAABB();
+    if (t.restingOn) {
+        auto* below = fetch(t.restingOn);
+        if (below && below->isAlive() && !E().dying.contains(t.restingOn)) {
+            AABB const& b = below->getAABB();
+            if (overlapsXZ(me, b) && std::abs(b.max.y - me.min.y) < .05f) return;
+        }
+        t.restingOn = 0;
+    }
+    // (also a package loaded with its chunk while it rested: its flags were saved without gravity)
+    setGravity(a, true);
+    if (a.isOnGround()) return;
+    float vy = a.getPosDelta().y;
+    if (vy > 0) return;
+    AABB  probe{Vec3{me.min.x, me.min.y + vy - .5f, me.min.z}, Vec3{me.max.x, me.min.y + .125f, me.max.z}};
+    Actor* best    = nullptr;
+    float  bestTop = -1e9f;
+    for (auto* o : a.getDimensionBlockSource().getEntities(probe, 0.f)) {
+        if (!o || o == &a || !isPackageEntity(*o) || !o->isAlive()) continue;
+        AABB const& b = o->getAABB();
+        if (!overlapsXZ(me, b) || b.max.y >= me.min.y + .125f || me.min.y + vy > b.max.y) continue;
+        if (b.max.y > bestTop) {
+            bestTop = b.max.y;
+            best    = o;
+        }
+    }
+    if (!best) return;
+    auto feet = a.getFeetPos();
+    auto v    = a.getPosDelta();
+    a.teleportTo(Vec3{feet.x, bestTop, feet.z}, false, 0, 0, false);
+    a.lerpMotion(Vec3{v.x, 0, v.z});
+    setGravity(a, false);
+    t.restingOn = uidOf(*best);
+}
+
+/// Create's PackageEntity.hurt from `inWall`: a package whose eyes are inside a solid block breaks
+/// open (not while it rides something or shortly after an insertion attempt).
+bool suffocating(Actor& a, Tracked const& t) {
+    if (a.getVehicle() || t.insertionDelay < 20) return false;
+    auto   size = packageStyleSize(packageStyle(items::idOf(t.box)));
+    auto   feet = a.getFeetPos();
+    double eyeY = feet.y + size.second / 16.0 * .85; // Java's default eye height
+    BlockPos eye{int(std::floor(feet.x)), int(std::floor(eyeY)), int(std::floor(feet.z))};
+    auto const& block = a.getDimensionBlockSource().getBlock(eye);
+    return !block.isAir() && block._isSolid();
+}
+
 void tickEntity(std::int64_t id, Tracked& t) {
     auto* a = fetch(id);
     if (!a) {
@@ -287,6 +356,12 @@ void tickEntity(std::int64_t id, Tracked& t) {
         destroyPackageEntity(*a);
         return;
     }
+    if (suffocating(*a, t)) {
+        log().info("packages: a package entity suffocated in a block");
+        destroyPackageEntity(*a);
+        return;
+    }
+    restOnPackages(*a, t);
     // Create's fall sounds (getFallSounds): the chiseled bookshelf's
     if (a->isOnGround()) {
         if (t.airTicks > 3) playSound(int(a->getDimensionId()), feetOf(*a), "fall.chiseled_bookshelf", .5f, 1.f);

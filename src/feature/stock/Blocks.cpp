@@ -22,10 +22,12 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/actors/Actors.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Interactions.h"
 #include "feature/common/ValueBox.h"
 #include "feature/common/Items.h"
+#include "feature/goggles/Wrenchable.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -153,9 +155,8 @@ bool extendCloth(Player& player, ItemStack const& held, GlobalPos const& p, cs::
 }
 
 /// Handles a right-click on one of the unit's blocks (or a keeper / shop). True = consumed.
-bool useOnBlock(Player& player, ItemStack const& held, GlobalPos const& p, int face, cs::Vec3d const& hit, std::string const& tid) {
+bool useOnBlock(Player& player, ItemStack const& held, GlobalPos const& p, int face, cs::Vec3d const& hit, std::string const& tid, bool sneaking) {
     std::string hid      = items::isEmpty(held) ? std::string{} : items::idOf(held);
-    bool        sneaking = player.isSneaking();
 
     if (tid == kStockLink || tid == kStockTicker || tid == kRedstoneRequester) {
         if (isLinkedItem(hid) && !sneaking) return tuneHeld(player, networkAt(p));
@@ -195,14 +196,31 @@ bool useOnBlock(Player& player, ItemStack const& held, GlobalPos const& p, int f
             }
             return true;
         }
+        if (hid == kWrench && sneaking) {
+            // Create's FactoryPanelBlock.onSneakWrenched: the targeted panel comes off and its gauge
+            // goes back into the inventory (the block goes with the last panel)
+            if (!mayInteract(info.value("freq", std::string{}), player)) {
+                statusKey(player, "create.logistically_linked.protected", "Logistics Network is Protected", "§c");
+                return true;
+            }
+            goggles::wrench::playRemoveSound(p);
+            removeGaugePanel(p, slot, &player);
+            log().info("stock: {} wrenched off the gauge panel at {} {} {} slot {}", player.getRealName(), p.x, p.y, p.z, slot);
+            return true;
+        }
         useGauge(player, p, slot, sneaking);
         return true;
     }
     if (isTableCloth(tid)) {
-        // Create's table cloth placement helper: a table cloth in hand extends the cloth sideways
+        // Create's TableClothBlock.useItemOn
+        if (face == 0 || !player.canUseAbility(AbilitiesIndex::Build)) return false;
+        // the placement helper: a table cloth in hand extends the cloth sideways
         if (isTableCloth(hid) && !sneaking) return extendCloth(player, held, p, hit);
-        if (face == 0 || !isShop(p)) return false;
-        return useShop(player, p, hit.x, hit.y, hit.z);
+        bool shop = isShop(p);
+        // sneaking or an empty hand on a cloth without items: the default interaction (placing)
+        if ((sneaking || hid.empty()) && !shop && !hasClothItems(p)) return false;
+        if (shop) return useShop(player, p, hit.x, hit.y, hit.z);
+        return useClothItems(player, p);
     }
     if (tid == kBlazeBurner) {
         // Create's BlazeBurnerBlock.useItemOn: a burner beside a stock ticker is its keeper
@@ -337,7 +355,7 @@ ia::Result stockUseOn(ia::UseOnContext const& c) {
         auto uid = player.getOrCreateUniqueID().rawID;
         if (uid == gLastUser && clicked == gLastUsePos && currentTick() - gLastUseTick < 5) return ia::Result::Consume;
         try {
-            if (useOnBlock(player, c.item, clicked, c.face, cs::Vec3d{c.hit[0], c.hit[1], c.hit[2]}, tid)) {
+            if (useOnBlock(player, c.item, clicked, c.face, cs::Vec3d{c.hit[0], c.hit[1], c.hit[2]}, tid, c.sneaking)) {
                 gLastUser    = uid;
                 gLastUseTick = currentTick();
                 gLastUsePos  = clicked;
@@ -412,7 +430,9 @@ ia::Result stockUse(ia::UseContext const& c) {
 ia::Result stockInteract(ia::EntityContext const& c) {
     Player& player = c.player;
     Actor&  entity = c.entity;
-    if (player.isSpectator() || entity.isPlayer() || !entity.getVehicle()) return ia::Result::Pass;
+    // Create's getStockTickerPosition: a living entity whose (root) vehicle is a seat
+    auto const* seat = entity.getVehicle();
+    if (player.isSpectator() || entity.isPlayer() || !seat || !actors::isSeatEntityId(seat->getTypeName()) || entity.getTypeName() == "levitate:package") return ia::Result::Pass;
     auto const& pos = entity.getPosition();
     GlobalPos   at{static_cast<int>(entity.getDimensionId()), static_cast<int>(std::floor(pos.x)), static_cast<int>(std::floor(pos.y + 0.01)), static_cast<int>(std::floor(pos.z))};
     auto        ticker = tickerOfKeeper(at, false);
@@ -506,6 +526,7 @@ public:
             game::db::onWorldReady([] {
                 loadNetworks();
                 loadRegistry();
+                restoreClothItemDisplays();
             });
             game::db::onWorldSave([] { saveNetworks(); });
             game::db::onWorldClosed([] {
@@ -545,6 +566,7 @@ public:
         registerRequesterScreens();
         registerGaugeScreens();
         registerShopValueBoxes();
+        installGaugeLinks();
         mHandlers.push_back(ia::onUseOn({}, stockUseOn, ia::priority::High));
         mHandlers.push_back(ia::onPlace({}, stockPlaced));
         mHandlers.push_back(ia::onUse({}, stockUse));
@@ -559,6 +581,7 @@ public:
 
     void uninstall() {
         ll::event::EventBus::getInstance().removeListener(mTick);
+        uninstallGaugeLinks();
         for (auto id : mHandlers) ia::remove(id);
         mHandlers.clear();
         saveNetworks();

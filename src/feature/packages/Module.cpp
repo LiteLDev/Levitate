@@ -161,7 +161,11 @@ void tickAll() {
         }
     }
     tickRiders();
-    if (s.tick % 4 == 0) syncConveyors();
+    if (s.tick % 4 == 0) {
+        syncConveyors();
+        syncVanillaChains();
+    }
+    flushVanillaItems();
     s.creativeBroken.clear();
     s.placedByHook.clear();
     s.placedByEvent.clear();

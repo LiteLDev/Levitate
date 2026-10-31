@@ -56,6 +56,7 @@ inline constexpr char const* kDirection = "levitate:direction"; // postbox: Java
 inline constexpr char const* kOpen      = "levitate:open";      // postbox
 inline constexpr char const* kFlag      = "levitate:flag";      // postbox: holds packages
 inline constexpr char const* kGoggles   = "levitate:goggles";   // frogport
+inline constexpr char const* kYaw       = "levitate:yaw";       // frogport: 0..15, 22.5 degree steps (U56)
 inline constexpr char const* kRotor     = "levitate:rotor";     // chain conveyor (kinetics rotor model)
 
 inline constexpr char const* kWrenchId = "levitate:wrench";
@@ -126,6 +127,7 @@ struct PackagerState {
     int                    buttonCooldown  = 0;
     std::string            signAddress;
     bool                   lastPowerSeen = false; ///< polled neighbour power (edge detection)
+    bool                   trayShown     = false; ///< the box on the tray as last synced (U56)
 };
 inline constexpr int kPackagerCycle = 20;
 
@@ -176,6 +178,8 @@ void       tickPort(GlobalPos const& pos, Kind kind, bool lazy);
 /// Create's FrogportBlockEntity.startAnimation (`deposit`: send `box` to the target).
 void startFrogAnimation(GlobalPos const& pos, ItemStack const& box, bool deposit);
 void anticipate(GlobalPos const& pos);
+/// (U56) Turns the frogport block towards its target (Create's getYaw, `levitate:yaw`).
+void updateFrogYaw(GlobalPos const& pos);
 /// Opens the port screen (native for companions, a form otherwise).
 void openPortScreen(Player& player, GlobalPos const& pos);
 bool usePort(Player& player, GlobalPos const& pos, Kind kind);
@@ -194,6 +198,9 @@ void registerWithTarget(GlobalPos const& pos);
 void deregisterFromTarget(GlobalPos const& pos);
 void installPortCapabilities();
 void installPortScreens();
+/// (U56, selftests) A station's record of a postbox at `port` (Create's GlobalPackagePort), as if the
+/// postbox had been placed there and unloaded since.
+void addStationPortRecord(GlobalPos const& port, GlobalPos const& station, std::string const& address);
 
 // ---- chain conveyors (ChainConveyor.cpp) -----------------------------------------------------------------
 struct ChainPackage {
@@ -303,6 +310,10 @@ void uninstallPackageEntities();
 void syncFrog(GlobalPos const& pos, PortState const& s);
 /// Chains and packages of conveyors near companions (called every few ticks).
 void syncConveyors();
+/// (U56) Items of the vanilla-client fallback: sends adds / moves / removes (every tick).
+void flushVanillaItems();
+/// (U56) Packages on chains as client-only items for vanilla players (with the conveyor sync).
+void syncVanillaChains();
 
 /// Sends `payload` on `channel` to companions within 96 blocks of `near` (same dimension).
 void broadcast(GlobalPos const& near, std::string const& channel, Json const& payload);
