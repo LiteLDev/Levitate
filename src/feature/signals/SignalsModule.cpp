@@ -34,6 +34,7 @@
 #include "mc/world/redstone/circuit/CircuitSystem.h"
 
 #include "core/tracks/Shape.h"
+#include "feature/common/BlockData.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/Redstone.h"
@@ -301,7 +302,16 @@ void pushBlockStates() {
         Block const& block = region->getBlock(bp);
         if (kindOf(block) != r.kind) continue;
         if (r.kind == Kind::Signal) {
-            auto lamp = lampOf(r);
+            // Create's SignalBlockEntity.enterState: after a green or yellow light a signal turns
+            // red only 15 ticks later (the train that took the section passes it first)
+            auto target = lampOf(r);
+            if (r.redHold > 0) --r.redHold;
+            if (r.shown != target && !(target == cs::SignalState::Red && r.redHold > 0)) {
+                r.shown   = target;
+                r.redHold = target == cs::SignalState::Green || target == cs::SignalState::Yellow ? 15 : 0;
+            }
+            // SignalRenderer: an invalid signal flashes its red lamp (3 of every 40 ticks)
+            auto lamp = r.shown == cs::SignalState::Invalid && s.tick % 40 < 3 ? cs::SignalState::Red : r.shown;
             if (game::intState(block, api::kLampState).value_or(-1) == api::lampValue(lamp)
                 && game::intState(block, api::kTypeState).value_or(-1) == r.type
                 && game::intState(block, api::kPoweredState).value_or(-1) == int(r.powered))
@@ -314,6 +324,7 @@ void pushBlockStates() {
                 if (auto const* b = game::blockWith(api::kObserverId, {{api::kPoweredState, on ? 1 : 0}})) {
                     game::setBlock(*region, bp, *b);
                     log().info("signals: track observer at {} {}", pos.key(), on ? "powered" : "unpowered");
+                    display::notifyGatherers(pos); // Create's TrackObserverBlockEntity: refresh the links
                 }
             }
             // the powered state's redstone producer (minecraft:redstone_producer): make sure the
@@ -337,12 +348,37 @@ void watchRedstone() {
             BlockPos bp = game::blockPos(at);
             if (!region->hasChunksAt(bp, 0, false) || kindOf(region->getBlock(bp)) != Kind::Signal) return;
             bool powered = poweredAt(*region, bp);
-            if (powered == it->second.powered) return;
-            it->second.powered = powered;
-            st.indexDirty      = true;
-            st.sidesDirty      = true;
-            log().info("signals: signal at {} {} by redstone", at.key(), powered ? "forced red" : "released");
+            if (powered == it->second.powered) {
+                it->second.unpowerAt = 0;
+                return;
+            }
+            if (!powered) {
+                // Create's SignalBlock.neighborChanged: losing power is applied 4 ticks later
+                if (!it->second.unpowerAt) it->second.unpowerAt = st.tick + 4;
+                return;
+            }
+            it->second.powered   = powered;
+            it->second.unpowerAt = 0;
+            st.indexDirty        = true;
+            st.sidesDirty        = true;
+            log().info("signals: signal at {} forced red by redstone", at.key());
         });
+    }
+}
+
+/// Create's SignalBlock.tick: a scheduled loss of power applies when the input is still off.
+void applyUnpowering() {
+    auto& s = state();
+    for (auto& [pos, r] : s.blocks) {
+        if (r.kind != Kind::Signal || !r.unpowerAt || s.tick < r.unpowerAt) continue;
+        r.unpowerAt  = 0;
+        auto* region = regionOf(pos.dim);
+        if (!region || !region->hasChunksAt(game::blockPos(pos), 0, false)) continue;
+        if (!r.powered || poweredAt(*region, game::blockPos(pos))) continue;
+        r.powered    = false;
+        s.indexDirty = true;
+        s.sidesDirty = true;
+        log().info("signals: signal at {} released by redstone", pos.key());
     }
 }
 
@@ -397,7 +433,7 @@ nlohmann::json overlay() {
         ct::Vec3d back  = view->graph->edgePositionAt(*view->edge, std::max(0.0, p->position - 0.25));
         ct::Vec3d dir   = (ahead - back).normalize();
         if (r.kind == Kind::Signal && r.side == 0) dir = -dir;
-        int stateValue = r.kind == Kind::Signal ? int(lampOf(r)) : 0;
+        int stateValue = r.kind == Kind::Signal ? int(shownOf(r)) : 0;
         if (r.kind == Kind::Observer) {
             auto it    = s.observers.find(r.point);
             stateValue = it != s.observers.end() && it->second.activated > 0 ? 1 : 0;
@@ -520,6 +556,15 @@ bool addBlock(Kind kind, GlobalPos const& pos, Target const& target) {
     bool ok        = bind(rec);
     s.blocks[pos]  = rec;
     s.indexDirty   = true;
+    // Create's TrackTargetingBehaviour keeps the target relative to the block: a contraption that
+    // moves the block (and its track) carries it in the BlockData
+    auto& d = common::blockdata::edit(pos)["signals"];
+    d       = {
+        {"o", nlohmann::json::array({target.track.x - pos.x, target.track.y - pos.y, target.track.z - pos.z})},
+        {"v", nlohmann::json::array({target.dir.x, target.dir.y, target.dir.z})},
+        {"c", target.curve},
+        {"a", nlohmann::json::array({target.at.x - pos.x, target.at.y - pos.y, target.at.z - pos.z})},
+    };
     if (ok) log().info("signals: {} at {} bound to {} (side {})", kind == Kind::Signal ? "signal" : "observer", pos.key(), rec.point, rec.side);
     else log().info("signals: {} at {} could not be bound", kind == Kind::Signal ? "signal" : "observer", pos.key());
     return ok;
@@ -566,6 +611,8 @@ cs::SignalState lampOf(BlockRec const& rec) {
     if (rec.point.empty()) return cs::SignalState::Invalid;
     return state().system.state(rec.point, rec.side);
 }
+
+cs::SignalState shownOf(BlockRec const& rec) { return rec.shown; }
 
 bool poweredAt(BlockSource& region, BlockPos const& pos) {
     // Create's hasNeighborSignal, read from the circuit graph by the shared redstone input (track
@@ -615,6 +662,7 @@ void runTick() {
     if (!s.loaded) return;
     s.intents.clear();
     watchRedstone();
+    applyUnpowering();
     refresh();
     tickObservers();
     s.system.updateStates();
@@ -671,6 +719,45 @@ public:
             onBlockChanged(ev);
         }));
         net::onCompanionJoined([](Player& p) { sendOverlay(&p); });
+        // a signal / observer moved by a contraption binds to the track at the same offset
+        common::blockdata::onPut([](GlobalPos const& pos, nlohmann::json const& doc) {
+            if (!doc.contains("signals") || !doc["signals"].is_object()) return;
+            auto const& d = doc["signals"];
+            state().tasks.push_back([pos, d] {
+                auto* region = regionOf(pos.dim);
+                if (!region || !region->hasChunksAt(game::blockPos(pos), 0, false)) return;
+                auto kind = kindOf(region->getBlock(game::blockPos(pos)));
+                if (!kind) return;
+                auto v = [&](char const* k) {
+                    auto a = d.value(k, nlohmann::json::array({0, 0, 0}));
+                    return ct::Vec3d{a[0].get<double>(), a[1].get<double>(), a[2].get<double>()};
+                };
+                Target t;
+                t.dim   = pos.dim;
+                auto o  = v("o");
+                t.track = {pos.x + int(std::lround(o.x)), pos.y + int(std::lround(o.y)), pos.z + int(std::lround(o.z))};
+                t.dir   = v("v");
+                t.curve = d.value("c", false);
+                auto a  = v("a");
+                t.at    = {pos.x + a.x, pos.y + a.y, pos.z + a.z};
+                bool ok = addBlock(*kind, pos, t);
+                log().info("signals: moved {} at {} {}", *kind == Kind::Signal ? "signal" : "observer", pos.key(), ok ? "bound again" : "has no track at its target");
+            });
+        });
+        common::blockdata::onRotate("signals", [](nlohmann::json& d, int axis, int quarters) {
+            if (axis != 1 || !d.is_object()) return; // contraptions turn signals about y only
+            for (char const* k : {"o", "v", "a"}) {
+                if (!d.contains(k) || !d[k].is_array() || d[k].size() < 3) continue;
+                double x = d[k][0].get<double>(), z = d[k][2].get<double>();
+                for (int q = ((quarters % 4) + 4) % 4; q > 0; --q) {
+                    double nx = z, nz = -x; // right-hand rule about +y
+                    x = nx;
+                    z = nz;
+                }
+                d[k][0] = x;
+                d[k][2] = z;
+            }
+        });
         // Create's TrackObserverBlockEntity filter (the slot on top of the block)
         common::filterslot::registerSlot(
             std::string(api::kObserverId),
@@ -693,8 +780,13 @@ public:
                     std::string train = api::observedTrain(ctx.source);
                     if (train.empty()) return {""};
                     auto const& names = state().trainName;
-                    return {names ? names(train) : std::string()};
+                    std::string name  = names ? names(train) : std::string();
+                    // SingleLineDisplaySource with allowsLabeling: "<label> <name>"
+                    auto label = ctx.config.value("Label", std::string());
+                    return {label.empty() ? name : label + " " + name};
                 },
+                .options      = {{"Label", "create.display_source.label", "Attached Label", {}, {}, ""}},
+                .refreshTicks = 400, // Create's ObservedTrainNameSource.getPassiveRefreshTicks
             }
         );
         installHooks();
@@ -707,7 +799,7 @@ public:
             auto const& blocks = state().blocks;
             auto        it     = blocks.find(game::globalPos(region, pos));
             if (it == blocks.end() || it->second.kind != Kind::Signal) return 0;
-            return lampOf(it->second) == cs::SignalState::Red ? 15 : 0;
+            return shownOf(it->second) == cs::SignalState::Red ? 15 : 0;
         });
     }
 
@@ -824,6 +916,19 @@ double pathPenalty(std::string const& trainId, core::tracks::Graph const& graph,
     return sg::state().system.edgePenalty(a->location, b->location, trainId, kRedSignalPenalty, kRedstoneRedSignalPenalty);
 }
 
+SignalType boundaryType(std::string const& boundaryId, int side) {
+    auto const* b = sg::state().system.boundary(boundaryId);
+    return b && side >= 0 && side < 2 ? b->sides[size_t(side)].type : SignalType::Entry;
+}
+
+core::tracks::EdgeCost
+pathCost(std::string const& trainId, core::tracks::Graph const& graph, core::tracks::Edge const& edge, double& redWeight) {
+    auto const* a = graph.node(edge.node1);
+    auto const* b = graph.node(edge.node2);
+    if (!a || !b) return {};
+    return sg::state().system.edgeCost(a->location, b->location, trainId, redWeight, kRedstoneRedSignalPenalty);
+}
+
 GroupId sectionAt(core::tracks::GraphLocation const& loc) {
     sg::refresh();
     return sg::state().system.groupAt(railways(), loc);
@@ -835,7 +940,7 @@ SignalState signalState(core::GlobalPos const& pos) {
     auto& s  = sg::state();
     auto  it = s.blocks.find(pos);
     if (it == s.blocks.end() || it->second.kind != sg::Kind::Signal) return SignalState::Invalid;
-    return sg::lampOf(it->second);
+    return sg::shownOf(it->second);
 }
 
 bool observerPowered(core::GlobalPos const& pos) {

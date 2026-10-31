@@ -232,12 +232,13 @@ TEST(SignalSections, CrossSignalsChainThroughJunctions) {
     ASSERT_EQ(ex.size(), 1u);
     EXPECT_EQ(ex[0], (std::pair<std::string, int>{"north", 1}));
 
-    // a train standing north of the crossing: the exit is red, the cross signal yellow
+    // a train standing north of the crossing: the only exit is red, so the cross signal is red
+    // too (Create's resolveSignalChain: red when no chained signal is free, yellow when mixed)
     auto parked = at(r, {0.5, 0, 19}, {0, 0, 1});
     s.setTrainSpans("parked", spanBehind(r, parked, 3));
     s.updateStates();
     EXPECT_EQ(s.state("north", 1), SignalState::Red);
-    EXPECT_EQ(s.state("south", 1), SignalState::Yellow);
+    EXPECT_EQ(s.state("south", 1), SignalState::Red);
     EXPECT_EQ(s.state("west", 1), SignalState::Green); // its way out (east) is free
 
     // a northbound train waits at the cross signal, not inside the crossing
@@ -358,4 +359,58 @@ TEST(SignalSections, PathPenaltiesAndRebuildsKeepTrains) {
     sides[1].forcedRed = true;
     s.setSides("a", sides);
     EXPECT_EQ(s.edgePenalty(n1, n2, "t", 25, 400), 400);
+}
+
+TEST(SignalSections, PathsDontPassASignalFromBehind) {
+    // Create's SignalBoundary.canNavigateVia: no signal faces trains going south here
+    World    w;
+    Railways r;
+    lineZ(w, r, 0, 29);
+    SignalSystem s;
+    s.rebuild(r, {boundary(r, "a", at(r, {0.5, 0, 10.5}, {0, 0, 1}))});
+    auto query = [&](GraphLocation start, GraphLocation dest) {
+        PathQuery q;
+        q.start        = start;
+        q.destinations = {dest};
+        q.edgeCost     = [&](Graph const& g, Edge const& e) {
+            double weight = 25;
+            return s.edgeCost(g.node(e.node1)->location, g.node(e.node2)->location, "t", weight, 400);
+        };
+        return r.findPath(q);
+    };
+    auto south = [&](double z) { return at(r, {0.5, 0, z}, {0, 0, -1}); };
+    auto north = [&](double z) { return at(r, {0.5, 0, z}, {0, 0, 1}); };
+    EXPECT_FALSE(query(south(25), south(3)).has_value()) << "behind the signal";
+    EXPECT_TRUE(query(south(25), south(15)).has_value()) << "a destination before the signal is reached";
+    EXPECT_TRUE(query(north(3), north(25)).has_value()) << "the signal faces northbound trains";
+    // without the barrier (old edgePenalty) the way exists
+    PathQuery plain;
+    plain.start        = south(25);
+    plain.destinations = {south(3)};
+    EXPECT_TRUE(r.findPath(plain).has_value());
+}
+
+TEST(SignalSections, RedSignalWeightHalvesPerRedSignal) {
+    // Create's Navigation.search: one signalWeight for the whole search, halved after each red signal
+    World    w;
+    Railways r;
+    lineZ(w, r, 0, 39);
+    SignalSystem s;
+    // three boundaries on one graph edge (long straight lines are split into edges)
+    auto la = at(r, {0.5, 0, 3.5}, {0, 0, 1});
+    s.rebuild(r, {boundary(r, "a", la), boundary(r, "b", at(r, {0.5, 0, 8.5}, {0, 0, 1})), boundary(r, "c", at(r, {0.5, 0, 13.5}, {0, 0, 1}))});
+    s.setTrainSpans("x", spanBehind(r, at(r, {0.5, 0, 7}, {0, 0, 1}), 2));
+    s.setTrainSpans("y", spanBehind(r, at(r, {0.5, 0, 12}, {0, 0, 1}), 2));
+    Graph* g  = r.graph(la.graph);
+    auto   n1 = g->node(la.node1)->location, n2 = g->node(la.node2)->location;
+    ASSERT_GE(n2.location().z - n1.location().z, 14) << "the boundaries share an edge";
+    double weight = 40;
+    auto   cost   = s.edgeCost(n1, n2, "t", weight, 400);
+    EXPECT_DOUBLE_EQ(cost.penalty, 40 + 20);
+    EXPECT_DOUBLE_EQ(weight, 10);
+    EXPECT_EQ(cost.barrier, std::numeric_limits<double>::infinity());
+    // travelling south every boundary is passed from behind: the first one stops the way
+    weight    = 40;
+    auto back = s.edgeCost(n2, n1, "t", weight, 400);
+    EXPECT_NEAR(back.barrier, n2.location().z - 13.5, 1e-6);
 }

@@ -67,34 +67,65 @@ std::pair<int, int> trackDirection(Player& p, int axis) {
 bool useStation(Player& p, GlobalPos const& pos, ItemStack const& item) {
     auto* s = stationAt(pos);
     if (!s) return false;
-    if (auto sch = scheduleOf(item)) {
-        // Create: a schedule put into the station becomes its auto-schedule
-        if (s->autoSchedule.is_null()) {
-            s->autoSchedule = items::toJson(item);
-            markStationsDirty();
-            if (!p.isCreative()) {
-                p.getInventory().setItem(p.getSelectedItemSlot(), ItemStack{});
-                p.sendInventory(false);
-            }
-            playSound(pos.dim, {pos.x + .5, pos.y + .5, pos.z + .5}, "random.levelup", 0.5f, 1.5f);
-            log().info("trains: station '{}' holds an auto-schedule", s->name);
-            return true;
-        }
-    }
+    (void)item;
+    // Create's StationBlock.useItemOn: the held auto-schedule comes back to the player; otherwise
+    // the screen opens (with a schedule in hand too: schedules go in by funnels, hoppers, arms or
+    // thrown onto the station)
     if (!s->autoSchedule.is_null()) {
-        auto back = items::fromJson(s->autoSchedule);
-        s->autoSchedule = nullptr;
-        markStationsDirty();
+        auto back = takeAutoSchedule(*s);
         if (!p.add(back)) p.drop(back, false);
         p.sendInventory(false);
-        log().info("trains: auto-schedule taken from station '{}'", s->name);
+        playSound(pos.dim, {pos.x + .5, pos.y + .5, pos.z + .5}, "random.pop", 0.2f, 1.4f);
         return true;
     }
     openStationScreen(p, pos);
     return true;
 }
 
-bool useStationItemOnTrack(Player& p, GlobalPos const& track) {
+/// Create's TrackTargetingBlockItem keeps the selected track on the item stack: the same item data
+/// as the signal / observer items (U28: `track_target` {d, t, v, c, a}), so the client mod outlines
+/// a station's selected track too.
+constexpr char kTargetData[] = "track_target";
+
+std::optional<State::Target> selectionOf(ItemStack const& stack) {
+    if (items::idOf(stack) != kStation) return std::nullopt;
+    auto j = items::getData(stack, kTargetData);
+    try {
+        if (!j.is_object()) return std::nullopt;
+        State::Target out;
+        auto const&   t = j.at("t");
+        out.track       = {j.at("d").get<int>(), t.at(0).get<int>(), t.at(1).get<int>(), t.at(2).get<int>()};
+        auto const&   v = j.at("v");
+        out.fx          = v.at(0).get<double>() > 0.5 ? 1 : v.at(0).get<double>() < -0.5 ? -1 : 0;
+        out.fz          = v.at(2).get<double>() > 0.5 ? 1 : v.at(2).get<double>() < -0.5 ? -1 : 0;
+        return out;
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
+void setSelection(ItemStack& stack, std::optional<State::Target> const& t) {
+    if (!t) {
+        items::setData(stack, kTargetData, nullptr);
+        return;
+    }
+    auto const& p = t->track;
+    items::setData(stack, kTargetData,
+                   {{"d", p.dim}, {"t", {p.x, p.y, p.z}}, {"v", {t->fx, 0, t->fz}}, {"c", false}, {"a", {p.x + .5, double(p.y), p.z + .5}}});
+}
+
+/// In a click: the click's own stack and the hand slot (SimulatedPlayers use a copy that isn't
+/// written back), as U28's writeSelection.
+void writeSelection(Player& player, ItemStack& held, std::optional<State::Target> const& t) {
+    setSelection(held, t);
+    if (&held == &player.getSelectedItem() || items::idOf(player.getSelectedItem()) != kStation) return;
+    ItemStack copy = player.getSelectedItem();
+    setSelection(copy, t);
+    player.setSelectedItem(copy);
+    player.sendInventory(false);
+}
+
+bool useStationItemOnTrack(Player& p, ItemStack& held, GlobalPos const& track) {
     int axis = straightTrackAxis(track);
     auto* region = regionOf(track.dim);
     if (!region) return false;
@@ -110,7 +141,12 @@ bool useStationItemOnTrack(Player& p, GlobalPos const& track) {
         axis   = std::abs(v.x) >= std::abs(v.z) ? 0 : 2;
     }
     auto [fx, fz] = trackDirection(p, axis);
-    state().targets[uuidOf(p)] = {track, fx, fz};
+    // Create's OverlapResult.OCCUPIED: another edge point within 3/4 of a block
+    if (pointOccupied(track, fx, fz, {})) {
+        actionBar(p, "\xC2\xA7" "c" + trFor(p, "create.track_target.occupied", "Targeted track is occupied"));
+        return true;
+    }
+    writeSelection(p, held, State::Target{track, fx, fz});
     actionBar(p, trFor(p, "create.track_target.set", "Targeted track selected"));
     log().info("trains: {} targeted the track at {} {} {}", p.getRealName(), track.x, track.y, track.z);
     return true;
@@ -162,13 +198,13 @@ ia::Result trainsUseOn(ia::UseOnContext const& c) {
     if (tid == tracks::kTrackId) {
         if (held == kStation && !sneak) {
             if (debounced(player, isFirstEvent)) return ia::Result::Consume;
-            useStationItemOnTrack(player, pos);
+            useStationItemOnTrack(player, ia::mutableItem(item), pos);
             player.sendInventory(false);
             return ia::Result::Consume;
         }
         if ((held == kRailwayCasing || held.empty()) && !sneak) {
             if (debounced(player, isFirstEvent)) return ia::Result::Consume;
-            auto msg = useCasingOnTrack(&player, pos, held == kRailwayCasing);
+            auto msg = useCasingOnTrack(&player, pos, held == kRailwayCasing || player.isCreative());
             if (!msg.empty()) {
                 if (msg.starts_with("+")) {
                     msg = msg.substr(1);
@@ -207,14 +243,14 @@ ia::Result trainsUseOn(ia::UseOnContext const& c) {
         return ia::Result::Consume;
     }
     if (held == kStation && tid != tracks::kTrackId) {
-        auto it = state().targets.find(uuidOf(player));
-        if (it == state().targets.end()) {
+        auto sel = selectionOf(item);
+        if (!sel) {
             actionBar(player, trFor(player, "create.track_target.missing", "Right-click the targeted train track first"));
             player.sendInventory(false);
             return ia::Result::Consume;
         }
         GlobalPos   place = placementPos(region, at, static_cast<uchar>(c.face));
-        auto const& tg    = it->second;
+        auto const& tg    = *sel;
         double      dx = place.x - tg.track.x, dy = place.y - tg.track.y, dz = place.z - tg.track.z;
         if (tg.track.dim != place.dim || dx * dx + dy * dy + dz * dz > 16 * 16) {
             actionBar(player, trFor(player, "create.track_target.too_far", "Targeted track is too far from here"));
@@ -232,8 +268,10 @@ ia::Result trainsUse(ia::UseContext const& c) {
     Player&            player = c.player;
     std::string const& held   = c.itemId;
     if (held == kStation && c.sneaking) {
-        if (state().targets.erase(uuidOf(player)))
+        if (selectionOf(c.item)) {
+            writeSelection(player, ia::mutableItem(c.item), std::nullopt);
             actionBar(player, trFor(player, "create.track_target.clear", "Cleared track selection"));
+        }
         return ia::Result::Consume;
     }
     if (!c.sneaking && held != kSchedule && tryControls(player)) return ia::Result::Consume;
@@ -250,31 +288,13 @@ ia::Result trainsInteract(ia::EntityContext const& c) {
     Player& player = c.player;
     Actor&  entity = c.entity;
     if (entity.isPlayer()) return ia::Result::Pass;
-    auto f = entity.getFeetPos();
-    for (auto& [id, t] : state().trains) {
-        if (t.invalid || t.dim != int(player.getDimensionId())) continue;
-        for (auto const& car : t.carriages) {
-            auto* con = contraption::find(car.contraption);
-            if (!con) continue;
-            for (auto const& [local, rel] : car.controls) {
-                cc::Pos seat = local + cc::Pos{t.ax * rel, 0, t.az * rel};
-                auto    w    = con->toWorld(cc::Vec3d::center(seat));
-                if (std::abs(f.x - w.x) > .7 || std::abs(f.z - w.z) > .7 || std::abs(f.y - w.y) > 1) continue;
-                if (handScheduleTo(player, t, player.getSelectedItemSlot())) return ia::Result::Consume;
-            }
-        }
-    }
-    if (c.itemId == kSchedule) {
-        // a schedule on an entity that isn't a conductor (Create's message for seated mobs)
-        for (auto const& id : contraption::all()) {
-            auto* con = contraption::find(id);
-            if (!con || con->kind() != "train") continue;
-            auto o = con->transform().toWorld(cc::Vec3d{0, 0, 0});
-            if (std::abs(o.x - f.x) < 32 && std::abs(o.z - f.z) < 32) {
-                actionBar(player, trFor(player, "create.schedule.non_controlling_seat", "Conductor needs to sit in front of a Controls block"));
-                return ia::Result::Consume;
-            }
-        }
+    // Create's ScheduleItemEntityInteraction: only an entity seated on a conductor seat
+    if (auto* t = conductorTrainOf(entity))
+        if (handScheduleTo(player, *t, player.getSelectedItemSlot())) return ia::Result::Consume;
+    if (c.itemId == kSchedule && seatedTrainOf(entity) && !conductorTrainOf(entity)) {
+        // a schedule on a seated entity that isn't a conductor (Create's ScheduleItem.handScheduleTo)
+        actionBar(player, trFor(player, "create.schedule.non_controlling_seat", "Conductor needs to sit in front of a Controls block"));
+        return ia::Result::Consume;
     }
     return ia::Result::Pass;
 }
@@ -308,13 +328,35 @@ LL_TYPE_INSTANCE_HOOK(
     bool        jump  = in.contains(Input::JumpCurrentRaw) || in.contains(Input::Jumping) || in.contains(Input::JumpDown);
     bool        sneak = in.contains(Input::SneakDown) || in.contains(Input::StartSneaking);
     setInput(*player, keys, steer, jump, sneak);
+    // Create's ControlsHandler / HonkPacket: the sprint key sounds the horn while held (vanilla
+    // clients send it as their sprint input)
+    // (as the client mod: {honk: true} every 5 ticks while held, {honk: false} on release)
+    static std::map<std::string, std::pair<bool, std::uint64_t>> sprinting;
+    bool sprint = in.contains(Input::SprintDown) || in.contains(Input::Sprinting) || in.contains(Input::StartSprinting);
+    if (in.contains(Input::StopSprinting)) sprint = false;
+    auto& [was, sent] = sprinting[uuid];
+    if (sprint && (!was || state().tick - sent >= 5)) {
+        setHonk(*player, true);
+        sent = state().tick;
+    } else if (!sprint && was) {
+        setHonk(*player, false);
+    }
+    was = sprint;
 }
 
 void installHooks() {
     gHandlers.push_back(ia::onUseOn({}, trainsUseOn));
     // a placed station leaves the track selection behind
     gHandlers.push_back(ia::onPlace({std::string(kStation), std::string(kStation)}, [](ia::PlaceContext const& c) {
-        state().targets.erase(uuidOf(c.player));
+        // Create removes the selection from the stack it was placed from
+        auto& inv  = c.player.getInventory();
+        int   slot = c.player.getSelectedItemSlot();
+        auto  held = inv.getItem(slot);
+        if (!held.isNull() && items::idOf(held) == kStation && selectionOf(held)) {
+            setSelection(held, std::nullopt);
+            inv.setItem(slot, held);
+            c.player.sendInventory(false);
+        }
     }));
     gHandlers.push_back(ia::onPlace({std::string(kControls), std::string(kControls)}, [](ia::PlaceContext const& c) {
         orientControls(c.player, c.pos);

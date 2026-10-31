@@ -19,6 +19,7 @@
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/HurtParameters.h"
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/item/Item.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -110,6 +111,7 @@ Json Train::toJson() const {
         {"id",       id         },
         {"name",     name       },
         {"owner",    owner      },
+        {"icon",     icon       },
         {"dim",      dim        },
         {"body",     body.toJson()},
         {"carriages", cars      },
@@ -120,6 +122,7 @@ Json Train::toJson() const {
         {"derailed", derailed   },
         {"double",   doubleEnded},
         {"fuel",     fuelTicks  },
+        {"stallSpeed", speedBeforeStall ? Json(*speedBeforeStall) : Json()},
         {"runtime",  runtime.toJson()},
         {"station",  currentStation},
         {"idle",     idleTicks  },
@@ -132,7 +135,10 @@ Json Train::toJson() const {
             {"path",     nav->path.toJson()},
             {"distance", nav->distance},
             {"behind",   nav->behind},
-            {"manual",   nav->manual}
+            {"manual",   nav->manual},
+            {"filter",   nav->filter},
+            {"total",    nav->total},
+            {"anyOf",    nav->anyOf}
         };
     }
     return j;
@@ -143,6 +149,7 @@ Train Train::fromJson(Json const& j) {
     t.id    = j.value("id", std::uint64_t{0});
     t.name  = j.value("name", std::string());
     t.owner = j.value("owner", std::string());
+    t.icon  = j.value("icon", std::string("traditional"));
     t.dim   = j.value("dim", 0);
     t.body  = ct::Body::fromJson(j.value("body", Json::object()));
     for (auto const& cj : j.value("carriages", Json::array())) {
@@ -167,6 +174,7 @@ Train Train::fromJson(Json const& j) {
     t.derailed       = j.value("derailed", false);
     t.doubleEnded    = j.value("double", false);
     t.fuelTicks      = j.value("fuel", 0);
+    if (auto st = j.find("stallSpeed"); st != j.end() && st->is_number()) t.speedBeforeStall = st->get<double>();
     t.runtime        = ct::Runtime::fromJson(j.value("runtime", Json::object()));
     t.currentStation = j.value("station", std::string());
     t.idleTicks      = j.value("idle", 0);
@@ -180,6 +188,9 @@ Train Train::fromJson(Json const& j) {
         nav.distance   = n.value("distance", 0.0);
         nav.behind     = n.value("behind", false);
         nav.manual     = n.value("manual", false);
+        nav.filter     = n.value("filter", std::string());
+        nav.total      = n.value("total", 0.0);
+        nav.anyOf      = n.value("anyOf", std::vector<std::string>{});
         t.nav          = std::move(nav);
     }
     return t;
@@ -200,34 +211,48 @@ Train* trainOfContraption(std::uint64_t contraptionId) {
 
 // ---- carriages ----------------------------------------------------------------------------------
 
-std::vector<std::pair<std::uint64_t, cc::Transform>> carriageTransforms(Train const& t, ct::Body const& body) {
-    std::vector<std::pair<std::uint64_t, cc::Transform>> out;
-    auto& r   = rail();
-    auto  pts = body.points(r);
+int dimOf(ct::TrackPos const& p) {
+    // a portal edge (length 0) links two dimensions: past its start the point is on the other side
+    if (p.from.dim == p.to.dim) return p.from.dim;
+    return p.pos > 0 ? p.to.dim : p.from.dim;
+}
+
+std::vector<CarriagePlace> carriagePlaces(Train const& t, ct::Body const& body) {
+    std::vector<CarriagePlace> out;
+    auto&                      r   = rail();
+    auto                       pts = body.points(r);
     if (pts.size() != body.offsets.size()) return out;
-    auto posAt = [&](double offset) -> std::optional<Vec3d> {
+    auto pointAt = [&](double offset) -> std::optional<ct::TrackPos> {
         for (size_t i = 0; i < body.offsets.size(); ++i)
-            if (std::abs(body.offsets[i] - offset) < 1e-6) return ct::positionOf(r, pts[i]);
-        auto p = body.pointAt(r, offset);
-        return p ? ct::positionOf(r, *p) : std::nullopt;
+            if (std::abs(body.offsets[i] - offset) < 1e-6) return pts[i];
+        return body.pointAt(r, offset);
     };
     double baseYaw = ct::yawOf({double(t.ax), 0, double(t.az)});
     for (auto const& c : t.carriages) {
         auto* con = contraption::find(c.contraption);
         if (!con || c.bogeyOffsets.empty()) continue;
         double o1 = c.bogeyOffsets.front();
-        auto   p1 = posAt(o1);
+        auto   t1 = pointAt(o1);
+        auto   p1 = t1 ? ct::positionOf(r, *t1) : std::nullopt;
         if (!p1) continue;
+        int dim = dimOf(*t1);
+        // the carriage's direction from points in its own dimension (Create cuts a carriage at a
+        // portal; here the carriage is where its first bogey is)
+        auto sameDimPos = [&](double offset) -> std::optional<Vec3d> {
+            auto tp = pointAt(offset);
+            if (!tp || dimOf(*tp) != dim) return std::nullopt;
+            return ct::positionOf(r, *tp);
+        };
         Vec3d dir;
-        if (c.bogeyOffsets.size() > 1) {
-            auto p2 = posAt(c.bogeyOffsets.back());
-            if (!p2) continue;
-            dir = *p2 - *p1;
-        } else {
-            auto a = posAt(o1 - 1), b = posAt(o1 + 1);
-            if (!a || !b) continue;
-            dir = *b - *a;
+        if (c.bogeyOffsets.size() > 1)
+            if (auto p2 = sameDimPos(c.bogeyOffsets.back())) dir = *p2 - *p1;
+        if (dir.x * dir.x + dir.z * dir.z < 1e-8) {
+            auto a = sameDimPos(o1 - 1), b = sameDimPos(o1 + 1);
+            if (a && b) dir = *b - *a;
+            else if (a) dir = *p1 - *a;
+            else if (b) dir = *b - *p1;
         }
+        if (dir.x * dir.x + dir.z * dir.z < 1e-8 && t1->from.dim == t1->to.dim) dir = t1->from.location() - t1->to.location();
         if (dir.x * dir.x + dir.z * dir.z < 1e-8) continue;
         cc::Transform tr = con->transform();
         tr.axis          = cc::Axis::Y;
@@ -241,15 +266,31 @@ std::vector<std::pair<std::uint64_t, cc::Transform>> carriageTransforms(Train co
 
         cc::Vec3d target{p1->x, p1->y + t.lift, p1->z};
         tr.offset = target - tr.origin - tr.pivot;
-        out.emplace_back(c.contraption, tr);
+        out.push_back({c.contraption, tr, dim});
     }
+    return out;
+}
+
+std::vector<std::pair<std::uint64_t, cc::Transform>> carriageTransforms(Train const& t, ct::Body const& body) {
+    std::vector<std::pair<std::uint64_t, cc::Transform>> out;
+    for (auto const& p : carriagePlaces(t, body)) out.emplace_back(p.contraption, p.transform);
     return out;
 }
 
 void placeCarriages(Train& t) {
     t.spansDirty = true;
-    for (auto const& [id, tr] : carriageTransforms(t, t.body))
-        if (auto* con = contraption::find(id)) con->setTransform(tr);
+    for (auto const& p : carriagePlaces(t, t.body)) {
+        auto* con = contraption::find(p.contraption);
+        if (!con) continue;
+        if (con->dimension() != p.dim) {
+            // Create's DimensionalCarriageEntity: the carriage goes through the portal
+            log().info("trains: train #{} '{}' carriage #{} passes into dimension {}", t.id, t.name, p.contraption, p.dim);
+            contraption::changeDimension(p.contraption, p.dim, p.transform);
+        } else {
+            con->setTransform(p.transform);
+        }
+    }
+    t.dim = dimOf(t.body.front); // Create's Train.getPresentDimensions: the leading carriage's
 }
 
 
@@ -292,30 +333,70 @@ std::string statusLine(Train const& t) {
 
 // ---- conductors ---------------------------------------------------------------------------------
 
+std::optional<bool> conductorSeatSide(Train const& t, Carriage const& c, cc::Pos const& seat, bool forward) {
+    for (auto const& [local, rel] : c.controls)
+        if ((rel > 0) == forward && local + cc::Pos{t.ax * rel, 0, t.az * rel} == seat) return true;
+    return std::nullopt;
+}
+
+bool isConductorSeat(Train const& t, Carriage const& c, cc::Pos const& seat) {
+    return conductorSeatSide(t, c, seat, true) || conductorSeatSide(t, c, seat, false);
+}
+
 bool hasConductor(Train const& t, bool forward) {
     if (t.testConductor) return true;
-    auto* region = regionOf(t.dim);
+    auto level = ll::service::getLevel();
     for (auto const& c : t.carriages) {
         auto* con = contraption::find(c.contraption);
         if (!con) continue;
         for (auto const& [local, rel] : c.controls) {
             if ((rel > 0) != forward) continue;
+            // Create's CarriageContraption.inControl: the cell behind controls facing it
             cc::Pos seat = local + cc::Pos{t.ax * rel, 0, t.az * rel};
+            // a blaze burner there (Create: a valid conductor while its heat isn't NONE; U14's
+            // blaze burner always has a blaze, the empty burner is another block)
             for (auto const& b : con->blocks())
                 if (b.local == seat && b.id == kBlazeBurner) return true;
-            if (!region) continue;
-            auto w   = con->toWorld(cc::Vec3d::center(seat));
-            AABB box{Vec3{float(w.x - .7), float(w.y - .9), float(w.z - .7)}, Vec3{float(w.x + .7), float(w.y + .9), float(w.z + .7)}};
-            for (auto* a : region->getEntities(box, 0.0f)) {
-                if (!a || !a->isAlive() || a->isPlayer()) continue;
-                auto type = a->getEntityTypeId();
-                if (type == ActorType::FallingBlock || type == ActorType::ItemEntity) continue;
-                if (!a->hasCategory(ActorCategory::Mob)) continue;
-                return true;
+            // Create's checkConductors: a non-player passenger seated on a seat there
+            if (!level) continue;
+            for (auto const& [at, uid] : con->seated()) {
+                if (at != seat) continue;
+                ActorUniqueID id;
+                id.rawID = uid;
+                auto* a  = level->fetchEntity(id, false);
+                if (a && a->isAlive() && !a->isPlayer()) return true;
             }
         }
     }
     return false;
+}
+
+Train* conductorTrainOf(Actor const& entity) {
+    auto uid = const_cast<Actor&>(entity).getOrCreateUniqueID().rawID;
+    for (auto& [id, t] : state().trains) {
+        if (t.invalid) continue;
+        for (auto const& c : t.carriages) {
+            auto* con = contraption::find(c.contraption);
+            if (!con) continue;
+            for (auto const& [at, seated] : con->seated())
+                if (seated == uid && isConductorSeat(t, c, at)) return &t;
+        }
+    }
+    return nullptr;
+}
+
+Train* seatedTrainOf(Actor const& entity) {
+    auto uid = const_cast<Actor&>(entity).getOrCreateUniqueID().rawID;
+    for (auto& [id, t] : state().trains) {
+        if (t.invalid) continue;
+        for (auto const& c : t.carriages) {
+            auto* con = contraption::find(c.contraption);
+            if (!con) continue;
+            for (auto const& [at, seated] : con->seated())
+                if (seated == uid) return &t;
+        }
+    }
+    return nullptr;
 }
 
 // ---- navigation ---------------------------------------------------------------------------------
@@ -330,39 +411,78 @@ void cancelNavigation(Train& t) {
 
 namespace {
 
-double navigationPenalty(Train const& self, tk::Graph const& g, tk::Edge const& e) {
-    double      penalty = 0;
-    auto const* n1      = g.node(e.node1);
-    auto const* n2      = g.node(e.node2);
-    if (!n1 || !n2) return 0;
-    penalty += sig::pathPenalty(signalId(self), g, e); // red signals (U28)
+/// Create's Train.getNavigationPenalty: what other trains add (halved) to the edges at their ends.
+int navigationPenaltyOf(Train const& t) {
+    if (!t.controller.empty()) return 200;                      // MANUAL_TRAIN
+    if (!t.runtime.hasSchedule || t.runtime.paused) return 700; // IDLE_TRAIN
+    if (t.nav && t.signalWaitTicks > 0) return 50 + std::min(t.signalWaitTicks / 20, 1000); // WAITING_TRAIN
+    if (t.nav && (t.nav->distance < 50 || t.distanceToSignal < 20)) return 50;              // ARRIVING_TRAIN
+    return 25;                                                  // ANY_TRAIN
+}
+
+using EdgePenalties = std::map<std::pair<tk::NodeLocation, tk::NodeLocation>, double>;
+
+/// Create's Navigation.search: penalties of the edges the other trains' ends stand on (both ways).
+EdgePenalties otherTrainPenalties(Train const& self) {
+    EdgePenalties out;
+    for (auto const& [id, other] : state().trains) {
+        if (id == self.id || other.invalid || other.disassembling) continue;
+        double p     = double(navigationPenaltyOf(other) / 2); // integer division in Create
+        auto   endAt = [&](ct::TrackPos const& at) {
+            out[{at.from, at.to}] += p;
+            out[{at.to, at.from}] += p;
+        };
+        endAt(other.body.front);
+        if (auto back = other.body.pointAt(rail(), other.body.length())) endAt(*back);
+    }
+    return out;
+}
+
+tk::EdgeCost navigationCost(Train const& self, tk::Graph const& g, tk::Edge const& e, double& redWeight, EdgePenalties const& trains) {
+    auto const* n1 = g.node(e.node1);
+    auto const* n2 = g.node(e.node2);
+    if (!n1 || !n2) return {};
+    auto cost = sig::pathCost(signalId(self), g, e, redWeight); // signals (U28)
     for (auto const* p : rail().pointsOn(n1->location, n2->location)) {
         if (p->type != "levitate:station") continue;
         auto key = p->data.contains("pos") ? GlobalPos{p->data["pos"][0], p->data["pos"][1], p->data["pos"][2], p->data["pos"][3]}.key()
                                            : std::string();
         auto* st = stationByKey(key);
-        if (st && st->assembling) return 1e7; // can't pass through a station in assembly mode
-        penalty += 50;                         // Create: passing any station
-        if (st) {
-            auto* present = trainAt(*st);
-            if (present && present != &self) penalty += 300;
-        }
+        if (st && st->assembling) return {1e7}; // can't pass through a station in assembly mode
+        auto* present = st ? trainAt(*st) : nullptr;
+        if (present && present != &self) cost.penalty += 300; // STATION_WITH_TRAIN
+        if (present != &self) cost.penalty += 50;             // STATION
     }
-    // other trains on this edge (Create: half their navigation penalty)
-    for (auto const& [id, other] : state().trains) {
-        if (id == self.id || other.invalid || other.dim != self.dim) continue;
-        auto const& f = other.body.front;
-        if ((f.from == n1->location && f.to == n2->location) || (f.from == n2->location && f.to == n1->location)) {
-            double p = other.controller.empty() ? (other.runtime.hasSchedule && !other.runtime.paused ? 25 : 700) : 200;
-            penalty += p / 2;
-        }
-    }
-    return penalty;
+    if (auto it = trains.find({n1->location, n2->location}); it != trains.end()) cost.penalty += it->second;
+    return cost;
+}
+
+/// Path finding costs for the train (Create's Navigation.findPathTo: one signal weight per search).
+std::function<tk::EdgeCost(tk::Graph const&, tk::Edge const&)> pathCostFor(Train const& t) {
+    auto weight = std::make_shared<double>(sig::redSignalWeight(t.signalWaitTicks));
+    auto trains = std::make_shared<EdgePenalties>(otherTrainPenalties(t));
+    return [&t, weight, trains](tk::Graph const& g, tk::Edge const& e) { return navigationCost(t, g, e, *weight, *trains); };
 }
 
 } // namespace
 
-ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual, std::string const& onlyStation, std::vector<std::string> const& anyOf) {
+/// Whether the station's point is on the train's track graph (which may span dimensions).
+bool sameGraph(Train const& t, Station const& s) {
+    auto p = s.point();
+    if (!p) return s.pos.dim == t.dim;
+    auto a = ct::resolve(rail(), *p), b = ct::resolve(rail(), t.body.front);
+    if (!a || !b) return s.pos.dim == t.dim;
+    return a->graph == b->graph;
+}
+
+ct::StartResult navigateTo(
+    Train&                          t,
+    std::string const&              filter,
+    bool                            manual,
+    std::string const&              onlyStation,
+    std::vector<std::string> const& anyOf,
+    int                             approachDir
+) {
     std::vector<Station*>     candidates;
     std::vector<ct::TrackPos> dests;
     bool                      anyMatch = false;
@@ -370,7 +490,7 @@ ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual, std
         bool match = !onlyStation.empty() ? key == onlyStation
                    : !anyOf.empty()       ? std::find(anyOf.begin(), anyOf.end(), key) != anyOf.end()
                                           : ct::stationMatches(filter, s.name);
-        if (!match || s.pos.dim != t.dim) continue;
+        if (!match || !sameGraph(t, s)) continue; // Create: the stations of the train's graph, any dimension
         anyMatch = true;
         if (s.assembling) continue;
         if (key == t.currentStation && std::abs(t.speed) < 1e-6) {
@@ -384,21 +504,21 @@ ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual, std
     }
     if (!anyMatch) return ct::StartResult::NoMatch;
     bool paused     = t.runtime.paused || !t.controller.empty();
-    bool canForward = manual || paused || hasConductor(t, true);
-    bool canBack    = t.doubleEnded && !(manual && !onlyStation.empty()) && (manual || paused || hasConductor(t, false));
+    bool canForward = approachDir >= 0 && (manual || paused || hasConductor(t, true));
+    bool canBack    = t.doubleEnded && approachDir <= 0 && !(manual && !onlyStation.empty() && approachDir == 0)
+                 && (manual || paused || hasConductor(t, false));
     if (!canForward && !canBack) {
         statusMessage(t, "missing_driver", {}, false);
         return ct::StartResult::NoDriver;
     }
     if (dests.empty()) return ct::StartResult::NoPath;
-    auto penalty = [&t](tk::Graph const& g, tk::Edge const& e) { return navigationPenalty(t, g, e); };
     std::optional<ct::Path> fw, bw;
-    if (canForward) fw = ct::findPath(rail(), t.body.front, dests, penalty);
+    if (canForward) fw = ct::findPath(rail(), t.body.front, dests, pathCostFor(t));
     if (canBack) {
         // reversing: the back point arrives, travelling against the station's direction
         std::vector<ct::TrackPos> reversed;
         for (auto const& d : dests) reversed.push_back(ct::reverse(rail(), d));
-        if (auto back = t.body.pointAt(rail(), t.body.length())) bw = ct::findPath(rail(), ct::reverse(rail(), *back), reversed, penalty);
+        if (auto back = t.body.pointAt(rail(), t.body.length())) bw = ct::findPath(rail(), ct::reverse(rail(), *back), reversed, pathCostFor(t));
     }
     if (!fw && !bw) return ct::StartResult::NoPath;
     bool useBack = false;
@@ -410,6 +530,9 @@ ct::StartResult navigateTo(Train& t, std::string const& filter, bool manual, std
     nav.distance   = path.distance;
     nav.behind     = useBack;
     nav.manual     = manual;
+    nav.filter     = filter;
+    nav.anyOf      = anyOf;
+    nav.total      = path.distance; // Create's distanceStartedAt
     nav.path       = std::move(path);
     t.nav          = std::move(nav);
     log().info(
@@ -432,14 +555,8 @@ void arriveAt(Train& t, Station& s) {
     t.currentStation = s.pos.key();
     t.idleTicks      = 0;
     if (wasNav) t.runtime.destinationReached();
-    // auto-schedule of the station
-    if (!s.autoSchedule.is_null() && !t.runtime.hasSchedule) {
-        if (auto sch = scheduleOf(common::items::fromJson(s.autoSchedule)); sch && !sch->entries.empty()) {
-            t.runtime.setSchedule(*sch, true);
-            advancements::awardOwner(s.pos, "conductor"); // Create's StationBlockEntity#applyAutoSchedule
-            playSound(s.pos.dim, {s.pos.x + .5, s.pos.y + .5, s.pos.z + .5}, "random.levelup", 0.5f, 1.2f);
-        }
-    }
+    // Create's StationBlockEntity: every newly arrived train gets the station's auto-schedule
+    applyAutoSchedule(s);
     log().info("trains: train #{} '{}' arrived at station '{}'", t.id, t.name, s.name);
     display::notifyGatherers(s.pos); // Create: arrivals refresh display links
     if (auto* p = playerByUuid(t.controller)) actionBar(*p, trFor(*p, "create.train.arrived_at", "Arrived at {0}", s.name));
@@ -455,20 +572,29 @@ public:
 
     ct::StartResult startDestination(std::string const& filter) override { return navigateTo(mT, filter); }
     ct::StartResult startPackages(bool delivery, std::string const& filter) override {
-        // Create's Deliver Package: the first package in cargo with a postbox for its address;
-        // Retrieve Package: a postbox holding a package addressed to `filter`
+        // Create's DeliverPackagesInstruction: every station with a postbox for any package in
+        // cargo is a candidate (the best path wins); FetchPackagesInstruction: every station whose
+        // postboxes hold a package for another address matching `filter`
         std::vector<std::string> targets;
         if (delivery) {
-            std::vector<std::string> addresses;
+            std::string firstAddress;
+            bool        anyPackage = false;
             forEachSlot([&](ItemStack const& s) {
-                if (!s.isNull() && packages::isPackage(s)) addresses.push_back(packages::addressOf(s));
-            });
-            if (addresses.empty()) return ct::StartResult::AlreadyThere; // nothing to deliver
-            for (auto const& address : addresses) {
+                if (s.isNull() || !packages::isPackage(s)) return;
+                auto address = packages::addressOf(s);
+                if (!anyPackage) firstAddress = address;
+                anyPackage = true;
                 for (auto const& [key, st] : state().stations)
                     for (auto const& port : packages::postboxesForStation(st.pos))
-                        if (packages::matchAddress(address, port.address)) targets.push_back(key);
-                if (!targets.empty()) break;
+                        if (packages::matchAddress(address, port.address)) {
+                            targets.push_back(key);
+                            break;
+                        }
+            });
+            if (!anyPackage) return ct::StartResult::Skip; // nothing to deliver: skip the entry
+            if (targets.empty()) {
+                statusMessage(mT, "no_package_target", {firstAddress}, false);
+                return ct::StartResult::NoDriver;
             }
         } else {
             for (auto const& [key, st] : state().stations) {
@@ -481,8 +607,10 @@ public:
                     }
                 }
             }
+            if (targets.empty()) return ct::StartResult::SkipCooldown;
         }
-        if (targets.empty()) return ct::StartResult::NoTarget;
+        std::sort(targets.begin(), targets.end());
+        targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
         auto r = navigateTo(mT, "", false, {}, targets);
         return r == ct::StartResult::NoMatch ? ct::StartResult::NoTarget : r;
     }
@@ -523,21 +651,17 @@ public:
         return redstone::link::anyPower(redstone::link::keyOf(a, b));
     }
     int  seatedPlayers() const override {
-        int n = 0;
+        // Create's Train.countPlayerPassengers: players riding the carriages
+        int  n     = 0;
         auto level = ll::service::getLevel();
         if (!level) return 0;
         for (auto const& c : mT.carriages) {
             auto* con = contraption::find(c.contraption);
             if (!con) continue;
-            for (auto const& b : con->blocks()) {
-                if (!b.id.ends_with("_seat")) continue;
-                auto w = con->toWorld(cc::Vec3d::center(b.local));
-                level->forEachPlayer([&](Player& p) {
-                    auto f = p.getFeetPos();
-                    if (int(p.getDimensionId()) == mT.dim && std::abs(f.x - w.x) < .6 && std::abs(f.z - w.z) < .6 && std::abs(f.y - w.y) < 1)
-                        ++n;
-                    return true;
-                });
+            for (auto const& [local, uid] : con->seated()) {
+                ActorUniqueID id;
+                id.rawID = uid;
+                if (level->getPlayer(id)) ++n;
             }
         }
         return n;
@@ -570,6 +694,41 @@ private:
     Train& mT;
 };
 
+} // namespace
+
+std::string waitingStatusText(Train& t) {
+    auto& r = t.runtime;
+    if (!r.hasSchedule || r.paused || r.state != ct::RuntimeState::PostTransit) return {};
+    int size = int(r.schedule.entries.size());
+    if (r.currentEntry == size - 1 && !r.schedule.cyclic) return {}; // Create: nothing on the last stop
+    auto const* e = r.entry();
+    if (!e || e->conditions.empty() || r.conditionProgress.empty() || r.conditionContext.empty()) return {};
+    auto const& column   = e->conditions[0];
+    int         progress = r.conditionProgress[0];
+    if (progress >= int(column.size())) return {};
+    TrainDriver d(t);
+    auto        st = ct::waitingStatus(column[size_t(progress)], r.conditionContext[0], d);
+    if (st.key.empty()) return {};
+    return core::formatMessage(tr(st.key, st.fallback), st.args);
+}
+
+std::vector<ct::Runtime::Prediction> predictionsOf(Train& t) {
+    if (t.invalid || t.derailed || !t.runtime.hasSchedule || t.runtime.paused) return {};
+    ct::Runtime::PredictionInput in;
+    if (auto* s = stationByKey(t.currentStation)) in.currentStation = s->name;
+    if (t.nav)
+        if (auto* s = stationByKey(t.nav->stationPos)) {
+            in.navDestination        = s->name;
+            in.distanceToDestination = t.nav->distance;
+            in.distanceStartedAt     = t.nav->total > 0 ? t.nav->total : t.nav->path.distance;
+        }
+    auto st  = t.stats();
+    in.speed = std::min(t.throttle * st.maxSpeed, (st.maxSpeed + st.maxTurnSpeed) / 2);
+    return t.runtime.predictions(in);
+}
+
+namespace {
+
 std::size_t cargoHashOf(Train const& t) {
     std::size_t h = 0;
     for (auto const& c : t.carriages) {
@@ -586,22 +745,31 @@ std::size_t cargoHashOf(Train const& t) {
     return h;
 }
 
-/// Create's Train.burnFuel: one burnable item from the carriages' chests / barrels.
+/// Create's Train.burnFuel: one burnable item from the carriages' chests / barrels, from the
+/// back carriage first when reversing; the item's crafting remainder (a lava bucket's bucket) goes
+/// back into the carriage. (Vaults never give fuel in Create; Levitate's carriages mount vanilla
+/// containers only.)
 void burnFuel(Train& t) {
     if (t.fuelTicks > 0) {
         --t.fuelTicks;
         return;
     }
-    for (auto& c : t.carriages) {
+    bool fromBack = t.speed < 0;
+    int  n        = int(t.carriages.size());
+    for (int index = 0; index < n; ++index) {
+        auto& c   = t.carriages[size_t(fromBack ? n - 1 - index : index)];
         auto* con = contraption::find(c.contraption);
         if (!con) continue;
         auto& st   = con->storage();
         auto  item = st.extractItem([](ItemStack const& s) { return FurnaceBlockActor::getBurnDuration(s, 200) > 0; }, 1, false);
         if (item.isNull()) continue;
         t.fuelTicks += int(FurnaceBlockActor::getBurnDuration(item, 200));
-        if (item.getTypeName() == "minecraft:lava_bucket") {
-            if (auto bucket = common::items::make("minecraft:bucket")) st.insertItem(*bucket, false);
-        }
+        Item const* remainder = item.mItem ? static_cast<Item const*>(item.mItem->mCraftingRemainingItem) : nullptr;
+        std::string rest      = remainder ? remainder->mFullName->getString() : std::string();
+        if (!rest.empty() && rest.find(':') == std::string::npos) rest = "minecraft:" + rest;
+        if (rest.empty() && item.getTypeName() == "minecraft:lava_bucket") rest = "minecraft:bucket";
+        if (!rest.empty())
+            if (auto back = common::items::make(rest)) st.insertItem(*back, false);
         return;
     }
 }
@@ -627,9 +795,10 @@ ct::Chooser steering(int steer) {
 }
 
 /// Create's signal scan (U28's SignalsExt.h): the distance to the signal the train must wait
-/// at, or -1 when the way within `lookahead` is clear.
+/// at, or -1 when the way within `lookahead` is clear. Keeps the train's signal state.
 double distanceToBlocker(Train& t, ct::TrackPos const& lead, ct::Path const& path, double lookahead) {
-    auto loc = ct::resolve(rail(), lead);
+    t.reserving = false;
+    auto loc    = ct::resolve(rail(), lead);
     if (!loc || lookahead <= 0) return -1;
     auto* g = rail().graph(loc->graph);
     if (!g) return -1;
@@ -640,8 +809,10 @@ double distanceToBlocker(Train& t, ct::TrackPos const& lead, ct::Path const& pat
         if (!a || !b) break;
         steps.push_back({a->id, b->id});
     }
-    auto way = sig::checkAhead(signalId(t), *loc, steps, lookahead);
+    auto way    = sig::checkAhead(signalId(t), *loc, steps, lookahead);
+    t.reserving = !way.reserved.empty();
     if (way.clear) return -1;
+    t.waitingAtCross = sig::boundaryType(way.waitingFor, way.waitingSide) == sig::SignalType::Cross;
     return std::max(0.0, way.stopDistance);
 }
 
@@ -802,12 +973,14 @@ std::map<std::int64_t, std::uint64_t>& hitCooldown() {
 
 void damageEntities(Train& t, Vec3d const& motion) {
     if (!config().trainsCauseDamage || motion.length() <= 0.35) return;
-    auto* region = regionOf(t.dim);
-    auto  level  = ll::service::getLevel();
-    if (!region || !level) return;
+    auto level = ll::service::getLevel();
+    if (!level) return;
     for (auto const& c : t.carriages) {
         auto* con = contraption::find(c.contraption);
         if (!con || con->blocks().empty()) continue;
+        int   dim    = con->dimension(); // a train passing a portal has carriages in two dimensions
+        auto* region = regionOf(dim);
+        if (!region) continue;
         std::vector<cc::Vec3d> centers;
         cc::Vec3d              lo{1e18, 1e18, 1e18}, hi{-1e18, -1e18, -1e18};
         for (auto const& b : con->blocks()) {
@@ -821,7 +994,7 @@ void damageEntities(Train& t, Vec3d const& motion) {
         AABB box{Vec3{float(lo.x - 1.5), float(lo.y - 1.5), float(lo.z - 1.5)}, Vec3{float(hi.x + 1.5), float(hi.y + 1.5), float(hi.z + 1.5)}};
         std::vector<Actor*> nearby = region->getEntities(box, 0.0f);
         level->forEachPlayer([&](Player& p) {
-            if (int(p.getDimensionId()) == t.dim && box.contains(p.getFeetPos())) nearby.push_back(&p);
+            if (int(p.getDimensionId()) == dim && box.contains(p.getFeetPos())) nearby.push_back(&p);
             return true;
         });
         std::unordered_set<Actor*> seen;
@@ -857,7 +1030,7 @@ void damageEntities(Train& t, Vec3d const& motion) {
             if (!a->isAlive() || a->getHealth() <= 0)
                 if (auto* driver = playerByUuid(t.controller)) advancements::award(*driver, "train_roadkill");
             a->lerpMotion(Vec3{float(hit->motion.x), float(hit->motion.y), float(hit->motion.z)});
-            playSound(t.dim, {f.x, f.y, f.z}, "game.player.attack.strong", 1, 0.75f);
+            playSound(dim, {f.x, f.y, f.z}, "game.player.attack.strong", 1, 0.75f);
             log().info("trains: train #{} '{}' hit {} for {} damage", t.id, t.name, a->getTypeName(), hit->damage);
         }
     }
@@ -905,6 +1078,51 @@ void transferMail(Train& t, Station const& st) {
 
 } // namespace
 
+bool crossesPortal(ct::Body const& body) {
+    std::set<int> dims;
+    for (auto const& p : body.points(rail())) {
+        dims.insert(p.from.dim);
+        dims.insert(p.to.dim);
+    }
+    return dims.size() > 1;
+}
+
+bool overlapsOtherTrain(Train const& t, ct::Body const& body) {
+    // Create's TrainRelocator: Train.findCollidingTrain along the relocated train's points
+    auto polyline = [](ct::Body const& b) {
+        std::vector<Vec3d> out;
+        for (auto const& p : b.points(rail()))
+            if (auto v = ct::positionOf(rail(), p)) out.push_back(*v);
+        return out;
+    };
+    auto mine = polyline(body);
+    if (mine.size() < 2) return false;
+    auto close = [](Vec3d const& p, Vec3d const& a, Vec3d const& b) {
+        if (std::abs(p.y - a.y) > 3 && std::abs(p.y - b.y) > 3) return false;
+        Vec3d  ab{b.x - a.x, 0, b.z - a.z};
+        double l2 = ab.lengthSqr();
+        double f  = l2 > 0 ? std::clamp(((p.x - a.x) * ab.x + (p.z - a.z) * ab.z) / l2, 0.0, 1.0) : 0;
+        double dx = a.x + ab.x * f - p.x, dz = a.z + ab.z * f - p.z;
+        return dx * dx + dz * dz < 0.75 * 0.75;
+    };
+    for (auto const& [id, other] : state().trains) {
+        if (id == t.id || other.invalid || other.dim != t.dim) continue;
+        auto theirs = polyline(other.body);
+        if (theirs.size() < 2) continue;
+        for (size_t i = 0; i + 1 < mine.size(); ++i) {
+            Vec3d  a = mine[i], b = mine[i + 1];
+            double len = (b - a).length();
+            int    n   = std::max(1, int(std::ceil(len / 0.5)));
+            for (int k = 0; k <= n; ++k) {
+                Vec3d p = a + (b - a) * (double(k) / n);
+                for (size_t j = 0; j + 1 < theirs.size(); ++j)
+                    if (close(p, theirs[j], theirs[j + 1])) return true;
+            }
+        }
+    }
+    return false;
+}
+
 std::optional<ct::Body> bodyAt(Train const& t, Vec3d const& point, Vec3d const& dir, double maxDistance) {
     auto loc = rail().nearestEdge(t.dim, point, maxDistance);
     if (!loc) return std::nullopt;
@@ -930,6 +1148,48 @@ bool reattach(Train& t) {
     t.body = std::move(*body);
     return true;
 }
+/// Create's Navigation.findNearestApproachable: (station key, name) of the nearest free station within
+/// [0.75, max(32, 1.5)] braking distances ahead (`forward`) or behind the train.
+std::optional<std::pair<std::string, std::string>> nearestApproachable(Train& t, bool forward, double braking) {
+    auto& r     = rail();
+    auto  start = forward ? std::optional<ct::TrackPos>(t.body.front)
+                          : t.body.pointAt(r, t.body.length()).transform([&](ct::TrackPos const& p) { return ct::reverse(r, p); });
+    if (!start) return std::nullopt;
+    double minDistance = 0.75 * braking, maxDistance = std::max(32.0, 1.5 * braking);
+    std::optional<std::pair<std::string, std::string>> best;
+    double                                             bestDistance = 1e18;
+    for (auto& [key, st] : state().stations) {
+        auto p = st.point();
+        if (!p || !sameGraph(t, st) || st.assembling) continue;
+        if (auto* present = trainAt(st); present && present != &t) continue;
+        auto path = ct::findPath(r, *start, {forward ? *p : ct::reverse(r, *p)}, pathCostFor(t));
+        if (!path || path->distance < minDistance || path->distance > maxDistance || path->distance >= bestDistance) continue;
+        bestDistance = path->distance;
+        best         = std::make_pair(key, st.name);
+    }
+    return best;
+}
+
+/// The manual driving prompt in the action bar (Create's TrainPromptPacket), resent while it shows.
+void approachPrompt(Train& t, Player& p, std::string const& text) {
+    if (text == t.approachPrompt && state().tick - t.approachPromptTick < 20) return;
+    t.approachPrompt     = text;
+    t.approachPromptTick = state().tick;
+    actionBar(p, text);
+}
+
+/// Picks the way to the schedule's stations again (Create: runtime.startCurrentInstruction); keeps
+/// the current way when nothing better is found.
+void reroute(Train& t) {
+    if (!t.nav || t.nav->manual || t.runtime.paused || !t.controller.empty()) return;
+    auto old = *t.nav;
+    t.nav.reset();
+    auto r = navigateTo(t, old.filter, false, old.anyOf.empty() && old.filter.empty() ? old.stationPos : std::string(), old.anyOf);
+    if (r != ct::StartResult::Navigating) t.nav = std::move(old);
+    else if (t.nav->stationPos != old.stationPos || t.nav->path.edges != old.path.edges)
+        log().info("trains: train #{} '{}' found another way", t.id, t.name);
+}
+
 void tickTrain(Train& t) {
     auto& r     = rail();
     auto  stats = t.stats();
@@ -973,8 +1233,9 @@ void tickTrain(Train& t) {
 
     // manual control input times out (Create: 30 ticks without a key packet)
     if (!t.controller.empty()) {
-        auto* p = playerByUuid(t.controller);
-        if (!p || int(p->getDimensionId()) != t.dim) {
+        auto* p    = playerByUuid(t.controller);
+        auto* ccon = t.controlCarriage < int(t.carriages.size()) ? contraption::find(t.carriages[size_t(t.controlCarriage)].contraption) : nullptr;
+        if (!p || int(p->getDimensionId()) != (ccon ? ccon->dimension() : t.dim)) {
             stopControlling(t, false);
         } else if (int(s.tick) - t.lastInput > 30) {
             t.keys = t.steer = 0;
@@ -1021,6 +1282,13 @@ void tickTrain(Train& t) {
         } else if (nav.manual && manual && !t.jump) {
             cancelNavigation(t); // releasing space cancels the approach
         } else {
+            if (nav.manual && manual) {
+                // Create's approach progress: 30 bars, filled from the left as the station nears
+                double f        = nav.total > 0 ? nav.distance / nav.total : 0;
+                int    progress = int(std::clamp(1 - (1 - f) * (1 - f), 0.0, 1.0) * 30);
+                if (auto* p = playerByUuid(t.controller))
+                    approachPrompt(t, *p, (progress < 15 ? "§a" : "§6") + std::string(size_t(30 - progress), '|') + (progress == 0 ? "§2" : "§8") + std::string(size_t(progress), '|'));
+            }
             if (!t.currentStation.empty()) {
                 if (auto* st = stationByKey(t.currentStation)) log().info("trains: train #{} '{}' departing from '{}'", t.id, t.name, st->name);
                 t.currentStation.clear();
@@ -1037,8 +1305,20 @@ void tickTrain(Train& t) {
                 // Create waits in front of the signal (no overshoot past it)
                 if (blocker >= 0) target = std::min(target, std::max(0.0, blocker - 0.75));
             }
+            if (blocker >= 0) {
+                t.distanceToSignal = blocker;
+            } else {
+                t.distanceToSignal = 1e18;
+                t.signalWaitTicks  = 0;
+                t.waitingAtCross   = false;
+            }
             if (blocker >= 0 && blocker < 1.0) {
                 t.speed = 0; // holding at the point
+                ++t.signalWaitTicks;
+                // Create's Train.updateNavigationTarget: a train waiting at a cross signal looks
+                // for another way now and then (the red signal penalty grows with the wait)
+                if (t.waitingAtCross && t.signalWaitTicks % 100 == 50 && std::fmod(nav.distance, 100) <= 20 && !t.reserving)
+                    reroute(t);
                 return;
             }
             ct::NavigationInput in;
@@ -1052,23 +1332,27 @@ void tickTrain(Train& t) {
             if (nav.distance < -10) cancelNavigation(t);
         }
     } else if (manual) {
-        if (t.jump) {
-            if (auto* st = stationByKey(t.currentStation)) {
-                if (auto* p = playerByUuid(t.controller)) actionBar(*p, trFor(*p, "create.train.arrived_at", "Arrived at {0}", st->name));
-            } else {
-                // approach the nearest station ahead (between 0.75 and max(32, 1.5) braking distances)
-                double braking = ct::brakingDistance(t.speed, stats.acceleration);
-                for (auto& [key, st] : state().stations) {
-                    auto p = st.point();
-                    if (!p || st.pos.dim != t.dim || st.assembling || trainAt(st)) continue;
-                    auto path = ct::findPath(r, t.body.front, {*p});
-                    if (!path || path->distance < 0.75 * braking || path->distance > std::max(32.0, 1.5 * braking)) continue;
-                    navigateTo(t, "", true, key);
-                    break;
-                }
+        int   dirKeys = keys * t.controlDir;
+        auto* driver  = playerByUuid(t.controller);
+        if (auto* st = stationByKey(t.currentStation)) {
+            if (t.jump && driver) actionBar(*driver, trFor(*driver, "create.train.arrived_at", "Arrived at {0}", st->name));
+        } else {
+            // Create's Navigation.findNearestApproachable: the nearest station ahead in the direction
+            // driven (a double-ended train: either way) between 0.75 and max(32, 1.5) braking distances
+            double directed = dirKeys != 0 ? dirKeys : t.speed;
+            bool   forward  = !t.doubleEnded || (directed != 0 ? directed > 0 : t.controlDir > 0);
+            auto   approach = nearestApproachable(t, forward, ct::brakingDistance(t.speed, stats.acceleration));
+            if (approach && t.jump) {
+                navigateTo(t, "", true, approach->first, {}, forward ? 1 : -1);
+                if (t.nav) t.nav->total = std::max(t.nav->distance, 1e-3);
+            } else if (approach && driver) {
+                // "Hold [Space] to approach {station}"
+                approachPrompt(t, *driver, trFor(*driver, "create.contraption.controls.approach_station", "Hold {0} to approach {1}", "[Space]", approach->second));
+            } else if (!t.approachPrompt.empty() && driver) {
+                approachPrompt(t, *driver, " "); // Create clears the message
+                t.approachPrompt.clear();
             }
         }
-        int dirKeys = keys * t.controlDir;
         if (dirKeys != 0 && !t.currentStation.empty()) {
             if (auto* st = stationByKey(t.currentStation)) {
                 if (auto* p = playerByUuid(t.controller)) actionBar(*p, trFor(*p, "create.train.departing_from", "Departing from {0}", st->name));
@@ -1081,7 +1365,7 @@ void tickTrain(Train& t) {
             stats      = t.stats();
             bool onTrn = ct::onTurn(r, t.body.front);
             if (auto back = t.body.pointAt(r, t.body.length())) onTrn = onTrn || ct::onTurn(r, *back);
-            bool slow     = dirKeys != 0 && dirKeys != t.controlDir && !t.doubleEnded;
+            bool slow     = dirKeys != 0 && dirKeys != t.controlDir; // Create: inverted ^ targetSpeed < 0
             double target = ct::manualTargetSpeed(dirKeys, stats, config().manualTrainSpeedModifier, t.throttle, onTrn, slow);
             auto   sgn    = [](double v) { return v > 0 ? 1.0 : v < 0 ? -1.0 : 0.0; };
             if (slow && std::abs(sgn(target) - sgn(t.speed)) <= 1.5) backwardsDrivers()[t.id] = t.controller;
@@ -1090,6 +1374,36 @@ void tickTrain(Train& t) {
         }
     } else if (t.speed != 0) {
         t.speed = ct::passiveSlowdown(t.speed, stats.acceleration);
+    }
+
+    // Create's Train.tick: a carriage whose actor stalls (a drill breaking a block) stops the whole
+    // train; it goes on at its previous speed (at most 1 block per tick) when the stall ends
+    bool stalled = std::any_of(t.carriages.begin(), t.carriages.end(), [](Carriage const& c) {
+        auto* con = contraption::find(c.contraption);
+        return con && con->stalled();
+    });
+    if (stalled && !t.derailed) {
+        if (!t.speedBeforeStall) {
+            t.speedBeforeStall = t.speed;
+            log().info("trains: train #{} '{}' stalled", t.id, t.name);
+        }
+        t.speed = 0;
+        // the carriages keep asking to move a little, so their actors go on working (the
+        // contraption engine holds a stalled contraption where it is)
+        if (double dir = *t.speedBeforeStall > 0 ? 1 : *t.speedBeforeStall < 0 ? -1 : 0; dir != 0) {
+            ct::Body    probe = t.body;
+            ct::Path    way   = t.nav ? t.nav->path : ct::Path{}; // the probe must not advance the path
+            ct::Chooser pick  = t.nav ? way.chooser() : ct::Chooser{};
+            (void)probe.move(r, dir * 0.05, pick, {});
+            for (auto const& [id, tr] : carriageTransforms(t, probe))
+                if (auto* con = contraption::find(id)) con->setTransform(tr);
+        }
+        return;
+    }
+    if (t.speedBeforeStall) {
+        t.speed = std::clamp(*t.speedBeforeStall, -1.0, 1.0);
+        t.speedBeforeStall.reset();
+        log().info("trains: train #{} '{}' goes on after a stall", t.id, t.name);
     }
 
     if (std::abs(t.speed) < 1e-9) {
@@ -1115,7 +1429,14 @@ void tickTrain(Train& t) {
         if (!dest || arrived) return;
         if (sp.from == dest->from && sp.to == dest->to && dest->pos > sp.start - 1e-9 && dest->pos <= sp.end + 1e-9) arrived = true;
     });
-    if (t.nav) t.nav->distance -= res.moved;
+    if (t.nav) {
+        // Create's Train.updateNavigationTarget: far from the destination, the way is looked for
+        // again every 100 blocks
+        double before = t.nav->distance;
+        t.nav->distance -= res.moved;
+        double now = t.nav->distance;
+        if (!t.nav->manual && before > 100 && std::fmod(before, 100) > 20 && std::fmod(now, 100) <= 20 && !t.reserving) reroute(t);
+    }
     if (res.lost) {
         t.speed = 0;
         return;
@@ -1289,10 +1610,10 @@ bool tryControls(Player& player, double maxDistance) {
     cc::Pos bestLocal;
     double bestT   = std::min(maxDistance, 5.5);
     for (auto& [id, t] : state().trains) {
-        if (t.invalid || t.dim != int(player.getDimensionId())) continue;
+        if (t.invalid) continue;
         for (size_t c = 0; c < t.carriages.size(); ++c) {
             auto* con = contraption::find(t.carriages[c].contraption);
-            if (!con) continue;
+            if (!con || con->dimension() != int(player.getDimensionId())) continue;
             for (auto const& [local, rel] : t.carriages[c].controls) {
                 auto   w   = con->toWorld(cc::Vec3d::center(local));
                 Vec3d  to  = Vec3d{w.x, w.y, w.z} - o;
