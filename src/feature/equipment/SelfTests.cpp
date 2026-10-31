@@ -13,6 +13,8 @@
 #include "mc/world/actor/item/ItemActor.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/effect/EffectDuration.h"
+#include "mc/world/effect/MobEffectInstance.h"
 #include "mc/world/level/GameType.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -359,6 +361,13 @@ LV_REGISTER_SELFTEST("equipment.potato_cannon_damage", [](Context& ctx) -> ll::c
     auto* mob    = level->getSpawner().spawnMob(sp.getDimensionBlockSource(), ActorDefinitionIdentifier("minecraft:pig"), nullptr,
                                                 Vec3{target.x + .5f, float(target.y), target.z + .5f}, false, false, false);
     ctx.require(mob != nullptr, "a pig to shoot at");
+    // keep the pig where it is (a wandering pig made this test flaky): slowness VII and up stops a mob
+    EffectDuration hold;
+    hold.mValue = 600;
+    MobEffectInstance slowness(2, hold); // 2 = slowness
+    slowness.mAmplifier     = 10;
+    slowness.mEffectVisible = false;
+    mob->addEffect(slowness);
     auto pigId = eq::uidOf(*mob);
     sp.teleport(Vec3{base.x + .5f, float(base.y), base.z + .5f}, DimensionType(0));
     co_await ctx.ticks(3);
