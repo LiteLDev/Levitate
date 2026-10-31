@@ -1,0 +1,39 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:cake"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " M ",
+      "SES",
+      " P "
+    ],
+    "key": {
+      "M": {
+        "item": "minecraft:milk_bucket"
+      },
+      "S": {
+        "item": "minecraft:sugar"
+      },
+      "E": {
+        "item": "minecraft:egg"
+      },
+      "P": {
+        "item": "levitate:dough"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:dough"
+      }
+    ],
+    "result": {
+      "item": "minecraft:cake",
+      "count": 1
+    }
+  }
+}

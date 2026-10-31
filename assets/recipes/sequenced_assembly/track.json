@@ -2,7 +2,7 @@
   "type": "levitate:sequenced_assembly",
   "ingredient": { "tag": "levitate:sleepers" },
   "tags": {
-    "levitate:sleepers": ["minecraft:stone_slab", "minecraft:smooth_stone_slab", "minecraft:andesite_slab"]
+    "levitate:sleepers": ["minecraft:normal_stone_slab", "minecraft:smooth_stone_slab", "minecraft:andesite_slab"]
   },
   "transitional_item": { "item": "levitate:incomplete_track" },
   "loops": 1,

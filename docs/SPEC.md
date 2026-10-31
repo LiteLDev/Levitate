@@ -245,8 +245,7 @@ The recipes use U9's materials (andesite alloy, brass, sheets, electron tube): t
   propeller.
 - `nozzle`: state `levitate:facing` 0..5 (the clicked face). Recipe: ` S ` / ` C ` / `SSS`
   (andesite alloy, wool).
-- The crafting recipes need U6/U9/U10 items (cogwheel, shaft, andesite casing, propeller, andesite
-  alloy) and wait in `assets/pending_recipes/bulk/`.
+- The crafting recipes ship in the behavior pack (`assets/pack/bp/recipes`).
 
 ### 2.9 Basin processing (U14)
 
@@ -265,8 +264,7 @@ Bedrock blocks (details in §3.6.14):
 - `lit_blaze_burner`: `levitate:facing`, `levitate:flame_type` 0 regular / 1 soul (read by U13 for haunting); drops the empty burner.
 - Recipes (Create 6.0.10): basin = andesite alloy `A A`/`AAA`; mechanical press = shaft / andesite
   casing / iron block; mechanical mixer = cogwheel / andesite casing / whisk; empty blaze burner =
-  ` I `/`INI`/` I ` (iron sheet, netherrack). They need other units' items and wait in
-  `assets/pending_recipes/basin/`.
+  ` I `/`INI`/` I ` (iron sheet, netherrack). They ship in the behavior pack.
 
 ### 2.10 Assembly (U15)
 
@@ -283,10 +281,9 @@ Bedrock blocks (details in §3.6.14):
 - `mechanical_arm`: states `levitate:ceiling` (placed against the bottom of a block), `levitate:rotor`.
   Shaft input from below (above on the ceiling) and a small cog on its base that meshes with
   cogwheels beside it (Create's ArmBlock is an ICogWheel, U50). Breaking drops the held item.
-- Recipes (Create 6.0.10): deployer = electron tube / andesite casing / brass hand (column);
-  mechanical arm = `LLI` / `L  ` / `RC ` (L brass sheet, I electron tube, R precision mechanism,
-  C brass casing). Their ingredients are U9 / U10 items: the files wait in
-  `assets/pending_recipes/assembly/`.
+- Recipes (Create 6.0.10, in the behavior pack): deployer = electron tube / andesite casing / brass
+  hand (column); mechanical arm = `LLA` / `L  ` / `IC ` (L brass sheet, A andesite alloy, I precision
+  mechanism, C brass casing).
 
 ### 2.11 Crafting tools (U16)
 
@@ -305,8 +302,7 @@ Bedrock blocks (details in §3.6.14):
 - All three: hardness ~ 2.5 s to mine by hand ⚠, explosion resistance 6, drop themselves. Recipes
   (Create 6.0.10): crafter ×3 = electron tube / brass casing / crafting table (column); saw =
   iron sheet, iron sheet + iron ingot + iron sheet, andesite casing (" A ", "AIA", " C "); drill =
-  the same with andesite alloy. Their ingredients are U9 / U10 items: the recipes wait in
-  `assets/pending_recipes/crafter/`.
+  the same with andesite alloy. They ship in the behavior pack.
 
 ### 2.12 Fluid transport (U17)
 
@@ -425,12 +421,12 @@ Mechanics in §3.6.25.
   player's motion direction is positive); on a controller rail it keeps the rail's direction.
 - `controller_rail`: states `levitate:rail_axis`, `levitate:power` 0..15, `levitate:backwards`; runs
   along the player's view, backwards (driving south / east) when placed looking south or east.
-- Recipes (Create 6.0.10; ⚠ = not verified): sail = sail frame + white wool ⚠ (shapeless),
-  `<colour>_sail` = sail + dye (both in the BP now). Waiting for U6 / U9 / U10 ingredients
-  (`assets/pending_recipes/bearings/`): mechanical bearing (wooden slab / andesite casing / shaft),
-  windmill bearing (wooden slab / stone / shaft), clockwork bearing (wooden slab / electron tube,
-  brass casing, electron tube / shaft), turntable (wooden slab / shaft), sail frame ×8 ⚠ (sticks
-  around an andesite alloy), cart assembler (andesite alloy, redstone, andesite alloy / log, -, log),
+- Recipes (Create 6.0.10, in the behavior pack; aligned in U54): 2 white sails = `WS` / `SA` (any
+  wool, stick, andesite alloy); white sail ↔ sail frame, one for one (shapeless). Create has no
+  crafting recipe for dyed sails (sails are dyed in the world) and no stick-based frame recipe.
+  Mechanical bearing (wooden slab / andesite casing / shaft), windmill bearing (wooden slab / any of
+  `c:stones` / shaft: one recipe per stone), clockwork bearing (wooden slab / brass casing / electron
+  tube), all 1-wide columns that fit any column of the grid; turntable (wooden slab / shaft), cart assembler (andesite alloy, redstone, andesite alloy / log, -, log),
   controller rail ×6 (gold ingots around a stick, electron tube at the bottom), minecart coupling
   (andesite alloys on a diagonal with an iron sheet).
 
@@ -492,9 +488,10 @@ yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, bla
 old paths `content_observer` / `stockpile_switch`, so those are our ids. Every block drops itself.
 Behaviour, states and numbers: §3.6.23.
 
-Recipes (Create 6.0.10, `c:stones` = stone, `c:rods/wooden` = stick): powered latch = redstone
-torch / redstone, lever, redstone / 3 stone; powered toggle latch = redstone torch / lever / 3
-stone (both in the BP). Waiting for U9/U10 items in `assets/pending_recipes/redstone/`: analog
+Recipes (Create 6.0.10, `c:rods/wooden` = stick; `c:stones` = stone, andesite, diorite, granite,
+deepslate or tuff: Bedrock has no item tag for that set, so `tools/gen/processing.ps1` writes one
+recipe per stone and a grid takes one kind of stone): powered latch = redstone torch / redstone,
+lever, redstone / 3 stone; powered toggle latch = redstone torch / lever / 3 stone. Analog
 lever = stick / andesite casing; pulse repeater = redstone, brass sheet, redstone torch / 3 stone;
 pulse extender = _, redstone torch / redstone, brass sheet, redstone torch / 3 stone; pulse timer =
 amethyst shard, brass sheet, redstone torch / 3 stone; redstone contact ×2 = iron sheet / cobble,
@@ -900,7 +897,29 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   (fluid or fluid tag + amount), item results with `count` and `chance` (each item rolled, as
   Create), fluid results, `heat_requirement`, `processing_time`; `create:` ids become `levitate:`.
   Tags resolve through `assets/recipes/tags/*.json` fragments (one per unit) and then Bedrock item
-  tags. Broken files are skipped with a warning. `/create reload` reloads them.
+  tags. Broken files are skipped with a warning. `/create reload` reloads them. The gtest
+  `RecipeFiles.*` rejects conflict markers, invalid JSON and unparsable recipes in
+  `assets/recipes/**` and `assets/pack/bp/recipes/**` (and shaped patterns with rows of different
+  widths, which Bedrock pads on the right); the selftest `bulk.recipe_items` checks that every file
+  loaded in game and that every `minecraft:` id is a Bedrock item (U54).
+  Create's runtime-generated recipes (RuntimeDataGenerator: planks → stairs, slab ×2, fence, fence
+  gate, door, trapdoor, pressure plate, button, sign by cutting in 50 ticks; concrete powder →
+  concrete by splashing) and its generated deploying recipes for vanilla copper (honeycomb block
+  waxes, axes scrape wax and oxidation, keeping the held item) are written by
+  `tools/gen/processing.ps1` with Bedrock item ids (oak: `wooden_door`, `trapdoor`, `fence_gate`,
+  `wooden_pressure_plate`, `wooden_button`; `waxed_copper` for Java's waxed copper block).
+- **Vanilla hoppers** (`Hoppers.h`, U54): NeoForge hoppers use the block's item capability, so the
+  game's hopper code is hooked (`Hopper::_pushOutItems`, `_tryPullInItemsFromAboveContainer`): a
+  hopper pointing into a `levitate:` block with an item handler inserts one item through it (from
+  the face it points into), and a hopper under one extracts one item (bottom face), with the
+  hopper's own cooldown; vanilla containers keep the vanilla code. Excluded: funnels and blaze
+  burners (no capability in Create) and the portable storage interface (it drives its hoppers
+  itself, U22); `hoppers::exclude(id)` adds more.
+- **Items for vanilla clients** (`VanillaItems.h`, U54): units list the items Create draws with a
+  block entity renderer (basin contents, deployer hand, arm claw, crafter slot); every 4 ticks the
+  vanilla players within 64 blocks get them as client-only item entities (AddItemActor /
+  MoveActorAbsolute / RemoveActor with runtime ids of our own range, never server entities). Players
+  with the client mod draw the display items (U33) instead.
 
 ### 3.3 Client protocol and screens (U3)
 
@@ -2044,8 +2063,9 @@ away (sneaking: towards). Air current, rebuilt on speed changes, neighbour chang
   count unless the smoker gives the same item (food burns up); anything else that isn't fire
   resistant burns up in blasting air;
 - other entities: splashing hurts endermen, snow golems and blazes (2, drowning) and puts out fire;
-  smoking sets on fire 2 s and hurts 2 (`create.fan_fire`); blasting sets on fire 10 s and hurts 4
-  (`create.fan_lava`; not fire immune); haunting gives blindness (30 ticks) and slowness II (20
+  smoking sets on fire 2 s and hurts 2 (`create.fan_fire`, "%1$s got smoked by an Encased Fan");
+  blasting sets on fire 10 s and hurts 4 (`create.fan_lava`, "%1$s was incinerated by an Encased
+  Fan"; not fire immune); haunting gives blindness (30 ticks) and slowness II (20
   ticks), and turns a horse into a skeleton horse after 100 ticks that keeps its name, health / speed
   / jump attributes, taming, owner and saddle (its armour drops);
 - a player in a current hears wind (Create's air current sound): Levitate's own sample
@@ -2066,6 +2086,10 @@ distance) · (1/32, items 1/128)` away (pulling: towards it, except closer than 
 creative-flying entities are left alone; poof particles around it. A pulling nozzle holding more than
 256 entities explodes (power 2, no block damage) and the entities are gone. The nozzle blocks the
 fan's own current (its shape stops it at once).
+
+**Goggles and hoppers** (U54): the millstone shows only its kinetic stats (Create has no contents
+line), the crushing wheel controller nothing. Vanilla hoppers feed the millstone and the crushing
+wheel controller from above and empty the millstone's outputs from below (§3.2).
 
 **Soundscapes** (Create's SoundScapes MILLING / CRUSHING, sent by the server to every player within
 16 blocks): sources are grouped per player by type and pitch group (pitch `clamp(|RPM| / 256 + .45,
@@ -2193,6 +2217,11 @@ whisk speed: half the shaft speed idle, ×2 between ticks 15 and 20.
 - Client mod: the blaze head looks at the player and turns to the burner's facing while heating a
   basin or tank above, bobbing (Create's BlazeBurnerRenderer offsets).
 
+**Goggles** (Create's BasinBlockEntity.addToGoggleTooltip, U54): "Basin Contents:" with every
+stack (gray name, green " xN", indented) and every fluid (gray name, blue amount + mB); nothing for an
+empty basin. Blaze burners have no goggle lines (no heat or fuel line). Vanilla hoppers insert into
+the basin's inputs from above and take items out from below (§3.2).
+
 **Client mod** (`basin.machines` messages, 96 blocks): press head and mixer whisk animated with
 Create's offsets (the client runs the cycle between messages, waiting at the work point for the
 server), blaze heads, the fluid surface in the basin (height `2/16 + 12/16 · (1 − (1 − f)²)`, f =
@@ -2261,7 +2290,8 @@ arm keeps the points within `mechanicalArmRange` (5: squared block distance < 25
 input(s) and <o> output(s)." Points are stored relative to the arm (they turn with it on
 contraptions). Interaction point types (Create's registry): basin, belt, blaze burner, chute /
 smart chute, mechanical crafter, crushing wheel controller, deployer, depot / weighted ejector /
-train station, andesite / brass funnel, millstone, mechanical saw facing up — all through their
+train station, andesite / brass funnel (not while extracting, not a belt funnel pushing onto its
+belt), millstone, packager / repackager, mechanical saw facing up while it turns — all through their
 item capability — and the vanilla jukebox, composter (in from the top, bone meal from the bottom),
 campfire (cookable food) and respawn anchor (glowstone charges it).
 Behaviour (Create's ArmBlockEntity): progress towards the chased point grows by
@@ -2271,6 +2301,11 @@ ticks) follows the value box *Distribution Method*: Round Robin (after the last 
 point, forgetting it when nothing is found), Forced Round Robin (only the next one), Prefer First
 Target (always from the first). A jukebox point playing a record makes the arm dance. Item pickup
 sound on collecting.
+
+**Goggles** (Create's DeployerBlockEntity.addToGoggleTooltip, U54): "Deployer Information", the mode
+("Mode: Use" / "Mode: Attack", yellow), the held item ("Item: <name> x<n>", green), then a blank line
+and the stress impact (gray "Kinetic Stress Impact:", aqua "<n>su at current speed") without the
+"Kinetic Stats:" header; the overstressed hint stays. The arm shows only its kinetic stats.
 
 **Animation (client mod).** Deployers send their phase / timer / reach / hand pose and arms the
 angles they move between (`assembly.deployer`, `assembly.arm`, companions within 96 blocks); the
@@ -2292,7 +2327,9 @@ rollResult). The item's lore shows Create's tooltip: "Recipe Sequence", "Progres
 "Next: <step>" and the remaining steps ("Deploy <item>", "Process in Press", "Cut with Saw",
 "Spout <fluid>") in the server's language; the client mod shows the same lines in the game's
 language instead. Machines running steps: deployers (deploying), presses (pressing: world, belts,
-depots), spouts (filling), saws (cutting).
+depots), spouts (filling), saws (cutting). The progress in percent is also the stack's aux value: the
+client mod draws Create's item bar from it (always shown, width `round(progress · 13)`, colour mixed
+from #FFC074 to #46FFE0; vanilla clients: no bar, §8).
 
 **Item application** (Create's ManualApplicationRecipe, `assets/recipes/item_application/`):
 right-clicking a block with the applied item (players and deployers, not sneaking) turns it into
@@ -2353,9 +2390,10 @@ them, whatever placed them).
   = item break (.5, pitch .75) (Bedrock names `random.click`, `random.door_open`, `random.break`).
 - Client mod: receives every crafter's state (`crafter.state`) and lays out Create's animation
   (slot item on the front, the grouped grid half a block apart, sliding one block along the arrow
-  while exporting, the result growing while crafting); the item icons are drawn with the game's
-  GUI item renderer in the block entity pass, which does not show them yet (§8). Every client sees
-  the crit particles, the sounds and the result popping out.
+  while exporting, the result growing while crafting) and draws the items with the world item
+  renderer (U33). Vanilla clients get each crafter's slot item as a client-only item entity in front
+  of its face (§3.2, §8). Every client sees the crit particles, the sounds and the result popping out.
+- Goggles (U54): the crafter and the saw show only their kinetic stats (Create has no contents line).
 
 **Mechanical saw.**
 - *Placing* (DirectionalAxisKineticBlock): faces the player (sneaking: away); vertical saws take
@@ -2387,7 +2425,7 @@ them, whatever placed them).
   from their block away from the saw (motion (cut − saw) × distance / 20). It resumes the next
   tick.
 - Entities inside the block (but items) are hurt like by the drill (Create's `create.mechanical_saw`
-  death message, "%1$s got cut in half by Mechanical Saw"). The saw takes items from belt ends and
+  death message, "%1$s got cut in half by a Mechanical Saw"). The saw takes items from belt ends and
   other saws (the belts unit's direct input).
 - Contraption actor: breaks sawable blocks in its path (stalling the contraption), fells their
   trees (not for leaves), drops into the contraption's storage first (`moveItemsToStorage`).
@@ -2402,7 +2440,8 @@ them, whatever placed them).
   the block's own hit sound (LevelSoundEvent `Hit` with the block's runtime id, as Create's
   SoundType.getHitSound), cracks shown while breaking.
 - Entities (not items) inside its block lose min(s/16, 2) + min(s/32, 4) + min(s/64, 4) health
-  per hit (s = |RPM|; Create's `create.mechanical_drill` death message).
+  per hit (s = |RPM|; Create's `create.mechanical_drill` death message, "%1$s was impaled by a
+  Mechanical Drill").
 - Contraption actor (BlockBreakingMovementBehaviour): visits the block at its centre + facing ×
   .65, hurts entities there (clamp(6·|motion|^0.4 + 1, 2, 10)) and throws them, stalls while
   breaking blocks with collision (no tracks) at speed clamp(|animation speed| / 500, 1/128, 16),
@@ -4453,11 +4492,11 @@ matches Create's official Chinese translation wording).
 | Items drawn inside chutes by a block entity renderer, for **vanilla** clients (U12) | custom blocks have no block entity renderers | the client mod draws the moving stack (display item, U33, interpolated); vanilla clients get client-only item entities (packets only, never a server entity, so nobody can pick them up) that follow each moving stack |
 | Smooth (lerped) funnel flaps for **vanilla** clients (U12) | no per-frame block animation for custom blocks without a renderer | the flap is a block state shown for 4 ticks after a transfer; the client mod draws Create's four swinging strips |
 | Editing a filter's amount by *holding* the filter slot, for **vanilla** clients (U12) | the server sees no held click from a vanilla client (the client mod reports it: `valuebox.release`) | companions hold the slot to open the "Extracted Amount" board (`SlotSpec::onHold`); vanilla players use a separate "Extracted Amount" value box next to the filter slot |
-| Items floating in the basin for **vanilla** clients (U14) | no item rendering hooks for vanilla clients | the client mod draws the stacks inside (Create's ring around the centre, tilted, slowly turning, bobbing on the fluid, one more copy per 8 items) with the world item renderer (U33) and the fluid surface; vanilla clients see the basin; the items are taken out with an empty hand or seen by funnels |
+| Items floating in the basin drawn by a block entity renderer, for **vanilla** clients (U14, U54) | custom blocks have no block entity renderers, and vanilla clients have no item rendering hook | the client mod draws the stacks inside (Create's ring around the centre, tilted, slowly turning, bobbing on the fluid, one more copy per 8 items) with the world item renderer (U33) and the fluid surface; vanilla clients get one client-only item entity per stack on the basin's floor, in a ring (packets only, never a server entity: `feature/common/VanillaItems.h`), which their game spins and bobs like a dropped item; no fluid surface |
 | Deployer fake player (U15) | Bedrock has no fake players: a player that acts in the world must be a real (simulated) server player | one simulated player per dimension ("Deployer", invisible, invulnerable, survival) acts for every deployer: it is moved into the hand for each action and waits above the build limit in between. Like Create's fake player it is no player for the others: it is taken out of every client's player list, command selectors don't find it, it doesn't count for sleeping through the night and its kills drop no experience |
-| Item held by a deployer drawn in its hand, item held by the arm, for **vanilla** clients (U15) | no item rendering hooks for vanilla clients | the client mod draws the held item in the moving hand and between the arm's claws (world item renderer, U33; the server sends the stack with the animation state); vanilla clients see static models, the hand pose shows whether it holds something |
-| Transitional item progress bar (U15) | item bars come only from item durability, which the game also uses for item behaviour (breaking, repairing); custom items have none | no bar. The tooltip is Create's: the item's lore in the server's language for vanilla clients, rebuilt in the game's language by the client mod |
-| Crafter items on the crafter's face for **vanilla** clients (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it | the client mod draws the slot item, the grouped grid, the exported grid sliding to the next crafter and the growing result with the world item renderer (U33); every client sees the blocks, the crit particles, the sounds and the result popping out |
+| Item held by a deployer drawn in its moving hand, item held between the arm's moving claws, for **vanilla** clients (U15, U54) | custom blocks have no block entity renderers: vanilla clients see static models | the client mod draws the held item in the moving hand and between the arm's claws (world item renderer, U33; the server sends the stack with the animation state); vanilla clients get a client-only item entity (`feature/common/VanillaItems.h`) in front of the deployer's face and under the static arm's head, which doesn't follow the (unanimated) hand or claw |
+| Transitional item progress bar for **vanilla** clients (U15, U54) | a vanilla client draws an item bar only from durability (`minecraft:durability`), and durability makes the item repairable: two incomplete items would combine in the crafting grid, an anvil or a grindstone, which Create's never do | the client mod draws Create's bar (width and colour from the progress, which the server mirrors into the stack's aux value); vanilla clients see no bar. The tooltip is Create's: the item's lore in the server's language for vanilla clients, rebuilt in the game's language by the client mod |
+| Crafter items drawn on the crafter's face by a block entity renderer, for **vanilla** clients (U16, U54) | custom blocks have no block entity renderers | the client mod draws the slot item, the grouped grid, the exported grid sliding to the next crafter and the growing result with the world item renderer (U33); vanilla clients get each crafter's slot item as a client-only item entity in front of its face (`feature/common/VanillaItems.h`), not the grid's animation; every client sees the blocks, the crit particles, the sounds and the result popping out |
 | Glass pipe flow fronts for **vanilla** clients (U17) | no client-side rendering without the client mod; a block state per progress step, face and fluid would not fit | the client mod draws Create's advancing fronts; vanilla clients see the glass pipe's `levitate:fluid` state fill the whole pipe as soon as a flow starts |
 | Fluid inside tanks and the moving engine piston for **vanilla** clients (U18) | no client-side rendering without the client mod; a fluid level per block would need a block state per level and fluid | the client mod draws them; vanilla clients see the tank (windows show an empty inside) and a static engine |
 | Boiler gauges for **vanilla** clients (U18) | the needle moves with the boiler level: client-side drawing (the client mod draws the gauges); a block state per needle position and side would need hundreds of tank states | vanilla clients see the boiler without gauges; the goggle lines (`/create steam`, U8's overlay) show the same status |
@@ -4466,6 +4505,7 @@ matches Create's official Chinese translation wording).
 | Spout stream and nozzle squeeze for **vanilla** clients (U19) | no client-side animation without the client mod | the client mod draws Create's stream and squeezes the nozzle; vanilla clients see the static nozzle and the drops and splash (particles, every client) and hear the sounds |
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Cart assembler and controller rail as real rails (U21) | Bedrock minecarts only ride vanilla rail blocks; a data-driven block can't be a rail | they are rail-shaped blocks without collision; a minecart on one is guided by the server: held on the rail line at rail height and moved along it at the speed the rail gives it (no off-rail friction), then the next vanilla rail takes it over. A minecart item used on them places a cart there |
+| A grid of mixed stones for Create's `c:stones` crafting ingredients (U54) | Bedrock recipes can only name an item or an item tag, and vanilla items can't get new tags | one recipe per stone (stone, andesite, diorite, granite, deepslate, tuff): all the stone cells of one grid take the same stone |
 | Furnace minecart contraptions (U21) | Bedrock has no furnace minecart entity | contraptions ride rideable and chest minecarts; the wrench picks them up as `minecart_contraption` / `chest_minecart_contraption` (the chest cart's own inventory travels in the item) |
 | Right-clicking contraption blocks with an empty hand into the air on **vanilla** clients (U22) | a vanilla client sends nothing for an empty-hand click into the air, and display entities can't be clicked | with an item in hand, or with a world block behind, the server casts the look itself; the client mod sends the click |
 | Redstone link frequency items on the block for **vanilla** clients (U23) | no world-space item rendering without the client mod | the client mod draws both items in their slots (U42); vanilla: action-bar message when a slot is set |

@@ -10,7 +10,7 @@
   "create.recipe.fan_haunting": "批量缠魂",
   "create.recipe.fan_haunting.fan": "在灵魂火后放置鼓风机",
   "block.create.nozzle.tooltip.summary": "放在_鼓风机_的出风口，能够将鼓风机制造的气流分散到_各个方向_上。",
-  "death.attack.create.crush": "{0}被粉碎轮加工了",
-  "death.attack.create.fan_fire": "{0}被热风烧死了",
-  "death.attack.create.fan_lava": "{0}被岩浆鼓风机烧死了"
+  "death.attack.create.crush": "{0}被粉碎轮绞烂了",
+  "death.attack.create.fan_fire": "{0}被鼓风机烟熏至死",
+  "death.attack.create.fan_lava": "{0}被鼓风机火化了"
 }

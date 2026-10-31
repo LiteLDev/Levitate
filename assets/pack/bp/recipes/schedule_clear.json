@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:schedule_clear"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:schedule"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:schedule"
+      }
+    ],
+    "result": {
+      "item": "levitate:schedule",
+      "count": 1
+    }
+  }
+}

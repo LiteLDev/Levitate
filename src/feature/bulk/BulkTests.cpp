@@ -3,6 +3,7 @@
 // Machines are driven by U2's test generator (levitate:kinetics_test_source).
 
 #include <filesystem>
+#include <functional>
 #include <fstream>
 #include <set>
 
@@ -143,8 +144,10 @@ LV_REGISTER_SELFTEST("bulk.registry", [](Context& ctx) {
              + std::to_string(n("splashing")) + ", haunting " + std::to_string(n("haunting")));
 });
 
-// Every vanilla item named by the unit's recipes exists on Bedrock (Create items belong to U9).
+// Every recipe file of every processing type loaded, and every vanilla item a recipe names exists on
+// Bedrock (U54: recipes with conflict markers or Java-only ids used to be skipped silently).
 LV_REGISTER_SELFTEST("bulk.recipe_items", [](Context& ctx) {
+    namespace fs = std::filesystem;
     std::set<std::string> missing;
     std::size_t           checked = 0;
     auto want = [&](std::string const& id) {
@@ -152,16 +155,45 @@ LV_REGISTER_SELFTEST("bulk.recipe_items", [](Context& ctx) {
         ++checked;
         if (!items::make(id)) missing.insert(id);
     };
-    for (auto type : {"milling", "crushing", "splashing", "haunting"}) {
-        for (auto const& r : common::recipes::ofType(type)) {
-            for (auto const& in : r.ingredients)
-                for (auto const& id : in.items) want(id);
-            for (auto const& out : r.results) want(out.id);
-        }
-    }
-    // tag members used by the recipes
-    for (auto tag : {"minecraft:sand", "minecraft:wool", "minecraft:dirt", "c:glass_blocks", "c:glass_panes", "c:cobblestones"})
+    auto wantTag = [&](std::string const& tag) {
         for (auto const& id : common::recipes::tagItems(tag)) want(id);
+    };
+    // walks the whole document: sequenced assembly steps, inline tags, alternatives
+    std::function<void(nlohmann::json const&)> walk = [&](nlohmann::json const& j) {
+        if (j.is_array()) {
+            for (auto const& v : j) walk(v);
+            return;
+        }
+        if (!j.is_object()) return;
+        bool fluid = j.contains("amount"); // a fluid ingredient / result
+        for (auto const& [k, v] : j.items()) {
+            if (fluid) continue;
+            if ((k == "item" || k == "id") && v.is_string()) want(v.get<std::string>());
+            else if (k == "tag" && v.is_string()) wantTag(v.get<std::string>());
+            else if (k == "tags" && v.is_object()) {
+                for (auto const& [tag, list] : v.items())
+                    if (list.is_array())
+                        for (auto const& id : list)
+                            if (id.is_string()) want(id.get<std::string>());
+            } else walk(v);
+        }
+    };
+    auto            dir = Mod::getInstance().getSelf().getModDir() / "recipes";
+    std::string     unread;
+    std::error_code ec;
+    for (auto const& e : fs::directory_iterator(dir, ec)) {
+        if (!e.is_directory()) continue;
+        auto type = e.path().filename().string();
+        if (type == "tags") continue;
+        std::size_t files = 0;
+        for (auto const& f : fs::recursive_directory_iterator(e.path(), ec))
+            if (f.is_regular_file() && f.path().extension() == ".json") ++files;
+        auto const& list = common::recipes::ofType(type);
+        if (list.size() != files) unread += " " + type + " " + std::to_string(list.size()) + "/" + std::to_string(files);
+        for (auto const& r : list) walk(r.raw);
+    }
+    ctx.check(unread.empty(), "recipe files that did not load:" + unread);
+    for (auto tag : {"minecraft:sand", "minecraft:wool", "minecraft:dirt", "c:glass_blocks", "c:glass_panes", "c:cobblestones"}) wantTag(tag);
     std::string list;
     for (auto const& m : missing) list += (list.empty() ? "" : ", ") + m;
     ctx.check(missing.empty(), "unknown Bedrock items: " + list);

@@ -11,6 +11,6 @@
   "create.recipe.fan_haunting.fan": "Fan behind Soul Fire",
   "block.create.nozzle.tooltip.summary": "Attach to the front of an _Encased Fan_ to distribute its effect on Entities in _all directions_.",
   "death.attack.create.crush": "{0} was processed by Crushing Wheels",
-  "death.attack.create.fan_fire": "{0} was burned to death by hot air",
-  "death.attack.create.fan_lava": "{0} was burned to death by lava fan"
+  "death.attack.create.fan_fire": "{0} got smoked by an Encased Fan",
+  "death.attack.create.fan_lava": "{0} was incinerated by an Encased Fan"
 }

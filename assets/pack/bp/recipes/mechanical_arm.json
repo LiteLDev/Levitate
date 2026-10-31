@@ -1,5 +1,5 @@
 {
-  "format_version": "1.21.60",
+  "format_version": "1.20.10",
   "minecraft:recipe_shaped": {
     "description": {
       "identifier": "levitate:mechanical_arm"
@@ -8,18 +8,18 @@
       "crafting_table"
     ],
     "pattern": [
-      "LLI",
+      "LLA",
       "L  ",
-      "RC "
+      "IC "
     ],
     "key": {
       "L": {
         "item": "levitate:brass_sheet"
       },
-      "I": {
-        "item": "levitate:electron_tube"
+      "A": {
+        "item": "levitate:andesite_alloy"
       },
-      "R": {
+      "I": {
         "item": "levitate:precision_mechanism"
       },
       "C": {

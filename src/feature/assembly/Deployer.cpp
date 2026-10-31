@@ -44,6 +44,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
+#include "feature/common/VanillaItems.h"
 #include "feature/common/Recipes.h"
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/Contraption.h"
@@ -97,6 +98,27 @@ State& st() {
     static State s;
     return s;
 }
+
+/// Vanilla clients: the held item as a client-only item entity in front of the deployer, where the
+/// hand of the block model is (Create's DeployerRenderer draws it in the moving hand; the client
+/// mod does that).
+struct VanillaView {
+    VanillaView() {
+        common::vanillaitems::registerSource([](std::vector<common::vanillaitems::Shown>& out) {
+            for (auto const& [pos, r] : st().runtimes) {
+                if (items::isEmpty(r.held)) continue;
+                auto* region = detail::regionOf(pos.dim);
+                auto  bp     = game::blockPos(pos);
+                if (!region || !region->hasChunksAt(bp, 0, false)) continue;
+                auto const& block = region->getBlock(bp);
+                if (block.getTypeName() != kDeployerId) continue;
+                auto f = static_cast<Face>(std::clamp(detail::intState(block, "levitate:facing").value_or(1), 0, 5));
+                auto d = detail::offsetPos(BlockPos{0, 0, 0}, f);
+                out.push_back({pos, 0, items::withCount(r.held, 1), Vec3{pos.x + .5f + d.x * .65f, pos.y + .375f + d.y * .65f, pos.z + .5f + d.z * .65f}});
+            }
+        });
+    }
+} const gVanillaView;
 
 // ---- persistence ------------------------------------------------------------------------------
 
