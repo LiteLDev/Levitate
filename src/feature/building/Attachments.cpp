@@ -99,11 +99,19 @@ Block const* blockOfItem(ItemStack const& stack) {
     return block;
 }
 
-/// Create's CopycatBlock.getAcceptedBlockState: full, solid, non-entity blocks (not copycats).
+/// Create's CopycatBlock.getAcceptedBlockState: not copycats; #copycat_allow (a barrel) always;
+/// otherwise not #copycat_deny (cauldrons, saplings, climbable), no block-entity blocks, no stairs,
+/// and only full, solid blocks.
 bool acceptableMaterial(Block const& b) {
     if (infoOf(b) && (infoOf(b)->kind == Kind::CopycatPanel || infoOf(b)->kind == Kind::CopycatStep)) return false;
+    std::string_view id = b.getTypeName();
+    if (id == "minecraft:barrel") return true;
+    if (id.find("cauldron") != std::string_view::npos || id.ends_with("sapling") || id == "minecraft:bamboo_sapling"
+        || id == "minecraft:ladder" || id.ends_with("_ladder") || id.ends_with("vines") || id == "minecraft:vine"
+        || id == "minecraft:scaffolding" || id.ends_with("_scaffolding"))
+        return false;
     auto const& type = b.getBlockType();
-    if (type.isContainerBlock() || type.isCraftingBlock()) return false;
+    if (type.getBlockEntityType() != BlockActorType::Undefined || id.ends_with("_stairs")) return false;
     if (!b.mCachedComponentData->mIsSolid) return false;
     for (int face = 0; face < 6; ++face)
         if (!b.canProvideSupport(static_cast<uchar>(face), BlockSupportType::Center)) return false;
@@ -375,6 +383,22 @@ std::optional<std::string> copycatMaterial(GlobalPos const& pos) {
     return (*d)["material"].get<std::string>();
 }
 
+int copycatLightOf(Block const* material) {
+    if (!material) return 0;
+    return std::clamp(static_cast<int>(material->getBlockType().getLightEmission(*material).mValue), 0, 15);
+}
+
+void syncCopycatLight(GlobalPos const& pos) {
+    // Create's CopycatBlockEntity.updateLight: the copycat gives the material's light
+    auto const* block = blockAt(pos);
+    if (!block || !infoOf(*block)) return;
+    auto kind = infoOf(*block)->kind;
+    if (kind != Kind::CopycatPanel && kind != Kind::CopycatStep) return;
+    int light = copycatLightOf(copycatMaterialBlock(pos));
+    if (stateOf(*block, "levitate:light") == light) return;
+    if (auto const* lit = withStates(*block, {{"levitate:light", light}}); lit && lit != block) set(pos, *lit);
+}
+
 Block const* copycatMaterialBlock(GlobalPos const& pos) {
     auto const* d = unitData(pos);
     if (!d || !d->contains("material")) return nullptr;
@@ -392,6 +416,7 @@ void setMaterial(GlobalPos const& pos, Block const* material, ItemStack const* c
     setUnitValue(pos, "material", material ? nlohmann::json(material->getTypeName()) : nlohmann::json());
     setUnitValue(pos, "state", material ? nlohmann::json(snbtOf(*material)) : nlohmann::json());
     if (consumed) setUnitValue(pos, "consumed", consumed->isNull() ? nlohmann::json() : items::toJson(items::withCount(*consumed, 1)));
+    syncCopycatLight(pos);
     pushVisual(pos);
 }
 
@@ -450,7 +475,8 @@ bool useCopycat(Player& player, ItemStack const& item, GlobalPos const& pos, int
         }
     }
     setMaterial(pos, applied, &item);
-    playSound(pos, "use.stone", 1.f, 0.75f);
+    // Create: the material's own place sound (volume 1, pitch 0.75)
+    playMaterialPlaceSound(pos, *applied);
     if (!player.isCreative()) consumeHeld(player);
     log().info("building: {} at {} {} {} takes the look of {}", info->id, pos.x, pos.y, pos.z, material->getTypeName());
     return true;
@@ -556,7 +582,8 @@ void registerDrops() {
         if (!doc.contains(kDataKey)) return;
         auto const& u = doc[kDataKey];
         if (u.contains("item")) drop(pos, items::fromJson(u["item"]));
-        if (u.contains("consumed")) drop(pos, items::fromJson(u["consumed"]));
+        // Create's CopycatBlock.playerWillDestroy: a creative player's break keeps the material
+        if (u.contains("consumed") && !creativeBreakAt(pos)) drop(pos, items::fromJson(u["consumed"]));
         if (u.contains("bracket")) drop(pos, makeItem(u["bracket"].value("id", std::string("levitate:metal_bracket"))));
         if (u.contains("material") || u.contains("bracket")) pushRemoved(pos);
         (void)previousId;

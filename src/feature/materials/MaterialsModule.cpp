@@ -17,6 +17,12 @@
 #include "mc/deps/core/string/HashedString.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/deps/nbt/CompoundTagVariant.h"
+#include "mc/deps/vanilla_components/StateVectorComponent.h"
+#include "mc/network/MinecraftPacketIds.h"
+#include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/PlaySoundPacket.h"
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/actor/BuiltInActorComponents.h"
 #include "mc/world/actor/item/ExperienceOrb.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/effect/EffectDuration.h"
@@ -196,12 +202,44 @@ int useExperienceNuggets(Player& player, ItemStack& stack, bool sneaking) {
     if (count <= 0) return 0;
     int  used  = sneaking ? 1 : count;
     auto& region = player.getDimensionBlockSource();
-    Vec3 look   = player.getViewVector();
-    Vec3 pos    = player.getPosition() + look * 0.5f;
+    // Create: the amethyst break sound for the user (volume 0.5)
+    if (auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::PlaySound)) {
+        auto& snd   = static_cast<PlaySoundPacket&>(*packet);
+        auto  p     = player.getPosition();
+        snd.mName   = "break.amethyst_block";
+        snd.mPos    = BlockPos{static_cast<int>(p.x * 8), static_cast<int>(p.y * 8), static_cast<int>(p.z * 8)};
+        snd.mVolume = 0.5f;
+        snd.mPitch  = 1.0f;
+        snd.sendTo(player);
+    }
+    // Create: each orb starts at eye + look / 2 + look x (the player's left, 0.75) and is thrown
+    // along the look (look * 0.2 + (0, 0.2, 0) + a random unit offset * 0.1)
+    Vec3   look = player.getViewVector();
+    double yaw  = player.getRotation().y * 3.14159265358979 / 180.0;
+    Vec3   side{static_cast<float>(-0.75 * std::cos(yaw)), 0.f, static_cast<float>(-0.75 * std::sin(yaw))};
+    Vec3   cross{look.y * side.z - look.z * side.y, look.z * side.x - look.x * side.z, look.x * side.y - look.y * side.x};
+    Vec3   pos = player.getEyePos() + look * 0.5f + cross;
+    static thread_local std::mt19937 orbRng{std::random_device{}()};
+    auto   orbsNear = [&] {
+        std::vector<Actor*> out;
+        AABB box{pos - Vec3{3, 3, 3}, pos + Vec3{3, 3, 3}};
+        for (auto* e : region.getEntities(box, 0.0f))
+            if (e && e->isType(ActorType::Experience)) out.push_back(e);
+        return out;
+    };
+    auto before = orbsNear();
     int  total  = 0;
     for (int v : experienceOrbValues(used)) {
         ExperienceOrb::spawnOrbs(region, pos, v, ExperienceOrb::DropType::FromPlayer, &player);
         total += v;
+    }
+    for (auto* orb : orbsNear()) {
+        if (std::find(before.begin(), before.end(), orb) != before.end()) continue;
+        std::uniform_real_distribution<float> u(-1.f, 1.f);
+        Vec3  off{u(orbRng), u(orbRng), u(orbRng)};
+        float len = std::sqrt(off.x * off.x + off.y * off.y + off.z * off.z);
+        if (len > 1e-4f) off = off * (1.f / len);
+        orb->mBuiltInComponents->mStateVectorComponent->mPosDelta = look * 0.2f + Vec3{0, 0.2f, 0} + off * 0.1f;
     }
     stack.set(count - used);
     if (count - used <= 0) stack = ItemStack::EMPTY_ITEM();

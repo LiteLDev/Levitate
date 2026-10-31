@@ -1660,7 +1660,9 @@ names come from `tools/gen/materials.names.tsv` (Create's en_US / zh_CN wording)
   drink, 42 ticks, stacks to 16, gives the bottle back, Haste I for 3 min without particles / icon).
   Blaze cake burns 320 s in a furnace, cardboard 50 s, creative blaze cake forever.
 - **Experience nugget**: use = the whole stack (one when sneaking) turns into 3 xp per nugget, in
-  one orb (one nugget) or up to 5 orbs of `1 + total/5`. Log `<player> used N experience nugget(s)`.
+  one orb (one nugget) or up to 5 orbs of `1 + total/5`, thrown from in front of the eyes along the
+  look (look × 0.2 + (0, 0.2, 0) + a random 0.1), with the amethyst break sound for the user (0.5).
+  Log `<player> used N experience nugget(s)`.
 - **Chromatic compound** (dropped, Create's legacy item; config §5): falling into the void
   (y < min, falling > 10 blocks per tick) turns the stack into shadow steel (thrown up by
   `(fall distance + 3)/50`); half of the ticks it picks a random block within 3: a light source in
@@ -1668,8 +1670,12 @@ names come from `tools/gen/materials.names.tsv` (Create's en_US / zh_CN wording)
   `lv:chromatic_compound.light`; a charged compound stacks to 1, the client mod draws Create's charge
   bar: width round(13 · light / N), colour 0x413c69 → white); a belt segment or depot picked instead
   gives up one item of the first carried stack whose block emits light; at `lightSourceCountForRefinedRadiance` (10) charges it becomes refined
-  radiance (+0.25 up); over an active beacon the whole stack becomes refined radiance. Shadow steel
-  and refined radiance float (gravity cancelled) and shed end rod particles.
+  radiance (+0.25 up); over an active beacon (checked every tick) the whole stack becomes refined
+  radiance. Shadow steel and refined radiance float (gravity cancelled) and shed end rod particles
+  (chance `clamp(count − 10, 5, 100) / 64` per tick, falling 0.1 per tick); a converted item bursts
+  with a flash, 20 witch and 20 end rod particles upwards, and a charged compound draws end rod
+  particles in from 3 blocks around it (chance light / (N + 20)). The client mod draws these with
+  their motion (`materials.created`); vanilla players get still particles (U59).
 - **World generation** (`src/core/materials/WorldGen.*`, gtest): run natively when a chunk is
   decorated (overworld multinoise and nether generators): zinc = vanilla OreFeature (size 12,
   stone → zinc ore, deepslate / tuff → deepslate zinc ore, origin must be below the ocean floor
@@ -1757,8 +1763,10 @@ the block-changed event: the position and its neighbours are re-evaluated at the
   the block it hangs on for 19 ticks (`minecraft:redstone_producer`), a non-matching item plays the deny
   sound. Punching gives the item back; breaking drops it.
 - **Copycats**: panel (3 px on the side looked at, `facing`) and step (half block, `facing`, `top`).
-  Using a full, solid, non-container block item applies it as the material (one item used, kept for
-  dropping) in its default state turned to the clicked face (FACING / HORIZONTAL_FACING / AXIS), or
+  Using a block item applies it as the material (Create's getAcceptedBlockState: a barrel always
+  (#copycat_allow); otherwise not cauldrons, saplings, climbables (#copycat_deny), blocks with a
+  block entity, stairs, or blocks that aren't full and solid; one item used, kept for dropping, the
+  material's place sound) in its default state turned to the clicked face (FACING / HORIZONTAL_FACING / AXIS), or
   in the exact state of a neighbouring identical copycat with the same material; using the same
   block again turns it (Create's cycleMaterial: FACING, HORIZONTAL_FACING clockwise, AXIS, LIT; item
   frame sound); a different material is refused while one is applied; the wrench resets it. The
@@ -1784,7 +1792,14 @@ the block-changed event: the position and its neighbours are re-evaluated at the
   `placementAssistRange` = 12 steps, +4 with the extendo grip), with its facing and half. While a
   player of the client mod holds one and looks at one of its kind, the copycat the click would add
   is drawn as a breathing ghost there (Create's PlacementClient ghost).
-- Selftests `building.*` (dx 1000..1099; U43 additions 4350..4399; U48 4870..4899), e2e
+- **Harvesting** (U59, Create's requiresCorrectToolForDrops inherited from the copied block):
+  casings (railway casing too) need an axe or pickaxe; bars, metal table cloths, sliding doors,
+  trapdoors, girders and the placard a pickaxe; copper shingles / tiles (stairs, slabs) a stone
+  pickaxe or better; other building blocks drop by hand. A copycat (Create's CopycatBlock) is
+  harvested by its material's rule (an empty one: axe or pickaxe), gives its material's light
+  (`levitate:light` 0..15), is as hard as gold when empty (3 / 6) and mined at its material's speed
+  by players with the client mod (§8); a creative player's break doesn't drop the material.
+- Selftests `building.*` (dx 1000..1099; U43 additions 4350..4399; U48 4870..4899; U59 5920..5939), e2e
   `tools/e2e/{server,client}/scenarios/building.ps1`; client parts in `src/client/building/`.
 
 #### 3.6.11 Belts, depots and weighted ejectors (U11)
@@ -4144,9 +4159,11 @@ puts it on. Air tools cost `max(900 / uses, 1)` air (extendo grip 1000 uses: 1 a
 unbreakable). Pressure warnings as a subtitle when the air drops to max / 10 ("⚠ Backtank pressure
 low", gold) and to 1 ("⚠ Backtank pressure depleted", red).
 - *Diving helmet*: under water with a worn backtank with air: breathing (water breathing, refreshed)
-  and 1 air per second; the netherite helmet with a netherite backtank does the same in lava
-  (air only). The air timer (mm:ss, red under 60 s) is shown while it is used (client mod: next to the
-  hotbar; vanilla: action bar).
+  and 1 air per second, unless the wearer breathes anyway (Conduit Power, or Water Breathing from
+  elsewhere: Create's canBreathe check); the netherite helmet with a netherite backtank does the same
+  in lava (air only). Both helmets have Aqua Affinity built in (Create's getEnchantmentLevel): under
+  water the wearer mines at the normal speed (U59). The air timer (mm:ss, red under 60 s) is shown
+  while it is used (client mod: next to the hotbar; vanilla: action bar).
 - *Netherite set*: netherite diving helmet + netherite backtank with air + netherite leggings +
   netherite (diving) boots: fire immunity (fire resistance, refreshed). Each netherite diving piece
   adds 3 armour toughness and 0.1 knockback resistance (Create: netherite armour material).
@@ -4157,7 +4174,13 @@ low", gold) and to 1 ("⚠ Backtank pressure depleted", red).
 - *Diving boots*: in water (not swimming, not flying): sinking (vy − 0.05 per tick, a jump on the
   ground +0.5) and walking speed ×1.3 below 0.145 blocks per tick. The client mod applies this to its
   own player every client tick; vanilla players get the vertical motion as packets and +87.5 %
-  underwater movement speed (the speed Create's rule settles at, §8).
+  underwater movement speed (the speed Create's rule settles at, §8). While diving boots are worn
+  the client mod's player doesn't swim (Create's HeavyBootsOnPlayerMixin). Netherite diving boots in
+  lava (Create's LavaSwimmingMixin + getMovementMultiplier): after each step the motion is
+  multiplied by 1.75 horizontally (1.85 sprinting on the ground), sinking damped (×max(0, 2.5 −
+  2|vy|)), rising ×1.3, a jump from the lava floor rises 1 block per tick with the eyes in lava (0.5
+  otherwise); the client mod moves its own player, vanilla players get it as motion packets (U59).
+- *Comparator*: a placed backtank gives fractionToRedstoneLevel(air / max air) (U59).
 - *Capacity* (backtanks) and *Potato Recovery* (potato cannon), levels I–III, weight 10, cost
   15 + 15·(L−1) .. 45 + 15·(L−1), are kept in the item's user data (`lv:enchants`) and shown as lore
   lines (`enchantment.create.*`). The enchanting table rolls them per option with Java's algorithm
@@ -4166,11 +4189,13 @@ low", gold) and to 1 ("⚠ Backtank pressure depleted", red).
 
 **Extendo grip**: +3 block reach in either hand, +5 with one in each hand (pick range; §8); every
 block broken or placed and every entity hit by the holder uses the grip (air / durability, main hand
-first); hits get Create's extra knockback.
+first); hits get Create's extra knockback: knockback strength + 2 (scaled by the target's knockback
+resistance) on any living target, players included (U59).
 
 **Potato cannon.** Ammo: off hand first, then the inventory (creative: not used up). Projectiles
 leave 1.5 blocks in front of the eyes at `2 × velocity` blocks per tick and move with
-`v = (v − (0, 0.05 · gravity, 0)) · drag` (gravity 1, drag 0.99); split shots spread around the aim.
+`v = (v − (0, 0.05 · gravity, 0)) · drag` (gravity 1, drag 0.99); split shots add a 0.1 offset
+perpendicular to the motion, at `base + i · 360 / split ± 20°` around one random base angle (U59).
 Cooldown = the type's reload ticks (× 2/3 with a cannon in each hand). Types (damage / reload /
 velocity / knockback / split): potato 5/15/1.25/1.5 (plants potatoes on farmland), baked potato
 5/15/1.25/0.5 (fire 3 s), carrot 4/12/1.45/0.3 (plants carrots), golden carrot 12/15/1.45/0.5, sweet
@@ -4181,7 +4206,8 @@ apple effects), enchanted golden apple 1/100, beetroot 2/5/1.6/0.1, melon slice 
 glistering melon 5/8/1.45/0.1, melon 8/20/0.95/2 and pumpkin 6/15/0.95/2 (placed where they hit),
 pumpkin pie 7/15/1.1/0.05, cake 8/15/1.1/0.1, blaze cake 15/20/1.1/0.3 (fire 12 s), fish (cod,
 salmon, cooked, tropical) 4/10/1.3/0.6, pufferfish 4/10/1.1/0.4 (pufferfish effects), suspicious
-stew 3/40/0.8/0.2 (drops the bowl). Knockback × 0.6 along the shot; endermen take damage only; a
+stew 3/40/0.8/0.2 (drops the bowl; a hit gives the stew's own effects: Bedrock's table per aux
+value, U59). Knockback × 0.6 along the shot; endermen take damage only; a
 powered wither is immune. Each projectile is a `levitate:potato_projectile` entity drawn from the
 resource pack (also by vanilla clients) with the ammo's texture and Create's render mode (tumbling
 billboard; along the motion with spin 1 for carrot, fish, pufferfish and suspicious stew, spin 2 for
@@ -4195,7 +4221,13 @@ otherwise, unless the hit used the item up, the item comes back with the recover
 12.5 % + 12.5 % per Potato Recovery level; first projectile of a split only), else the type's drop
 (a bowl for suspicious stew). Crops plant only from the top face; melons and pumpkins that hit a
 side fall as a falling block. Sounds: `levitate.potato_cannon.fwoomp` (original), the hit = item
-frame break + roots break. Glow berries / glistering melon give no glowing (§8).
+frame break + roots break. Glow berries / glistering melon give no glowing (§8). U59: a hit on a
+block runs the block's projectile hit first (vanilla bells ring, targets fire; Create's bells ring
+when hit on a side they ring from); a kill reads Create's "was shot by …'s Potato Cannon" (".item"
+with a custom-named item in the shooter's hand; `common/DeathMessages.h`). The cannon takes every
+bow enchantment but Infinity (anvil and table). Client mod: the cannon's tooltip names the ammo it
+would fire and its attack damage (× 1 + 0.2 per Power level), reload ticks and knockback (+0.5 per
+Punch level), as Create's appendHoverText.
 
 **Wand of symmetry.** Right-click a block: the mirror goes to the block in front of the clicked face
 and the wand is enabled (5-tick cooldown); a new mirror is "Mirror Once" (players facing north /
@@ -4205,24 +4237,35 @@ sneak-right-click opens the screen (Mirror: Mirror Once / Rectangular / Octagona
 Every enabled wand in the hotbar mirrors blocks placed within `maxSymmetryWandRange` (50) of its
 mirror (horizontal reflections about the mirror block; 1 / 3 / 7 copies), turning their states
 (Bedrock's structure transform for vanilla blocks, `levitate:facing` for ours); survival copies use
-an item each and need a free spot; breaking breaks the mirrored blocks (survival: same block only,
-with drops). The mirror shows end-rod particles to the holder; each copy draws a particle line.
+the block's item each (redstone for wire, a sign item for a sign; Create's findAndRemoveInInventory)
+and need a replaceable, breakable spot, creative copies overwrite what is there; breaking breaks the
+mirrored blocks (survival: same block only, with drops). Every enabled wand in the hotbar shows
+end-rod particles at its mirror every 10 ticks; each copy draws a particle line. The client mod
+draws the mirror bobbing over its block (plane, two crossing planes or the four planes of the
+triple mirror; Create's SymmetryHandler#onRenderWorld, U59).
 
-**Handheld worldshaper** (Creative Worldshaper; creative tab only). Left-click a block picks the
-material ("Using: …"; not unbreakable blocks, block entities, Levitate blocks with data, doors and
-beds). Sneak-right-click opens the screen (brush, its parameters, tool, placement, pattern);
+**Handheld worldshaper** (Creative Worldshaper; creative tab only). Left-click — on a block or into
+the air (Bedrock's missed-swing input flag) — picks the block looked at within 128 blocks as the
+material (Create's trySelect: "Using: …", the confirm sound; not blocks without an item, block
+entities, Levitate blocks with data, double-block halves, attached or hanging blocks, bed parts; the
+same block again changes nothing; leaves are kept persistent). A left click never breaks a block.
+Sneak-right-click opens the screen (brush, its parameters, tool, placement, pattern);
 right-click shapes at the looked-at block up to 128 blocks away (2-tick cooldown; "Shift-Right-Click
 to Select a Shape" / "Left-Click a Block to set Material" otherwise). Brushes: cuboid (w / h / l
 1..32, from −(n−1)/2 to n/2), sphere (radius 0..10, centre distance < r + .5), cylinder (radius 0..8,
 height 1..8, distance < r + .42), surface and cluster (range 1..10, Follow Diagonals, Ignore Material
 Borders: flood fill from the clicked block within distance < range; surface stays in the face's plane
-and needs an open face). Placement (shaped brushes): merged / attached / inserted (Create's
+and skips blocks covered by a block with a sturdy face toward them). Each shot draws Create's beam
+(particles from the barrel to the hit point, end rod and firework sparks there) with the
+`worldshaper_place` sound (note block basedrum). Placement (shaped brushes): merged / attached /
+inserted (Create's
 offsets). Tools: fill (air only), place, replace (non-air only), clear, overlay (on top of non-air
 blocks), flatten (Create's 5×5 Gaussian height smoothing). Patterns: solid, checkerboard, inverted
 checkerboard, 25 / 50 / 75 % roll. Preview (client mod, Create's WorldshaperRenderHandler): while a
 configured worldshaper is held (main hand first), the blocks its brush would change at the
 looked-at block (128 blocks) are outlined as one cluster (0xbfbfbf, 1/32 wide; rebuilt when the aim
-or the settings change).
+or the settings change). Vanilla players holding one see the same outline as particles every 10
+ticks (U59).
 
 **Linked controller.** Six buttons — forward, back, left, right, jump, sneak — each bound to a
 frequency (two items, Create's Couple<Frequency>). Right-click toggles it in use; in use, held buttons
@@ -4235,7 +4278,9 @@ vanilla: the player's movement input is polled. Right-click a redstone link: bin
 active"); the next pressed button takes the link's frequency ("Frequency bound to …").
 Sneak-right-click in the air: the binding screen (12 ghost slots; vanilla: a form of dropdowns).
 Lectern: right-click a lectern without a book with the controller places it (lectern controller,
-keeping the controller in its data); right-click it to use it (one user at a time, within 4 blocks),
+keeping the controller in its data); right-click it to use it (one user at a time; Create's
+playerInRange: the eyes within 0.4 × the block interaction range of its centre, 1.8 blocks in
+survival, 2 in creative, checked when starting and every tick),
 sneak + controller swaps, sneak with anything else takes it off (back to a lectern, the controller
 drops on top).
 
@@ -4621,6 +4666,16 @@ Create's English wording and key names (`create.*`) for every string that exists
 Levitate-only strings use `lv.<unit>.*`. Each unit owns the keys of its features (en_US + zh_CN; zh_CN
 matches Create's official Chinese translation wording).
 
+U59: every item with a Create description has its `<key>.tooltip.*` lines (summary, conditions,
+controls; the dyed toolboxes, seats and postboxes share `block.create.toolbox` / `seat` /
+`package_postbox` as Create's ItemDescription.useKey); block names follow Create's zh_cn (动力轴承,
+风帆框架, 轴向底盘, 蒸汽笛, 动力曲轴, ...). Death messages naming a second party (Create's
+`death.attack.create.potato_cannon(.item)`, `run_over`) go through `common/DeathMessages.h`: the
+unit marks the victim before hurting it, and its death message is Create's key with the extra
+parameters; the roller's is `death.attack.create.mechanical_roller`. Create's TooltipHelper hints
+(`create.hint.*`: empty bearing, full deployer, arm without targets, bottomless hose pulley) are
+goggle-overlay providers of the owning units.
+
 ## 8. Not ported
 
 | Create feature | Why | What Levitate does instead |
@@ -4706,9 +4761,10 @@ matches Create's official Chinese translation wording).
 | Extendo grip reach for **vanilla** clients (U31) | the client limits its own block picking range | the pick range is raised in GameMode (server validation and the client mod's local player); vanilla clients keep their normal reach |
 | Glowing of glow berry / glistering melon potato projectiles (U31) | Bedrock has no glowing effect | the hit has its other effects |
 | Linked controller input for **vanilla** clients (U31) | movement keys are only visible through Bedrock's movement input | the movement input the server receives is polled (the player still moves); the client mod captures the keys as Create |
-| Worldshaper preview outline for **vanilla** clients (U31) | no world-space line rendering without the client mod | the client mod draws Create's outline; vanilla players see the blocks change at once |
+| Worldshaper preview outline for **vanilla** clients (U31) | no world-space line rendering without the client mod | the client mod draws Create's outline; vanilla players see the outline's edges as particles (U59) |
+| Aqua Affinity of the diving helmets, the lava speed of netherite diving boots and no swimming with diving boots for **vanilla** clients (U59) | a vanilla client predicts its own mining speed and moves (and swims) its own player | the server mines at Create's speed and pushes the lava motion as packets; the client mod's player has all three |
+| Copycat blast resistance, sounds and break speed of the material (U59) | Bedrock reads a block type's explosion resistance and sounds without the block's position; a vanilla client predicts the break time from the block type | the material's harvest rule, light and place sound are Create's; companions (server and client mod) mine a copycat as fast as its material; vanilla players mine it as the empty copycat (gold: 3 / 6) |
 | Swinging peculiar / haunted bells for **vanilla** clients (U49) | custom blocks have no block entity renderer; a state per swing frame and direction would need dozens of models | the client mod draws Create's swing; vanilla clients see the bell still (sounds, souls and particles reach everyone) |
-| Bells rung by projectiles (U49) | custom blocks get no projectile-hit callback (`BlockType::onProjectileHit` is a folded no-op shared by many blocks, it can't be hooked for ours alone) | clicks and redstone ring them |
 | Soul particles vanishing when the spot gets lit (U49) | resource-pack particles can't read the block light | the particles live their full time; new pulses only mark dark spots |
 | The hiding player's smaller hitbox and eye height (U49) | Bedrock clients size and move their own player (sneaking height is the client's); a server-side size is not used for the player's collision | the player becomes the box visually (invisible + a box entity at its feet, which hits pass through to the player); hitbox and camera stay the sneaking ones |
 | Cardboard vignette for **vanilla** clients (U49) | no HUD drawing without the client mod | the client mod draws it (in every camera view: the mod can't read the view perspective; Create: first person only) |

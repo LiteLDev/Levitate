@@ -644,3 +644,24 @@ void orientBearing(BlockSource& region, GP const& pos, Player& player) {
 }
 
 } // namespace lv::feature::bearings
+
+// Create's MechanicalBearingBlockEntity#addToTooltip (U59): a turning, stopped bearing with a
+// block in front of it hints that a click assembles the structure ("create.hint.empty_bearing").
+#include "feature/goggles/GoggleInfo.h"
+namespace lv::feature::bearings {
+namespace {
+bool emptyBearingHint(goggles::InfoContext const& c, goggles::Tooltip& t) {
+    if (c.sneaking) return false;
+    bool windmill = c.block.getTypeName() == kWindmillBearing;
+    if (!windmill && k::speedAt(c.pos) == 0) return false;
+    if (load(c.pos).running) return false;
+    auto front = cc::Pos{c.pos.x, c.pos.y, c.pos.z} + cc::offset(facingOf(c.block));
+    if (lv::game::replaceable(c.region, BlockPos{front.x, front.y, front.z})) return false;
+    t.push_back(goggles::line(std::string(core::goggles::fmt::kGold) + c.tr("create.hint.empty_bearing.title", "Update Bearing")));
+    goggles::addHint(t, c.tr("create.hint.empty_bearing", "_Right-click_ the bearing with an _empty_ _hand_ to _attach_ the structure you just built in front of it."));
+    return true;
+}
+} // namespace
+LV_REGISTER_GOGGLE_INFO("levitate:mechanical_bearing", {.hover = emptyBearingHint});
+LV_REGISTER_GOGGLE_INFO("levitate:windmill_bearing", {.hover = emptyBearingHint});
+} // namespace lv::feature::bearings

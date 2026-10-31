@@ -738,6 +738,7 @@ void tickToolboxes() {
         if (!player) continue;
         auto& container = player->getInventory();
         bool  changed   = false;
+        std::vector<std::pair<int, bool>> unequips; ///< (hotbar slot, keep items), after the loop
         for (auto it = slots.begin(); it != slots.end();) {
             int   slot = it->first;
             Link  l    = it->second;
@@ -757,16 +758,39 @@ void tickToolboxes() {
             }
             auto inv    = load(l.box);
             auto filter = inv.filters[static_cast<std::size_t>(l.compartment)];
-            // the slot no longer holds the compartment's item, or the filter was cleared: drop the link
-            if (filter.empty() || (!items::isEmpty(s) && toT(s).match != filter.match)) {
+            // Create's tickPlayers: a cleared filter drops the link; otherwise nothing happens out of
+            // range, and in range a slot that no longer holds the compartment's item drops it
+            bool clear = filter.empty();
+            if (!clear && !inRange(*player, l.box)) {
+                ++it;
+                continue;
+            }
+            if (clear || (!items::isEmpty(s) && toT(s).match != filter.match)) {
                 it          = slots.erase(it);
                 gLinksDirty = true;
                 changed     = true;
                 continue;
             }
-            if (inRange(*player, l.box)) {
+            {
                 int target = ce::hotbarTarget(filter.max);
                 int have   = items::isEmpty(s) ? 0 : items::countOf(s);
+                // Create: while the player has this toolbox's screen open, a refill or deposit
+                // unequips the slot instead (refill: the stack goes back into the box)
+                bool open = false;
+                if (auto o = openers().find(l.box); o != openers().end()) open = o->second.players.contains(uidOf(*player));
+                if (open && have < target && !inv.extract(l.compartment, target - have, true).empty()) {
+                    unequips.emplace_back(slot, false);
+                    ++it;
+                    continue;
+                }
+                if (open && have > target) {
+                    auto rest = inv.insert(toT(items::withCount(s, have - target)), true, true);
+                    if ((have - target) - (rest.empty() ? 0 : rest.count) > 0) {
+                        unequips.emplace_back(slot, true);
+                        ++it;
+                        continue;
+                    }
+                }
                 if (have < target) {
                     auto got = inv.extract(l.compartment, target - have, false);
                     if (!got.empty()) {
@@ -786,6 +810,7 @@ void tickToolboxes() {
             }
             ++it;
         }
+        for (auto [slot, keep] : unequips) changed = unequipSlot(*player, slot, keep) || changed;
         if (changed) player->sendInventory(false);
         if (tick % 20 == 0) sendLinked(*player);
     }

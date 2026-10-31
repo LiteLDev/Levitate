@@ -1,7 +1,7 @@
 tile.levitate:fluid_tank.name=流体储罐
-tile.levitate:creative_fluid_tank.name=创造模式流体储罐
+tile.levitate:creative_fluid_tank.name=创造流体储罐
 tile.levitate:steam_engine.name=蒸汽引擎
-tile.levitate:steam_whistle.name=蒸汽汽笛
-tile.levitate:steam_whistle_extension.name=蒸汽汽笛延长管
-tile.levitate:powered_shaft.name=动力传动杆
+tile.levitate:steam_whistle.name=蒸汽笛
+tile.levitate:steam_whistle_extension.name=蒸汽笛加长段
+tile.levitate:powered_shaft.name=动力曲轴
 tile.levitate:steam_test_heater.name=蒸汽测试加热器

@@ -29,6 +29,7 @@
 
 #include "feature/advancements/Advancements.h"
 #include "feature/common/Capabilities.h"
+#include "feature/common/DeathMessages.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/contraption/Contraption.h"
@@ -1022,6 +1023,8 @@ void damageEntities(Train& t, Vec3d const& motion) {
             auto pd  = a->getPosDelta();
             auto hit = ct::entityHit(motion, {pd.x, pd.y, pd.z}, a->hasCategory(ActorCategory::Monster));
             if (!hit) continue;
+            // Create's CreateDamageSources.runOver: "%1$s was run over by %2$s" (the carriage)
+            common::deathmsg::mark(*a, "death.attack.create.run_over", {"%entity.levitate:carriage_contraption.name"});
             ActorDamageSource source(SharedTypes::Legacy::ActorDamageCause::EntityAttack, "");
             HurtParameters    params{};
             last = state().tick;

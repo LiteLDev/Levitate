@@ -5,3 +5,5 @@ tile.levitate:large_bogey.name=大转向架
 tile.levitate:controls.name=列车驾驶台
 item.levitate:controls=列车驾驶台
 item.levitate:schedule.name=列车时刻表
+entity.levitate:carriage_contraption.name=车厢结构
+death.attack.create.run_over=%1$s被%2$s创飞了

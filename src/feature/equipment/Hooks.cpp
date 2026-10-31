@@ -2,6 +2,7 @@
 // through the shared dispatch (common/Interactions.h; network players and SimulatedPlayers
 // alike); the pick range, releasing a used item and item durability are hooked here.
 
+#include <algorithm>
 #include <cmath>
 #include <map>
 #include <vector>
@@ -13,9 +14,17 @@
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/network/NetEventCallback.h"
+#include "mc/network/ServerNetworkHandler.h"
+#include "mc/network/packet/PlayerAuthInputPacket.h"
 #include "mc/server/commands/CommandOrigin.h"
 #include "mc/server/commands/CommandOutput.h"
 #include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorCategory.h"
+#include "mc/world/attribute/AttributeInstance.h"
+#include "mc/world/attribute/AttributeInstanceConstRef.h"
+#include "mc/world/attribute/SharedAttributes.h"
+#include "mc/server/ServerPlayer.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/gamemode/GameMode.h"
 #include "mc/world/item/ItemStack.h"
@@ -205,14 +214,30 @@ void installInteractions() {
         bool grip      = attackWithGrip;
         attackWithGrip = false;
         if (!hit || !grip) return;
-        // Create: +2 knockback while holding a grip, and the hit uses the grip
-        auto&       player = c.player;
-        auto&       entity = c.entity;
-        auto const& look   = player.getViewVector(1.0f);
-        double      h      = std::sqrt(double(look.x) * look.x + double(look.z) * look.z);
-        if (h > 1e-6 && entity.isAlive() && !entity.isPlayer()) {
-            auto const& v = entity.getPosDelta();
-            setMotion(entity, v.x + look.x / h * 0.8, v.y + 0.1, v.z + look.z / h * 0.8);
+        // Create's attacksByExtendoGripHaveMoreKnockback: the hit's knockback strength + 2 for any
+        // living target (players too). Vanilla's knockback(s) sets motion/2 + s along the hit, so
+        // on top of the game's own knockback this adds 2 along the attacker -> target direction.
+        auto& player = c.player;
+        auto& entity = c.entity;
+        if (entity.isAlive() && (entity.isPlayer() || entity.hasCategory(ActorCategory::Mob))) {
+            auto const& tp = entity.getPosition();
+            auto const& pp = player.getPosition();
+            double      dx = double(tp.x) - pp.x, dz = double(tp.z) - pp.z;
+            double      h  = std::sqrt(dx * dx + dz * dz);
+            if (h < 1e-4) {
+                auto const& look = player.getViewVector(1.0f);
+                dx = look.x, dz = look.z, h = std::sqrt(dx * dx + dz * dz);
+            }
+            // vanilla scales the strength by 1 - knockback resistance
+            double s   = 2.0;
+            auto   ref = entity.getAttribute(SharedAttributes::KNOCKBACK_RESISTANCE());
+            if (auto const* inst = static_cast<AttributeInstance const*>(ref.mPtr))
+                s *= 1.0 - std::clamp(double(inst->mCurrentValue), 0.0, 1.0);
+            if (h > 1e-6 && s > 0) {
+                auto const& v  = entity.getPosDelta();
+                double      vy = entity.isOnGround() ? std::max(double(v.y), 0.4) : double(v.y);
+                setMotion(entity, v.x + dx / h * s, vy, v.z + dz / h * s);
+            }
         }
         extendoAction(player);
     }));
@@ -234,6 +259,31 @@ LL_TYPE_INSTANCE_HOOK(EquipmentReleaseHook, ll::memory::HookPriority::Normal, Ga
     Player& player = mPlayer;
     if (!player.isClientSide()) cancelSanding(player);
     origin();
+}
+
+// Create's CommonEvents.leftClickEmpty (LeftClickPacket): a left click into the air with the
+// worldshaper picks the block looked at (up to 128 blocks away). Bedrock clients flag a swing that
+// hit nothing in their input packet.
+LL_TYPE_INSTANCE_HOOK(
+    EquipmentMissedSwingHook,
+    ll::memory::HookPriority::Normal,
+    ServerNetworkHandler,
+    &ServerNetworkHandler::$handle,
+    void,
+    NetworkIdentifier const&     source,
+    PlayerAuthInputPacket const& packet
+) {
+    origin(source, packet);
+    using Input = PlayerAuthInputPacketPayload::InputData;
+    if (!packet.mInputData->contains(Input::MissedSwing)) return;
+    auto* player = thisFor<NetEventCallback>()->_getServerPlayer(source, packet.mSenderSubId);
+    if (!player || items::idOf(player->getSelectedItem()) != kWorldshaper) return;
+    try {
+        ItemStack shaper = player->getSelectedItem();
+        shaperPick(*player, shaper);
+    } catch (std::exception const& e) {
+        log().error("equipment: worldshaper pick failed: {}", e.what());
+    }
 }
 
 // backtanks are unbreakable (their durability is the air bar)
@@ -272,6 +322,7 @@ public:
         EquipmentPickRangeHook::hook();
         EquipmentReleaseHook::hook();
         EquipmentHurtAndBreakHook::hook();
+        EquipmentMissedSwingHook::hook();
         hookToughness(true);
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { tick(); }));
@@ -284,6 +335,7 @@ public:
         uninstallBacktanks();
         uninstallControllers();
         hookToughness(false);
+        EquipmentMissedSwingHook::unhook();
         EquipmentHurtAndBreakHook::unhook();
         EquipmentReleaseHook::unhook();
         EquipmentPickRangeHook::unhook();
@@ -308,6 +360,7 @@ private:
             tickProjectiles();
             tickSanding();
             tickWands();
+            tickShaper();
             tickControllers();
         } catch (std::exception const& e) {
             log().error("equipment: tick failed: {}", e.what());

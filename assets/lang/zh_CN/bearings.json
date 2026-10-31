@@ -25,5 +25,7 @@
   "lv.bearings.coupling_too_close": "矿车之间距离过近，无法组成双矿车装置",
   "block.create.controller_rail.tooltip.summary": "一种_单向动力铁轨_，能够_精细控制_经过的矿车的_移动速度_。",
   "item.create.minecart_coupling.tooltip.summary": "将_矿车__连接_在一起，使它们一起移动。",
-  "block.create.turntable.tooltip.summary": "让_旋转力_给你带来一场刺激的晕车体验。"
+  "block.create.turntable.tooltip.summary": "让_旋转力_给你带来一场刺激的晕车体验。",
+  "create.hint.empty_bearing.title": "更新轴承",
+  "create.hint.empty_bearing": "_空手右击_轴承，可以将你新建造的结构_接到_轴承上"
 }

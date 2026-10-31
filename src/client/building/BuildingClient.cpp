@@ -807,12 +807,19 @@ public:
         BuildingExtractHook::hook();
         BuildingRenderHook::hook();
         feature::net::client::on(fb::kVisualsChannel, [](Json const& msg) { onVisuals(msg); });
+        // Create's CopycatBlock#getDestroyProgress for our own player: the material sent for drawing
+        fb::clientCopycatMaterial() = [](BlockPos const& p) -> Block const* {
+            auto& v  = state().visuals;
+            auto  it = v.find(p);
+            return it == v.end() ? nullptr : materialOf(it->second);
+        };
         mExit = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             resetLevel(true);
             state().level = nullptr;
         });
     }
     void uninstall() {
+        fb::clientCopycatMaterial() = nullptr;
         BuildingExtractHook::unhook();
         BuildingRenderHook::unhook();
         ll::event::EventBus::getInstance().removeListener(mExit);

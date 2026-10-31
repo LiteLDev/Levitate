@@ -1,1 +1,10 @@
-{}
+{
+  "item.create.builders_tea.tooltip.summary": "饮下这杯完美茶饮，开启神清气爽的一天。可以恢复_饥饿值_并获得_急迫_效果。",
+  "item.create.blaze_cake.tooltip.summary": "为辛勤劳作的_烈焰人_精心准备的美食。让它们燃起来吧！",
+  "item.create.creative_blaze_cake.tooltip.summary": "为_烈焰人燃烧室_特制的小食。吃下这个蛋糕之后，烈焰人燃烧室将_无需消耗燃料_。",
+  "item.create.creative_blaze_cake.tooltip.condition1": "右击烈焰人燃烧室时",
+  "item.create.creative_blaze_cake.tooltip.behaviour1": "使烈焰人燃烧室的热量等级_循环变化_。",
+  "item.create.experience_nugget.tooltip.summary": "从你的奇妙发明中汲取的一点点_灵感_。",
+  "item.create.experience_nugget.tooltip.condition1": "使用时",
+  "item.create.experience_nugget.tooltip.behaviour1": "_吸收_其中包含的_经验值_"
+}
