@@ -149,6 +149,9 @@ struct PortInfo {
 [[nodiscard]] std::vector<PortInfo> postboxesForStation(GlobalPos const& station);
 /// The port's 18 slots (copies).
 [[nodiscard]] std::vector<ItemStack> portInventory(GlobalPos const& pos);
+/// The packages looping around the chain conveyor at `pos` (Create's getLoopingPackages; the
+/// display link's "Read Package Address" source). Empty for other blocks.
+[[nodiscard]] std::vector<ItemStack> loopingPackages(GlobalPos const& pos);
 /// Puts a package into the port's inventory (as a train unloading: no address check).
 /// Returns what did not fit.
 [[nodiscard]] ItemStack insertIntoPort(GlobalPos const& pos, ItemStack const& box, bool simulate);

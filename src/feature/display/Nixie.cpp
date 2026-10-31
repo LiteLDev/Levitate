@@ -263,8 +263,10 @@ bool use(Player& player, BlockSource& region, GlobalPos const& pos, ItemStack co
     if (!t) return false;
     auto id = items::idOf(held);
     if (id.empty()) {
+        // Create's NixieTubeBlock.useItemOn: an empty hand clears the clicked tube (not one that
+        // shows redstone)
         if (!readTube(pos).text) return false;
-        for (auto const& p : row(region, pos)) clearCustomText(region, p);
+        clearCustomText(region, pos);
         log().info("nixie tube at {} cleared by {}", pos.key(), player.getRealName());
         return true;
     }
@@ -310,8 +312,12 @@ void placed(Player& player, BlockSource& region, GlobalPos const& pos, int click
     } else if (clickedFace == 0) {
         face = 1; // ceiling
     } else {
-        // Create's DoubleFaceAttachedBlock: on a wall, reversed when the player looks up ⚠
-        face = player.getRotation().x < 0 ? 3 : 2;
+        // Create's DoubleFaceAttachedBlock: on a wall, reversed when the player looks against the
+        // clockwise side of the direction it looks at the wall
+        static constexpr double cwX[6]{0, 0, 1, -1, 0, 0}, cwZ[6]{0, 0, 0, 0, -1, 1}; // FacingID -> clockwise normal
+        int  looking = clickedFace ^ 1;                                                  // opposite of the clicked face
+        auto look    = player.getViewVector();
+        face         = look.x * cwX[std::clamp(looking, 0, 5)] + look.z * cwZ[std::clamp(looking, 0, 5)] < 0 ? 3 : 2;
     }
     if (face < 2) {
         facing = clockwise(game::playerFacing(player)); // Create rotates FACING clockwise for floor / ceiling

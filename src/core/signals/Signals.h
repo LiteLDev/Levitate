@@ -21,8 +21,10 @@
 //   so no other train gets them until it has entered (or gave up).
 // - `updateStates` computes the state of every signalled side (Create's tickState): red when the
 //   section is occupied by a train or reserved through another signal (or the side is forced red
-//   by redstone), yellow for a cross signal whose section is free but one of the signals leading
-//   out of it on the way forward is red, green otherwise.
+//   by redstone), invalid when both sides belong to the same section (a loop); a cross signal
+//   whose section is free resolves its chain (Create's resolveSignalChain): green when every
+//   signal leading out of it on the way forward is green (or invalid), red when all of them are
+//   red, yellow otherwise.
 //
 // Server thread only. Unit-tested in tests/core/signals/.
 
@@ -165,8 +167,20 @@ public:
     void releaseReservations(std::string const& train);
     [[nodiscard]] std::optional<Reservation> reservation(GroupId g) const;
 
-    /// Create's Navigation penalty for a path entering signal sections over `edge` (from `from` to
-    /// `to`): red signals (occupied) cost `redPenalty`, redstone-forced red ones `redstonePenalty`.
+    /// Create's Navigation.search over the signals of the edge from `from` to `to`, in travel order:
+    /// a boundary side without a signal for that direction can't be passed (`canNavigateVia`:
+    /// `barrier` is its distance from `from`, infinity when every boundary may be passed);
+    /// redstone-forced red signals cost `redstonePenalty`; occupied ones cost `redWeight`, which is
+    /// halved after each of them (Create keeps one `signalWeight` for the whole search).
+    using EdgeCost = ct::EdgeCost;
+    [[nodiscard]] EdgeCost edgeCost(
+        ct::NodeLocation const& from,
+        ct::NodeLocation const& to,
+        std::string const&      train,
+        double&                 redWeight,
+        double                  redstonePenalty
+    ) const;
+    /// `edgeCost` with a fixed red weight, penalty only.
     [[nodiscard]] double edgePenalty(
         ct::NodeLocation const& from,
         ct::NodeLocation const& to,
