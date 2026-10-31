@@ -14,6 +14,7 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/GameType.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/Spawner.h"
 #include "mc/world/level/block/Block.h"
@@ -184,6 +185,9 @@ LV_REGISTER_SELFTEST("materials.chromatic_belt_light", [](Context& ctx) -> ll::c
         ctx.info("levitate:depot not registered (U11): skipped");
         co_return;
     }
+    // ensureLoaded drops the test player onto the depot: once it lands (a few ticks, later on a
+    // busy server) a survival player picks up the compound beside it. A spectator picks up nothing.
+    ctx.player().setPlayerGameType(GameType::Spectator);
     ctx.setBlock(p, belts::kDepotId);
     co_await ctx.ticks(2);
     belts::TransportedItem torch;
