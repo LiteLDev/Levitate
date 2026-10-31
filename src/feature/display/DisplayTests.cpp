@@ -82,10 +82,13 @@ ItemStack clipboardWith(Context& ctx, std::vector<std::string> const& texts) {
 
 LV_REGISTER_SELFTEST("display.format", [](Context& ctx) {
     ctx.check(dsp::formatValue(999, true) == "999", "999 stays");
-    ctx.check(dsp::formatValue(1234, true) == "1.2k", "1234 -> 1.2k, got " + dsp::formatValue(1234, true));
-    ctx.check(dsp::formatValue(1500000, true) == "1.5m", "1500000 -> 1.5m");
+    // Create's ValueListDisplaySource.shorten: integer division
+    ctx.check(dsp::formatValue(1234, true) == "1k", "1234 -> 1k, got " + dsp::formatValue(1234, true));
+    ctx.check(dsp::formatValue(1500000, true) == "1m", "1500000 -> 1m, got " + dsp::formatValue(1500000, true));
+    ctx.check(dsp::formatValue(999999, true) == "999k", "999999 -> 999k");
     ctx.check(dsp::formatValue(1234, false) == "1234", "full numbers");
     ctx.check(dsp::progressBar(0.5, 4) == "\xE2\x96\x88\xE2\x96\x88\xE2\x96\x92\xE2\x96\x92", "half bar");
+    ctx.check(dsp::progressBar(0.99, 4) == "\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x92", "the bar truncates (Create: (int) level * length)");
     ctx.check(dsp::board::maxChars(1) == 4 && dsp::board::maxChars(2) == 8 && dsp::board::maxChars(3) == 13 && dsp::board::maxChars(32) == 145,
               "Create's character counts per width");
     ctx.check(dsp::nixie::idFor(1) == "levitate:nixie_tube" && dsp::nixie::idFor(14) == "levitate:red_nixie_tube", "nixie ids");
@@ -150,18 +153,21 @@ LV_REGISTER_SELFTEST("display.board_lines", [](Context& ctx) -> ll::coro::CoroTa
     ctx.require(s.has_value(), "structure");
     dsp::board::setLine(r, s->controller, 0, "Hello, world!", true);
     ctx.check(dsp::board::lineText(s->controller, 0) == "Hello, w", "line truncated to 8 characters, got " + dsp::board::lineText(s->controller, 0));
-    // a clipboard writes its entries from the clicked line down
-    auto clip = clipboardWith(ctx, {"AB", "CD"});
-    auto& pl  = ctx.player();
-    bool used = dsp::board::use(pl, r, s->controller, 3, Vec3{0.5f, 0.75f, 1.0f}, clip);
-    ctx.check(used, "clipboard used on the board");
-    ctx.check(dsp::board::lineText(s->controller, 0) == "AB" && dsp::board::lineText(s->controller, 1) == "CD", "clipboard lines written");
-    // dye and clearing need the board to turn (Create: medium speed)
-    auto dye = items::make("minecraft:red_dye");
-    ctx.check(!dsp::board::use(pl, r, s->controller, 3, Vec3{0.5f, 0.75f, 1.0f}, *dye), "a stopped board refuses dye");
+    dsp::board::setLine(r, s->controller, 1, "cd", true);
+    // Create's FlapDisplayBlock.useItemOn: a clipboard (and a name tag) needs the board turning
+    // (medium speed), dye works on a stopped board too
     ctx.check(!dsp::board::running(s->controller), "not running without rotation");
+    auto clip = clipboardWith(ctx, {"XY"});
+    auto& pl  = ctx.player();
+    ctx.check(!dsp::board::use(pl, r, s->controller, 3, Vec3{0.5f, 0.75f, 1.0f}, clip), "a stopped board refuses a clipboard");
+    ctx.check(dsp::board::lineText(s->controller, 0) == "Hello, w", "the line keeps its text");
+    auto dye = items::make("minecraft:red_dye");
+    ctx.check(dsp::board::use(pl, r, s->controller, 3, Vec3{0.5f, 0.75f, 1.0f}, *dye), "a stopped board takes dye");
     auto st = dsp::board::state(s->controller);
-    ctx.check(st.size() == 2 && st[0].value("m", false), "two manual lines");
+    ctx.check(st.size() == 2 && st[0].value("m", false) && st[0].value("c", -1) == 14, "the first line is red");
+    // Create's FlapDisplaySection.refresh: the flaps show upper case (formatting codes kept)
+    ctx.check(dsp::board::flapText("Hello, w") == "HELLO, W", "flaps in upper case");
+    ctx.check(dsp::board::flapText("\xC2\xA7" "a\xC3\xA9t\xC3\xA9") == "\xC2\xA7" "a\xC3\x89T\xC3\x89", "accents up, codes kept");
 });
 
 LV_REGISTER_SELFTEST("display.nixie_row", [](Context& ctx) -> ll::coro::CoroTask<> {

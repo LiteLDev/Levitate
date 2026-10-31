@@ -67,27 +67,15 @@ std::pair<int, int> trackDirection(Player& p, int axis) {
 bool useStation(Player& p, GlobalPos const& pos, ItemStack const& item) {
     auto* s = stationAt(pos);
     if (!s) return false;
-    if (auto sch = scheduleOf(item)) {
-        // Create: a schedule put into the station becomes its auto-schedule
-        if (s->autoSchedule.is_null()) {
-            s->autoSchedule = items::toJson(item);
-            markStationsDirty();
-            if (!p.isCreative()) {
-                p.getInventory().setItem(p.getSelectedItemSlot(), ItemStack{});
-                p.sendInventory(false);
-            }
-            playSound(pos.dim, {pos.x + .5, pos.y + .5, pos.z + .5}, "random.levelup", 0.5f, 1.5f);
-            log().info("trains: station '{}' holds an auto-schedule", s->name);
-            return true;
-        }
-    }
+    (void)item;
+    // Create's StationBlock.useItemOn: the held auto-schedule comes back to the player; otherwise
+    // the screen opens (with a schedule in hand too: schedules go in by funnels, hoppers, arms or
+    // thrown onto the station)
     if (!s->autoSchedule.is_null()) {
-        auto back = items::fromJson(s->autoSchedule);
-        s->autoSchedule = nullptr;
-        markStationsDirty();
+        auto back = takeAutoSchedule(*s);
         if (!p.add(back)) p.drop(back, false);
         p.sendInventory(false);
-        log().info("trains: auto-schedule taken from station '{}'", s->name);
+        playSound(pos.dim, {pos.x + .5, pos.y + .5, pos.z + .5}, "random.pop", 0.2f, 1.4f);
         return true;
     }
     openStationScreen(p, pos);
@@ -168,7 +156,7 @@ ia::Result trainsUseOn(ia::UseOnContext const& c) {
         }
         if ((held == kRailwayCasing || held.empty()) && !sneak) {
             if (debounced(player, isFirstEvent)) return ia::Result::Consume;
-            auto msg = useCasingOnTrack(&player, pos, held == kRailwayCasing);
+            auto msg = useCasingOnTrack(&player, pos, held == kRailwayCasing || player.isCreative());
             if (!msg.empty()) {
                 if (msg.starts_with("+")) {
                     msg = msg.substr(1);
@@ -250,31 +238,13 @@ ia::Result trainsInteract(ia::EntityContext const& c) {
     Player& player = c.player;
     Actor&  entity = c.entity;
     if (entity.isPlayer()) return ia::Result::Pass;
-    auto f = entity.getFeetPos();
-    for (auto& [id, t] : state().trains) {
-        if (t.invalid || t.dim != int(player.getDimensionId())) continue;
-        for (auto const& car : t.carriages) {
-            auto* con = contraption::find(car.contraption);
-            if (!con) continue;
-            for (auto const& [local, rel] : car.controls) {
-                cc::Pos seat = local + cc::Pos{t.ax * rel, 0, t.az * rel};
-                auto    w    = con->toWorld(cc::Vec3d::center(seat));
-                if (std::abs(f.x - w.x) > .7 || std::abs(f.z - w.z) > .7 || std::abs(f.y - w.y) > 1) continue;
-                if (handScheduleTo(player, t, player.getSelectedItemSlot())) return ia::Result::Consume;
-            }
-        }
-    }
-    if (c.itemId == kSchedule) {
-        // a schedule on an entity that isn't a conductor (Create's message for seated mobs)
-        for (auto const& id : contraption::all()) {
-            auto* con = contraption::find(id);
-            if (!con || con->kind() != "train") continue;
-            auto o = con->transform().toWorld(cc::Vec3d{0, 0, 0});
-            if (std::abs(o.x - f.x) < 32 && std::abs(o.z - f.z) < 32) {
-                actionBar(player, trFor(player, "create.schedule.non_controlling_seat", "Conductor needs to sit in front of a Controls block"));
-                return ia::Result::Consume;
-            }
-        }
+    // Create's ScheduleItemEntityInteraction: only an entity seated on a conductor seat
+    if (auto* t = conductorTrainOf(entity))
+        if (handScheduleTo(player, *t, player.getSelectedItemSlot())) return ia::Result::Consume;
+    if (c.itemId == kSchedule && seatedTrainOf(entity) && !conductorTrainOf(entity)) {
+        // a schedule on a seated entity that isn't a conductor (Create's ScheduleItem.handScheduleTo)
+        actionBar(player, trFor(player, "create.schedule.non_controlling_seat", "Conductor needs to sit in front of a Controls block"));
+        return ia::Result::Consume;
     }
     return ia::Result::Pass;
 }

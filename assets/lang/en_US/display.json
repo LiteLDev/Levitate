@@ -85,5 +85,11 @@
   "lv.display.link.none": "(none)",
   "lv.display.link.option_text": "Edit text options",
   "lv.display.key.use": "Right-Click",
-  "lv.display.key.attack": "Left-Click"
+  "lv.display.key.attack": "Left-Click",
+  "create.display_source.boiler.for_boiler_status": "for Boiler Status",
+  "create.display_source.boiler.not_enough_space": "Not enough space ",
+  "create.display_source.boiler_status": "Boiler Status",
+  "create.display_source.current_floor": "Elevator Location",
+  "create.display_source.read_package_address": "Read Package Address",
+  "create.generic.unit.buckets": "B"
 }

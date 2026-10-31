@@ -233,6 +233,7 @@ void runTick() {
     }
     tickTrains();
     tickControls();
+    tickAutoSchedules();
     // stations change rarely: write them soon after a change (trains are saved with the world)
     if (s.stationsDirty && s.tick % 100 == 0) saveAll();
 }
@@ -244,6 +245,7 @@ public:
     void install() {
         registerStationScreens();
         registerScheduleScreens();
+        installAutoSchedule();
         // carriage blocks: bogeys hang on the block above (Create: their top is sticky)
         contraption::MovementRules bogeyRules;
         bogeyRules.attachedTowards = [](cc::States const&) { return cc::bit(cc::Dir::Up); };

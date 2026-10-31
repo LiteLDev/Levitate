@@ -314,6 +314,7 @@ void pushBlockStates() {
                 if (auto const* b = game::blockWith(api::kObserverId, {{api::kPoweredState, on ? 1 : 0}})) {
                     game::setBlock(*region, bp, *b);
                     log().info("signals: track observer at {} {}", pos.key(), on ? "powered" : "unpowered");
+                    display::notifyGatherers(pos); // Create's TrackObserverBlockEntity: refresh the links
                 }
             }
             // the powered state's redstone producer (minecraft:redstone_producer): make sure the
@@ -693,8 +694,13 @@ public:
                     std::string train = api::observedTrain(ctx.source);
                     if (train.empty()) return {""};
                     auto const& names = state().trainName;
-                    return {names ? names(train) : std::string()};
+                    std::string name  = names ? names(train) : std::string();
+                    // SingleLineDisplaySource with allowsLabeling: "<label> <name>"
+                    auto label = ctx.config.value("Label", std::string());
+                    return {label.empty() ? name : label + " " + name};
                 },
+                .options      = {{"Label", "create.display_source.label", "Attached Label", {}, {}, ""}},
+                .refreshTicks = 400, // Create's ObservedTrainNameSource.getPassiveRefreshTicks
             }
         );
         installHooks();
@@ -822,6 +828,19 @@ double pathPenalty(std::string const& trainId, core::tracks::Graph const& graph,
     auto const* b = graph.node(edge.node2);
     if (!a || !b) return 0;
     return sg::state().system.edgePenalty(a->location, b->location, trainId, kRedSignalPenalty, kRedstoneRedSignalPenalty);
+}
+
+SignalType boundaryType(std::string const& boundaryId, int side) {
+    auto const* b = sg::state().system.boundary(boundaryId);
+    return b && side >= 0 && side < 2 ? b->sides[size_t(side)].type : SignalType::Entry;
+}
+
+core::tracks::EdgeCost
+pathCost(std::string const& trainId, core::tracks::Graph const& graph, core::tracks::Edge const& edge, double& redWeight) {
+    auto const* a = graph.node(edge.node1);
+    auto const* b = graph.node(edge.node2);
+    if (!a || !b) return {};
+    return sg::state().system.edgeCost(a->location, b->location, trainId, redWeight, kRedstoneRedSignalPenalty);
 }
 
 GroupId sectionAt(core::tracks::GraphLocation const& loc) {

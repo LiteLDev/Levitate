@@ -202,6 +202,7 @@ void removeStation(GlobalPos const& pos) {
         if (t.nav && t.nav->stationPos == pos.key()) cancelNavigation(t);
         if (t.currentStation == pos.key()) t.currentStation.clear();
     }
+    dropAutoSchedule(it->second);
     log().info("trains: station '{}' removed", it->second.name);
     m.erase(it);
     markStationsDirty();
@@ -264,19 +265,25 @@ std::string useCasingOnTrack(Player* player, GlobalPos const& track, bool hasCas
     auto tr = [&](std::string_view key, std::string_view fb) {
         return player ? trFor(*player, key, fb) : std::string(translate(key, fb));
     };
-    if (!hasCasing) return tr("create.train_assembly.requires_casing", "Use Train Casing to create bogeys on tracks");
     auto             bogeys = bogeysOf(*station);
     std::vector<int> existing;
     for (auto const& [i, size] : bogeys) existing.push_back(i);
-    // clicking at / next to a bogey cycles its size
-    for (auto const& [i, size] : bogeys) {
-        if (std::abs(i - *index) > 2) continue;
-        auto at = offsetOf(assemblyTrack(*station, i), 0, 1, 0);
-        setBlockAt(at, size == 0 ? kLargeBogey : kSmallBogey, {{kBogeyAxisState, trackAxisOf(*station) == 0 ? 0 : 1}});
-        log().info("trains: bogey at {} {} {} is now {}", at.x, at.y, at.z, size == 0 ? "large" : "small");
-        return tr("create.bogey.style.updated_style_and_size", "Updated style and size");
+    // Create's trackClicked: where no bogey may go, a bogey within one block of the click cycles
+    // its size (no casing needed)
+    if (!ct::canPlaceBogey(*index, existing)) {
+        for (int d = -1; d <= 1; ++d) {
+            auto it = bogeys.find(*index + d);
+            if (it == bogeys.end()) continue;
+            auto at = offsetOf(assemblyTrack(*station, it->first), 0, 1, 0);
+            setBlockAt(at, it->second == 0 ? kLargeBogey : kSmallBogey, {{kBogeyAxisState, trackAxisOf(*station) == 0 ? 0 : 1}});
+            playSound(at.dim, {at.x + .5, at.y + .5, at.z + .5}, "random.click", 0.5f, 1.2f); // Create's playRotateSound
+            log().info("trains: bogey at {} {} {} is now {}", at.x, at.y, at.z, it->second == 0 ? "large" : "small");
+            return "!";
+        }
+        return "!";
     }
-    if (!ct::canPlaceBogey(*index, existing)) return "!";
+    // creative players need no casing (callers pass hasCasing = true for them)
+    if (!hasCasing) return tr("create.train_assembly.requires_casing", "Use Train Casing to create bogeys on tracks");
     auto  above  = offsetOf(track, 0, 1, 0);
     auto* region = regionOf(track.dim);
     if (!region || !game::replaceable(*region, game::blockPos(above))) {
@@ -528,15 +535,14 @@ bool disassemble(Station& s, Player* by) {
 }
 
 std::vector<std::pair<std::string, int>> arrivals(Station const& s) {
+    // Create's GlobalTrainDisplayData: every prediction whose destination matches the station
     std::vector<std::pair<std::string, int>> out;
-    for (auto const& [id, t] : state().trains) {
-        if (t.invalid) continue;
-        if (t.currentStation == s.pos.key()) out.push_back({t.name, 0});
-        else if (t.nav && t.nav->stationPos == s.pos.key())
-            out.push_back({t.name, ct::predictTransitTicks(t.nav->distance, t.stats(), t.throttle)});
-    }
-    std::sort(out.begin(), out.end(), [](auto const& a, auto const& b) {
-        return a.second != b.second ? a.second < b.second : a.first < b.first;
+    for (auto& [id, t] : state().trains)
+        for (auto const& p : predictionsOf(t))
+            if (ct::stationMatches(p.destination, s.name)) out.push_back({t.name, p.ticks});
+    auto key = [](int ticks) { return ticks == -1 ? 1 << 30 : ticks < 200 ? 0 : ticks; };
+    std::stable_sort(out.begin(), out.end(), [&](auto const& a, auto const& b) {
+        return key(a.second) != key(b.second) ? key(a.second) < key(b.second) : a.first < b.first;
     });
     return out;
 }

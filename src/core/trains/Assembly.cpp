@@ -6,10 +6,11 @@
 namespace lv::core::trains {
 
 bool canPlaceBogey(int index, std::vector<int> const& existing) {
-    if (index < 0) return false;
+    // Create's StationBlockEntity.isValidBogeyOffset: the first bogey goes to the station marker
+    if ((index < 3 || existing.empty()) && index != 0) return false;
     for (int e : existing)
         if (std::abs(e - index) <= 2) return false;
-    return index == 0 || index >= 3;
+    return true;
 }
 
 std::optional<AssemblyError> checkBogeys(std::vector<int> const& indices, int maxBogeys) {

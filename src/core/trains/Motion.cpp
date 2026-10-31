@@ -309,7 +309,7 @@ std::optional<Path> findPath(
     Railways const&                                       rail,
     TrackPos const&                                       start,
     std::vector<TrackPos> const&                          destinations,
-    std::function<double(Graph const&, Edge const&)>      penalty,
+    std::function<tracks::EdgeCost(Graph const&, Edge const&)> cost,
     double                                                maxCost
 ) {
     auto s = resolveEdge(rail, start);
@@ -324,7 +324,7 @@ std::optional<Path> findPath(
         indexOf.push_back(i);
     }
     if (q.destinations.empty()) return std::nullopt;
-    q.edgePenalty = std::move(penalty);
+    q.edgeCost    = std::move(cost);
     q.maxCost     = maxCost;
     auto r        = rail.findPath(q);
     if (!r) return std::nullopt;
@@ -340,15 +340,27 @@ std::optional<Path> findPath(
     return p;
 }
 
+bool slowsForCurve(tracks::Curve const& c) {
+    // Create's Navigation.tick turn listener: "ignore turn if its a straight & mild slope"
+    auto const& sp        = c.spec();
+    double      vDistance = std::abs(sp.starts[0].y - sp.starts[1].y);
+    if (vDistance > 1 / 16.0) {
+        Vec3d a{sp.axes[0].x, 0, sp.axes[0].z}, b{-sp.axes[1].x, 0, -sp.axes[1].z};
+        if (a.distanceTo(b) < 1 / 64.0 && c.length() > 0 && vDistance / c.length() < .225) return false;
+    }
+    return true;
+}
+
 double distanceToCurve(Railways const& rail, TrackPos const& at, Path const& path, double lookahead) {
     auto cur = resolveEdge(rail, at);
     if (!cur) return -1;
-    if (cur->edge->isTurn()) return 0;
+    auto isTurn = [](tracks::Edge const& e) { return e.isTurn() && slowsForCurve(*e.turn); };
+    if (isTurn(*cur->edge)) return 0;
     double d = cur->graph->edgeLength(*cur->edge) - at.pos;
     for (size_t i = path.next; i < path.edges.size() && d <= lookahead; ++i) {
         auto e = resolveEdge(rail, TrackPos{path.edges[i].first, path.edges[i].second, 0});
         if (!e) break;
-        if (e->edge->isTurn()) return d;
+        if (isTurn(*e->edge)) return d;
         d += e->graph->edgeLength(*e->edge);
     }
     return -1;

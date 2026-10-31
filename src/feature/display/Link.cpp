@@ -298,12 +298,38 @@ void itemsPassed(GlobalPos const& source, int count) {
         if (!lb || intState(*lb, kPowered).value_or(0)) continue; // a powered link ignores them
         auto data = read(l);
         if (!data || (data->sourceId != "item_throughput" && data->sourceId != "accumulate_items")) continue;
-        data->config["lv:pending"] = data->config.value("lv:pending", 0) + count;
-        write(l, *data);
         if (data->sourceId == "accumulate_items") {
-            refreshTicks()[l].ticks = 0;
-            update(l);
+            data->config["lv:pending"] = data->config.value("lv:pending", 0) + count;
+        } else {
+            // Create's ItemThroughputDisplaySource.itemReceived: the rate of each batch (items per
+            // tick since the previous one) in a pool of 10, averaged
+            auto& conf = data->config;
+            auto  now  = static_cast<long long>(gameTime());
+            if (!conf.contains("LastReceived")) {
+                conf["LastReceived"] = now;
+                write(l, *data);
+                continue;
+            }
+            long long prev  = conf.value("LastReceived", 0LL);
+            auto      rates = conf.value("PrevRates", Json::array());
+            if (rates.size() != 10) rates = Json(std::vector<double>(10, -1.0));
+            int index = conf.value("Index", 0) % 10;
+            rates[static_cast<std::size_t>(index)] = now > prev ? count / static_cast<double>(now - prev) : -1.0;
+            double rate  = 0;
+            int    valid = 0;
+            for (auto const& r : rates)
+                if (r.get<double>() >= 0) rate += r.get<double>(), ++valid;
+            conf.erase("Rate");
+            if (valid > 0) conf["Rate"] = rate / valid;
+            conf.erase("Inactive");
+            conf["LastReceivedAmount"] = count;
+            conf["LastReceived"]       = now;
+            conf["Index"]              = index + 1;
+            conf["PrevRates"]          = rates;
         }
+        write(l, *data);
+        refreshTicks()[l].ticks = 0; // Create: updateGatheredData
+        update(l);
     }
 }
 

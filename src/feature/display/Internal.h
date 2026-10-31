@@ -172,6 +172,8 @@ void removed(BlockSource& region, GlobalPos const& pos);
 std::optional<BlockPos> placementHelper(Player& player, BlockSource& region, GlobalPos const& pos, int face, Vec3 const& hit);
 /// Line colours / glow for tests.
 [[nodiscard]] Json state(GlobalPos const& controller);
+/// Create's FlapDisplaySection.refresh: the text the flaps show (upper case, § codes kept).
+[[nodiscard]] std::string flapText(std::string const& text);
 void               syncAll(Player& player);
 } // namespace board
 

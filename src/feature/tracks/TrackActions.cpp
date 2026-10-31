@@ -429,6 +429,13 @@ bool onTrackItemUse(Player& player, BlockPos const& clicked, int face, Block con
         if (handled) return true;
     }
 
+    // Create's CurvedTrackInteraction: a track item used on a curve says so and places nothing
+    if (clickedBlock && clickedBlock->getTypeName() == kFakeTrackId) {
+        s.lastUse[uuid] = s.tick;
+        actionbar(player, "create.track.turn_start", "Cannot start connection from a Turn");
+        return true;
+    }
+
     std::optional<ct::Shape> clickedShape = clickedBlock ? shapeOf(*clickedBlock) : std::nullopt;
     auto                     sel          = s.selections.find(uuid);
 
@@ -437,6 +444,10 @@ bool onTrackItemUse(Player& player, BlockPos const& clicked, int face, Block con
         s.lastUse[uuid] = s.tick;
         if (ct::isJunction(*clickedShape)) {
             actionbar(player, "create.track.junction_start", "Cannot start connection from a Junction");
+            return true;
+        }
+        if (tiltAt(dim, toCore(clicked))) { // Create's TrackBlockItem: a tilted track can't start one
+            actionbar(player, "create.track.turn_start", "Cannot start connection from a Turn");
             return true;
         }
         Selection selection;

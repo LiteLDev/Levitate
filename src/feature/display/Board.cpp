@@ -33,6 +33,8 @@ namespace blockdata = common::blockdata;
 namespace items     = common::items;
 namespace k         = lv::kinetics;
 
+std::string flapText(std::string const& text);
+
 namespace {
 constexpr char kDbBoards[] = "lv:display:boards";
 constexpr char kDataKey[]  = "display_board";
@@ -210,7 +212,7 @@ Json renderState(BlockSource& region, Structure const& s) {
     float speed = k::speedAt(s.controller);
     Json  lines = Json::array();
     for (auto const& l : d.lines) {
-        lines.push_back({{"t", l.text}, {"c", l.dye < 0 ? kDefaultColour : dyeRgb(l.dye)}, {"g", l.glow}});
+        lines.push_back({{"t", flapText(l.text)}, {"c", l.dye < 0 ? kDefaultColour : dyeRgb(l.dye)}, {"g", l.glow}});
     }
     (void)region;
     return {
@@ -338,6 +340,27 @@ k::KineticSpec boardSpec() {
 LV_REGISTER_KINETIC_BLOCK(kBoardId, boardSpec());
 
 } // namespace
+
+/// Create's FlapDisplaySection.refresh: the flaps show upper case (Locale.ROOT); formatting codes
+/// (§x) keep their letter.
+std::string flapText(std::string const& text) {
+    std::string out = text;
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        auto c = static_cast<unsigned char>(out[i]);
+        if (c == 0xC2 && i + 1 < out.size() && static_cast<unsigned char>(out[i + 1]) == 0xA7) {
+            i += 2; // "§" and its code letter
+            continue;
+        }
+        if (c >= 'a' && c <= 'z') out[i] = static_cast<char>(c - 32);
+        else if (c == 0xC3 && i + 1 < out.size()) { // U+00E0..U+00FE (not U+00F7)
+            auto n = static_cast<unsigned char>(out[i + 1]);
+            if (n >= 0xA0 && n <= 0xBE && n != 0xB7) out[i + 1] = static_cast<char>(n - 0x20);
+            ++i;
+        }
+    }
+    return out;
+}
+
 
 // ---- structure --------------------------------------------------------------------------------
 
@@ -491,14 +514,17 @@ bool use(Player& player, BlockSource& region, GlobalPos const& pos, int face, Ve
         log().info("display board at {} line {} glowing", s->controller.key(), line);
         return true;
     }
+    // Create's FlapDisplayBlock.useItemOn: name tags and clipboards need the board running, dye
+    // works on a stopped board too
     if (id == "minecraft:name_tag") {
         auto name = held.getCustomName();
-        if (name.empty()) return false;
+        if (name.empty() || !run) return false;
         setLine(region, s->controller, line, name, true);
         log().info("display board at {} line {} set from a name tag by {}", s->controller.key(), line, player.getRealName());
         return true;
     }
     if (id == kClipboardId) {
+        if (!run) return false;
         auto entries = clipboard::lastViewedEntries(clipboard::ofItem(held));
         int  at      = line;
         for (auto const& e : entries) {
@@ -514,7 +540,6 @@ bool use(Player& player, BlockSource& region, GlobalPos const& pos, int face, Ve
         return true;
     }
     if (auto dye = dyeOf(id)) {
-        if (!run) return false;
         l.dye = *dye == 0 ? -1 : *dye; // white resets (Create stores null for WHITE)
         writeLines(s->controller, d);
         playSound(region, pos, "dye.use");
