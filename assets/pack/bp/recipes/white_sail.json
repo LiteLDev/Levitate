@@ -1,28 +1,35 @@
 {
   "format_version": "1.20.10",
-  "minecraft:recipe_shapeless": {
+  "minecraft:recipe_shaped": {
     "description": {
       "identifier": "levitate:white_sail"
     },
     "tags": [
       "crafting_table"
     ],
-    "ingredients": [
-      {
-        "item": "levitate:sail_frame"
+    "pattern": [
+      "WS",
+      "SA"
+    ],
+    "key": {
+      "W": {
+        "tag": "minecraft:wool"
       },
+      "S": {
+        "item": "minecraft:stick"
+      },
+      "A": {
+        "item": "levitate:andesite_alloy"
+      }
+    },
+    "unlock": [
       {
-        "item": "minecraft:white_wool"
+        "item": "levitate:andesite_alloy"
       }
     ],
     "result": {
       "item": "levitate:white_sail",
-      "count": 1
-    },
-    "unlock": [
-      {
-        "item": "levitate:sail_frame"
-      }
-    ]
+      "count": 2
+    }
   }
 }

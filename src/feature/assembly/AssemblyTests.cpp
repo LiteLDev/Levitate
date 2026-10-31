@@ -105,6 +105,9 @@ LV_REGISTER_SELFTEST("assembly.sequenced_track", [](Context& ctx) {
     ctx.check(items::idOf(done) == "levitate:track", "result is a track: " + items::idOf(done));
     // a plain incomplete track without progress is not part of a sequence
     ctx.check(!sa::findDeployingStep(item(ctx, "levitate:incomplete_track"), nug), "an incomplete item without data is not accepted");
+    // Create's #create:sleepers: stone slab (Bedrock normal_stone_slab), smooth stone slab, andesite slab
+    for (auto const* sleeper : {"minecraft:normal_stone_slab", "minecraft:andesite_slab"})
+        ctx.check(sa::findDeployingStep(item(ctx, sleeper), nug).has_value(), std::string(sleeper) + " starts a track");
 });
 
 LV_REGISTER_SELFTEST("assembly.deployer_recipe_on_item", [](Context& ctx) {

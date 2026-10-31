@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:copper_valve_handle_from_red"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:red_valve_handle"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:red_valve_handle"
+      }
+    ],
+    "result": {
+      "item": "levitate:copper_valve_handle",
+      "count": 1
+    }
+  }
+}

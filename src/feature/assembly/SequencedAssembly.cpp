@@ -1,6 +1,7 @@
 #include "feature/assembly/SequencedAssembly.h"
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <random>
 
@@ -193,7 +194,10 @@ ItemStack advance(StepMatch const& match, ItemStack const& input) {
         return input;
     }
     int step = match.finished + 1;
-    items::setData(*out, kDataKey, Json{{"recipe", r.id}, {"step", step}, {"progress", core::assembly::progressAt(r, step)}});
+    float progress = core::assembly::progressAt(r, step);
+    items::setData(*out, kDataKey, Json{{"recipe", r.id}, {"step", step}, {"progress", progress}});
+    // the progress in percent for the client mod's item bar (its item renderer sees no item data)
+    out->mAuxValue = static_cast<short>(std::clamp(std::lround(progress * 100.f), 0l, 100l));
     writeLore(*out);
     return *out;
 }

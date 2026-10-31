@@ -1,0 +1,25 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:andesite_table_cloth_clear"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:andesite_table_cloth"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:andesite_table_cloth"
+      }
+    ],
+    "result": {
+      "item": "levitate:andesite_table_cloth",
+      "count": 1
+    }
+  }
+}

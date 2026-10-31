@@ -6,8 +6,8 @@
 // keeps the points within range. While turning, the arm moves to an input that has something an
 // output accepts, takes it, moves to that output and puts it in. Points are reached through the
 // item capability (U3) of the block, so any unit's depot, belt, basin, funnel, chute, crafter, saw,
-// millstone, crushing wheel or blaze burner works without naming it; jukeboxes, composters,
-// campfires and respawn anchors are vanilla points.
+// millstone, packager, crushing wheel or blaze burner works without naming it; jukeboxes,
+// composters, campfires and respawn anchors are vanilla points.
 //
 // BlockData "arm": {"points": [[dx, dy, dz, take], ...] (relative to the arm), "held", "phase",
 // "chased", "progress", "lastIn", "lastOut", "mode"}.
@@ -40,6 +40,7 @@
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
+#include "feature/common/VanillaItems.h"
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/kinetics/Kinetics.h"
@@ -63,6 +64,10 @@ constexpr char kCarrier[] = "assembly:arm";
 
 // ---- interaction point types (Create's ArmInteractionPointType registry) ------------------------
 
+/// Create's BeltFunnelBlock.Shape.PUSHING in a funnel's `levitate:shape` (U12's kBeltPushing in
+/// feature/funnels/FunnelsInternal.h, a header internal to that unit).
+constexpr int kBeltFunnelPushing = 3;
+
 enum class PointType {
     Basin,
     Belt,
@@ -74,6 +79,7 @@ enum class PointType {
     Depot,
     Funnel,
     Millstone,
+    Packager,
     Saw,
     Campfire,
     Composter,
@@ -100,6 +106,8 @@ std::optional<PointType> typeOf(BlockSource& region, BlockPos const& pos) {
         {"levitate:andesite_funnel",           PointType::Funnel        },
         {"levitate:brass_funnel",              PointType::Funnel        },
         {"levitate:millstone",                 PointType::Millstone     },
+        {"levitate:packager",                  PointType::Packager      },
+        {"levitate:repackager",                PointType::Packager      },
         {"levitate:mechanical_saw",            PointType::Saw           },
         {"minecraft:campfire",                 PointType::Campfire      },
         {"minecraft:soul_campfire",            PointType::Campfire      },
@@ -109,8 +117,16 @@ std::optional<PointType> typeOf(BlockSource& region, BlockPos const& pos) {
     };
     auto it = ids.find(id);
     if (it == ids.end()) return std::nullopt;
-    // Create: only saws facing up are points
-    if (it->second == PointType::Saw && detail::intState(block, "levitate:facing").value_or(1) != 1) return std::nullopt;
+    // Create's SawType: only saws facing up that turn
+    if (it->second == PointType::Saw) {
+        if (detail::intState(block, "levitate:facing").value_or(1) != 1) return std::nullopt;
+        if (kinetics::speedAt(game::globalPos(region, pos)) == 0) return std::nullopt;
+    }
+    // Create's FunnelType: not an extracting funnel, not a belt funnel pushing onto its belt
+    if (it->second == PointType::Funnel) {
+        if (detail::intState(block, "levitate:extracting").value_or(0) != 0) return std::nullopt;
+        if (detail::intState(block, "levitate:shape").value_or(0) == kBeltFunnelPushing) return std::nullopt;
+    }
     return it->second;
 }
 
@@ -129,6 +145,9 @@ std::pair<core::assembly::Vec3f, Face> interactionTarget(PointType type, BlockPo
     case PointType::Funnel:
     case PointType::Chute:
         y = 0.5 + 6 / 16.0;
+        break;
+    case PointType::Packager: // Create's ArmInteractionPoint: the centre of the block
+        y = 0.5;
         break;
     default:
         break;
@@ -295,6 +314,24 @@ std::vector<Point> listOf(Runtime const& r, bool take) {
 bool ceilingOf(BlockSource& region, GlobalPos const& pos) {
     return detail::intState(region.getBlock(game::blockPos(pos)), "levitate:ceiling").value_or(0) != 0;
 }
+
+/// Vanilla clients: the held item as a client-only item entity under the claw of the block model
+/// (Create's ArmRenderer draws it between the moving claws; the client mod does that).
+struct VanillaView {
+    VanillaView() {
+        common::vanillaitems::registerSource([](std::vector<common::vanillaitems::Shown>& out) {
+            for (auto const& [pos, r] : st().runtimes) {
+                if (items::isEmpty(r.held)) continue;
+                auto* region = detail::regionOf(pos.dim);
+                if (!region || !region->hasChunksAt(game::blockPos(pos), 0, false)) continue;
+                if (region->getBlock(game::blockPos(pos)).getTypeName() != kArmId) continue;
+                // the model's head hangs over the north edge, 16..20 px up (flipped on a ceiling)
+                float y = ceilingOf(*region, pos) ? .05f : .7f;
+                out.push_back({pos, 0, items::withCount(r.held, 1), Vec3{pos.x + .5f, pos.y + y, pos.z + .5f - 7 / 16.f}});
+            }
+        });
+    }
+} const gVanillaView;
 
 /// The point currently chased (Create's getTargetedInteractionPoint).
 std::optional<Point> targeted(Runtime const& r) {

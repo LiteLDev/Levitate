@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:chain_from_zinc"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "S",
+      "C",
+      "S"
+    ],
+    "key": {
+      "S": {
+        "item": "levitate:zinc_nugget"
+      },
+      "C": {
+        "item": "levitate:zinc_ingot"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:zinc_ingot"
+      }
+    ],
+    "result": {
+      "item": "minecraft:iron_chain",
+      "count": 1
+    }
+  }
+}

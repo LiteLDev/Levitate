@@ -8,7 +8,7 @@
       "crafting_table"
     ],
     "pattern": [
-      " T",
+      "  T",
       "RCT",
       "SSS"
     ],
@@ -26,14 +26,14 @@
         "item": "minecraft:stone"
       }
     },
-    "result": {
-      "item": "levitate:pulse_extender",
-      "count": 1
-    },
     "unlock": [
       {
         "item": "minecraft:redstone_torch"
       }
-    ]
+    ],
+    "result": {
+      "item": "levitate:pulse_extender",
+      "count": 1
+    }
   }
 }

@@ -23,14 +23,14 @@
         "item": "minecraft:granite"
       }
     },
-    "result": {
-      "item": "levitate:powered_toggle_latch",
-      "count": 1
-    },
     "unlock": [
       {
         "item": "minecraft:redstone_torch"
       }
-    ]
+    ],
+    "result": {
+      "item": "levitate:powered_toggle_latch",
+      "count": 1
+    }
   }
 }

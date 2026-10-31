@@ -8,9 +8,9 @@
       "crafting_table"
     ],
     "pattern": [
-      " B ",
-      " C ",
-      " I "
+      "B",
+      "C",
+      "I"
     ],
     "key": {
       "B": {
@@ -23,14 +23,14 @@
         "item": "levitate:shaft"
       }
     },
-    "result": {
-      "item": "levitate:windmill_bearing",
-      "count": 1
-    },
     "unlock": [
       {
         "item": "levitate:shaft"
       }
-    ]
+    ],
+    "result": {
+      "item": "levitate:windmill_bearing",
+      "count": 1
+    }
   }
 }
