@@ -143,6 +143,8 @@ bool clear(GlobalPos const& p);
 /// Registers powered placards as signal sources of the shared redstone input (common/Redstone.h).
 void registerPlacardSignal();
 void playSound(GlobalPos const& p, std::string const& sound, float volume = 1.f, float pitch = 1.f);
+/// The place sound of `material`'s sound type (the game's Place sound event).
+void playMaterialPlaceSound(GlobalPos const& p, Block const& material);
 void particle(GlobalPos const& p, std::string const& effect);
 /// Drops `count` items of `id` at the centre of `p`.
 void drop(GlobalPos const& p, ItemStack const& item);
@@ -179,6 +181,8 @@ bool onAttack(Player& player, GlobalPos const& pos);
 void onBlockChanged(GlobalPos const& pos, Block const& previous, Block const& now);
 /// Remembers that a player in creative mode broke the block at `pos` (no drops for door halves).
 void notePlayerBreak(GlobalPos const& pos, bool creative);
+/// Whether a creative player broke the block at `pos` this tick.
+[[nodiscard]] bool creativeBreakAt(GlobalPos const& pos);
 
 void tick();
 void loadWorld();
@@ -236,6 +240,19 @@ bool removeBracket(Player* player, GlobalPos const& pos);
 [[nodiscard]] std::optional<std::string> copycatMaterial(GlobalPos const& pos);
 /// The copycat's material with its states (nullptr when none is applied).
 [[nodiscard]] Block const* copycatMaterialBlock(GlobalPos const& pos);
+
+// harvesting (Harvest.cpp): Create's requiresCorrectToolForDrops per building block
+enum class HarvestNeed : std::uint8_t { None, Pickaxe, AxeOrPickaxe, StonePickaxe };
+[[nodiscard]] HarvestNeed harvestNeedOf(Info const& info);
+[[nodiscard]] bool        toolHarvests(HarvestNeed need, ItemStack const& tool);
+/// Whether breaking the block with `tool` drops it (a copycat with a material: the material's rule).
+[[nodiscard]] bool canHarvest(Info const& info, Block const* copycatMaterial, ItemStack const& tool);
+/// The client mod's lookup of the copycat material at a position (its own player's mining speed).
+[[nodiscard]] std::function<Block const*(BlockPos const&)>& clientCopycatMaterial();
+/// Create's CopycatBlockEntity.updateLight: the light (0..15) of a copycat with `material` (none: 0).
+[[nodiscard]] int copycatLightOf(Block const* material);
+/// Sets the copycat's levitate:light state to its material's light.
+void syncCopycatLight(GlobalPos const& pos);
 [[nodiscard]] std::optional<std::string> bracketAt(GlobalPos const& pos);
 /// The bracket document {id, facing, axis, cog} (nullptr when none).
 [[nodiscard]] nlohmann::json const* bracketData(GlobalPos const& pos);

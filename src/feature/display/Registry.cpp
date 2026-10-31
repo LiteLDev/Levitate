@@ -9,6 +9,7 @@
 #include "mc/world/level/block/Block.h"
 
 #include "feature/display/Internal.h"
+#include "mod/I18n.h"
 #include "game/Blocks.h"
 
 namespace lv::feature::display {
@@ -78,28 +79,17 @@ void notifyGatherers(GlobalPos const& source) { link::notify(source); }
 void itemsPassed(GlobalPos const& source, int count) { link::itemsPassed(source, count); }
 
 std::string formatValue(long long value, bool shortened) {
-    // Create's ValueListDisplaySource: shortened values use "k" / "m" with one decimal
-    if (!shortened || std::llabs(value) < 1000) return std::to_string(value);
-    double      v      = static_cast<double>(value);
-    char const* suffix = "k";
-    if (std::llabs(value) >= 1000000) {
-        v /= 1000000.0;
-        suffix = "m";
-    } else {
-        v /= 1000.0;
-    }
-    char buf[32];
-    if (std::fabs(v) >= 100) std::snprintf(buf, sizeof buf, "%.0f%s", std::floor(v), suffix);
-    else std::snprintf(buf, sizeof buf, "%.1f%s", std::floor(v * 10) / 10, suffix);
-    std::string s = buf;
-    if (auto dot = s.find(".0"); dot != std::string::npos && dot + 2 == s.size() - 1) s.erase(dot, 2);
-    return s;
+    // Create's ValueListDisplaySource.shorten: integer division, "k" / "m"
+    if (!shortened) return std::to_string(value);
+    if (value >= 1000000) return std::to_string(value / 1000000) + tr("create.display_source.value_list.million", "m");
+    if (value >= 1000) return std::to_string(value / 1000) + tr("create.display_source.value_list.thousand", "k");
+    return std::to_string(value);
 }
 
 std::string progressBar(double level, int width) {
     width      = std::max(1, width);
     level      = std::clamp(level, 0.0, 1.0);
-    int filled = static_cast<int>(std::round(level * width));
+    int filled = static_cast<int>(level * width); // Create: (int) (currentLevel * length)
     std::string s;
     for (int i = 0; i < width; ++i) s += i < filled ? "\xE2\x96\x88" : "\xE2\x96\x92"; // █ ▒
     return s;

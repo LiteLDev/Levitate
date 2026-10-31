@@ -272,4 +272,17 @@ std::string frequencyKey(std::string_view first, std::string_view second) {
     return std::string(first) + "|" + std::string(second);
 }
 
+Vec3f lavaBootsMultiplier(double yMotion, bool onGround, bool jumping, bool sprinting, bool eyeInLava, bool& lavaGrounded) {
+    double v = yMotion < 0 ? std::max(0.0, 2.5 - std::abs(yMotion) * 2) : 1;
+    if (!onGround) {
+        if (jumping && lavaGrounded) v = yMotion == 0 ? 0 : (eyeInLava ? 1 : 0.5) / yMotion;
+        else if (yMotion > 0) v = 1.3;
+        lavaGrounded = false;
+        return {1.75, v, 1.75};
+    }
+    lavaGrounded = true;
+    double h     = sprinting ? 1.85 : 1.75;
+    return {h, v, h};
+}
+
 } // namespace lv::core::equipment

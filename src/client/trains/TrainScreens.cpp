@@ -98,6 +98,16 @@ private:
             auto const& t = mData["train"];
             nameField(Rect{8, y - 1, 204, 13}, t.value("name", std::string()), 35, "train_name", ctr("lv.trains.train_name", "Train Name"));
             y += 15;
+            // Create's AssemblyScreen icon type selector (traditional, electric, modern)
+            {
+                std::string icon  = t.value("icon", std::string("traditional"));
+                int         index = icon == "electric" ? 1 : icon == "modern" ? 2 : 0;
+                auto&       pick  = add<ScrollInput>(Rect{8, y, 204, 14}, ctr("create.station.icon_type", "Icon Type"), 0, 2, index, [this](int v) {
+                    mSend({{"op", "icon"}, {"value", v}});
+                });
+                pick.options = {ctr("lv.trains.icon.traditional", "Traditional"), ctr("lv.trains.icon.electric", "Electric"), ctr("lv.trains.icon.modern", "Modern")};
+                y += 17;
+            }
             bool can = t.value("canDisassemble", false);
             button(8, y, 120, ctr("create.station.disassemble_train", "Disassemble Train"), {{"op", "disassemble"}},
                    can ? std::vector<std::string>{} : std::vector<std::string>{ctr("create.station.train_not_aligned", "Cannot disassemble,"), ctr("create.station.train_not_aligned_1", "not all carriages aligned")},
@@ -281,6 +291,21 @@ private:
                 else f.tooltip = {ctr(base + "_1", "Use * as a text wildcard"), ctr(base + "_2", "Example: 'My Station, Platform *'"), ctr(base + "_3", "Train picks nearest unoccupied match")};
                 mFields.push_back(&f);
                 y += 18;
+                // Create's DestinationSuggestions: the station names, nearest first
+                auto const& names = mData.value("stations", Json::array());
+                if (path == "destination" && names.is_array() && !names.empty()) {
+                    std::vector<std::string> options;
+                    for (auto const& n : names)
+                        if (n.is_string()) options.push_back(n.get<std::string>());
+                    auto* box   = &f;
+                    auto& pick  = add<ScrollInput>(Rect{8, y, 240, 14}, ctr("lv.trains.station_suggestions", "Station suggestions"), 0, int(options.size()) - 1, 0, [this, box, options](int v) {
+                        if (!mEdit || v < 0 || v >= int(options.size())) return;
+                        field()["Text"] = options[size_t(v)];
+                        box->text       = options[size_t(v)];
+                    });
+                    pick.options = options;
+                    y += 18;
+                }
             }
             if (path == "throttle") {
                 auto& t  = add<ScrollInput>(Rect{8, y, 240, 14}, ctr("create.schedule.instruction.throttle_edit_box", "Throttle"), 1, 20, std::clamp(intOf("Value", 100) / 5, 1, 20), [this](int v) {

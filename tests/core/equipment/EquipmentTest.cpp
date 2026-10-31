@@ -324,3 +324,21 @@ TEST(Shaper, ClusterEdgesOutlineTheShape) {
     EXPECT_GT(l.size(), 12u);
     EXPECT_TRUE(clusterEdges({}).empty());
 }
+
+TEST(DivingBoots, LavaMultiplier) {
+    bool grounded = false;
+    // on the ground: 1.75 (1.85 sprinting), sinking damped by 2.5 - 2|y|, and the marker is set
+    auto g = lavaBootsMultiplier(-0.1, true, false, false, false, grounded);
+    EXPECT_DOUBLE_EQ(g.x, 1.75);
+    EXPECT_DOUBLE_EQ(g.y, 2.3);
+    EXPECT_TRUE(grounded);
+    EXPECT_DOUBLE_EQ(lavaBootsMultiplier(0, true, false, true, false, grounded).z, 1.85);
+    // a jump from the ground: the rise becomes 1 (eye in lava) or 0.5 blocks per tick
+    auto j = lavaBootsMultiplier(0.2, false, true, true, true, grounded);
+    EXPECT_DOUBLE_EQ(j.x, 1.75);
+    EXPECT_DOUBLE_EQ(j.y * 0.2, 1.0);
+    EXPECT_FALSE(grounded);
+    // rising in the air afterwards: x1.3; falling fast: no damping below zero
+    EXPECT_DOUBLE_EQ(lavaBootsMultiplier(0.1, false, false, false, false, grounded).y, 1.3);
+    EXPECT_DOUBLE_EQ(lavaBootsMultiplier(-2.0, false, false, false, false, grounded).y, 0.0);
+}

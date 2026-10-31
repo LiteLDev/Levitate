@@ -308,6 +308,7 @@ LL_TYPE_INSTANCE_HOOK(EquipmentCardboardTargetHook, ll::memory::HookPriority::No
 }
 
 // CardboardSwordItem#supportsEnchantment / #isBookEnchantable: Knockback only.
+// PotatoCannonItem#supportsEnchantment: every bow enchantment but Infinity.
 LL_STATIC_HOOK(
     EquipmentCardboardEnchantHook,
     ll::memory::HookPriority::Normal,
@@ -322,10 +323,16 @@ LL_STATIC_HOOK(
         fail.result = EnchantResultType::Fail;
         return fail;
     }
+    if (!item.isNull() && item.getTypeName() == eq::kPotatoCannon && enchant.mEnchantType == Enchant::Type::Infinity) {
+        EnchantResult fail{};
+        fail.result = EnchantResultType::Fail;
+        return fail;
+    }
     return origin(item, enchant, allowNonVanilla);
 }
 
-// The enchanting table only offers Knockback for the cardboard sword.
+// The enchanting table only offers Knockback for the cardboard sword, and no Infinity for the
+// potato cannon.
 LL_STATIC_HOOK(
     EquipmentCardboardSelectHook,
     ll::memory::HookPriority::Normal,
@@ -341,6 +348,10 @@ LL_STATIC_HOOK(
     if (item && item->mFullName->getString() == eq::kCardboardSword) {
         auto& lists = out.mItemEnchants.get();
         for (auto& l : lists) std::erase_if(l, [](EnchantmentInstance const& e) { return e.mEnchantType != Enchant::Type::Knockback; });
+    }
+    if (item && item->mFullName->getString() == eq::kPotatoCannon) {
+        auto& lists = out.mItemEnchants.get();
+        for (auto& l : lists) std::erase_if(l, [](EnchantmentInstance const& e) { return e.mEnchantType == Enchant::Type::Infinity; });
     }
     return out;
 }

@@ -34,5 +34,8 @@
   "lv.packages.postbox": "Postbox",
   "lv.packages.frogport": "Package Frogport",
   "create.packager_link.set": "Target selected",
-  "create.clipboard.address_added": "Added '{}' to clipboard"
+  "create.clipboard.address_added": "'{}' added to Clipboard",
+  "item.create.package_filter.tooltip.summary": "_Matches packaged items_ by their targeted _address_. Can be used in _Filter Slots_ of Create's Components",
+  "item.create.package_filter.tooltip.condition1": "When R-Clicked",
+  "item.create.package_filter.tooltip.behaviour1": "Opens the _configuration interface_."
 }

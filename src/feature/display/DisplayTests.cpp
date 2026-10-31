@@ -82,10 +82,13 @@ ItemStack clipboardWith(Context& ctx, std::vector<std::string> const& texts) {
 
 LV_REGISTER_SELFTEST("display.format", [](Context& ctx) {
     ctx.check(dsp::formatValue(999, true) == "999", "999 stays");
-    ctx.check(dsp::formatValue(1234, true) == "1.2k", "1234 -> 1.2k, got " + dsp::formatValue(1234, true));
-    ctx.check(dsp::formatValue(1500000, true) == "1.5m", "1500000 -> 1.5m");
+    // Create's ValueListDisplaySource.shorten: integer division
+    ctx.check(dsp::formatValue(1234, true) == "1k", "1234 -> 1k, got " + dsp::formatValue(1234, true));
+    ctx.check(dsp::formatValue(1500000, true) == "1m", "1500000 -> 1m, got " + dsp::formatValue(1500000, true));
+    ctx.check(dsp::formatValue(999999, true) == "999k", "999999 -> 999k");
     ctx.check(dsp::formatValue(1234, false) == "1234", "full numbers");
     ctx.check(dsp::progressBar(0.5, 4) == "\xE2\x96\x88\xE2\x96\x88\xE2\x96\x92\xE2\x96\x92", "half bar");
+    ctx.check(dsp::progressBar(0.99, 4) == "\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x92", "the bar truncates (Create: (int) level * length)");
     ctx.check(dsp::board::maxChars(1) == 4 && dsp::board::maxChars(2) == 8 && dsp::board::maxChars(3) == 13 && dsp::board::maxChars(32) == 145,
               "Create's character counts per width");
     ctx.check(dsp::nixie::idFor(1) == "levitate:nixie_tube" && dsp::nixie::idFor(14) == "levitate:red_nixie_tube", "nixie ids");
@@ -150,18 +153,21 @@ LV_REGISTER_SELFTEST("display.board_lines", [](Context& ctx) -> ll::coro::CoroTa
     ctx.require(s.has_value(), "structure");
     dsp::board::setLine(r, s->controller, 0, "Hello, world!", true);
     ctx.check(dsp::board::lineText(s->controller, 0) == "Hello, w", "line truncated to 8 characters, got " + dsp::board::lineText(s->controller, 0));
-    // a clipboard writes its entries from the clicked line down
-    auto clip = clipboardWith(ctx, {"AB", "CD"});
-    auto& pl  = ctx.player();
-    bool used = dsp::board::use(pl, r, s->controller, 3, Vec3{0.5f, 0.75f, 1.0f}, clip);
-    ctx.check(used, "clipboard used on the board");
-    ctx.check(dsp::board::lineText(s->controller, 0) == "AB" && dsp::board::lineText(s->controller, 1) == "CD", "clipboard lines written");
-    // dye and clearing need the board to turn (Create: medium speed)
-    auto dye = items::make("minecraft:red_dye");
-    ctx.check(!dsp::board::use(pl, r, s->controller, 3, Vec3{0.5f, 0.75f, 1.0f}, *dye), "a stopped board refuses dye");
+    dsp::board::setLine(r, s->controller, 1, "cd", true);
+    // Create's FlapDisplayBlock.useItemOn: a clipboard (and a name tag) needs the board turning
+    // (medium speed), dye works on a stopped board too
     ctx.check(!dsp::board::running(s->controller), "not running without rotation");
+    auto clip = clipboardWith(ctx, {"XY"});
+    auto& pl  = ctx.player();
+    ctx.check(!dsp::board::use(pl, r, s->controller, 3, Vec3{0.5f, 0.75f, 1.0f}, clip), "a stopped board refuses a clipboard");
+    ctx.check(dsp::board::lineText(s->controller, 0) == "Hello, w", "the line keeps its text");
+    auto dye = items::make("minecraft:red_dye");
+    ctx.check(dsp::board::use(pl, r, s->controller, 3, Vec3{0.5f, 0.75f, 1.0f}, *dye), "a stopped board takes dye");
     auto st = dsp::board::state(s->controller);
-    ctx.check(st.size() == 2 && st[0].value("m", false), "two manual lines");
+    ctx.check(st.size() == 2 && st[0].value("m", false) && st[0].value("c", -1) == 14, "the first line is red");
+    // Create's FlapDisplaySection.refresh: the flaps show upper case (formatting codes kept)
+    ctx.check(dsp::board::flapText("Hello, w") == "HELLO, W", "flaps in upper case");
+    ctx.check(dsp::board::flapText("\xC2\xA7" "a\xC3\xA9t\xC3\xA9") == "\xC2\xA7" "a\xC3\x89T\xC3\x89", "accents up, codes kept");
 });
 
 LV_REGISTER_SELFTEST("display.nixie_row", [](Context& ctx) -> ll::coro::CoroTask<> {
@@ -214,8 +220,12 @@ LV_REGISTER_SELFTEST("display.link_transfer", [](Context& ctx) -> ll::coro::Coro
     auto src = dsp::link::sourcePos(r, link);
     ctx.check(src && *src == p, "the link reads the block below");
     dsp::link::selectSource(link, "nixie_tube");
-    ctx.check(dsp::link::update(link), "update transfers");
     auto ctrl = dsp::board::structureOf(r, boardAt)->controller;
+    // Create's DisplayBoardTarget: a board that doesn't turn ignores links
+    ctx.check(dsp::link::update(link) || true, "update");
+    ctx.check(dsp::board::lineText(ctrl, 0).empty(), "a stopped board shows nothing from a link");
+    dsp::board::forceRunning(ctrl, true);
+    ctx.check(dsp::link::update(link), "update transfers");
     ctx.check(dsp::board::lineText(ctrl, 0) == "42", "board line 0 shows 42, got '" + dsp::board::lineText(ctrl, 0) + "'");
     // a nixie change notifies the link at once (Create's notifyGatherers)
     dsp::nixie::displayCustomText(r, p, "77");
@@ -236,6 +246,7 @@ LV_REGISTER_SELFTEST("display.link_transfer", [](Context& ctx) -> ll::coro::Coro
     dsp::link::write(link, *d);
     dsp::link::update(link);
     ctx.check(dsp::board::lineText(ctrl, 1) == "13", "line 1 written");
+    dsp::board::forceRunning(ctrl, false);
 });
 
 LV_REGISTER_SELFTEST("display.sign_target", [](Context& ctx) -> ll::coro::CoroTask<> {
@@ -270,6 +281,7 @@ LV_REGISTER_SELFTEST("display.link_screen", [](Context& ctx) -> ll::coro::CoroTa
     placeBoards(ctx, boardAt, 1, 2, 0);
     auto link = up(p, 1);
     ctx.require(placeLink(ctx, link, "up", boardAt), "place the link");
+    dsp::board::forceRunning(dsp::board::structureOf(r, boardAt)->controller, true); // a turning board
     net::setTestCompanion(pl, true);
     (void)net::takeTestMessages(pl);
     dsp::link::openScreen(pl, link);
@@ -288,6 +300,7 @@ LV_REGISTER_SELFTEST("display.link_screen", [](Context& ctx) -> ll::coro::CoroTa
     ctx.check(d && d->sourceId == "nixie_tube" && d->line == 2, "source and line set by screen actions");
     auto ctrl = dsp::board::structureOf(r, boardAt)->controller;
     ctx.check(dsp::board::lineText(ctrl, 2) == "0", "the configured link wrote line 3 ('0' redstone), got '" + dsp::board::lineText(ctrl, 2) + "'");
+    dsp::board::forceRunning(ctrl, false);
     net::setTestCompanion(pl, false);
 });
 
@@ -394,4 +407,39 @@ LV_REGISTER_SELFTEST("display.link_item", [](Context& ctx) -> ll::coro::CoroTask
     ctx.check(d && d->targetOffset == std::array<int, 3>{0, 0, -2}, "bound to the board");
     auto src = dsp::link::sourcePos(r, link);
     ctx.check(src && *src == at(p, 0, 0, 2), "attached to the stone");
+});
+
+// U57 (T16 / T15): Create's boiler, elevator location, package address sources and the sources of
+// the smart observer and threshold switch (block ids content_observer / stockpile_switch)
+LV_REGISTER_SELFTEST("display.u57_sources", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = up(ctx.testPos(5780), 1);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    auto& r = region(ctx);
+    struct Case {
+        char const* block;
+        char const* source;
+    };
+    int i = 0;
+    for (auto c : {Case{"levitate:fluid_tank", "boiler"}, Case{"levitate:elevator_contact", "current_floor"},
+                   Case{"levitate:content_observer", "read_package_address"}, Case{"levitate:content_observer", "count_items"},
+                   Case{"levitate:stockpile_switch", "fill_level"}}) {
+        auto q = at(p, 2 * i++, 0, 0);
+        ctx.require(ctx.setBlock(q, c.block), std::string("place ") + c.block);
+        bool found = false;
+        for (auto const* s : dsp::sourcesAt(r, q)) found |= s->id == c.source;
+        ctx.check(found, std::string(c.block) + " offers " + c.source);
+    }
+    // the elevator location is the floor the contact last reported (the pistons unit's BlockData)
+    auto contact = at(p, 2, 0, 0);
+    lv::feature::common::blockdata::edit(contact)["pistons"]["floor"] = "B2";
+    auto const* src = static_cast<dsp::Source const*>(nullptr);
+    for (auto const* s : dsp::sourcesAt(r, contact))
+        if (s->id == "current_floor") src = s;
+    ctx.require(src != nullptr, "the elevator contact source");
+    JsonT               cfg = JsonT::object();
+    dsp::Context        dc{r, at(contact, 0, 1, 0), contact, at(contact, 0, 2, 0), cfg, 0};
+    dsp::TargetStats    st{1, 16, "sign"};
+    auto lines = src->text(dc, st);
+    ctx.check(lines.size() == 1 && lines[0] == "B2", "the source shows the reported floor");
+    co_return;
 });

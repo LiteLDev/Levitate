@@ -178,6 +178,8 @@ void resetBacktanks();
 void installBacktanks();
 /// Armour toughness of the netherite diving pieces an actor wears (Create: 3 per piece).
 [[nodiscard]] int netheriteToughness(Actor const& a);
+/// Create's diving helmets have Aqua Affinity I built in (DivingHelmetItem#getEnchantmentLevel).
+[[nodiscard]] bool hasAquaAffinityHelmet(Actor const& a);
 /// The Mob::getToughnessValue hook adding it.
 void hookToughness(bool on);
 
@@ -210,9 +212,14 @@ struct ProjectileInfo {
 };
 /// The projectiles in flight (selftests).
 [[nodiscard]] std::vector<ProjectileInfo> projectiles();
+struct Vec3d {
+    double x = 0, y = 0, z = 0;
+};
+/// Create's ShootableGadgetItemMethods#getGunBarrelVec: a point in front of the player's held gadget.
+[[nodiscard]] Vec3d gunBarrel(Player& player, bool mainHand, double lx, double ly, double lz);
 /// Launches one projectile as the cannon of `owner` does (selftests: collisions, stuck projectiles).
 std::int64_t launchProjectile(int dim, double x, double y, double z, double vx, double vy, double vz, std::string const& ammoId,
-                              std::int64_t owner, double recoveryChance);
+                              std::int64_t owner, double recoveryChance, int aux = 0);
 
 // ---- enchantments (Enchants.cpp) ----------------------------------------------------------------------
 /// Create's enchantments, kept in the item's user data (`lv:enchants`: {"capacity": L, "potato_recovery": L})
@@ -251,7 +258,13 @@ void installWand();
 
 // ---- worldshaper (Worldshaper.cpp) -----------------------------------------------------------
 bool shaperUse(Player& player, ItemStack& shaper);
+/// A left click on a block with the worldshaper (always denies breaking it; picks the material).
 bool shaperSelect(Player& player, ItemStack& shaper, GlobalPos const& pos);
+/// Create's ZapperInteractionHandler#trySelect: picks the block looked at within 128 blocks as the
+/// material (block clicks and left clicks into the air). True when the material changed.
+bool shaperPick(Player& player, ItemStack& shaper);
+/// Create's zapper beam: particles from the barrel to the hit point and the zap sound.
+void zapBeam(Player& player, double x, double y, double z);
 /// Applies the worldshaper settings at a block face (Create's WorldshaperItem.activate); returns the changed blocks.
 int shapeAt(Player& player, core::equipment::ShaperSettings const& st, GlobalPos const& target, int face);
 /// The material block of the settings (nullptr: none).
@@ -271,6 +284,9 @@ inline constexpr char kBellPart[]       = "levitate:part";       ///< 1: frame o
 /// Create's AbstractBellBlock#ring: rings the bell at `pos` as hit from `direction` (FacingID; the
 /// swing turns about the axis across it). False when it can't (a haunted bell recharging).
 bool ringBell(GlobalPos const& pos, int direction, Player* player);
+/// Create's AbstractBellBlock#onHit (a projectile hit on face `face` at `height` 0..1 in the block):
+/// rings the bell when the hit lands on a side it rings from.
+bool bellHit(GlobalPos const& pos, int face, double height, Player* player);
 /// The ringing state of a bell (Create's AbstractBellBlockEntity / HauntedBellBlockEntity).
 struct BellInfo {
     bool ringing      = false;
@@ -308,6 +324,8 @@ bool cardboardBonk(Player& attacker, Actor& target);
 bool controllerUse(Player& player, ItemStack& held);
 bool controllerUseOn(Player& player, ItemStack& held, GlobalPos const& pos);
 bool lecternUse(Player& player, ItemStack& held, GlobalPos const& pos);
+/// Create's LecternControllerBlockEntity.playerInRange (eye within 0.4 x the interaction range).
+[[nodiscard]] bool lecternInRange(Player const& player, GlobalPos const& pos);
 /// Button presses from a controller in hand or on a lectern (client mod messages / polled input).
 void controllerButtons(Player& player, std::array<bool, 6> const& pressed, std::optional<GlobalPos> lectern);
 [[nodiscard]] bool controllerActive(Player const& player);

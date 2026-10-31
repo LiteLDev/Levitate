@@ -1704,7 +1704,9 @@ names come from `tools/gen/materials.names.tsv` (Create's en_US / zh_CN wording)
   drink, 42 ticks, stacks to 16, gives the bottle back, Haste I for 3 min without particles / icon).
   Blaze cake burns 320 s in a furnace, cardboard 50 s, creative blaze cake forever.
 - **Experience nugget**: use = the whole stack (one when sneaking) turns into 3 xp per nugget, in
-  one orb (one nugget) or up to 5 orbs of `1 + total/5`. Log `<player> used N experience nugget(s)`.
+  one orb (one nugget) or up to 5 orbs of `1 + total/5`, thrown from in front of the eyes along the
+  look (look × 0.2 + (0, 0.2, 0) + a random 0.1), with the amethyst break sound for the user (0.5).
+  Log `<player> used N experience nugget(s)`.
 - **Chromatic compound** (dropped, Create's legacy item; config §5): falling into the void
   (y < min, falling > 10 blocks per tick) turns the stack into shadow steel (thrown up by
   `(fall distance + 3)/50`); half of the ticks it picks a random block within 3: a light source in
@@ -1712,8 +1714,12 @@ names come from `tools/gen/materials.names.tsv` (Create's en_US / zh_CN wording)
   `lv:chromatic_compound.light`; a charged compound stacks to 1, the client mod draws Create's charge
   bar: width round(13 · light / N), colour 0x413c69 → white); a belt segment or depot picked instead
   gives up one item of the first carried stack whose block emits light; at `lightSourceCountForRefinedRadiance` (10) charges it becomes refined
-  radiance (+0.25 up); over an active beacon the whole stack becomes refined radiance. Shadow steel
-  and refined radiance float (gravity cancelled) and shed end rod particles.
+  radiance (+0.25 up); over an active beacon (checked every tick) the whole stack becomes refined
+  radiance. Shadow steel and refined radiance float (gravity cancelled) and shed end rod particles
+  (chance `clamp(count − 10, 5, 100) / 64` per tick, falling 0.1 per tick); a converted item bursts
+  with a flash, 20 witch and 20 end rod particles upwards, and a charged compound draws end rod
+  particles in from 3 blocks around it (chance light / (N + 20)). The client mod draws these with
+  their motion (`materials.created`); vanilla players get still particles (U59).
 - **World generation** (`src/core/materials/WorldGen.*`, gtest): run natively when a chunk is
   decorated (overworld multinoise and nether generators): zinc = vanilla OreFeature (size 12,
   stone → zinc ore, deepslate / tuff → deepslate zinc ore, origin must be below the ocean floor
@@ -1801,8 +1807,10 @@ the block-changed event: the position and its neighbours are re-evaluated at the
   the block it hangs on for 19 ticks (`minecraft:redstone_producer`), a non-matching item plays the deny
   sound. Punching gives the item back; breaking drops it.
 - **Copycats**: panel (3 px on the side looked at, `facing`) and step (half block, `facing`, `top`).
-  Using a full, solid, non-container block item applies it as the material (one item used, kept for
-  dropping) in its default state turned to the clicked face (FACING / HORIZONTAL_FACING / AXIS), or
+  Using a block item applies it as the material (Create's getAcceptedBlockState: a barrel always
+  (#copycat_allow); otherwise not cauldrons, saplings, climbables (#copycat_deny), blocks with a
+  block entity, stairs, or blocks that aren't full and solid; one item used, kept for dropping, the
+  material's place sound) in its default state turned to the clicked face (FACING / HORIZONTAL_FACING / AXIS), or
   in the exact state of a neighbouring identical copycat with the same material; using the same
   block again turns it (Create's cycleMaterial: FACING, HORIZONTAL_FACING clockwise, AXIS, LIT; item
   frame sound); a different material is refused while one is applied; the wrench resets it. The
@@ -1828,7 +1836,14 @@ the block-changed event: the position and its neighbours are re-evaluated at the
   `placementAssistRange` = 12 steps, +4 with the extendo grip), with its facing and half. While a
   player of the client mod holds one and looks at one of its kind, the copycat the click would add
   is drawn as a breathing ghost there (Create's PlacementClient ghost).
-- Selftests `building.*` (dx 1000..1099; U43 additions 4350..4399; U48 4870..4899), e2e
+- **Harvesting** (U59, Create's requiresCorrectToolForDrops inherited from the copied block):
+  casings (railway casing too) need an axe or pickaxe; bars, metal table cloths, sliding doors,
+  trapdoors, girders and the placard a pickaxe; copper shingles / tiles (stairs, slabs) a stone
+  pickaxe or better; other building blocks drop by hand. A copycat (Create's CopycatBlock) is
+  harvested by its material's rule (an empty one: axe or pickaxe), gives its material's light
+  (`levitate:light` 0..15), is as hard as gold when empty (3 / 6) and mined at its material's speed
+  by players with the client mod (§8); a creative player's break doesn't drop the material.
+- Selftests `building.*` (dx 1000..1099; U43 additions 4350..4399; U48 4870..4899; U59 5920..5939), e2e
   `tools/e2e/{server,client}/scenarios/building.ps1`; client parts in `src/client/building/`.
 
 #### 3.6.11 Belts, depots and weighted ejectors (U11)
@@ -3251,50 +3266,68 @@ source)` (vanilla block entities), `registerTarget(blockId, Target{id, stats, ac
 acceptSections, lineName})`, `registerTargetProvider`, `sourcesAt` / `targetAt`,
 `notifyGatherers(source)` (Create's DisplayLinkBlock.notifyGatherers: links reading that block send
 at once), `itemsPassed(source, count)` (tunnels report passing items for `item_throughput` /
-`accumulate_items`), `formatValue` (value lists: "1.2k", "3.4m"), `progressBar`. A registration
+`accumulate_items`), `formatValue` (Create's ValueListDisplaySource.shorten, integer division:
+1234 → "1k", 3456789 → "3m"), `progressBar` (filled length truncated). A registration
 with the same (block, source id) replaces an earlier one, so the owner of a block can refine a
 built-in source. `Context` gives the region, the link, source and target positions, the source's
 persisted `config` (Create's sourceConfig) and the game time.
 
 **Display link** (data `BlockData["display_link"]` = target offset, line, source id, config;
 positions in `lv:display:links`): every tick its timer grows; at the source's
-`getPassiveRefreshTicks` (default 100; stopwatch and item throughput 20) it resets and, unless the
-link is powered, reads the source and writes the target (`updateGatheredData`). Redstone: powered
+`getPassiveRefreshTicks` (default 100; stopwatch 20, accumulated items 200, observed train name 400,
+station summary / status 20) it resets and, unless the link is powered, reads the source and writes
+the target (`updateGatheredData`). A newly opened link screen starts at the block's first source
+(Create's screen does, and applies it when closed). Redstone: powered
 links send nothing; when the power goes the timer resets, the source's `onSignalReset` runs and the
 data is sent at once. The source is the block behind the link; a selected source the block no
 longer offers is deselected. Lines of a display board are *reserved* by the link that wrote them
-(another link skips them while that one still targets the board).
+(another link skips them while that one still targets the board). As Create's
+DisplayBoardTarget.acceptFlapText a board takes link text only while it turns fast enough; the first
+line is taken, the following ones stop at a line another link or a player wrote, and a multi-line
+source clears the lines below its text.
 
 **Sources** (ids, names and options as Create): speedometer `kinetic_speed` (Ignore / Include
-Direction, "64 RPM"), stressometer `kinetic_stress` (Progress Bar / Percentage / Stress in SU /
-Total Capacity / Remaining SU, "su"), cuckoo clocks `time_of_day` (12 / 24-hour, minutes rounded
-down to 5, "--:--" when the clock stands still, nonsense outside the overworld) and `stopwatch`
-(h:mm:ss since the last signal reset), smart observer `count_items` / `list_items` /
-`count_fluids` / `list_fluids` (contents of the observed block through U3's capabilities and the
-observer's filter slot), threshold switch `fill_level` (Percent / Progress Bar), belt / depot /
-weighted ejector `item_names`, tunnels `accumulate_items` / `item_throughput` (per second / minute /
-hour), seats `entity_name`, nixie tubes `nixie_tube`, and the vanilla `target` → `redstone_power`
-(Number / Progress Bar), `enchanting_table` → `enchant_power` (Max Enchanting Cost: twice the
-bookshelves, at least 1 + shelves / 2 ⚠ Create rolls Java's bottom-slot cost), command blocks →
-`scoreboard` (objective id, value list), `respawn_anchor` → `death_count` (Player Deaths, counted by
-Levitate). Every single-line source has Create's "Attached Label" option. Numbers use Create's
-formatting (up to 2 decimals, grouped thousands); units get a space on display boards only. Boiler
-status (U18), station summary / train status (U27), observed train name (U28), elevator floor
-(U20), factory gauge (U26) and package address (U25) are registered by those units.
+Direction, "64 RPM" with a space everywhere), stressometer `kinetic_stress` (Progress Bar / Percentage /
+Stress in SU / Total Capacity / Remaining SU, "su", a space on display boards), cuckoo clocks
+`time_of_day` (12 / 24-hour, hours padded with a space, minutes rounded down to 5, "--:--" when the
+clock stands still, nonsense outside the overworld) and `stopwatch` (h:mm:ss since the last signal
+reset), smart observer (block `content_observer`) `count_items` / `list_items` / `count_fluids` /
+`list_fluids` / `read_package_address` (contents of the observed block through U3's capabilities and
+the observer's filter slot; the address of the first matching package, else of the first matching
+package looping around a chain conveyor there, U25's `loopingPackages`), threshold switch (block
+`stockpile_switch`) `fill_level` (Percent / Progress Bar), fluid tanks `boiler` (Create's
+BoilerDisplaySource: "Boiler:  <level>" and the size / water / heat bars of U18's goggle lines; "Not
+enough space for Boiler Status" below 4 rows), elevator contacts `current_floor` (the floor the
+contact last reported, U20's BlockData), belt / depot / weighted ejector `item_names`, tunnels
+`accumulate_items` / `item_throughput` (per second / minute / hour; Create's pool of the last 10
+batch rates, 0 after twice the usual time without items), seats `entity_name`, nixie tubes
+`nixie_tube`, and the vanilla `target` → `redstone_power` (Number / Progress Bar),
+`enchanting_table` → `enchant_power` (Max Enchanting Cost: twice the bookshelves, at least 1 +
+shelves / 2 ⚠ Create rolls Java's bottom-slot cost), command blocks → `scoreboard` (objective id,
+value list, "name value"), `respawn_anchor` → `death_count` (Player Deaths, counted by Levitate:
+"name value", full numbers, no options). Every single-line source has Create's "Attached Label"
+option where Create has it. Counts are plain numbers; other numbers use Create's formatting (up to 2
+decimals, grouped thousands); percentages are truncated; fluids as Create's FluidFormatter ("1000
+mB"; lists "1.5B" with Shortened). Progress bars fill the target width minus the label (a sign: 6/9
+of it, a display board: wide flaps 7/9). Value lists put the value first except scoreboards and
+deaths; a lectern gets 8 entries per page. Station summary / train status (U27), observed train name
+(U28) and factory gauge (U26) are registered by those units.
 
 **Targets**: display board (2 lines per block row, `⌊(16·width − 2) / 3.5⌋` characters per line: 4,
 8, 13, 17, …, 145 at 32 wide), nixie tube row (1 line, 2 characters per tube), sign (4 lines,
-⚠ 15 characters, front side), lectern (one page per line, ⚠ 256 characters; a book and quill becomes
-a written book "Printed Book" by "Data Gatherer" ⚠).
+⚠ 15 characters, both sides as Create's SignDisplayTarget), lectern (one page per text, ⚠ 256
+characters; a book and quill becomes a written book "Printed Book" by "Data Gatherer" ⚠).
 
 **Display board** (data at the controller `BlockData["display_board"]`, controllers in
 `lv:display:boards`): the controller is the top block at the left end as seen from the front
 (Create: no UP flag, no identical neighbour clockwise); width up to 32 counter-clockwise, height
 down the DOWN flags; rows connect up / down only when the whole row matches. A size change keeps
 line colours and glow and clears the text. Right-click a line (hit point moved ⅛ block into the
-block; not sneaking): empty hand clears it (needs rotation), dye colours it (needs rotation; white
-resets to Create's default `#D3C6BA`), glow ink makes it glow, a named name tag writes its name, a
-clipboard writes the entries of its last viewed page (split at line breaks) from that line down.
+block; not sneaking): empty hand clears it (needs rotation), dye colours it (also on a stopped
+board; white resets to Create's default `#D3C6BA`), glow ink makes it glow, a named name tag writes its
+name and a clipboard the entries of its last viewed page (split at line breaks) from that line down
+(both need rotation, Create's FlapDisplayBlock.useItemOn). The flaps show upper case (Create's
+FlapDisplaySection.refresh; § colour codes kept).
 Every 10 ticks (Create's lazy tick) the state goes to companions (`display.board`); the client mod
 spins every character through Create's flap cycles (letters " ABCDEFGHIJKLMNOPQRSTUVXYZ", digits
 " 0123456789", anything else at once; one step per tick, all at once above 128 RPM) only while the
@@ -3303,9 +3336,10 @@ board turns, and draws them on the front face.
 **Nixie tubes** (data per tube `BlockData["nixie"]`, tubes in `lv:display:nixies`): a row is the
 tubes with the same facing and face, from the left (floor / ceiling: opposite the facing; wall: up;
 wall reversed: down); placed on the floor / ceiling the player's facing is turned clockwise, on a
-wall the clicked face is used (reversed when the player looks up ⚠). Custom text (clipboard: first
-entry of the last viewed page, name tag, display link) goes to the whole row, tube *i* showing
-characters 2i and 2i+1; an empty hand clears it. Without text a tube shows the redstone power around
+wall the clicked face is used (reversed when the look points against the clockwise side of the
+direction the player looks at the wall, Create's DoubleFaceAttachedBlock). Custom text (clipboard:
+first entry of the last viewed page, name tag, display link) goes to the whole row, tube *i* showing
+characters 2i and 2i+1; an empty hand clears the clicked tube (Create's NixieTubeBlock). Without text a tube shows the redstone power around
 it as "00".."15" (polled every 2 ticks). Dye recolours the whole row (block id changes, data kept).
 
 **Clipboard** (item data `lv:clipboard`, block `BlockData["clipboard"]` = type, pages of {text,
@@ -3315,7 +3349,14 @@ addresses (no checkbox); empty entries and pages are dropped when saved; Erase c
 Right-click a block with value boxes or filter slots (U3) copies them ("Copying settings from …";
 values per box id, filters per slot id), left-click pastes ("Applied settings to …"; in survival a
 filter item is taken from the inventory ⚠); right-click another clipboard merges its entries
-(duplicates skipped, pages of 12). Sneaking disables copy / paste (Create).
+(duplicates skipped, pages of 12, check marks kept). Redstone links copy / paste their two
+frequency items ("Frequencies") and pulse repeaters / extenders / timers whether they are inverted
+("Block": "Inverted"), as Create's ClipboardCloneables. A left-click on a placed clipboard (or a
+sneak-right-click) picks it up with its pages (Create's breakAndCollect). Sneaking disables copy /
+paste (Create). Item copying (Create's ItemCopyingRecipe): a written schedule or filter (attribute,
+package filter) crafted with blank ones of the same kind gives that many + 1 copies (recipes
+`<item>_copying_<n>` and a craft hook that copies the data, enchantments dropped; two written ones
+are refused). Clipboards are not copied: on Bedrock they stack to 1, so no recipe can give several.
 Entries may carry an item icon and an amount (Create's `ClipboardEntry.displayItem`) and a
 clipboard may be read-only (Create's `Readonly`: entries can be checked off, not edited or
 erased). Other units write onto clipboards through `src/feature/display/Clipboard.h`:
@@ -3599,13 +3640,21 @@ top speed `trainTopSpeed / 20` (28 → 1.4 b/t), turning `trainTurningTopSpeed /
 **Stations.** Comparator output (U36): 15 while a train stands at the station. Placing: right-click a track with the station item selects it ("Targeted track
 selected"; junctions refused: `create.track_target.no_junctions`); the direction the player looks
 along the track is the station's direction (trains arrive facing it; the assembly area lies behind).
-Sneak-use in the air clears the selection. The station block must be placed within 16 blocks of the
-track (`too_far`); without a selection: `missing`; bound: `success`. A station is an edge point
-(`levitate:station`, id `station:<dim>:<x>:<y>:<z>`) at the track block's centre; it is re-added when
-the graph is rebuilt. Breaking the block removes it (trains heading there re-route). Right-click:
-with a schedule → the station keeps it as its *auto-schedule* (applied to every train arriving
-without a schedule of its own); with an auto-schedule held → it is given back; otherwise the station
-screen. Default name "Track Station" (max 25 chars); train names max 35.
+Sneak-use in the air clears the selection. As Create's TrackTargetingBlockItem the selection is
+kept on the item stack (item data `lv:track_target`; placing clears it from the held stack), and a
+spot within 0.75 blocks of another edge point is refused (`occupied`). The station block must be
+placed within 16 blocks of the track (`too_far`); without a selection: `missing`; bound: `success`. A
+station is an edge point (`levitate:station`, id `station:<dim>:<x>:<y>:<z>`) at the track block's
+centre; it is re-added when the graph is rebuilt. Breaking the block removes it (trains heading there
+re-route; its auto-schedule drops). Right-click: an auto-schedule held → it is given back; otherwise
+the station screen (also with a schedule in hand, as Create). The *auto-schedule* (Create's depot
+behaviour that only accepts schedules) is a one-slot inventory (U3 item capability: funnels,
+hoppers, arms) that also takes a schedule thrown onto the station; the client mod draws it lying on
+top (U33 display items). Every train that newly arrives at the station, and a train standing there
+when one is put in, follows it from then on (replacing its own schedule; the conductor advancement,
+a confirm sound and particles). Default name "Track Station" (max 25 chars); train names max 35;
+the station screen sets the train's icon type (traditional / electric / modern, Create's
+AssemblyScreen selector).
 
 **Assembly** (station screen "Create new Train" on straight orthogonal track → assembly mode; the
 station's flag rises, no train may pass or approach it; the client mod draws Create's flag on the
@@ -3613,9 +3662,11 @@ station, raised while a train stands there or in assembly mode, waving while it 
 `trains.flags`). The assembly track starts one block past
 the station's track, against the station's direction, and runs while the same straight track
 continues (up to `maxAssemblyLength` 128). Train casing on a track of the area creates a small bogey
-on top (consumed unless creative; at index 0 or ≥ 3 and not within 2 of another bogey; the block
-above breaks unless unbreakable): "Bogey created. Click again to cycle type"; clicking at / within 2
-of a bogey cycles small ↔ large; without casing (empty hand): `requires_casing`. "Assemble Train"
+on top (consumed unless creative; Create's isValidBogeyOffset: the first bogey only at index 0,
+later ones at ≥ 3 and not within 2 of another bogey; the block above breaks unless unbreakable):
+"Bogey created. Click again to cycle type"; a click where no bogey may go cycles a bogey within one
+block of it small ↔ large (no casing needed); without casing (empty hand, survival):
+`requires_casing`. "Assemble Train"
 checks, with Create's messages: at least one bogey (`no_bogeys`), the first at the station marker
 (`frontmost_bogey_at_station`), consecutive bogeys ≥ 3 apart (`bogeys_too_close`), at most
 `maxBogeyCount` 20; every carriage starts at its first bogey and takes what the contraption rules
@@ -3649,13 +3700,19 @@ distance `v² / 2a`, else 0; a curve ahead (within braking + 20) limits it to th
 trains coast to a stop at `a`; derailed trains lose 2/3 of their speed per tick.
 
 **Schedules** (Create's ScheduleRuntime): entries run in order; instructions: *Travel to Station*
-(name filter, `*` = any text, everything else literal, whole name; the lowest A* cost wins: distance +
-penalties: passing a station 50, a station with another train 300, other trains on an edge half their
-penalty (manual 200, idle 700, scheduled 25); stations in assembly mode can't be passed), *Update
-Schedule Title*, *Limit Max Speed* (5..100 % in 5 % steps), *Deliver Package* (the first package in
-cargo whose address a postbox of some station accepts: travel there; no packages: carry on with the
-conditions; none accepted: `no_package_target`), *Retrieve Package* (a station whose postbox holds an
-outgoing package addressed to the filter). At a station with postboxes (U25's `postboxesForStation`)
+(name filter, `*` = any text, everything else literal, whole name; stations of the train's graph in
+any dimension; the lowest A* cost wins: distance + penalties: passing a station 50, a station with
+another train 300, the edges at both ends of every other train half its penalty (manual 200, idle 700,
+waiting at a signal 50 + waiting ticks / 20, arriving 50, any other 25), an occupied signal
+`clamp(2 · ticks waiting at a signal, 25, 200)` halved after each one met in the search, a
+redstone-forced one 400; a signal boundary without a signal for the travel direction can't be passed
+(Create's canNavigateVia: signals are one-way for routing); stations in assembly mode can't be
+passed; far from the station the way is looked for again every 100 blocks, and a train waiting at a
+cross signal now and then), *Update Schedule Title*, *Limit Max Speed* (5..100 % in 5 % steps),
+*Deliver Package* (every station with a postbox for any package in cargo is a candidate; no packages:
+the entry is skipped with its conditions; none accepted: `no_package_target`), *Retrieve Package* (a
+station whose postbox holds an outgoing package addressed to the filter; none: the entry is skipped
+after 40 ticks). At a station with postboxes (U25's `postboxesForStation`)
 every 20 ticks packages addressed to a postbox leave the train and outgoing packages board it. Conditions (columns OR, conditions of a column AND, in order): Scheduled
 Delay (`Value` 0..120, unit ticks / seconds / minutes, default 5 s), Time of Day (hour, minute,
 rotation every day … every 0:15; met within 40 ticks after the time), Item / Fluid Cargo (more / less /
@@ -3665,9 +3722,11 @@ for the duration, checked every 20 ticks), Chunk Unloaded, Station Powered. A fa
 waits 40 ticks; status messages go to the train's owner (`create.train.status.*`, each failure once
 until it changes); non-cyclic schedules pause when done. New entries: travel + wait 5 s.
 
-**Conductors.** A scheduled train needs a conductor facing its travel direction: a non-player mob
-standing in the seat block behind a Train Controls block (`missing_driver` / `opposite_driver`), or a
-blaze burner there (`levitate:blaze_burner`, U14). Right-click a conductor with a schedule: applied
+**Conductors.** A scheduled train needs a conductor facing its travel direction (Create's
+checkConductors): a non-player passenger seated (U4 contraption seats) on the seat in the cell behind
+a Train Controls block that faces it (`missing_driver` / `opposite_driver`), or a blaze burner there
+(`levitate:blaze_burner`, U14). Only an entity seated on such a seat takes or gives schedules; a
+schedule on another seated mob: `non_controlling_seat`. Right-click a conductor with a schedule: applied
 ("Train is now following this Schedule", item used); with a schedule already running:
 `remove_with_empty_hand`; empty hand: resumes a paused schedule (`continued`) or takes the schedule
 back (`removed_from_train`, auto-schedules are discarded); empty schedule: `no_stops`.
@@ -3677,12 +3736,15 @@ air holding an item) starts controlling ("Now controlling: <train>", the schedul
 `paused_for_manual`); again, sneaking, leaving 8 blocks or the dimension stops ("Stopped controlling
 contraption"). Movement keys from the player's input (vanilla clients: PlayerAuthInputPacket; the client mod:
 Create's controls packets, below; held keys time out after 30 ticks): W / S throttle (target `top ·
-manualTrainSpeedModifier 0.75 · throttle`, the turning speed on curves, a quarter backwards on single
-ended trains; braking against the motion at 2a), A / D pick the left / right branch at junctions,
-Space at a station shows "Arrived at <station>", elsewhere approaches the nearest station between
-0.75 and max(32, 1.5) braking distances ahead (releasing Space cancels). Leaving a station:
-"Departing from <station>". Fuel: any burnable item from the carriages' chests / barrels (lava buckets
-leave the bucket) while driving.
+manualTrainSpeedModifier 0.75 · throttle`, the turning speed on curves, a quarter backwards relative
+to the controls, double-ended trains too (Create's `slow = inverted ^ targetSpeed < 0`); braking
+against the motion at 2a), A / D pick the left / right branch at junctions, Space at a station shows
+"Arrived at <station>"; elsewhere, while a free station lies between 0.75 and max(32, 1.5) braking
+distances ahead (a double-ended train: in the direction driven), the action bar says "Hold [Space] to
+approach <station>", Space approaches it with a 30-bar progress prompt (releasing Space cancels). Leaving a station:
+"Departing from <station>". Fuel: any burnable item from the carriages' chests / barrels (from the
+back carriage first when reversing; the item's crafting remainder, e.g. a lava bucket's bucket, goes
+back) while driving.
 
 **Client mod controls** (Create's ControlsHandler / TrainHUD, U37). Starting / stopping to control
 sends the companion `trains.controls` {active, throttle, name}. While active, the client mod takes
@@ -3693,9 +3755,11 @@ and every 5 ticks while one is held; Esc sends {stop: true}. The mouse wheel cha
 5 ticks (one log line per change on the server). The sprint key (Ctrl) is the horn: {honk: true}
 every 5 ticks while held, {honk: false} when released; the server follows Create's HonkPacket
 (`honkTicks` = 20 for a new honk, 13 while held, 6 or 0 on release) and, while it counts down,
-plays the steam whistle tone (U18; the large whistle's low tone) at the train's first whistle with
-its pitch (2^(−semitones / 12)), restarted every 10 ticks; trains without a whistle have no horn
-(Create's lowHonk null). An empty-hand right-click into the air sends `trains.interact` {} (vanilla
+plays the train horn (`levitate.trains.horn`, the low horn for a large whistle; our own synthesised
+samples, `tools/sounds/trains.ps1`) at the train's first whistle with Create's pitch
+2^(((small ? 12 : 0) − semitones) / 12), restarted every 18 ticks, and its end sound at 19 and 5
+ticks left; trains without a whistle have no horn (Create's lowHonk null). Vanilla clients honk with
+their sprint input (PlayerAuthInputPacket's sprint bits, the same messages every 5 ticks). An empty-hand right-click into the air sends `trains.interact` {} (vanilla
 clients send nothing for it): it toggles the controls looked at, as the item-use path. Once a
 companion's client mod sent key input, its PlayerAuthInputPacket is ignored for driving until it
 stops controlling. Keys are only taken while no screen (ours, chat, inventory, pause) is over the
@@ -3706,7 +3770,16 @@ the hotbar filled to speed / top speed with a gold marker at the throttle and, b
 
 **Arrival / departure.** A train arrives when its leading point passes the station marker in the
 station's direction (reversing double-ended trains: their back point, against it); speed 0, the
-runtime's conditions start, an auto-schedule is taken. Disassembly ("Disassemble Train", station
+runtime's conditions start, the station's auto-schedule replaces the train's schedule. Create's
+ArrivalSoundQueue: after a trip of more than 100 blocks, within 60 blocks of the station, the train's
+bells, note blocks and whistles play from front to back (one block every 2 ticks). Sounds and
+particles (Create's CarriageSounds / CarriageParticles, as world sounds so vanilla clients get them):
+the steam rhythm of the leading carriage, the wheels faster and higher with the speed, a release hiss
+when it stops; sparks at the bogeys while braking fast, steam while it depressurises. **Stalls**
+(Create's Train.tick): an actor that stalls its carriage (a drill breaking a block) stops the whole
+train; it goes on at its previous speed (at most 1 block per tick) when the stall ends. **Portals**
+(Create's DimensionalCarriageEntity): a carriage whose first bogey passes a portal track moves into
+the other dimension with its riders; the train counts as being where its front is. Disassembly ("Disassemble Train", station
 screen) needs the train standing at the station with its front at the marker and every carriage
 yaw a multiple of 90°: the carriages are aligned to the marker and placed back as blocks; the station
 remembers the train's name; a schedule goes back to the player.
@@ -3717,8 +3790,8 @@ Wrench relocation (Create's TrainRelocator): right-clicking a standing train wit
 it ("Click a Track to Relocate {0} to. Sneak-Click to abort"; a moving one: "Cannot relocate a
 moving Train"); while the wrench is held the looked-at track is checked (the train must fit there,
 facing the look direction, within 24 blocks: valid / invalid / too far in the action bar, the client
-mod draws the carriages at the target); a click puts the train there stopped ("Relocation
-successful"), a sneak-click aborts. A dead end
+mod draws the carriages at the target; refused where it would overlap another train or span a
+portal); a click puts the train there stopped ("Relocation successful"), a sneak-click aborts. A dead end
 stops it (`end_of_track`). The leading point of a moving train touching another train's segments
 (within 0.5 block, height within 3): both trains bounce back (speed `−clamp(v, −0.5, 0.5)`) and derail
 (`collision`, "In <dim> near [x,y,z]"); combined speed > 0.2 b/t makes an explosion of power
@@ -3737,15 +3810,25 @@ arrival release their reservations; path costs add `pathPenalty`. Trains provide
 **TrainsExt.h** (for U24 displays and others): `all()` trains (name, speed, graph, occupied edge
 points, station, destination, schedule title), `stations()` (name, present train, predicted arrivals
 in ticks), `onPointEntered` / `onPointLeft` (an edge point lies between a train's ends). Display
-sources on the station (U24): "Train Station Summary" (filter = station name glob; ETA, train,
-schedule title, platform) and "Train Schedule Status" ("Departs in …").
+sources on the station (U24): "Train Station Summary" (display boards only, Create's
+StationSummaryDisplaySource over submitPredictions: every upcoming destination of every running
+schedule whose name or filter matches the filter glob, soonest first, with ETAs accumulated from the
+learned transit times and the delays of the stops, a train standing there as "now"; options: filter
+(default: the station's name), train column size 0..73 %, platform column 0..16 characters) and
+"Train Schedule Status" (the waiting status of the current condition of the first column of the
+train standing there: "Departs in …", "Cargo Idle for …", "Passengers: n/m", …; nothing on the last
+stop of a non-looping schedule).
 
 **Persistence.** `lv:trains:stations` (stations), `lv:trains:trains` (trains: points, route,
 carriages with their contraption ids, speed, runtime, navigation); carriages persist with U4.
 
 **Commands.** `/create trains` (train summary: networks, stations, every train's status line),
 `/create killtrain <name|id>` and `/create train remove <name|id>` (Create 6.0.10's `/create train
-remove`: the carriages vanish, nothing is placed).
+remove`: the carriages vanish, nothing is placed), `/create train tp <name|id>` (Create's train
+teleport: creative / spectator players only, 5 blocks above its first carriage, in its dimension).
+The schedule item lists its destinations as lore (Create's tooltip: "> station", the stop it goes on
+from "-> station"); the schedule editor's station field offers the station names nearest first
+(Create's DestinationSuggestions).
 
 **Screens.** Station (native for companions, forms for vanilla; the station name is the native
 screen's title text field, 25 characters, the present train's name a text field, 35): idle (create new train / why not),
@@ -3784,7 +3867,10 @@ track markers in `src/client/signals/`, contract `src/feature/tracks/SignalsExt.
   stack. While the held stack carries one, the client mod outlines the selected track (Create's
   TrackTargetingClient); the glint of Create's isFoil isn't drawn (§8).
 - The block keeps its target. When the track graph around it is rebuilt or removed, it binds
-  again; while its track is gone the signal is dark (`Invalid`) and the boundary is gone.
+  again; while its track is gone the signal is dark (`Invalid`) and the boundary is gone. The
+  target is kept relative to the block in its BlockData (`signals`), so a contraption moving the
+  block (and its track) binds it again at the same offset (turned with the block).
+- A curve selection reaches `maxTrackPlacementLength` + 16 blocks.
 
 **Signal boundaries and sections.** A signal block is bound to a boundary edge point (type
 `levitate:signal`) on one of its two sides: side 1 controls trains travelling along the point's
@@ -3811,13 +3897,19 @@ this Signal"):
   chain); all of them are reserved at once. Otherwise it waits at the first cross signal of the
   chain, never inside the junction. A path that ends inside the chain, or leaves it through a
   boundary without a signal for its direction, ends the chain.
-- A boundary side without a signal block doesn't stop trains (it still splits sections).
+- A boundary side without a signal block doesn't stop trains driving through it (it still splits
+  sections), but scheduled trains never route through it (Create's canNavigateVia: signals are
+  one-way for path finding).
 - A redstone-powered signal is red for trains (forced red).
 
-**Signal state** (Create's tickState, every tick): red when forced by redstone or when the section
-is occupied by any train or reserved through another signal; for a cross signal, yellow when it
-would be green but a signal leading out of its section (on the way forward, no turns sharper
-than Create's 7/8 rule) is red; green otherwise; off when unbound. The block shows it with its
+**Signal state** (Create's tickState, every tick): invalid when both sides of the boundary are one
+section (a loop); red when forced by redstone or when the section is occupied by any train or
+reserved through another signal; a free cross signal resolves its chain (Create's
+resolveSignalChain over the signals leading out of its section on the way forward, no turns
+sharper than Create's 7/8 rule): green when all of them are green (or invalid), red when all are
+red, yellow when mixed; off when unbound. The block (Create's SignalBlockEntity.enterState) turns
+red only 15 ticks after showing green or yellow; an invalid signal flashes its red lamp (3 of every
+40 ticks); losing the redstone input applies 4 ticks later (SignalBlock.neighborChanged). The block shows it with its
 lamp (`levitate:signal_state`, vanilla clients and the client mod alike). Comparators reading a
 signal output 15 while it is red, 0 otherwise. Redstone input sets `levitate:powered` (the shared
 `redstone::watch`; powered track observers are signal sources there).
@@ -3829,7 +3921,9 @@ the circuit component's strength is set with the state change). The filter slot 
 top (U3 filter slot, "filter") limits it to trains carrying a matching item (in any carriage
 inventory) or fluid (any tank), asked through the trains' cargo provider; an empty filter
 matches every train. A display link on an observer offers "Detected Train Name" (Create's
-`observed_train_name` source, U24 contract): the name of the train it sees, empty otherwise.
+`observed_train_name` source, U24 contract): the name of the train it sees (with the Attached Label
+option, refreshed every 400 ticks), empty otherwise; a change of the observer's power refreshes the
+links reading it at once.
 
 **Client mod** (Create's track overlay): an arrow is drawn on the track at every bound signal side
 (pointing the way of the trains it controls, in the signal's colour) and a square at every
@@ -4078,9 +4172,11 @@ puts it on. Air tools cost `max(900 / uses, 1)` air (extendo grip 1000 uses: 1 a
 unbreakable). Pressure warnings as a subtitle when the air drops to max / 10 ("⚠ Backtank pressure
 low", gold) and to 1 ("⚠ Backtank pressure depleted", red).
 - *Diving helmet*: under water with a worn backtank with air: breathing (water breathing, refreshed)
-  and 1 air per second; the netherite helmet with a netherite backtank does the same in lava
-  (air only). The air timer (mm:ss, red under 60 s) is shown while it is used (client mod: next to the
-  hotbar; vanilla: action bar).
+  and 1 air per second, unless the wearer breathes anyway (Conduit Power, or Water Breathing from
+  elsewhere: Create's canBreathe check); the netherite helmet with a netherite backtank does the same
+  in lava (air only). Both helmets have Aqua Affinity built in (Create's getEnchantmentLevel): under
+  water the wearer mines at the normal speed (U59). The air timer (mm:ss, red under 60 s) is shown
+  while it is used (client mod: next to the hotbar; vanilla: action bar).
 - *Netherite set*: netherite diving helmet + netherite backtank with air + netherite leggings +
   netherite (diving) boots: fire immunity (fire resistance, refreshed). Each netherite diving piece
   adds 3 armour toughness and 0.1 knockback resistance (Create: netherite armour material).
@@ -4091,7 +4187,13 @@ low", gold) and to 1 ("⚠ Backtank pressure depleted", red).
 - *Diving boots*: in water (not swimming, not flying): sinking (vy − 0.05 per tick, a jump on the
   ground +0.5) and walking speed ×1.3 below 0.145 blocks per tick. The client mod applies this to its
   own player every client tick; vanilla players get the vertical motion as packets and +87.5 %
-  underwater movement speed (the speed Create's rule settles at, §8).
+  underwater movement speed (the speed Create's rule settles at, §8). While diving boots are worn
+  the client mod's player doesn't swim (Create's HeavyBootsOnPlayerMixin). Netherite diving boots in
+  lava (Create's LavaSwimmingMixin + getMovementMultiplier): after each step the motion is
+  multiplied by 1.75 horizontally (1.85 sprinting on the ground), sinking damped (×max(0, 2.5 −
+  2|vy|)), rising ×1.3, a jump from the lava floor rises 1 block per tick with the eyes in lava (0.5
+  otherwise); the client mod moves its own player, vanilla players get it as motion packets (U59).
+- *Comparator*: a placed backtank gives fractionToRedstoneLevel(air / max air) (U59).
 - *Capacity* (backtanks) and *Potato Recovery* (potato cannon), levels I–III, weight 10, cost
   15 + 15·(L−1) .. 45 + 15·(L−1), are kept in the item's user data (`lv:enchants`) and shown as lore
   lines (`enchantment.create.*`). The enchanting table rolls them per option with Java's algorithm
@@ -4100,11 +4202,13 @@ low", gold) and to 1 ("⚠ Backtank pressure depleted", red).
 
 **Extendo grip**: +3 block reach in either hand, +5 with one in each hand (pick range; §8); every
 block broken or placed and every entity hit by the holder uses the grip (air / durability, main hand
-first); hits get Create's extra knockback.
+first); hits get Create's extra knockback: knockback strength + 2 (scaled by the target's knockback
+resistance) on any living target, players included (U59).
 
 **Potato cannon.** Ammo: off hand first, then the inventory (creative: not used up). Projectiles
 leave 1.5 blocks in front of the eyes at `2 × velocity` blocks per tick and move with
-`v = (v − (0, 0.05 · gravity, 0)) · drag` (gravity 1, drag 0.99); split shots spread around the aim.
+`v = (v − (0, 0.05 · gravity, 0)) · drag` (gravity 1, drag 0.99); split shots add a 0.1 offset
+perpendicular to the motion, at `base + i · 360 / split ± 20°` around one random base angle (U59).
 Cooldown = the type's reload ticks (× 2/3 with a cannon in each hand). Types (damage / reload /
 velocity / knockback / split): potato 5/15/1.25/1.5 (plants potatoes on farmland), baked potato
 5/15/1.25/0.5 (fire 3 s), carrot 4/12/1.45/0.3 (plants carrots), golden carrot 12/15/1.45/0.5, sweet
@@ -4115,7 +4219,8 @@ apple effects), enchanted golden apple 1/100, beetroot 2/5/1.6/0.1, melon slice 
 glistering melon 5/8/1.45/0.1, melon 8/20/0.95/2 and pumpkin 6/15/0.95/2 (placed where they hit),
 pumpkin pie 7/15/1.1/0.05, cake 8/15/1.1/0.1, blaze cake 15/20/1.1/0.3 (fire 12 s), fish (cod,
 salmon, cooked, tropical) 4/10/1.3/0.6, pufferfish 4/10/1.1/0.4 (pufferfish effects), suspicious
-stew 3/40/0.8/0.2 (drops the bowl). Knockback × 0.6 along the shot; endermen take damage only; a
+stew 3/40/0.8/0.2 (drops the bowl; a hit gives the stew's own effects: Bedrock's table per aux
+value, U59). Knockback × 0.6 along the shot; endermen take damage only; a
 powered wither is immune. Each projectile is a `levitate:potato_projectile` entity drawn from the
 resource pack (also by vanilla clients) with the ammo's texture and Create's render mode (tumbling
 billboard; along the motion with spin 1 for carrot, fish, pufferfish and suspicious stew, spin 2 for
@@ -4129,7 +4234,13 @@ otherwise, unless the hit used the item up, the item comes back with the recover
 12.5 % + 12.5 % per Potato Recovery level; first projectile of a split only), else the type's drop
 (a bowl for suspicious stew). Crops plant only from the top face; melons and pumpkins that hit a
 side fall as a falling block. Sounds: `levitate.potato_cannon.fwoomp` (original), the hit = item
-frame break + roots break. Glow berries / glistering melon give no glowing (§8).
+frame break + roots break. Glow berries / glistering melon give no glowing (§8). U59: a hit on a
+block runs the block's projectile hit first (vanilla bells ring, targets fire; Create's bells ring
+when hit on a side they ring from); a kill reads Create's "was shot by …'s Potato Cannon" (".item"
+with a custom-named item in the shooter's hand; `common/DeathMessages.h`). The cannon takes every
+bow enchantment but Infinity (anvil and table). Client mod: the cannon's tooltip names the ammo it
+would fire and its attack damage (× 1 + 0.2 per Power level), reload ticks and knockback (+0.5 per
+Punch level), as Create's appendHoverText.
 
 **Wand of symmetry.** Right-click a block: the mirror goes to the block in front of the clicked face
 and the wand is enabled (5-tick cooldown); a new mirror is "Mirror Once" (players facing north /
@@ -4139,24 +4250,35 @@ sneak-right-click opens the screen (Mirror: Mirror Once / Rectangular / Octagona
 Every enabled wand in the hotbar mirrors blocks placed within `maxSymmetryWandRange` (50) of its
 mirror (horizontal reflections about the mirror block; 1 / 3 / 7 copies), turning their states
 (Bedrock's structure transform for vanilla blocks, `levitate:facing` for ours); survival copies use
-an item each and need a free spot; breaking breaks the mirrored blocks (survival: same block only,
-with drops). The mirror shows end-rod particles to the holder; each copy draws a particle line.
+the block's item each (redstone for wire, a sign item for a sign; Create's findAndRemoveInInventory)
+and need a replaceable, breakable spot, creative copies overwrite what is there; breaking breaks the
+mirrored blocks (survival: same block only, with drops). Every enabled wand in the hotbar shows
+end-rod particles at its mirror every 10 ticks; each copy draws a particle line. The client mod
+draws the mirror bobbing over its block (plane, two crossing planes or the four planes of the
+triple mirror; Create's SymmetryHandler#onRenderWorld, U59).
 
-**Handheld worldshaper** (Creative Worldshaper; creative tab only). Left-click a block picks the
-material ("Using: …"; not unbreakable blocks, block entities, Levitate blocks with data, doors and
-beds). Sneak-right-click opens the screen (brush, its parameters, tool, placement, pattern);
+**Handheld worldshaper** (Creative Worldshaper; creative tab only). Left-click — on a block or into
+the air (Bedrock's missed-swing input flag) — picks the block looked at within 128 blocks as the
+material (Create's trySelect: "Using: …", the confirm sound; not blocks without an item, block
+entities, Levitate blocks with data, double-block halves, attached or hanging blocks, bed parts; the
+same block again changes nothing; leaves are kept persistent). A left click never breaks a block.
+Sneak-right-click opens the screen (brush, its parameters, tool, placement, pattern);
 right-click shapes at the looked-at block up to 128 blocks away (2-tick cooldown; "Shift-Right-Click
 to Select a Shape" / "Left-Click a Block to set Material" otherwise). Brushes: cuboid (w / h / l
 1..32, from −(n−1)/2 to n/2), sphere (radius 0..10, centre distance < r + .5), cylinder (radius 0..8,
 height 1..8, distance < r + .42), surface and cluster (range 1..10, Follow Diagonals, Ignore Material
 Borders: flood fill from the clicked block within distance < range; surface stays in the face's plane
-and needs an open face). Placement (shaped brushes): merged / attached / inserted (Create's
+and skips blocks covered by a block with a sturdy face toward them). Each shot draws Create's beam
+(particles from the barrel to the hit point, end rod and firework sparks there) with the
+`worldshaper_place` sound (note block basedrum). Placement (shaped brushes): merged / attached /
+inserted (Create's
 offsets). Tools: fill (air only), place, replace (non-air only), clear, overlay (on top of non-air
 blocks), flatten (Create's 5×5 Gaussian height smoothing). Patterns: solid, checkerboard, inverted
 checkerboard, 25 / 50 / 75 % roll. Preview (client mod, Create's WorldshaperRenderHandler): while a
 configured worldshaper is held (main hand first), the blocks its brush would change at the
 looked-at block (128 blocks) are outlined as one cluster (0xbfbfbf, 1/32 wide; rebuilt when the aim
-or the settings change).
+or the settings change). Vanilla players holding one see the same outline as particles every 10
+ticks (U59).
 
 **Linked controller.** Six buttons — forward, back, left, right, jump, sneak — each bound to a
 frequency (two items, Create's Couple<Frequency>). Right-click toggles it in use; in use, held buttons
@@ -4169,7 +4291,9 @@ vanilla: the player's movement input is polled. Right-click a redstone link: bin
 active"); the next pressed button takes the link's frequency ("Frequency bound to …").
 Sneak-right-click in the air: the binding screen (12 ghost slots; vanilla: a form of dropdowns).
 Lectern: right-click a lectern without a book with the controller places it (lectern controller,
-keeping the controller in its data); right-click it to use it (one user at a time, within 4 blocks),
+keeping the controller in its data); right-click it to use it (one user at a time; Create's
+playerInRange: the eyes within 0.4 × the block interaction range of its centre, 1.8 blocks in
+survival, 2 in creative, checked when starting and every tick),
 sneak + controller swaps, sneak with anything else takes it off (back to a lectern, the controller
 drops on top).
 
@@ -4522,7 +4646,7 @@ UI pass), `placeholderColour` (outline of unregistered blocks).
 |---|---|---|
 | `/create reload`, `/create selftest ["glob"]` | op | foundation |
 | `/create kinetics <pos>` (dump network: speed, stress, sources) | op | U2 |
-| `/create killtrain <name\|id>` (Create's `/create train remove`), `/create trains` (train summary) | op | U27 |
+| `/create killtrain <name\|id>` (Create's `/create train remove`), `/create trains` (train summary), `/create train tp <name\|id>` (creative / spectator) | op | U27 |
 | `/create glue clear [radius]` (Create's `/create clearglue`; default 16, around the sender) | op | U4 |
 | `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
 | `/create ponder [id]` (client mod; no id: the index; an entry or a tag id) | anyone | U30 |
@@ -4543,6 +4667,16 @@ Create's English wording and key names (`create.*`) for every string that exists
 `create.gui.goggles.kinetic_stats`, `create.gui.stressometer.overstressed`, `create.tooltip.stressImpact`.
 Levitate-only strings use `lv.<unit>.*`. Each unit owns the keys of its features (en_US + zh_CN; zh_CN
 matches Create's official Chinese translation wording).
+
+U59: every item with a Create description has its `<key>.tooltip.*` lines (summary, conditions,
+controls; the dyed toolboxes, seats and postboxes share `block.create.toolbox` / `seat` /
+`package_postbox` as Create's ItemDescription.useKey); block names follow Create's zh_cn (动力轴承,
+风帆框架, 轴向底盘, 蒸汽笛, 动力曲轴, ...). Death messages naming a second party (Create's
+`death.attack.create.potato_cannon(.item)`, `run_over`) go through `common/DeathMessages.h`: the
+unit marks the victim before hurting it, and its death message is Create's key with the extra
+parameters; the roller's is `death.attack.create.mechanical_roller`. Create's TooltipHelper hints
+(`create.hint.*`: empty bearing, full deployer, arm without targets, bottomless hose pulley) are
+goggle-overlay providers of the owning units.
 
 ## 8. Not ported
 
@@ -4609,7 +4743,7 @@ matches Create's official Chinese translation wording).
 | Train carriages tilting on slopes for **vanilla** clients (U27) | a falling-block entity is always drawn level | the blocks stand at their tilted places, each drawn level; the client mod draws the carriage pitched (Create's pitch from its bogeys) |
 | Wheels turning on bogeys for **vanilla** clients (U27) | a display entity shows a fixed block model | still wheels; the client mod turns them with the distance travelled (Create's BogeyRenderer) |
 | Station flag animation for **vanilla** clients (U27) | the flag would need a per-frame model | the station's texture shows the flag (green in assembly mode); the client mod raises and waves Create's flag |
-| Train HUD, mouse-wheel throttle and horn for **vanilla** clients (U27) | the server can't see the mouse wheel or the sprint key, nor draw a HUD | action-bar prompts; throttle from schedules; the client mod has Create's HUD, throttle and horn (§3.6.27) |
+| Train HUD and mouse-wheel throttle for **vanilla** clients (U27) | the server can't see the mouse wheel nor draw a HUD | action-bar prompts; throttle from schedules; the horn works for vanilla clients through their sprint input (U57); the client mod has Create's HUD and throttle (§3.6.27) |
 | Train map colours / map markers (U27) | no map mods on Bedrock | none |
 | Train relocation preview for **vanilla** clients (U27) | the server can't draw the train's outline on a vanilla client | relocation works with action-bar prompts (valid / invalid / too far); the client mod draws the carriages at the target |
 | Glint of a signal / track observer item carrying a track selection (Create's isFoil) (U28) | Bedrock draws no enchantment glint on items shown with their block's model (verified: a per-item vtable override of `isGlint` returns true and nothing is drawn) | the selection is on the item stack and travels with it; the client mod outlines the selected track while the item is held |
@@ -4627,9 +4761,10 @@ matches Create's official Chinese translation wording).
 | Extendo grip reach for **vanilla** clients (U31) | the client limits its own block picking range | the pick range is raised in GameMode (server validation and the client mod's local player); vanilla clients keep their normal reach |
 | Glowing of glow berry / glistering melon potato projectiles (U31) | Bedrock has no glowing effect | the hit has its other effects |
 | Linked controller input for **vanilla** clients (U31) | movement keys are only visible through Bedrock's movement input | the movement input the server receives is polled (the player still moves); the client mod captures the keys as Create |
-| Worldshaper preview outline for **vanilla** clients (U31) | no world-space line rendering without the client mod | the client mod draws Create's outline; vanilla players see the blocks change at once |
+| Worldshaper preview outline for **vanilla** clients (U31) | no world-space line rendering without the client mod | the client mod draws Create's outline; vanilla players see the outline's edges as particles (U59) |
+| Aqua Affinity of the diving helmets, the lava speed of netherite diving boots and no swimming with diving boots for **vanilla** clients (U59) | a vanilla client predicts its own mining speed and moves (and swims) its own player | the server mines at Create's speed and pushes the lava motion as packets; the client mod's player has all three |
+| Copycat blast resistance, sounds and break speed of the material (U59) | Bedrock reads a block type's explosion resistance and sounds without the block's position; a vanilla client predicts the break time from the block type | the material's harvest rule, light and place sound are Create's; companions (server and client mod) mine a copycat as fast as its material; vanilla players mine it as the empty copycat (gold: 3 / 6) |
 | Swinging peculiar / haunted bells for **vanilla** clients (U49) | custom blocks have no block entity renderer; a state per swing frame and direction would need dozens of models | the client mod draws Create's swing; vanilla clients see the bell still (sounds, souls and particles reach everyone) |
-| Bells rung by projectiles (U49) | custom blocks get no projectile-hit callback (`BlockType::onProjectileHit` is a folded no-op shared by many blocks, it can't be hooked for ours alone) | clicks and redstone ring them |
 | Soul particles vanishing when the spot gets lit (U49) | resource-pack particles can't read the block light | the particles live their full time; new pulses only mark dark spots |
 | The hiding player's smaller hitbox and eye height (U49) | Bedrock clients size and move their own player (sneaking height is the client's); a server-side size is not used for the player's collision | the player becomes the box visually (invisible + a box entity at its feet, which hits pass through to the player); hitbox and camera stay the sneaking ones |
 | Cardboard vignette for **vanilla** clients (U49) | no HUD drawing without the client mod | the client mod draws it (in every camera view: the mod can't read the view perspective; Create: first person only) |

@@ -1053,3 +1053,16 @@ void uninstall() {
 }
 
 } // namespace lv::feature::assembly::deployer
+
+// Create's DeployerBlockEntity#addToTooltip (U59): a turning deployer holding overflow items hints
+// at extracting them ("create.hint.full_deployer").
+#include "feature/goggles/GoggleInfo.h"
+namespace lv::feature::assembly::deployer {
+LV_REGISTER_GOGGLE_INFO(kDeployerId, {.hover = [](goggles::InfoContext const& c, goggles::Tooltip& t) {
+    if (kinetics::speedAt(c.pos) == 0 || overflow(c.pos).empty()) return false;
+    t.push_back(goggles::line(std::string(core::goggles::fmt::kGold) + c.tr("create.hint.full_deployer.title", "Deployer cannot activate")));
+    goggles::addHint(t, c.tr("create.hint.full_deployer",
+                             "It appears this _Deployer_ contains _excess_ _items_ that need to be _extracted._ Use a _hopper,_ _funnel_ or other means to free it from its overflow."));
+    return true;
+}});
+} // namespace lv::feature::assembly::deployer
