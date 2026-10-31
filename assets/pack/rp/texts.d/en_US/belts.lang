@@ -1,4 +1,4 @@
-tile.levitate:belt.name=Mechanical Belt
+tile.levitate:belt.name=Belt
 item.levitate:belt_connector=Mechanical Belt
 item.levitate:belt_connector.name=Mechanical Belt
 tile.levitate:depot.name=Depot

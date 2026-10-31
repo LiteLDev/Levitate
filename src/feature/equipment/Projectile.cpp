@@ -31,11 +31,13 @@
 #include "mc/world/effect/EffectDuration.h"
 #include "mc/world/effect/MobEffectInstance.h"
 #include "mc/world/item/ItemStack.h"
+#include "mc/world/item/SuspiciousStewItem.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/ShapeType.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/block/BlockType.h"
 #include "mc/world/level/dimension/DimensionType.h"
 #include "mc/world/phys/AABB.h"
 #include "mc/world/phys/HitResult.h"
@@ -43,6 +45,7 @@
 
 #include "core/equipment/Gear.h"
 #include "feature/advancements/Advancements.h"
+#include "feature/common/DeathMessages.h"
 #include "feature/common/Items.h"
 #include "feature/equipment/Equipment.h"
 #include "game/Blocks.h"
@@ -237,6 +240,14 @@ bool entityHitAction(Projectile& p, Actor& target, double x, double y, double z)
             addEffect(target, 9, 300, 0);   // nausea 15 s
         }
         return true;
+    case E::SuspiciousStew:
+        // Create's SuspiciousStew: the stew's own effects (Bedrock keeps them per aux value)
+        if (living) {
+            auto const& effects = SuspiciousStewItem::_getStewEffects();
+            auto        aux     = static_cast<std::size_t>(p.ammo.getAuxValue());
+            if (aux < effects.size()) target.addEffect(effects[aux]);
+        }
+        return false;
     default: return false;
     }
 }
@@ -297,6 +308,17 @@ void hitEntity(Projectile& p, Actor& target, double x, double y, double z) {
     }
     if (t.effect == ce::PotatoEffect::SetOnFire) target.setOnFire(t.effectSeconds, true);
     bool enderman = ttype == "minecraft:enderman";
+    // Create's AllDamageTypes.POTATO_CANNON: "%1$s was shot by %2$s's Potato Cannon", or ".item"
+    // naming the custom-named item the shooter holds
+    if (owner) {
+        std::string ownerName = owner->isPlayer() ? static_cast<Player*>(owner)->getRealName() : owner->getNameTag();
+        if (ownerName.empty()) ownerName = "%entity." + std::string(owner->getTypeName()) + ".name";
+        std::string custom = owner->isPlayer() ? static_cast<Player*>(owner)->getSelectedItem().getCustomName() : std::string();
+        if (!custom.empty()) common::deathmsg::mark(target, "death.attack.create.potato_cannon.item", {ownerName, custom});
+        else common::deathmsg::mark(target, "death.attack.create.potato_cannon", {ownerName});
+    } else {
+        common::deathmsg::mark(target, "death.attack.create.potato_cannon", {"%entity.levitate:potato_projectile.name"});
+    }
     bool hurt     = owner ? target.hurtByCause(t.damage, SharedTypes::Legacy::ActorDamageCause::Projectile, *owner)
                           : target.hurtByCause(t.damage, SharedTypes::Legacy::ActorDamageCause::Projectile);
     if (!hurt || enderman) {
@@ -333,6 +355,14 @@ void hitBlock(Projectile& p, BlockPos const& bp, int face, double x, double y, d
     static constexpr int dx[] = {0, 0, 0, 0, -1, 1}, dy[] = {-1, 1, 0, 0, 0, 0}, dz[] = {0, 0, -1, 1, 0, 0};
     GlobalPos            next = face >= 0 && face < 6 ? GlobalPos{p.dim, bp.x + dx[face], bp.y + dy[face], bp.z + dz[face]} : at;
     bool                 consumed = false;
+    // Projectile#onHitBlock: the block's own projectile hit first (BlockState#onProjectileHit: bells
+    // ring, targets fire, ...); Create's bells are AbstractBellBlocks (BellBlock#onProjectileHit)
+    if (isBell(idAt(at))) {
+        bellHit(at, face, y - bp.y, playerById(p.owner));
+    } else if (auto const* b = blockAt(at); b && std::string_view(b->getTypeName()).starts_with("minecraft:")) {
+        if (auto* region = regionOf(p.dim); region && actorById(p.entity))
+            b->getBlockType().onProjectileHit(*region, bp, *actorById(p.entity));
+    }
     if (t.effect == E::PlantPotato || t.effect == E::PlantCarrot) {
         // Create's PlantCrop: only the top face with room above; the crop grows on farmland
         if (face == 1 && replaceableAt(next)) {
@@ -510,12 +540,17 @@ void sweepOrphans() {
 
 } // namespace
 
+Vec3d gunBarrel(Player& player, bool mainHand, double lx, double ly, double lz) {
+    auto v = barrel(player, mainHand, lx, ly, lz);
+    return {v.x, v.y, v.z};
+}
+
 // ---- public -----------------------------------------------------------------------------------------------
 
 std::int64_t launchProjectile(int dim, double x, double y, double z, double vx, double vy, double vz, std::string const& ammoId, std::int64_t owner,
-                              double recoveryChance) {
+                              double recoveryChance, int aux) {
     auto const* type = ce::potatoTypeFor(ammoId);
-    auto        ammo = items::make(ammoId, 1);
+    auto        ammo = items::make(ammoId, 1, aux);
     if (!type || !ammo) return 0;
     Projectile p;
     p.dim      = dim;
@@ -570,20 +605,27 @@ bool firePotatoCannon(Player& player) {
     double    speed = ce::potatoSpeed(*type);
     if (dl < 1e-9) dir = {look.x, look.y, look.z}, dl = 1;
     double recovery = ce::potatoRecoveryChance(enchantLevel(cannon, kPotatoRecovery));
+    // Create: split shots add a fixed 0.1 offset perpendicular to the motion, spread evenly
+    // (i * 360 / split, +-20 degrees) around one random base angle (VecHelper.lookAt frame)
+    double fx = dir.x / dl, fy = dir.y / dl, fz = dir.z / dl;
+    double upx = 0, upy = 1, upz = 0;
+    if (std::abs(fy) > 1 - 1e-3) upy = 0, upz = fy > 0 ? 1 : -1;
+    double rx = fy * upz - fz * upy, ry = fz * upx - fx * upz, rz = fx * upy - fy * upx; // fwd x up
+    double rl = std::sqrt(rx * rx + ry * ry + rz * rz);
+    rx /= rl, ry /= rl, rz /= rl;
+    upx = ry * fz - rz * fy, upy = rz * fx - rx * fz, upz = rx * fy - ry * fx; // right x fwd
+    double baseDeg = 360.0 * random01();
     for (int i = 0; i < type->split; ++i) {
-        ce::Vec3f v{dir.x / dl * speed, dir.y / dl * speed, dir.z / dl * speed};
+        ce::Vec3f v{fx * speed, fy * speed, fz * speed};
         if (type->split > 1) {
-            // Create: split shots spread around the aim (i * 360 / split ± 20 degrees, offset 0.1)
-            double ang = (i * 360.0 / type->split + (random01() - .5) * 40.0) * std::numbers::pi / 180.0;
-            double ux = -look.z, uz = look.x; // horizontal perpendicular
-            double ul = std::sqrt(ux * ux + uz * uz);
-            if (ul < 1e-6) ux = 1, uz = 0, ul = 1;
-            ux /= ul, uz /= ul;
-            v.x += (ux * std::cos(ang)) * 0.1 * speed;
-            v.y += std::sin(ang) * 0.1 * speed;
-            v.z += (uz * std::cos(ang)) * 0.1 * speed;
+            double ang = (baseDeg + i * 360.0 / type->split + (random01() - .5) * 40.0) * std::numbers::pi / 180.0;
+            double ox = -0.1 * std::sin(ang), oy = 0.1 * std::cos(ang); // (0, 0.1, 0) turned about Z
+            v.x += ox * rx + oy * upx;
+            v.y += ox * ry + oy * upy;
+            v.z += ox * rz + oy * upz;
         }
-        launchProjectile(dim, start.x, start.y, start.z, v.x, v.y, v.z, items::idOf(ammo), uid, i == 0 ? recovery : 0.0);
+        launchProjectile(dim, start.x, start.y, start.z, v.x, v.y, v.z, items::idOf(ammo), uid, i == 0 ? recovery : 0.0,
+                         ammo.getAuxValue());
     }
     // Create's PotatoCannonPacket: the fwoomp at the barrel and two item particles
     float pitch = type->pitch + float(random01() - .5) / 4.f;

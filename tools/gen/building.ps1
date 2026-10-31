@@ -760,12 +760,16 @@ foreach ($f in 0..5) {
     $cpVis["f$f"] = "$(Q facing) == $f"
     $cpPerms += [ordered]@{ condition = "$(Q facing) == $f"; components = [ordered]@{ 'minecraft:collision_box' = (Box6 $b); 'minecraft:selection_box' = (Box6 $b) } }
 }
+# Create's CopycatBlockEntity.updateLight: levitate:light (0..15) is the material's light
+$cpLight = 0..15
+foreach ($l in 1..15) { $cpPerms += [ordered]@{ condition = "$(Q light) == $l"; components = [ordered]@{ 'minecraft:light_emission' = $l } } }
 $CopyPanelGeo = Write-Geo 'copycat_panel' $cpBones
-$comps = Base-Components 'copycat_panel' 0.5 0.5 '#8a8d84' @('pickaxe', 'axe')
+# an empty copycat is Create's copycat_base (SharedProperties.softMetal: gold, 3 / 6)
+$comps = Base-Components 'copycat_panel' 3 6 '#8a8d84' @('pickaxe', 'axe')
 $comps['minecraft:light_dampening'] = 0
 $comps['minecraft:geometry'] = [ordered]@{ identifier = $CopyPanelGeo; bone_visibility = $cpVis }
 $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat (Tex 'copycat_base' 'copycat_base') 'alpha_test') }
-Block-Json 'copycat_panel' ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5) }) $comps $cpPerms
+Block-Json 'copycat_panel' ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:light' = $cpLight }) $comps $cpPerms
 Loot 'copycat_panel'
 $BlockSounds['levitate:copycat_panel'] = 'metal'
 
@@ -779,12 +783,13 @@ foreach ($f in 2, 3, 4, 5) {
         $csPerms += [ordered]@{ condition = "$(HF $f) && $(Q top) == $t"; components = [ordered]@{ 'minecraft:collision_box' = (Box6 $b); 'minecraft:selection_box' = (Box6 $b) } }
     }
 }
+foreach ($l in 1..15) { $csPerms += [ordered]@{ condition = "$(Q light) == $l"; components = [ordered]@{ 'minecraft:light_emission' = $l } } }
 $CopyStepGeo = Write-Geo 'copycat_step' $csBones
-$comps = Base-Components 'copycat_step' 0.5 0.5 '#8a8d84' @('pickaxe', 'axe')
+$comps = Base-Components 'copycat_step' 3 6 '#8a8d84' @('pickaxe', 'axe')
 $comps['minecraft:light_dampening'] = 0
 $comps['minecraft:geometry'] = [ordered]@{ identifier = $CopyStepGeo; bone_visibility = $csVis }
 $comps['minecraft:material_instances'] = [ordered]@{ '*' = (Mat (Tex 'copycat_base' 'copycat_base') 'alpha_test') }
-Block-Json 'copycat_step' ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:top' = @(0, 1) }) $comps $csPerms
+Block-Json 'copycat_step' ([ordered]@{ 'levitate:facing' = @(0, 1, 2, 3, 4, 5); 'levitate:top' = @(0, 1); 'levitate:light' = $cpLight }) $comps $csPerms
 Loot 'copycat_step'
 $BlockSounds['levitate:copycat_step'] = 'metal'
 

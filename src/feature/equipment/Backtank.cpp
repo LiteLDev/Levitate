@@ -28,6 +28,10 @@
 #include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
 #include "mc/deps/shared_types/v1_26_20/block/MaterialType.h"
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/actor/provider/player_destroy/DestroyProgressContext.h"
+#include "mc/world/actor/provider/player_destroy/PlayerDestroy.h"
+#include "mc/deps/ecs/gamerefs_entity/EntityContext.h"
+#include "mc/deps/ecs/gamerefs_entity/GameRefsEntity.h"
 #include "mc/world/effect/EffectDuration.h"
 #include "mc/world/effect/MobEffectInstance.h"
 #include "mc/world/item/Item.h"
@@ -112,6 +116,15 @@ void effect(Player& p, unsigned id, int ticks, int amplifier = 0) {
     p.addEffect(inst);
 }
 
+/// Create's breatheUnderwater returns early when the wearer can breathe anyway (LivingBreatheEvent
+/// #canBreathe): Conduit Power, or Water Breathing that is not the helmet's own (ours is ambient,
+/// at most 2 seconds long).
+bool canBreatheAnyway(Player& p) {
+    if (p.getEffect(26u) != nullptr) return true; // conduit power
+    auto const* wb = p.getEffect(13u);
+    return wb && !(wb->mAmbient && wb->mDuration->mValue <= 40);
+}
+
 /// Create's BacktankBlockEntity keeps the Capacity level of the placed item.
 int blockCapacity(GlobalPos const& pos) {
     auto const* d = bd::get(pos);
@@ -135,6 +148,7 @@ struct DiverState {
     int  netherite  = -1; ///< netherite pieces counted in the knockback resistance modifier
     int  bootsSpeed = -1; ///< 1 while the diving boots' speed modifier is applied
     int  fog        = -1; ///< 0 none, 1 diving helmet, 2 netherite diving helmet
+    bool lavaGrounded = false; ///< Create's "LavaGrounded" marker (netherite boots in lava)
     std::uint64_t runtime = 0; ///< the player's runtime id the state belongs to (a rejoin starts over)
 };
 
@@ -385,7 +399,7 @@ void tickDivingGear() {
         if (head == kNetheriteHelmet && tank && air > 0 && (inLava || lavaAtFeet(p))) advancements::award(p, "diving_suit_lava");
         // helmet: breathing from the backtank (1 air per second while it is needed)
         if (helmet && tank && air > 0 && !p.isCreative()) {
-            if (underWater) {
+            if (underWater && !canBreatheAnyway(p)) {
                 breathing = true;
                 effect(p, 13, 40); // water breathing while the tank provides air
                 if (second) consumeAir(p, 1);
@@ -429,6 +443,16 @@ void tickDivingGear() {
             if (jumping && p.isOnGround()) vy += 0.5;
             else if (!p.isOnGround()) vy -= 0.05;
             if (!p.isOnGround() || jumping) setMotion(p, vx, vy, vz);
+        }
+        // netherite boots in lava (Create's LavaSwimmingMixin: the lava travel motion times
+        // DivingBootsItem#getMovementMultiplier); the client mod moves its own player
+        bool lavaWalk = feet == kNetheriteBoots && (inLava || lavaAtFeet(p)) && !p.isFlying();
+        if (lavaWalk && !companion) {
+            auto const& v = p.getPosDelta();
+            auto m = core::equipment::lavaBootsMultiplier(v.y, p.isOnGround(), p.isJumping(), p.isSprinting(), inLava, st.lavaGrounded);
+            if (std::abs(v.x) + std::abs(v.y) + std::abs(v.z) > 1e-3) setMotion(p, v.x * m.x, v.y * m.y, v.z * m.z);
+        } else if (!lavaWalk) {
+            st.lavaGrounded = false;
         }
         // air HUD (Create: shown under water without breath, or in lava)
         bool show = tank && (breathing || ((underWater || inLava) && !p.isCreative()));
@@ -503,9 +527,45 @@ LL_TYPE_INSTANCE_HOOK(EquipmentToughnessHook, ll::memory::HookPriority::Normal, 
 }
 
 namespace lv::feature::equipment {
+bool hasAquaAffinityHelmet(Actor const& a) {
+    auto head = items::idOf(a.getArmor(ArmorSlot::Head));
+    return head == kCopperHelmet || head == kNetheriteHelmet;
+}
+} // namespace lv::feature::equipment
+
+namespace {
+/// Create's DivingHelmetItem#getEnchantmentLevel: the helmets have Aqua Affinity I built in, so a
+/// wearer under water digs at the normal speed. Bedrock's destroy speed reads whether the armour
+/// has Aqua Affinity from this context.
+void giveAquaAffinity(PlayerDestroy::DestroyProgressContext& ctx) {
+    if (!ctx.actorIsUnderWater || ctx.actorHasAquaAffinityArmor) return;
+    auto* actor = Actor::tryGetFromEntity(const_cast<EntityContext&>(static_cast<EntityContext const&>(ctx.provider)), false);
+    if (actor && lv::feature::equipment::hasAquaAffinityHelmet(*actor))
+        *const_cast<bool*>(reinterpret_cast<bool const*>(&ctx.actorHasAquaAffinityArmor)) = true;
+}
+} // namespace
+
+LL_STATIC_HOOK(EquipmentAquaSpeedHook, ll::memory::HookPriority::Normal, &PlayerDestroy::getDestroySpeed, float, PlayerDestroy::DestroyProgressContext& ctx) {
+    giveAquaAffinity(ctx);
+    return origin(ctx);
+}
+
+LL_STATIC_HOOK(EquipmentAquaProgressHook, ll::memory::HookPriority::Normal, &PlayerDestroy::getDestroyProgress, float, PlayerDestroy::DestroyProgressContext& ctx) {
+    giveAquaAffinity(ctx);
+    return origin(ctx);
+}
+
+namespace lv::feature::equipment {
 int  netheriteToughness(Actor const& a) { return kNetheriteToughness * netheritePieces(a); }
 void hookToughness(bool on) {
-    if (on) EquipmentToughnessHook::hook();
-    else EquipmentToughnessHook::unhook();
+    if (on) {
+        EquipmentToughnessHook::hook();
+        EquipmentAquaSpeedHook::hook();
+        EquipmentAquaProgressHook::hook();
+    } else {
+        EquipmentAquaProgressHook::unhook();
+        EquipmentAquaSpeedHook::unhook();
+        EquipmentToughnessHook::unhook();
+    }
 }
 } // namespace lv::feature::equipment

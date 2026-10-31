@@ -113,7 +113,7 @@ void collectOrDrop(con::MovementContext& ctx, ItemStack const& stack);
 void damageEntities(con::MovementContext& ctx, GlobalPos const& pos, bool hurt, bool roller);
 /// Death message of the roller's damage source (Create's CreateDamageSources.roller), a
 /// translation key of the resource pack (actors.lang).
-inline constexpr char kRollerDeathMessage[] = "death.attack.create.roller";
+inline constexpr char kRollerDeathMessage[] = "death.attack.create.mechanical_roller";
 /// Plays the block's own hit sound at `pos` (Create's getSoundType().getHitSound()) for the
 /// players nearby: the game's hit sound event, resolved by every client from the block.
 void playHitSound(int dim, BlockPos const& pos, Block const& block);

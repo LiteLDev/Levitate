@@ -1,6 +1,7 @@
 // Comparator output of toolboxes (U31, through common/Redstone.h, U36): Create's
 // ToolboxBlock.getAnalogOutputSignal = ItemHelper.calcRedstoneFromBlockEntity over the toolbox
-// inventory's 32 slots: floor(fill * 14) + (any item ? 1 : 0). The lectern controller gives 15.
+// inventory's 32 slots: floor(fill * 14) + (any item ? 1 : 0). The lectern controller gives 15, a
+// backtank fractionToRedstoneLevel of its air.
 
 #include <cmath>
 
@@ -33,8 +34,16 @@ public:
         rs::registerAnalog(std::string(kLecternController), [](BlockSource&, BlockPos const&, Block const&) -> std::optional<int> {
             return 15;
         });
+        // Create's BacktankBlock.getAnalogOutputSignal: fractionToRedstoneLevel(air / max air)
+        for (auto id : {kCopperBacktank, kNetheriteBacktank})
+            rs::registerAnalog(std::string(id), [](BlockSource& region, BlockPos const& pos, Block const&) -> std::optional<int> {
+                auto at  = game::globalPos(region, pos);
+                int  max = blockMaxAir(at);
+                return rs::fractionToRedstoneLevel(max > 0 ? double(blockAir(at)) / max : 0.0);
+            });
     }
     void uninstall() {
+        for (auto id : {kCopperBacktank, kNetheriteBacktank}) rs::unregisterAnalog(std::string(id));
         rs::unregisterAnalog(std::string(kLecternController));
         for (auto c : kColours) rs::unregisterAnalog(toolboxId(c));
     }

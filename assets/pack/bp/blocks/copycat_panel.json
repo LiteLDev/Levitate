@@ -14,15 +14,33 @@
           3,
           4,
           5
+        ],
+        "levitate:light": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
         ]
       }
     },
     "components": {
       "minecraft:destructible_by_mining": {
-        "seconds_to_destroy": 0.5
+        "seconds_to_destroy": 3.0
       },
       "minecraft:destructible_by_explosion": {
-        "explosion_resistance": 0.5
+        "explosion_resistance": 6.0
       },
       "minecraft:map_color": "#8a8d84",
       "minecraft:loot": "loot_tables/blocks/copycat_panel.json",
@@ -220,6 +238,96 @@
               16
             ]
           }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 1",
+        "components": {
+          "minecraft:light_emission": 1
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 2",
+        "components": {
+          "minecraft:light_emission": 2
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 3",
+        "components": {
+          "minecraft:light_emission": 3
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 4",
+        "components": {
+          "minecraft:light_emission": 4
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 5",
+        "components": {
+          "minecraft:light_emission": 5
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 6",
+        "components": {
+          "minecraft:light_emission": 6
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 7",
+        "components": {
+          "minecraft:light_emission": 7
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 8",
+        "components": {
+          "minecraft:light_emission": 8
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 9",
+        "components": {
+          "minecraft:light_emission": 9
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 10",
+        "components": {
+          "minecraft:light_emission": 10
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 11",
+        "components": {
+          "minecraft:light_emission": 11
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 12",
+        "components": {
+          "minecraft:light_emission": 12
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 13",
+        "components": {
+          "minecraft:light_emission": 13
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 14",
+        "components": {
+          "minecraft:light_emission": 14
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:light') == 15",
+        "components": {
+          "minecraft:light_emission": 15
         }
       }
     ]

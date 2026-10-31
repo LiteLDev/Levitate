@@ -15,5 +15,10 @@
   "block.create.item_hatch.tooltip.condition1": "When R-Clicked",
   "block.create.item_hatch.tooltip.behaviour1": "_Deposits_ your _held item_ into the _container_ it is placed on. _Sneak-click_ to _deposit_ _everything_ except Hotbar items.",
   "create.item_hatch.deposit_item": "Held item deposited",
-  "create.item_hatch.deposit_inventory": "Inventory items deposited"
+  "create.item_hatch.deposit_inventory": "Inventory items deposited",
+  "block.create.creative_crate.tooltip.summary": "This _Storage Container_ allows infinite replication of items.",
+  "block.create.creative_crate.tooltip.condition1": "When Item in Filter Slot",
+  "block.create.creative_crate.tooltip.behaviour1": "Anything _extracting_ from this container will provide an _endless supply_ of the item specified. Items _inserted_ into this crate will be _voided._",
+  "block.create.creative_crate.tooltip.condition2": "When next to Schematicannon",
+  "block.create.creative_crate.tooltip.behaviour2": "Provides any material required by the Schematic."
 }

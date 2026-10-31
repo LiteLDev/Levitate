@@ -1,1 +1,10 @@
-{}
+{
+  "item.create.builders_tea.tooltip.summary": "The perfect drink to get the day started- _Motivating_ and _Saturating._",
+  "item.create.blaze_cake.tooltip.summary": "A Delicious treat for your hard-working _Blaze Burners_. Gets them all fired up!",
+  "item.create.creative_blaze_cake.tooltip.summary": "A very special treat for your _Blaze Burners_. After eating this cake, Blaze Burners will _never run out of fuel_.",
+  "item.create.creative_blaze_cake.tooltip.condition1": "When Used",
+  "item.create.creative_blaze_cake.tooltip.behaviour1": "_Cycles_ a Blaze Burner's heat level.",
+  "item.create.experience_nugget.tooltip.summary": "A speck of _inspiration_ from your fantastic inventions.",
+  "item.create.experience_nugget.tooltip.condition1": "When Used",
+  "item.create.experience_nugget.tooltip.behaviour1": "_Redeems_ _Experience_ points contained within."
+}
