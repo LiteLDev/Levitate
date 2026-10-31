@@ -514,14 +514,27 @@ struct Registration {
             registerSource(id, Source{
                 .id = "item_names", .name = "create.display_source.combine_item_names", .nameFallback = "Combine Item Names",
                 .text = [](Context& ctx, TargetStats const&) -> Lines {
-                    common::Access at{ctx.region, game::blockPos(ctx.source), -1};
-                    if (auto h = items::find(at); h && h->slots && h->getSlot) {
-                        for (int i = 0, n = h->slots(at); i < n; ++i) {
-                            auto s = h->getSlot(at, i);
-                            if (!items::isEmpty(s)) return {labelled(ctx, items::displayName(s))};
+                    // Create's ItemNameDisplaySource: up to 32 blocks of belt (or depots, ejectors)
+                    // away from the link, the names of the items on them one after the other
+                    int dx = ctx.source.x - ctx.link.x, dy = ctx.source.y - ctx.link.y, dz = ctx.source.z - ctx.link.z;
+                    std::string combined;
+                    GlobalPos   pos = ctx.source;
+                    for (int i = 0; i < 32; ++i) {
+                        auto const* b  = loadedBlock(ctx.region, game::blockPos(pos));
+                        std::string id = b ? std::string(b->getTypeName()) : std::string();
+                        if (id != "levitate:belt" && id != "levitate:depot" && id != "levitate:weighted_ejector") break;
+                        common::Access at{ctx.region, game::blockPos(pos), -1};
+                        if (auto h = items::find(at); h && h->slots && h->getSlot) {
+                            for (int s = 0, n = h->slots(at); s < n; ++s) {
+                                auto stack = h->getSlot(at, s);
+                                if (items::isEmpty(stack)) continue;
+                                combined += items::displayName(stack);
+                                break;
+                            }
                         }
+                        pos = {pos.dim, pos.x + dx, pos.y + dy, pos.z + dz};
                     }
-                    return {""};
+                    return {combined.empty() ? std::string() : labelled(ctx, combined)};
                 },
                 .options = {labelOption()},
             });
@@ -627,7 +640,7 @@ struct Registration {
         }
         registerSource("minecraft:respawn_anchor", Source{
             .id = "death_count", .name = "create.display_source.player_deaths", .nameFallback = "Player Deaths",
-            .text = [](Context& ctx, TargetStats const& stats) -> Lines {
+            .text = [](Context&, TargetStats const& stats) -> Lines {
                 std::vector<std::pair<long long, std::string>> list;
                 for (auto const& [n, c] : deaths()) list.emplace_back(c, n);
                 std::sort(list.begin(), list.end(), [](auto const& a, auto const& b) { return a.first > b.first; });

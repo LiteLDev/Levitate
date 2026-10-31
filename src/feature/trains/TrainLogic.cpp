@@ -111,6 +111,7 @@ Json Train::toJson() const {
         {"id",       id         },
         {"name",     name       },
         {"owner",    owner      },
+        {"icon",     icon       },
         {"dim",      dim        },
         {"body",     body.toJson()},
         {"carriages", cars      },
@@ -148,6 +149,7 @@ Train Train::fromJson(Json const& j) {
     t.id    = j.value("id", std::uint64_t{0});
     t.name  = j.value("name", std::string());
     t.owner = j.value("owner", std::string());
+    t.icon  = j.value("icon", std::string("traditional"));
     t.dim   = j.value("dim", 0);
     t.body  = ct::Body::fromJson(j.value("body", Json::object()));
     for (auto const& cj : j.value("carriages", Json::array())) {

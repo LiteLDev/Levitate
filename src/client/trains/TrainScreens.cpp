@@ -98,6 +98,16 @@ private:
             auto const& t = mData["train"];
             nameField(Rect{8, y - 1, 204, 13}, t.value("name", std::string()), 35, "train_name", ctr("lv.trains.train_name", "Train Name"));
             y += 15;
+            // Create's AssemblyScreen icon type selector (traditional, electric, modern)
+            {
+                std::string icon  = t.value("icon", std::string("traditional"));
+                int         index = icon == "electric" ? 1 : icon == "modern" ? 2 : 0;
+                auto&       pick  = add<ScrollInput>(Rect{8, y, 204, 14}, ctr("create.station.icon_type", "Icon Type"), 0, 2, index, [this](int v) {
+                    mSend({{"op", "icon"}, {"value", v}});
+                });
+                pick.options = {ctr("lv.trains.icon.traditional", "Traditional"), ctr("lv.trains.icon.electric", "Electric"), ctr("lv.trains.icon.modern", "Modern")};
+                y += 17;
+            }
             bool can = t.value("canDisassemble", false);
             button(8, y, 120, ctr("create.station.disassemble_train", "Disassemble Train"), {{"op", "disassemble"}},
                    can ? std::vector<std::string>{} : std::vector<std::string>{ctr("create.station.train_not_aligned", "Cannot disassemble,"), ctr("create.station.train_not_aligned_1", "not all carriages aligned")},

@@ -14,10 +14,12 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
+#include "mc/world/level/Spawner.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/dimension/Dimension.h"
 
 #include "core/tracks/Shape.h"
+#include "feature/common/Items.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/contraption/PistonsExt.h"
 #include "feature/tracks/SignalsExt.h"
@@ -140,7 +142,6 @@ void loadAll() {
     auto& s = state();
     s.stations.clear();
     s.trains.clear();
-    s.targets.clear();
     s.pendingStations.clear();
     s.deferred.clear();
     s.nextTrainId = 1;
@@ -205,8 +206,14 @@ void onBlockChanged(ll::event::BlockChangedEvent& ev) {
                                       : trFor(*pl, err, "Cannot target this track here"));
                 }
                 if (!ok) {
-                    // Create: an unbound station can't exist, the block pops
-                    if (auto* region = regionOf(p.dim)) game::clearBlock(*region, game::blockPos(p));
+                    // Create: an unbound station can't exist, the block pops (with its item)
+                    if (auto* region = regionOf(p.dim)) {
+                        game::clearBlock(*region, game::blockPos(p));
+                        auto* pl = playerByUuid(who);
+                        if (auto item = common::items::make(kStation); item && !(pl && pl->isCreative()))
+                            if (auto level = ll::service::getLevel())
+                                level->getSpawner().spawnItem(*region, *item, nullptr, Vec3{float(p.x + .5), float(p.y + .5), float(p.z + .5)}, 10);
+                    }
                 }
             });
         }
@@ -234,6 +241,7 @@ void runTick() {
     tickTrains();
     tickControls();
     tickAutoSchedules();
+    tickTrainEffects();
     // stations change rarely: write them soon after a change (trains are saved with the world)
     if (s.stationsDirty && s.tick % 100 == 0) saveAll();
 }
@@ -309,10 +317,10 @@ struct WorldHooks {
             auto& s = state();
             s.stations.clear();
             s.trains.clear();
-            s.targets.clear();
             s.pendingStations.clear();
             s.deferred.clear();
             resetControls();
+            resetTrainEffects();
         });
     }
 } const gWorldHooks;

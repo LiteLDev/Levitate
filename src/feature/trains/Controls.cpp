@@ -176,17 +176,23 @@ void tickControls() {
         }
         auto& h = it->second;
         if (h.ticks > 0) {
-            if (h.nextTone <= 0) {
-                // the whistle tone sample (U18) restarted every 10 ticks sounds continuous; the
-                // large whistle gives Create's low horn
-                h.nextTone = 10;
-                if (auto at = honkPosition(*t, h)) {
-                    static constexpr char const* kTones[]{"levitate.steam.whistle_medium", "levitate.steam.whistle_high", "levitate.steam.whistle_low"};
-                    playSound(t->dim, *at, kTones[std::clamp(h.size, 0, 2)], 2.f, cs::whistleSoundPitch(h.pitch));
-                }
+            // Create's CarriageSounds: WHISTLE_TRAIN_MANUAL(_LOW) while honking (a large whistle
+            // gives the low horn), its _END sound at 19 and 5 ticks left; pitch 2^(honkPitch / 12)
+            // with honkPitch = (small ? 12 : 0) - extension semitones
+            bool  low   = h.size == 2;
+            float pitch = float(std::pow(2.0, ((h.size == 1 ? 12 : 0) - h.pitch) / 12.0));
+            auto  at    = honkPosition(*t, h);
+            if (at && h.nextTone <= 0) {
+                // the horn sample lasts a second at pitch 1 (the low horn plays it at half speed):
+                // restarted just before it ends it sounds continuous
+                h.nextTone = std::max(4, int(18 / (pitch * (low ? 0.5f : 1.f))));
+                playSound(t->dim, *at, low ? "levitate.trains.horn_low" : "levitate.trains.horn", 2.f, pitch);
             }
+            if (at && (h.ticks == 19 || h.ticks == 5))
+                playSound(t->dim, *at, low ? "levitate.trains.horn_low_end" : "levitate.trains.horn_end", h.ticks == 5 ? 2.f : 1.f, pitch);
             --h.nextTone;
             --h.ticks;
+            if (h.ticks == 0) h.nextTone = 0;
         }
         ++it;
     }

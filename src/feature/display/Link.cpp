@@ -678,6 +678,11 @@ void openScreen(Player& player, GlobalPos const& link) {
         return;
     }
     track(link);
+    // Create's DisplayLinkScreen starts its source selector at the first source when none is
+    // active, and closing the screen applies it
+    if (data->sourceId.empty())
+        if (auto src = sourcePos(*region, link))
+            if (auto sources = sourcesAt(*region, *src); !sources.empty()) selectSource(link, sources.front()->id);
     screens::open(player, kScreen, {{"pos", posJson(link)}});
 }
 

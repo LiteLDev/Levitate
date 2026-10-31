@@ -160,6 +160,8 @@ struct Structure {
 void updateColumns(BlockSource& region, GlobalPos const& pos);
 [[nodiscard]] int  maxChars(int width);
 [[nodiscard]] bool running(GlobalPos const& controller);
+/// Selftests: treat the board of `controller` as turning fast enough (Create: medium speed).
+void forceRunning(GlobalPos const& controller, bool on);
 /// Text of a line ("" when none).
 [[nodiscard]] std::string lineText(GlobalPos const& controller, int line);
 void setLine(BlockSource& region, GlobalPos const& controller, int line, std::string const& text, bool manual);
@@ -212,6 +214,8 @@ void useInAir(Player& player);
 /// Left-click on a block with the clipboard: paste settings. Returns true when handled.
 bool paste(Player& player, BlockSource& region, GlobalPos const& pos);
 /// Right-click on a placed clipboard (open / sneak: pick up).
+/// Create's ClipboardBlock.breakAndCollect (sneak-click or left-click on a placed clipboard).
+bool pickUp(Player& player, BlockSource& region, GlobalPos const& pos);
 bool useBlock(Player& player, BlockSource& region, GlobalPos const& pos);
 void placed(Player& player, BlockSource& region, GlobalPos const& pos, int face, ItemStack const& item);
 /// Copy / paste of machine settings (value boxes, filter slots) without a player check.

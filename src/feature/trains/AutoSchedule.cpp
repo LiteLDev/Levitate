@@ -107,12 +107,12 @@ void tickAutoSchedules() {
         auto* region = regionOf(s.pos.dim);
         if (!region || !region->hasChunksAt(game::blockPos(s.pos), 0, false)) continue;
         AABB box{
-            Vec3{float(s.pos.x), float(s.pos.y + 0.75), float(s.pos.z)},
-            Vec3{float(s.pos.x + 1), float(s.pos.y + 1.4), float(s.pos.z + 1)}
+            Vec3{float(s.pos.x), float(s.pos.y + 0.5), float(s.pos.z)},
+            Vec3{float(s.pos.x + 1), float(s.pos.y + 1.6), float(s.pos.z + 1)}
         };
         for (auto* a : region->getEntities(box, 0.0f, ActorType::ItemEntity)) {
             if (!a || !a->isAlive()) continue;
-            auto& item = static_cast<ItemActor*>(a)->mItem.get();
+            auto& item = static_cast<ItemActor*>(a)->item();
             if (!isSchedule(item)) continue;
             ItemStack rest = item;
             if (!setAutoSchedule(s, item)) break;

@@ -1,0 +1,38 @@
+{
+  "levitate.trains.rolling": {
+    "category": "neutral",
+    "min_distance": 4.0,
+    "max_distance": 48.0,
+    "sounds": [{ "name": "sounds/levitate/train_rolling", "volume": 0.5 }]
+  },
+  "levitate.trains.steam": {
+    "category": "neutral",
+    "min_distance": 4.0,
+    "max_distance": 48.0,
+    "sounds": [{ "name": "sounds/levitate/train_steam", "volume": 0.6 }]
+  },
+  "levitate.trains.horn": {
+    "category": "neutral",
+    "min_distance": 8.0,
+    "max_distance": 96.0,
+    "sounds": [{ "name": "sounds/levitate/train_horn", "volume": 0.8 }]
+  },
+  "levitate.trains.horn_low": {
+    "category": "neutral",
+    "min_distance": 8.0,
+    "max_distance": 96.0,
+    "sounds": [{ "name": "sounds/levitate/train_horn", "pitch": 0.5, "volume": 0.9 }]
+  },
+  "levitate.trains.horn_end": {
+    "category": "neutral",
+    "min_distance": 8.0,
+    "max_distance": 96.0,
+    "sounds": [{ "name": "sounds/levitate/train_horn_end", "volume": 0.8 }]
+  },
+  "levitate.trains.horn_low_end": {
+    "category": "neutral",
+    "min_distance": 8.0,
+    "max_distance": 96.0,
+    "sounds": [{ "name": "sounds/levitate/train_horn_end", "pitch": 0.5, "volume": 0.9 }]
+  }
+}

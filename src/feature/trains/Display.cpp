@@ -16,12 +16,6 @@ namespace lv::feature::trains {
 
 namespace dsp = lv::feature::display;
 
-/// One row of a station summary (Create's TrainDeparturePrediction).
-struct SummaryRow {
-    int         ticks = -1;
-    std::string train, title, platform;
-};
-
 namespace {
 
 /// Create's GlobalTrainDisplayData.prepare: predictions whose destination matches the filter,
@@ -115,7 +109,6 @@ std::vector<std::string> percentChoices(int max, bool percent) {
 
 } // namespace
 
-/// Selftests: the summary rows for a filter.
 std::vector<SummaryRow> stationSummaryRows(std::string const& filter, int maxRows) { return summaryRows(filter, maxRows); }
 
 class TrainsDisplayModule {

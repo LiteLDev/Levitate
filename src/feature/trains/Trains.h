@@ -118,6 +118,7 @@ struct Train {
     std::uint64_t         id = 0;
     std::string           name;
     std::string           owner; ///< player UUID
+    std::string           icon = "traditional"; ///< Create's TrainIconType: traditional, electric, modern
     int                   dim = 0;
     ct::Body              body;
     std::vector<Carriage> carriages;
@@ -172,12 +173,11 @@ struct State {
     std::uint64_t                           graphVersion = 0;
     bool                                    stationsDirty = false;
     std::vector<std::function<void()>>      deferred;
-    /// Track targeting selections of the station item, by player UUID.
+    /// A track targeted with the station item (Create keeps it on the stack: Hooks.cpp).
     struct Target {
         GlobalPos track;
         int       fx = 1, fz = 0;
     };
-    std::map<std::string, Target>           targets;
     std::map<GlobalPos, std::pair<Target, std::string>> pendingStations; ///< placed this tick
     std::map<std::string, std::uint64_t>    lastUse; ///< debounce per player
 };
@@ -202,6 +202,9 @@ void defer(std::function<void()> fn);
 // ---- stations (Stations.cpp) --------------------------------------------------------------------
 Station*             stationAt(GlobalPos const& pos);
 Station*             stationByKey(std::string const& key);
+/// Create's OverlapResult.OCCUPIED: an edge point (other than `except`) within 3/4 of a block of
+/// where a station targeting `track` (direction fx/fz) would go.
+[[nodiscard]] bool   pointOccupied(GlobalPos const& track, int fx, int fz, std::string const& except);
 /// Registers a station bound to `track` (arrival direction fx/fz). Returns false if not possible.
 bool                 createStation(GlobalPos const& pos, GlobalPos const& track, int fx, int fz, std::string* errorKey = nullptr);
 void                 removeStation(GlobalPos const& pos);
@@ -311,6 +314,14 @@ void         onGraphChanged();
 /// Create's ScheduleRuntime.submitPredictions for the train (empty when it is paused, has no
 /// schedule or is derailed).
 [[nodiscard]] std::vector<ct::Runtime::Prediction> predictionsOf(Train& t);
+/// One row of a station summary (Create's TrainDeparturePrediction as the display shows it).
+struct SummaryRow {
+    int         ticks = -1;
+    std::string train, title, platform;
+};
+/// Create's GlobalTrainDisplayData.prepare: the predictions whose destination matches `filter`
+/// (soonest first, at most `maxRows`), with the platform column of a wildcard filter.
+[[nodiscard]] std::vector<SummaryRow> stationSummaryRows(std::string const& filter, int maxRows);
 /// Text of a train for commands and displays.
 [[nodiscard]] std::string statusLine(Train const& t);
 
@@ -357,5 +368,11 @@ void controlsChanged(Train const& t, Player* player, bool active);
 /// Horn sounds and the controlling companions' HUD data (every tick).
 void tickControls();
 void resetControls();
+
+// ---- train sounds and particles (TrainSounds.cpp) -------------------------------------------------
+/// Create's CarriageSounds / CarriageParticles (as world sounds and particles) and the arrival
+/// sound queue, every tick.
+void tickTrainEffects();
+void resetTrainEffects();
 
 } // namespace lv::feature::trains

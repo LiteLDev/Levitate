@@ -578,7 +578,7 @@ bool useOnBlock(Player& player, BlockSource& region, GlobalPos const& pos, int f
                     mine.pages.emplace_back();
                     free = std::prev(mine.pages.end());
                 }
-                free->push_back({e.text, false});
+                free->push_back({e.text, e.checked}); // Create keeps the check marks
             }
         }
         mine.type      = mine.pages.empty() ? 0 : 2;
@@ -623,18 +623,21 @@ bool paste(Player& player, BlockSource& region, GlobalPos const& pos) {
     return true;
 }
 
+bool pickUp(Player& player, BlockSource& region, GlobalPos const& pos) {
+    if (idAt(region, pos) != kClipboardId) return false;
+    // Create's breakAndCollect: the clipboard goes into the inventory with its pages
+    auto doc   = blockdata::take(pos);
+    auto stack = items::make(kClipboardId);
+    if (stack && doc && doc->contains(kDataKey)) setOnItem(*stack, fromJson((*doc)[kDataKey]));
+    game::clearBlock(region, game::blockPos(pos));
+    if (stack) giveOrDrop(player, *stack);
+    log().info("clipboard at {} picked up by {}", pos.key(), player.getRealName());
+    return true;
+}
+
 bool useBlock(Player& player, BlockSource& region, GlobalPos const& pos) {
     if (idAt(region, pos) != kClipboardId) return false;
-    if (player.isSneaking()) {
-        // Create's breakAndCollect: the clipboard goes into the inventory with its pages
-        auto doc   = blockdata::take(pos);
-        auto stack = items::make(kClipboardId);
-        if (stack && doc && doc->contains(kDataKey)) setOnItem(*stack, fromJson((*doc)[kDataKey]));
-        game::clearBlock(region, game::blockPos(pos));
-        if (stack) giveOrDrop(player, *stack);
-        log().info("clipboard at {} picked up by {}", pos.key(), player.getRealName());
-        return true;
-    }
+    if (player.isSneaking()) return pickUp(player, region, pos);
     screens::open(player, kScreen, {{"pos", posJson(pos)}});
     return true;
 }

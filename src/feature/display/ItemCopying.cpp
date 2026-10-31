@@ -33,9 +33,9 @@ namespace {
 
 namespace items = common::items;
 
-constexpr std::array<std::string_view, 5> kCopyable{
+// (Bedrock clipboards stack to 1: no copying recipe can give several of them)
+constexpr std::array<std::string_view, 4> kCopyable{
     "levitate:schedule",
-    "levitate:clipboard",
     "levitate:filter",
     "levitate:attribute_filter",
     "levitate:package_filter",

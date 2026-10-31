@@ -48,7 +48,7 @@ void setScheduleOf(ItemStack& stack, ct::Schedule const& s) {
         auto const& e = s.entries[i];
         if (e.instruction.id != ids::kDestination) continue;
         bool current = int(i) == s.savedProgress && s.entries.size() > 1;
-        lore.push_back(std::string(current ? "\xC2\xA77-> \xC2\xA7" "e" : "\xC2\xA77> \xC2\xA7" "6")
+        lore.push_back(std::string(current ? "\xC2\xA7" "7-> \xC2\xA7" "e" : "\xC2\xA7" "7> \xC2\xA7" "6")
                        + e.instruction.data.value("Text", std::string()));
     }
     stack.setCustomLore(lore);

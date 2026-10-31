@@ -220,8 +220,12 @@ LV_REGISTER_SELFTEST("display.link_transfer", [](Context& ctx) -> ll::coro::Coro
     auto src = dsp::link::sourcePos(r, link);
     ctx.check(src && *src == p, "the link reads the block below");
     dsp::link::selectSource(link, "nixie_tube");
-    ctx.check(dsp::link::update(link), "update transfers");
     auto ctrl = dsp::board::structureOf(r, boardAt)->controller;
+    // Create's DisplayBoardTarget: a board that doesn't turn ignores links
+    ctx.check(dsp::link::update(link) || true, "update");
+    ctx.check(dsp::board::lineText(ctrl, 0).empty(), "a stopped board shows nothing from a link");
+    dsp::board::forceRunning(ctrl, true);
+    ctx.check(dsp::link::update(link), "update transfers");
     ctx.check(dsp::board::lineText(ctrl, 0) == "42", "board line 0 shows 42, got '" + dsp::board::lineText(ctrl, 0) + "'");
     // a nixie change notifies the link at once (Create's notifyGatherers)
     dsp::nixie::displayCustomText(r, p, "77");
@@ -242,6 +246,7 @@ LV_REGISTER_SELFTEST("display.link_transfer", [](Context& ctx) -> ll::coro::Coro
     dsp::link::write(link, *d);
     dsp::link::update(link);
     ctx.check(dsp::board::lineText(ctrl, 1) == "13", "line 1 written");
+    dsp::board::forceRunning(ctrl, false);
 });
 
 LV_REGISTER_SELFTEST("display.sign_target", [](Context& ctx) -> ll::coro::CoroTask<> {
@@ -276,6 +281,7 @@ LV_REGISTER_SELFTEST("display.link_screen", [](Context& ctx) -> ll::coro::CoroTa
     placeBoards(ctx, boardAt, 1, 2, 0);
     auto link = up(p, 1);
     ctx.require(placeLink(ctx, link, "up", boardAt), "place the link");
+    dsp::board::forceRunning(dsp::board::structureOf(r, boardAt)->controller, true); // a turning board
     net::setTestCompanion(pl, true);
     (void)net::takeTestMessages(pl);
     dsp::link::openScreen(pl, link);
@@ -294,6 +300,7 @@ LV_REGISTER_SELFTEST("display.link_screen", [](Context& ctx) -> ll::coro::CoroTa
     ctx.check(d && d->sourceId == "nixie_tube" && d->line == 2, "source and line set by screen actions");
     auto ctrl = dsp::board::structureOf(r, boardAt)->controller;
     ctx.check(dsp::board::lineText(ctrl, 2) == "0", "the configured link wrote line 3 ('0' redstone), got '" + dsp::board::lineText(ctrl, 2) + "'");
+    dsp::board::forceRunning(ctrl, false);
     net::setTestCompanion(pl, false);
 });
 
@@ -400,4 +407,39 @@ LV_REGISTER_SELFTEST("display.link_item", [](Context& ctx) -> ll::coro::CoroTask
     ctx.check(d && d->targetOffset == std::array<int, 3>{0, 0, -2}, "bound to the board");
     auto src = dsp::link::sourcePos(r, link);
     ctx.check(src && *src == at(p, 0, 0, 2), "attached to the stone");
+});
+
+// U57 (T16 / T15): Create's boiler, elevator location, package address sources and the sources of
+// the smart observer and threshold switch (block ids content_observer / stockpile_switch)
+LV_REGISTER_SELFTEST("display.u57_sources", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = up(ctx.testPos(5780), 1);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    auto& r = region(ctx);
+    struct Case {
+        char const* block;
+        char const* source;
+    };
+    int i = 0;
+    for (auto c : {Case{"levitate:fluid_tank", "boiler"}, Case{"levitate:elevator_contact", "current_floor"},
+                   Case{"levitate:content_observer", "read_package_address"}, Case{"levitate:content_observer", "count_items"},
+                   Case{"levitate:stockpile_switch", "fill_level"}}) {
+        auto q = at(p, 2 * i++, 0, 0);
+        ctx.require(ctx.setBlock(q, c.block), std::string("place ") + c.block);
+        bool found = false;
+        for (auto const* s : dsp::sourcesAt(r, q)) found |= s->id == c.source;
+        ctx.check(found, std::string(c.block) + " offers " + c.source);
+    }
+    // the elevator location is the floor the contact last reported (the pistons unit's BlockData)
+    auto contact = at(p, 2, 0, 0);
+    lv::feature::common::blockdata::edit(contact)["pistons"]["floor"] = "B2";
+    auto const* src = static_cast<dsp::Source const*>(nullptr);
+    for (auto const* s : dsp::sourcesAt(r, contact))
+        if (s->id == "current_floor") src = s;
+    ctx.require(src != nullptr, "the elevator contact source");
+    JsonT               cfg = JsonT::object();
+    dsp::Context        dc{r, at(contact, 0, 1, 0), contact, at(contact, 0, 2, 0), cfg, 0};
+    dsp::TargetStats    st{1, 16, "sign"};
+    auto lines = src->text(dc, st);
+    ctx.check(lines.size() == 1 && lines[0] == "B2", "the source shows the reported floor");
+    co_return;
 });

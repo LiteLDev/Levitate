@@ -4,6 +4,7 @@
 // mod see the flaps animate (src/client/display/); vanilla players see the text as a name tag.
 
 #include <algorithm>
+#include <set>
 #include <cmath>
 #include <map>
 
@@ -34,6 +35,14 @@ namespace items     = common::items;
 namespace k         = lv::kinetics;
 
 std::string flapText(std::string const& text);
+
+namespace {
+/// Selftests: boards treated as turning (forceRunning).
+std::set<GlobalPos>& forcedRunning() {
+    static std::set<GlobalPos> s;
+    return s;
+}
+} // namespace
 
 namespace {
 constexpr char kDbBoards[] = "lv:display:boards";
@@ -303,6 +312,7 @@ struct Lifecycle {
         game::db::onWorldReady([] {
             controllers().clear();
             lastSent().clear();
+            forcedRunning().clear();
             playerDims().clear();
             if (auto j = game::db::load(kDbBoards); j && j->is_array()) {
                 for (auto const& e : *j)
@@ -429,7 +439,13 @@ void updateColumns(BlockSource& region, GlobalPos const& pos) {
 
 int maxChars(int width) { return static_cast<int>((width * 16 - 2) / 3.5); }
 
+void forceRunning(GlobalPos const& controller, bool on) {
+    if (on) forcedRunning().insert(controller);
+    else forcedRunning().erase(controller);
+}
+
 bool running(GlobalPos const& controller) {
+    if (forcedRunning().contains(controller)) return true;
     // Create: getMinimumRequiredSpeedLevel() = MEDIUM
     return k::speedLevelOf(std::fabs(k::speedAt(controller))) >= k::SpeedLevel::Medium;
 }
@@ -645,18 +661,33 @@ bool mayWrite(BlockSource& region, Structure const& s, Line const& l, GlobalPos 
     return true;
 }
 
+/// Whether the link's selected source writes several lines (Create's SingleLineDisplaySource).
+bool multiLineSource(BlockSource& region, Context& ctx) {
+    auto d = link::read(ctx.link);
+    if (!d) return false;
+    for (auto const* s : sourcesAt(region, ctx.source))
+        if (s->id == d->sourceId) return s->multiLine;
+    return false;
+}
+
 void acceptLines(BlockSource& region, GlobalPos const& target, int line, Lines const& text, Context& ctx) {
     auto s = structureOf(region, target);
     if (!s) return;
-    auto d     = linesFor(*s);
-    int  n     = static_cast<int>(d.lines.size());
-    int  width = maxChars(s->width);
-    for (int i = 0; i < static_cast<int>(text.size()) && line + i < n; ++i) {
+    // Create's DisplayBoardTarget.acceptFlapText: nothing while the board doesn't turn fast enough
+    if (!running(s->controller)) return;
+    auto d      = linesFor(*s);
+    int  n      = static_cast<int>(d.lines.size());
+    int  width  = maxChars(s->width);
+    bool single = !multiLineSource(region, ctx);
+    for (int i = 0; line + i < n; ++i) {
         auto& l = d.lines[static_cast<std::size_t>(line + i)];
-        if (!mayWrite(region, *s, l, ctx.link)) continue;
+        // the first line is taken; the following ones stop at a line another link or a player wrote
+        if (i > 0 && (l.manual || !mayWrite(region, *s, l, ctx.link))) break;
+        if (i >= static_cast<int>(text.size()) && single) break;
         l.owner  = linkKey(ctx.link);
-        l.text   = truncateGlyphs(text[static_cast<std::size_t>(i)], width);
         l.manual = false;
+        // a multi-line source clears the lines below its text
+        l.text = i >= static_cast<int>(text.size()) ? std::string() : truncateGlyphs(text[static_cast<std::size_t>(i)], width);
     }
     writeLines(s->controller, d);
     if (controllers().insert(s->controller).second) persist();

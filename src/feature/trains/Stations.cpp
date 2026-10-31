@@ -166,6 +166,25 @@ bool addPoint(Station const& s) {
 }
 } // namespace
 
+bool pointOccupied(GlobalPos const& track, int fx, int fz, std::string const& except) {
+    auto loc = tracks::targetAt(track, Vec3{float(fx), 0, float(fz)});
+    if (!loc) return false;
+    auto& rail = tracks::railways();
+    auto* g    = rail.graph(loc->graph);
+    if (!g) return false;
+    auto const* n1 = g->node(loc->node1);
+    auto const* n2 = g->node(loc->node2);
+    auto const* e  = g->edge(loc->node1, loc->node2);
+    if (!n1 || !n2 || !e) return false;
+    double len = g->edgeLength(*e);
+    for (auto const* p : rail.pointsOn(n1->location, n2->location)) {
+        if (p->id == except) continue;
+        double other = p->node1 == n1->location ? p->position : len - p->position;
+        if (std::abs(loc->position - other) <= .75) return true;
+    }
+    return false;
+}
+
 bool createStation(GlobalPos const& pos, GlobalPos const& track, int fx, int fz, std::string* errorKey) {
     auto* region = regionOf(track.dim);
     if (!region) return false;
@@ -176,6 +195,10 @@ bool createStation(GlobalPos const& pos, GlobalPos const& track, int fx, int fz,
     }
     if (tk::isJunction(*shape)) {
         if (errorKey) *errorKey = "create.track_target.no_junctions";
+        return false;
+    }
+    if (pointOccupied(track, fx, fz, "station:" + pos.key())) { // Create's OverlapResult.OCCUPIED
+        if (errorKey) *errorKey = "create.track_target.occupied";
         return false;
     }
     Station s;
@@ -595,7 +618,8 @@ Json stationData(Player& p, Station& s) {
             {"canDisassemble", canDisassemble(s)                       },
             {"schedule",       t->runtime.hasSchedule                  },
             {"autoSchedule",   t->runtime.isAutoSchedule               },
-            {"carriages",      t->carriages.size()                     }
+            {"carriages",      t->carriages.size()                     },
+            {"icon",           t->icon                                 }
         };
     } else {
         // Create: a train navigating here within 30 blocks is "imminent"
@@ -640,6 +664,16 @@ void stationAction(Player& p, Json const& ctx, Json const& action) {
     } else if (op == "door") {
         s->door = DoorMode(std::clamp(action.value("mode", 0), 0, 5));
         markStationsDirty();
+    } else if (op == "icon") {
+        // Create's AssemblyScreen icon selector (TrainEditPacket)
+        static constexpr char const* kIcons[]{"traditional", "electric", "modern"};
+        if (auto* t = trainAt(*s)) {
+            int v = action.value("value", 0);
+            if (v >= 0 && v < 3 && t->icon != kIcons[v]) {
+                t->icon = kIcons[v];
+                log().info("trains: train #{} icon is now {}", t->id, t->icon);
+            }
+        }
     } else if (op == "train_name") {
         if (auto* t = trainAt(*s)) {
             if (action.contains("text")) {
