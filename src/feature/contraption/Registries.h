@@ -15,6 +15,7 @@ namespace lv::feature::contraption::detail {
 [[nodiscard]] MovementBehaviour const*   actorFor(std::string const& id);
 [[nodiscard]] std::optional<double>      seatHeight(std::string const& id);
 [[nodiscard]] FluidStorageAdapter const* fluidAdapter(std::string const& id);
+[[nodiscard]] ItemStorageAdapter const*  itemAdapter(std::string const& id);
 [[nodiscard]] std::vector<DataCarrier> const& carriers();
 
 } // namespace lv::feature::contraption::detail

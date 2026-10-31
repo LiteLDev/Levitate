@@ -232,6 +232,27 @@ LV_REGISTER_SELFTEST("common.filter_list", [](Context& ctx) {
     auto back = items::fromJson(items::toJson(f));
     ctx.check(filter::readList(back).blacklist && filter::matches(back, dirt), "filters survive serialisation");
     ctx.check(filter::matchesFluid(item(ctx, "minecraft:water_bucket"), {"minecraft:water", 250}), "a bucket filters its fluid");
+
+    // (U55) Create's ListFilterItemStack: a configured list without entries tests nothing
+    auto cfg = item(ctx, filter::kListFilterId);
+    filter::ListFilter cd;
+    cd.items.assign(18, items::empty());
+    cd.respectData = true;
+    filter::writeList(cfg, cd);
+    ctx.check(!filter::matches(cfg, stone) && !filter::matches(cfg, item(ctx, filter::kListFilterId)), "a configured empty allow-list rejects everything");
+    ctx.check(!filter::predicate(cfg)(stone), "predicate() agrees on the configured empty list");
+    cd.blacklist = true;
+    filter::writeList(cfg, cd);
+    ctx.check(filter::matches(cfg, stone) && filter::matches(cfg, dirt), "a configured empty deny-list accepts everything");
+    ctx.check(cfg.getCustomLore().empty(), "an empty list shows no summary (no lone Deny-List)");
+    // Create's makeSummary: four entries, then "- ..."
+    auto big = item(ctx, filter::kListFilterId);
+    filter::ListFilter bd;
+    bd.items.assign(18, items::empty());
+    for (int i = 0; i < 6; ++i) bd.items[static_cast<std::size_t>(i)] = item(ctx, i % 2 ? "minecraft:dirt" : "minecraft:stone");
+    filter::writeList(big, bd);
+    auto lore = big.getCustomLore();
+    ctx.check(lore.size() == 6 && lore.back().find("...") != std::string::npos, "the summary lists 4 entries, then \"- ...\"");
 });
 
 LV_REGISTER_SELFTEST("common.filter_attribute", [](Context& ctx) {
@@ -259,7 +280,21 @@ LV_REGISTER_SELFTEST("common.filter_attribute", [](Context& ctx) {
     filter::writeAttributes(f, data);
     ctx.check(filter::matches(f, stick) && !filter::matches(f, stone), "inverted attributes");
     ctx.check(filter::describe({"placeable", "", true}, "en_US") == "is not placeable", "Create's attribute wording");
-    ctx.check(filter::describe({"added_by", "minecraft", false}, "en_US") == "was added by minecraft", "attribute values are formatted");
+    ctx.check(filter::describe({"added_by", "minecraft", false}, "en_US") == "was added by Minecraft", "attribute values are formatted (mod name)");
+    ctx.check(filter::describe({"in_tag", "minecraft:logs", false}, "en_US") == "is tagged #minecraft:logs", "tags are shown as #tag");
+    // (U55) Create's ColorAttribute (has_color)
+    auto wool   = filter::attributesOf(item(ctx, "minecraft:red_wool"));
+    auto dye    = filter::attributesOf(item(ctx, "minecraft:light_blue_dye"));
+    auto colour = [](auto const& list, std::string const& c) {
+        return std::any_of(list.begin(), list.end(), [&](auto const& a) { return a.type == "has_color" && a.value == c; });
+    };
+    ctx.check(colour(wool, "red") && colour(dye, "light_blue") && !colour(dye, "blue"), "has_color: item paths and dyes");
+    ctx.check(filter::describe({"has_color", "red", false}, "en_US") == "is dyed Red", "has_color wording");
+    filter::AttributeFilter cf;
+    cf.attributes = {{"has_color", "red", false}};
+    auto cfi = item(ctx, filter::kAttributeFilterId);
+    filter::writeAttributes(cfi, cf);
+    ctx.check(filter::matches(cfi, item(ctx, "minecraft:red_wool")) && !filter::matches(cfi, item(ctx, "minecraft:blue_wool")), "has_color filters");
     auto addedBy = filter::attributesOf(stick);
     ctx.check(std::any_of(addedBy.begin(), addedBy.end(), [](auto const& a) { return a.type == "added_by" && a.value == "minecraft"; }), "added_by lists the namespace");
 });

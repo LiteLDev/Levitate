@@ -133,6 +133,17 @@ bool isWater(ItemStack const& stack) {
 
 bool isShaftItem(std::string const& id) { return id == kShaftId || id == kTestShaftId; }
 
+/// Items matching `pred` in the player's inventory.
+int countInInventory(Player& player, std::function<bool(ItemStack const&)> const& pred) {
+    auto& inv   = player.getInventory();
+    int   found = 0;
+    for (int i = 0; i < inv.getContainerSize(); ++i) {
+        auto const& st = inv.getItem(i);
+        if (!citems::isEmpty(st) && pred(st)) found += citems::countOf(st);
+    }
+    return found;
+}
+
 /// Takes `count` items matching `pred` from the player's inventory (survival); all or nothing.
 bool takeFromInventory(Player& player, int count, std::function<bool(ItemStack const&)> const& pred) {
     if (count <= 0) return true;
@@ -219,7 +230,15 @@ std::optional<bool> useWrench(Player& player, GlobalPos const& pos, cb::SegmentS
     auto      sa = segmentAt(pa), sb = segmentAt(pb);
     if (!sa || !sb) return false;
     int need = (cb::hasPulley(sa->part) ? 0 : 1) + (cb::hasPulley(sb->part) ? 0 : 1);
-    if (!creative && !takeFromInventory(player, need, [](ItemStack const& s) { return isShaftItem(citems::idOf(s)); })) return false;
+    if (!creative) {
+        // Create's BeltSlicer: a survival split takes the shafts *and one belt connector* (each half
+        // gives a connector back when broken); nothing is taken unless both are there
+        auto isShaft     = [](ItemStack const& s) { return isShaftItem(citems::idOf(s)); };
+        auto isConnector = [](ItemStack const& s) { return citems::idOf(s) == kBeltConnectorId; };
+        if (countInInventory(player, isShaft) < need || countInInventory(player, isConnector) < 1) return false;
+        takeFromInventory(player, need, isShaft);
+        takeFromInventory(player, 1, isConnector);
+    }
     auto items = takeItems(info->controller);
     sa->part   = cb::Part::End;
     sb->part   = cb::Part::Start;
@@ -357,6 +376,17 @@ void selectShaft(Player& player, std::optional<GlobalPos> pos) {
 
 void clearConnectorSelection(Player& player) { selectShaft(player, std::nullopt); }
 
+bool setCasing(GlobalPos const& pos, int casing) {
+    auto st = segmentAt(pos);
+    if (!st) return false;
+    auto c = casing == 2 ? cb::Casing::Brass : casing == 1 ? cb::Casing::Andesite : cb::Casing::None;
+    if (st->casing == c) return true;
+    st->casing = c;
+    setSegment(pos, *st);
+    log().info("belts: the belt at {} was encased ({}) for a tunnel", posText(pos), c == cb::Casing::Brass ? "brass" : "andesite");
+    return true;
+}
+
 bool onConnectorUse(Player& player, GlobalPos const& pos, int /*face*/, cb::Vec3d const& hitInBlock) {
     auto& s    = state();
     auto  uuid = uuidOf(player);
@@ -370,9 +400,14 @@ bool onConnectorUse(Player& player, GlobalPos const& pos, int /*face*/, cb::Vec3
     }
     if (!shaftAxisAt(pos)) return false;
     auto sel = s.connector.find(uuid);
-    if (sel != s.connector.end() && sel->second.pos.dim == pos.dim && shaftAxisAt(sel->second.pos)) {
+    auto farAway = [&](GlobalPos const& a) { // Create drops a first shaft 2 x maxBeltLength away
+        double dx = a.x - pos.x, dy = a.y - pos.y, dz = a.z - pos.z, r = 2.0 * config().maxBeltLength;
+        return dx * dx + dy * dy + dz * dz >= r * r;
+    };
+    if (sel != s.connector.end() && sel->second.pos.dim == pos.dim && shaftAxisAt(sel->second.pos) && !farAway(sel->second.pos)) {
         GlobalPos first = sel->second.pos;
-        selectShaft(player, std::nullopt);
+        // Create's BeltConnectorItem.useOn: a failed connection (also the same shaft again) keeps
+        // the first shaft selected; only a belt made clears it
         if (first == pos) return true;
         auto err = cb::canConnect(connectWorld(pos.dim), vecOf(first), vecOf(pos), config().maxBeltLength);
         if (err != cb::ConnectError::None) {
@@ -380,6 +415,7 @@ bool onConnectorUse(Player& player, GlobalPos const& pos, int /*face*/, cb::Vec3
             return true;
         }
         if (!createBelt(first, pos)) return true;
+        selectShaft(player, std::nullopt);
         consumeHeld(player);
         auto info = segmentInfo(first);
         log().info("belts: {} connected a belt from {} to {} ({} blocks)", player.getRealName(), posText(first), posText(pos), info ? info->length : 0);
@@ -615,6 +651,15 @@ void processRemovals() {
                 if (auto c = makeStack(kBeltConnectorId)) spawnItem(p, p.x + .5, p.y + .5, p.z + .5, *c);
             if (cb::hasPulley(st.part) && roll())
                 if (auto sh = shaftItem(1)) spawnItem(p, p.x + .5, p.y + .5, p.z + .5, *sh);
+        }
+        // segments a `/setblock` / `/fill` in destroy mode removed: their loot, as Create's
+        // destroyBlock(pos, true)
+        for (auto const& [p, st] : gone) {
+            if (!s.commandDestroyed.contains(p) || s.exploded.contains(p)) continue;
+            if (auto c = makeStack(kBeltConnectorId)) spawnItem(p, p.x + .5, p.y + .5, p.z + .5, *c);
+            if (cb::hasPulley(st.part))
+                if (auto sh = shaftItem(1)) spawnItem(p, p.x + .5, p.y + .5, p.z + .5, *sh);
+            log().info("belts: belt segment at {} destroyed by a command", posText(p));
         }
         s.blownSegments += std::uint64_t(blown);
         if (blown > 0) log().info("belts: {} belt segment(s) at {} blown up", blown, posText(r.pos));

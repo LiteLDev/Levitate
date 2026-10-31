@@ -17,7 +17,12 @@
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
+#include "mc/world/effect/EffectDuration.h"
+#include "mc/world/effect/MobEffectInstance.h"
 #include "mc/world/level/Level.h"
+#include "mc/world/level/block/Block.h"
+#include "mc/world/level/block/BlockSupportType.h"
 #include "mc/world/phys/AABB.h"
 
 #include "feature/belts/BeltsInternal.h"
@@ -85,7 +90,11 @@ public:
         GlobalPos n = nextPosition();
         auto*     r = regionOf(n.dim);
         if (!r || !loadedAt(n)) return cb::Ending::Blocked;
-        return game::replaceable(*r, game::blockPos(n)) ? cb::Ending::Eject : cb::Ending::Blocked;
+        // Create's resolveEnding: blocked only by a full (sturdy) face towards the belt; slabs,
+        // fences and the like let the items fall off
+        auto const& b = r->getBlock(game::blockPos(n));
+        if (b.isAir()) return cb::Ending::Eject;
+        return b.canProvideSupport(static_cast<uchar>(cb::oppositeFace(mFace)), BlockSupportType::Edge) ? cb::Ending::Blocked : cb::Ending::Eject;
     }
 
     cb::EndInsert insertAtEnd(cb::Item& item) override {
@@ -195,7 +204,39 @@ public:
 
     /// Create's BeltTunnelInteractionHandler.flapTunnelsAndCheckIfStuck: an item crossing into
     /// another segment is reported to the block above it (tunnels, beltlink in FunnelsExt.h).
-    bool obstacles(cb::Item& item, float nextOffset) override {
+    bool obstacles(cb::Item& item, float nextOffset) override { return tunnels(item, nextOffset) || crushers(item, nextOffset); }
+
+    /// Create's BeltCrusherInteractionHandler.checkForCrushers: a crushing wheel controller above a
+    /// segment, facing the way the belt moves, takes the items crossing .399 before the centre.
+    bool crushers(cb::Item& item, float nextOffset) {
+        bool positive = mSpeed > 0;
+        int  first    = std::clamp(int(std::floor(item.beltPosition)), 0, mBelt.length - 1);
+        int  step     = positive ? 1 : -1;
+        for (int segment = first; positive ? segment <= nextOffset : segment + 1 >= nextOffset; segment += step) {
+            if (segment < 0 || segment >= mBelt.length) break;
+            GlobalPos above = offset(segmentPos(mBelt, mState, segment), {0, 1, 0});
+            if (idAt(above) != "levitate:crushing_wheel_controller") continue;
+            auto const* b = blockAt(above);
+            if (!b || game::intState(*b, kFacing).value_or(-1) != mFace) continue;
+            float entry     = segment + .5f + .399f * (positive ? -1 : 1);
+            float postEntry = entry + .799f * (positive ? 1 : -1);
+            bool  crossed   = positive ? nextOffset > entry && nextOffset < postEntry : nextOffset < entry && nextOffset > postEntry;
+            if (!crossed) return false;
+            item.beltPosition = entry;
+            auto it = mBelt.stacks.find(item.id);
+            if (it == mBelt.stacks.end()) return true;
+            auto& sd   = it->second;
+            auto  api  = toApi(item, sd);
+            auto  rest = insertDirect(above, api, mFace, false);
+            if (citems::countOf(rest) == citems::countOf(sd.stack)) return true; // full: the item waits
+            sd.stack = rest;
+            if (citems::isEmpty(rest)) removeDisplay(sd); // removed next tick (empty stack)
+            return true;
+        }
+        return false;
+    }
+
+    bool tunnels(cb::Item& item, float nextOffset) {
         bool positive = mSpeed > 0;
         int  current  = int(item.beltPosition);
         int  upcoming = int(nextOffset);
@@ -264,8 +305,11 @@ void sendMotion(Player& player, Vec3 const& motion) {
     pkt.sendTo(player);
 }
 
-/// Create's BeltMovementHandler.transportEntity.
+std::string armorId(Actor& a, SharedTypes::Legacy::ArmorSlot slot) { return citems::idOf(a.getArmor(slot)); }
+
+/// Create's BeltMovementHandler.transportEntity (with BeltBlock.entityInside's checks).
 void transportEntity(Belt& belt, BeltEnv const& env, Actor& entity, GlobalPos const& seg) {
+    using SharedTypes::Legacy::ArmorSlot;
     auto state = segmentAt(seg);
     if (!state) return;
     float rpm = env.rpm();
@@ -275,7 +319,22 @@ void transportEntity(Belt& belt, BeltEnv const& env, Actor& entity, GlobalPos co
     bool isPlayer = entity.isPlayer();
     if (isPlayer) {
         auto& p = static_cast<Player&>(entity);
-        if (p.isSneaking() || p.isFlying()) return;
+        // sneaking players stay put, unless they wear cardboard boots (Create's stealth)
+        if (p.isSneaking() && armorId(entity, ArmorSlot::Feet) != "levitate:cardboard_boots") return;
+        if (p.isFlying()) return;
+    }
+    // diving boots keep their wearer in place (DivingBootsItem.isWornBy)
+    auto boots = armorId(entity, ArmorSlot::Feet);
+    if (boots == "levitate:copper_diving_boots" || boots == "levitate:netherite_diving_boots") return;
+    // "lock entities in place": mobs get Slowness II while carried
+    if (!isPlayer && entity.hasCategory(ActorCategory::Mob)) {
+        EffectDuration d;
+        d.mValue = 10;
+        MobEffectInstance slowness(2, d); // 2 = slowness
+        slowness.mAmplifier     = 1;
+        slowness.mEffectVisible = false;
+        slowness.mAmbient       = false;
+        entity.addEffect(slowness);
     }
     int        beltFacing = state->facing;
     auto       slope      = state->slope;
@@ -305,12 +364,35 @@ void transportEntity(Belt& belt, BeltEnv const& env, Actor& entity, GlobalPos co
     cb::Vec3i centeringDir = cb::facingNormal(cb::clockwise(beltFacing));
     centeringDir           = {std::abs(centeringDir.x), 0, std::abs(centeringDir.z)};
     double centering       = diffCenter * std::min(std::abs(movementSpeed), .1f) * 4;
+    // Create: living entities that walk (move input) are not centred; Bedrock: a player's input,
+    // a mob's own move speed
     bool   walking         = isPlayer && entity.isMoving();
     if (!walking) {
         mx += centeringDir.x * centering;
         mz += centeringDir.z * centering;
     }
     Vec3 motion{float(mx), float(my), float(mz)};
+    // entity collisions: a slow belt stops at another entity in the way
+    if (std::abs(movementSpeed) < .5f) {
+        double len = std::sqrt(mx * mx + my * my + mz * mz);
+        if (len > 0) {
+            double cx = mx / len * .5, cy = my / len * .5, cz = mz / len * .5;
+            auto   bb = entity.getAABB();
+            AABB   check{
+                Vec3{float(bb.min.x + cx + std::abs(cx)), float(bb.min.y + cy + std::abs(cy)), float(bb.min.z + cz + std::abs(cz))},
+                Vec3{float(bb.max.x + cx - std::abs(cx)), float(bb.max.y + cy - std::abs(cy)), float(bb.max.z + cz - std::abs(cz))}
+            };
+            if (auto* region = regionOf(seg.dim)) {
+                for (auto* other : region->getEntities(check, 0.f)) {
+                    if (!other || other == &entity || !other->isAlive() || isDisplayActor(*other)) continue;
+                    if (other->getEntityTypeId() == ActorType::ItemEntity) continue; // Create's shouldIgnoreBlocking
+                    entity.mBuiltInComponents->mStateVectorComponent->mPosDelta = Vec3{0, 0, 0};
+                    return;
+                }
+            }
+        }
+    }
+    entity.setFallDistance(0);
     if (movingUp) motion.y = float(std::max(std::abs(my), .13));
     if (isPlayer && !entity.isSimulatedPlayer()) {
         // real players move themselves: push them along
@@ -476,13 +558,16 @@ ItemStack insertFromSide(GlobalPos const& segment, TransportedItem const& item, 
     it.beltPosition = info->index + .5f - (dirSpeed > 0 ? 1.f : dirSpeed < 0 ? -1.f : 0.f) / 16.f;
     if (side != 0 && side != 1) {
         if (movementFace != side) {
-            // from the side: starts off-centre and slides to the middle
+            // from the side: starts .675 off-centre and slides to the middle (Create's tryInsertingFromSide)
             auto  sf = cb::facingOfFace(side).value_or(0);
-            float so = cb::facingStep(sf) * .35f;
+            float so = cb::facingStep(sf) * .675f;
             if (cb::facingAxis(sf) == cb::Axis::X) so *= -1;
             it.sideOffset = so;
         } else {
-            it.beltPosition = dirSpeed > 0 ? float(info->index) : float(info->index + 1);
+            // a smoother hand-over from a belt behind this segment: .26 further back
+            GlobalPos behind = offset(segment, cb::faceNormal(cb::oppositeFace(movementFace)));
+            float     extra  = item.beltPosition != 0 && segmentAt(behind) ? .26f : 0.f;
+            it.beltPosition  = dirSpeed > 0 ? float(info->index) - extra : float(info->index + 1) + extra;
         }
     }
     it.prevSideOffset   = it.sideOffset;

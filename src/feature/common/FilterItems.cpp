@@ -89,7 +89,7 @@ void listAction(Player& player, Json const& ctx, Json const& action) {
         data.respectData = action.value("value", false);
         log().info("filter: {} set respect data {}", player.getRealName(), data.respectData);
     } else if (op == "reset") {
-        data = ListFilter{};
+        // Create's GhostItemMenu.clearContents: the entries go, Deny-List / Respect Data stay
         data.items.assign(kListFilterSlots, items::empty());
         log().info("filter: {} reset the filter", player.getRealName());
     } else {
@@ -181,14 +181,17 @@ Json attributeData(Player& player, ItemStack const& filter) {
         {"attributes", attrs                                     },
         {"reference",  ref                                       },
         {"options",    options                                   },
-        {"max",        kMaxAttributes                            },
     };
 }
 
 bool addAttribute(Player& player, ItemStack& filter, AttributeEntry entry) {
     auto data = readAttributes(filter);
-    if (static_cast<int>(data.attributes.size()) >= kMaxAttributes) return false;
-    if (std::find(data.attributes.begin(), data.attributes.end(), entry) != data.attributes.end()) return false;
+    // Create's AttributeFilterScreen: no limit; an attribute already listed (inverted or not) can't
+    // be added again
+    bool listed = std::any_of(data.attributes.begin(), data.attributes.end(), [&](AttributeEntry const& a) {
+        return a.type == entry.type && a.value == entry.value;
+    });
+    if (listed) return false;
     data.attributes.push_back(entry);
     writeAttributes(filter, data);
     log().info("attribute filter: {} added {}", player.getRealName(), describe(entry));
@@ -224,7 +227,10 @@ void attributeAction(Player& player, Json const& ctx, Json const& action) {
         writeAttributes(filter, data);
         log().info("attribute filter: {} set mode {}", player.getRealName(), core::common::attributeModeName(data.mode));
     } else if (op == "reset") {
-        writeAttributes(filter, AttributeFilter{});
+        // Create's AttributeFilterMenu.clearContents: the attributes go, the mode stays
+        auto data = readAttributes(filter);
+        data.attributes.clear();
+        writeAttributes(filter, data);
         log().info("attribute filter: {} reset the filter", player.getRealName());
     } else {
         return;
@@ -263,7 +269,7 @@ void attributeAddForm(Player& player, Json const& ctx, ItemStack const& ref) {
         e.inverted       = ((*v - 1) % 2) == 1;
         ItemStack filter = *held;
         if (addAttribute(p, filter, e)) storeHeld(p, filter);
-        else p.sendMessage(trFor(p, "lv.common.attribute_filter.full", "This attribute filter cannot take more attributes."));
+        else p.sendMessage(trFor(p, "lv.common.attribute_filter.full", "This attribute is already in the list."));
     });
 }
 
@@ -343,6 +349,7 @@ public:
             auto& player = c.player;
             bool  list = isListFilter(c.item), attr = isAttributeFilter(c.item);
             if (!list && !attr) return interactions::Result::Pass;
+            if (c.sneaking) return interactions::Result::Pass; // Create's FilterItem.use: not while sneaking
             Json ctx{{"slot", player.getSelectedItemSlot()}};
             if (attr) references().erase(player.getOrCreateUniqueID().rawID);
             screens::open(player, list ? kListScreen : kAttributeScreen, ctx);

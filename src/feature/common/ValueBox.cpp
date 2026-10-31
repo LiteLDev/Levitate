@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/world/ServerLevelTickEvent.h"
@@ -9,12 +10,19 @@
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/world/actor/player/AbilitiesIndex.h"
+#include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/dimension/Dimension.h"
+#include "mc/network/MinecraftPacketIds.h"
+#include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/PlaySoundPacket.h"
+#include "mc/network/packet/TextPacket.h"
+#include "mc/world/actor/item/ItemActor.h"
+#include "mc/world/level/Spawner.h"
 
 #include "feature/common/BlockData.h"
 #include "feature/common/Filter.h"
@@ -88,6 +96,46 @@ Player* playerById(std::int64_t key) {
     id.rawID = key;
     return level->getPlayer(id);
 }
+
+void playSoundAt(int dim, double x, double y, double z, std::string const& name, float volume, float pitch) {
+    auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::PlaySound);
+    if (!packet) return;
+    auto& pkt   = static_cast<PlaySoundPacket&>(*packet);
+    pkt.mName   = name;
+    pkt.mPos    = BlockPos{static_cast<int>(std::floor(x * 8)), static_cast<int>(std::floor(y * 8)), static_cast<int>(std::floor(z * 8))};
+    pkt.mVolume = volume;
+    pkt.mPitch  = pitch;
+    pkt.sendTo(BlockPos{static_cast<int>(std::floor(x)), static_cast<int>(std::floor(y)), static_cast<int>(std::floor(z))}, DimensionType(dim));
+}
+void playSoundAt(core::GlobalPos const& p, std::string const& name, float volume, float pitch) {
+    playSoundAt(p.dim, p.x + .5, p.y + .5, p.z + .5, name, volume, pitch);
+}
+
+void actionbar(Player& player, std::string const& text) {
+    auto                           pkt = TextPacket{};
+    TextPacketPayload::MessageOnly message;
+    message.mType = TextPacketType::Tip;
+    message.mMessage->assign(text);
+    pkt.mBody = message;
+    pkt.sendTo(player);
+}
+
+/// Create's ValueSettingsBehaviour.playFeedbackSound.
+void playFeedbackSound(core::GlobalPos const& p) {
+    playSoundAt(p, "block.itemframe.add_item", .25f, 2.f);
+    playSoundAt(p, "note.iron_xylophone", .03f, 1.125f);
+}
+
+/// Create's AllSoundEvents.DENY (note block bass, pitch .5) at the player.
+void playDeny(Player& player) {
+    auto const& f = player.getFeetPos();
+    playSoundAt(static_cast<int>(player.getDimensionId()), f.x, f.y, f.z, "note.bass", 1.f, .5f);
+}
+
+bool& ctrlFlag() {
+    static bool v = false;
+    return v;
+}
 } // namespace
 
 // ---- value boxes -------------------------------------------------------------------------------
@@ -107,7 +155,12 @@ BoxSpec const* boxById(std::string const& blockId, std::string const& boxId) {
     return nullptr;
 }
 
-std::string formatValue(BoxSpec const& box, Block const& block, ValueSettings s) {
+BoardSpec boardOf(BoxSpec const& box, core::GlobalPos const& pos, Block const& block) {
+    return box.boardAt ? box.boardAt(pos, block) : box.board(block);
+}
+
+std::string formatValue(BoxSpec const& box, core::GlobalPos const& pos, Block const& block, ValueSettings s) {
+    if (box.formatAt) return box.formatAt(pos, block, s);
     if (box.format) return box.format(block, s);
     return std::to_string(s.value);
 }
@@ -118,22 +171,24 @@ std::string title(BoxSpec const& box, Player const* player) {
 }
 
 void openForm(Player& player, core::GlobalPos const& pos, BoxSpec const& box, Block const& block) {
-    auto board = box.board(block);
+    auto board = boardOf(box, pos, block);
     auto cur   = core::common::clampSettings(board, box.get(pos));
     ll::form::CustomForm form(title(box, &player));
-    form.appendLabel(trFor(player, "lv.common.valuebox.current", "Current: {}", formatValue(box, block, cur)));
+    form.appendLabel(trFor(player, "lv.common.valuebox.current", "Current: {}", formatValue(box, pos, block, cur)));
     if (board.rows.size() > 1) {
         form.appendDropdown("row", trFor(player, "lv.common.valuebox.row", "Mode"), board.rows, static_cast<std::size_t>(cur.row));
     }
     if (board.maxValue > 0) {
         std::vector<std::string> steps;
         if (board.maxValue <= 32) {
-            for (int v = 0; v <= board.maxValue; ++v) steps.push_back(formatValue(box, block, {cur.row, v}));
+            for (int v = 0; v <= board.maxValue; ++v) steps.push_back(formatValue(box, pos, block, {cur.row, v}));
             form.appendStepSlider("value", trFor(player, "lv.common.valuebox.value", "Value"), steps, static_cast<std::size_t>(cur.value));
         } else {
             form.appendSlider("value", trFor(player, "lv.common.valuebox.value", "Value"), 0, board.maxValue, 1, cur.value);
         }
     }
+    // Create's Ctrl + confirm on a bulk value (the chassis range of the whole group)
+    if (box.bulk) form.appendToggle("bulk", trFor(player, "lv.common.valuebox.bulk", "Apply to every connected block (Ctrl)"), false);
     std::string boxId = box.id;
     form.sendTo(player, [pos, boxId, cur](Player& p, ll::form::CustomFormResult const& result, ll::form::FormCancelReason) {
         if (!result) return;
@@ -145,7 +200,11 @@ void openForm(Player& player, core::GlobalPos const& pos, BoxSpec const& box, Bl
             if (auto const* v = std::get_if<uint64>(&it->second)) s.value = static_cast<int>(*v);
             else if (auto const* d = std::get_if<double>(&it->second)) s.value = static_cast<int>(std::lround(*d));
         }
-        apply(p, pos, boxId, s);
+        bool bulk = false;
+        if (auto it = result->find("bulk"); it != result->end()) {
+            if (auto const* v = std::get_if<uint64>(&it->second)) bulk = *v != 0;
+        }
+        apply(p, pos, boxId, s, bulk);
     });
 }
 } // namespace
@@ -183,23 +242,36 @@ BoxSpec const* boxAt(Block const& block, int face, Vec const& hit) {
     return nullptr;
 }
 
+BoxSpec const* boxAt(GlobalPos const& pos, Block const& block, int face, Vec const& hit) {
+    auto const* list = boxesOf(block.getTypeName());
+    if (!list) return nullptr;
+    for (auto const& b : *list) {
+        if (!b.centre || (b.activeAt && !b.activeAt(pos))) continue;
+        if (auto c = b.centre(block, face); c && core::common::testBoxHit(hit, *c, b.scale)) return &b;
+    }
+    return nullptr;
+}
+
+bool ctrlDown() { return ctrlFlag(); }
+
 void openEditor(Player& player, GlobalPos const& pos, std::string const& boxId) {
     auto const* block = reachableBlock(player, pos);
     if (!block) return;
     auto const* box = boxById(block->getTypeName(), boxId);
     if (!box || !box->board || !box->get) return;
+    if (box->activeAt && !box->activeAt(pos)) return;
     if (!net::isCompanion(player)) {
         openForm(player, pos, *box, *block);
         log().info("value box {} at {} opened for {} (form)", boxId, pos.key(), player.getRealName());
         return;
     }
-    auto board = box->board(*block);
+    auto board = boardOf(*box, pos, *block);
     auto cur   = core::common::clampSettings(board, box->get(pos));
     Json labels = Json::array();
     if (static_cast<long long>(board.rows.size()) * (board.maxValue + 1) <= 4096) {
         for (int r = 0; r < static_cast<int>(board.rows.size()); ++r) {
             Json row = Json::array();
-            for (int v = 0; v <= board.maxValue; ++v) row.push_back(formatValue(*box, *block, {r, v}));
+            for (int v = 0; v <= board.maxValue; ++v) row.push_back(formatValue(*box, pos, *block, {r, v}));
             labels.push_back(std::move(row));
         }
     }
@@ -216,6 +288,7 @@ void openEditor(Player& player, GlobalPos const& pos, std::string const& boxId) 
             {"row",       cur.row                     },
             {"value",     cur.value                   },
             {"labels",    labels                      },
+            {"bulk",      box->bulk                   },
         }
     );
     log().info("value box {} at {} opened for {} (native)", boxId, pos.key(), player.getRealName());
@@ -248,14 +321,29 @@ void onRelease(Player& player, Json const& msg) {
     else if (what == "short" && hold.onShort) hold.onShort(player);
 }
 
-bool apply(Player& player, GlobalPos const& pos, std::string const& boxId, ValueSettings settings) {
+bool apply(Player& player, GlobalPos const& pos, std::string const& boxId, ValueSettings settings, bool ctrl) {
     auto const* block = reachableBlock(player, pos);
     if (!block) return false;
     auto const* box = boxById(block->getTypeName(), boxId);
     if (!box || !box->set || !box->board) return false;
-    auto s = core::common::clampSettings(box->board(*block), settings);
-    box->set(pos, s, player);
-    log().info("value box {} at {} set to {} by {}", boxId, pos.key(), formatValue(*box, *block, s), player.getRealName());
+    if (box->activeAt && !box->activeAt(pos)) return false;
+    auto board = boardOf(*box, pos, *block);
+    auto s     = core::common::clampSettings(board, settings);
+    // Create's setValueSettings: an unchanged value does nothing (a Ctrl bulk edit still spreads it)
+    bool bulk    = ctrl && box->bulk;
+    bool changed = !box->get || core::common::clampSettings(board, box->get(pos)) != s;
+    if (changed || bulk) {
+        ctrlFlag() = bulk;
+        try {
+            box->set(pos, s, player);
+        } catch (...) {
+            ctrlFlag() = false;
+            throw;
+        }
+        ctrlFlag() = false;
+        if (changed) playFeedbackSound(pos); // Create's playFeedbackSound
+    }
+    log().info("value box {} at {} set to {} by {}", boxId, pos.key(), formatValue(*box, pos, *block, s), player.getRealName());
     return true;
 }
 
@@ -379,26 +467,69 @@ bool matches(GlobalPos const& pos, ItemStack const& stack, std::string const& sl
     return it->second(stack);
 }
 
+bool canShortInteract(std::string const& heldId) {
+    return heldId != interactions::kWrenchId && heldId != "levitate:mechanical_arm";
+}
+
+namespace {
+/// Whether the player's inventory already holds a stack equal to `stack` (Create gives a creative
+/// player the old filter item back only when they don't have it).
+bool inventoryHas(Player& player, ItemStack const& stack) {
+    auto& inv = player.getInventory();
+    for (int i = 0; i < inv.getContainerSize(); ++i)
+        if (items::sameItemSameData(inv.getItem(i), stack)) return true;
+    return false;
+}
+} // namespace
+
 void interact(Player& player, GlobalPos const& pos, SlotSpec const& slot) {
-    auto const& held     = player.getSelectedItem();
-    ItemStack   previous = get(pos, slot.id);
-    bool        creative = player.isCreative();
-    if (items::isEmpty(held)) {
-        if (items::isEmpty(previous)) return;
-        set(pos, items::empty(), slot.id);
-        if (filter::isFilterItem(previous) && !creative) giveOrDrop(player, previous);
-        log().info("filter slot at {} cleared by {}", pos.key(), player.getRealName());
-    } else {
-        ItemStack toApply = items::withCount(held, 1);
-        set(pos, toApply, slot.id);
-        if (filter::isFilterItem(toApply) && !creative) {
-            player.setSelectedItem(items::withCount(held, items::countOf(held) - 1));
-            player.sendInventory(false);
-        }
-        if (filter::isFilterItem(previous) && !creative) giveOrDrop(player, previous);
-        log().info("filter slot at {} set to {} by {}", pos.key(), items::idOf(toApply), player.getRealName());
+    ItemStack held     = player.getSelectedItem();
+    ItemStack previous = get(pos, slot.id);
+    bool      creative = player.isCreative();
+    if (!canShortInteract(items::idOf(held))) return;
+    ItemStack toApply = items::isEmpty(held) ? items::empty() : items::withCount(held, 1);
+    // Create's withPredicate: a refused item keeps the old filter
+    if (!items::isEmpty(toApply) && slot.accepts && !slot.accepts(pos, toApply)) {
+        actionbar(player, trFor(player, "create.logistics.filter.invalid_item", "Cannot use this item here."));
+        playDeny(player);
+        log().info("filter slot at {} refused {} from {}", pos.key(), items::idOf(toApply), player.getRealName());
+        return;
     }
+    // the old filter item goes back (to a creative player only when not in the inventory yet)
+    if (filter::isFilterItem(previous) && (!creative || !inventoryHas(player, previous))) giveOrDrop(player, previous);
+    set(pos, toApply, slot.id);
+    if (filter::isFilterItem(toApply) && !creative) {
+        player.setSelectedItem(items::withCount(held, items::countOf(held) - 1));
+        player.sendInventory(false);
+    }
+    playSoundAt(pos, "block.itemframe.add_item", .25f, .1f); // Create's ITEM_FRAME_ADD_ITEM
+    if (items::isEmpty(toApply)) log().info("filter slot at {} cleared by {}", pos.key(), player.getRealName());
+    else log().info("filter slot at {} set to {} by {}", pos.key(), items::idOf(toApply), player.getRealName());
     if (slot.onChanged) slot.onChanged(pos);
+}
+
+/// Create's FilteringBehaviour.destroy: a filter item in a slot drops when its block goes.
+void dropFiltersOf(GlobalPos const& pos, Json const& doc) {
+    auto f = doc.find("filter");
+    if (f == doc.end() || !f->is_object()) return;
+    std::vector<ItemStack> drops;
+    for (auto const& [k, v] : f->items()) {
+        auto s = items::fromJson(v);
+        if (filter::isFilterItem(s)) drops.push_back(std::move(s));
+    }
+    if (drops.empty()) return;
+    // the block is being replaced right now: spawn next tick
+    pending().push_back([pos, drops = std::move(drops)] {
+        auto level = ll::service::getLevel();
+        if (!level) return;
+        auto dimension = level->getDimension(DimensionType(pos.dim)).lock();
+        if (!dimension) return;
+        auto& region = dimension->getBlockSourceFromMainChunkSource();
+        for (auto const& s : drops) {
+            level->getSpawner().spawnItem(region, s, nullptr, Vec3{pos.x + .5f, pos.y + .5f, pos.z + .5f}, 0);
+            log().info("filter slot at {} dropped {}", pos.key(), items::idOf(s));
+        }
+    });
 }
 
 } // namespace filterslot
@@ -411,18 +542,31 @@ Json hoverLines(Player& player, core::GlobalPos const& pos, int face, core::comm
     Json        lines = Json::array();
     auto const* block = reachableBlock(player, pos);
     if (!block) return lines;
-    if (auto const* box = valuebox::boxAt(*block, face, hit); box && box->get && box->board) {
-        auto s = core::common::clampSettings(box->board(*block), box->get(pos));
+    if (auto const* box = valuebox::boxAt(pos, *block, face, hit); box && box->get && box->board) {
+        auto s = core::common::clampSettings(valuebox::boardOf(*box, pos, *block), box->get(pos));
         lines.push_back(valuebox::title(*box, &player));
-        lines.push_back("§e" + valuebox::formatValue(*box, *block, s));
+        lines.push_back("§e" + valuebox::formatValue(*box, pos, *block, s));
         // ScrollValueRenderer's hover tip
         lines.push_back("§7" + trFor(player, "create.gui.value_settings.hold_to_edit", "Click and hold to edit"));
     }
     if (auto const* slot = filterslot::slotAt(*block, face, hit)) {
+        // Create's FilteringRenderer: label, "Click with item to set / replace", the amount tip;
+        // the box shows the filter item with its count label
         auto f = filterslot::get(pos, slot->id);
-        lines.push_back(trFor(player, "create.logistics.filter", "Filter"));
-        lines.push_back(items::isEmpty(f) ? "§7" + trFor(player, "lv.common.filter.empty", "(empty)") : "§e" + items::displayName(f));
-        if (slot->onHold) lines.push_back("§7" + trFor(player, "create.gui.value_settings.hold_to_edit", "Click and hold to edit"));
+        lines.push_back(slot->label.empty() ? trFor(player, "create.logistics.filter", "Filter") : trFor(player, slot->label, slot->labelFallback));
+        if (items::isEmpty(f)) {
+            lines.push_back("§7" + trFor(player, "lv.common.filter.empty", "(empty)"));
+        } else {
+            std::string count = slot->countLabel ? slot->countLabel(pos) : std::string{};
+            lines.push_back("§e" + items::displayName(f) + (count.empty() ? "" : " §f" + count));
+        }
+        lines.push_back(
+            "§7"
+            + (items::isEmpty(f) ? trFor(player, "create.logistics.filter.click_to_set", "Click with item to set")
+                                 : trFor(player, "create.logistics.filter.click_to_replace", "Click with item to replace"))
+        );
+        if (slot->onHold && slot->countLabel && !slot->countLabel(pos).empty())
+            lines.push_back("§7" + trFor(player, "create.logistics.filter.hold_to_set_amount", "Click and hold for amount"));
     }
     return lines;
 }
@@ -446,11 +590,16 @@ public:
         if (!providerAdded) {
             providerAdded = true;
             itemrender::registerProvider([](std::string_view id) { return filterslot::hasSlots(std::string(id)); }, filterslot::displayItems);
+            // one place drops the filter items of every unit's slots (Create's FilteringBehaviour.destroy);
+            // explicit erases ("") keep the block, so nothing drops
+            blockdata::onErase([](core::GlobalPos const& pos, Json const& doc, std::string const& previous) {
+                if (!previous.empty()) filterslot::dropFiltersOf(pos, doc);
+            });
         }
         net::on("valuebox.set", [](Player& player, Json const& msg) {
             auto pos = posFrom(msg.value("pos", Json()));
             if (!pos) return;
-            valuebox::apply(player, *pos, msg.value("box", std::string{}), {msg.value("row", 0), msg.value("value", 0)});
+            valuebox::apply(player, *pos, msg.value("box", std::string{}), {msg.value("row", 0), msg.value("value", 0)}, msg.value("ctrl", false));
         });
         net::on("valuebox.release", valuebox::onRelease);
         net::on("common.hover", [](Player& player, Json const& msg) {
@@ -479,6 +628,8 @@ private:
         using interactions::Result;
         auto& player = c.player;
         if (c.sneaking || player.isSpectator() || !player.canUseAbility(AbilitiesIndex::Build)) return Result::Pass;
+        // Create's ValueSettingsInputHandler: the clipboard copies / pastes settings instead
+        if (c.itemId == "levitate:clipboard") return Result::Pass;
         auto key = player.getOrCreateUniqueID().rawID;
         auto pos = c.pos;
         // the button is still held on a box / slot whose hold waits for the client's answer
@@ -502,12 +653,15 @@ private:
                 auto onShort = [interact](Player&) { pending().push_back(interact); };
                 if (valuebox::awaitHold(player, pos, onShort, [onHold, pos](Player& p) { onHold(p, pos); })) return Result::Consume;
             }
-            pending().push_back(interact);
+            // Create's canShortInteract: the wrench and the arm never become the filter (the click
+            // is still the slot's)
+            if (filterslot::canShortInteract(c.itemId)) pending().push_back(interact);
             return Result::Consume;
         }
+        // Create's ValueSettingsInputHandler: any held item works the box (only "requires wrench"
+        // boxes need the wrench)
         bool wrench = c.itemId == interactions::kWrenchId;
-        if (!wrench && !items::isEmpty(c.item)) return Result::Pass;
-        auto const* box = valuebox::boxAt(c.block, c.face, c.hit);
+        auto const* box = valuebox::boxAt(pos, c.block, c.face, c.hit);
         if (!box || (box->requiresWrench && !wrench)) return Result::Pass;
         if (debounced(key, pos)) return Result::Consume;
         auto boxId   = box->id;
@@ -534,8 +688,12 @@ private:
         auto& last = mLast[player];
         bool  skip = last.first == pos && mTick - last.second < 5;
         last       = {pos, mTick};
+        // one line per held click (what a vanilla client sends while the button is held, SPEC §8)
+        if (skip && mRepeatLogged.insert(player).second) log().info("value box: use repeated while held at {}", pos.key());
+        if (!skip) mRepeatLogged.erase(player);
         return skip;
     }
+    std::unordered_set<std::int64_t> mRepeatLogged;
     std::vector<ll::event::ListenerPtr>                                       mListeners;
     interactions::HandlerId                                                   mHandler = 0;
     std::unordered_map<std::int64_t, std::pair<core::GlobalPos, std::uint64_t>> mLast;

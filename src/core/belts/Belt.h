@@ -254,16 +254,23 @@ struct LaunchPhysics {
 };
 
 /// A launch towards a target `horizontal` blocks ahead and `vertical` blocks up (Create's
-/// EntityLauncher): initial motion, flight time and positions along the arc.
+/// EntityLauncher.recalculateTrajectory): yPeak = max(0, v + (h + .5) / 8) + (h <= 1 ? 1 : 4),
+/// yMotion = sqrt(2 yPeak / 13) + .015 yPeak, the flight time from Simi's approximation and
+/// xMotion with Create's xError correction.
 struct Launch {
     int    horizontal = 1;
     int    vertical   = 0;
-    double vx = 0, vy = 0; ///< initial motion (blocks per tick) along the facing / up
-    double ticks = 1;      ///< flight time until the target height is reached on the way down
+    double vx = 0, vy = 0; ///< initial motion (blocks per tick) along the facing / up (xMotion / yMotion)
+    double ticks = 1;      ///< Create's totalFlyingTicks
     LaunchPhysics physics;
 
-    /// Offset (along, up) from the launch point after `t` ticks.
+    /// Offset (along, up) from the block centre after `t` ticks (Create's getGlobalPos: the
+    /// closed-form arc pulled towards the target as (t / ticks)^3, half as much vertically).
     [[nodiscard]] std::pair<double, double> at(double t) const;
+    /// Velocity (along, up) after `t` ticks (Create's getGlobalVelocity).
+    [[nodiscard]] std::pair<double, double> velocity(double t) const;
+    /// Ticks until a launched item arrives (Create: max(3, totalFlyingTicks)).
+    [[nodiscard]] double itemTicks() const { return ticks < 3 ? 3.0 : ticks; }
 };
 [[nodiscard]] Launch planLaunch(int horizontal, int vertical, LaunchPhysics physics = {});
 

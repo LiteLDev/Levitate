@@ -36,6 +36,8 @@
 #include "mod/Log.h"
 #include "mod/Module.h"
 
+#include <windows.h>
+
 namespace lv::client::screen {
 
 namespace {
@@ -123,7 +125,12 @@ private:
     }
 
     void confirm() {
-        net::client::send("valuebox.set", {{"pos", mMsg.value("pos", Json())}, {"box", mMsg.value("box", std::string{})}, {"row", mSel.row}, {"value", mSel.value}});
+        // Create's ValueSettingsPacket.ctrlDown (BulkScrollValueBehaviour: the whole group)
+        bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+        net::client::send(
+            "valuebox.set",
+            {{"pos", mMsg.value("pos", Json())}, {"box", mMsg.value("box", std::string{})}, {"row", mSel.row}, {"value", mSel.value}, {"ctrl", ctrl}}
+        );
         close();
     }
 
