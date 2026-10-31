@@ -71,10 +71,10 @@ if ($withMod) { Set-TestSpeed '/create kinetics ~6 ~2 ~-3 speed 64' }
 Start-Sleep -Milliseconds 500
 Invoke-Chat '/setblock ~5 ~2 ~-4 levitate:mechanical_pump ["levitate:facing"=4]'
 # the cauldron's bucket goes into the spout (1000 mB: four bottles); facing coordinates count from
-# the eyes: aim at the depot's middle
+# the eyes: aim at the depot's top (U55: Create's depot only takes a click on its top face)
 Start-Sleep -Seconds 4
 Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 glass_bottle 4'
-Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~-1.2 ~-4'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~-0.85 ~-4.1'
 Start-Sleep -Milliseconds 800
 $spoutMark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
@@ -93,14 +93,14 @@ $drainMark = Get-LogMark
 Invoke-Chat '/fill ~-5 ~ ~2 ~-1 ~3 ~6 air'
 Invoke-Chat '/setblock ~-3 ~ ~4 levitate:item_drain'
 Invoke-Chat '/setblock ~-2 ~ ~4 stone'
-Invoke-Chat '/tp @s ~ ~ ~ facing ~-2.5 ~0.5 ~4.5'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~-3 ~-1.2 ~4'
 Start-Sleep -Milliseconds 800
 Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 water_bucket 1'
 Start-Sleep -Milliseconds 300
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'item drain at -?\d+ -?\d+ -?\d+ exchanged fluid with' 20 -Since $drainMark | Out-Null
 # an item dropped onto the drain crosses it (still: towards the north, the player)
-Invoke-Chat '/loot spawn ~-2.5 ~2 ~4.5 loot "blocks/item_drain"'
+Invoke-Chat '/loot spawn ~-3 ~2 ~4 loot "blocks/item_drain"'
 Start-Sleep -Milliseconds 900
 Save-Screenshot 'drain' | Out-Null
 if ($withMod) { Wait-LogLine 'fluids: rendering \d+ quads' 20 -Since $mark | Out-Null }
