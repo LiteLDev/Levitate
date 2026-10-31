@@ -149,5 +149,8 @@ struct BeltInfo {
     int       color  = -1;    ///< -1 undyed, 0..15
 };
 [[nodiscard]] std::optional<BeltInfo> beltAt(GlobalPos const& pos);
+/// (U55) Encases a belt segment (Create's BeltBlockEntity.setCasingType; 0 none, 1 andesite, 2 brass):
+/// a tunnel placed on an uncased segment cases it. Returns false when `pos` is no belt segment.
+bool setCasing(GlobalPos const& pos, int casing);
 
 } // namespace lv::feature::belts

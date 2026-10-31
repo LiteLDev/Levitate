@@ -69,6 +69,7 @@
 
 #include "client/Client.h"
 #include "client/kinetics/KineticsClient.h"
+#include "client/render/Outline.h"
 #include "core/belts/Belt.h"
 #include "core/kinetics/RotorModel.h"
 #include "core/kinetics/Solver.h"
@@ -109,6 +110,12 @@ struct State {
     int                                                  frame = 0;
     bool                                                 logged = false;
     std::map<std::string, std::unique_ptr<mce::Mesh>>    meshes;
+    // weighted ejector target selection ("belts.ejector", U55), for the arc preview
+    std::optional<BlockPos>                              ejectorSel;
+    int                                                  ejectorDim  = 0;
+    int                                                  ejectorMax  = 32;
+    std::uint64_t                                        ejectorTick = 0;
+    bool                                                 ejectorLogged = false;
     // belt connector selection ("belts.connector"), for the preview
     std::optional<BlockPos>                              connectorFirst;
     int                                                  connectorDim = 0;
@@ -356,6 +363,69 @@ void connectorPreview(Level& level, LocalPlayer& player) {
     }
 }
 
+/// Create's EjectorTargetHandler (client): while the ejector item is held, the selected target is
+/// outlined and dust shows the arc from where the ejector would be placed (green when the target
+/// is straight ahead, red when it would be corrected onto the axis).
+void ejectorPreview(BaseActorRenderContext& ctx, Level& level, LocalPlayer& player) {
+    auto& s = state();
+    if (!s.ejectorSel) return;
+    auto const& held = player.getSelectedItem();
+    if (held.isNull() || held.getTypeName() != "levitate:weighted_ejector") return;
+    if (int(player.getDimensionId()) != s.ejectorDim) return;
+    BlockPos sel = *s.ejectorSel;
+    {
+        render::Lines lines(ctx);
+        lines.outline({double(sel.x), double(sel.y), double(sel.z)}, {sel.x + 1.0, sel.y + 1.0, sel.z + 1.0}, render::Rgb::hex(0xffcb74), 1.0 / 16);
+        auto const& hit = level.getHitResult();
+        if (hit.mType != HitResultType::Tile) return;
+        auto     n = cb::faceNormal(hit.mFacing);
+        BlockPos pos{hit.mBlock.x + n.x, hit.mBlock.y + n.y, hit.mBlock.z + n.z};
+        int      xDiff = sel.x - pos.x, yDiff = sel.y - pos.y, zDiff = sel.z - pos.z;
+        int      validX = std::abs(zDiff) > std::abs(xDiff) ? 0 : xDiff;
+        int      validZ = std::abs(zDiff) < std::abs(xDiff) ? 0 : zDiff;
+        cb::Vec3i ejector{sel.x - validX, pos.y, sel.z - validZ};
+        auto     facing = cb::ejectorTargetFacing(ejector, {sel.x, sel.y, sel.z}, s.ejectorMax);
+        if (!facing) return;
+        bool valid = xDiff == validX && zDiff == validZ;
+        auto colour = render::Rgb::hex(valid ? 0x9ede73 : 0xff7171);
+        lines.outline({double(ejector.x), double(ejector.y), double(ejector.z)}, {ejector.x + 1.0, ejector.y + 0.0, ejector.z + 1.0}, colour, 1.0 / 16);
+        auto tick = static_cast<std::uint64_t>(level.getCurrentTick().tickID);
+        if (tick == s.ejectorTick) return;
+        s.ejectorTick = tick;
+        auto   launch    = cb::planLaunch(std::abs(validX + validZ), yDiff);
+        double total     = launch.ticks + 3;
+        int    segments  = int(total) / 3 + 1;
+        double offset    = total / segments;
+        double renderT   = double(tick) / 3.0;
+        auto   step      = cb::facingNormal(*facing);
+        static HashedString const kValid{"levitate:belt_connector_valid"}, kInvalid{"levitate:belt_connector_invalid"};
+        for (int i = 0; i < segments; ++i) {
+            double t           = std::fmod(renderT, offset) + i * offset;
+            auto [along, up]   = launch.at(t);
+            Vec3 at{float(ejector.x + .5 + step.x * along), float(ejector.y + .5 + up), float(ejector.z + .5 + step.z * along)};
+            static_cast<ILevel&>(level).addParticleEffect(valid ? kValid : kInvalid, at);
+        }
+        if (!s.ejectorLogged) {
+            s.ejectorLogged = true;
+            log().info("belts client: ejector arc to {} {} {} ({})", sel.x, sel.y, sel.z, valid ? "valid" : "corrected");
+        }
+    }
+}
+
+void onEjector(Json const& msg) {
+    auto& s = state();
+    auto  p = msg.value("pos", Json::array());
+    if (!p.is_array() || p.size() != 3) {
+        s.ejectorSel.reset();
+        return;
+    }
+    s.ejectorSel    = BlockPos{p[0].get<int>(), p[1].get<int>(), p[2].get<int>()};
+    s.ejectorDim    = msg.value("dim", 0);
+    s.ejectorMax    = msg.value("max", 32);
+    s.ejectorLogged = false;
+    log().info("belts client: ejector target {} {} {}", p[0].get<int>(), p[1].get<int>(), p[2].get<int>());
+}
+
 void onConnector(Json const& msg) {
     auto& s = state();
     if (msg.value("clear", false)) {
@@ -384,6 +454,7 @@ void renderBelts(BaseActorRenderContext& ctx) {
     if (!level || !player) return;
     try {
         connectorPreview(*level, *player);
+        ejectorPreview(ctx, *level, *player);
     } catch (...) {
     }
     int dim = int(player->getDimensionId());
@@ -534,10 +605,12 @@ public:
         BeltsRenderHook::hook();
         feature::net::client::on("belts.speed", [](Json const& msg) { onSpeeds(msg); });
         feature::net::client::on("belts.connector", [](Json const& msg) { onConnector(msg); });
+        feature::net::client::on("belts.ejector", [](Json const& msg) { onEjector(msg); });
         mExit = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) {
             resetLevel(true);
             state().level = nullptr;
             state().connectorFirst.reset();
+            state().ejectorSel.reset();
         });
     }
     void uninstall() {

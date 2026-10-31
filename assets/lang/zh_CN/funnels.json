@@ -20,5 +20,17 @@
   "block.create.creative_crate.tooltip.condition1": "标记了物品时",
   "block.create.creative_crate.tooltip.behaviour1": "任何从板条箱中_提取_的物品都是_无限量_的，而任何_输入_到板条箱中的物品都会被_清除_。",
   "block.create.creative_crate.tooltip.condition2": "当在蓝图加农炮旁时",
-  "block.create.creative_crate.tooltip.behaviour2": "提供蓝图所需的任何材料"
+  "block.create.creative_crate.tooltip.behaviour2": "提供蓝图所需的任何材料",
+  "create.tooltip.chute.header": "溜槽信息",
+  "create.tooltip.chute.no_fans_attached": "未安装鼓风机",
+  "create.tooltip.chute.fans_pull_up": "上方的鼓风机在吸引",
+  "create.tooltip.chute.fans_push_down": "上方的鼓风机在推动",
+  "create.tooltip.chute.fans_push_up": "下方的鼓风机在推动",
+  "create.tooltip.chute.fans_pull_down": "下方的鼓风机在吸引",
+  "create.tooltip.chute.items_move_down": "物品下行",
+  "create.tooltip.chute.items_move_up": "物品上行",
+  "create.tooltip.chute.contains": "内含物品：{0} ×{1}",
+  "create.tooltip.brass_tunnel.contains": "目前分配：",
+  "create.tooltip.brass_tunnel.contains_entry": "> {0} ×{1}",
+  "create.tooltip.brass_tunnel.retrieve": "右击取出"
 }

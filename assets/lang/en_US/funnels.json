@@ -20,5 +20,17 @@
   "block.create.creative_crate.tooltip.condition1": "When Item in Filter Slot",
   "block.create.creative_crate.tooltip.behaviour1": "Anything _extracting_ from this container will provide an _endless supply_ of the item specified. Items _inserted_ into this crate will be _voided._",
   "block.create.creative_crate.tooltip.condition2": "When next to Schematicannon",
-  "block.create.creative_crate.tooltip.behaviour2": "Provides any material required by the Schematic."
+  "block.create.creative_crate.tooltip.behaviour2": "Provides any material required by the Schematic.",
+  "create.tooltip.chute.header": "Chute Information",
+  "create.tooltip.chute.no_fans_attached": "No attached fans",
+  "create.tooltip.chute.fans_pull_up": "Fans pull from Above",
+  "create.tooltip.chute.fans_push_down": "Fans push from Above",
+  "create.tooltip.chute.fans_push_up": "Fans push from Below",
+  "create.tooltip.chute.fans_pull_down": "Fans pull from Below",
+  "create.tooltip.chute.items_move_down": "Items move Downward",
+  "create.tooltip.chute.items_move_up": "Items move Upward",
+  "create.tooltip.chute.contains": "Contains: {0} x{1}",
+  "create.tooltip.brass_tunnel.contains": "Currently distributing:",
+  "create.tooltip.brass_tunnel.contains_entry": "> {0} x{1}",
+  "create.tooltip.brass_tunnel.retrieve": "Right-Click to retrieve"
 }

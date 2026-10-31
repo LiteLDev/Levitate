@@ -126,9 +126,22 @@ public:
     void build(std::vector<CarriedBlock> const& blocks) {
         mSlots.clear();
         mTanks.clear();
+        mBottomless.clear();
+        mAdapted.clear();
         for (int b = 0; b < static_cast<int>(blocks.size()); ++b) {
             auto const&        carried = blocks[b];
             std::string const& id      = carried.id;
+            // (U55) adapted inventories: vaults (slots in the carried data), creative crates
+            if (auto const* adapter = detail::itemAdapter(id)) {
+                if (adapter->bottomless) {
+                    mBottomless.push_back(b);
+                } else if (adapter->read) {
+                    auto items = adapter->read(carried.data);
+                    for (int i = 0; i < static_cast<int>(items.size()); ++i) mSlots.push_back({b, i, items[static_cast<std::size_t>(i)]});
+                    mAdapted.push_back(b);
+                }
+                continue;
+            }
             if (int size = containerSize(id)) {
                 std::vector<ItemStack> items(size);
                 if (auto be = parseSnbt(carried.blockEntity); be && be->contains("Items") && (*be)["Items"].is_array()) {
@@ -151,7 +164,18 @@ public:
         std::map<int, std::vector<ItemSlot const*>> byBlock;
         for (auto const& s : mSlots) byBlock[s.block].push_back(&s);
         auto ctx = SaveContextFactory::createCloneSaveContext();
+        for (int b : mAdapted) {
+            auto const* adapter = detail::itemAdapter(blocks[b].id);
+            if (!adapter || !adapter->write) continue;
+            std::vector<ItemStack> items;
+            for (auto const* s : byBlock[b]) {
+                if (static_cast<int>(items.size()) <= s->index) items.resize(static_cast<std::size_t>(s->index + 1));
+                items[static_cast<std::size_t>(s->index)] = s->stack;
+            }
+            adapter->write(blocks[b].data, items);
+        }
         for (auto const& [b, slots] : byBlock) {
+            if (std::find(mAdapted.begin(), mAdapted.end(), b) != mAdapted.end()) continue;
             auto be = parseSnbt(blocks[b].blockEntity);
             if (!be) continue;
             ListTag list;
@@ -191,11 +215,23 @@ public:
                 rest.set(rest.mCount - moved);
             }
         }
+        // a creative crate voids what is left (Create's BottomlessItemHandler)
+        if (rest.mCount > 0 && !mBottomless.empty()) return ItemStack{};
         if (rest.mCount == 0) return ItemStack{};
         return rest;
     }
 
     ItemStack extractItem(std::function<bool(ItemStack const&)> const& filter, int count, bool simulate) override {
+        // creative crates first: an endless supply of their item
+        for (int b : mBottomless) {
+            auto const& carried = mOwner.blocks()[b];
+            auto const* adapter = detail::itemAdapter(carried.id);
+            if (!adapter || !adapter->bottomless) continue;
+            ItemStack supply = adapter->bottomless(carried.data);
+            if (supply.isNull() || supply.mCount <= 0 || (filter && !filter(supply))) continue;
+            supply.set(std::min<int>(count, std::max<int>(1, supply.getMaxStackSize())));
+            return supply;
+        }
         ItemStack out;
         int       taken = 0;
         for (auto& s : mSlots) {
@@ -218,6 +254,8 @@ public:
     }
 
     int              slotCount() const override { return static_cast<int>(mSlots.size()); }
+    std::vector<int> mBottomless; ///< blocks with a bottomless adapter (creative crates)
+    std::vector<int> mAdapted;    ///< blocks whose slots an ItemStorageAdapter reads / writes
     ItemStack const& slot(int i) const override { return mSlots.at(i).stack; }
 
     int fill(std::string const& fluid, int amount, bool simulate) override {
