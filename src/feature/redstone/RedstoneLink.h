@@ -75,4 +75,10 @@ void move(LinkId id, core::GlobalPos const& pos, bool update = true);
 /// The configured range in blocks.
 [[nodiscard]] int range();
 
+/// (U56) Extra signal a transmitting redstone link *block* sends besides its redstone input:
+/// Create's FactoryPanelSupportBehaviour (15 while a factory gauge panel connected to the link is
+/// satisfied). `fn(linkPos)` returns 0..15, or -1 to keep the current transmission (a connected
+/// panel is not loaded: Create suppresses the update). One source (the stock unit).
+void setBlockTransmitSource(std::function<int(core::GlobalPos const&)> fn);
+
 } // namespace lv::feature::redstone::link

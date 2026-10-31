@@ -144,6 +144,9 @@ bool useItem(Player& player, BlockSource& region, BlockPos const& clicked, int f
 void placed(Player& player, GlobalPos const& link);
 /// Items passed / gatherer notifications.
 void notify(GlobalPos const& source);
+/// (U56) One link refreshes now (unless powered): Create's DisplayLinkBlockEntity.updateGatheredData
+/// from a FactoryPanelSupportBehaviour.notifyLink.
+void notifyLink(GlobalPos const& link);
 void itemsPassed(GlobalPos const& source, int count);
 } // namespace link
 

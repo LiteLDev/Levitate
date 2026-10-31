@@ -158,5 +158,8 @@
   "lv.stock.screen.add_filter": "Shift 点击物品栏中的过滤器以添加分类",
   "lv.stock.screen.target": "目标：{}",
   "lv.stock.screen.in_storage": "库存：{}",
-  "lv.stock.screen.promised": "已承诺：{}"
+  "lv.stock.screen.promised": "已承诺：{}",
+  "create.gui.stock_keeper.schematic_list.no_results": "库存中没有任何一项物品符合物品清单中的内容",
+  "create.gui.stock_keeper.schematic_list.requesting": "点击发送键请求列表中的全部可用物品",
+  "lv.stock.form.collapse_category": "折叠 {}"
 }

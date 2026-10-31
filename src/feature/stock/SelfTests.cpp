@@ -1,10 +1,16 @@
-// Selftests of the stock unit (U26, testPos dx 2600..2699). Packagers belong to U25: the tests
-// plug in a test packager provider that treats barrels as packagers on their own inventory and
-// records the packaging requests instead of boxing them.
+// Selftests of the stock unit (U26, testPos dx 2600..2699; U56: dx 5600..5684). Packagers belong
+// to U25: the tests plug in a test packager provider that treats barrels as packagers on their own
+// inventory and records the packaging requests instead of boxing them.
 
+#include <array>
 #include <map>
 
+#include "mc/deps/core/math/Vec3.h"
 #include "mc/server/SimulatedPlayer.h"
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/actor/item/ItemActor.h"
+#include "mc/world/level/dimension/DimensionType.h"
+#include "mc/world/phys/AABB.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
@@ -16,6 +22,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/common/ValueBox.h"
+#include "feature/display/Clipboard.h"
 #include "feature/display/Display.h"
 #include "feature/itemrender/DisplayItems.h"
 #include "feature/net/Net.h"
@@ -333,17 +340,23 @@ LV_REGISTER_SELFTEST("stock.gauge_restock", [](Context& ctx) -> ll::coro::CoroTa
     co_await ctx.ticks(30);
     auto info = stock::gaugeInfo(gauge, 0);
     ctx.check(info.value("satisfied", false) && info.value("promised", 1) == 0, "arrivals fulfil the promise and satisfy the gauge");
-    // a display link on the gauge: Create's "Factory gauge status" source
+    // a display link on the gauge: Create's "Factory gauge status" source lists the panels
+    // connected to the display link (U56: not the gauge's own panels)
     auto& region = p.getDimensionBlockSource();
-    bool  shown  = false;
+    auto  link   = at(gauge, 0, 0, 1);
+    bool  shown = false, emptyBefore = false;
     for (auto const* s : lv::feature::display::sourcesAt(region, gauge)) {
         if (s->id != "gauge_status") continue;
         JsonT                         cfg = JsonT::object();
-        lv::feature::display::Context dc{region, gauge, gauge, gauge, cfg};
-        auto                          lines = s->text(dc, {4, 20, "display_board"});
+        lv::feature::display::Context dc{region, link, gauge, gauge, cfg};
+        emptyBefore = s->text(dc, {4, 20, "display_board"}).empty();
+        stock::editData(link)["linkedGauges"] = JsonT::array({{{"pos", stock::posJson(gauge)}, {"slot", 0}}});
+        auto lines                            = s->text(dc, {4, 20, "display_board"});
         shown = lines.size() == 1 && lines[0].starts_with("20 ✔");
     }
-    ctx.check(shown, "the gauge_status display source lists the panel");
+    ctx.check(emptyBefore, "without connected panels the gauge_status source lists nothing");
+    ctx.check(shown, "the gauge_status display source lists the connected panel");
+    lv::feature::common::blockdata::erase(link);
 });
 
 LV_REGISTER_SELFTEST("stock.gauge_recipe", [](Context& ctx) -> ll::coro::CoroTask<> {
@@ -513,4 +526,283 @@ LV_REGISTER_SELFTEST("stock.gauge_crafting", [](Context& ctx) {
     }
     ctx.check(!stock::craftingArrangement(item(ctx, "minecraft:stick"), {planks, item(ctx, "minecraft:dirt")}), "every input must be used");
     ctx.check(!stock::craftingArrangement(item(ctx, "minecraft:diamond"), {planks}), "no recipe: no arrangement");
+});
+
+// ---- U56 (testPos dx 5600..5684; row 56 lies outside the kept test area, so z spawn - 60) ---------
+
+namespace {
+namespace ia = lv::feature::common::interactions;
+constexpr int kU56Dz = -295;
+
+GlobalPos u56(Context& ctx, int dx) { return at(ctx.testPos(dx, kU56Dz), 0, 1, 0); }
+
+ia::Result clickBlock(Player& p, GlobalPos const& pos, int face, std::array<double, 3> hit, bool sneaking, ItemStack const& held) {
+    auto&       region  = p.getDimensionBlockSource();
+    auto const& block   = region.getBlock(lv::game::blockPos(pos));
+    std::string blockId = block.getTypeName();
+    std::string itemId  = items::isEmpty(held) ? "" : items::idOf(held);
+    ia::UseOnContext c{p, held, itemId, block, blockId, pos, face, {hit[0], hit[1], hit[2]}, sneaking, true};
+    return ia::dispatchUseOn(c);
+}
+
+/// A floor gauge at `g` with an active panel in `slot` on `network` (optionally monitoring `item`).
+bool floorGauge(Context& ctx, GlobalPos const& g, std::string const& network, int slot = 0, char const* itemId = nullptr) {
+    if (!ctx.setBlock(g, stock::kFactoryGauge, {{"levitate:face", 0}, {"levitate:facing", 2}})) return false;
+    if (!stock::placeGaugePanel(g, slot, network, nullptr)) return false;
+    if (itemId) {
+        auto panel      = stock::readGaugePanel(g, slot);
+        panel["filter"] = stock::stackToJson(item(ctx, itemId));
+        stock::writeGaugePanel(g, slot, panel);
+    }
+    return true;
+}
+
+std::size_t linksOf(GlobalPos const& g, int slot) { return stock::readGaugePanel(g, slot).value("targetedByLinks", JsonT::array()).size(); }
+
+void gaugeAction(Player& p, GlobalPos const& g, int slot, JsonT const& action) {
+    net::setTestCompanion(p, true);
+    net::injectFromClient(p, "screen.action", {{"type", "stock.gauge"}, {"context", {{"pos", stock::posJson(g)}, {"slot", slot}}}, {"action", action}});
+    net::setTestCompanion(p, false);
+    (void)net::takeTestMessages(p);
+}
+} // namespace
+
+LV_REGISTER_SELFTEST("stock.gauge_link_redstone", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // Create's FactoryPanelSupportBehaviour on redstone links: a transmitter sends while a connected
+    // panel with a target is satisfied; a receiver with a signal pauses its panels
+    auto base = u56(ctx, 5600);
+    ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    std::string network = "u56-links";
+    auto        ga = base, gb = at(base, 4, 0, 0);
+    ctx.require(floorGauge(ctx, ga, network) && floorGauge(ctx, gb, network, 0, "minecraft:coal"), "two gauges");
+    auto pa     = stock::readGaugePanel(ga, 0);
+    pa["count"] = 5; // no item: always satisfied (Create)
+    stock::writeGaugePanel(ga, 0, pa);
+    auto tx = at(base, 1, 0, 0), rx = at(base, 3, 0, 0);
+    // links need a block to hang on (they pop off otherwise)
+    for (int dx = 0; dx <= 17; ++dx) ctx.setBlock(at(base, dx, -1, 0), "minecraft:stone");
+    ctx.setBlock(at(base, 2, -1, 2), "minecraft:stone");
+    ctx.setBlock(at(base, 2, 0, 2), "minecraft:stone"); // under the higher one (replaced below)
+    ctx.require(ctx.setBlock(tx, stock::kRedstoneLinkId, {{"levitate:facing", 1}}), "transmitting link");
+    ctx.require(ctx.setBlock(rx, stock::kRedstoneLinkId, {{"levitate:facing", 1}, {"levitate:receiver", 1}}), "receiving link");
+    auto sideways = at(base, 2, 0, 3), higher = at(base, 2, 1, 2), far = at(base, 17, 0, 0);
+    ctx.setBlock(at(base, 2, 0, 4), "minecraft:stone"); // the sideways link hangs on its south side
+    ctx.setBlock(sideways, stock::kRedstoneLinkId, {{"levitate:facing", 2}});
+    ctx.setBlock(higher, stock::kRedstoneLinkId, {{"levitate:facing", 1}});
+    ctx.setBlock(far, stock::kRedstoneLinkId, {{"levitate:facing", 1}});
+    auto& p = ctx.player();
+    ctx.check(!stock::connectPanelToLink(&p, ga, 0, sideways), "a link facing another way is refused (same orientation)");
+    ctx.check(!stock::connectPanelToLink(&p, ga, 0, higher), "a link on another plane is refused (same surface)");
+    ctx.check(!stock::connectPanelToLink(&p, ga, 0, far), "a link 17 blocks away is refused");
+    ctx.check(stock::connectPanelToLink(&p, ga, 0, tx), "panel A connects to the transmitter");
+    ctx.check(stock::connectPanelToLink(&p, gb, 0, rx), "panel B connects to the receiver");
+    ctx.check(linksOf(ga, 0) == 1 && stock::linkedPanelsOf(tx).size() == 1, "both sides know the connection");
+    co_await ctx.ticks(12);
+    ctx.check(stock::stateOr(tx, "levitate:powered", 0) == 1, "the transmitter sends while its panel is satisfied with a target");
+    ctx.check(stock::stateOr(rx, "levitate:power", 0) == 15, "the receiver gets the signal, got " + std::to_string(stock::stateOr(rx, "levitate:power", -1)));
+    ctx.check(stock::readGaugePanel(gb, 0).value("paused", false), "the powered receiver pauses panel B (Redstone Paused)");
+    ctx.check(stock::panelAt(gb, 0) && stock::panelAt(gb, 0)->paused, "panelAt reports the pause");
+    pa          = stock::readGaugePanel(ga, 0);
+    pa["count"] = 0;
+    stock::writeGaugePanel(ga, 0, pa);
+    co_await ctx.ticks(12);
+    ctx.check(stock::stateOr(tx, "levitate:powered", 1) == 0, "without a target the transmitter stops");
+    ctx.check(!stock::readGaugePanel(gb, 0).value("paused", true), "panel B resumes");
+    // the wrench also cycles the arrows of link connections
+    p.setSelectedItem(item(ctx, "levitate:wrench"));
+    stock::useGauge(p, gb, 0, false);
+    p.setSelectedItem(items::empty());
+    ctx.check(stock::readGaugePanel(gb, 0)["targetedByLinks"][0].value("arrow", 0) == 1, "the wrench cycles the link's arrow");
+    // Create's redstone reset button
+    gaugeAction(p, gb, 0, {{"op", "set"}, {"redstoneReset", true}});
+    ctx.check(linksOf(gb, 0) == 0 && stock::linkedPanelsOf(rx).empty(), "the reset button drops the link connections");
+    // a removed link leaves its panels
+    lv::game::clearBlock(p.getDimensionBlockSource(), lv::game::blockPos(tx));
+    co_await ctx.ticks(1);
+    ctx.check(linksOf(ga, 0) == 0, "breaking the link disconnects it");
+});
+
+LV_REGISTER_SELFTEST("stock.gauge_pending", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // Create's FactoryPanelConnectionHandler: a pending connection ends with the next click
+    auto base = u56(ctx, 5620);
+    ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    std::string network = "u56-pending";
+    auto        ga = base, gb = at(base, 2, 0, 0), stone = at(base, 0, 0, 2);
+    ctx.require(floorGauge(ctx, ga, network, 0, "minecraft:clock") && floorGauge(ctx, gb, network, 0, "minecraft:gold_ingot"), "two gauges");
+    ctx.require(ctx.setBlock(stone, "minecraft:stone"), "a stone block");
+    auto& p = ctx.player();
+    p.setSelectedItem(items::empty());
+    stock::startConnection(p, ga, 0);
+    ctx.check(stock::pendingConnectionOf(p).has_value(), "the connection is pending");
+    ctx.check(clickBlock(p, stone, 1, {.5, 1, .5}, false, items::empty()) == ia::Result::Consume, "a click on another block is taken");
+    ctx.check(!stock::pendingConnectionOf(p), "clicking another block cancels the connection");
+    co_await ctx.ticks(6);
+    stock::startConnection(p, ga, 0);
+    ctx.check(clickBlock(p, gb, 1, {.5, 1, .5}, true, items::empty()) == ia::Result::Consume, "a sneak-click on a gauge is taken");
+    ctx.check(!stock::pendingConnectionOf(p), "sneak-clicking cancels the connection");
+    co_await ctx.ticks(6);
+    stock::startConnection(p, ga, 0);
+    stock::useGauge(p, gb, 0, false); // Create's panelClicked
+    ctx.check(!stock::pendingConnectionOf(p), "the second panel ends the connection");
+    ctx.check(stock::readGaugePanel(ga, 0).value("targetedBy", JsonT::array()).size() == 1, "and connects it as an input");
+    stock::startConnection(p, ga, 0);
+    auto& sp = static_cast<SimulatedPlayer&>(p);
+    sp.teleport(Vec3{base.x + 20.5f, static_cast<float>(base.y), base.z + .5f}, DimensionType(base.dim));
+    co_await ctx.ticks(3);
+    ctx.check(!stock::pendingConnectionOf(p), "walking 16 blocks away drops the connection");
+    sp.teleport(Vec3{base.x + .5f, static_cast<float>(base.y), base.z - 1.5f}, DimensionType(base.dim));
+    co_await ctx.ticks(2);
+    stock::startConnection(p, ga, 0);
+    stock::removeGaugePanel(ga, 0, nullptr);
+    co_await ctx.ticks(2);
+    ctx.check(!stock::pendingConnectionOf(p), "a removed panel drops the connection");
+});
+
+LV_REGISTER_SELFTEST("stock.gauge_relocate", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // Create's "Move this gauge" (FactoryPanelBehaviour.moveTo)
+    auto base = u56(ctx, 5640);
+    ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    std::string network = "u56-move";
+    auto        ga = base, gc = at(base, 0, 0, 2), target = at(base, 3, 0, 0);
+    for (auto const& g : {ga, gc, target}) ctx.require(ctx.setBlock(at(g, 0, -1, 0), "minecraft:stone"), "support");
+    ctx.require(floorGauge(ctx, ga, network, 0, "minecraft:clock") && floorGauge(ctx, gc, network, 0, "minecraft:gold_ingot"), "two gauges");
+    ctx.cleanupBlock(target);
+    auto& p = ctx.player();
+    p.setSelectedItem(items::empty());
+    ctx.require(stock::connectPanels(&p, ga, 0, gc, 0), "the gold panel feeds the clock panel");
+    stock::startRelocation(p, ga, 0);
+    ctx.check(clickBlock(p, at(target, 0, -1, 0), 1, {.25, 1, .25}, false, items::empty()) == ia::Result::Consume, "the click picks the new spot");
+    ctx.check(stock::idAt(target) == stock::kFactoryGauge, "a gauge stands at the new spot");
+    int moved = -1;
+    for (int s = 0; s < 4; ++s)
+        if (stock::readGaugePanel(target, s).value("active", false)) moved = s;
+    ctx.check(moved >= 0 && items::idOf(stock::stackFromJson(stock::readGaugePanel(target, moved).value("filter", JsonT()))) == "minecraft:clock",
+              "the panel moved with its item");
+    ctx.check(stock::idAt(ga) != stock::kFactoryGauge, "the old gauge block went with its only panel");
+    auto targeting = stock::readGaugePanel(gc, 0).value("targeting", JsonT::array());
+    ctx.check(targeting.size() == 1 && stock::posFrom(targeting[0].value("pos", JsonT())) == target, "its input now points at the new spot");
+    if (moved >= 0) stock::removeGaugePanel(target, moved, nullptr);
+    co_await ctx.ticks(1);
+});
+
+LV_REGISTER_SELFTEST("stock.gauge_wrench_remove", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // Create's FactoryPanelBlock.onSneakWrenched: the targeted panel comes off
+    auto base = u56(ctx, 5655);
+    ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    std::string network = "u56-wrench";
+    ctx.require(floorGauge(ctx, base, network, 0) && stock::placeGaugePanel(base, 1, network, nullptr), "a gauge with two panels");
+    auto& p      = ctx.player();
+    auto  wrench = item(ctx, "levitate:wrench");
+    p.setSelectedItem(wrench);
+    auto hitOf = [&](int slot) {
+        auto c = stock::cs::panelCentre(stock::faceOf(base), stock::facingOf(base), static_cast<stock::cs::PanelSlot>(slot));
+        return std::array<double, 3>{c.x, c.y, c.z};
+    };
+    clickBlock(p, base, 1, hitOf(0), true, wrench);
+    ctx.check(!stock::readGaugePanel(base, 0).value("active", false) && stock::readGaugePanel(base, 1).value("active", false), "the targeted panel came off");
+    ctx.check(stock::idAt(base) == stock::kFactoryGauge, "the block stays with the other panel");
+    co_await ctx.ticks(6);
+    clickBlock(p, base, 1, hitOf(1), true, wrench);
+    ctx.check(stock::idAt(base) != stock::kFactoryGauge, "the last panel takes the block with it");
+    p.setSelectedItem(items::empty());
+});
+
+LV_REGISTER_SELFTEST("stock.gauge_reset_promises", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // Create's reset sets forceClearPromises: the promises of the next monitored item are dropped
+    auto base = u56(ctx, 5660);
+    ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    std::string network = "u56-reset";
+    ctx.require(floorGauge(ctx, base, network, 0, "minecraft:coal"), "a gauge");
+    auto& p = ctx.player();
+    stock::ensureNetwork(network).promises.add(stock::itemKey(item(ctx, "minecraft:coal")), 7);
+    gaugeAction(p, base, 0, {{"op", "set"}, {"reset", true}});
+    ctx.check(stock::readGaugePanel(base, 0).value("forceClearPromises", false), "the reset marks the promises for clearing");
+    auto panel      = stock::readGaugePanel(base, 0);
+    panel["filter"] = stock::stackToJson(item(ctx, "minecraft:coal"));
+    stock::writeGaugePanel(base, 0, panel);
+    co_await ctx.ticks(2);
+    ctx.check(stock::gaugeInfo(base, 0).value("promised", 1) == 0, "the promises are gone");
+    ctx.check(!stock::readGaugePanel(base, 0).value("forceClearPromises", false), "the mark is used up");
+});
+
+LV_REGISTER_SELFTEST("stock.table_cloth_items", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // Create's TableClothBlockEntity.use on a plain cloth: up to 4 items, an empty hand takes one back
+    auto base = u56(ctx, 5665);
+    ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    ctx.require(ctx.setBlock(base, "levitate:white_table_cloth"), "a table cloth");
+    auto& p = ctx.player();
+    for (int i = 0; i < 5; ++i) {
+        p.setSelectedItem(item(ctx, "minecraft:apple", 3));
+        clickBlock(p, base, 1, {.5, 1, .5}, false, p.getSelectedItem());
+        co_await ctx.ticks(6);
+    }
+    ctx.check(lv::feature::itemrender::itemsOf(base).size() == 4, "four items lie on the cloth (display items), got " + std::to_string(lv::feature::itemrender::itemsOf(base).size()));
+    ctx.check(items::countOf(p.getSelectedItem()) == 3, "a full cloth takes nothing more");
+    p.setSelectedItem(items::empty());
+    clickBlock(p, base, 1, {.5, 1, .5}, false, items::empty());
+    ctx.check(items::idOf(p.getSelectedItem()) == "minecraft:apple", "an empty hand takes the last item back");
+    co_await ctx.ticks(6);
+    p.setSelectedItem(items::empty());
+    lv::game::clearBlock(p.getDimensionBlockSource(), lv::game::blockPos(base));
+    co_await ctx.ticks(2);
+    int dropped = 0;
+    for (auto* a : p.getDimensionBlockSource().getEntities(AABB{Vec3{base.x - 2.f, base.y - 2.f, base.z - 2.f}, Vec3{base.x + 3.f, base.y + 3.f, base.z + 3.f}}, 0.f)) {
+        if (!a || a->getEntityTypeId() != ActorType::ItemEntity) continue;
+        auto& it = static_cast<ItemActor&>(*a);
+        if (items::idOf(it.item()) == "minecraft:apple") {
+            dropped += items::countOf(it.item());
+            a->remove();
+        }
+    }
+    ctx.check(dropped == 3, "breaking the cloth drops the items on it, got " + std::to_string(dropped));
+});
+
+LV_REGISTER_SELFTEST("stock.request_screen", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // Create's StockKeeperRequestScreen: a clipboard checklist becomes the order (schematic list
+    // mode); category headers collapse; Shift moves a category to the end
+    auto base = u56(ctx, 5670);
+    ctx.require(co_await ctx.ensureLoaded(base), "test area loaded");
+    TestPackagers pk;
+    auto          network = linkedBarrel(ctx, base, "");
+    fill(ctx, base, "minecraft:coal", 10);
+    auto ticker = at(base, 2, 0, 0);
+    ctx.require(ctx.setBlock(ticker, stock::kStockTicker), "a stock ticker");
+    auto& p          = ctx.player();
+    auto  tickerItem = item(ctx, stock::kStockTicker);
+    stock::tuneItem(tickerItem, network);
+    stock::onTickerPlaced(ticker, &p, tickerItem);
+    namespace cb = lv::feature::display::clipboard;
+    cb::Entry coal{"Coal", false, items::toJson(item(ctx, "minecraft:coal")), 15};
+    cb::Entry iron{"Iron", false, items::toJson(item(ctx, "minecraft:iron_ingot")), 3};
+    auto      list = cb::makeWritten({{coal, iron}}, "Checklist");
+    ctx.require(list.has_value(), "a checklist clipboard");
+    p.setSelectedItem(*list);
+    net::setTestCompanion(p, true);
+    (void)net::takeTestMessages(p);
+    lv::feature::common::screens::open(p, "stock.request", {{"pos", stock::posJson(ticker)}});
+    JsonT data;
+    for (auto const& m : net::takeTestMessages(p))
+        if (m.channel == "screen.open") data = m.payload.value("data", JsonT());
+    auto checklist = data.value("checklist", JsonT::array());
+    ctx.check(checklist.size() == 1 && checklist[0].value("count", 0) == 10, "the checklist's coal is ordered as far as it is in stock; iron is not in stock");
+    net::injectFromClient(p, "screen.action", {{"type", "stock.request"}, {"context", {{"pos", stock::posJson(ticker)}}}, {"action", {{"op", "order"}, {"items", checklist}, {"address", "Builder"}}}});
+    ctx.check(pk.total("minecraft:coal") == 10 && !pk.sent.empty() && pk.sent.back().address == "Builder", "the checklist order is sent");
+    p.setSelectedItem(items::empty());
+    // categories: three dividers, the first moved to the end with Shift, then one collapsed
+    auto cat = [&](JsonT const& action) {
+        net::injectFromClient(p, "screen.action", {{"type", "stock.categories"}, {"context", {{"pos", stock::posJson(ticker)}}}, {"action", action}});
+    };
+    for (char const* name : {"a", "b", "c"}) {
+        cat({{"op", "add"}, {"slot", -1}});
+        auto n = stock::dataOf(ticker)->value("categories", JsonT::array()).size();
+        cat({{"op", "rename"}, {"index", static_cast<int>(n) - 1}, {"name", name}});
+    }
+    cat({{"op", "move"}, {"index", 0}, {"delta", 1}, {"toEnd", true}});
+    auto cats = stock::dataOf(ticker)->value("categories", JsonT::array());
+    ctx.check(cats.size() == 3 && cats[2].value("name", std::string{}) == "a", "Shift moves the category to the bottom");
+    net::injectFromClient(p, "screen.action", {{"type", "stock.request"}, {"context", {{"pos", stock::posJson(ticker)}}}, {"action", {{"op", "hide"}, {"index", 1}}}});
+    auto hidden = stock::dataOf(ticker)->value("hidden", JsonT::object()).value(stock::uuidOf(p), JsonT::array());
+    ctx.check(hidden.size() == 1 && hidden[0] == 1, "a click on a category header collapses it");
+    net::setTestCompanion(p, false);
+    (void)net::takeTestMessages(p);
 });

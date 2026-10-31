@@ -55,7 +55,7 @@ LV_REGISTER_SELFTEST("gaps.textfield_package_filter", [](Context& ctx) {
     ctx.check(packages::addressOf(p.getSelectedItem()) == "Mill*", "the typed address is written to the filter");
     ctx.check(data.value("address", std::string{}) == "Mill*", "the screen gets the new address back");
     act(p, kType, context, {{"op", "address"}, {"text", std::string(80, 'a')}});
-    ctx.check(packages::addressOf(p.getSelectedItem()).size() == 50, "addresses are cut at 50 characters");
+    ctx.check(packages::addressOf(p.getSelectedItem()).size() == 25, "addresses are cut at 25 characters (Create's AddressEditBox, U56)");
     act(p, kType, context, {{"op", "address"}, {"text", "  "}});
     ctx.check(packages::addressOf(p.getSelectedItem()).empty(), "a blank address clears the filter");
     act(p, kType, {{"slot", slot + 1}}, {{"op", "address"}, {"text", "Elsewhere"}});
@@ -85,7 +85,7 @@ LV_REGISTER_SELFTEST("gaps.textfield_stock", [](Context& ctx) -> ll::coro::CoroT
     ctx.check(stock::dataOf(tickerPos) && stock::dataOf(tickerPos)->value("prevAddress", std::string{}) == "Mill", "the typed address is remembered");
     ctx.check(data.value("address", std::string{}) == "Mill", "the screen shows the address");
     act(p, "stock.request", context, {{"op", "address"}, {"text", std::string(70, 'x')}});
-    ctx.check(stock::dataOf(tickerPos)->value("prevAddress", std::string{}).size() == 50, "addresses are cut at 50 characters");
+    ctx.check(stock::dataOf(tickerPos)->value("prevAddress", std::string{}).size() == 25, "addresses are cut at 25 characters (Create's AddressEditBox, U56)");
     // category names are edited in place
     stock::editData(tickerPos)["categories"] = JsonT::array({{{"filter", nullptr}, {"name", "Logs"}}});
     data = act(p, "stock.categories", context, {{"op", "rename"}, {"index", 0}, {"name", "Wood"}});

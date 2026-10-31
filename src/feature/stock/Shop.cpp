@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
@@ -13,9 +14,11 @@
 
 #include "core/common/ValueSettings.h"
 #include "feature/advancements/Advancements.h"
+#include "feature/common/BlockData.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
 #include "mod/I18n.h"
@@ -335,9 +338,123 @@ void checkout(Player& player, GlobalPos const& ticker, ItemStack const& listItem
     log().info("stock: {} checked out a shopping list at the stock ticker at {} {} {}", player.getRealName(), ticker.x, ticker.y, ticker.z);
 }
 
-void shopRemoved(GlobalPos const& p, Json const&) { log().info("stock: table cloth shop removed at {} {} {}", p.x, p.y, p.z); }
+void shopRemoved(GlobalPos const& p, Json const& doc) {
+    // Create's TableClothBlockEntity.destroy: the items put on the cloth drop
+    for (auto const& j : doc.value("clothItems", Json::array())) dropAt(p, stackFromJson(j));
+    packages::hideVanillaItems("cloth:" + p.key() + ":");
+    log().info("stock: table cloth removed at {} {} {}", p.x, p.y, p.z);
+}
+
+// ---- items on a plain table cloth (Create's TableClothBlockEntity.use, not a shop) ---------------
+
+namespace {
+constexpr int kClothItems = 4;
+
+std::vector<ItemStack> clothItems(GlobalPos const& p) {
+    std::vector<ItemStack> out;
+    auto const*            d = dataOf(p);
+    if (!d) return out;
+    for (auto const& j : d->value("clothItems", Json::array())) {
+        auto s = stackFromJson(j);
+        if (!items::isEmpty(s)) out.push_back(s);
+    }
+    return out;
+}
+
+/// Vanilla clients (no display items): the items as client-only item entities on the cloth.
+void showClothItemsToVanilla(GlobalPos const& p, std::vector<ItemStack> const& list) {
+    auto prefix = "cloth:" + p.key() + ":";
+    packages::hideVanillaItems(prefix);
+    static constexpr double kSpread[4][2]{{-.2, -.2}, {.2, .2}, {-.2, .2}, {.2, -.2}};
+    for (std::size_t i = 0; i < list.size() && i < 4; ++i) {
+        double ox = list.size() > 1 ? kSpread[i][0] : 0, oz = list.size() > 1 ? kSpread[i][1] : 0;
+        packages::showVanillaItem(prefix + std::to_string(i), p.dim, list[i], {p.x + .5 + ox, p.y + 1.0 / 16.0, p.z + .5 + oz});
+    }
+}
+
+void setClothItems(GlobalPos const& p, std::vector<ItemStack> const& list) {
+    auto& d = editData(p);
+    if (list.empty()) d.erase("clothItems");
+    else {
+        Json a = Json::array();
+        for (auto const& s : list) a.push_back(stackToJson(s));
+        d["clothItems"] = a;
+    }
+    itemrender::refresh(p);
+    showClothItemsToVanilla(p, list);
+}
+
+/// Create's TableClothRenderer: up to 4 items lying on the cloth, spread around its centre and
+/// turned towards the player who put them down.
+void clothDisplay(GlobalPos const& p, Block const&, std::vector<std::pair<std::int64_t, itemrender::DisplayItem>>& out) {
+    if (isShop(p)) return; // shops show their order (client mod, Shop rendering)
+    auto list = clothItems(p);
+    if (list.empty()) return;
+    auto const* d      = dataOf(p);
+    int         facing = d ? d->value("clothFacing", 0) : 0; // Java 2D facing the items face
+    double      base   = facing * 90.0;
+    auto        n      = static_cast<int>(list.size());
+    for (int i = 0; i < n; ++i) {
+        itemrender::DisplayItem item;
+        item.stack = list[static_cast<std::size_t>(i)];
+        item.style = itemrender::Style::Lying;
+        double x = p.x + .5, y = p.y + 3.0 / 16.0, z = p.z + .5;
+        if (n > 1) {
+            double a = (base + i * (360.0 / n) + 45.0) * 3.14159265358979 / 180.0;
+            x += std::sin(a) * 5.0 / 16.0;
+            z += std::cos(a) * 5.0 / 16.0;
+            if (i % 2 == 0) y -= .005;
+        }
+        item.at       = {x, y, z};
+        item.at.yaw   = static_cast<float>(180.0 - base);
+        item.at.scale = .5f;
+        out.emplace_back(i, std::move(item));
+    }
+}
+} // namespace
+
+bool useClothItems(Player& player, GlobalPos const& p) {
+    auto list = clothItems(p);
+    auto held = player.getSelectedItem();
+    if (items::isEmpty(held)) {
+        // an empty hand takes the last item back
+        if (list.empty()) return false;
+        player.setSelectedItem(list.back());
+        player.sendInventory(false);
+        list.pop_back();
+        setClothItems(p, list);
+        playSound(p, "block.itemframe.remove_item", .5f, 1.f);
+        log().info("stock: {} took an item off the table cloth at {} {} {}", player.getRealName(), p.x, p.y, p.z);
+        return true;
+    }
+    if (static_cast<int>(list.size()) >= kClothItems) return true;
+    list.push_back(items::withCount(held, 1));
+    editData(p)["clothFacing"] = game::opposite(game::playerFacing(player));
+    setClothItems(p, list);
+    { // Create shrinks the held stack in every game mode
+        player.setSelectedItem(items::withCount(held, items::countOf(held) - 1));
+        player.sendInventory(false);
+    }
+    playSound(p, "block.itemframe.add_item", .5f, 1.f);
+    log().info("stock: {} put {} on the table cloth at {} {} {}", player.getRealName(), items::idOf(held), p.x, p.y, p.z);
+    return true;
+}
+
+bool hasClothItems(GlobalPos const& p) { return !clothItems(p).empty(); }
+
+void restoreClothItemDisplays() {
+    common::blockdata::forEach([](GlobalPos const& p, Json const& doc) {
+        auto it = doc.find(kDataKey);
+        if (it == doc.end() || !it->is_object() || !it->contains("clothItems")) return;
+        std::vector<ItemStack> list;
+        for (auto const& j : it->value("clothItems", Json::array())) list.push_back(stackFromJson(j));
+        showClothItemsToVanilla(p, list);
+    });
+}
 
 void registerShopValueBoxes() {
+    static bool providers = false;
+    if (!std::exchange(providers, true)) itemrender::registerProvider([](std::string_view id) { return isTableCloth(id); }, clothDisplay);
     for (auto const* colour : kClothColours) {
         std::string id = std::string("levitate:") + colour + "_table_cloth";
         common::valuebox::registerBox(

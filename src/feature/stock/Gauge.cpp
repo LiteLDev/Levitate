@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 
 #include "ll/api/command/CommandHandle.h"
 #include "ll/api/form/CustomForm.h"
@@ -20,6 +21,7 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/block/Block.h"
 
+#include "core/common/Utf8.h"
 #include "core/common/ValueSettings.h"
 #include "feature/advancements/Advancements.h"
 #include "feature/common/Filter.h"
@@ -27,8 +29,11 @@
 #include "feature/common/Screens.h"
 #include "feature/common/ValueBox.h"
 #include "feature/display/Display.h"
+#include "feature/goggles/GoggleInfo.h"
 #include "feature/itemrender/DisplayItems.h"
 #include "feature/net/Net.h"
+#include "feature/packages/AddressForm.h"
+#include "feature/packages/Packages.h"
 #include "feature/stock/StockInternal.h"
 #include "game/Blocks.h"
 #include "mod/Commands.h"
@@ -101,12 +106,6 @@ Runtime& rt(GlobalPos const& p, int slot) {
     return r;
 }
 
-/// Pending gauge connections per player (Create's FactoryPanelConnectionHandler.connectingFrom).
-std::map<std::string, std::pair<GlobalPos, int>>& connecting() {
-    static std::map<std::string, std::pair<GlobalPos, int>> m;
-    return m;
-}
-
 std::optional<GlobalPos> restockedPackager(GlobalPos const& gauge) {
     auto support = supportOf(gauge);
     if (!packagerAt(support)) return std::nullopt;
@@ -152,6 +151,12 @@ void updatePanelsState(GlobalPos const& p) {
     for (int s = 0; s < 4; ++s)
         if (active(readPanel(p, s))) mask |= 1 << s;
     setStates(p, {{kStatePanels, mask}});
+}
+
+/// Create's FactoryPanelBehaviour.getAmount() * (upTo ? 1 : max stack): what the panel wants.
+int demandOfPanel(Json const& panel) {
+    auto filter = stackFromJson(panel.value("filter", Json()));
+    return items::isEmpty(filter) ? 0 : cs::demandOf(panel.value("count", 0), panel.value("upTo", true), maxStackOf(filter));
 }
 
 std::string itemName(Json const& j) {
@@ -215,6 +220,14 @@ std::optional<CraftingArrangement> panelRecipe(GlobalPos const& p, Json const& p
 
 void tickStorageMonitor(GlobalPos const& p, int slot, Json& panel, bool& changed) {
     auto filter   = stackFromJson(panel.value("filter", Json()));
+    // Create's getPromised with forceClearPromises (set by "Reset all settings"): the promises of
+    // the panel's item are dropped once it has an item again, and the timer restarts at half
+    if (panel.value("forceClearPromises", false) && !items::isEmpty(filter)) {
+        (void)promisedOf(p, slot, panel, true);
+        panel.erase("forceClearPromises");
+        rt(p, slot).timer = requestInterval() / 2;
+        changed           = true;
+    }
     int  unloaded = unloadedLinks(p, panel);
     if (!isRestocker(p) && unloaded == 0 && panel.value("lastUnloaded", 0) != 0) invalidateSummaries();
     int  inStorage = levelInStorage(p, panel);
@@ -230,6 +243,7 @@ void tickStorageMonitor(GlobalPos const& p, int slot, Json& panel, bool& changed
         playSound(p, "levitate.stock.confirm", 0.075f, 1.0f);
         log().info("stock: factory gauge at {} {} {} panel {} satisfied ({} of {})", p.x, p.y, p.z, slot, inStorage, demand);
     }
+    bool notifyOutputs = panel.value("satisfied", false) != satisfy;
     panel["lastLevel"]         = inStorage;
     panel["lastPromised"]      = promised;
     panel["lastUnloaded"]      = unloaded;
@@ -237,6 +251,12 @@ void tickStorageMonitor(GlobalPos const& p, int slot, Json& panel, bool& changed
     panel["promisedSatisfied"] = promiseSatisfy;
     panel["waiting"]           = wait;
     changed                    = true;
+    // Create's notifyRedstoneOutputs: transmitting redstone links / display links connected to
+    // the panel follow its satisfied state (they read the panel, so write it first)
+    if (notifyOutputs) {
+        writePanel(p, slot, panel);
+        notifyPanelLinkOutputs(panel);
+    }
 }
 
 void tryRestock(GlobalPos const& p, int slot, Json& panel) {
@@ -369,6 +389,8 @@ Json screenData(Player& player, GlobalPos const& p, int slot) {
         {"label",           labelOf(player, p, panel)                          },
         {"craftable",       panelRecipe(p, panel).has_value()                  },
         {"crafting",        panel.contains("craft") && panelRecipe(p, panel).has_value()},
+        {"links",           panel.value("targetedByLinks", Json::array()).size()},
+        {"suggestions",     packages::addressSuggestions(player)               },
     };
 }
 
@@ -401,7 +423,7 @@ void configure(Player& player, GlobalPos const& p, int slot, Json const& a) {
             panel.erase("craft");
         }
     }
-    if (a.contains("address") && a["address"].is_string()) panel["address"] = a["address"].get<std::string>().substr(0, 64);
+    if (a.contains("address") && a["address"].is_string()) panel["address"] = core::utf8Prefix(a["address"].get<std::string>(), kAddressMaxLength);
     // with mechanical crafting the recipe sets the amounts (Create locks them)
     bool crafting = panel.contains("craft");
     if (a.contains("output") && a["output"].is_number_integer() && !crafting) panel["output"] = std::clamp(a["output"].get<int>(), 1, 64);
@@ -436,10 +458,22 @@ void configure(Player& player, GlobalPos const& p, int slot, Json const& a) {
         log().info("stock: {} disconnected a gauge input at {} {} {}", player.getRealName(), p.x, p.y, p.z);
     }
     if (a.value("reset", false)) {
-        // Create's disable() + enable(): every setting back to default, the network kept
+        // Create's reset: every setting back to default, all connections (and links) dropped, the
+        // network kept; forceClearPromises clears the promises of the next monitored item
         removeGaugePanel(p, slot, nullptr);
         placeGaugePanel(p, slot, panel.value("freq", std::string{}), nullptr);
+        auto fresh                  = readPanel(p, slot);
+        fresh["forceClearPromises"] = true;
+        writePanel(p, slot, fresh);
         log().info("stock: {} reset the gauge panel at {} {} {}", player.getRealName(), p.x, p.y, p.z);
+        return;
+    }
+    if (a.value("redstoneReset", false)) {
+        // Create's sendRedstoneReset: the redstone / display link connections are dropped
+        auto current = readPanel(p, slot);
+        disconnectPanelLinks(p, slot, current);
+        writePanel(p, slot, current);
+        log().info("stock: {} disconnected the links of the gauge panel at {} {} {}", player.getRealName(), p.x, p.y, p.z);
         return;
     }
     log().info("stock: {} configured the gauge panel at {} {} {} slot {}", player.getRealName(), p.x, p.y, p.z, slot);
@@ -455,6 +489,11 @@ void action(Player& player, Json const& ctx, Json const& a) {
     else if (op == "connect") {
         screens::close(player, kScreen);
         startConnection(player, p, slot);
+    } else if (op == "relocate") {
+        // Create's relocate button ("Move this gauge", not for restockers)
+        if (isRestocker(p)) return;
+        screens::close(player, kScreen);
+        startRelocation(player, p, slot);
     } else if (op == "address_form") {
         auto                 panel     = readPanel(p, slot);
         bool                 restocker = isRestocker(p);
@@ -500,16 +539,30 @@ void form(Player& player, Json const& ctx) {
         "",
         data.value("address", std::string{})
     );
+    auto suggestions = packages::addressSuggestions(player);
+    packages::appendAddressSuggestions(f, player, suggestions);
     std::vector<std::string> expiry{trFor(player, "create.gui.factory_panel.promises_do_not_expire", "Promises do not expire"), "30s"};
     for (int m = 1; m <= 31; ++m) expiry.push_back(std::to_string(m) + "m");
     f.appendStepSlider("expiry", trFor(player, "create.gui.factory_panel.promises_expire_title", "Promises expire after"), expiry, static_cast<std::size_t>(data.value("promiseInterval", -1) + 1));
     f.appendToggle("clear", trFor(player, "create.gui.factory_panel.left_click_reset", "Left-Click to reset") + " (" + trFor(player, "create.gui.factory_panel.promised_items", "Promised items") + ")", false);
     std::vector<std::string> extra{trFor(player, "create.gui.factory_panel.save_and_close", "Save and close")};
-    if (!restocker) extra.push_back(trFor(player, "create.gui.factory_panel.connect_input", "Add new connection"));
+    std::vector<std::string> thenOps{""};
+    if (!restocker) {
+        extra.push_back(trFor(player, "create.gui.factory_panel.connect_input", "Add new connection"));
+        thenOps.push_back("connect");
+        extra.push_back(trFor(player, "create.gui.factory_panel.relocate", "Move this gauge"));
+        thenOps.push_back("relocate");
+    }
+    if (data.value("links", 0) > 0) {
+        extra.push_back(trFor(player, "create.gui.factory_panel.has_link_connections", "Gauge has connected links") + ": "
+                        + trFor(player, "create.gui.factory_panel.left_click_disconnect", "Left-Click to disconnect"));
+        thenOps.push_back("redstoneReset");
+    }
     extra.push_back(trFor(player, "create.gui.factory_panel.reset", "Reset all settings"));
+    thenOps.push_back("reset");
     f.appendDropdown("then", trFor(player, "lv.stock.form.then", "Then"), extra, 0);
     std::size_t n = inputs.size();
-    f.sendTo(player, [p, slot, n, restocker](Player& q, ll::form::CustomFormResult const& r, ll::form::FormCancelReason) {
+    f.sendTo(player, [p, slot, n, restocker, thenOps, suggestions](Player& q, ll::form::CustomFormResult const& r, ll::form::FormCancelReason) {
         if (!r || !isGauge(p) || !active(readPanel(p, slot)) || !mayInteract(readPanel(p, slot).value("freq", std::string{}), q)) return;
         auto num = [&](std::string const& k, int fallback) {
             auto it = r->find(k);
@@ -527,11 +580,14 @@ void form(Player& player, Json const& ctx) {
         a["promiseInterval"] = num("expiry", 0) - 1;
         a["clearPromises"]   = num("clear", 0) != 0;
         if (auto it = r->find("address"); it != r->end())
-            if (auto const* s = std::get_if<std::string>(&it->second)) a["address"] = *s;
-        int then = num("then", 0);
-        if (then == (restocker ? 1 : 2)) a["reset"] = true;
+            if (auto const* s = std::get_if<std::string>(&it->second)) a["address"] = packages::chosenSuggestion(r, suggestions).value_or(*s);
+        int  then   = num("then", 0);
+        auto thenOp = then >= 0 && static_cast<std::size_t>(then) < thenOps.size() ? thenOps[static_cast<std::size_t>(then)] : std::string{};
+        if (thenOp == "reset") a["reset"] = true;
+        if (thenOp == "redstoneReset") a["redstoneReset"] = true;
         configure(q, p, slot, a);
-        if (!restocker && then == 1) startConnection(q, p, slot);
+        if (thenOp == "connect") startConnection(q, p, slot);
+        if (thenOp == "relocate") startRelocation(q, p, slot);
     });
 }
 
@@ -561,8 +617,13 @@ bool setPanelItem(Player& player, GlobalPos const& p, int slot, ItemStack const&
 
 void resetGaugeRuntime() {
     runtime().clear();
-    connecting().clear();
+    resetPendingConnections();
 }
+
+Json readGaugePanel(GlobalPos const& p, int slot) { return readPanel(p, slot); }
+void writeGaugePanel(GlobalPos const& p, int slot, Json const& panel) { writePanel(p, slot, panel); }
+void updateGaugePanelsState(GlobalPos const& p) { updatePanelsState(p); }
+void setGaugeTimer(GlobalPos const& p, int slot, int ticks) { rt(p, slot).timer = ticks; }
 
 int targetedSlotAt(GlobalPos const& p, double lx, double ly, double lz) {
     return static_cast<int>(cs::targetedSlot(faceOf(p), facingOf(p), {lx, ly, lz}));
@@ -585,8 +646,9 @@ bool placeGaugePanel(GlobalPos const& p, int slot, std::string const& network, P
 }
 
 namespace {
-/// Removes a panel's connections from the panels it was connected to.
-void disconnectAll(GlobalPos const& p, int slot, Json const& panel) {
+/// Removes a panel's connections from the panels (and links) it was connected to.
+void disconnectAll(GlobalPos const& p, int slot, Json panel) {
+    disconnectPanelLinks(p, slot, panel);
     for (auto const& c : panel.value("targetedBy", Json::array())) {
         auto from = posFrom(c.value("pos", Json()));
         if (!from || !blockAt(*from)) continue;
@@ -644,11 +706,6 @@ void gaugeRemoved(GlobalPos const& p, Json const& doc) {
     log().info("stock: factory gauge removed at {} {} {}", p.x, p.y, p.z);
 }
 
-void startConnection(Player& player, GlobalPos const& p, int slot) {
-    connecting()[uuidOf(player)] = {p, slot};
-    statusKey(player, "create.factory_panel.click_second_panel", "Click a second gauge to connect...");
-}
-
 bool connectPanels(Player* player, GlobalPos const& target, int targetSlot, GlobalPos const& input, int inputSlot) {
     auto t = readPanel(target, targetSlot);
     auto i = readPanel(input, inputSlot);
@@ -694,9 +751,11 @@ void useGauge(Player& player, GlobalPos const& p, int slot, bool sneaking) {
     }
     auto const& held = player.getSelectedItem();
     auto        hid  = items::isEmpty(held) ? std::string{} : items::idOf(held);
-    // the wrench cycles the arrow path of the panel's connections
+    // the wrench cycles the arrow path of the panel's connections (to other panels, and from the
+    // redstone / display links connected to it)
     auto targeting = panel.value("targeting", Json::array());
-    if (hid == kWrench && !targeting.empty()) {
+    auto links     = panel.value("targetedByLinks", Json::array());
+    if (hid == kWrench && (!targeting.empty() || !links.empty())) {
         int shared = -1;
         for (auto const& tj : targeting) {
             auto to = posFrom(tj.value("pos", Json()));
@@ -710,6 +769,15 @@ void useGauge(Player& player, GlobalPos const& p, int slot, bool sneaking) {
             }
             writePanel(*to, ts, dst);
         }
+        if (!links.empty()) {
+            for (auto& l : links) {
+                if (shared == -1) shared = (l.value("arrow", 0) + 1) % 4;
+                l["arrow"] = shared;
+            }
+            auto own               = readPanel(p, slot);
+            own["targetedByLinks"] = links;
+            writePanel(p, slot, own);
+        }
         if (shared >= 0) {
             std::string boxes;
             for (int i = 0; i < 4; ++i) boxes += i == shared ? "■" : "□";
@@ -717,17 +785,8 @@ void useGauge(Player& player, GlobalPos const& p, int slot, bool sneaking) {
             return;
         }
     }
-    // a pending connection from another panel
-    if (auto it = connecting().find(uuidOf(player)); it != connecting().end()) {
-        auto [from, fromSlot] = it->second;
-        connecting().erase(it);
-        if (from == p && fromSlot == slot) {
-            status(player, "");
-            return;
-        }
-        (void)connectPanels(&player, from, fromSlot, p, slot);
-        return;
-    }
+    // a pending connection from another panel (Create's FactoryPanelConnectionHandler.panelClicked)
+    if (pendingPanelClicked(player, p, slot)) return;
     auto filter = stackFromJson(panel.value("filter", Json()));
     if (items::isEmpty(filter)) {
         if (hid.empty()) {
@@ -807,11 +866,16 @@ Json gaugeVisual(GlobalPos const& p) {
         int  count  = panel.value("count", 0);
         auto colour = count == 0 ? 0x888898 : panel.value("satisfied", false) ? 0x9EF173 : panel.value("promisedSatisfied", false) ? 0xF2C14E : 0xE84D4D;
         Json from   = Json::array();
-        for (auto const& c : panel.value("targetedBy", Json::array())) {
-            auto at = posFrom(c.value("pos", Json()));
-            if (!at || at->dim != p.dim) continue;
-            from.push_back({{"pos", Json::array({at->x, at->y, at->z})}, {"slot", c.value("slot", 0)}, {"arrow", c.value("arrow", 0)}});
+        // the arrows from the input panels and from the connected redstone / display links
+        for (char const* list : {"targetedBy", "targetedByLinks"}) {
+            for (auto const& c : panel.value(list, Json::array())) {
+                auto at = posFrom(c.value("pos", Json()));
+                if (!at || at->dim != p.dim) continue;
+                from.push_back({{"pos", Json::array({at->x, at->y, at->z})}, {"slot", c.value("slot", 0)}, {"arrow", c.value("arrow", 0)}});
+            }
         }
+        // Create's getIngredientStatusColor: grey while paused by redstone
+        if (panel.value("paused", false)) colour = 0x888898;
         panels.push_back({{"slot", slot}, {"count", countLabel(p, slot, panel)}, {"colour", colour}, {"from", from}});
     }
     return {{"pos", Json::array({p.x, p.y, p.z})}, {"face", static_cast<int>(faceOf(p))}, {"facing", facingOf(p)}, {"panels", panels}};
@@ -885,8 +949,62 @@ void syncVisuals() {
 
 } // namespace
 
+int gaugePanelFace(GlobalPos const& p) { return panelFace(p); }
+
+namespace {
+/// Vanilla clients (U56, SPEC §8): each panel's monitored item as a client-only item in front of
+/// the panel (the client mod draws them as display items instead).
+void syncVanillaGauges() {
+    std::set<std::string> keep;
+    bool                  anyVanilla = false;
+    if (auto level = ll::service::getLevel()) level->forEachPlayer([&](Player& pl) {
+            anyVanilla = anyVanilla || (!pl.isSimulatedPlayer() && !net::isCompanion(pl));
+            return !anyVanilla;
+        });
+    if (anyVanilla) for (auto const& p : registry().gauges) {
+        if (!blockAt(p) || !isGauge(p)) continue;
+        auto s = cs::supportOffset(faceOf(p), facingOf(p));
+        for (int slot = 0; slot < 4; ++slot) {
+            auto panel = readPanel(p, slot);
+            if (!active(panel)) continue;
+            auto filter = stackFromJson(panel.value("filter", Json()));
+            if (items::isEmpty(filter)) continue;
+            auto c   = cs::panelCentre(faceOf(p), facingOf(p), static_cast<cs::PanelSlot>(slot));
+            auto key = "gauge:" + p.key() + ":" + std::to_string(slot);
+            // the item entity is drawn above its feet: a little below the panel centre, out of it
+            packages::showVanillaItem(key, p.dim, filter, {p.x + c.x - s[0] * .2, p.y + c.y - s[1] * .2 - .2, p.z + c.z - s[2] * .2});
+            keep.insert(key);
+        }
+    }
+    packages::hideVanillaItems("gauge:", keep);
+}
+} // namespace
+
+// Create's value box label and count of each panel, for players without the client mod (the
+// client mod shows them next to the crosshair, `stock.hover`): the goggle overlay's action bar.
+LV_REGISTER_GOGGLE_INFO(kFactoryGauge, {
+    .hover = [](goggles::InfoContext const& c, goggles::Tooltip& t) {
+        if (net::isCompanion(c.player)) return false;
+        bool any = false;
+        for (int slot = 0; slot < 4; ++slot) {
+            auto panel = readPanel(c.pos, slot);
+            if (!active(panel)) continue;
+            auto line = labelOf(c.player, c.pos, panel);
+            auto n    = countLabel(c.pos, slot, panel);
+            if (!n.empty()) line += " §f" + n;
+            t.push_back(goggles::line(line));
+            any = true;
+        }
+        return any;
+    },
+});
+
 void tickGauges() {
-    if (currentTick() % 10 == 0) syncVisuals();
+    if (currentTick() % 10 == 0) {
+        syncVisuals();
+        syncVanillaGauges();
+    }
+    tickPendingConnections();
     std::vector<GlobalPos> gone;
     for (auto const& p : registry().gauges) {
         if (!blockAt(p)) continue;
@@ -898,6 +1016,7 @@ void tickGauges() {
             auto panel = readPanel(p, slot);
             if (!active(panel)) continue;
             bool changed = false;
+            checkPanelRedstoneInput(p, slot, panel, changed);
             tickStorageMonitor(p, slot, panel, changed);
             Json before = panel.value("targetedBy", Json::array());
             tickRequests(p, slot, panel);
@@ -1056,6 +1175,7 @@ void registerGaugeScreens() {
                         panel["count"] = std::max(0, s.value);
                         panel["upTo"]  = s.row == 0;
                         writePanel(p, slot, panel);
+                        notifyPanelLinkOutputs(panel); // Create's setValueSettings
                         rt(p, slot).timer = requestInterval() / 2;
                         log().info("stock: {} set the target of the gauge panel at {} {} {} slot {} to {}{}", editor.getRealName(), p.x, p.y, p.z, slot, s.value, s.row == 0 ? "" : " stacks");
                     },
@@ -1067,8 +1187,9 @@ void registerGaugeScreens() {
             }
         );
     }
-    // Create's FactoryGaugeDisplaySource ("gauge_status"): a display link on the gauge lists its
-    // panels as a value list (level in storage, then ✔ satisfied / ↑ promised / ▪ missing + item)
+    // Create's FactoryGaugeDisplaySource ("gauge_status", offered by a display link on a gauge):
+    // one line per panel *connected to the display link* (the gauge's "Add new connection" on the
+    // link), as a value list: level in storage, then ✔ satisfied / ↑ promised / ▪ missing + item
     display::registerSource(
         kFactoryGauge,
         display::Source{
@@ -1079,14 +1200,15 @@ void registerGaugeScreens() {
                 [](display::Context& ctx, display::TargetStats const& stats) {
                     display::Lines out;
                     bool shortened = ctx.config.value("ValueDisplay", 0) == 0;
-                    for (int slot = 0; slot < 4 && static_cast<int>(out.size()) < std::max(1, stats.maxRows); ++slot) {
-                        auto panel = readPanel(ctx.source, slot);
+                    for (auto const& [gauge, slot] : linkedPanelsOf(ctx.link)) {
+                        if (static_cast<int>(out.size()) >= std::max(1, stats.maxRows)) break;
+                        if (!blockAt(gauge) || !isGauge(gauge)) continue;
+                        auto panel = readPanel(gauge, slot);
                         if (!active(panel)) continue;
                         auto        filter = stackFromJson(panel.value("filter", Json()));
-                        int         demand = items::isEmpty(filter) ? 0 : cs::demandOf(panel.value("count", 0), panel.value("upTo", true), maxStackOf(filter));
                         std::string mark   = " ";
-                        if (demand != 0) mark = panel.value("satisfied", false) ? "✔" : promisedOf(ctx.source, slot, panel, false) ? "↑" : "▪";
-                        out.push_back(display::formatValue(levelInStorage(ctx.source, panel), shortened) + " " + mark + " " + (items::isEmpty(filter) ? std::string{} : items::displayName(filter)));
+                        if (demandOfPanel(panel) != 0) mark = panel.value("satisfied", false) ? "✔" : promisedOf(gauge, slot, panel, false) ? "↑" : "▪";
+                        out.push_back(display::formatValue(levelInStorage(gauge, panel), shortened) + " " + mark + " " + (items::isEmpty(filter) ? std::string{} : items::displayName(filter)));
                     }
                     return out;
                 },

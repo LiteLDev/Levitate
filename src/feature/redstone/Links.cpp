@@ -48,6 +48,11 @@ void syncRange() { links().net.setRange(std::max(1, config::get<RedstoneConfig>(
 
 std::string posText(GP const& p) { return std::to_string(p.x) + " " + std::to_string(p.y) + " " + std::to_string(p.z); }
 
+std::function<int(core::GlobalPos const&)>& blockTransmitSource() {
+    static std::function<int(core::GlobalPos const&)> fn;
+    return fn;
+}
+
 } // namespace
 
 cr::LinkNetwork& linkNetwork() { return links().net; }
@@ -139,6 +144,8 @@ bool hasListeningLinks(int dim, LinkKey const& key) {
 }
 
 int range() { return std::max(1, config::get<RedstoneConfig>().linkRange); }
+
+void setBlockTransmitSource(std::function<int(core::GlobalPos const&)> fn) { blockTransmitSource() = std::move(fn); }
 
 } // namespace link
 
@@ -279,7 +286,13 @@ void tickLink(BlockSource& region, GP const& pos, Block const& block, Runtime& r
     auto bp       = game::blockPos(pos);
     bool receiver = state(block, sReceiver) != 0;
     if (!receiver) {
-        int  power  = rt.inLink;
+        int power = rt.inLink;
+        // (U56) Create's updateTransmittedSignal: max(redstone input, connected gauge panels)
+        if (auto const& extra = blockTransmitSource()) {
+            int fromPanels = extra(pos);
+            if (fromPanels < 0) return; // a connected panel is not loaded: keep transmitting as before
+            power = std::max(power, std::min(fromPanels, 15));
+        }
         auto const* d = dataOf(pos);
         int  stored = d ? d->value("transmit", 0) : 0;
         setStates(region, bp, {{sPowered, power > 0 ? 1 : 0}, {sPower, 0}});

@@ -25,6 +25,7 @@
 #include "mc/world/phys/HitResult.h"
 
 #include "client/Client.h"
+#include "client/packages/AddressSuggestions.h"
 #include "client/screen/Screen.h"
 #include "core/GlobalPos.h"
 #include "feature/common/Items.h"
@@ -104,12 +105,14 @@ public:
         });
         mAddress->placeholder = ctr("create.gui.stock_keeper.package_address", "Package Address");
         mAddress->tooltip     = {ctr("create.gui.stock_keeper.package_address", "Package Address")};
-        mAddress->maxLength   = 50;
+        for (auto const& l : packages::clipboardTip()) mAddress->tooltip.push_back(l);
+        mAddress->maxLength   = 25; // Create's AddressEditBox
         mSearch->maxLength    = 50;
         mSendBtn      = &add<IconButton>(Rect{126, 170, 48, 18}, ">", [this] { sendOrder(); });
         auto& clear   = add<IconButton>(Rect{104, 170, 18, 18}, "x", [this] { mOrderList.clear(); refreshOrder(); });
         clear.tooltip = {ctr("lv.stock.screen.clear_order", "Clear order")};
         mLock         = &add<IconButton>(Rect{156, 12, 18, 16}, "L", [this] { mSend({{"op", "lock"}}); });
+        mSuggest = &add<packages::AddressSuggestions>(*mAddress, packages::suggestionsOf(mData)); // drawn over the rest
         onData(mData);
     }
 
@@ -117,16 +120,31 @@ public:
         mData = data;
         syncField(*mSearch, data.value("search", std::string{}));
         syncField(*mAddress, data.value("address", std::string{}));
+        if (mSuggest) mSuggest->options = packages::suggestionsOf(data);
         mEntries.clear();
         mHeaders.clear();
-        for (auto const& g : data.value("groups", Json::array())) {
-            if (g.value("hidden", false)) continue;
+        auto groups = data.value("groups", Json::array());
+        for (auto const& g : groups) {
             auto list = g.value("items", Json::array());
             if (list.empty()) continue;
-            // a category starts on a new row
+            // Create: with categories, each starts with its header row (click: collapse / expand)
             while (mEntries.size() % kCols) mEntries.push_back({});
-            mHeaders.push_back({static_cast<int>(mEntries.size() / kCols), g.value("name", std::string{}), g.value("index", -1)});
+            if (groups.size() > 1) {
+                bool hidden = g.value("hidden", false);
+                mHeaders.push_back({static_cast<int>(mEntries.size() / kCols), g.value("name", std::string{}), g.value("index", -1), hidden});
+                mEntries.resize(mEntries.size() + kCols);
+                if (hidden) continue;
+            }
             for (auto const& e : list) mEntries.push_back({iconOf(e.value("item", Json())), e.value("count", 0)});
+        }
+        // Create's schematic list mode (a clipboard checklist in hand): the checklist is the order
+        mChecklist = data.contains("checklist");
+        if (mChecklist) {
+            mOrderList.clear();
+            for (auto const& e : data.value("checklist", Json::array())) {
+                auto icon = iconOf(e.value("item", Json()));
+                if (icon) mOrderList.push_back({icon, e.value("count", 0)});
+            }
         }
         bool program        = data.value("program", false);
         mSendBtn->symbol    = program ? "P" : ">";
@@ -136,12 +154,14 @@ public:
         mLock->tooltip      = {data.value("locked", false) ? ctr("create.gui.stock_keeper.network_locked", "Network is locked") : ctr("create.gui.stock_keeper.network_open", "Network is open"),
                                ctr("create.gui.stock_keeper.network_lock_tip", "Locking prevents other Players"), ctr("create.gui.stock_keeper.network_lock_tip_1", "from ordering items directly"),
                                ctr("create.gui.stock_keeper.network_lock_tip_2", "Click to toggle")};
-        // the screen is rebuilt after a vanilla-style form: the order being put together survives
-        auto& stash = orderStash();
-        if (mOrderList.empty() && stash.first == data.value("pos", Json())) mOrderList = stash.second;
-        // keep the order within the new stock
-        for (auto& o : mOrderList) o.second = std::min(o.second, available(o.first));
-        std::erase_if(mOrderList, [](auto const& o) { return o.second <= 0; });
+        if (!mChecklist) {
+            // the screen is rebuilt after a vanilla-style form: the order being put together survives
+            auto& stash = orderStash();
+            if (mOrderList.empty() && stash.first == data.value("pos", Json())) mOrderList = stash.second;
+            // keep the order within the new stock
+            for (auto& o : mOrderList) o.second = std::min(o.second, available(o.first));
+            std::erase_if(mOrderList, [](auto const& o) { return o.second <= 0; });
+        }
         mScroll = std::clamp(mScroll, 0, maxScroll());
         refreshGrid();
         refreshOrder();
@@ -151,11 +171,18 @@ public:
         for (auto const& h : mHeaders) {
             int row = h.row - mScroll;
             if (row < 0 || row >= kRows) continue;
-            if (!h.name.empty()) c.text(174, 30 + 18.0f * static_cast<float>(row) + 5, h.name, color::kTextGold, Align::Right);
+            // Create's category line: ▶ collapsed / ▼ expanded, then the name
+            auto name = h.name.empty() ? ctr("create.gui.stock_ticker.empty_category_name_placeholder", "(Empty)") : h.name;
+            c.text(14, 30 + 18.0f * static_cast<float>(row) + 5, std::string(h.hidden ? "▶ " : "▼ ") + name, color::kTextGold, Align::Left);
         }
-        if (mData.value("links", 0) == 0) c.text(width / 2, 70, ctr("create.gui.stock_keeper.no_packagers_linked", "No Packagers Linked"), color::kButtonOff, Align::Centre);
+        if (mChecklist)
+            c.text(width / 2, 70, ctr(mOrderList.empty() ? "create.gui.stock_keeper.schematic_list.no_results" : "create.gui.stock_keeper.schematic_list.requesting",
+                                      mOrderList.empty() ? "No items from your checklist are in stock" : "Click 'Send' to request all available items from your checklist"),
+                   color::kTextGray, Align::Centre);
+        else if (mData.value("links", 0) == 0) c.text(width / 2, 70, ctr("create.gui.stock_keeper.no_packagers_linked", "No Packagers Linked"), color::kButtonOff, Align::Centre);
         else if (mEntries.empty()) c.text(width / 2, 70, ctr(mData.value("search", std::string{}).empty() ? "create.gui.stock_keeper.inventories_empty" : "create.gui.stock_keeper.no_search_results", "Linked Inventories are Empty"), color::kTextGray, Align::Centre);
-        if (mOrderList.size() >= 9) c.text(12, 174, ctr("create.gui.stock_keeper.slots_full", "Order slots already full"), color::kButtonOff);
+        if (mOrderList.size() > 9) c.text(150, 174, "[+" + std::to_string(mOrderList.size() - 9) + "]", color::kTextDark, Align::Right);
+        else if (mOrderList.size() >= 9 && !mChecklist) c.text(12, 174, ctr("create.gui.stock_keeper.slots_full", "Order slots already full"), color::kButtonOff);
     }
 
     bool clickBackground(float, float, Button, bool) override { return false; }
@@ -184,7 +211,8 @@ private:
     struct Header {
         int         row = 0;
         std::string name;
-        int         index = -1;
+        int         index  = -1;
+        bool        hidden = false;
     };
 
     int maxScroll() const { return std::max(0, static_cast<int>((mEntries.size() + kCols - 1) / kCols) - kRows); }
@@ -218,7 +246,7 @@ private:
     }
 
     void refreshOrder() {
-        orderStash() = {mData.value("pos", Json()), mOrderList};
+        if (!mChecklist) orderStash() = {mData.value("pos", Json()), mOrderList};
         for (int i = 0; i < 9; ++i) {
             auto& slot = *mOrder[static_cast<std::size_t>(i)];
             if (i < static_cast<int>(mOrderList.size())) {
@@ -255,13 +283,22 @@ private:
     }
 
     void clickStock(int i, Button b, bool shift) {
+        if (mChecklist) return; // Create: the checklist can't be edited
         auto idx = static_cast<std::size_t>(mScroll * kCols + i);
+        // Create's StockKeeperCategoryHidingPacket: a click on a category's header row collapses
+        // or expands it
+        for (auto const& h : mHeaders) {
+            if (static_cast<int>(idx) / kCols != h.row) continue;
+            mSend({{"op", "hide"}, {"index", h.index}});
+            log().info("stock keeper category {} {}", h.index, h.hidden ? "expanded" : "collapsed");
+            return;
+        }
         if (idx >= mEntries.size()) return;
         change(mEntries[idx].stack, mEntries[idx].count, b, shift);
     }
 
     void clickOrder(int i, Button b, bool shift) {
-        if (i >= static_cast<int>(mOrderList.size())) return;
+        if (mChecklist || i >= static_cast<int>(mOrderList.size())) return;
         auto s = mOrderList[static_cast<std::size_t>(i)].first;
         change(s, available(s), b == Button::Left ? Button::Right : Button::Left, shift);
     }
@@ -284,7 +321,9 @@ private:
     std::vector<std::pair<std::shared_ptr<ItemStack>, int>> mOrderList;
     IconButton *                                             mSendBtn{}, *mLock{};
     TextField *                                              mSearch{}, *mAddress{};
+    packages::AddressSuggestions*                            mSuggest{};
     int                                                      mScroll = 0;
+    bool                                                     mChecklist = false; ///< Create's schematic list mode
     std::optional<std::string>                               mPendingSearch; ///< typed, not sent yet
     std::chrono::steady_clock::time_point                    mSearchAt;
     std::string                                              mSentSearch = mData.value("search", std::string{});
@@ -303,6 +342,23 @@ private:
 
 // ---- category editor ---------------------------------------------------------------------------
 
+/// An icon button whose callback knows whether Shift was held (Create: Shift moves a category to
+/// the top / bottom).
+class ShiftButton : public IconButton {
+public:
+    ShiftButton(Rect r, std::string symbol, std::function<void(bool)> fn) : IconButton(r, std::move(symbol), {}), mFn(std::move(fn)) {
+        onClick = [this] { mFn(mShift); };
+    }
+    bool click(float mx, float my, Button b, bool shift) override {
+        mShift = shift;
+        return IconButton::click(mx, my, b, shift);
+    }
+
+private:
+    std::function<void(bool)> mFn;
+    bool                      mShift = false;
+};
+
 class CategoryScreen : public Screen {
 public:
     CategoryScreen(Json const& data, SendFn send)
@@ -317,19 +373,19 @@ public:
             float y = 24 + 18.0f * static_cast<float>(i);
             Row   r;
             r.slot = &add<Slot>(Rect{10, y, 18, 18}, [](Button, bool) {});
-            r.up   = &add<IconButton>(Rect{116, y + 1, 16, 16}, "^", [this, i] { mSend({{"op", "move"}, {"index", i}, {"delta", -1}}); });
-            r.down = &add<IconButton>(Rect{133, y + 1, 16, 16}, "v", [this, i] { mSend({{"op", "move"}, {"index", i}, {"delta", 1}}); });
+            r.up   = &add<ShiftButton>(Rect{116, y + 1, 16, 16}, "^", [this, i](bool shift) { mSend({{"op", "move"}, {"index", i}, {"delta", -1}, {"toEnd", shift}}); });
+            r.down = &add<ShiftButton>(Rect{133, y + 1, 16, 16}, "v", [this, i](bool shift) { mSend({{"op", "move"}, {"index", i}, {"delta", 1}, {"toEnd", shift}}); });
             // Create's category name box, edited in place
             r.name = &add<TextField>(Rect{32, y + 1, 80, 16}, std::string{}, [this, i](std::string const& text) {
                 if (static_cast<std::size_t>(i) < mNames.size() && text == mNames[static_cast<std::size_t>(i)]) return;
                 mSend({{"op", "rename"}, {"index", i}, {"name", text}});
                 log().info("stock ticker category {} renamed to '{}'", i + 1, text);
             });
-            r.name->maxLength   = 64;
+            r.name->maxLength   = 28; // Create's category name box
             r.name->placeholder = ctr("create.gui.stock_ticker.empty_category_name_placeholder", "(Empty)");
             r.del  = &add<IconButton>(Rect{167, y + 1, 16, 16}, "x", [this, i] { mSend({{"op", "remove"}, {"index", i}}); });
-            r.up->tooltip   = {ctr("create.gui.schedule.move_up", "Move up")};
-            r.down->tooltip = {ctr("create.gui.schedule.move_down", "Move down")};
+            r.up->tooltip   = {ctr("create.gui.schedule.move_up", "Move up"), "§7" + ctr("create.gui.stock_ticker.shift_moves_top", "Shift moves to top")};
+            r.down->tooltip = {ctr("create.gui.schedule.move_down", "Move down"), "§7" + ctr("create.gui.stock_ticker.shift_moves_bottom", "Shift moves to bottom")};
             r.name->tooltip = {ctr("create.gui.stock_ticker.category_name", "Category Name")};
             r.del->tooltip  = {ctr("create.gui.stock_ticker.delete_category", "Delete Category")};
             r.del->litColour = color::kButtonOff;
@@ -397,16 +453,19 @@ public:
             mSend({{"op", "set"}, {"address", text}});
             log().info("redstone requester address typed: '{}'", text);
         });
-        mAddress->maxLength   = 50;
+        mAddress->maxLength   = 25; // Create's AddressEditBox
         mAddress->placeholder = ctr("create.gui.redstone_requester.requester_address", "Send order to...");
         mAddress->tooltip     = {ctr("create.gui.redstone_requester.requester_address", "Send order to..."), ctr("create.gui.redstone_requester.requester_address_tip", "Enter the address this"),
                                  ctr("create.gui.redstone_requester.requester_address_tip_1", "order should be send to.")};
+        for (auto const& l : packages::clipboardTip()) mAddress->tooltip.push_back(l);
+        mSuggest = &add<packages::AddressSuggestions>(*mAddress, packages::suggestionsOf(mData)); // drawn over the rest
         onData(mData);
     }
 
     void onData(Json const& data) override {
         mData   = data;
         if (mAddress) syncField(*mAddress, data.value("address", std::string{}));
+        if (mSuggest) mSuggest->options = packages::suggestionsOf(data);
         auto ol = data.value("order", Json::array());
         for (std::size_t i = 0; i < mSlots.size(); ++i) {
             auto& s = *mSlots[i];
@@ -441,6 +500,7 @@ private:
     std::vector<CountSlot*> mSlots;
     IconButton *            mAllow{}, *mDeny{};
     TextField*              mAddress{};
+    packages::AddressSuggestions* mSuggest{};
 };
 
 class SlotScroll : public Widget {
@@ -489,14 +549,22 @@ public:
             mSend({{"op", "set"}, {"address", text}});
             log().info("factory gauge address typed: '{}'", text);
         });
-        mAddress->maxLength   = 50;
+        mAddress->maxLength   = 25; // Create's AddressEditBox
         mAddress->placeholder = prompt;
         mAddress->tooltip     = {prompt};
+        for (auto const& l : packages::clipboardTip()) mAddress->tooltip.push_back(l);
         auto& clear  = add<IconButton>(Rect{12, 120, 18, 18}, "0", [this] { mSend({{"op", "set"}, {"clearPromises", true}}); });
         clear.tooltip = {ctr("create.gui.factory_panel.promised_items", "Promised items"), ctr("create.gui.factory_panel.left_click_reset", "Left-Click to reset")};
+        // Create's redstone link icon: shown while links are connected, a click disconnects them
+        mLinks = &add<IconButton>(Rect{34, 120, 18, 18}, "R", [this] { mSend({{"op", "set"}, {"redstoneReset", true}}); });
+        mLinks->tooltip   = {ctr("create.gui.factory_panel.has_link_connections", "Gauge has connected links"), "§8§o" + ctr("create.gui.factory_panel.left_click_disconnect", "Left-Click to disconnect")};
+        mLinks->litColour = color::kButtonOff;
         if (!restocker) {
             auto& conn   = add<IconButton>(Rect{134, 120, 18, 18}, "+", [this] { mSend({{"op", "connect"}}); });
             conn.tooltip = {ctr("create.gui.factory_panel.connect_input", "Add new connection")};
+            // Create's relocate button ("Move this gauge")
+            auto& move   = add<IconButton>(Rect{90, 120, 18, 18}, "M", [this] { mSend({{"op", "relocate"}}); });
+            move.tooltip = {ctr("create.gui.factory_panel.relocate", "Move this gauge")};
             // Create's 3x3 button: shown when the inputs make the item at a crafting table
             mCrafting = &add<IconButton>(Rect{112, 120, 18, 18}, "#", [this] {
                 bool on = !mData.value("crafting", false);
@@ -511,6 +579,7 @@ public:
         reset.tooltip = {ctr("create.gui.factory_panel.reset", "Reset all settings")};
         reset.litColour = color::kButtonOff;
         for (auto* w : {static_cast<Widget*>(mOutput)}) w->visible = !restocker;
+        mSuggest = &add<packages::AddressSuggestions>(*mAddress, packages::suggestionsOf(mData)); // drawn over the rest
         onData(mData);
     }
 
@@ -518,10 +587,12 @@ public:
         mData        = data;
         if (mAddress) {
             syncField(*mAddress, data.value("address", std::string{}));
+        if (mSuggest) mSuggest->options = packages::suggestionsOf(data);
             // Create: a gauge without an address is inactive (the box's tooltip says so)
             mAddress->tooltip = {mAddress->placeholder};
             if (data.value("address", std::string{}).empty())
                 mAddress->tooltip.push_back(ctr("create.gui.factory_panel.address_missing", "Inactive: missing a target address"));
+            for (auto const& l : packages::clipboardTip()) mAddress->tooltip.push_back(l);
         }
         mItem->stack = iconOf(data.value("item", Json()));
         auto inputs  = data.value("inputs", Json::array());
@@ -537,6 +608,7 @@ public:
         }
         mOutput->value = data.value("output", 1);
         mExpiry->value = data.value("promiseInterval", -1);
+        if (mLinks) mLinks->visible = data.value("links", 0) > 0;
         if (mCrafting) {
             mCrafting->visible = data.value("craftable", false) || data.value("crafting", false);
             mCrafting->toggled = data.value("crafting", false);
@@ -574,7 +646,9 @@ private:
     std::vector<CountSlot*> mInputs;
     ScrollInput *           mOutput{}, *mExpiry{};
     TextField*              mAddress{};
+    packages::AddressSuggestions* mSuggest{};
     IconButton*             mCrafting{};
+    IconButton*             mLinks{};
 };
 
 class GaugeItemScreen : public Screen {

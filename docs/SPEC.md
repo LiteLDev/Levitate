@@ -3428,7 +3428,8 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   `PackageItem.open`); holding right-click and
   releasing throws it with the bow's power curve (`(t² + 2t) / 3`, t = seconds held, capped at 1,
   thrown only from 0.1; speed 2 × power, snowball sound at volume 0.5, pitch 0.5); right-click on a
-  block puts it down there. Packages, shulker boxes and bundles don't fit into packages.
+  block puts it down there. Packages, shulker boxes, bundles, toolboxes and minecart contraptions
+  don't fit into packages (bulky items, below).
 - **Package entities** (U46, Create's PackageEntity): thrown, put-down and dropped packages are
   `levitate:package` entities (a box model per style from the resource pack, so vanilla clients
   see them too; size = the style's width × height / 16, rare styles 12 × 10; a random yaw; health
@@ -3442,7 +3443,13 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   explosion, a projectile, water, or fire / lava burning through its health break it open: the
   contents drop at the entity (spawn eggs spawn their mob there), "Package breaks" sound, item
   particles of the box; the package item itself is not dropped. The void and `/kill` remove it with
-  its contents. No fall damage; landing after a fall plays the chiseled bookshelf fall sound. Create's centerPackage: on a belt (not rising, no tunnel on the
+  its contents. No fall damage; landing after a fall plays the chiseled bookshelf fall sound.
+  Suffocating (its eyes, 0.85 × its height, in a solid block) breaks it open unless it rides
+  something or tried an insertion within the last 10 ticks (Create's `inWall` damage, insertion
+  delay ≥ 20). Packages pile up (Create's canCollideWith: a package collides with packages whose
+  top is below its bottom + 1/8): a falling package that reaches the top of a package below it
+  stands there (without gravity while that package stays; Bedrock's entity collision is per type,
+  so the server does it), players and other entities still pass through. Create's centerPackage: on a belt (not rising, no tunnel on the
   segment), landed on a depot / ejector or on a chute that takes items, the package slides to the
   input point (motion × 0.75, y × 0.25, 20% of the way per tick; insertion delay 30, +1 per tick,
   −3 per centering tick) and is inserted; inside a funnel it is handed to the funnel as an item
@@ -3461,7 +3468,8 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   last sign in Down, Up, North, South, West, East order wins). While powered it repeats every 10
   ticks (Create's lazy tick); a 40-tick button cooldown stops a button from sending twice. The
   packager holds one finished package (20-tick tray animation; further packages queue) until a
-  frogport above, a funnel / any item capability or a player (right-click) takes it. Packages put in
+  frogport above, a funnel / any item capability or a player (right-click) takes it; the box sits on
+  the tray all that time (Create's getRenderedBox). Packages put in
   (right-click with a package, or the item capability) are unpacked into the inventory when all
   their items fit (unpacking handlers per target block for U14 basins, U16 crafters, creative
   crates). Linked packagers (U26's stock link) ignore redstone; U26 sends requests through
@@ -3497,11 +3505,16 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
   take it.
 - **Frogport**: right-click a chain (loop or chain position) with the frogport item to select its
   target, then place it within `packagePortRange` (5) blocks, not below the target ("Can Connect ✔",
-  "Too far away", "Cannot connect downward", "No target selected"). It catches boxes whose address
+  "Too far away", "Cannot connect downward", "No target selected"); a successful placement opens
+  the port's screen (Create's PackagePortPlacementPacket). The frog faces its target (Create's
+  getYaw), or without one the player who placed it (snapped to 11.25°): `levitate:yaw` 0..15 turns
+  the block in 22.5° steps for every client (a quarter-turn transformation plus one of four model
+  copies turned by 0 / 22.5 / 45 / −22.5°, `tools/models/packages.ps1`). It catches boxes whose address
   matches its filter ("Catch packages addressed to...", empty = unaddressed only) when they pass its
   position (the tongue reaches out 4 ticks of travel ahead), unless it is busy or its 18 slots are
-  full; every 10 ticks it pushes caught packages into the inventory below (hint "Contains Packages"
-  when that fails) and sends packages not addressed to it — from its own slots or the inventory below
+  full; every 10 ticks it pushes caught packages into the inventory below (when that fails, looking
+  at the frogport shows Create's hint "Contains Packages" / "A Package caught by this Frogport could
+  not be transferred to the inventory below...", goggle overlay) and sends packages not addressed to it — from its own slots or the inventory below
   (any package from a packager) — onto the chain, if the conveyor turns and has room. The animation
   takes 10 ticks; a sent box is hung at 0.6. "Only send packages" disables catching. Goggles can be
   put on it (right-click with goggles). Automation (item capability) can insert only packages not
@@ -3512,19 +3525,32 @@ packager requests and unpacking handlers for U26, postbox access for U27); pure 
 - **Postbox**: the same port inventory and address; it targets a train station (right-click the
   station with the postbox, then place it within 5 blocks, below is allowed). `levitate:flag` is up
   while it holds packages, `levitate:open` while its screen is open (barrel sounds). U27's trains use
-  `postboxesForStation` / `insertIntoPort` / `extractFromPort`.
+  `postboxesForStation` / `insertIntoPort` / `extractFromPort`. Create's GlobalPackagePort: the
+  station's list of postboxes is kept in the world DB (`lv:packages:station_ports`: address, mode
+  and an 18-slot offline buffer, a copy of the inventory saved with every change); while a postbox's
+  chunk is unloaded the trains load from and deliver into its buffer, which goes back into the
+  postbox when it loads.
 - **Package filter**: right-click sets its address (native screen `packages.package_filter` with one
   address box for companions, a form for vanilla players); in every filter slot (U3's
   `filter::registerMatcher`, Create's PackageFilterItemStack) it lets packages whose address matches
-  through (an empty one behaves like a plain item). Lore `-> address`.
+  through (a blank one matches unaddressed packages, and itself like a plain filter item). Lore `-> address`.
+- **Address boxes** (Create's AddressEditBox, every screen with a package address: ports, package
+  filter, stock keeper, redstone requester, factory gauge): at most 25 characters; while the box is
+  focused the client mod lists the addresses starting with the typed text (Create's
+  AddressEditBoxHelper: the unchecked "#address" entries of the clipboards in the player's
+  inventory and of the clipboards placed within 32 blocks; the box's tooltip explains it, "Keeping
+  Track"); the vanilla forms offer the same addresses in a dropdown next to the address input.
 - **Screens**: the port screen (address, send-and-receive / send-only, the 18 package slots: click
   one to take it, click a package in the inventory to put it in) is native for companions; the
-  address is typed into the screen's address box (native text field, at most 50 characters, sent
+  address is typed into the screen's address box (native text field, sent
   with Enter or when the box is left: action `{op: "address", text}`); vanilla clients get one form
   (address, mode, take a package, put my packages in).
+- **Bulky items** (Create's canFitInsideContainerItems): packages, shulker boxes, bundles, toolboxes
+  and minecart contraptions (config `minecartContraptionInContainers`, false) are packed alone.
 - **Client mod**: draws both strands of every chain, the boxes hanging on chains (interpolated
-  between the 4-tick updates), the frogport's tongue with the box it catches or sends, and the
-  packager's tray sliding in and out; the wheel turns as a kinetic rotor at Create's full size
+  between the 4-tick updates; untextured boxes in each style's size and a colour per style), the
+  frogport's tongue with the box it catches or sends, and the packager's tray sliding in and out
+  (Create's getTrayOffset; the box stays on the tray while it is held); the wheel turns as a kinetic rotor at Create's full size
   (`geometry.levitate.chain_conveyor_wheel`, 2.5 blocks; the block model keeps a 28 px wheel for
   vanilla clients, block geometry stops at 30 px).
 - **Sounds**: the packager, package pop, depot plop and the frogport's open / catch / deposit are
@@ -3573,17 +3599,25 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   Without a packager a link contributes nothing ("No Packagers Linked").
 - **Stock ticker**: right-click the block hands out the payments its shops collected (27 slots);
   otherwise it opens the category editor if a keeper is present ("Seat a mob or blaze burner next
-  to this block to use it"). Keepers: a mob riding something (a seat) beside the ticker at its
-  level or one below, or a blaze burner (with a blaze) beside it at its level. Right-clicking the
-  keeper (the mob, or the blaze burner block) opens the stock keeper request screen; with a
-  shopping list in hand it checks out. Category editor: categories are list / attribute filters
-  (taken from the inventory, dropped back when deleted or when the ticker breaks) or empty
-  dividers, named, moved up / down (Shift: to top / bottom). Request screen: the network's stock
-  by count in the ticker's categories (+ "Unsorted"; categories can be hidden per player), search,
-  up to 9 ordered item kinds (click +1, Shift +1 stack, right-click -1), the package address
+  to this block to use it"). Keepers (Create's isKeeperPresent / getStockTickerPosition): anything
+  riding a seat entity (U22's `levitate:seat` / `levitate:player_seat`; other vehicles don't
+  count) beside the ticker at its level or one below, or a blaze burner (with a blaze) beside it at
+  its level. Right-clicking the keeper (a seated mob, or the blaze burner block) opens the stock
+  keeper request screen; with a shopping list in hand it checks out. Category editor: categories
+  are list / attribute filters (taken from the inventory, dropped back when deleted or when the
+  ticker breaks) or empty dividers, named (28 characters), moved up / down (Shift: to top /
+  bottom; the client mod's arrow buttons send Shift too). Request screen: the network's stock by
+  count in the ticker's categories (+ "Unsorted"); with categories each starts with its header
+  row, and clicking a header collapses / expands it for that player (Create's
+  StockKeeperCategoryHidingPacket; vanilla: one "Collapse …" toggle per category in the form),
+  search, up to 9 ordered item kinds (click +1, Shift +1 stack, right-click -1), the package address
   (remembered per ticker), "Send" (sound, "Request Sent!") or, holding a redstone requester or a
   table cloth, "Program Requester" (the order, address and ticker position go into the held item;
-  a requester item is tuned to the network).
+  a requester item is tuned to the network). With a clipboard that lists items in hand (e.g. a
+  schematicannon checklist, Create's schematic list mode) the order is the clipboard's items, each
+  as much as is in stock ("Click 'Send' to request all available items from your checklist" / "No
+  items from your checklist are in stock"); it can't be edited, is sent whole (more than 9 kinds
+  allowed) and the screen closes.
 - **Redstone requester**: comparator output 15 when the last request succeeded (U36). A rising redstone edge (polled every tick) sends its order: with
   "Must send all items" every entry must be in stock (else deny sound, nothing sent); with
   "Allow partial orders" it sends what is there. Placed from a programmed item: "Connected to
@@ -3609,11 +3643,34 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   orders every input's amount (1..64 each, summed per item and network; all must be in stock) to
   its address and promises its output (1..64); a restocker orders `clamp(demand - promised -
   inStorage, 0, 9 stacks)` (capped by the network stock outside its own inventory) to its address
-  and promises it. Promises expire after never / 30 s / 1..31 min. The wrench on a panel with
-  outputs cycles the arrow path mode. Redstone links (U23) pause panels through
-  `stock::setPanelPaused`. A display link (U24) on a gauge offers Create's "Factory gauge status"
-  source (`gauge_status`): one line per panel, `<level in storage> ✔|↑|▪ <item>` (shortened /
-  full numbers); other units read panels with `stock::panelAt`.
+  and promises it. Promises expire after never / 30 s / 1..31 min. "Reset all settings" also
+  drops the network's promises of the next item the panel monitors (Create's forceClearPromises).
+  The wrench on a panel with outputs or link connections cycles the arrow path mode; Sneak + wrench
+  takes the targeted panel off and gives its gauge back (the block goes with the last panel,
+  Create's onSneakWrenched).
+  - **Pending clicks** (Create's FactoryPanelConnectionHandler): after "Add new connection" the next
+    right-click decides: another panel connects, a redstone link or display link connects (below),
+    sneaking or clicking any other block cancels ("Input connection aborted"); the connection is
+    also dropped when the player is 16 blocks away or the panel is gone. The prompt is repeated in
+    the action bar.
+  - **Links** (Create's FactoryPanelSupportBehaviour): a redstone link or display link facing the
+    same way as the panel, on its plane and closer than 16 blocks connects to it ("Gauge connected
+    to …"; `targetedByLinks` on the panel, `linkedGauges` in the link's BlockData; one connection per
+    link). A *receiving* redstone link with a signal pauses the panel ("(Redstone Paused)", no
+    requests; Create's redstonePowered); a *transmitting* one sends 15 while any connected panel with
+    a target is satisfied (U23's `link::setBlockTransmitSource`; unloaded panels keep the last
+    signal). A display link connected to panels refreshes when their satisfied state changes, and
+    the gauge's "Factory gauge status" source (`gauge_status`, offered by a display link on a gauge)
+    lists the panels connected to that display link: `<level in storage> ✔|↑|▪ <item>` (shortened /
+    full numbers). The screen's redstone link icon (shown while links are connected) disconnects
+    them all; arrows are drawn from the links too. Breaking a link disconnects it. Other units read
+    panels with `stock::panelAt`.
+  - **Move this gauge** (Create's relocate button, not for restockers): the next right-click on a
+    block face picks the spot in front of it (on the panel's plane, with a solid support, no
+    packager behind); the panel moves there with all its settings (into a free slot of a gauge with
+    the same orientation, or a new gauge block), every connection is rewired (all must stay within
+    24 blocks), the old block goes with its last panel ("Gauge moved to new position"); sneaking,
+    the air or an invalid spot ends it ("Gauge relocation aborted").
 - **Table cloth shops**: a table cloth (U10) programmed at a stock ticker becomes a shop when
   placed (owner = placer, facing = towards the placer). The owner sets the price with an item on
   the price tag (front of the top face; Sneak + empty hand clears it, empty hand opens the amount
@@ -3626,11 +3683,14 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   the total cost. At the keeper the list checks out: wrong network, stock too low, cash register
   full and too broke are refused; otherwise the price moves from the inventory into the ticker's
   payments and the order is sent to the shop's address ("ka-ching"). Sneak-use discards a list.
-  A broken shop drops its programmed cloth.
+  A broken shop drops its programmed cloth. A plain cloth (Create's TableClothBlockEntity.use):
+  clicking it with an item puts one of it on the cloth (up to 4, turned to the player, item frame
+  sounds), an empty hand takes the last one back, breaking the cloth drops them; the client mod
+  draws them as Create's renderer (display items spread around the centre).
 - **Client mod**: native screens (request, category editor, requester, gauge, gauge item picker);
   text is typed into native text fields: the request screen's search box filters as the player
   types (`{op: "search", text}`), its address box keeps the ticker's last used address
-  (`{op: "address", text}`, 50 characters); category names are edited in place in the category
+  (`{op: "address", text}`, 25 characters); category names are edited in place in the category
   editor (`{op: "rename", index, name}`); the requester's and the gauge's address boxes send
   `{op: "set", address}`. Vanilla players get the same values as forms. Looking at a
   gauge panel shows its label, "in storage / target" (Create's value box text) and "Click and hold
@@ -3638,7 +3698,9 @@ Pure logic in `core/stock/Logistics.h` (gtests); the unit's contract-style API i
   Create's FactoryPanelRenderer) the client mod draws each panel's item (display items), its
   count in storage / target coloured as the label (5x7 pixel font) and the arrows from its inputs
   along the panel plane (bent as the wrench's arrow mode, coloured satisfied green / promised
-  gold / missing red / grey without a target); the server sends `stock.gauge` when a gauge changes.
+  gold / missing red / grey without a target or paused); the server sends `stock.gauge` when a gauge
+  changes. Vanilla players (U56) see each panel's item as a client-only item in front of the panel
+  and the panels' labels and counts in the goggle overlay's action bar.
 - **Log lines**: `stock: stock link placed at x y z on network …`, `stock: order of N item(s) in M
   stack(s) sent to 'A' through K packager(s)`, `stock: redstone requester at x y z sent its order to
   'A'`, `stock: factory gauge at x y z restocks <id> xN to 'A'`, `stock: factory gauge at x y z panel S
@@ -4781,9 +4843,10 @@ goggle-overlay providers of the owning units.
 | Nixie tube glyphs for **vanilla** clients (U24) | same | the two characters as a coloured name tag above each tube |
 
 | Deaths statistic of the respawn anchor source (U24) | Bedrock has no deaths statistic | Levitate counts player deaths per world (`lv:display:deaths`) |
-| Package entities piling on each other (U25 / U46) | Create's PackageEntity collides only with packages below it; Bedrock entity collision is per type (`minecraft:is_stackable` would let players stand on packages too, which Create's packages don't allow) | package entities (§3.6.25) pass through each other; everything else of the entity is ported |
-| Chains, hanging packages, frogport tongue and packager tray for **vanilla** clients (U25) | no client-side rendering without the client mod | the client mod draws them; vanilla clients see the static conveyor, frogport and packager models and the postbox flag / lid states |
-| Factory gauge item icons, counts and connection arrows for **vanilla** clients (U26) | no world-space item / text rendering without the client mod | the client mod draws them (U42); vanilla: the bulb is the block model |
+| Package entities piling as entity collision (U25 / U46, U56) | Bedrock entity collision is per type (`minecraft:is_stackable` would let players stand on packages too, which Create's packages don't allow) | the server rests a falling package on the package below it (§3.6.25), so packages pile up as in Create; only the collision itself is not the game's: a vanilla client predicts nothing, the package stands where the server puts it |
+| Chains, frogport tongue and the frogport's anticipation for **vanilla** clients (U25, U56) | chains and the tongue are lines drawn per frame, the anticipation opens the frog's head: client-side rendering, and a block model can't move a part | the client mod draws the chains and the tongue; hanging packages and the box on the packager's tray are client-only item entities for vanilla clients (no gravity, packets only); the frog turns to its target in 22.5° steps for everyone (`levitate:yaw`); its head stays closed (also for the client mod, which draws the tongue but not the frog) |
+| Package style models on chains, tongues and trays in the client mod (U56) | the client mod's per-frame renderer draws untextured coloured quads; drawing the styles' textured box models needs the entity / item renderer, which this renderer does not use | boxes in each style's size and a colour per style (cardboard, the rare ones' main colours); the package entities themselves use the textured style models |
+| Factory gauge connection arrows for **vanilla** clients (U26, U56) | lines drawn per frame along the panel plane: client-side rendering | the client mod draws them (U42); vanilla clients see each panel's item as a client-only item entity in front of the panel and the labels and counts in the goggle overlay's action bar |
 | "Click and hold" on a gauge panel / price tag for **vanilla** clients (U26) | the server only sees discrete clicks | client mod: as Create (U42); vanilla: sneak + empty-hand click opens the board (price tag: a click opens it, sneaking clears) |
 | JEI recipe sync of factory gauges (U26) | no recipe viewer on Bedrock | "Use Mechanical Crafting" works (U42); recipes can't be dragged in from a viewer |
 

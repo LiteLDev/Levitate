@@ -37,5 +37,11 @@
   "create.clipboard.address_added": "已将 “{}” 添加到剪贴板",
   "item.create.package_filter.tooltip.summary": "根据设置的_地址_来_匹配包裹物品_。可置于机械动力元件的_过滤插槽_中",
   "item.create.package_filter.tooltip.condition1": "右击时",
-  "item.create.package_filter.tooltip.behaviour1": "打开_配置界面_。"
+  "item.create.package_filter.tooltip.behaviour1": "打开_配置界面_。",
+  "create.gui.address_box.clipboard_tip": "快捷输入",
+  "create.gui.address_box.clipboard_tip_1": "手持或附近的剪贴板上以“#”开头",
+  "create.gui.address_box.clipboard_tip_2": "的条目，可以作为包裹地址。",
+  "create.gui.address_box.clipboard_tip_3": "在此处直接选择以快捷输入它们。",
+  "create.gui.address_box.clipboard_tip_4": "（例如：#storage、#factory）",
+  "lv.packages.form.typed_address": "（使用上面输入的地址）"
 }

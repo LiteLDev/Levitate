@@ -10,6 +10,24 @@
         "levitate:goggles": [
           0,
           1
+        ],
+        "levitate:yaw": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
         ]
       }
     },
@@ -17,7 +35,18 @@
       "minecraft:geometry": {
         "identifier": "geometry.levitate.package_frogport",
         "bone_visibility": {
-          "goggles": "q.block_state('levitate:goggles') == 1"
+          "base": "q.block_state('levitate:yaw') == 0 || q.block_state('levitate:yaw') == 4 || q.block_state('levitate:yaw') == 8 || q.block_state('levitate:yaw') == 12",
+          "head": "q.block_state('levitate:yaw') == 0 || q.block_state('levitate:yaw') == 4 || q.block_state('levitate:yaw') == 8 || q.block_state('levitate:yaw') == 12",
+          "goggles": "(q.block_state('levitate:yaw') == 0 || q.block_state('levitate:yaw') == 4 || q.block_state('levitate:yaw') == 8 || q.block_state('levitate:yaw') == 12) && q.block_state('levitate:goggles') == 1",
+          "base_r1": "q.block_state('levitate:yaw') == 1 || q.block_state('levitate:yaw') == 5 || q.block_state('levitate:yaw') == 9 || q.block_state('levitate:yaw') == 13",
+          "head_r1": "q.block_state('levitate:yaw') == 1 || q.block_state('levitate:yaw') == 5 || q.block_state('levitate:yaw') == 9 || q.block_state('levitate:yaw') == 13",
+          "goggles_r1": "(q.block_state('levitate:yaw') == 1 || q.block_state('levitate:yaw') == 5 || q.block_state('levitate:yaw') == 9 || q.block_state('levitate:yaw') == 13) && q.block_state('levitate:goggles') == 1",
+          "base_r2": "q.block_state('levitate:yaw') == 2 || q.block_state('levitate:yaw') == 6 || q.block_state('levitate:yaw') == 10 || q.block_state('levitate:yaw') == 14",
+          "head_r2": "q.block_state('levitate:yaw') == 2 || q.block_state('levitate:yaw') == 6 || q.block_state('levitate:yaw') == 10 || q.block_state('levitate:yaw') == 14",
+          "goggles_r2": "(q.block_state('levitate:yaw') == 2 || q.block_state('levitate:yaw') == 6 || q.block_state('levitate:yaw') == 10 || q.block_state('levitate:yaw') == 14) && q.block_state('levitate:goggles') == 1",
+          "base_r3": "q.block_state('levitate:yaw') == 3 || q.block_state('levitate:yaw') == 7 || q.block_state('levitate:yaw') == 11 || q.block_state('levitate:yaw') == 15",
+          "head_r3": "q.block_state('levitate:yaw') == 3 || q.block_state('levitate:yaw') == 7 || q.block_state('levitate:yaw') == 11 || q.block_state('levitate:yaw') == 15",
+          "goggles_r3": "(q.block_state('levitate:yaw') == 3 || q.block_state('levitate:yaw') == 7 || q.block_state('levitate:yaw') == 11 || q.block_state('levitate:yaw') == 15) && q.block_state('levitate:goggles') == 1"
         }
       },
       "minecraft:material_instances": {
@@ -59,6 +88,44 @@
       "minecraft:light_dampening": 0,
       "minecraft:map_color": "#6f9a4a",
       "minecraft:loot": "loot_tables/blocks/package_frogport.json"
-    }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('levitate:yaw') == 3 || q.block_state('levitate:yaw') == 4 || q.block_state('levitate:yaw') == 5 || q.block_state('levitate:yaw') == 6",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:yaw') == 7 || q.block_state('levitate:yaw') == 8 || q.block_state('levitate:yaw') == 9 || q.block_state('levitate:yaw') == 10",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('levitate:yaw') == 11 || q.block_state('levitate:yaw') == 12 || q.block_state('levitate:yaw') == 13 || q.block_state('levitate:yaw') == 14",
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              270,
+              0
+            ]
+          }
+        }
+      }
+    ]
   }
 }

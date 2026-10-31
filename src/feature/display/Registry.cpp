@@ -76,6 +76,7 @@ Target const* targetAt(BlockSource& region, GlobalPos const& pos) {
 }
 
 void notifyGatherers(GlobalPos const& source) { link::notify(source); }
+void refreshLink(GlobalPos const& l) { link::notifyLink(l); }
 void itemsPassed(GlobalPos const& source, int count) { link::itemsPassed(source, count); }
 
 std::string formatValue(long long value, bool shortened) {

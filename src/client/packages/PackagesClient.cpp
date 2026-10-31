@@ -30,6 +30,7 @@
 #include "mc/world/item/ItemStack.h"
 
 #include "client/Client.h"
+#include "client/packages/AddressSuggestions.h"
 #include "client/screen/Screen.h"
 #include "core/packages/Chain.h"
 #include "feature/common/Items.h"
@@ -48,7 +49,8 @@ namespace {
 
 struct Box {
     cp::V3 prev, now;
-    double yaw = 0;
+    double      yaw = 0;
+    std::string item;
 };
 struct Chain {
     cp::V3 start, end, start2;
@@ -64,6 +66,7 @@ struct FrogView {
     bool               hasTarget = false;
     bool               active    = false;
     bool               deposit   = false;
+    std::string        item;
     Clock::time_point  started;
 };
 struct TrayView {
@@ -71,6 +74,7 @@ struct TrayView {
     int               facing = 1;
     bool              inward = false;
     bool              hasBox = false;
+    std::string       item;
     Clock::time_point started;
 };
 
@@ -129,7 +133,40 @@ void strand(std::vector<Quad>& out, cp::V3 a, cp::V3 b) {
     }
 }
 
-void packageCube(std::vector<Quad>& out, cp::V3 at) { cube(out, at, {0.3, 0.25, 0.3}, lin(0xb8), lin(0x8a), lin(0x52)); }
+/// Create's PackageStyles: the box size (pixels) of a package item and a colour for its style
+/// (cardboard, or the rare styles' main colour).
+struct Style {
+    double w = 12, h = 12;
+    int    rgb = 0xb88a52;
+};
+Style styleOf(std::string const& itemId) {
+    Style s;
+    if (auto at = itemId.find("cardboard_package_"); at != std::string::npos) {
+        auto size = itemId.substr(at + 18); // "12x10"
+        if (auto x = size.find('x'); x != std::string::npos) {
+            try {
+                s.w = std::stod(size.substr(0, x));
+                s.h = std::stod(size.substr(x + 1));
+            } catch (...) {
+            }
+        }
+        return s;
+    }
+    if (!itemId.starts_with("levitate:rare_")) return s;
+    s.w = 12, s.h = 10;
+    static std::map<std::string, int> const kRare{{"creeper", 0x5fa83b}, {"darcy", 0x8e5ea8}, {"evan", 0x3b6fa8}, {"jinx", 0xd04a6a},
+                                                 {"kryppers", 0x7a7a7a}, {"simi", 0xe0a040}, {"starlotte", 0xf0d060}, {"thunder", 0x4a8ad0},
+                                                 {"up", 0xd06a3b}, {"vector", 0x3bb8a8}};
+    for (auto const& [name, rgb] : kRare)
+        if (itemId == "levitate:rare_" + name + "_package") s.rgb = rgb;
+    return s;
+}
+
+/// A package box centred on `at`, sized as its style.
+void packageCube(std::vector<Quad>& out, cp::V3 at, std::string const& itemId = {}) {
+    auto s = styleOf(itemId);
+    cube(out, at, {s.w / 32.0, s.h / 32.0, s.w / 32.0}, lin((s.rgb >> 16) & 0xff), lin((s.rgb >> 8) & 0xff), lin(s.rgb & 0xff));
+}
 
 mce::MaterialPtr& material() {
     static mce::MaterialPtr m(mce::RenderMaterialGroup::switchable(), HashedString("wireframe"));
@@ -167,7 +204,7 @@ void renderPackages(BaseActorRenderContext& ctx) {
             for (auto const& [id, b] : cv.boxes) {
                 cp::V3 p = b.prev + (b.now - b.prev) * t;
                 beam(quads, p, p - cp::V3{0, 0.35, 0}, 0.02, lin(0x6b), lin(0x4e), lin(0x2b)); // the rope
-                packageCube(quads, p - cp::V3{0, 9 / 16.0, 0});
+                packageCube(quads, p - cp::V3{0, 9 / 16.0, 0}, b.item);
             }
             ++it;
         }
@@ -180,16 +217,21 @@ void renderPackages(BaseActorRenderContext& ctx) {
             cp::V3 tip    = mouth + (f.target - mouth) * reach;
             beam(quads, mouth, tip, 0.04, lin(0xd0), lin(0x6a), lin(0x7a));
             // the box rides the tongue: from the frog out (sending) or in from the chain (catching)
-            if ((f.deposit && s < 0.5) || (!f.deposit && s >= 0.5)) packageCube(quads, tip - cp::V3{0, 0.3, 0});
+            if ((f.deposit && s < 0.5) || (!f.deposit && s >= 0.5)) packageCube(quads, tip - cp::V3{0, 0.3, 0}, f.item);
         }
         for (auto const& [k, tr] : gTrays) {
             if (std::get<0>(k) != dim || !tr.hasBox) continue;
-            double s = std::chrono::duration<double>(now - tr.started).count() / 1.0; // 20 ticks
-            if (s >= 1) continue;
+            // Create's PackagerBlockEntity: getRenderedBox (an unwrapped box shows until half way in,
+            // a new box from half way out and then stays while it is held) and getTrayOffset (the
+            // tray slides out and back in, 20 ticks)
+            double remaining = std::max(0.0, 20.0 - std::chrono::duration<double>(now - tr.started).count() * 20.0);
+            if (tr.inward ? remaining <= 10 : remaining >= 10) continue;
+            double cycle    = tr.inward ? remaining : remaining - 5;
+            double progress = std::clamp(cycle / 15.0 * 2 - 1, -1.0, 1.0);
+            double bump     = 1 - progress * progress;
             static int const dx[] = {0, 0, 0, 0, -1, 1}, dy[] = {-1, 1, 0, 0, 0, 0}, dz[] = {0, 0, -1, 1, 0, 0};
-            double out = tr.inward ? (1 - s) : s;
-            cp::V3 c   = tr.pos + cp::V3{0.5, 0.5, 0.5} + cp::V3{double(dx[tr.facing]), double(dy[tr.facing]), double(dz[tr.facing])} * (0.25 + 0.35 * out);
-            packageCube(quads, c);
+            cp::V3 c = tr.pos + cp::V3{0.5, 0.5, 0.5} + cp::V3{double(dx[tr.facing]), double(dy[tr.facing]), double(dz[tr.facing])} * (0.25 + 0.35 * bump * bump);
+            packageCube(quads, c, tr.item);
         }
     }
     if (quads.empty()) return;
@@ -223,7 +265,7 @@ void onConveyors(Json const& msg) {
                 int    id  = b.value("id", 0);
                 cp::V3 at  = v3(b.at("at"));
                 auto   old = view.boxes.find(id);
-                boxes[id]  = Box{old != view.boxes.end() ? old->second.now : at, at, b.value("yaw", 0.0)};
+                boxes[id]  = Box{old != view.boxes.end() ? old->second.now : at, at, b.value("yaw", 0.0), b.value("item", std::string{})};
             }
             view.boxes   = std::move(boxes);
             view.updated = now;
@@ -239,6 +281,7 @@ void onFrog(Json const& msg) {
         f.pos       = v3(msg.at("pos"));
         f.active    = msg.value("active", false);
         f.deposit   = msg.value("deposit", false);
+        f.item      = msg.value("item", std::string{});
         f.hasTarget = msg.contains("target");
         if (f.hasTarget) f.target = v3(msg.at("target"));
         if (f.active) f.started = Clock::now();
@@ -253,8 +296,10 @@ void onTray(Json const& msg) {
         t.pos     = v3(msg.at("pos"));
         t.facing  = std::clamp(msg.value("facing", 1), 0, 5);
         t.inward  = msg.value("inward", false);
-        t.hasBox  = !msg.value("item", std::string{}).empty();
-        t.started = Clock::now();
+        t.item    = msg.value("item", std::string{});
+        t.hasBox  = !t.item.empty();
+        // the server sends the animation's remaining ticks (0: a box at rest, or taken)
+        t.started = Clock::now() - std::chrono::milliseconds(50 * (20 - std::clamp(msg.value("ticks", 0), 0, 20)));
     } catch (...) {
     }
 }
@@ -290,9 +335,10 @@ public:
             mSend({{"op", "address"}, {"text", text}});
             log().info("package port address typed: '{}'", text);
         });
-        mAddress->maxLength   = 50;
+        mAddress->maxLength   = 25; // Create's AddressEditBox
         mAddress->placeholder = ctr("create.gui.package_port.catch_packages_empty", "Leave empty to match non-addressed");
         mAddress->tooltip     = addressTips();
+        for (auto const& l : clipboardTip()) mAddress->tooltip.push_back(l);
         for (int i = 0; i < 18; ++i) {
             auto r = core::common::gridCell(7, 46, 9, 18, i);
             mSlots.push_back(&add<screen::Slot>(r, [this, i](Button, bool) { mSend({{"op", "take"}, {"index", i}}); }));
@@ -302,12 +348,14 @@ public:
         mSendOnly = &add<screen::IconButton>(Rect{27, 84, 18, 18}, ">", [this] { mSend({{"op", "accepts"}, {"value", false}}); });
         mSendOnly->tooltip = {ctr("create.gui.package_port.send_only", "Only send packages")};
         mMode = &add<screen::Label>(Rect{50, 89, 120, 9}, "", color::kTextDark);
+        mSuggest = &add<AddressSuggestions>(*mAddress, suggestionsOf(mData)); // drawn over the rest
         onData(mData);
     }
 
     void onData(Json const& data) override {
         mData = data;
         if (!mAddress->focused()) mAddress->text = data.value("address", std::string{});
+        if (mSuggest) mSuggest->options = suggestionsOf(data);
         auto inv       = data.value("inventory", Json::array());
         for (std::size_t i = 0; i < mSlots.size(); ++i) {
             mSlots[i]->stack   = i < inv.size() ? iconOf(inv[i]) : nullptr;
@@ -330,6 +378,7 @@ private:
     screen::SendFn             mSend;
     Json                       mData;
     screen::TextField*         mAddress{};
+    AddressSuggestions*        mSuggest{};
     screen::Label*             mMode{};
     screen::IconButton *       mSendRecv{}, *mSendOnly{};
     std::vector<screen::Slot*> mSlots;
@@ -341,7 +390,8 @@ public:
     PackageFilterScreen(Json const& data, screen::SendFn send)
     : Screen(ctr("lv.packages.package_filter", "Package Filter"), 176, 52),
       mSend(std::move(send)),
-      mAddress(data.value("address", std::string{})) {}
+      mAddress(data.value("address", std::string{})),
+      mSuggestions(suggestionsOf(data)) {}
 
     void init() override {
         add<screen::Label>(Rect{7, 18, 162, 9}, ctr("create.gui.package_port.catch_packages_wildcard", "Use * as a text wildcard"), color::kTextDark);
@@ -351,14 +401,17 @@ public:
             mSend({{"op", "address"}, {"text", text}});
             log().info("package filter address typed: '{}'", text);
         });
-        field.maxLength = 50;
+        field.maxLength = 25; // Create's AddressEditBox
         field.tooltip   = addressTips();
+        for (auto const& l : clipboardTip()) field.tooltip.push_back(l);
         field.focus(); // Create focuses the address box when the screen opens
+        add<AddressSuggestions>(field, mSuggestions); // drawn over the rest
     }
 
 private:
     screen::SendFn mSend;
     std::string    mAddress;
+    std::vector<std::string> mSuggestions;
 };
 
 } // namespace

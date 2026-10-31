@@ -79,7 +79,7 @@ bool setStates(GlobalPos const& pos, std::vector<std::pair<std::string_view, int
     auto id = game::blockId(*b);
     // keep every other integer state of the block
     std::vector<std::pair<std::string_view, int>> all;
-    static char const* const kKnown[] = {kFacing, kPowered, kLinked, kDirection, kOpen, kFlag, kGoggles, kRotor};
+    static char const* const kKnown[] = {kFacing, kPowered, kLinked, kDirection, kOpen, kFlag, kGoggles, kRotor, kYaw};
     bool changed = false;
     for (auto const* name : kKnown) {
         auto cur = game::intState(*b, name);

@@ -151,7 +151,8 @@ struct PanelState {
 };
 /// A gauge panel (slot 0 top left, 1 top right, 2 bottom left, 3 bottom right), nullopt if none.
 [[nodiscard]] std::optional<PanelState> panelAt(GlobalPos const& gauge, int slot);
-/// A redstone link powering a panel pauses its requests (Create's redstonePowered).
+/// Pauses a panel's requests (Create's redstonePowered). Recomputed from the receiving redstone links
+/// connected to the panel every tick (U56, Create's checkForRedstoneInput), so it lasts until then.
 void setPanelPaused(GlobalPos const& gauge, int slot, bool paused);
 
 } // namespace lv::feature::stock

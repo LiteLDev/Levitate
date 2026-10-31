@@ -60,10 +60,10 @@ Start-Sleep -Milliseconds 500
 Invoke-Chat '/setblock ~3 ~ ~ levitate:stock_ticker ["levitate:facing"=1]'
 Invoke-Chat '/kill @e[type=pig]'                 # only our keeper (no stray mob for c=1 below)
 Invoke-Chat '/kill @e[type=boat]'
-Invoke-Chat '/summon boat ~3 ~ ~1'
+Invoke-Chat '/setblock ~3 ~ ~1 levitate:white_seat'   # U56: Create's keeper rides a seat
 Invoke-Chat '/summon pig ~3 ~ ~1'
 Start-Sleep -Milliseconds 500
-Invoke-Chat '/ride @e[type=pig,c=1] start_riding @e[type=boat,c=1] teleport_rider'
+Start-Sleep -Milliseconds 1000   # the pig sits down on the seat
 Start-Sleep -Milliseconds 800
 Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~-0.9 ~1'
 Start-Sleep -Milliseconds 600
@@ -95,7 +95,7 @@ if ($vanilla) {
     Close-Native
 }
 Invoke-Chat '/kill @e[type=pig]'
-Invoke-Chat '/kill @e[type=boat]'
+Invoke-Chat '/setblock ~3 ~ ~1 air'
 
 # --- clipboard entry (U24; last: closing it may leave the inventory open) ---------------------------
 Invoke-Chat '/clear @s'
