@@ -42,6 +42,9 @@ struct AssemblyConfig {
     int version = 1;
     /// Maximum distance in blocks at which a Mechanical Arm can interact with targets.
     int mechanicalArmRange = 5;
+    /// Create's CKinetics ignoreDeployerAttacks: which mobs ignore deployers that attack them
+    /// ("CREEPERS", "ALL" or "NONE").
+    std::string ignoreDeployerAttacks = "CREEPERS";
 };
 AssemblyConfig const& config();
 

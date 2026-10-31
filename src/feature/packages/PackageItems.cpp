@@ -20,6 +20,7 @@
 
 #include "core/common/Utf8.h"
 #include "core/packages/Address.h"
+#include "feature/bearings/Bearings.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/packages/PackagesInternal.h"
@@ -168,7 +169,8 @@ ItemStack containing(std::vector<ItemStack> const& stacks) {
 bool fitsInPackage(ItemStack const& stack) {
     if (isPackage(stack)) return false;
     auto id = items::idOf(stack);
-    return !endsWith(id, "shulker_box") && !endsWith(id, "bundle");
+    return !endsWith(id, "shulker_box") && !endsWith(id, "bundle")
+        && bearings::fitsInsideContainerItems(id); // minecart contraptions (minecartContraptionInContainers)
 }
 
 std::optional<OrderData> orderOf(ItemStack const& box) {

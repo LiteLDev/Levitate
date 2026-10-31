@@ -77,7 +77,12 @@ struct Config {
     int maxPotatoCannonShots  = 200;  ///< Create: maxPotatoCannonShots (0: unbreakable)
     int maxSymmetryWandRange  = 50;   ///< Create: maxSymmetryWandRange
     int enchantedBacktankCapacity = 300; ///< Create: enchantedBacktankCapacity (air per Capacity level)
+    /// Create: placementAssistRange (at least 3): how far the placement helpers (ladders, girders,
+    /// shafts, copycats) extend a line. Read by other units with `placementAssistRange()`.
+    int placementAssistRange = 12;
 };
+/// Create's CEquipment.placementAssistRange, clamped to its minimum of 3.
+[[nodiscard]] int placementAssistRange();
 [[nodiscard]] Config const& config();
 
 // ---- world helpers (World.cpp) ------------------------------------------------------------------

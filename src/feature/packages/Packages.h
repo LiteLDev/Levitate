@@ -73,7 +73,7 @@ void                      clearAddress(ItemStack& stack);
 /// The first box style (`levitate:cardboard_package_12x12`), empty.
 [[nodiscard]] ItemStack defaultBox();
 /// Whether an item may go into a package (Create's canFitInsideContainerItems: not a package,
-/// a shulker box or a bundle).
+/// a shulker box, a bundle, or a minecart contraption unless `minecartContraptionInContainers`).
 [[nodiscard]] bool fitsInPackage(ItemStack const& stack);
 
 /// Create's PackageOrderData (fragmentation of an order into packages).

@@ -19,5 +19,6 @@
   "block.create.desk_bell.tooltip.summary": "“服务员！”拍击后会发出_红石脉冲_。",
   "block.create.desk_bell.tooltip.condition1": "放置在升降机轿厢里时",
   "block.create.desk_bell.tooltip.behaviour1": "到达_目标楼层_时_播放声音_。",
-  "create.subtitle.desk_bell": "呼唤铃：叮"
+  "create.subtitle.desk_bell": "呼唤铃：叮",
+  "create.gui.threshold_switch.pulley_y_level": "{0}y"
 }

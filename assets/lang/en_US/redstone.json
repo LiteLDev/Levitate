@@ -19,5 +19,6 @@
   "block.create.desk_bell.tooltip.summary": "Ring for Service! Emits a _redstone signal_ when activated.",
   "block.create.desk_bell.tooltip.condition1": "When attached to Elevator Contraption",
   "block.create.desk_bell.tooltip.behaviour1": "_Plays a sound_ when arriving at the _target floor_.",
-  "create.subtitle.desk_bell": "Reception bell dings"
+  "create.subtitle.desk_bell": "Reception bell dings",
+  "create.gui.threshold_switch.pulley_y_level": "{0}y"
 }

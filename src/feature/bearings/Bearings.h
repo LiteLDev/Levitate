@@ -54,6 +54,10 @@ struct Config {
     bool survivalContraptionPickup = true; ///< survival players may pick up minecart contraptions with a wrench
     bool minecartContraptionInContainers = false; ///< minecart contraptions may go into shulker boxes / bundles
 };
+/// Create's MinecartContraptionItem.canFitInsideContainerItems: false for a minecart contraption
+/// item unless `minecartContraptionInContainers`; true for every other item. Other units' container
+/// items (toolbox, package) ask this.
+[[nodiscard]] bool fitsInsideContainerItems(std::string_view itemId);
 
 /// The blocks this unit ticks.
 enum class Kind : int { Mechanical, Windmill, Clockwork, Turntable, CartAssembler, ControllerRail };

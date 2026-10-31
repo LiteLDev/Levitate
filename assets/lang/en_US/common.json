@@ -162,5 +162,11 @@
   "color.minecraft.brown": "Brown",
   "color.minecraft.green": "Green",
   "color.minecraft.red": "Red",
-  "color.minecraft.black": "Black"
+  "color.minecraft.black": "Black",
+  "item.create.filter.tooltip.summary": "_Matches items_ against a collection of _items_ or _other filters_. Can be used in _Filter Slots_ of Create's Components",
+  "item.create.filter.tooltip.condition1": "When R-Clicked",
+  "item.create.filter.tooltip.behaviour1": "Opens the _configuration interface_.",
+  "item.create.attribute_filter.tooltip.summary": "_Matches items_ against a set of _attributes_ or _categories_. Can be used in _Filter Slots_ of Create's Components",
+  "item.create.attribute_filter.tooltip.condition1": "When R-Clicked",
+  "item.create.attribute_filter.tooltip.behaviour1": "Opens the _configuration interface_."
 }

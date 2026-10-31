@@ -20,6 +20,9 @@
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/common/ValueBox.h"
+#include "feature/belts/BeltApi.h"
+#include "feature/packages/Packages.h"
+#include "feature/pipes/PipeFlows.h"
 #include "feature/redstone/Internal.h"
 #include "feature/redstone/Redstone.h"
 #include "game/Blocks.h"
@@ -128,7 +131,37 @@ void tickSmartObserver(BlockSource& region, GP const& pos, Block const& block, R
             }
         }
     }
-    // items in an inventory (belts, depots, ... register item handlers too)
+    GP targetPos{pos.dim, tp.x, tp.y, tp.z};
+    // items on a belt / depot (TransportedItemStackHandlerBehaviour): those within .45 of the
+    // segment's centre
+    if (belts::isTransporter(targetPos)) {
+        bool found = false;
+        belts::handleCenteredProcessing(targetPos, .45f, [&](belts::TransportedItem& t) {
+            if (!found && turnOff != kObserverDelay && common::filterslot::matches(pos, t.stack)) found = true;
+            return belts::TransportedResult::doNothing();
+        });
+        if (found) activateObserver(region, pos, kObserverDelay);
+        return;
+    }
+    // fluids in a pipe (FluidTransportBehaviour): a complete inbound flow
+    if (pipes::hasFluidTransport(targetPos)) {
+        for (auto const& fluid : pipes::inboundFlows(targetPos)) {
+            if (!fluidPasses(pos, fluid)) continue;
+            activateObserver(region, pos, kObserverDelay);
+            return;
+        }
+        return;
+    }
+    // packages looping on a chain conveyor
+    if (region.getBlock(tp).getTypeName() == packages::kChainConveyorId) {
+        for (auto const& box : packages::loopingPackages(targetPos)) {
+            if (!common::filterslot::matches(pos, box)) continue;
+            activateObserver(region, pos, kObserverDelay);
+            return;
+        }
+        return;
+    }
+    // items in an inventory
     common::Access at{region, tp, -1};
     if (auto h = common::items::find(at)) {
         auto found = h->extract(at, [&](ItemStack const& s) { return common::filterslot::matches(pos, s); }, 64, true);

@@ -44,6 +44,7 @@
 #include "feature/net/Net.h"
 #include "feature/pipes/OpenEnds.h"
 #include "feature/pipes/PipeEffects.h"
+#include "feature/pipes/PipeFlows.h"
 #include "feature/pipes/Pipes.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -568,6 +569,22 @@ cp::Model& model() { return rt().model; }
 void tickNow() { runTick(); }
 
 cp::Fluid fluidIn(GlobalPos const& pos) { return rt().model.visibleFluid(pos); }
+
+bool hasFluidTransport(GlobalPos const& pos) {
+    auto* r = regionOf(pos.dim);
+    return r && isPipeLike(kindOf(r->getBlock(toBlockPos(pos))));
+}
+
+std::vector<common::fluids::FluidStack> inboundFlows(GlobalPos const& pos) {
+    std::vector<common::fluids::FluidStack> out;
+    auto const*                             n = rt().model.node(pos);
+    if (!n) return out;
+    for (auto const& c : n->connections) {
+        if (!c || !c->flow || !c->flow->inbound || !c->flow->complete || c->flow->fluid.id.empty()) continue;
+        out.push_back({c->flow->fluid.id, std::max(1, c->flow->fluid.amount)});
+    }
+    return out;
+}
 
 void scheduleChanged(GlobalPos const& pos, std::optional<FaceMask> oldFaces) { queueChange(pos, oldFaces, false); }
 

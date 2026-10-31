@@ -1,9 +1,10 @@
 # Schematics (U29): schematic and quill, schematic table uploads, written schematics, the
-# schematicannon (save an area, print it elsewhere, compare) and crafting blueprints. Every
+# schematicannon (save an area, print it elsewhere, compare), crafting blueprints and (U58) what a print
+# carries and the cannon item keeping its settings. Every
 # schematics selftest, then their log lines.
 $mark = Get-LogMark
 $r = Invoke-SelfTest 'schematics.*'
-if ($r.Pass -lt 10) { throw "expected at least 10 schematics selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 12) { throw "expected at least 12 schematics selftests to pass, got $($r.Pass)" }
 Wait-LogLine 'schematic and quill: .* saved lv_selftest_quill' 10 -Since $mark | Out-Null
 Wait-LogLine 'schematicannon at -?\d+ -?\d+ -?\d+: finished printing lv_selftest_print_compare\.mcstructure \(13 blocks\)' 10 -Since $mark | Out-Null
 Wait-LogLine 'schematics: new schematic uploaded: .*/lv_selftest_table_upload\.mcstructure' 10 -Since $mark | Out-Null

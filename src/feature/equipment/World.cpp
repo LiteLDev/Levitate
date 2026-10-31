@@ -45,6 +45,11 @@ std::uint64_t gTick = 0;
 
 Config const& config() { return lv::config::get<Config>(); }
 
+int placementAssistRange() {
+    int range = config().placementAssistRange;
+    return range < 3 ? 3 : range; // Create's ConfigInt minimum
+}
+
 BlockSource* regionOf(int dim) {
     auto level = ll::service::getLevel();
     if (!level) return nullptr;
