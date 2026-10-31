@@ -125,7 +125,7 @@ LV_REGISTER_SELFTEST("consistency.fluid_registry", [](Context& ctx) {
     ctx.check(ft::displayName("levitate:honey", "en_US") == "Honey", "honey's name");
     ctx.check(ft::displayName("levitate:honey", "zh_CN") == "蜂蜜", "honey's Chinese name");
     ctx.check(ft::displayName("minecraft:water", "en_US") == "Water", "water's name");
-    ctx.check(ft::displayName("levitate:potion/regular/long_swiftness", "en_US") == "Potion (long swiftness)", "potion name: " + ft::displayName("levitate:potion/regular/long_swiftness", "en_US"));
+    ctx.check(ft::displayName("levitate:potion/regular/long_swiftness", "en_US") == "Potion of Swiftness", "potion name (Create's PotionFluidType, U51): " + ft::displayName("levitate:potion/regular/long_swiftness", "en_US"));
     ctx.check(ft::displayName("othermod:liquid_gold", "en_US") == "Liquid Gold", "unknown fluids are made readable");
 });
 

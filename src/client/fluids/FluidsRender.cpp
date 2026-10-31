@@ -9,8 +9,7 @@
 //   fills (squeeze = the stream's curve, -1 from 10 to 2 ticks left, then back to 0): chunk meshes
 //   draw spouts without their nozzle (levitate:nozzle 1) and the bits are drawn here, each one
 //   3 / 32 * squeeze higher than the one above it. Vanilla clients see the static nozzle.
-// - Spout and item drain tanks (op level / levels / level_remove): the fluid inside, as Create's
-//   SpoutRenderer (2.5..13.5 px wide, from 2.5 px up by 11 px · max(level, .175)) and
+// - Item drain tanks (op level / levels / level_remove): the fluid inside, as Create's
 //   ItemDrainRenderer (2..14 px wide, from 5 px up by 7 px · level), the level easing towards the
 //   server's (Create's LerpedFloat chase).
 
@@ -206,13 +205,9 @@ void drawFluids(BaseActorRenderContext& ctx) {
             l.shown += (l.target - l.shown) * std::min(1.f, ticks * .125f);
             if (l.shown <= 0.001f) continue;
             float r = lin(int(l.color >> 16 & 0xff)), g = lin(int(l.color >> 8 & 0xff)), b = lin(int(l.color & 0xff));
-            if (l.spout) {
-                float lo = 2.5f / 16, hi = lo + 11.f / 16, top = lo + 11.f / 16 * std::max(l.shown, .175f);
-                box(quads, {x + lo, y + lo, z + lo}, {x + hi, y + top, z + hi}, r, g, b);
-            } else {
-                float lo = 2.f / 16, hi = lo + 12.f / 16, bottom = 5.f / 16, top = bottom + 7.f / 16 * l.shown;
-                box(quads, {x + lo, y + bottom, z + lo}, {x + hi, y + top, z + hi}, r, g, b);
-            }
+            if (l.spout) continue; // (the spout's model hides its tank)
+            float lo = 2.f / 16, hi = lo + 12.f / 16, bottom = 5.f / 16, top = bottom + 7.f / 16 * l.shown;
+            box(quads, {x + lo, y + bottom, z + lo}, {x + hi, y + top, z + hi}, r, g, b);
         }
         for (auto const& [k, h] : gHoses) {
             auto [d, x, y, z] = k;

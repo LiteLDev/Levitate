@@ -2790,9 +2790,7 @@ contraptions (data carrier `fluids`). Every machine exposes the U3 fluid capabil
   `((2p − 1)² − 1) / 32`) and the nozzle drawn in three bits (top, middle, bottom) that squeeze
   together (Create's squeeze: the stream's curve, −1 from 10 to 2 ticks left, then back; each bit
   `3/32 · squeeze` above the one before), the chunk mesh leaving them out (`levitate:nozzle` 1).
-  Client mod: the fluid in the spout's tank (Create's SpoutRenderer: 2.5..13.5 px wide, from 2.5 px
-  up by `11 px · max(level, .175)`), easing towards the level the server sends (`fluids.sync` op
-  `level`). Logs: `spout at x y z filled <in> into <out>`, `... filled <block> with <n> mB of <fluid>`.
+  Logs: `spout at x y z filled <in> into <out>`, `... filled <block> with <n> mB of <fluid>`.
 - **Item drain**: 1500 mB tank, pipes extract on every side but the top, nothing is inserted from
   outside. Items enter through the item capability on the horizontal sides (one at a time when they
   hold fluid, otherwise the whole stack; none through the top or bottom), as a direct belt input (U11's
@@ -2810,7 +2808,8 @@ contraptions (data carrier `fluids`). Every machine exposes the U3 fluid capabil
   keeps the held container and gets nothing back, FluidHelper). Breaking drops the held item. The held
   item is shown crossing the drain 15/16 up (Create's ItemDrainRenderer): companions get a display item
   (U33, half size, interpolated), vanilla players a client-only item entity (the chute's, U12). The
-  client mod draws the fluid inside (2..14 px wide, from 5 px up by `7 px · level`). Logs: `item drain at x y z emptied <item> (<n> mB <fluid>)`, `... passed <item> on`,
+  client mod draws the fluid inside (2..14 px wide, from 5 px up by `7 px · level`, easing towards the
+  level the server sends: `fluids.sync` op `level`). Logs: `item drain at x y z emptied <item> (<n> mB <fluid>)`, `... passed <item> on`,
   `... ejected <item>`, `... exchanged fluid with <player>`.
 - **Hose pulley**: kinetic (impact `hose_pulley` 4 SU/RPM), rotation axis = the clockwise neighbour
   of its facing; placed facing the player (sneak: away). The hose moves `speed / 512` blocks per tick
@@ -4593,7 +4592,8 @@ matches Create's official Chinese translation wording).
 | Glass pipe flow fronts for **vanilla** clients (U17) | no client-side rendering without the client mod; a block state per progress step, face and fluid would not fit | the client mod draws Create's advancing fronts; vanilla clients see the glass pipe's `levitate:fluid` state fill the whole pipe as soon as a flow starts |
 | Fluid inside tanks and the moving engine piston for **vanilla** clients (U18) | no client-side rendering without the client mod; a fluid level per block would need a block state per level and fluid | the client mod draws them; vanilla clients see the tank (windows show an empty inside) and a static engine |
 | Boiler gauges for **vanilla** clients (U18) | the needle moves with the boiler level: client-side drawing (the client mod draws the gauges); a block state per needle position and side would need hundreds of tank states | vanilla clients see the boiler without gauges; the goggle overlay (U8, with Engineer's Goggles, also in the action bar of vanilla clients) and `/create steam` show the same status |
-| Spout / item drain fluid, the turning valve pointer and the moving whistle mouth for **vanilla** clients (U17, U18, U19) | client-side drawing of continuous values; a block state per level / angle and fluid would multiply the blocks' states | the client mod draws them; vanilla clients see the static models (the valve handle switches between closed and open) |
+| Item drain fluid, the turning valve pointer and the moving whistle mouth for **vanilla** clients (U17, U18, U19) | client-side drawing of continuous values; a block state per level / angle and fluid would multiply the blocks' states | the client mod draws them; vanilla clients see the static models (the valve handle switches between closed and open) |
+| The fluid inside the spout (U19) | Create's SpoutRenderer draws the tank's fluid inside its see-through casing; Levitate's original spout model is a closed box, so there is nothing to see it through | nobody sees it (the goggles show the spout's fluid); a spout model with an open casing would let the client mod draw it |
 | Flowing honey/chocolate in the world (U19) | Bedrock has no data-driven custom fluids: a custom block can't flow, be swum in or use the fluid renderer | they exist everywhere fluids are handled (pipes, tanks, basins, spouts, drains, buckets); in the world a bucket or a hose pulley places a translucent, non-colliding, non-flowing source block (`levitate:honey` / `levitate:chocolate`) that buckets and hose pulleys pick up again; entities in it are slowed (Slowness II) and take no fall damage instead of Create's viscous fluid motion; lava touching it turns into obsidian / limestone / scoria; no fog colour under it |
 | Hose drawn for **vanilla** clients (U19) | Create draws the hose with a block entity renderer; a block in its place would block the fluid it hangs in. Bedrock has no block display entity: the only stand-in is a falling block actor per hose block, which on Bedrock falls and lands as a block unless the server keeps holding it (the contraption engine does that for its own actors through server hooks); a hose reaches `hosePulleyRange` (128) blocks, so one pulley could need up to 128 server entities per hanging hose, moved every tick it winds. Judged too costly for a decoration | the client mod draws the hose and its end piece; vanilla clients see the pulley only (draining and filling work the same) |
 | Spout stream and nozzle squeeze for **vanilla** clients (U19) | no client-side animation without the client mod | the client mod draws Create's stream and squeezes the nozzle; vanilla clients see the static nozzle and the drops and splash (particles, every client) and hear the sounds |

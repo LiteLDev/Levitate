@@ -414,7 +414,8 @@ Json levelJson(GlobalPos const& p, Kind kind, std::pair<std::uint32_t, int> cons
 void syncLevels() {
     auto& sent = sentLevels();
     std::set<GlobalPos> seen;
-    for (auto kind : {Kind::Spout, Kind::Drain}) {
+    // drains only: Levitate's spout model is an opaque box, its tank can't be seen (SPEC §8)
+    for (auto kind : {Kind::Drain}) {
         for (auto const& p : tracked(kind)) {
             auto* region = regionOf(p.dim);
             if (!region || !region->hasChunksAt(toBlockPos(p), 0, false)) continue;
