@@ -189,6 +189,9 @@ inline constexpr int kDefaultTargetSpeed = 16;
 void gaugeTick(BlockSource& region, GlobalPos const& pos);
 /// (U42) Gauge dust particles sent so far (GaugeBlock.animateTick, selftests).
 [[nodiscard]] std::size_t gaugeDustSent();
+/// (Selftests) Every gauge tick picks the gauge for animateTick for every player in range, instead
+/// of the client's random block pick (a chance of about 2% a tick).
+void forceGaugeAnimation(bool on);
 void gaugeForget(GlobalPos const& pos);
 void gaugeSyncTo(Player& player);
 void clearGauges();
