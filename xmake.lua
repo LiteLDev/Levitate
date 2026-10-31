@@ -65,6 +65,10 @@ target("Levitate")
     add_rules("@levibuildscript/linkrule")
     add_rules("@levibuildscript/modpacker")
     set_kind("shared")
+    -- levibuildscript's prelink step gets every object file on one command line (no response
+    -- file), which must stay under Windows' 32767 characters: keep the object paths short.
+    set_objectdir("$(builddir)/o")
+    set_policy("build.intermediate_directory", false)
     lv_common_flags()
     set_exceptions("none") -- To avoid conflicts with /EHa.
     add_cxflags("/EHa", "/w44265", "/w44289", "/w44296", "/w45263", "/w44738", "/w45204")
