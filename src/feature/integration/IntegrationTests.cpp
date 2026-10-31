@@ -302,7 +302,10 @@ LV_REGISTER_SELFTEST("integration.chassis_value_box", [](Context& ctx) -> ll::co
     auto const* box = common::valuebox::boxAt(block, 5, {1.0, 0.5, 0.5}); // centre of the east face
     ctx.require(box && box->id == "range", "the chassis has a range box on its faces");
     ctx.check(box->requiresWrench, "edited with the wrench only (as Create)");
-    ctx.check(common::valuebox::apply(player, p, "range", {0, 5}), "the box accepts a value");
+    ctx.check(common::valuebox::apply(player, p, "range", {0, 4}), "the box accepts a value");
+    ctx.check(ct::chassisRange(p) == 4 && ct::chassisRange(at(p, 0, 1)) != 4, "without Ctrl only this chassis takes it (U55)");
+    // Create's BulkScrollValueBehaviour: confirmed with Ctrl, the connected group takes the range
+    ctx.check(common::valuebox::apply(player, p, "range", {0, 5}, true), "the box accepts a value with Ctrl");
     ctx.check(ct::chassisRange(p) == 5 && ct::chassisRange(at(p, 0, 1)) == 5, "the connected group takes the range");
 
     // the wrench opens it through the shared dispatch; an empty hand does not

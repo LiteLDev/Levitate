@@ -89,6 +89,21 @@ std::unordered_map<std::int64_t, PendingHold>& holds() {
 /// most, plus the round trip).
 constexpr std::uint64_t kHoldTimeout = 100;
 
+/// (U55) A vanilla client has no hold message, but it repeats the use-on of a held button about
+/// every 11 ticks (measured on 1.26.51): a repeat on the same box / slot within this many ticks
+/// is a hold, a click without one is a short click.
+constexpr std::uint64_t kVanillaRepeatWindow = 16;
+struct VanillaClick {
+    core::GlobalPos      pos;
+    std::uint64_t        last = 0;
+    bool                 held = false;
+    valuebox::HoldAction onShort, onHold;
+};
+std::unordered_map<std::int64_t, VanillaClick>& vanillaClicks() {
+    static std::unordered_map<std::int64_t, VanillaClick> m;
+    return m;
+}
+
 Player* playerById(std::int64_t key) {
     auto level = ll::service::getLevel();
     if (!level) return nullptr;
@@ -495,13 +510,13 @@ void interact(Player& player, GlobalPos const& pos, SlotSpec const& slot) {
         log().info("filter slot at {} refused {} from {}", pos.key(), items::idOf(toApply), player.getRealName());
         return;
     }
-    // the old filter item goes back (to a creative player only when not in the inventory yet)
-    if (filter::isFilterItem(previous) && (!creative || !inventoryHas(player, previous))) giveOrDrop(player, previous);
-    set(pos, toApply, slot.id);
     if (filter::isFilterItem(toApply) && !creative) {
         player.setSelectedItem(items::withCount(held, items::countOf(held) - 1));
         player.sendInventory(false);
     }
+    // the old filter item goes back (to a creative player only when not in the inventory yet)
+    if (filter::isFilterItem(previous) && (!creative || !inventoryHas(player, previous))) giveOrDrop(player, previous);
+    set(pos, toApply, slot.id);
     playSoundAt(pos, "block.itemframe.add_item", .25f, .1f); // Create's ITEM_FRAME_ADD_ITEM
     if (items::isEmpty(toApply)) log().info("filter slot at {} cleared by {}", pos.key(), player.getRealName());
     else log().info("filter slot at {} set to {} by {}", pos.key(), items::idOf(toApply), player.getRealName());
@@ -552,20 +567,17 @@ Json hoverLines(Player& player, core::GlobalPos const& pos, int face, core::comm
     if (auto const* slot = filterslot::slotAt(*block, face, hit)) {
         // Create's FilteringRenderer: label, "Click with item to set / replace", the amount tip;
         // the box shows the filter item with its count label
-        auto f = filterslot::get(pos, slot->id);
+        auto        f     = filterslot::get(pos, slot->id);
+        std::string count = slot->countLabel ? slot->countLabel(pos) : std::string{};
         lines.push_back(slot->label.empty() ? trFor(player, "create.logistics.filter", "Filter") : trFor(player, slot->label, slot->labelFallback));
-        if (items::isEmpty(f)) {
-            lines.push_back("§7" + trFor(player, "lv.common.filter.empty", "(empty)"));
-        } else {
-            std::string count = slot->countLabel ? slot->countLabel(pos) : std::string{};
-            lines.push_back("§e" + items::displayName(f) + (count.empty() ? "" : " §f" + count));
-        }
+        if (items::isEmpty(f)) lines.push_back("§7" + trFor(player, "lv.common.filter.empty", "(empty)"));
+        else lines.push_back("§e" + items::displayName(f) + (count.empty() ? "" : " §f" + count));
         lines.push_back(
             "§7"
             + (items::isEmpty(f) ? trFor(player, "create.logistics.filter.click_to_set", "Click with item to set")
                                  : trFor(player, "create.logistics.filter.click_to_replace", "Click with item to replace"))
         );
-        if (slot->onHold && slot->countLabel && !slot->countLabel(pos).empty())
+        if (slot->onHold && !count.empty())
             lines.push_back("§7" + trFor(player, "create.logistics.filter.hold_to_set_amount", "Click and hold for amount"));
     }
     return lines;
@@ -582,6 +594,21 @@ public:
             ++serverTick();
             // a client that never answers (left, lagging): the hold is dropped
             std::erase_if(holds(), [](auto const& e) { return serverTick() - e.second.since > kHoldTimeout; });
+            // vanilla clicks without a repeat in time were short clicks; held ones were released
+            for (auto it = vanillaClicks().begin(); it != vanillaClicks().end();) {
+                if (serverTick() - it->second.last <= kVanillaRepeatWindow) {
+                    ++it;
+                    continue;
+                }
+                auto click = std::move(it->second);
+                auto key   = it->first;
+                it         = vanillaClicks().erase(it);
+                if (click.held) continue;
+                if (auto* p = playerById(key)) {
+                    log().info("value box hold at {} by {}: short (vanilla)", click.pos.key(), p->getRealName());
+                    if (click.onShort) click.onShort(*p);
+                }
+            }
             if (pending().empty()) return;
             auto run = std::exchange(pending(), {});
             for (auto& fn : run) fn();
@@ -619,6 +646,7 @@ public:
         net::off("valuebox.release");
         net::off("common.hover");
         holds().clear();
+        vanillaClicks().clear();
     }
 
 private:
@@ -634,6 +662,16 @@ private:
         auto pos = c.pos;
         // the button is still held on a box / slot whose hold waits for the client's answer
         if (valuebox::holdPending(player, pos)) return Result::Consume;
+        // a vanilla client repeating the held button: the first repeat makes it a hold
+        if (auto it = vanillaClicks().find(key); it != vanillaClicks().end() && it->second.pos == pos && !net::isCompanion(player)) {
+            it->second.last = serverTick();
+            if (!it->second.held) {
+                it->second.held = true;
+                log().info("value box hold at {} by {}: hold (vanilla)", pos.key(), player.getRealName());
+                if (it->second.onHold) it->second.onHold(player);
+            }
+            return Result::Consume;
+        }
         if (auto const* slot = filterslot::slotAt(c.block, c.face, c.hit)) {
             if (debounced(key, pos)) return Result::Consume;
             auto slotId   = slot->id;
@@ -649,9 +687,14 @@ private:
                     if (s.id == slotId) filterslot::interact(*p, pos, s);
             };
             if (slot->onHold) {
-                auto onHold = slot->onHold;
-                auto onShort = [interact](Player&) { pending().push_back(interact); };
-                if (valuebox::awaitHold(player, pos, onShort, [onHold, pos](Player& p) { onHold(p, pos); })) return Result::Consume;
+                auto onHold  = slot->onHold;
+                auto onShort = [interact, canSet = filterslot::canShortInteract(c.itemId)](Player&) {
+                    if (canSet) pending().push_back(interact);
+                };
+                auto hold = [onHold, pos](Player& p) { onHold(p, pos); };
+                if (valuebox::awaitHold(player, pos, onShort, hold)) return Result::Consume;
+                awaitVanillaHold(key, pos, onShort, hold);
+                return Result::Consume;
             }
             // Create's canShortInteract: the wrench and the arm never become the filter (the click
             // is still the slot's)
@@ -679,8 +722,13 @@ private:
                 if (b.id == boxId && b.onShortClick) b.onShortClick(pos, p);
         };
         if (valuebox::awaitHold(player, pos, shortClick, [open](Player&) { open(); })) return Result::Consume;
-        pending().push_back(open);
+        // vanilla: Create's click and hold inferred from the client's repeats (SPEC §8)
+        awaitVanillaHold(key, pos, shortClick, [open](Player&) { pending().push_back(open); });
         return Result::Consume;
+    }
+
+    static void awaitVanillaHold(std::int64_t key, core::GlobalPos const& pos, valuebox::HoldAction onShort, valuebox::HoldAction onHold) {
+        vanillaClicks()[key] = VanillaClick{pos, serverTick(), false, std::move(onShort), std::move(onHold)};
     }
 
     /// Bedrock repeats use-on packets while the button is held: one action per click.

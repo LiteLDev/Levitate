@@ -323,8 +323,8 @@ LV_REGISTER_SELFTEST("belts.edit", [](Context& ctx) -> ll::coro::CoroTask<> {
     ctx.check(segmentAt(a.at(5, 0, 1)) && segmentAt(a.at(5, 0, 1))->part == cb::Part::End, "extended");
     // the wrench in the middle splits it (creative: no shafts needed; survival: from the inventory)
     if (!p.isCreative()) {
-        ctx.give(p, stackOf(ctx, kTestShaftId, 2));
-        ctx.give(p, stackOf(ctx, kBeltConnectorId, 1)); // Create's BeltSlicer takes a connector too (U55)
+        ctx.give(p, stackOf(ctx, kTestShaftId, 2), 5);
+        ctx.give(p, stackOf(ctx, kBeltConnectorId, 1), 6); // Create's BeltSlicer takes a connector too (U55)
     }
     p.setSelectedItem(ItemStack());
     ctx.check(onBeltWrench(p, a.at(2, 0, 1), 1, {.8, .9, .5}), "wrench in the middle");

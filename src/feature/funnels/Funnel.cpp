@@ -566,9 +566,18 @@ contraption::MovementBehaviour funnelActor(bool brass) {
         if (auto* data = ctx.contraption.blockData(ctx.localPos)) {
             if (auto it = data->find("common:blockdata"); it != data->end() && it->is_object()) {
                 if (auto f = it->find("filter"); f != it->end() && f->is_object() && f->contains("filter")) filterStack = items::fromJson((*f)["filter"]);
-                if (auto fu = it->find("funnels"); brass && fu != it->end() && fu->is_object()) {
-                    amount = std::clamp(fu->value("count", 64), 1, 64);
-                    upTo   = fu->value("upTo", true);
+            }
+        }
+        if (brass) {
+            // Create's FilterAmount / UpTo; the count follows the filter's max stack size
+            int max = items::isEmpty(filterStack) ? 64 : std::max(1, static_cast<int>(filterStack.getMaxStackSize()));
+            amount  = max;
+            if (auto* data = ctx.contraption.blockData(ctx.localPos)) {
+                if (auto it = data->find("common:blockdata"); it != data->end() && it->is_object()) {
+                    if (auto fu = it->find("funnels"); fu != it->end() && fu->is_object()) {
+                        amount = std::clamp(fu->value("count", max), 1, max);
+                        upTo   = fu->value("upTo", true);
+                    }
                 }
             }
         }

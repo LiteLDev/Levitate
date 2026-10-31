@@ -425,6 +425,7 @@ void onPlaced(GlobalPos const& pos, Kind kind, std::optional<Intent> intent) {
         auto below = offset(pos, cf::kDown);
         if (auto seg = common::beltlink::segmentAt(*region, toBlockPos(below)); seg && !seg->casing)
             belts::setCasing(below, kind == Kind::AndesiteTunnel ? 1 : 2);
+        editDoc(pos)["cased"] = true; // from now on a lost casing breaks the tunnel
         updateTunnelShape(*region, pos);
         break;
     }

@@ -159,12 +159,13 @@ LV_REGISTER_SELFTEST("belts.split_takes_connector", [](Context& ctx) -> ll::coro
     p.setPlayerGameType(GameType::Survival);
     co_await ctx.ticks(1);
     clearInventory(p);
-    ctx.give(p, stackOf(ctx, kTestShaftId, 2));
+    p.setSelectedItem(ItemStack());
+    ctx.give(p, stackOf(ctx, kTestShaftId, 2), 5); // not the selected slot (the wrench click is empty-handed)
     p.setSelectedItem(ItemStack());
     onBeltWrench(p, a.at(2, 0, 1), 1, {.8, .9, .5});
     ctx.check(segmentInfo(a.at(0, 0, 1))->length == 6, "no split without a belt connector");
     ctx.check(inventoryCount(p, kTestShaftId) == 2, "nothing was taken");
-    ctx.give(p, stackOf(ctx, kBeltConnectorId, 1));
+    ctx.give(p, stackOf(ctx, kBeltConnectorId, 1), 6);
     ctx.check(onBeltWrench(p, a.at(2, 0, 1), 1, {.8, .9, .5}), "the wrench splits");
     auto l = segmentInfo(a.at(0, 0, 1)), r = segmentInfo(a.at(5, 0, 1));
     ctx.check(l && r && l->length == 3 && r->length == 3, "split into 3 + 3");

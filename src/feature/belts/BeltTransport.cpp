@@ -377,10 +377,15 @@ void transportEntity(Belt& belt, BeltEnv const& env, Actor& entity, GlobalPos co
         double len = std::sqrt(mx * mx + my * my + mz * mz);
         if (len > 0) {
             double cx = mx / len * .5, cy = my / len * .5, cz = mz / len * .5;
+            // Create: the box moved by the check distance and shrunk by it on every side; its
+            // AABB constructor sorts the corners (so it spans the stretch just ahead)
             auto   bb = entity.getAABB();
+            double ax = bb.min.x + cx + std::abs(cx), bx = bb.max.x + cx - std::abs(cx);
+            double ay = bb.min.y + cy + std::abs(cy), by = bb.max.y + cy - std::abs(cy);
+            double az = bb.min.z + cz + std::abs(cz), bz = bb.max.z + cz - std::abs(cz);
             AABB   check{
-                Vec3{float(bb.min.x + cx + std::abs(cx)), float(bb.min.y + cy + std::abs(cy)), float(bb.min.z + cz + std::abs(cz))},
-                Vec3{float(bb.max.x + cx - std::abs(cx)), float(bb.max.y + cy - std::abs(cy)), float(bb.max.z + cz - std::abs(cz))}
+                Vec3{float(std::min(ax, bx)), float(std::min(ay, by)), float(std::min(az, bz))},
+                Vec3{float(std::max(ax, bx)), float(std::max(ay, by)), float(std::max(az, bz))}
             };
             if (auto* region = regionOf(seg.dim)) {
                 for (auto* other : region->getEntities(check, 0.f)) {

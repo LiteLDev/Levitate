@@ -377,7 +377,7 @@ void tickAirborne(Depot& d) {
     for (auto it = d.airborne.begin(); it != d.airborne.end();) {
         auto&  a         = *it;
         double totalTime = a.launch.itemTicks();
-        bool   hit       = a.id == d.trackedItem && scanTrajectory(d, a, a.t);
+        bool   hit       = a.id != 0 && a.id == d.trackedItem && scanTrajectory(d, a, a.t);
         double maxTime   = d.earlyTarget ? std::min(d.earlyTarget->time, totalTime) : totalTime;
         if (hit || a.t > maxTime) {
             placeAtTarget(d, a, maxTime);

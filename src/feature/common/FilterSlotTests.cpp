@@ -118,7 +118,7 @@ LV_REGISTER_SELFTEST("common.value_box_rules", [](Context& ctx) -> ll::coro::Cor
     ctx.require(co_await ctx.ensureLoaded(pos), "test area loaded");
     ctx.require(ctx.setBlock(pos, kTestBlock), "place the test block");
     struct Seen {
-        int  sets = 0, value = 3;
+        int  sets = 0, value = 3, shorts = 0;
         bool ctrl = false;
     };
     auto seen = std::make_shared<Seen>();
@@ -134,7 +134,8 @@ LV_REGISTER_SELFTEST("common.value_box_rules", [](Context& ctx) -> ll::coro::Cor
                 seen->value = v.value;
                 seen->ctrl  = vb::ctrlDown();
             },
-        .bulk = true,
+        .onShortClick = [seen](GlobalPos const&, Player&) { ++seen->shorts; },
+        .bulk         = true,
     });
     auto& p = ctx.player();
     p.teleport(Vec3{pos.x + 0.5f, pos.y + 0.0f, pos.z - 1.5f}, p.getDimensionId());
@@ -153,6 +154,7 @@ LV_REGISTER_SELFTEST("common.value_box_rules", [](Context& ctx) -> ll::coro::Cor
 
     // BulkScrollValueBehaviour: the Ctrl flag reaches `set`; an unchanged value does nothing
     auto posJ = JsonT::array({pos.dim, pos.x, pos.y, pos.z});
+    net::setTestCompanion(p, true);
     net::injectFromClient(p, "valuebox.set", {{"pos", posJ}, {"box", "lv_u55"}, {"row", 0}, {"value", 9}, {"ctrl", true}});
     ctx.check(seen->sets == 1 && seen->value == 9 && seen->ctrl, "a Ctrl confirm sets with ctrlDown()");
     ctx.check(!vb::ctrlDown(), "ctrlDown() is only true during set");
@@ -160,6 +162,25 @@ LV_REGISTER_SELFTEST("common.value_box_rules", [](Context& ctx) -> ll::coro::Cor
     ctx.check(seen->sets == 1, "an unchanged value is not set again");
     net::injectFromClient(p, "valuebox.set", {{"pos", posJ}, {"box", "lv_u55"}, {"row", 0}, {"value", 5}});
     ctx.check(seen->sets == 2 && !seen->ctrl, "a plain confirm sets without ctrlDown()");
+    net::takeTestMessages(p);
+    net::setTestCompanion(p, false);
+
+    // (L45) vanilla players: a click without a repeat is a short click (after the repeat window),
+    // a repeat of the held button makes it a hold (no short click then)
+    co_await ctx.ticks(25); // earlier clicks resolved
+    p.setSelectedItem(common::items::empty());
+    int before = seen->shorts;
+    click(p, pos, common::items::empty());
+    co_await ctx.ticks(3);
+    ctx.check(seen->shorts == before, "a vanilla click waits for a repeat");
+    co_await ctx.ticks(20);
+    ctx.check(seen->shorts == before + 1, "no repeat: a short click");
+    co_await ctx.ticks(7);
+    click(p, pos, common::items::empty());
+    co_await ctx.ticks(10);
+    click(p, pos, common::items::empty()); // the client repeats the held button
+    co_await ctx.ticks(25);
+    ctx.check(seen->shorts == before + 1, "a repeat makes it a hold, not a short click");
     vb::unregisterBox(kTestBlock, "lv_u55");
     p.setSelectedItem(common::items::empty());
     common::blockdata::erase(pos);

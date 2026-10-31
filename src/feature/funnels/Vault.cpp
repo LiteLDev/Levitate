@@ -348,7 +348,7 @@ void installVaults() {
                         if (auto fu = bd->find("funnels"); fu != bd->end() && fu->is_object() && fu->contains("items") && (*fu)["items"].is_array())
                             for (auto const& e : (*fu)["items"]) out.push_back(e.is_null() ? items::empty() : items::fromJson(e));
                     }
-                    out.resize(static_cast<std::size_t>(capacity()), items::empty());
+                    if (static_cast<int>(out.size()) < capacity()) out.resize(static_cast<std::size_t>(capacity()), items::empty());
                     return out;
                 },
             .write =

@@ -487,6 +487,14 @@ void updateTunnelShape(BlockSource& region, GlobalPos const& pos) {
     // belt below; else it breaks (and drops itself)
     if (loadedBlock(region, below)) {
         auto seg = beltlink::segmentAt(region, below);
+        // a tunnel placed before U55 never cased its belt: case it now (once) instead of breaking it
+        if (seg && seg->horizontal && !seg->casing) {
+            auto const* d = docOf(pos);
+            if ((!d || !d->value("cased", false)) && belts::setCasing(toGlobal(pos.dim, below), isBrass(*b) ? 2 : 1)) {
+                editDoc(pos)["cased"] = true;
+                seg = beltlink::segmentAt(region, below);
+            }
+        }
         if (!seg || !seg->horizontal || !seg->casing) {
             std::string id = b->getTypeName();
             if (auto const* air = game::blockWith("minecraft:air")) game::setBlock(region, bp, *air);

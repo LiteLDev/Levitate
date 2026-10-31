@@ -654,12 +654,14 @@ void processRemovals() {
         }
         // segments a `/setblock` / `/fill` in destroy mode removed: their loot, as Create's
         // destroyBlock(pos, true)
+        // (the first segment destroyed drops it; Create's onRemove clears the rest without drops)
         for (auto const& [p, st] : gone) {
             if (!s.commandDestroyed.contains(p) || s.exploded.contains(p)) continue;
             if (auto c = makeStack(kBeltConnectorId)) spawnItem(p, p.x + .5, p.y + .5, p.z + .5, *c);
             if (cb::hasPulley(st.part))
                 if (auto sh = shaftItem(1)) spawnItem(p, p.x + .5, p.y + .5, p.z + .5, *sh);
             log().info("belts: belt segment at {} destroyed by a command", posText(p));
+            break;
         }
         s.blownSegments += std::uint64_t(blown);
         if (blown > 0) log().info("belts: {} belt segment(s) at {} blown up", blown, posText(r.pos));
