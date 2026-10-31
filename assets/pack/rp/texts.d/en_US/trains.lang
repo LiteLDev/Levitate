@@ -5,3 +5,5 @@ tile.levitate:large_bogey.name=Large Bogey
 tile.levitate:controls.name=Train Controls
 item.levitate:controls=Train Controls
 item.levitate:schedule.name=Train Schedule
+entity.levitate:carriage_contraption.name=Carriage Contraption
+death.attack.create.run_over=%1$s was run over by %2$s

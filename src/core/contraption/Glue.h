@@ -25,11 +25,11 @@ struct GlueBox {
 /// True when `a` and its neighbour `a + offset(d)` lie in one of `boxes`.
 [[nodiscard]] bool isGlued(std::vector<GlueBox> const& boxes, Pos const& a, Dir d);
 
-enum class GlueCheck { Ok, TooFar, CannotReach };
+enum class GlueCheck { Ok, TooFar, CannotReach, SingleBlock };
 
-/// Validates a two-click selection (Create's SuperGlueSelectionHandler): every side at most
-/// `maxRange` blocks, and the second corner reachable from the first through solid blocks
-/// inside the box (`solid(p)` = a block that would be moved).
+/// Validates a two-click selection (Create's SuperGlueSelectionHandler / searchGlueGroup): the
+/// corners closer than `maxRange` blocks, two different blocks, and the second corner reachable
+/// from the first through solid blocks inside the box (`solid(p)` = a block that would be moved).
 [[nodiscard]] GlueCheck
 checkSelection(Pos const& first, Pos const& second, int maxRange, std::function<bool(Pos const&)> const& solid);
 

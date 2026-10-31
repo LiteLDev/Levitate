@@ -1,0 +1,38 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:sticker_from_mossy_cobblestone"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "ISI",
+      "CRC"
+    ],
+    "key": {
+      "I": {
+        "item": "levitate:andesite_alloy"
+      },
+      "S": {
+        "item": "minecraft:slime_ball"
+      },
+      "C": {
+        "item": "minecraft:mossy_cobblestone"
+      },
+      "R": {
+        "item": "minecraft:redstone"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_alloy"
+      }
+    ],
+    "result": {
+      "item": "levitate:sticker",
+      "count": 1
+    }
+  }
+}

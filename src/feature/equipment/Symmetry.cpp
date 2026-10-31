@@ -13,6 +13,7 @@
 #include "mc/util/Rotation.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/item/ItemInstance.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -113,6 +114,15 @@ std::vector<ce::Mirror> activeMirrors(Player& player) {
         if (m.placed && m.enabled && m.dim() == static_cast<int>(player.getDimensionId())) out.push_back(m);
     }
     return out;
+}
+
+/// The item a block is placed from ("" when it has none).
+std::string requiredItem(GlobalPos const& pos, Block const& b) {
+    auto* region = regionOf(pos.dim);
+    if (!region) return {};
+    std::string id = b.asItemInstance(*region, BlockPos{pos.x, pos.y, pos.z}, false).getTypeName();
+    if (id.empty() || id == "minecraft:air") id = b.getBlockType().asItemInstance(b, nullptr).getTypeName();
+    return id == "minecraft:air" ? std::string() : id;
 }
 
 /// Takes one `item` from a survival player's inventory (Create: each copy needs an item).
@@ -278,13 +288,23 @@ void mirrorPlacement(Player& player, GlobalPos const& pos) {
     if (!placed) return;
     std::string id = placed->getTypeName();
     if (id == "minecraft:air") return;
+    // Create's BlockHelper.findAndRemoveInInventory: each copy costs the block's item (redstone for
+    // wire, an oak sign for a standing sign), and blocks without an item are not mirrored
+    std::string item = requiredItem(pos, *placed);
+    if (item.empty()) return;
     ++gMirroring;
     for (auto const& m : activeMirrors(player)) {
         if (!inRange(m, pos)) continue;
         for (auto const& mp : ce::mirrorPositions(m, pos.x, pos.y, pos.z)) {
             GlobalPos to{pos.dim, mp.x, mp.y, mp.z};
-            if (!replaceableAt(to)) continue;
-            if (!takeItem(player, id)) continue;
+            // Create: creative copies overwrite whatever is there; survival ones need a
+            // replaceable, breakable spot
+            if (!player.isCreative()) {
+                if (!replaceableAt(to)) continue;
+                auto const* there = blockAt(to);
+                if (there && !there->isAir() && there->getBlockType().getDestroySpeed() < 0) continue;
+            }
+            if (!takeItem(player, item)) continue;
             placeBlock(to, transformed(*placed, mp.transform));
             line(pos.dim, m.x + .5, m.y + .5, m.z + .5, to.x + .5, to.y + .5, to.z + .5);
         }
@@ -324,13 +344,13 @@ void tickWands() {
     if (currentTick() % 10 != 0) return;
     auto level = ll::service::getLevel();
     if (!level) return;
+    // Create's SymmetryHandler#onClientTick: an end rod particle every 10 ticks at the mirror of
+    // every enabled wand in the hotbar
     level->forEachPlayer([](Player& p) {
-        auto const& held = p.getSelectedItem();
-        if (items::idOf(held) != kWand) return true;
-        auto m = mirrorOf(held);
-        if (!m.placed || m.dim() != static_cast<int>(p.getDimensionId())) return true;
-        double jx = (random01() - .5) * .3, jz = (random01() - .5) * .3;
-        particle(m.dim(), m.x + .5 + jx, m.y + .25, m.z + .5 + jz, m.enabled ? "minecraft:endrod" : "minecraft:basic_smoke_particle");
+        for (auto const& m : activeMirrors(p)) {
+            double jx = (random01() - .5) * .3, jz = (random01() - .5) * .3;
+            particle(m.dim(), m.x + .5 + jx, m.y + .25, m.z + .5 + jz, "minecraft:endrod");
+        }
         return true;
     });
 }

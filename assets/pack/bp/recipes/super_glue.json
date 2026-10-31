@@ -1,0 +1,35 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:super_glue"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "AS",
+      "NA"
+    ],
+    "key": {
+      "A": {
+        "item": "minecraft:slime_ball"
+      },
+      "S": {
+        "item": "levitate:iron_sheet"
+      },
+      "N": {
+        "item": "minecraft:iron_nugget"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:iron_sheet"
+      }
+    ],
+    "result": {
+      "item": "levitate:super_glue",
+      "count": 1
+    }
+  }
+}

@@ -74,5 +74,7 @@
   "item.minecraft.lingering_potion.effect.wind_charged": "滞留型蓄风药水",
   "item.minecraft.lingering_potion.effect.weaving": "滞留型盘丝药水",
   "item.minecraft.lingering_potion.effect.oozing": "滞留型渗浆药水",
-  "item.minecraft.lingering_potion.effect.infested": "滞留型寄生药水"
+  "item.minecraft.lingering_potion.effect.infested": "滞留型寄生药水",
+  "create.hint.hose_pulley.title": "无限供应",
+  "create.hint.hose_pulley": "目标流体对象被视为无限量的"
 }

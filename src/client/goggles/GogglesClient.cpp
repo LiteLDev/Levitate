@@ -428,6 +428,10 @@ std::optional<std::string> descriptionKey(std::string const& id) {
     auto path = id.substr(id.find(':') + 1);
     // ItemDescription.useKey: the four cardboard armour pieces share item.create.cardboard_armor (U49)
     if (path == "cardboard_helmet" || path == "cardboard_chestplate" || path == "cardboard_leggings" || path == "cardboard_boots") path = "cardboard_armor";
+    // ... and the dyed toolboxes, seats and postboxes share block.create.toolbox / seat / package_postbox (U59)
+    else if (path.ends_with("_toolbox")) path = "toolbox";
+    else if (path.ends_with("_seat")) path = "seat";
+    else if (path.ends_with("_postbox")) path = "package_postbox";
     for (auto const* prefix : {"item.create.", "block.create."}) {
         auto key = std::string(prefix) + path + ".tooltip";
         if (!translateClient(key + ".summary", "").empty()) return key;

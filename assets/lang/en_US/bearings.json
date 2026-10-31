@@ -22,5 +22,10 @@
   "create.minecart_coupling.removed": "Removed all couplings from minecart",
   "create.contraption.minecart_contraption_too_big": "This Cart Contraption seems too big to pick up",
   "create.contraption.minecart_contraption_illegal_pickup": "A mystical force is binding this Cart Contraption to the world",
-  "lv.bearings.coupling_too_close": "Minecarts are too close for a two-cart contraption"
+  "lv.bearings.coupling_too_close": "Minecarts are too close for a two-cart contraption",
+  "block.create.controller_rail.tooltip.summary": "A _uni-directional_ powered rail with _variable speed_, controlled by the _signal strength_ supplied to it.",
+  "item.create.minecart_coupling.tooltip.summary": "_Chains_ together individual _Minecarts_, causing them to move as a group.",
+  "block.create.turntable.tooltip.summary": "Uses _Rotational Force_ to create Motion Sickness.",
+  "create.hint.empty_bearing.title": "Update Bearing",
+  "create.hint.empty_bearing": "_Right-click_ the bearing with an _empty_ _hand_ to _attach_ the structure you just built in front of it."
 }

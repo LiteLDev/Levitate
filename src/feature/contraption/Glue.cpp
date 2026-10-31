@@ -184,7 +184,7 @@ void glueClick(Player& player, cc::Pos const& pos, bool sneaking) {
     }
     if (it == selections().end() || it->second.dim != dim) {
         selections()[key] = {dim, pos};
-        actionBar(player, trFor(player, "create.super_glue.click_to_confirm", "Click again to confirm"));
+        actionBar(player, trFor(player, "create.super_glue.first_pos", "First position selected"));
         playSound(dim, cc::Vec3d::center(pos), "mob.slime.small", 0.5f, 1.2f);
         syncGlue(player);
         return;
@@ -197,6 +197,11 @@ void glueClick(Player& player, cc::Pos const& pos, bool sneaking) {
     });
     if (check == cc::GlueCheck::TooFar) {
         actionBar(player, trFor(player, "create.super_glue.too_far", "Selected area is too big"));
+        return;
+    }
+    if (check == cc::GlueCheck::SingleBlock) {
+        // Create's searchGlueGroup: one block alone is no glue group (the selection stays)
+        actionBar(player, trFor(player, "create.super_glue.click_to_confirm", "Click again to confirm"));
         return;
     }
     if (check == cc::GlueCheck::CannotReach) {
@@ -232,6 +237,37 @@ void glueClick(Player& player, cc::Pos const& pos, bool sneaking) {
         box.max.y,
         box.max.z
     );
+}
+
+bool glueOnPlace(Player& player, cc::Pos const& placed, cc::Pos const& against) {
+    // Create's SuperGlueHandler#glueInOffHandAppliesOnBlockPlace
+    ItemStack offhand = player.getOffhandSlot();
+    if (offhand.isNull() || offhand.getTypeName() != kSuperGlue) return false;
+    if (player.getSelectedItem().getTypeName() == "levitate:wrench") return false;
+    if (placed == against) return false; // placed into a replaceable block: nothing it was placed against
+    cc::Pos d = placed - against;
+    std::optional<cc::Dir> face;
+    for (auto dir : cc::kAllDirs)
+        if (cc::offset(dir) == d) face = dir;
+    if (!face) return false;
+    int  dim    = static_cast<int>(player.getDimensionId());
+    auto* region = regionOf(dim);
+    if (!region || glued(dim, against, *face)) return false;
+    // SuperGlueEntity#isValidFace: a block that moves and carries on that face
+    auto a = describe(*region, dim, against);
+    if (!a.necessary || cc::has(a.notSupportive, *face)) return false;
+    auto b = describe(*region, dim, placed);
+    if (!b.necessary || cc::has(b.notSupportive, cc::opposite(*face))) return false;
+    addGlue(dim, cc::GlueBox::of(against, placed));
+    if (!player.isCreative() && offhand.isDamageableItem()) {
+        offhand.hurtAndBreak(1, &player);
+        player.setOffhandSlot(offhand);
+        player.refreshInventory();
+    }
+    playSound(dim, cc::Vec3d::center(placed), "mob.slime.small", 0.5f, 1.2f);
+    syncGlue(player);
+    log().info("super glue (off hand) applied by {}: {} {} {} .. {} {} {}", player.getRealName(), against.x, against.y, against.z, placed.x, placed.y, placed.z);
+    return true;
 }
 
 bool glueAttack(Player& player, cc::Pos const& pos) {

@@ -1,5 +1,5 @@
-tile.levitate:linear_chassis.name=线性机壳
-tile.levitate:secondary_linear_chassis.name=次级线性机壳
-tile.levitate:radial_chassis.name=径向机壳
+tile.levitate:linear_chassis.name=轴向底盘
+tile.levitate:secondary_linear_chassis.name=轴向底盘二号
+tile.levitate:radial_chassis.name=径向底盘
 tile.levitate:sticker.name=黏着器
 item.levitate:super_glue.name=强力胶

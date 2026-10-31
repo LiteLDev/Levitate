@@ -366,3 +366,18 @@ void registerHose() {
 }
 
 } // namespace lv::feature::fluids
+
+// Create's HosePulleyBlockEntity#addToGoggleTooltip (U59): a pulley over an infinite body of
+// fluid says so ("create.hint.hose_pulley").
+#include "feature/goggles/GoggleInfo.h"
+namespace lv::feature::fluids {
+LV_REGISTER_GOGGLE_INFO(kHosePulley, {.goggle = [](goggles::InfoContext const& c, goggles::Tooltip& t) {
+    auto it = caches().find(c.pos);
+    if (it == caches().end()) return false;
+    bool infinite = (it->second.drain && it->second.drain->infinite) || (it->second.fill && it->second.fill->infinite);
+    if (!infinite) return false;
+    t.push_back(goggles::line(std::string(core::goggles::fmt::kGold) + c.tr("create.hint.hose_pulley.title", "Bottomless Supply")));
+    goggles::addHint(t, c.tr("create.hint.hose_pulley", "The targeted body of fluid is considered infinite."));
+    return true;
+}});
+} // namespace lv::feature::fluids

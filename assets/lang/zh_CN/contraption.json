@@ -10,6 +10,7 @@
   "create.super_glue.abort": "选择已取消",
   "create.super_glue.not_enough": "物品栏内强力胶不足",
   "create.super_glue.success": "正在上胶……",
+  "create.super_glue.first_pos": "已选择第一坐标",
   "create.contraptions.chassis.range": "粘附距离",
   "create.contraptions.chassis.radius": "粘附半径",
   "create.contraptions.chassis.distance": "距离",
@@ -20,8 +21,12 @@
   "lv.contraption.disassembled": "装置 #{} 已拆解",
   "lv.contraption.list": "{} 个装置",
   "lv.contraption.glue_cleared": "已移除 {} 个强力胶区域",
+  "lv.contraption.glue_added": "已粘合 {} {} {} .. {} {} {}",
   "lv.contraption.bad_axis": "轴必须是 x、y 或 z",
   "lv.contraption.need_op": "你需要管理员权限。",
   "lv.contraption.other_axis": "该装置已在绕另一条轴旋转",
-  "lv.contraption.players_only": "只有玩家可以搭建演示装置。"
+  "lv.contraption.players_only": "只有玩家可以搭建演示装置。",
+  "lv.contraption.mounted_storage": "装配体存储",
+  "lv.contraption.mounted_storage.content": "取出一组物品，或放入手中的物品。",
+  "lv.contraption.mounted_storage.deposit": "放入手中的物品"
 }

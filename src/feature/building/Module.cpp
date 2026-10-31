@@ -80,6 +80,11 @@ void defer(std::function<void()> fn) { deferred().push_back(std::move(fn)); }
 
 void notePlayerBreak(GlobalPos const& pos, bool creative) { playerBreaks()[pos] = creative; }
 
+bool creativeBreakAt(GlobalPos const& pos) {
+    auto it = playerBreaks().find(pos);
+    return it != playerBreaks().end() && it->second;
+}
+
 void onBlockChanged(GlobalPos const& pos, Block const& previous, Block const& now) {
     bool wasMine = mine(previous), isMine = mine(now);
     if (wasMine || isMine) markDirty(pos);

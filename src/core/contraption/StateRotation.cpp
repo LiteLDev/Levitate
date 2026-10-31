@@ -25,6 +25,45 @@ std::optional<Dir> rotateHorizontal(Dir d, Axis axis, int q) {
 // stairs: 0 east, 1 west, 2 south, 3 north
 constexpr std::array<Dir, 4> kWeirdo{Dir::East, Dir::West, Dir::South, Dir::North};
 
+/// The legacy `direction` (0..3) order of a block: S W N E for most blocks, E S W N for doors,
+/// E W S N for trapdoors (Bedrock's own orders).
+std::array<Dir, 4> legacyOrder(std::string_view id) {
+    bool trapdoor = id.find("trapdoor") != std::string_view::npos;
+    bool door     = !trapdoor && (id.ends_with("_door") || id == "minecraft:wooden_door");
+    if (trapdoor) return {Dir::East, Dir::West, Dir::South, Dir::North};
+    if (door) return {Dir::East, Dir::South, Dir::West, Dir::North};
+    return {Dir::South, Dir::West, Dir::North, Dir::East};
+}
+
+/// A lever (`lever_direction`): the direction away from the block it is on and the axis it
+/// swings along (wall levers swing vertically).
+struct Lever {
+    Dir  facing;
+    Axis swing;
+};
+std::optional<Lever> parseLever(std::string_view v) {
+    auto axisOfSuffix = [&](std::string_view rest) -> std::optional<Axis> {
+        if (rest == "east_west") return Axis::X;
+        if (rest == "north_south") return Axis::Z;
+        return std::nullopt;
+    };
+    if (v.starts_with("up_")) {
+        if (auto a = axisOfSuffix(v.substr(3))) return Lever{Dir::Up, *a};
+        return std::nullopt;
+    }
+    if (v.starts_with("down_")) {
+        if (auto a = axisOfSuffix(v.substr(5))) return Lever{Dir::Down, *a};
+        return std::nullopt;
+    }
+    if (auto d = dirFromName(std::string(v)); d && axisOf(*d) != Axis::Y) return Lever{*d, Axis::Y};
+    return std::nullopt;
+}
+std::optional<std::string> leverName(Lever const& l) {
+    if (axisOf(l.facing) != Axis::Y) return std::string(dirName(l.facing));
+    if (l.swing == Axis::Y) return std::nullopt;
+    return std::string(l.facing == Dir::Up ? "up_" : "down_") + (l.swing == Axis::X ? "east_west" : "north_south");
+}
+
 } // namespace
 
 std::array<Dir, 4> radialSides(Axis axis) {
@@ -38,7 +77,7 @@ std::array<Dir, 4> radialSides(Axis axis) {
     }
 }
 
-bool rotateStates(States& s, Axis axis, int quarterTurns) {
+bool rotateStates(States& s, Axis axis, int quarterTurns, std::string_view blockId) {
     int q = normQuarter(quarterTurns);
     if (q == 0) return false;
     bool changed = false;
@@ -108,15 +147,39 @@ bool rotateStates(States& s, Axis axis, int quarterTurns) {
         if (auto a = axisFromName(*v)) setStr(v, axisName(rotate(*a, axis, q)));
     }
     if (auto* v = intOf(s, "direction"); v && *v >= 0 && *v <= 3) {
-        // legacy horizontal index: S W N E for most blocks, E S W N for doors; both run clockwise
-        // seen from above, so a turn about Y is a shift. About X or Z the two orders disagree:
-        // the value is kept (the block's own rotation handler can do better).
-        if (axis == Axis::Y) setInt(v, normQuarter(static_cast<int>(*v) - q));
-    }
-    if (auto* v = intOf(s, "weirdo_direction"); v && *v >= 0 && *v <= 3) {
-        if (auto r = rotateHorizontal(kWeirdo[*v], axis, q)) {
+        // legacy horizontal index in the block's own order; a turn that would make it vertical
+        // keeps it (Create's StructureTransform: half turns about X or Z flip it unless it lies
+        // along the axis)
+        auto order = legacyOrder(blockId);
+        if (auto r = rotateHorizontal(order[static_cast<std::size_t>(*v)], axis, q)) {
             for (int i = 0; i < 4; ++i)
-                if (kWeirdo[i] == *r) setInt(v, i);
+                if (order[static_cast<std::size_t>(i)] == *r) setInt(v, i);
+        }
+    }
+    // stairs turned about X or Z (Create's transformStairs): a stair is the half block on its
+    // vertical side plus the half towards its facing; after the turn the horizontal one of the two
+    // is the new facing and the vertical one the new half
+    auto* weirdo = intOf(s, "weirdo_direction");
+    auto* upside = intOf(s, "upside_down_bit");
+    bool  stairs = weirdo && upside && *weirdo >= 0 && *weirdo <= 3;
+    if (stairs && axis != Axis::Y) {
+        Dir f  = kWeirdo[static_cast<std::size_t>(*weirdo)];
+        Dir h  = *upside ? Dir::Up : Dir::Down;
+        Dir rf = rotate(f, axis, q), rh = rotate(h, axis, q);
+        bool rfHorizontal = axisOf(rf) != Axis::Y, rhHorizontal = axisOf(rh) != Axis::Y;
+        if (rfHorizontal != rhHorizontal) { // both horizontal: facing along the axis, a quarter turn keeps it
+            Dir facing = rfHorizontal ? rf : rh;
+            Dir half   = rfHorizontal ? rh : rf;
+            for (int i = 0; i < 4; ++i)
+                if (kWeirdo[static_cast<std::size_t>(i)] == facing) setInt(weirdo, i);
+            setInt(upside, half == Dir::Up ? 1 : 0);
+        } else if (q == 2) {
+            setInt(upside, *upside ? 0 : 1);
+        }
+    } else if (weirdo && *weirdo >= 0 && *weirdo <= 3) {
+        if (auto r = rotateHorizontal(kWeirdo[static_cast<std::size_t>(*weirdo)], axis, q)) {
+            for (int i = 0; i < 4; ++i)
+                if (kWeirdo[i] == *r) setInt(weirdo, i);
         }
     }
     if (auto* v = intOf(s, "ground_sign_direction"); v && *v >= 0 && *v <= 15 && axis == Axis::Y) {
@@ -151,9 +214,16 @@ bool rotateStates(States& s, Axis axis, int quarterTurns) {
             }
         }
     }
+    if (auto* v = strOf(s, "lever_direction")) {
+        // Create turns FaceAttachedHorizontalDirectionalBlocks (levers) about every axis
+        if (auto lever = parseLever(*v)) {
+            Lever turned{rotate(lever->facing, axis, q), rotate(lever->swing, axis, q)};
+            if (auto name = leverName(turned)) setStr(v, *name);
+        }
+    }
     if (axis != Axis::Y && q == 2) {
         if (auto* v = strOf(s, "minecraft:vertical_half")) setStr(v, *v == "top" ? "bottom" : "top");
-        if (auto* v = intOf(s, "upside_down_bit")) setInt(v, *v ? 0 : 1);
+        if (auto* v = intOf(s, "upside_down_bit"); v && !stairs) setInt(v, *v ? 0 : 1);
     }
     return changed;
 }

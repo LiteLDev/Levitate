@@ -10,6 +10,7 @@
   "create.super_glue.abort": "Selection discarded",
   "create.super_glue.not_enough": "Not enough glue in inventory",
   "create.super_glue.success": "Applying Glue...",
+  "create.super_glue.first_pos": "First position selected",
   "create.contraptions.chassis.range": "Range of Sticky Sides",
   "create.contraptions.chassis.radius": "Radius when Sticky",
   "create.contraptions.chassis.distance": "Distance",
@@ -20,8 +21,12 @@
   "lv.contraption.disassembled": "Contraption #{} disassembled",
   "lv.contraption.list": "{} contraption(s)",
   "lv.contraption.glue_cleared": "Removed {} glue region(s)",
+  "lv.contraption.glue_added": "Glued {} {} {} .. {} {} {}",
   "lv.contraption.bad_axis": "The axis must be x, y or z",
   "lv.contraption.need_op": "You need operator permission.",
   "lv.contraption.other_axis": "The contraption already turns about another axis",
-  "lv.contraption.players_only": "Only players can build the demo."
+  "lv.contraption.players_only": "Only players can build the demo.",
+  "lv.contraption.mounted_storage": "Mounted Storage",
+  "lv.contraption.mounted_storage.content": "Take a stack out, or put the held stack in.",
+  "lv.contraption.mounted_storage.deposit": "Put the held stack in"
 }

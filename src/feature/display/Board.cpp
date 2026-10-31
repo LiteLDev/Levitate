@@ -4,6 +4,7 @@
 // mod see the flaps animate (src/client/display/); vanilla players see the text as a name tag.
 
 #include <algorithm>
+#include <set>
 #include <cmath>
 #include <map>
 
@@ -32,6 +33,16 @@ namespace lv::feature::display::board {
 namespace blockdata = common::blockdata;
 namespace items     = common::items;
 namespace k         = lv::kinetics;
+
+std::string flapText(std::string const& text);
+
+namespace {
+/// Selftests: boards treated as turning (forceRunning).
+std::set<GlobalPos>& forcedRunning() {
+    static std::set<GlobalPos> s;
+    return s;
+}
+} // namespace
 
 namespace {
 constexpr char kDbBoards[] = "lv:display:boards";
@@ -210,7 +221,7 @@ Json renderState(BlockSource& region, Structure const& s) {
     float speed = k::speedAt(s.controller);
     Json  lines = Json::array();
     for (auto const& l : d.lines) {
-        lines.push_back({{"t", l.text}, {"c", l.dye < 0 ? kDefaultColour : dyeRgb(l.dye)}, {"g", l.glow}});
+        lines.push_back({{"t", flapText(l.text)}, {"c", l.dye < 0 ? kDefaultColour : dyeRgb(l.dye)}, {"g", l.glow}});
     }
     (void)region;
     return {
@@ -301,6 +312,7 @@ struct Lifecycle {
         game::db::onWorldReady([] {
             controllers().clear();
             lastSent().clear();
+            forcedRunning().clear();
             playerDims().clear();
             if (auto j = game::db::load(kDbBoards); j && j->is_array()) {
                 for (auto const& e : *j)
@@ -338,6 +350,27 @@ k::KineticSpec boardSpec() {
 LV_REGISTER_KINETIC_BLOCK(kBoardId, boardSpec());
 
 } // namespace
+
+/// Create's FlapDisplaySection.refresh: the flaps show upper case (Locale.ROOT); formatting codes
+/// (§x) keep their letter.
+std::string flapText(std::string const& text) {
+    std::string out = text;
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        auto c = static_cast<unsigned char>(out[i]);
+        if (c == 0xC2 && i + 1 < out.size() && static_cast<unsigned char>(out[i + 1]) == 0xA7) {
+            i += 2; // "§" and its code letter
+            continue;
+        }
+        if (c >= 'a' && c <= 'z') out[i] = static_cast<char>(c - 32);
+        else if (c == 0xC3 && i + 1 < out.size()) { // U+00E0..U+00FE (not U+00F7)
+            auto n = static_cast<unsigned char>(out[i + 1]);
+            if (n >= 0xA0 && n <= 0xBE && n != 0xB7) out[i + 1] = static_cast<char>(n - 0x20);
+            ++i;
+        }
+    }
+    return out;
+}
+
 
 // ---- structure --------------------------------------------------------------------------------
 
@@ -406,7 +439,13 @@ void updateColumns(BlockSource& region, GlobalPos const& pos) {
 
 int maxChars(int width) { return static_cast<int>((width * 16 - 2) / 3.5); }
 
+void forceRunning(GlobalPos const& controller, bool on) {
+    if (on) forcedRunning().insert(controller);
+    else forcedRunning().erase(controller);
+}
+
 bool running(GlobalPos const& controller) {
+    if (forcedRunning().contains(controller)) return true;
     // Create: getMinimumRequiredSpeedLevel() = MEDIUM
     return k::speedLevelOf(std::fabs(k::speedAt(controller))) >= k::SpeedLevel::Medium;
 }
@@ -491,14 +530,17 @@ bool use(Player& player, BlockSource& region, GlobalPos const& pos, int face, Ve
         log().info("display board at {} line {} glowing", s->controller.key(), line);
         return true;
     }
+    // Create's FlapDisplayBlock.useItemOn: name tags and clipboards need the board running, dye
+    // works on a stopped board too
     if (id == "minecraft:name_tag") {
         auto name = held.getCustomName();
-        if (name.empty()) return false;
+        if (name.empty() || !run) return false;
         setLine(region, s->controller, line, name, true);
         log().info("display board at {} line {} set from a name tag by {}", s->controller.key(), line, player.getRealName());
         return true;
     }
     if (id == kClipboardId) {
+        if (!run) return false;
         auto entries = clipboard::lastViewedEntries(clipboard::ofItem(held));
         int  at      = line;
         for (auto const& e : entries) {
@@ -514,7 +556,6 @@ bool use(Player& player, BlockSource& region, GlobalPos const& pos, int face, Ve
         return true;
     }
     if (auto dye = dyeOf(id)) {
-        if (!run) return false;
         l.dye = *dye == 0 ? -1 : *dye; // white resets (Create stores null for WHITE)
         writeLines(s->controller, d);
         playSound(region, pos, "dye.use");
@@ -620,18 +661,33 @@ bool mayWrite(BlockSource& region, Structure const& s, Line const& l, GlobalPos 
     return true;
 }
 
+/// Whether the link's selected source writes several lines (Create's SingleLineDisplaySource).
+bool multiLineSource(BlockSource& region, Context& ctx) {
+    auto d = link::read(ctx.link);
+    if (!d) return false;
+    for (auto const* s : sourcesAt(region, ctx.source))
+        if (s->id == d->sourceId) return s->multiLine;
+    return false;
+}
+
 void acceptLines(BlockSource& region, GlobalPos const& target, int line, Lines const& text, Context& ctx) {
     auto s = structureOf(region, target);
     if (!s) return;
-    auto d     = linesFor(*s);
-    int  n     = static_cast<int>(d.lines.size());
-    int  width = maxChars(s->width);
-    for (int i = 0; i < static_cast<int>(text.size()) && line + i < n; ++i) {
+    // Create's DisplayBoardTarget.acceptFlapText: nothing while the board doesn't turn fast enough
+    if (!running(s->controller)) return;
+    auto d      = linesFor(*s);
+    int  n      = static_cast<int>(d.lines.size());
+    int  width  = maxChars(s->width);
+    bool single = !multiLineSource(region, ctx);
+    for (int i = 0; line + i < n; ++i) {
         auto& l = d.lines[static_cast<std::size_t>(line + i)];
-        if (!mayWrite(region, *s, l, ctx.link)) continue;
+        // the first line is taken; the following ones stop at a line another link or a player wrote
+        if (i > 0 && (l.manual || !mayWrite(region, *s, l, ctx.link))) break;
+        if (i >= static_cast<int>(text.size()) && single) break;
         l.owner  = linkKey(ctx.link);
-        l.text   = truncateGlyphs(text[static_cast<std::size_t>(i)], width);
         l.manual = false;
+        // a multi-line source clears the lines below its text
+        l.text = i >= static_cast<int>(text.size()) ? std::string() : truncateGlyphs(text[static_cast<std::size_t>(i)], width);
     }
     writeLines(s->controller, d);
     if (controllers().insert(s->controller).second) persist();

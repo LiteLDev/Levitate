@@ -75,8 +75,27 @@ struct MovementRules {
     std::function<bool(cc::States const&)>          brittle;         ///< default: false
     std::function<cc::DirMask(cc::States const&)>   attachedTowards; ///< faces it hangs on
     std::function<cc::DirMask(cc::States const&)>   notSupportive;   ///< faces that don't carry
+    /// Neighbours that always join when this block moves (Create's moveBearing /
+    /// moveWindmillBearing: the block in front of a bearing).
+    std::function<cc::DirMask(cc::States const&)>   pulls;
 };
 void registerMovementRules(std::string blockId, MovementRules rules);
+
+/// Movability that depends on more than the states (Create's isMovementAllowed reading a block
+/// entity: a bearing only while it isn't running). Checked with `MovementRules::movable`.
+using MovableAt = std::function<bool(BlockSource&, core::GlobalPos const&, cc::States const&)>;
+void registerMovableAt(std::string blockId, MovableAt movable);
+
+/// Create's ContraptionMovementSetting of a block (config keys `movableSpawners`,
+/// `amethystMovement`, `movableObsidian`, `movableReinforcedDeepslate`).
+enum class MovementSetting { Movable, NoPickup, Unmovable };
+[[nodiscard]] MovementSetting movementSetting(std::string_view blockId);
+
+/// Runs for each block a new contraption would collect, before anything is lifted (Create's
+/// moveBlock hooks such as WindmillBearingBlockEntity#disassembleForMovement). Return true when
+/// it changed the world (e.g. placed its own structure back): the blocks are collected again.
+using BeforeCapture = std::function<bool(BlockSource&, core::GlobalPos const&)>;
+void registerBeforeCapture(std::string blockId, BeforeCapture fn);
 
 // ---- actors (Create's MovementBehaviour) ------------------------------------------------------
 
@@ -107,6 +126,19 @@ struct MovementBehaviour {
 /// Registers the movement behaviour of block `blockId`.
 void registerActor(std::string blockId, MovementBehaviour behaviour);
 
+// ---- interactions (Create's MovingInteractionBehaviour) -----------------------------------------
+
+/// A right-click on a block of a contraption (levers, doors, containers, deployers ...): the
+/// player, the contraption and the clicked block's local position. Return true when handled.
+using MovingInteraction = std::function<bool(Player&, Contraption&, cc::Pos const& local)>;
+/// Registers the interaction of block `blockId`.
+void registerInteraction(std::string blockId, MovingInteraction fn);
+/// Registers an interaction for every block id `matches` accepts (Create's tag providers:
+/// wooden doors, trapdoors, fence gates); exact ids win.
+void registerInteractionProvider(std::function<bool(std::string_view blockId)> matches, MovingInteraction fn);
+/// The interaction of a block id (nullptr: none).
+[[nodiscard]] MovingInteraction const* interactionFor(std::string const& blockId);
+
 // ---- seats ------------------------------------------------------------------------------------
 
 /// Blocks entities can sit on while moving (U22's seats register themselves).
@@ -135,6 +167,7 @@ struct ItemStorageAdapter {
     std::function<ItemStack(nlohmann::json const& carried)>                     bottomless;
 };
 void registerItemStorage(std::string blockId, ItemStorageAdapter adapter);
+
 
 /// The merged inventories and tanks of a contraption (Create's MountedStorageManager).
 class Storage {
@@ -196,6 +229,9 @@ public:
     /// Create's isActorActive of a cart in "Pause actors while rotating" mode while it turns.
     void setActorsPaused(bool paused) { mActorsPaused = paused; }
     [[nodiscard]] bool actorsPaused() const { return mActorsPaused; }
+    /// An actor held the contraption still on its last move (MovementContext::stall; Create's
+    /// AbstractContraptionEntity.isStalled). Trains stop for it (U27).
+    [[nodiscard]] bool stalled() const { return mStalled; }
     void stop() { mMotion = {}; mTarget.reset(); }
     /// World position of a local point at the current transform.
     [[nodiscard]] cc::Vec3d toWorld(cc::Vec3d const& local) const { return mTransform.toWorld(local); }
@@ -237,6 +273,7 @@ private:
     std::unique_ptr<Storage>          mStorage;
     bool                              mMoving = false;
     bool                              mActorsPaused = false;
+    bool                              mStalled      = false;
     std::vector<cc::Box>              mBoxes;           ///< local collision boxes (cache)
     std::vector<Block const*>         mBoxBlocks;       ///< the block of each collision box (cache)
     bool                              mTicksWhileStill = false; ///< an actor ticks while it stands still (cache)
@@ -276,6 +313,10 @@ bool discard(Id id);
 /// Changes the states of the carried block at `local` (Create's contraption entity setBlock:
 /// a door opening on a train). Its collision and display follow. False if unknown or unchanged.
 bool setBlockStates(Id id, cc::Pos const& local, cc::States const& states);
+/// Moves the contraption into dimension `dim` at `transform` (Create's carriages passing a portal
+/// track: DimensionalCarriageEntity). Its displays and the companions' copy move with it; seated
+/// riders are teleported along and seated again when they arrive. False if unknown.
+bool changeDimension(Id id, int dim, cc::Transform const& transform);
 /// Local bounds of the carried blocks (Create's contraption bounds); nullopt if unknown.
 [[nodiscard]] std::optional<cc::Box> bounds(Id id);
 /// All live contraptions (ids).

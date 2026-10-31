@@ -74,5 +74,7 @@
   "item.minecraft.lingering_potion.effect.wind_charged": "Lingering Potion of Wind Charging",
   "item.minecraft.lingering_potion.effect.weaving": "Lingering Potion of Weaving",
   "item.minecraft.lingering_potion.effect.oozing": "Lingering Potion of Oozing",
-  "item.minecraft.lingering_potion.effect.infested": "Lingering Potion of Infestation"
+  "item.minecraft.lingering_potion.effect.infested": "Lingering Potion of Infestation",
+  "create.hint.hose_pulley.title": "Bottomless Supply",
+  "create.hint.hose_pulley": "The targeted body of fluid is considered infinite."
 }

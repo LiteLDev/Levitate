@@ -1,8 +1,10 @@
 // Mechanical drill and saw as contraption actors (Create 6.0.10's BlockBreakingMovementBehaviour,
 // DrillMovementBehaviour, SawMovementBehaviour), see docs/SPEC.md §3.6.
 
+#include <algorithm>
 #include <cmath>
 #include <random>
+#include <variant>
 
 #include "nlohmann/json.hpp"
 
@@ -98,8 +100,15 @@ void damageEntities(ct::MovementContext& ctx, std::string const& kind, GlobalPos
     }
 }
 
+/// Java's isRedstoneConductor, near enough: a solid, full block (as common/Redstone.cpp).
+bool isConductor(GlobalPos const& pos) {
+    auto const* b = world::blockAt(pos);
+    return b && !b->isAir() && b->_isSolid() && b->canProvideFullSupport(1) && b->canProvideFullSupport(0);
+}
+
 void visit(ct::MovementContext& ctx, std::string const& kind, GlobalPos const& pos) {
-    damageEntities(ctx, kind, pos);
+    // BlockBreakingMovementBehaviour#visitNewPosition: entities inside a solid block are safe
+    if (!isConductor(pos)) damageEntities(ctx, kind, pos);
     if (!canBreak(kind, pos)) return;
     ctx.data["BreakingPos"] = posJson(pos);
     ctx.stall               = true;
@@ -262,6 +271,15 @@ struct ActorRegistration {
     ActorRegistration() {
         ct::registerActor(std::string(kDrill), breakerBehaviour("drill"));
         ct::registerActor(std::string(kSaw), breakerBehaviour("saw"));
+        // Create's isNotSupportiveFallback: nothing sticks to a drill head or a saw blade
+        ct::MovementRules rules;
+        rules.notSupportive = [](cc::States const& s) -> cc::DirMask {
+            auto it = s.find(kFacing);
+            auto const* v = it == s.end() ? nullptr : std::get_if<std::int64_t>(&it->second);
+            return cc::bit(static_cast<cc::Dir>(std::clamp<std::int64_t>(v ? *v : 1, 0, 5)));
+        };
+        ct::registerMovementRules(std::string(kDrill), rules);
+        ct::registerMovementRules(std::string(kSaw), rules);
         // the saw's blade axis follows a rotation (levitate:facing is rotated by the engine first)
         ct::registerRotationHandler(std::string(kSaw), [](cc::States& states, cc::Axis axis, int quarter) {
             auto get = [&](char const* key, std::int64_t fallback) {

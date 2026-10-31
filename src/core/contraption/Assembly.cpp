@@ -21,7 +21,9 @@ DirMask glueableFaces(ChassisKind kind, Axis axis) {
 }
 
 bool canStick(BlockInfo const& a, BlockInfo const& b, Dir d) {
-    if (b.brittle || a.brittle) return false;
+    // NeoForge's canStickTo: true when either block is sticky (slime never sticks to honey)
+    if (a.sticky == StickyKind::None && b.sticky == StickyKind::None) return false;
+    if (b.brittle) return false; // Create checks only the neighbour
     if (a.sticky != StickyKind::None && b.sticky != StickyKind::None && a.sticky != b.sticky) return false;
     if (a.pushOnly || b.pushOnly) return false;
     if (has(a.notSupportive, d)) return false;
@@ -137,6 +139,8 @@ assemble(std::vector<Pos> const& start, WorldQuery const& world, GlueQuery const
             if (!has(t.notSupportive, opposite(*info.stickerFacing))) push(target);
         }
         for (auto const& p : info.linked) push(p);
+        for (auto d : kAllDirs)
+            if (has(info.pulls, d)) push(pos + offset(d));
 
         for (auto d : kAllDirs) {
             Pos  np = pos + offset(d);
@@ -149,7 +153,7 @@ assemble(std::vector<Pos> const& start, WorldQuery const& world, GlueQuery const
             if (visited.contains(np)) continue;
             bool faceHasGlue  = glue && glue(pos, d);
             bool attachedHere = has(n.attachedTowards, opposite(d));
-            bool stick        = info.sticky != StickyKind::None && canStick(info, n, d);
+            bool stick        = canStick(info, n, d);
             bool forced       = limits.forced == d && !has(info.notSupportive, d);
             if (faceHasGlue || attachedHere || stick || forced) frontier.push_back(np);
         }

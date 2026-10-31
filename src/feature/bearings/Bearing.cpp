@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
+#include <variant>
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
@@ -486,6 +487,47 @@ void registerOptionBox(
     vb::registerBox(std::string(blockId), std::move(box));
 }
 
+
+// ---- movement checks (Create's BlockMovementChecksImpl) ------------------------------------------
+
+cc::Dir facingIn(cc::States const& s) {
+    auto it = s.find("levitate:facing");
+    auto const* v = it == s.end() ? nullptr : std::get_if<std::int64_t>(&it->second);
+    return static_cast<cc::Dir>(std::clamp<std::int64_t>(v ? *v : 1, 0, 5));
+}
+
+/// Create's isMovementAllowedFallback: a mechanical or clockwork bearing moves only while it isn't
+/// running (its structure would be left behind); a carried mechanical or windmill bearing takes the
+/// block in front of it along (moveBearing / moveWindmillBearing), and nothing else sticks to a
+/// mechanical bearing's front (isNotSupportiveFallback). A running windmill moved by another
+/// contraption places its sails first and assembles them again where it lands
+/// (WindmillBearingBlockEntity#disassembleForMovement, queuedReassembly).
+struct MovementChecks {
+    MovementChecks() {
+        auto notRunning = [](BlockSource&, GP const& pos, cc::States const&) { return !load(pos).running; };
+        ct::registerMovableAt(std::string(kMechanicalBearing), notRunning);
+        ct::registerMovableAt(std::string(kClockworkBearing), notRunning);
+        ct::MovementRules mechanical;
+        mechanical.notSupportive = [](cc::States const& s) { return cc::bit(facingIn(s)); };
+        mechanical.pulls         = [](cc::States const& s) { return cc::bit(facingIn(s)); };
+        ct::registerMovementRules(std::string(kMechanicalBearing), mechanical);
+        ct::MovementRules windmill;
+        windmill.pulls = [](cc::States const& s) { return cc::bit(facingIn(s)); };
+        ct::registerMovementRules(std::string(kWindmillBearing), windmill);
+        ct::registerBeforeCapture(std::string(kWindmillBearing), [](BlockSource&, GP const& pos) {
+            auto s = load(pos);
+            if (!s.running) return false;
+            disassemble(s, pos, Kind::Windmill);
+            s.next = true; // queuedReassembly: assembled again once placed
+            store(pos, s);
+            remember(pos, s);
+            log().info("windmill_bearing at {} moved: sails placed, assembled again after the move", pos.key());
+            return true;
+        });
+    }
+};
+MovementChecks const gMovementChecks;
+
 } // namespace
 
 
@@ -643,4 +685,25 @@ void orientBearing(BlockSource& region, GP const& pos, Player& player) {
     setStates(region, pos, {{"levitate:facing", static_cast<int>(facing)}});
 }
 
+} // namespace lv::feature::bearings
+
+// Create's MechanicalBearingBlockEntity#addToTooltip (U59): a turning, stopped bearing with a
+// block in front of it hints that a click assembles the structure ("create.hint.empty_bearing").
+#include "feature/goggles/GoggleInfo.h"
+namespace lv::feature::bearings {
+namespace {
+bool emptyBearingHint(goggles::InfoContext const& c, goggles::Tooltip& t) {
+    if (c.sneaking) return false;
+    bool windmill = c.block.getTypeName() == kWindmillBearing;
+    if (!windmill && k::speedAt(c.pos) == 0) return false;
+    if (load(c.pos).running) return false;
+    auto front = cc::Pos{c.pos.x, c.pos.y, c.pos.z} + cc::offset(facingOf(c.block));
+    if (lv::game::replaceable(c.region, BlockPos{front.x, front.y, front.z})) return false;
+    t.push_back(goggles::line(std::string(core::goggles::fmt::kGold) + c.tr("create.hint.empty_bearing.title", "Update Bearing")));
+    goggles::addHint(t, c.tr("create.hint.empty_bearing", "_Right-click_ the bearing with an _empty_ _hand_ to _attach_ the structure you just built in front of it."));
+    return true;
+}
+} // namespace
+LV_REGISTER_GOGGLE_INFO("levitate:mechanical_bearing", {.hover = emptyBearingHint});
+LV_REGISTER_GOGGLE_INFO("levitate:windmill_bearing", {.hover = emptyBearingHint});
 } // namespace lv::feature::bearings

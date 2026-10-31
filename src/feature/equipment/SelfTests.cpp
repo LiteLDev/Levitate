@@ -13,6 +13,7 @@
 #include "mc/world/actor/item/ItemActor.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/level/GameType.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
@@ -436,6 +437,32 @@ LV_REGISTER_SELFTEST("equipment.symmetry_wand", [](Context& ctx) -> ll::coro::Co
         auto        d2     = lv::game::intState(turned, "weirdo_direction");
         ctx.check(d2 && *d2 == 3, "a diagonal mirror turns west-facing stairs north (weirdo_direction " + std::to_string(d2.value_or(-1)) + ")");
     }
+    // Create's findAndRemoveInInventory takes the block's item: redstone for a wire
+    auto wire = at(base, 1, 0, 4), wireCopy = at(base, -1, 0, 4);
+    ctx.setBlock(at(wire, 0, -1, 0), "minecraft:stone");
+    ctx.setBlock(at(wireCopy, 0, -1, 0), "minecraft:stone");
+    ctx.cleanupBlock(wireCopy);
+    ctx.setBlock(wire, "minecraft:redstone_wire");
+    clearInventory(sp);
+    ctx.give(sp, wand, 1);
+    ctx.give(sp, item(ctx, "minecraft:redstone", 1), 3);
+    eq::mirrorPlacement(sp, wire);
+    ctx.check(eq::idAt(wireCopy) == "minecraft:redstone_wire", "redstone wire is mirrored in survival");
+    ctx.check(items::isEmpty(sp.getInventory().getItem(3)), "the copy used the redstone dust");
+    // survival copies need a replaceable spot; creative ones overwrite it
+    auto solid = at(base, 1, 0, 6), solidCopy = at(base, -1, 0, 6);
+    ctx.setBlock(solidCopy, "minecraft:dirt");
+    ctx.setBlock(solid, "minecraft:cobblestone");
+    ctx.give(sp, item(ctx, "minecraft:cobblestone", 1), 3);
+    eq::mirrorPlacement(sp, solid);
+    ctx.check(eq::idAt(solidCopy) == "minecraft:dirt", "survival: a solid block is not replaced");
+    sp.setPlayerGameType(GameType::Creative);
+    eq::mirrorPlacement(sp, solid);
+    ctx.check(eq::idAt(solidCopy) == "minecraft:cobblestone", "creative: the copy overwrites the block");
+    sp.setPlayerGameType(GameType::Survival);
+    ctx.cleanupBlock(solid);
+    ctx.cleanupBlock(solidCopy);
+    ctx.cleanupBlock(wire);
     clearItems(sp, base, 5);
     clearInventory(sp);
 });
@@ -561,7 +588,7 @@ LV_REGISTER_SELFTEST("equipment.linked_controller", [](Context& ctx) -> ll::coro
     held = p.getSelectedItem();
     ctx.check(eq::controllerUse(p, held) && !eq::controllerActive(p), "right-click stops using it");
     // lectern: right-click a lectern with the controller
-    auto lectern = at(base, 2, 0, 0);
+    auto lectern = at(base, 1, 0, 0); // Create's playerInRange: eye within 1.8 blocks of its centre
     ctx.require(ctx.setBlock(lectern, "minecraft:lectern"), "lectern");
     held = p.getSelectedItem();
     ctx.check(eq::lecternUse(p, held, lectern), "the controller goes on the lectern");
@@ -571,6 +598,20 @@ LV_REGISTER_SELFTEST("equipment.linked_controller", [](Context& ctx) -> ll::coro
     ctx.check(rl::powerAt(lectern, key) == 15, "the lectern transmits from its own position");
     eq::controllerButtons(p, {false, false, false, false, false, false}, lectern);
     ctx.check(eq::lecternUse(p, held, lectern) && !eq::controllerActive(p), "right-click again stops");
+    // Create's playerInRange: too far to start, and walking away stops it
+    p.teleport(Vec3{base.x - 2.5f, float(base.y), base.z + .5f}, DimensionType(0));
+    co_await ctx.ticks(2);
+    ctx.check(!eq::lecternInRange(p, lectern), "3 blocks away is out of the lectern's range");
+    ctx.check(eq::lecternUse(p, held, lectern) && !eq::controllerActive(p), "too far away: right-click does not start it");
+    p.teleport(Vec3{base.x + .5f, float(base.y), base.z + .5f}, DimensionType(0));
+    co_await ctx.ticks(2);
+    ctx.check(eq::lecternUse(p, held, lectern) && eq::controllerActive(p), "back in range: it starts");
+    p.teleport(Vec3{base.x - 2.5f, float(base.y), base.z + .5f}, DimensionType(0));
+    co_await ctx.ticks(3);
+    ctx.check(!eq::controllerActive(p), "walking out of range stops using it");
     (void)lv::feature::common::blockdata::take(lectern); // no controller drop when the test area is cleared
     clearInventory(p);
 });
+
+// U59: backtank comparators, stew ammo, bells, worldshaper, knockback, Infinity (dx 5900..5999)
+#include "feature/equipment/SelfTestsU59.inc"

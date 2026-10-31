@@ -218,5 +218,12 @@
   "lv.trains.arrivals": "Arriving trains",
   "lv.trains.frequency_from_hands": "Use the items in your off hand and main hand as the frequency",
   "lv.trains.hud.throttle": "Throttle: {0}%",
-  "lv.trains.hud.approaching": "Approaching station..."
+  "lv.trains.hud.approaching": "Approaching station...",
+  "lv.trains.tp_mode": "Can only teleport to train when in Creative or Spectator Mode!",
+  "lv.trains.tp_none": "Unable to teleport to Train. No valid location found",
+  "lv.trains.tp_done": "Teleported to Train '{0}' successfully",
+  "lv.trains.station_suggestions": "Station suggestions",
+  "lv.trains.icon.traditional": "Traditional",
+  "lv.trains.icon.electric": "Electric",
+  "lv.trains.icon.modern": "Modern"
 }
