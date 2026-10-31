@@ -90,17 +90,17 @@ if ($withMod) { Wait-LogLine 'fluids: spout nozzle squeezes while filling' 20 -S
 # U51: an item drain holding water (the client mod draws it) and an item crossing it (a display
 # item for companions, a client-only item entity for vanilla clients)
 $drainMark = Get-LogMark
-Invoke-Chat '/fill ~-3 ~ ~2 ~3 ~3 ~6 air'
-Invoke-Chat '/setblock ~ ~ ~4 levitate:item_drain'
-Invoke-Chat '/setblock ~1 ~ ~4 stone'
-Invoke-Chat '/tp @s ~ ~ ~ facing ~ ~0.5 ~4'
+Invoke-Chat '/fill ~-5 ~ ~2 ~-1 ~3 ~6 air'
+Invoke-Chat '/setblock ~-3 ~ ~4 levitate:item_drain'
+Invoke-Chat '/setblock ~-2 ~ ~4 stone'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~-2.5 ~0.5 ~4.5'
 Start-Sleep -Milliseconds 800
 Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 water_bucket 1'
 Start-Sleep -Milliseconds 300
 Click 0.5 0.5 -Relative -Right
 Wait-LogLine 'item drain at -?\d+ -?\d+ -?\d+ exchanged fluid with' 20 -Since $drainMark | Out-Null
 # an item dropped onto the drain crosses it (still: towards the north, the player)
-Invoke-Chat '/loot spawn ~ ~2 ~4 loot "blocks/item_drain"'
+Invoke-Chat '/loot spawn ~-2.5 ~2 ~4.5 loot "blocks/item_drain"'
 Start-Sleep -Milliseconds 900
 Save-Screenshot 'drain' | Out-Null
 if ($withMod) { Wait-LogLine 'fluids: rendering \d+ quads' 20 -Since $mark | Out-Null }

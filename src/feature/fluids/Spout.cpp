@@ -19,6 +19,8 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/block/actor/BlockActor.h"
+#include "mc/world/level/block/actor/CauldronBlockActor.h"
 
 #include "feature/advancements/Advancements.h"
 #include "feature/belts/BeltApi.h"
@@ -151,8 +153,13 @@ int fillBlock(BlockSource& region, GlobalPos const& at, FluidStack const& fluid,
                 return 0;
             }
         } else {
-            // a water cauldron: LEVEL + 1 until it is full
+            // a water cauldron: LEVEL + 1 until it is full (Bedrock keeps potions and dyed water in the
+            // same block, with the potion / colour in its block actor: those are no water cauldrons)
             if (!water || liquid != "water" || level < 0 || level >= kFullCauldron || fluid.amount < kCauldronWater) return 0;
+            if (auto* actor = region.getBlockEntity(bp)) {
+                auto const& cauldron = static_cast<CauldronBlockActor const&>(*actor);
+                if (cauldron.mPotionId >= 0 || cauldron.mHasCustomColor) return 0;
+            }
             next = cauldronBlock("minecraft:cauldron", std::min(kFullCauldron, level + 2), "water");
             used = kCauldronWater;
         }

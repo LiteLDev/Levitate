@@ -336,10 +336,11 @@ void syncValvesTo(Player& player) {
 }
 
 void valveSpeedChanged(GlobalPos const& p, float speed) {
-    auto& v      = rt().valves[p];
-    float target = speed > 0 ? 1.f : 0.f;
+    auto [it, fresh] = rt().valves.try_emplace(p);
+    auto& v          = it->second;
+    float target     = speed > 0 ? 1.f : 0.f;
     float rate   = std::clamp(std::abs(speed) / 16.f / 20.f, 0.f, 1.f);
-    bool  change = v.target != target || v.rate != rate;
+    bool  change = fresh || v.target != target || v.rate != rate;
     v.target     = target;
     v.rate       = rate;
     if (change) sendValve(p, v);

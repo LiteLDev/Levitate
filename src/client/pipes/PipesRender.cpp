@@ -360,6 +360,7 @@ void renderValves(BaseActorRenderContext& rc) {
         mesh->renderMesh(screen, material, texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
     }
     if (!stale.empty()) {
+        for (auto const& p : stale) s.valves.erase(Key{dim, p[0], p[1], p[2]}); // a new valve starts afresh
         std::lock_guard lock(s.mutex);
         for (auto const& p : stale) s.valvesSeen.erase(p);
     }

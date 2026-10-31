@@ -184,21 +184,10 @@ void output(BlockSource& region, GlobalPos const& p, Held& held) {
 
 } // namespace
 
-void tickDrain(GlobalPos const& p) {
-    auto* region = regionOf(p.dim);
-    if (!region) return;
-    auto held = heldOf(dataAt(p));
-    if (!held) {
-        funnels::detail::hideItem(p);
-        collectFallen(*region, p);
-        if (auto now = heldOf(dataAt(p))) showHeld(p, now);
-        return;
-    }
-    // shown after this tick's move (the display follows the item, interpolated by the clients)
-    struct ShowAfter {
-        GlobalPos p;
-        ~ShowAfter() { showHeld(p, heldOf(dataAt(p))); }
-    } showAfter{p};
+namespace {
+
+/// One tick of the held item: emptying at the centre, moving, leaving at the far side.
+void moveHeld(BlockSource* region, GlobalPos const& p, std::optional<Held>& held) {
     auto& d          = editData(p);
     int   processing = d.value("processing", 0);
     if (processing > 0) {
@@ -241,6 +230,23 @@ void tickDrain(GlobalPos const& p) {
         return;
     }
     setHeld(d, held);
+}
+
+} // namespace
+
+void tickDrain(GlobalPos const& p) {
+    auto* region = regionOf(p.dim);
+    if (!region) return;
+    auto held = heldOf(dataAt(p));
+    if (!held) {
+        funnels::detail::hideItem(p);
+        collectFallen(*region, p);
+        if (auto now = heldOf(dataAt(p))) showHeld(p, now);
+        return;
+    }
+    moveHeld(region, p, held);
+    // shown after this tick's move (the display follows the item, interpolated by the clients)
+    showHeld(p, heldOf(dataAt(p)));
 }
 
 bool useOnDrain(Player& player, GlobalPos const& p, ItemStack const& handItem) {
