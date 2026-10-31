@@ -123,7 +123,9 @@ std::string prettyId(std::string id) {
 std::optional<GlobalPos> observedPos(BlockSource& region, GlobalPos const& p) {
     auto const* b = loadedBlock(region, game::blockPos(p));
     if (!b) return std::nullopt;
-    int face = intState(*b, "levitate:facing").value_or(intState(*b, "facing_direction").value_or(-1));
+    // U23's detectors: `levitate:target` 1 looks down, 2 up, else along `levitate:facing`
+    int target = intState(*b, "levitate:target").value_or(0);
+    int face   = target == 1 ? 0 : target == 2 ? 1 : intState(*b, "levitate:facing").value_or(intState(*b, "facing_direction").value_or(-1));
     if (face < 0 || face > 5) return std::nullopt;
     return offsetPos(p, face);
 }
@@ -361,7 +363,7 @@ struct Registration {
         }
 
         // ---- smart observer (U23): contents of the observed inventory / tank ----
-        registerSource("levitate:smart_observer", Source{
+        registerSource("levitate:content_observer", Source{
             .id = "count_items", .name = "create.display_source.count_items", .nameFallback = "Amount of matching Items",
             .text = [](Context& ctx, TargetStats const&) -> Lines {
                 long long total = 0;
@@ -370,7 +372,7 @@ struct Registration {
             },
             .options = {labelOption()},
         });
-        registerSource("levitate:smart_observer", Source{
+        registerSource("levitate:content_observer", Source{
             .id = "list_items", .name = "create.display_source.list_items", .nameFallback = "List matching Items",
             .text = [](Context& ctx, TargetStats const& stats) -> Lines {
                 auto list = countItems(ctx);
@@ -382,7 +384,7 @@ struct Registration {
             },
             .options = {valueDisplayOption()}, .multiLine = true,
         });
-        registerSource("levitate:smart_observer", Source{
+        registerSource("levitate:content_observer", Source{
             .id = "count_fluids", .name = "create.display_source.fluid_amount", .nameFallback = "Amount of matching Fluids",
             .text = [](Context& ctx, TargetStats const&) -> Lines {
                 long long total = 0;
@@ -391,7 +393,7 @@ struct Registration {
             },
             .options = {labelOption()},
         });
-        registerSource("levitate:smart_observer", Source{
+        registerSource("levitate:content_observer", Source{
             .id = "list_fluids", .name = "create.display_source.list_fluids", .nameFallback = "List matching Fluids",
             .text = [](Context& ctx, TargetStats const& stats) -> Lines {
                 auto list = countFluids(ctx);
@@ -408,7 +410,7 @@ struct Registration {
         });
 
         // ---- threshold switch (U23): fill level of the observed inventory ----
-        registerSource("levitate:threshold_switch", Source{
+        registerSource("levitate:stockpile_switch", Source{
             .id = "fill_level", .name = "create.display_source.fill_level", .nameFallback = "Container Fill Level",
             .text = [](Context& ctx, TargetStats const& stats) -> Lines {
                 double level = 0;
@@ -485,8 +487,8 @@ struct Registration {
             },
         });
 
-        // ---- smart observer (U23): Create's PackageAddressDisplaySource ----
-        registerSource("levitate:smart_observer", Source{
+        // ---- smart observer (U23, block id content_observer): Create's PackageAddressDisplaySource ----
+        registerSource("levitate:content_observer", Source{
             .id = "read_package_address", .name = "create.display_source.read_package_address", .nameFallback = "Read Package Address",
             .text = [](Context& ctx, TargetStats const&) -> Lines {
                 auto obs = observedPos(ctx.region, ctx.source);

@@ -278,6 +278,20 @@ LL_TYPE_INSTANCE_HOOK(
     bool        jump  = in.contains(Input::JumpCurrentRaw) || in.contains(Input::Jumping) || in.contains(Input::JumpDown);
     bool        sneak = in.contains(Input::SneakDown) || in.contains(Input::StartSneaking);
     setInput(*player, keys, steer, jump, sneak);
+    // Create's ControlsHandler / HonkPacket: the sprint key sounds the horn while held (vanilla
+    // clients send it as their sprint input)
+    // (as the client mod: {honk: true} every 5 ticks while held, {honk: false} on release)
+    static std::map<std::string, std::pair<bool, std::uint64_t>> sprinting;
+    bool sprint = in.contains(Input::SprintDown) || in.contains(Input::Sprinting) || in.contains(Input::StartSprinting);
+    if (in.contains(Input::StopSprinting)) sprint = false;
+    auto& [was, sent] = sprinting[uuid];
+    if (sprint && (!was || state().tick - sent >= 5)) {
+        setHonk(*player, true);
+        sent = state().tick;
+    } else if (!sprint && was) {
+        setHonk(*player, false);
+    }
+    was = sprint;
 }
 
 void installHooks() {

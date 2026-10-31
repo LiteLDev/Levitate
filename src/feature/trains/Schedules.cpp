@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <map>
+#include <set>
 
 #include "ll/api/form/CustomForm.h"
 #include "ll/api/form/SimpleForm.h"
@@ -39,7 +40,19 @@ std::optional<ct::Schedule> scheduleOf(ItemStack const& stack) {
     return ct::Schedule::fromJson(j);
 }
 
-void setScheduleOf(ItemStack& stack, ct::Schedule const& s) { items::setData(stack, kDataKey, s.toJson()); }
+void setScheduleOf(ItemStack& stack, ct::Schedule const& s) {
+    items::setData(stack, kDataKey, s.toJson());
+    // Create's ScheduleItem.appendHoverText: the destinations, the one it goes on from marked
+    std::vector<std::string> lore;
+    for (size_t i = 0; i < s.entries.size(); ++i) {
+        auto const& e = s.entries[i];
+        if (e.instruction.id != ids::kDestination) continue;
+        bool current = int(i) == s.savedProgress && s.entries.size() > 1;
+        lore.push_back(std::string(current ? "\xC2\xA77-> \xC2\xA7" "e" : "\xC2\xA77> \xC2\xA7" "6")
+                       + e.instruction.data.value("Text", std::string()));
+    }
+    stack.setCustomLore(lore);
+}
 
 ItemStack makeScheduleItem(ct::Schedule const& s) {
     auto item = items::make(kSchedule);
@@ -504,7 +517,20 @@ ct::Json editorData(Player& p, ct::Schedule const& s) {
     ct::Json instr = ct::Json::array(), conds = ct::Json::array();
     for (auto id : ct::instructionIds()) instr.push_back({{"id", std::string(id)}, {"name", instructionName(p, id)}});
     for (auto id : ct::conditionIds()) conds.push_back({{"id", std::string(id)}, {"name", conditionName(p, id)}});
-    return {{"schedule", s.toJson()}, {"texts", entries}, {"instructions", instr}, {"conditions", conds}};
+    // Create's DestinationSuggestions: station names, nearest first
+    std::vector<std::pair<double, std::string>> near;
+    auto                                        f = p.getFeetPos();
+    for (auto const& [key, st] : state().stations) {
+        double dx = st.pos.x + .5 - f.x, dz = st.pos.z + .5 - f.z;
+        double d  = st.pos.dim == int(p.getDimensionId()) ? dx * dx + dz * dz : 1e18;
+        near.emplace_back(d, st.name);
+    }
+    std::sort(near.begin(), near.end());
+    ct::Json stations = ct::Json::array();
+    std::set<std::string> seen;
+    for (auto const& [d, name] : near)
+        if (seen.insert(name).second && stations.size() < 16) stations.push_back(name);
+    return {{"schedule", s.toJson()}, {"texts", entries}, {"instructions", instr}, {"conditions", conds}, {"stations", stations}};
 }
 
 } // namespace

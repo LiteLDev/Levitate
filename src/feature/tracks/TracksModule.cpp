@@ -22,6 +22,7 @@
 #include "mc/world/level/dimension/Dimension.h"
 
 #include "feature/common/BlockData.h"
+#include "feature/contraption/Contraption.h"
 #include "feature/net/Net.h"
 #include "feature/tracks/Tracks.h"
 #include "feature/tracks/TracksInternal.h"
@@ -410,6 +411,10 @@ public:
         auto& bus = ll::event::EventBus::getInstance();
         // BDS: the world was loaded before the mods were enabled
         if (game::db::available() && !state().trackType) loadWorld();
+        // Create's TrackBlock: PushReaction.BLOCK (contraptions leave tracks where they are)
+        contraption::MovementRules fixed;
+        fixed.movable = [](core::contraption::States const&) { return false; };
+        contraption::registerMovementRules(std::string(kTrackId), fixed);
 
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { runTick(); }));
         mListeners.push_back(bus.emplaceListener<ll::event::BlockChangedEvent>([](ll::event::BlockChangedEvent& ev) {

@@ -25,6 +25,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/common/ValueBox.h"
+#include "feature/redstone/Internal.h"
 #include "feature/display/Internal.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
@@ -461,6 +462,12 @@ std::vector<Entry> lastViewedEntries(Contents const& c) {
 
 // ---- copy / paste of settings -----------------------------------------------------------------
 
+namespace {
+bool isBrassDiode(std::string const& id) {
+    return id == redstone::kPulseRepeater || id == redstone::kPulseExtender || id == redstone::kPulseTimer;
+}
+} // namespace
+
 Json copySettings(BlockSource& region, GlobalPos const& pos) {
     auto const* block = loadedBlock(region, game::blockPos(pos));
     if (!block) return nullptr;
@@ -480,6 +487,14 @@ Json copySettings(BlockSource& region, GlobalPos const& pos) {
         for (auto const* s : slotsOf(*block)) filters[s->id] = items::toJson(filterslot::get(pos, s->id));
         if (!filters.empty()) out["Filtering"] = filters;
     }
+    // Create's LinkBehaviour (ClipboardCloneable "Frequencies"): the two frequency items
+    if (id == redstone::kLink) {
+        auto [first, last]  = redstone::frequencies(pos);
+        out["Frequencies"] = {{"First", items::toJson(first)}, {"Last", items::toJson(last)}};
+    }
+    // Create's BrassDiodeBlockEntity (ClipboardCloneable "Block"): whether it is inverted
+    if (isBrassDiode(id))
+        if (auto inv = intState(*block, redstone::sInverted)) out["Block"] = {{"Inverted", *inv != 0}};
     return out.empty() ? Json(nullptr) : out;
 }
 
@@ -489,6 +504,19 @@ bool pasteSettings(Player& player, BlockSource& region, GlobalPos const& pos, Js
     if (!block) return false;
     auto id      = block->getTypeName();
     bool applied = false;
+    if (auto f = copied.find("Frequencies"); f != copied.end() && f->is_object() && id == redstone::kLink && f->contains("First") && f->contains("Last")) {
+        applied = true;
+        if (!simulate) {
+            redstone::setFrequency(pos, true, items::fromJson((*f)["First"]));
+            redstone::setFrequency(pos, false, items::fromJson((*f)["Last"]));
+        }
+    }
+    if (auto d = copied.find("Block"); d != copied.end() && d->is_object() && d->contains("Inverted") && isBrassDiode(id)) {
+        applied  = true;
+        bool inv = (*d)["Inverted"].get<bool>();
+        if (!simulate && intState(*block, redstone::sInverted).value_or(0) != int(inv))
+            if (auto const* next = withStates(*block, {{redstone::sInverted, inv ? 1 : 0}})) game::setBlock(region, game::blockPos(pos), *next);
+    }
     if (auto v = copied.find("ScrollValue"); v != copied.end() && v->is_object() && !v->empty()) {
         if (auto const* boxes = valuebox::boxesOf(id)) {
             for (auto const& b : *boxes) {

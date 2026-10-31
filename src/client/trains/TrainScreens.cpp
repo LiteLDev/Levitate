@@ -281,6 +281,21 @@ private:
                 else f.tooltip = {ctr(base + "_1", "Use * as a text wildcard"), ctr(base + "_2", "Example: 'My Station, Platform *'"), ctr(base + "_3", "Train picks nearest unoccupied match")};
                 mFields.push_back(&f);
                 y += 18;
+                // Create's DestinationSuggestions: the station names, nearest first
+                auto const& names = mData.value("stations", Json::array());
+                if (path == "destination" && names.is_array() && !names.empty()) {
+                    std::vector<std::string> options;
+                    for (auto const& n : names)
+                        if (n.is_string()) options.push_back(n.get<std::string>());
+                    auto* box   = &f;
+                    auto& pick  = add<ScrollInput>(Rect{8, y, 240, 14}, ctr("lv.trains.station_suggestions", "Station suggestions"), 0, int(options.size()) - 1, 0, [this, box, options](int v) {
+                        if (!mEdit || v < 0 || v >= int(options.size())) return;
+                        field()["Text"] = options[size_t(v)];
+                        box->text       = options[size_t(v)];
+                    });
+                    pick.options = options;
+                    y += 18;
+                }
             }
             if (path == "throttle") {
                 auto& t  = add<ScrollInput>(Rect{8, y, 240, 14}, ctr("create.schedule.instruction.throttle_edit_box", "Throttle"), 1, 20, std::clamp(intOf("Value", 100) / 5, 1, 20), [this](int v) {

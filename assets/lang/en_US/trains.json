@@ -221,5 +221,6 @@
   "lv.trains.hud.approaching": "Approaching station...",
   "lv.trains.tp_mode": "Can only teleport to train when in Creative or Spectator Mode!",
   "lv.trains.tp_none": "Unable to teleport to Train. No valid location found",
-  "lv.trains.tp_done": "Teleported to Train '{0}' successfully"
+  "lv.trains.tp_done": "Teleported to Train '{0}' successfully",
+  "lv.trains.station_suggestions": "Station suggestions"
 }

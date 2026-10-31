@@ -221,5 +221,6 @@
   "lv.trains.hud.approaching": "正在驶向车站……",
   "lv.trains.tp_mode": "只能在创造或旁观模式下传送到列车！",
   "lv.trains.tp_none": "无法传送到列车：找不到有效位置",
-  "lv.trains.tp_done": "已成功传送到列车“{0}”"
+  "lv.trains.tp_done": "已成功传送到列车“{0}”",
+  "lv.trains.station_suggestions": "车站建议"
 }
