@@ -197,7 +197,8 @@ LV_REGISTER_SELFTEST("materials.chromatic_belt_light", [](Context& ctx) -> ll::c
     int left = 0;
     for (auto const& t : belts::itemsAt(p)) left += t.stack.isNull() ? 0 : t.stack.mCount;
     ctx.check(left == 1, "one torch is gone");
-    co_await ctx.ticks(1);
+    // Read the charged compound now: once it ticks it looks for light again (half the ticks, a
+    // random block within 3) and may take the second torch from the depot, a charge of 2.
     int         charged = 0;
     std::string seen;
     AABB box{Vec3{p.x - 2.f, p.y - 1.f, p.z - 2.f}, Vec3{p.x + 3.f, p.y + 4.f, p.z + 3.f}};
