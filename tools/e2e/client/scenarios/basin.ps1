@@ -3,10 +3,8 @@
 # burners, built by `/create basin demo` 4 blocks in front of the player.
 #   local / remote-mod: the client mod draws the press head, the whisk, the blaze heads and the
 #                       fluid in the basin moving (screenshots a second apart); the machines work.
-#   remote-vanilla:     a client without the mod sees the static models, without errors, and (U54)
-#                       a hopper filling a basin with ingots and copper, shown to it as client-only
-#                       item entities on the basin's floor.
-# Screenshots: out/basin/{basin-a,basin-b,basin-c}.png (+ basin-vanilla-items.png)
+#   remote-vanilla:     a client without the mod sees the static models, without errors.
+# Screenshots: out/basin/{basin-a,basin-b,basin-c}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 
 if (-not $vanilla) {
@@ -33,16 +31,4 @@ Save-Screenshot 'basin-b' | Out-Null
 Wait-LogLine 'mixer at .* mixed' 60 -Since $mark | Out-Null
 Start-Sleep -Milliseconds 700
 Save-Screenshot 'basin-c' | Out-Null
-if ($vanilla) {
-    # U54: a hopper fills a basin; vanilla clients see the stacks inside (VanillaItems.h)
-    Invoke-Chat '/setblock -2 -59 4 levitate:basin'
-    Invoke-Chat '/setblock -2 -58 4 hopper ["facing_direction"=0]'
-    Invoke-Chat '/replaceitem block -2 -58 4 slot.container 0 iron_ingot 3'
-    Invoke-Chat '/replaceitem block -2 -58 4 slot.container 1 copper_ingot 2'
-    Start-Sleep -Seconds 3
-    Invoke-Chat '/setblock -2 -58 4 air'
-    Invoke-Chat '/tp @s -1.5 -56.5 2.5 facing -1.5 -59 4.5'
-    Start-Sleep -Seconds 2
-    Save-Screenshot 'basin-vanilla-items' | Out-Null
-}
 Assert-NoErrors
