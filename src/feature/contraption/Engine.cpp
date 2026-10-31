@@ -157,8 +157,9 @@ public:
         return out;
     }
 
-    /// The carried data of an adapted inventory (Create's mounted item storages of other units).
-    CarriedBlock& carriedAt(int b) { return const_cast<CarriedBlock&>(mOwner.blocks()[b]); }
+    /// The carried data of an adapted inventory (Create's mounted item storages of other units),
+    /// written through Contraption::blockData.
+    nlohmann::json* carriedAt(int b) { return mOwner.blockData(mOwner.blocks()[b].local); }
 
     /// Writes the slots back into the blocks' NBT (before saving / placing).
     void writeBack(std::vector<CarriedBlock>& blocks) const {
@@ -208,10 +209,10 @@ public:
         // then the inventories of other units (vaults, toolboxes, creative crates, depots)
         for (int b : mAdapted) {
             if (rest.isNull() || rest.mCount == 0) break;
-            auto& carried = carriedAt(b);
-            auto* adapter = detail::itemAdapter(carried.id);
-            if (!adapter || !adapter->insert) continue;
-            rest = adapter->insert(carried.data, rest, simulate);
+            auto* adapter = detail::itemAdapter(mOwner.blocks()[b].id);
+            auto* data    = carriedAt(b);
+            if (!adapter || !adapter->insert || !data) continue;
+            rest = adapter->insert(*data, rest, simulate);
             if (!simulate) mViewDirty = true;
         }
         if (rest.isNull() || rest.mCount == 0) return ItemStack{};
@@ -237,11 +238,11 @@ public:
         }
         for (int b : mAdapted) {
             if (taken >= count) break;
-            auto& carried = carriedAt(b);
-            auto* adapter = detail::itemAdapter(carried.id);
-            if (!adapter || !adapter->extract) continue;
+            auto* adapter = detail::itemAdapter(mOwner.blocks()[b].id);
+            auto* data    = carriedAt(b);
+            if (!adapter || !adapter->extract || !data) continue;
             auto same = [&](ItemStack const& st) { return (!filter || filter(st)) && (out.isNull() || out.isStackable(st)); };
-            auto got  = adapter->extract(carried.data, same, count - taken, simulate);
+            auto got  = adapter->extract(*data, same, count - taken, simulate);
             if (got.isNull() || got.mCount == 0) continue;
             if (out.isNull()) out = got;
             taken += got.mCount;
@@ -253,6 +254,7 @@ public:
     }
 
     int slotCount() const override {
+        mViewDirty = true; // adapted inventories may change outside (a mounted storage form)
         refreshView();
         return static_cast<int>(mSlots.size() + mView.size());
     }

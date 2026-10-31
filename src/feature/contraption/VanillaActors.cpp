@@ -135,11 +135,13 @@ void dispense(MovementContext& ctx, core::GlobalPos const& pos, bool dispenser) 
             Vec3{float(at.x), float(at.y), float(at.z)},
             Vec3{float(normal.x), float(normal.y), float(normal.z)}
         );
-        if (!a) return;
-        slot->set(slot->mCount - 1);
-        if (slot->mCount <= 0) *slot = ItemStack{};
-        detail::playSound(pos.dim, center, shot == "minecraft:tnt" ? "random.fuse" : "random.bow", 1.f, 1.f);
-        return;
+        if (a) {
+            slot->set(slot->mCount - 1);
+            if (slot->mCount <= 0) *slot = ItemStack{};
+            detail::playSound(pos.dim, center, shot == "minecraft:tnt" ? "random.fuse" : "random.bow", 1.f, 1.f);
+            return;
+        }
+        // (the entity couldn't be spawned: the item is dispensed as by a dropper)
     }
     cc::Pos front{pos.x + cc::offset(face).x, pos.y + cc::offset(face).y, pos.z + cc::offset(face).z};
     if (common::items::has(*region, detail::toBlockPos(front), static_cast<int>(cc::opposite(face)))) {

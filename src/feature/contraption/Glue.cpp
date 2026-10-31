@@ -256,6 +256,8 @@ bool glueOnPlace(Player& player, cc::Pos const& placed, cc::Pos const& against) 
     // SuperGlueEntity#isValidFace: a block that moves and carries on that face
     auto a = describe(*region, dim, against);
     if (!a.necessary || cc::has(a.notSupportive, *face)) return false;
+    auto b = describe(*region, dim, placed);
+    if (!b.necessary || cc::has(b.notSupportive, cc::opposite(*face))) return false;
     addGlue(dim, cc::GlueBox::of(against, placed));
     if (!player.isCreative() && offhand.isDamageableItem()) {
         offhand.hurtAndBreak(1, &player);

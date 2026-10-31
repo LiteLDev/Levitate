@@ -86,10 +86,11 @@ std::vector<Box> worldBoxes(Transform const& t, Box const& local) {
     double residual = std::abs(std::remainder(t.angle, 90.0));
     bool   tilted   = std::abs(std::remainder(t.tilt, 90.0)) > 0.5;
     if (residual <= 0.5 && !tilted) return {bound(local)};
-    // halves along the axes the turn moves (every axis when tilted too)
-    int n[3]{1, 1, 1};
+    // halves along the axes each turn moves
+    bool turned = residual > 0.5;
+    int  n[3]{1, 1, 1};
     for (int a = 0; a < 3; ++a)
-        if (tilted || static_cast<Axis>(a) != t.axis) n[a] = 2;
+        if ((turned && static_cast<Axis>(a) != t.axis) || (tilted && static_cast<Axis>(a) != t.tiltAxis)) n[a] = 2;
     std::vector<Box> out;
     Vec3d            size = local.size();
     for (int i = 0; i < n[0]; ++i)

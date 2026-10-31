@@ -1110,7 +1110,7 @@ bool keptOut(ItemStackBase const& item) {
 
 /// The dispenser's own random pick (vanilla picks a random filled slot too): a minecart contraption
 /// in front of a rail is placed instead of being shot out.
-bool dispenseCart(BlockSource& region, BlockPos const& pos) {
+bool dispenseCart(BlockSource& region, BlockPos const& pos, std::function<void()> const& vanilla) {
     auto* container = region.tryGetContainer(pos).as_ptr();
     if (!container) return false;
     std::vector<int> filled;
@@ -1125,7 +1125,19 @@ bool dispenseCart(BlockSource& region, BlockPos const& pos) {
     static std::mt19937 rng{std::random_device{}()};
     int  slot  = filled[std::uniform_int_distribution<std::size_t>(0, filled.size() - 1)(rng)];
     auto stack = container->getItem(slot);
-    if (!isCartItem(stack.getTypeName())) return false;
+    if (!isCartItem(stack.getTypeName())) {
+        // another item was picked: vanilla dispenses it with the carts held back, so its own
+        // random pick can't shoot a cart contraption out instead
+        std::vector<std::pair<int, ItemStack>> held;
+        for (int i : filled) {
+            if (!isCartItem(container->getItem(i).getTypeName())) continue;
+            held.emplace_back(i, container->getItem(i));
+            container->setItem(i, ItemStack{});
+        }
+        vanilla();
+        for (auto const& [i, s] : held) container->setItem(i, s);
+        return true;
+    }
     auto const& block  = region.getBlock(pos);
     int         facing = game::intState(block, "facing_direction").value_or(0);
     GP          at{static_cast<int>(region.getDimensionId()), pos.x, pos.y, pos.z};
@@ -1145,7 +1157,7 @@ LL_TYPE_INSTANCE_HOOK(
 ) {
     if (!region.getLevel().isClientSide() && getTypeName() == "minecraft:dispenser") {
         try {
-            if (dispenseCart(region, pos)) return;
+            if (dispenseCart(region, pos, [&] { origin(region, pos); })) return;
         } catch (std::exception const& e) {
             log().error("bearings: cart dispense failed: {}", e.what());
         }

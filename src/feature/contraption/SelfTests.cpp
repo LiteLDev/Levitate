@@ -234,7 +234,7 @@ LV_REGISTER_SELFTEST("contraption.unmovable", [](Context& ctx) -> ll::coro::Coro
     ctx.check(idAt(ctx, p) == "minecraft:bedrock", "world untouched");
     // pushing into an unmovable block fails
     place(ctx, at(p, 0, 0, 1), "minecraft:stone");
-    place(ctx, at(p, 0, 0, 2), "minecraft:obsidian");
+    place(ctx, at(p, 0, 0, 2), "minecraft:oak_planks"); // (obsidian is unmovable by default since U53)
     place(ctx, at(p, 0, 0, 3), "minecraft:barrier");
     AssembleOptions o;
     o.anchor = at(p, 0, 0, 1);

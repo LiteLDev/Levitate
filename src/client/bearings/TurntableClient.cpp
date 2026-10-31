@@ -39,8 +39,8 @@ void turnView() {
     // speed · 2/3 per tick, scaled per frame by the partial tick in Create: about a third per tick
     float speed = synced->speed * (2 / 3.f) * 0.5f;
     float dx = feet.x - (on.x + .5f), dz = feet.z - (on.z + .5f);
-    float dy  = feet.y - (on.y + .5f);
-    float len = std::sqrt(dx * dx + dy * dy + dz * dz);
+    // (Create's half-height plate puts the feet at the centre's height: only the horizontal offset counts)
+    float len = std::sqrt(dx * dx + dz * dz);
     if (len > 1 / 4.f) speed *= std::clamp((1 / 2.f - len) * 2, 0.f, 1.f);
     if (speed == 0) return;
     Vec2& rot = player->mBuiltInComponents->mActorRotationComponent->mRot.get();
