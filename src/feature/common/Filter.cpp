@@ -6,6 +6,7 @@
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/string/HashedString.h"
+#include "mc/deps/nbt/ByteArrayTag.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/deps/nbt/ListTag.h"
 #include "mc/world/item/Item.h"
@@ -21,6 +22,7 @@
 #include "mc/world/level/block/actor/FurnaceBlockActor.h"
 
 #include "core/common/Transfer.h"
+#include "feature/common/FluidRegistry.h"
 #include "feature/common/Items.h"
 #include "feature/common/Recipes.h"
 #include "mod/I18n.h"
@@ -155,6 +157,53 @@ Enchant const* enchantOf(Enchant::Type type) {
 
 bool hasRecipe(char const* type, ItemStack const& s) { return !recipes::withFirstIngredient(type, s).empty(); }
 
+/// Create's DyeColor names (the ids of Bedrock's coloured items use the same words).
+constexpr char const* kDyeColors[16] = {"white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
+                                        "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"};
+
+/// Create's ColorAttribute.findMatchingDyeColors: a dye's colour, the colours of a firework star /
+/// rocket's explosions, and every colour whose name starts the item's path ("red_wool").
+std::vector<std::string> dyeColorsOf(ItemStack const& s) {
+    std::vector<std::string> out;
+    if (items::isEmpty(s)) return out;
+    auto id   = items::idOf(s);
+    auto path = id.substr(id.find(':') == std::string::npos ? 0 : id.find(':') + 1);
+    // DyeColor.getColor: a dye item
+    if (path.size() > 4 && path.ends_with("_dye")) {
+        auto name = path.substr(0, path.size() - 4);
+        for (auto const* c : kDyeColors)
+            if (name == c) return {name};
+    }
+    auto add = [&](std::string const& c) {
+        if (std::find(out.begin(), out.end(), c) == out.end()) out.push_back(c);
+    };
+    // firework stars / rockets: Bedrock keeps the explosion colours as dye ids (FireworkColor bytes)
+    if (id == "minecraft:firework_star" || id == "minecraft:firework_rocket") {
+        if (auto const* tag = items::userData(s)) {
+            auto colorsOf = [&](CompoundTag const& e) {
+                for (char const* key : {"FireworkColor", "FireworkFade"}) {
+                    if (!e.contains(key, Tag::Type::ByteArray)) continue;
+                    for (auto b : e[key].get<ByteArrayTag>()) {
+                        // Bedrock's firework colour bytes are the legacy dye indices (0 black .. 15 white)
+                        int idx = 15 - (static_cast<int>(b) & 15);
+                        add(kDyeColors[idx]);
+                    }
+                }
+            };
+            if (tag->contains("FireworksItem", Tag::Type::Compound)) colorsOf((*tag)["FireworksItem"].get<CompoundTag>());
+            if (tag->contains("Fireworks", Tag::Type::Compound)) {
+                auto const& fw = (*tag)["Fireworks"].get<CompoundTag>();
+                if (fw.contains("Explosions", Tag::Type::List))
+                    for (auto const& e : fw["Explosions"].get<ListTag>())
+                        if (e.is_object()) colorsOf(e.get<CompoundTag>());
+            }
+        }
+    }
+    for (auto const* c : kDyeColors)
+        if (path.starts_with(std::string(c) + "_")) add(c);
+    return out;
+}
+
 std::string userString(ItemStack const& s, char const* key) {
     auto const* tag = items::userData(s);
     if (!tag || !tag->contains(key, Tag::Type::String)) return {};
@@ -237,6 +286,7 @@ void registerBuiltins() {
         if (count == 0) return std::vector<std::string>{"empty"};
         return std::vector<std::string>{full >= 27 ? "full" : "partial"};
     });
+    valued("has_color", dyeColorsOf);
     valued("has_fluid", [](ItemStack const& s) {
         auto f = fluids::fluidInItem(s);
         return f.empty() ? std::vector<std::string>{} : std::vector<std::string>{f.fluid};
@@ -304,6 +354,24 @@ bool attributeApplies(AttributeEntry const& entry, ItemStack const& stack) {
     return t && !items::isEmpty(stack) && t->test(stack, entry.value);
 }
 
+namespace {
+/// "fire_aspect" / "minecraft:fire_aspect" -> "Fire Aspect" (server-side names for lore text).
+std::string prettyName(std::string id) {
+    if (auto c = id.find(':'); c != std::string::npos) id = id.substr(c + 1);
+    bool up = true;
+    for (auto& ch : id) {
+        if (ch == '_' || ch == '.') {
+            ch = ' ';
+            up = true;
+        } else if (up) {
+            ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+            up = false;
+        }
+    }
+    return id;
+}
+} // namespace
+
 std::string describe(AttributeEntry const& entry, std::string const& locale) {
     static std::unordered_map<std::string, std::pair<char const*, char const*>> const english{
         {"placeable",          {"is placeable", "is not placeable"}                                     },
@@ -327,6 +395,7 @@ std::string describe(AttributeEntry const& entry, std::string const& locale) {
         {"in_tag",             {"is tagged {0}", "is not tagged {0}"}                                   },
         {"in_item_group",      {"is in group '{0}'", "is not in group '{0}'"}                           },
         {"added_by",           {"was added by {0}", "was not added by {0}"}                             },
+        {"color",              {"is dyed {0}", "is not dyed {0}"}                                       },
         {"has_enchant",        {"is enchanted with {0}", "is not enchanted with {0}"}                   },
         {"shulker_level",      {"is shulker {0}", "is shulker not {0}"}                                 },
         {"has_fluid",          {"contains {0}", "does not contain {0}"}                                 },
@@ -344,6 +413,23 @@ std::string describe(AttributeEntry const& entry, std::string const& locale) {
     if (type == "shulker_fill_level") {
         type  = "shulker_level";
         value = std::string(translate("create.item_attributes.shulker_level." + value, value == "partial" ? "partially filled" : value, locale));
+    } else if (type == "has_color") {
+        // ColorAttribute: key "color", the colour's name
+        type = "color";
+        std::string english = value;
+        if (!english.empty()) english[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(english[0])));
+        for (auto& ch : english)
+            if (ch == '_') ch = ' ';
+        value = std::string(translate("color.minecraft." + entry.value, english, locale));
+    } else if (type == "in_tag") {
+        value = "#" + value; // InTagAttribute: "#" + the tag
+    } else if (type == "has_enchant") {
+        value = prettyName(value); // EnchantAttribute: the enchantment's name
+    } else if (type == "has_fluid") {
+        value = fluidtypes::displayName(value, locale); // FluidContentsAttribute: the fluid's name
+    } else if (type == "added_by") {
+        // AddedByAttribute: the mod's display name, else the capitalised namespace
+        value = prettyName(value);
     } else if (type == "book_copy") {
         type = value == "copy_of_original" ? "book_copy_first"
              : value == "copy_of_copy"     ? "book_copy_second"
@@ -375,7 +461,10 @@ bool matches(ItemStack const& filter, ItemStack const& stack, bool matchData) {
         std::vector<ItemStack const*> entries;
         for (auto const& s : data.items)
             if (!items::isEmpty(s)) entries.push_back(&s);
-        if (!entries.empty()) {
+        // Create's ListFilterItemStack: a configured list (stored data) tests its entries, so an
+        // empty one rejects everything (accepts everything as a deny-list); only a blank filter
+        // falls back to matching itself
+        if (!entries.empty() || items::getData(filter, "filter").is_object()) {
             return core::common::combineListFilter(
                 entries.size(),
                 [&](std::size_t i) { return matches(*entries[i], stack, data.respectData); },
@@ -417,7 +506,7 @@ items::ItemPredicate predicate(ItemStack const& filter, bool matchData) {
     if (isListFilter(filter)) {
         auto data = std::make_shared<ListFilter>(readList(filter));
         std::erase_if(data->items, [](ItemStack const& s) { return items::isEmpty(s); });
-        if (!data->items.empty()) {
+        if (!data->items.empty() || items::getData(filter, "filter").is_object()) {
             return [data](ItemStack const& stack) {
                 return core::common::combineListFilter(
                     data->items.size(),
@@ -444,18 +533,19 @@ void updateLore(ItemStack& filter) {
         auto data = readList(filter);
         int  shown = 0, total = 0;
         for (auto const& s : data.items) total += items::isEmpty(s) ? 0 : 1;
-        if (total > 0 || data.blacklist) {
+        // Create's ListFilterItem.makeSummary: nothing for an empty list, 4 entries then "- ..."
+        if (total > 0) {
             lines.push_back(
                 "§6"
                 + std::string(data.blacklist ? translate("create.gui.filter.deny_list", "Deny-List") : translate("create.gui.filter.allow_list", "Allow-List"))
             );
             for (auto const& s : data.items) {
                 if (items::isEmpty(s)) continue;
-                if (shown++ >= 3) {
-                    lines.push_back("§7- ...");
+                if (shown++ > 3) {
+                    lines.push_back("§8- ...");
                     break;
                 }
-                lines.push_back("§7- §f" + items::displayName(s));
+                lines.push_back("§7- " + items::displayName(s));
             }
         }
     } else if (isAttributeFilter(filter)) {
@@ -470,11 +560,11 @@ void updateLore(ItemStack& filter) {
             lines.push_back("§6" + std::string(translate(key, fb)));
             int shown = 0;
             for (auto const& a : data.attributes) {
-                if (shown++ >= 3) {
-                    lines.push_back("§7- ...");
+                if (shown++ > 3) {
+                    lines.push_back("§8- ...");
                     break;
                 }
-                lines.push_back("§7- §f" + describe(a));
+                lines.push_back("§f- " + describe(a));
             }
         }
     }

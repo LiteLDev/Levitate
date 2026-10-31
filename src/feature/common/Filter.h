@@ -101,7 +101,5 @@ void registerAttribute(AttributeType type);
 /// Rewrites the filter's lore with Create's summary (mode line + up to 4 entries).
 void updateLore(ItemStack& filter);
 
-/// Maximum attributes an attribute filter keeps (⚠ Create 6.0.10 value, see SPEC §2.26).
-inline constexpr int kMaxAttributes = 8;
 
 } // namespace lv::feature::common::filter

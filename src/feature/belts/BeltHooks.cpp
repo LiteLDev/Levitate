@@ -14,6 +14,8 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/server/commands/standard/FillCommand.h"
+#include "mc/server/commands/standard/SetBlockCommand.h"
 #include "mc/world/level/Explosion.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
@@ -71,19 +73,18 @@ ia::Result onUseOn(ia::UseOnContext const& c) {
     cb::Vec3d h{c.hit[0], c.hit[1], c.hit[2]};
     try {
         // value boxes (the ejector's stack size) are handled by the value box module
-        if (id == kEjectorId && !c.sneaking && (heldId.empty() || heldId == kWrenchId)
-            && common::valuebox::boxAt(c.block, face, {h.x, h.y, h.z})) {
-            return ia::Result::Pass;
-        }
-        bool handled = false;
-        bool mine    = heldId == kBeltConnectorId || id == kBeltId || isDepotId(id) || (heldId == kEjectorId && c.sneaking);
+        if (id == kEjectorId && !c.sneaking && common::valuebox::boxAt(c.block, face, {h.x, h.y, h.z})) return ia::Result::Pass;
+        // Create's EjectorBlock.useItemOn: the wrench is passed on (rotate / pick up)
+        bool ejectorWrench = id == kEjectorId && heldId == kWrenchId;
+        bool handled       = false;
+        bool mine = heldId == kBeltConnectorId || id == kBeltId || (isDepotId(id) && !ejectorWrench && face == 1) || (heldId == kEjectorId && c.sneaking);
         // a repeat of a click we handle: swallow it (a second depot click would take the item back)
         if (mine && !c.sneaking && debounced(player, pos)) return handledResult(player);
         if (mine && c.sneaking && (heldId == kBeltConnectorId || heldId == kEjectorId) && debounced(player, pos))
             return handledResult(player);
         if (heldId == kBeltConnectorId) handled = onConnectorUse(player, pos, face, h);
         else if (id == kBeltId) handled = onBeltUse(player, pos, face, h);
-        else if (isDepotId(id)) handled = onDepotUse(player, pos, face, h);
+        else if (isDepotId(id) && !ejectorWrench) handled = onDepotUse(player, pos, face, h);
         if (!handled && heldId == kEjectorId) {
             if (c.sneaking) handled = onEjectorItemUse(player, pos);
             else state().placeIntents[placementPos(region, at, face)] = {uuidOf(player), game::playerFacing(player)};
@@ -151,12 +152,60 @@ LL_TYPE_INSTANCE_HOOK(BeltsExplosionHook, ll::memory::HookPriority::Normal, Expl
     return result;
 }
 
+// `/setblock ... destroy` and `/fill ... destroy` break blocks like a player without tool (Create's
+// belt drops its loot): segments removed while such a command runs are marked
+void markCommandRemovals(std::size_t before) {
+    auto& s = state();
+    for (std::size_t i = before; i < s.removals.size(); ++i) s.commandDestroyed.insert(s.removals[i].pos);
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    BeltsSetBlockCommandHook,
+    ll::memory::HookPriority::Normal,
+    SetBlockCommand,
+    &SetBlockCommand::$execute,
+    void,
+    ::CommandOrigin const& cmdOrigin,
+    ::CommandOutput&       output
+) {
+    if (mMode != SetBlockCommand::SetBlockMode::Destroy) return origin(cmdOrigin, output);
+    std::size_t before = state().removals.size();
+    origin(cmdOrigin, output);
+    markCommandRemovals(before);
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    BeltsFillCommandHook,
+    ll::memory::HookPriority::Normal,
+    FillCommand,
+    &FillCommand::$execute,
+    void,
+    ::CommandOrigin const& cmdOrigin,
+    ::CommandOutput&       output
+) {
+    if (mMode != FillCommand::FillMode::Destroy) return origin(cmdOrigin, output);
+    std::size_t before = state().removals.size();
+    origin(cmdOrigin, output);
+    markCommandRemovals(before);
+}
+
 void installHooks() {
     auto& ids = handlerIds();
     ids.push_back(ia::onUseOn({}, onUseOn));
     ids.push_back(ia::onUse(std::string(kBeltConnectorId), [](ia::UseContext const& c) {
         if (c.onBlock || !c.sneaking) return ia::Result::Pass;
         clearConnectorSelection(c.player); // Create: sneak-use resets the first pulley
+        return ia::Result::Consume;
+    }));
+    // Create's EjectorTargetHandler.leftClickingBlocksDeselectsThem: sneak + left-click on the
+    // selected block with the ejector clears the selection
+    ids.push_back(ia::onStartDestroy({.item = std::string(kEjectorId)}, [](ia::DestroyContext const& c) {
+        auto& targets = state().ejectorTargets;
+        auto  it      = targets.find(uuidOf(c.player));
+        if (!c.player.isSneaking() || it == targets.end() || !(it->second == c.pos)) return ia::Result::Pass;
+        targets.erase(it);
+        clearEjectorSelection(c.player);
+        log().info("belts: {} cleared the ejector target", c.player.getRealName());
         return ia::Result::Consume;
     }));
     ids.push_back(ia::onDestroy({.block = std::string(kBeltId)}, [](ia::DestroyContext const& c) {
@@ -167,11 +216,15 @@ void installHooks() {
     BeltsDisplayTickHook::hook();
     BeltsDisplayHopperHook::hook();
     BeltsExplosionHook::hook();
+    BeltsSetBlockCommandHook::hook();
+    BeltsFillCommandHook::hook();
     installShapes();
 }
 
 void uninstallHooks() {
     uninstallShapes();
+    BeltsFillCommandHook::unhook();
+    BeltsSetBlockCommandHook::unhook();
     BeltsExplosionHook::unhook();
     BeltsDisplayHopperHook::unhook();
     BeltsDisplayTickHook::unhook();
