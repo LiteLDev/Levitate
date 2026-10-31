@@ -111,7 +111,10 @@ struct Clock {
 enum class RuntimeState : int { PreTransit = 0, InTransit = 1, PostTransit = 2 };
 
 /// What starting a "travel to" instruction gave.
-enum class StartResult { Navigating, AlreadyThere, NoMatch, NoPath, NoDriver, NoTarget };
+/// Skip / SkipCooldown: nothing to do, the entry is skipped with its conditions (Create's package
+/// instructions without packages; Fetch also waits the retry interval). NoDriver: the driver
+/// reported the failure itself (retry after the interval).
+enum class StartResult { Navigating, AlreadyThere, NoMatch, NoPath, NoDriver, NoTarget, Skip, SkipCooldown };
 
 /// The game side of a running schedule.
 class Driver {
@@ -173,6 +176,22 @@ struct Runtime {
     [[nodiscard]] std::string title() const;
     /// Ticks the current wait still takes when column 0 only has delays (-1 unknown).
     [[nodiscard]] int remainingWaitTicks() const;
+
+    /// Create's ScheduleRuntime.submitPredictions: when the train reaches each upcoming
+    /// destination of its schedule (station summaries on display boards).
+    struct Prediction {
+        int         ticks = -1;  ///< -1: unknown (" ~ ")
+        std::string title;       ///< the schedule title shown with it
+        std::string destination; ///< a station name (current / navigating) or the entry's filter
+    };
+    struct PredictionInput {
+        std::string currentStation;      ///< name of the station the train stands at ("" none)
+        std::string navDestination;      ///< name of the station it navigates to ("" none)
+        double      distanceToDestination = 0;
+        double      distanceStartedAt     = 0;
+        double      speed                 = 0; ///< min(throttle * max, (max + turn) / 2), blocks per tick
+    };
+    [[nodiscard]] std::vector<Prediction> predictions(PredictionInput const& in) const;
 
     [[nodiscard]] Json            toJson() const;
     [[nodiscard]] static Runtime  fromJson(Json const& j);

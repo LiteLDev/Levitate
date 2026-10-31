@@ -149,6 +149,9 @@ struct PortInfo {
 [[nodiscard]] std::vector<PortInfo> postboxesForStation(GlobalPos const& station);
 /// The port's 18 slots (copies).
 [[nodiscard]] std::vector<ItemStack> portInventory(GlobalPos const& pos);
+/// The packages looping around the chain conveyor at `pos` (Create's getLoopingPackages; the
+/// display link's "Read Package Address" source). Empty for other blocks.
+[[nodiscard]] std::vector<ItemStack> loopingPackages(GlobalPos const& pos);
 /// Puts a package into the port's inventory (as a train unloading: no address check).
 /// Returns what did not fit.
 [[nodiscard]] ItemStack insertIntoPort(GlobalPos const& pos, ItemStack const& box, bool simulate);
@@ -156,10 +159,5 @@ struct PortInfo {
 [[nodiscard]] ItemStack extractFromPort(GlobalPos const& pos, std::function<bool(ItemStack const&)> const& filter, bool simulate);
 /// Postbox flag / particles after a train delivered (Create's spawnParticles).
 void notifyDelivered(GlobalPos const& pos);
-
-/// (Added by U58) The packages looping on the chain conveyor at `pos` (Create's
-/// ChainConveyorBlockEntity.getLoopingPackages, read by smart observers); nullopt when no chain
-/// conveyor is there.
-[[nodiscard]] std::optional<std::vector<ItemStack>> loopingPackages(GlobalPos const& pos);
 
 } // namespace lv::feature::packages

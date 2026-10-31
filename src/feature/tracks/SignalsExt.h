@@ -17,8 +17,9 @@
 //     sig::releaseReservations(trainId);
 //     // disassembled / destroyed:
 //     sig::removeTrain(trainId);
-//     // path finding (tracks::PathQuery::edgePenalty), Create's red signal penalties:
-//     q.edgePenalty = [&](auto const& g, auto const& e) { return sig::pathPenalty(trainId, g, e); };
+//     // path finding (tracks::PathQuery::edgeCost), Create's red signal penalties and one-way signals:
+//     double weight = sig::redSignalWeight(ticksWaitingForSignal);
+//     q.edgeCost = [&](auto const& g, auto const& e) { return sig::pathCost(trainId, g, e, weight); };
 //
 // Track observers need the train's cargo for their filter (Create: items in the carriages'
 // inventories, fluids in their tanks). Trains provide it once:
@@ -103,6 +104,8 @@ void removeTrain(std::string const& trainId);
 );
 /// Drops the sections reserved for the train (it no longer follows the path it asked for).
 void releaseReservations(std::string const& trainId);
+/// The type of the signals on one side of a boundary (Crossing::boundary / side).
+[[nodiscard]] SignalType boundaryType(std::string const& boundaryId, int side);
 /// Signal boundaries on the way (in order, with the side entered and the distance).
 [[nodiscard]] std::vector<Crossing> signalsAhead(
     core::tracks::GraphLocation const&         front,
@@ -111,6 +114,16 @@ void releaseReservations(std::string const& trainId);
 );
 /// Extra path cost for entering `edge` (Create: red signal 25, redstone-forced red signal 400).
 [[nodiscard]] double pathPenalty(std::string const& trainId, core::tracks::Graph const& graph, core::tracks::Edge const& edge);
+/// Create's Navigation.search over the signals of `edge`: a boundary without a signal facing the
+/// travel direction can't be passed (the cost's barrier); redstone-forced red signals cost 400;
+/// occupied ones cost `redWeight`, halved after each (start it with `redSignalWeight`).
+[[nodiscard]] core::tracks::EdgeCost
+pathCost(std::string const& trainId, core::tracks::Graph const& graph, core::tracks::Edge const& edge, double& redWeight);
+/// Create's signalWeight: clamp(ticksWaitingForSignal * 2, 25, 200).
+[[nodiscard]] inline double redSignalWeight(int ticksWaitingForSignal) {
+    double w = ticksWaitingForSignal * 2.0;
+    return w < kRedSignalPenalty ? kRedSignalPenalty : w > 200 ? 200 : w;
+}
 
 // ---- queries ----------------------------------------------------------------------------------
 

@@ -4,17 +4,13 @@
 // units use to write onto a clipboard item (U25's package ports add their address, U29's
 // schematicannon prints its material checklist onto one). Server thread only.
 
-#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "nlohmann/json.hpp"
 
-#include "core/GlobalPos.h"
-
 class ItemStack;
-class Player;
 
 namespace lv::feature::display {
 inline constexpr char const* kClipboardId = "levitate:clipboard";
@@ -55,16 +51,5 @@ inline constexpr int kChecklistPageEntries = 7;
 /// A new written, read-only clipboard with `pages` and the custom name `name` (Create's
 /// MaterialChecklist.createWrittenClipboard). nullopt when the item can't be made.
 [[nodiscard]] std::optional<ItemStack> makeWritten(std::vector<std::vector<Entry>> pages, std::string const& name);
-
-/// (Added by U58) Create's ClipboardCloneable: settings of a block that are not value boxes or
-/// filter slots (link frequencies, a brass diode's inversion). Copying stores `write(pos)` under
-/// `key` (Create's getClipboardKey; skipped when null); pasting onto any block with a cloneable of
-/// the same key calls `read` (true: it applies; nothing changes while `simulate`).
-struct Cloneable {
-    std::string                                                                        key;
-    std::function<Json(core::GlobalPos const& pos)>                                    write;
-    std::function<bool(Player& player, core::GlobalPos const& pos, Json const& data, bool simulate)> read;
-};
-void registerCloneable(std::string const& blockId, Cloneable cloneable);
 
 } // namespace lv::feature::display::clipboard

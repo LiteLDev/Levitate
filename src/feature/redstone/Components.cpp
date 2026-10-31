@@ -20,7 +20,6 @@
 #include "feature/common/Items.h"
 #include "feature/common/Redstone.h"
 #include "feature/common/ValueBox.h"
-#include "feature/display/Clipboard.h"
 #include "feature/goggles/Wrenchable.h"
 #include "feature/pistons/ElevatorColumns.h"
 #include "core/goggles/Rotation.h"
@@ -453,56 +452,6 @@ void registerWrench() {
                 },
         }
     );
-}
-
-// ---- clipboard (Create's ClipboardCloneable) ------------------------------------------------------
-
-void registerClipboard() {
-    // LinkBehaviour: the two frequencies under "Frequencies"
-    display::clipboard::registerCloneable(
-        kLink,
-        display::clipboard::Cloneable{
-            .key   = "Frequencies",
-            .write =
-                [](GP const& pos) {
-                    auto [first, last] = frequencies(pos);
-                    return Json{{"First", common::items::toJson(first)}, {"Last", common::items::toJson(last)}};
-                },
-            .read =
-                [](Player& player, GP const& pos, Json const& data, bool simulate) {
-                    if (!data.is_object() || !data.contains("First") || !data.contains("Last")) return false;
-                    if (simulate) return true;
-                    setFrequency(pos, true, common::items::fromJson(data["First"]));
-                    setFrequency(pos, false, common::items::fromJson(data["Last"]));
-                    log().info("redstone link at {} frequencies pasted by {}", posText(pos), player.getRealName());
-                    return true;
-                },
-        }
-    );
-    // BrassDiodeBlockEntity: the inversion under "Block"
-    for (auto kind : {Kind::PulseRepeater, Kind::PulseExtender, Kind::PulseTimer}) {
-        display::clipboard::registerCloneable(
-            idOf(kind),
-            display::clipboard::Cloneable{
-                .key   = "Block",
-                .write =
-                    [](GP const& pos) {
-                        auto* region = regionOf(pos.dim);
-                        if (!region || !loadedAt(*region, game::blockPos(pos))) return Json();
-                        return Json{{"Inverted", state(region->getBlock(game::blockPos(pos)), sInverted) != 0}};
-                    },
-                .read =
-                    [](Player&, GP const& pos, Json const& data, bool simulate) {
-                        if (!data.is_object() || !data.contains("Inverted") || !data["Inverted"].is_boolean()) return false;
-                        if (simulate) return true;
-                        auto* region = regionOf(pos.dim);
-                        if (!region) return true;
-                        setStates(*region, game::blockPos(pos), {{sInverted, data["Inverted"].get<bool>() ? 1 : 0}});
-                        return true;
-                    },
-            }
-        );
-    }
 }
 
 // ---- dispatch ----------------------------------------------------------------------------------

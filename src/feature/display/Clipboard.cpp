@@ -25,6 +25,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/common/ValueBox.h"
+#include "feature/redstone/Internal.h"
 #include "feature/display/Internal.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
@@ -462,13 +463,10 @@ std::vector<Entry> lastViewedEntries(Contents const& c) {
 // ---- copy / paste of settings -----------------------------------------------------------------
 
 namespace {
-std::map<std::string, std::vector<Cloneable>>& cloneables() {
-    static std::map<std::string, std::vector<Cloneable>> m;
-    return m;
+bool isBrassDiode(std::string const& id) {
+    return id == redstone::kPulseRepeater || id == redstone::kPulseExtender || id == redstone::kPulseTimer;
 }
 } // namespace
-
-void registerCloneable(std::string const& blockId, Cloneable cloneable) { cloneables()[blockId].push_back(std::move(cloneable)); }
 
 Json copySettings(BlockSource& region, GlobalPos const& pos) {
     auto const* block = loadedBlock(region, game::blockPos(pos));
@@ -489,12 +487,14 @@ Json copySettings(BlockSource& region, GlobalPos const& pos) {
         for (auto const* s : slotsOf(*block)) filters[s->id] = items::toJson(filterslot::get(pos, s->id));
         if (!filters.empty()) out["Filtering"] = filters;
     }
-    if (auto it = cloneables().find(id); it != cloneables().end()) {
-        for (auto const& c : it->second) {
-            if (!c.write) continue;
-            if (auto j = c.write(pos); !j.is_null()) out[c.key] = std::move(j);
-        }
+    // Create's LinkBehaviour (ClipboardCloneable "Frequencies"): the two frequency items
+    if (id == redstone::kLink) {
+        auto [first, last]  = redstone::frequencies(pos);
+        out["Frequencies"] = {{"First", items::toJson(first)}, {"Last", items::toJson(last)}};
     }
+    // Create's BrassDiodeBlockEntity (ClipboardCloneable "Block"): whether it is inverted
+    if (isBrassDiode(id))
+        if (auto inv = intState(*block, redstone::sInverted)) out["Block"] = {{"Inverted", *inv != 0}};
     return out.empty() ? Json(nullptr) : out;
 }
 
@@ -504,6 +504,19 @@ bool pasteSettings(Player& player, BlockSource& region, GlobalPos const& pos, Js
     if (!block) return false;
     auto id      = block->getTypeName();
     bool applied = false;
+    if (auto f = copied.find("Frequencies"); f != copied.end() && f->is_object() && id == redstone::kLink && f->contains("First") && f->contains("Last")) {
+        applied = true;
+        if (!simulate) {
+            redstone::setFrequency(pos, true, items::fromJson((*f)["First"]));
+            redstone::setFrequency(pos, false, items::fromJson((*f)["Last"]));
+        }
+    }
+    if (auto d = copied.find("Block"); d != copied.end() && d->is_object() && d->contains("Inverted") && isBrassDiode(id)) {
+        applied  = true;
+        bool inv = (*d)["Inverted"].get<bool>();
+        if (!simulate && intState(*block, redstone::sInverted).value_or(0) != int(inv))
+            if (auto const* next = withStates(*block, {{redstone::sInverted, inv ? 1 : 0}})) game::setBlock(region, game::blockPos(pos), *next);
+    }
     if (auto v = copied.find("ScrollValue"); v != copied.end() && v->is_object() && !v->empty()) {
         if (auto const* boxes = valuebox::boxesOf(id)) {
             for (auto const& b : *boxes) {
@@ -538,13 +551,6 @@ bool pasteSettings(Player& player, BlockSource& region, GlobalPos const& pos, Js
             if (s->onChanged) s->onChanged(pos);
         }
     }
-    if (auto it = cloneables().find(id); it != cloneables().end()) {
-        for (auto const& c : it->second) {
-            auto data = copied.find(c.key);
-            if (data == copied.end() || !c.read) continue;
-            if (c.read(player, pos, *data, simulate)) applied = true;
-        }
-    }
     return applied;
 }
 
@@ -572,7 +578,7 @@ bool useOnBlock(Player& player, BlockSource& region, GlobalPos const& pos, int f
                     mine.pages.emplace_back();
                     free = std::prev(mine.pages.end());
                 }
-                free->push_back({e.text, false});
+                free->push_back({e.text, e.checked}); // Create keeps the check marks
             }
         }
         mine.type      = mine.pages.empty() ? 0 : 2;
@@ -617,18 +623,21 @@ bool paste(Player& player, BlockSource& region, GlobalPos const& pos) {
     return true;
 }
 
+bool pickUp(Player& player, BlockSource& region, GlobalPos const& pos) {
+    if (idAt(region, pos) != kClipboardId) return false;
+    // Create's breakAndCollect: the clipboard goes into the inventory with its pages
+    auto doc   = blockdata::take(pos);
+    auto stack = items::make(kClipboardId);
+    if (stack && doc && doc->contains(kDataKey)) setOnItem(*stack, fromJson((*doc)[kDataKey]));
+    game::clearBlock(region, game::blockPos(pos));
+    if (stack) giveOrDrop(player, *stack);
+    log().info("clipboard at {} picked up by {}", pos.key(), player.getRealName());
+    return true;
+}
+
 bool useBlock(Player& player, BlockSource& region, GlobalPos const& pos) {
     if (idAt(region, pos) != kClipboardId) return false;
-    if (player.isSneaking()) {
-        // Create's breakAndCollect: the clipboard goes into the inventory with its pages
-        auto doc   = blockdata::take(pos);
-        auto stack = items::make(kClipboardId);
-        if (stack && doc && doc->contains(kDataKey)) setOnItem(*stack, fromJson((*doc)[kDataKey]));
-        game::clearBlock(region, game::blockPos(pos));
-        if (stack) giveOrDrop(player, *stack);
-        log().info("clipboard at {} picked up by {}", pos.key(), player.getRealName());
-        return true;
-    }
+    if (player.isSneaking()) return pickUp(player, region, pos);
     screens::open(player, kScreen, {{"pos", posJson(pos)}});
     return true;
 }

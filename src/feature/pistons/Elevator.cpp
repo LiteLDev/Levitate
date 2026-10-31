@@ -15,6 +15,7 @@
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/level/BlockSource.h"
 
+#include "feature/display/Display.h"
 #include "feature/common/Screens.h"
 #include "feature/contraption/PistonsExt.h"
 #include "feature/pistons/ElevatorColumns.h"
@@ -180,6 +181,7 @@ void floorReached(ColumnCoords const& c, int contactY) {
         GlobalPos p{c.dim, c.x, y, c.z};
         if (str(dataIf(p), "floor") == name) continue;
         data(p)["floor"] = name; // Create: updateDisplayedFloor (display links read it)
+        display::notifyGatherers(p);
     }
 }
 

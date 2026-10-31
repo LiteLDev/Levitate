@@ -14,6 +14,7 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
 
+#include "feature/display/Display.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Filter.h"
 #include "feature/common/Items.h"
@@ -152,8 +153,8 @@ void tickSmartObserver(BlockSource& region, GP const& pos, Block const& block, R
         return;
     }
     // packages looping on a chain conveyor
-    if (auto looping = packages::loopingPackages(targetPos)) {
-        for (auto const& box : *looping) {
+    if (region.getBlock(tp).getTypeName() == packages::kChainConveyorId) {
+        for (auto const& box : packages::loopingPackages(targetPos)) {
             if (!common::filterslot::matches(pos, box)) continue;
             activateObserver(region, pos, kObserverDelay);
             return;
@@ -297,6 +298,8 @@ void updateThresholdLevel(BlockSource& region, GP const& pos, Block const& block
     w["state"]     = now;
     setStates(region, bp, {{sLevel, cr::thresholdDisplayLevel(m.level, m.min, m.max)}});
     if (before != now) scheduleSwitchTick(pos);
+    // Create's ThresholdSwitchBlockEntity: a changed level or state refreshes its display links
+    if (before != now || prevLevel != m.level) display::notifyGatherers(pos);
 }
 
 void tickThresholdSwitch(BlockSource& region, GP const& pos, Block const& block, Runtime& rt) {

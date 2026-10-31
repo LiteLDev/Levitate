@@ -180,6 +180,14 @@ void installHooks() {
         },
         ia::priority::High
     ));
+    // Create's ClipboardBlock.attack: a left-click picks a placed clipboard up with its pages
+    ids.push_back(ia::onStartDestroy(
+        {.block = kClipboardId},
+        [](ia::DestroyContext const& c) {
+            if (c.itemId == kClipboardId || c.player.isSpectator() || c.player.isAdventure()) return ia::Result::Pass;
+            return clipboard::pickUp(c.player, c.player.getDimensionBlockSource(), c.pos) ? ia::Result::Consume : ia::Result::Pass;
+        }
+    ));
     // left-click with the clipboard pastes its settings
     ids.push_back(ia::onStartDestroy(
         {.item = kClipboardId},

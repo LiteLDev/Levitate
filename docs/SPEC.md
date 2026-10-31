@@ -3226,50 +3226,68 @@ source)` (vanilla block entities), `registerTarget(blockId, Target{id, stats, ac
 acceptSections, lineName})`, `registerTargetProvider`, `sourcesAt` / `targetAt`,
 `notifyGatherers(source)` (Create's DisplayLinkBlock.notifyGatherers: links reading that block send
 at once), `itemsPassed(source, count)` (tunnels report passing items for `item_throughput` /
-`accumulate_items`), `formatValue` (value lists: "1.2k", "3.4m"), `progressBar`. A registration
+`accumulate_items`), `formatValue` (Create's ValueListDisplaySource.shorten, integer division:
+1234 → "1k", 3456789 → "3m"), `progressBar` (filled length truncated). A registration
 with the same (block, source id) replaces an earlier one, so the owner of a block can refine a
 built-in source. `Context` gives the region, the link, source and target positions, the source's
 persisted `config` (Create's sourceConfig) and the game time.
 
 **Display link** (data `BlockData["display_link"]` = target offset, line, source id, config;
 positions in `lv:display:links`): every tick its timer grows; at the source's
-`getPassiveRefreshTicks` (default 100; stopwatch and item throughput 20) it resets and, unless the
-link is powered, reads the source and writes the target (`updateGatheredData`). Redstone: powered
+`getPassiveRefreshTicks` (default 100; stopwatch 20, accumulated items 200, observed train name 400,
+station summary / status 20) it resets and, unless the link is powered, reads the source and writes
+the target (`updateGatheredData`). A newly opened link screen starts at the block's first source
+(Create's screen does, and applies it when closed). Redstone: powered
 links send nothing; when the power goes the timer resets, the source's `onSignalReset` runs and the
 data is sent at once. The source is the block behind the link; a selected source the block no
 longer offers is deselected. Lines of a display board are *reserved* by the link that wrote them
-(another link skips them while that one still targets the board).
+(another link skips them while that one still targets the board). As Create's
+DisplayBoardTarget.acceptFlapText a board takes link text only while it turns fast enough; the first
+line is taken, the following ones stop at a line another link or a player wrote, and a multi-line
+source clears the lines below its text.
 
 **Sources** (ids, names and options as Create): speedometer `kinetic_speed` (Ignore / Include
-Direction, "64 RPM"), stressometer `kinetic_stress` (Progress Bar / Percentage / Stress in SU /
-Total Capacity / Remaining SU, "su"), cuckoo clocks `time_of_day` (12 / 24-hour, minutes rounded
-down to 5, "--:--" when the clock stands still, nonsense outside the overworld) and `stopwatch`
-(h:mm:ss since the last signal reset), smart observer `count_items` / `list_items` /
-`count_fluids` / `list_fluids` (contents of the observed block through U3's capabilities and the
-observer's filter slot), threshold switch `fill_level` (Percent / Progress Bar), belt / depot /
-weighted ejector `item_names`, tunnels `accumulate_items` / `item_throughput` (per second / minute /
-hour), seats `entity_name`, nixie tubes `nixie_tube`, and the vanilla `target` → `redstone_power`
-(Number / Progress Bar), `enchanting_table` → `enchant_power` (Max Enchanting Cost: twice the
-bookshelves, at least 1 + shelves / 2 ⚠ Create rolls Java's bottom-slot cost), command blocks →
-`scoreboard` (objective id, value list), `respawn_anchor` → `death_count` (Player Deaths, counted by
-Levitate). Every single-line source has Create's "Attached Label" option. Numbers use Create's
-formatting (up to 2 decimals, grouped thousands); units get a space on display boards only. Boiler
-status (U18), station summary / train status (U27), observed train name (U28), elevator floor
-(U20), factory gauge (U26) and package address (U25) are registered by those units.
+Direction, "64 RPM" with a space everywhere), stressometer `kinetic_stress` (Progress Bar / Percentage /
+Stress in SU / Total Capacity / Remaining SU, "su", a space on display boards), cuckoo clocks
+`time_of_day` (12 / 24-hour, hours padded with a space, minutes rounded down to 5, "--:--" when the
+clock stands still, nonsense outside the overworld) and `stopwatch` (h:mm:ss since the last signal
+reset), smart observer (block `content_observer`) `count_items` / `list_items` / `count_fluids` /
+`list_fluids` / `read_package_address` (contents of the observed block through U3's capabilities and
+the observer's filter slot; the address of the first matching package, else of the first matching
+package looping around a chain conveyor there, U25's `loopingPackages`), threshold switch (block
+`stockpile_switch`) `fill_level` (Percent / Progress Bar), fluid tanks `boiler` (Create's
+BoilerDisplaySource: "Boiler:  <level>" and the size / water / heat bars of U18's goggle lines; "Not
+enough space for Boiler Status" below 4 rows), elevator contacts `current_floor` (the floor the
+contact last reported, U20's BlockData), belt / depot / weighted ejector `item_names`, tunnels
+`accumulate_items` / `item_throughput` (per second / minute / hour; Create's pool of the last 10
+batch rates, 0 after twice the usual time without items), seats `entity_name`, nixie tubes
+`nixie_tube`, and the vanilla `target` → `redstone_power` (Number / Progress Bar),
+`enchanting_table` → `enchant_power` (Max Enchanting Cost: twice the bookshelves, at least 1 +
+shelves / 2 ⚠ Create rolls Java's bottom-slot cost), command blocks → `scoreboard` (objective id,
+value list, "name value"), `respawn_anchor` → `death_count` (Player Deaths, counted by Levitate:
+"name value", full numbers, no options). Every single-line source has Create's "Attached Label"
+option where Create has it. Counts are plain numbers; other numbers use Create's formatting (up to 2
+decimals, grouped thousands); percentages are truncated; fluids as Create's FluidFormatter ("1000
+mB"; lists "1.5B" with Shortened). Progress bars fill the target width minus the label (a sign: 6/9
+of it, a display board: wide flaps 7/9). Value lists put the value first except scoreboards and
+deaths; a lectern gets 8 entries per page. Station summary / train status (U27), observed train name
+(U28) and factory gauge (U26) are registered by those units.
 
 **Targets**: display board (2 lines per block row, `⌊(16·width − 2) / 3.5⌋` characters per line: 4,
 8, 13, 17, …, 145 at 32 wide), nixie tube row (1 line, 2 characters per tube), sign (4 lines,
-⚠ 15 characters, front side), lectern (one page per line, ⚠ 256 characters; a book and quill becomes
-a written book "Printed Book" by "Data Gatherer" ⚠).
+⚠ 15 characters, both sides as Create's SignDisplayTarget), lectern (one page per text, ⚠ 256
+characters; a book and quill becomes a written book "Printed Book" by "Data Gatherer" ⚠).
 
 **Display board** (data at the controller `BlockData["display_board"]`, controllers in
 `lv:display:boards`): the controller is the top block at the left end as seen from the front
 (Create: no UP flag, no identical neighbour clockwise); width up to 32 counter-clockwise, height
 down the DOWN flags; rows connect up / down only when the whole row matches. A size change keeps
 line colours and glow and clears the text. Right-click a line (hit point moved ⅛ block into the
-block; not sneaking): empty hand clears it (needs rotation), dye colours it (needs rotation; white
-resets to Create's default `#D3C6BA`), glow ink makes it glow, a named name tag writes its name, a
-clipboard writes the entries of its last viewed page (split at line breaks) from that line down.
+block; not sneaking): empty hand clears it (needs rotation), dye colours it (also on a stopped
+board; white resets to Create's default `#D3C6BA`), glow ink makes it glow, a named name tag writes its
+name and a clipboard the entries of its last viewed page (split at line breaks) from that line down
+(both need rotation, Create's FlapDisplayBlock.useItemOn). The flaps show upper case (Create's
+FlapDisplaySection.refresh; § colour codes kept).
 Every 10 ticks (Create's lazy tick) the state goes to companions (`display.board`); the client mod
 spins every character through Create's flap cycles (letters " ABCDEFGHIJKLMNOPQRSTUVXYZ", digits
 " 0123456789", anything else at once; one step per tick, all at once above 128 RPM) only while the
@@ -3278,9 +3296,10 @@ board turns, and draws them on the front face.
 **Nixie tubes** (data per tube `BlockData["nixie"]`, tubes in `lv:display:nixies`): a row is the
 tubes with the same facing and face, from the left (floor / ceiling: opposite the facing; wall: up;
 wall reversed: down); placed on the floor / ceiling the player's facing is turned clockwise, on a
-wall the clicked face is used (reversed when the player looks up ⚠). Custom text (clipboard: first
-entry of the last viewed page, name tag, display link) goes to the whole row, tube *i* showing
-characters 2i and 2i+1; an empty hand clears it. Without text a tube shows the redstone power around
+wall the clicked face is used (reversed when the look points against the clockwise side of the
+direction the player looks at the wall, Create's DoubleFaceAttachedBlock). Custom text (clipboard:
+first entry of the last viewed page, name tag, display link) goes to the whole row, tube *i* showing
+characters 2i and 2i+1; an empty hand clears the clicked tube (Create's NixieTubeBlock). Without text a tube shows the redstone power around
 it as "00".."15" (polled every 2 ticks). Dye recolours the whole row (block id changes, data kept).
 
 **Clipboard** (item data `lv:clipboard`, block `BlockData["clipboard"]` = type, pages of {text,
@@ -3290,7 +3309,14 @@ addresses (no checkbox); empty entries and pages are dropped when saved; Erase c
 Right-click a block with value boxes or filter slots (U3) copies them ("Copying settings from …";
 values per box id, filters per slot id), left-click pastes ("Applied settings to …"; in survival a
 filter item is taken from the inventory ⚠); right-click another clipboard merges its entries
-(duplicates skipped, pages of 12). Sneaking disables copy / paste (Create).
+(duplicates skipped, pages of 12, check marks kept). Redstone links copy / paste their two
+frequency items ("Frequencies") and pulse repeaters / extenders / timers whether they are inverted
+("Block": "Inverted"), as Create's ClipboardCloneables. A left-click on a placed clipboard (or a
+sneak-right-click) picks it up with its pages (Create's breakAndCollect). Sneaking disables copy /
+paste (Create). Item copying (Create's ItemCopyingRecipe): a written schedule or filter (attribute,
+package filter) crafted with blank ones of the same kind gives that many + 1 copies (recipes
+`<item>_copying_<n>` and a craft hook that copies the data, enchantments dropped; two written ones
+are refused). Clipboards are not copied: on Bedrock they stack to 1, so no recipe can give several.
 Entries may carry an item icon and an amount (Create's `ClipboardEntry.displayItem`) and a
 clipboard may be read-only (Create's `Readonly`: entries can be checked off, not edited or
 erased). Other units write onto clipboards through `src/feature/display/Clipboard.h`:
@@ -3574,13 +3600,21 @@ top speed `trainTopSpeed / 20` (28 → 1.4 b/t), turning `trainTurningTopSpeed /
 **Stations.** Comparator output (U36): 15 while a train stands at the station. Placing: right-click a track with the station item selects it ("Targeted track
 selected"; junctions refused: `create.track_target.no_junctions`); the direction the player looks
 along the track is the station's direction (trains arrive facing it; the assembly area lies behind).
-Sneak-use in the air clears the selection. The station block must be placed within 16 blocks of the
-track (`too_far`); without a selection: `missing`; bound: `success`. A station is an edge point
-(`levitate:station`, id `station:<dim>:<x>:<y>:<z>`) at the track block's centre; it is re-added when
-the graph is rebuilt. Breaking the block removes it (trains heading there re-route). Right-click:
-with a schedule → the station keeps it as its *auto-schedule* (applied to every train arriving
-without a schedule of its own); with an auto-schedule held → it is given back; otherwise the station
-screen. Default name "Track Station" (max 25 chars); train names max 35.
+Sneak-use in the air clears the selection. As Create's TrackTargetingBlockItem the selection is
+kept on the item stack (item data `lv:track_target`; placing clears it from the held stack), and a
+spot within 0.75 blocks of another edge point is refused (`occupied`). The station block must be
+placed within 16 blocks of the track (`too_far`); without a selection: `missing`; bound: `success`. A
+station is an edge point (`levitate:station`, id `station:<dim>:<x>:<y>:<z>`) at the track block's
+centre; it is re-added when the graph is rebuilt. Breaking the block removes it (trains heading there
+re-route; its auto-schedule drops). Right-click: an auto-schedule held → it is given back; otherwise
+the station screen (also with a schedule in hand, as Create). The *auto-schedule* (Create's depot
+behaviour that only accepts schedules) is a one-slot inventory (U3 item capability: funnels,
+hoppers, arms) that also takes a schedule thrown onto the station; the client mod draws it lying on
+top (U33 display items). Every train that newly arrives at the station, and a train standing there
+when one is put in, follows it from then on (replacing its own schedule; the conductor advancement,
+a confirm sound and particles). Default name "Track Station" (max 25 chars); train names max 35;
+the station screen sets the train's icon type (traditional / electric / modern, Create's
+AssemblyScreen selector).
 
 **Assembly** (station screen "Create new Train" on straight orthogonal track → assembly mode; the
 station's flag rises, no train may pass or approach it; the client mod draws Create's flag on the
@@ -3588,9 +3622,11 @@ station, raised while a train stands there or in assembly mode, waving while it 
 `trains.flags`). The assembly track starts one block past
 the station's track, against the station's direction, and runs while the same straight track
 continues (up to `maxAssemblyLength` 128). Train casing on a track of the area creates a small bogey
-on top (consumed unless creative; at index 0 or ≥ 3 and not within 2 of another bogey; the block
-above breaks unless unbreakable): "Bogey created. Click again to cycle type"; clicking at / within 2
-of a bogey cycles small ↔ large; without casing (empty hand): `requires_casing`. "Assemble Train"
+on top (consumed unless creative; Create's isValidBogeyOffset: the first bogey only at index 0,
+later ones at ≥ 3 and not within 2 of another bogey; the block above breaks unless unbreakable):
+"Bogey created. Click again to cycle type"; a click where no bogey may go cycles a bogey within one
+block of it small ↔ large (no casing needed); without casing (empty hand, survival):
+`requires_casing`. "Assemble Train"
 checks, with Create's messages: at least one bogey (`no_bogeys`), the first at the station marker
 (`frontmost_bogey_at_station`), consecutive bogeys ≥ 3 apart (`bogeys_too_close`), at most
 `maxBogeyCount` 20; every carriage starts at its first bogey and takes what the contraption rules
@@ -3624,13 +3660,19 @@ distance `v² / 2a`, else 0; a curve ahead (within braking + 20) limits it to th
 trains coast to a stop at `a`; derailed trains lose 2/3 of their speed per tick.
 
 **Schedules** (Create's ScheduleRuntime): entries run in order; instructions: *Travel to Station*
-(name filter, `*` = any text, everything else literal, whole name; the lowest A* cost wins: distance +
-penalties: passing a station 50, a station with another train 300, other trains on an edge half their
-penalty (manual 200, idle 700, scheduled 25); stations in assembly mode can't be passed), *Update
-Schedule Title*, *Limit Max Speed* (5..100 % in 5 % steps), *Deliver Package* (the first package in
-cargo whose address a postbox of some station accepts: travel there; no packages: carry on with the
-conditions; none accepted: `no_package_target`), *Retrieve Package* (a station whose postbox holds an
-outgoing package addressed to the filter). At a station with postboxes (U25's `postboxesForStation`)
+(name filter, `*` = any text, everything else literal, whole name; stations of the train's graph in
+any dimension; the lowest A* cost wins: distance + penalties: passing a station 50, a station with
+another train 300, the edges at both ends of every other train half its penalty (manual 200, idle 700,
+waiting at a signal 50 + waiting ticks / 20, arriving 50, any other 25), an occupied signal
+`clamp(2 · ticks waiting at a signal, 25, 200)` halved after each one met in the search, a
+redstone-forced one 400; a signal boundary without a signal for the travel direction can't be passed
+(Create's canNavigateVia: signals are one-way for routing); stations in assembly mode can't be
+passed; far from the station the way is looked for again every 100 blocks, and a train waiting at a
+cross signal now and then), *Update Schedule Title*, *Limit Max Speed* (5..100 % in 5 % steps),
+*Deliver Package* (every station with a postbox for any package in cargo is a candidate; no packages:
+the entry is skipped with its conditions; none accepted: `no_package_target`), *Retrieve Package* (a
+station whose postbox holds an outgoing package addressed to the filter; none: the entry is skipped
+after 40 ticks). At a station with postboxes (U25's `postboxesForStation`)
 every 20 ticks packages addressed to a postbox leave the train and outgoing packages board it. Conditions (columns OR, conditions of a column AND, in order): Scheduled
 Delay (`Value` 0..120, unit ticks / seconds / minutes, default 5 s), Time of Day (hour, minute,
 rotation every day … every 0:15; met within 40 ticks after the time), Item / Fluid Cargo (more / less /
@@ -3640,9 +3682,11 @@ for the duration, checked every 20 ticks), Chunk Unloaded, Station Powered. A fa
 waits 40 ticks; status messages go to the train's owner (`create.train.status.*`, each failure once
 until it changes); non-cyclic schedules pause when done. New entries: travel + wait 5 s.
 
-**Conductors.** A scheduled train needs a conductor facing its travel direction: a non-player mob
-standing in the seat block behind a Train Controls block (`missing_driver` / `opposite_driver`), or a
-blaze burner there (`levitate:blaze_burner`, U14). Right-click a conductor with a schedule: applied
+**Conductors.** A scheduled train needs a conductor facing its travel direction (Create's
+checkConductors): a non-player passenger seated (U4 contraption seats) on the seat in the cell behind
+a Train Controls block that faces it (`missing_driver` / `opposite_driver`), or a blaze burner there
+(`levitate:blaze_burner`, U14). Only an entity seated on such a seat takes or gives schedules; a
+schedule on another seated mob: `non_controlling_seat`. Right-click a conductor with a schedule: applied
 ("Train is now following this Schedule", item used); with a schedule already running:
 `remove_with_empty_hand`; empty hand: resumes a paused schedule (`continued`) or takes the schedule
 back (`removed_from_train`, auto-schedules are discarded); empty schedule: `no_stops`.
@@ -3652,12 +3696,15 @@ air holding an item) starts controlling ("Now controlling: <train>", the schedul
 `paused_for_manual`); again, sneaking, leaving 8 blocks or the dimension stops ("Stopped controlling
 contraption"). Movement keys from the player's input (vanilla clients: PlayerAuthInputPacket; the client mod:
 Create's controls packets, below; held keys time out after 30 ticks): W / S throttle (target `top ·
-manualTrainSpeedModifier 0.75 · throttle`, the turning speed on curves, a quarter backwards on single
-ended trains; braking against the motion at 2a), A / D pick the left / right branch at junctions,
-Space at a station shows "Arrived at <station>", elsewhere approaches the nearest station between
-0.75 and max(32, 1.5) braking distances ahead (releasing Space cancels). Leaving a station:
-"Departing from <station>". Fuel: any burnable item from the carriages' chests / barrels (lava buckets
-leave the bucket) while driving.
+manualTrainSpeedModifier 0.75 · throttle`, the turning speed on curves, a quarter backwards relative
+to the controls, double-ended trains too (Create's `slow = inverted ^ targetSpeed < 0`); braking
+against the motion at 2a), A / D pick the left / right branch at junctions, Space at a station shows
+"Arrived at <station>"; elsewhere, while a free station lies between 0.75 and max(32, 1.5) braking
+distances ahead (a double-ended train: in the direction driven), the action bar says "Hold [Space] to
+approach <station>", Space approaches it with a 30-bar progress prompt (releasing Space cancels). Leaving a station:
+"Departing from <station>". Fuel: any burnable item from the carriages' chests / barrels (from the
+back carriage first when reversing; the item's crafting remainder, e.g. a lava bucket's bucket, goes
+back) while driving.
 
 **Client mod controls** (Create's ControlsHandler / TrainHUD, U37). Starting / stopping to control
 sends the companion `trains.controls` {active, throttle, name}. While active, the client mod takes
@@ -3668,9 +3715,11 @@ and every 5 ticks while one is held; Esc sends {stop: true}. The mouse wheel cha
 5 ticks (one log line per change on the server). The sprint key (Ctrl) is the horn: {honk: true}
 every 5 ticks while held, {honk: false} when released; the server follows Create's HonkPacket
 (`honkTicks` = 20 for a new honk, 13 while held, 6 or 0 on release) and, while it counts down,
-plays the steam whistle tone (U18; the large whistle's low tone) at the train's first whistle with
-its pitch (2^(−semitones / 12)), restarted every 10 ticks; trains without a whistle have no horn
-(Create's lowHonk null). An empty-hand right-click into the air sends `trains.interact` {} (vanilla
+plays the train horn (`levitate.trains.horn`, the low horn for a large whistle; our own synthesised
+samples, `tools/sounds/trains.ps1`) at the train's first whistle with Create's pitch
+2^(((small ? 12 : 0) − semitones) / 12), restarted every 18 ticks, and its end sound at 19 and 5
+ticks left; trains without a whistle have no horn (Create's lowHonk null). Vanilla clients honk with
+their sprint input (PlayerAuthInputPacket's sprint bits, the same messages every 5 ticks). An empty-hand right-click into the air sends `trains.interact` {} (vanilla
 clients send nothing for it): it toggles the controls looked at, as the item-use path. Once a
 companion's client mod sent key input, its PlayerAuthInputPacket is ignored for driving until it
 stops controlling. Keys are only taken while no screen (ours, chat, inventory, pause) is over the
@@ -3681,7 +3730,16 @@ the hotbar filled to speed / top speed with a gold marker at the throttle and, b
 
 **Arrival / departure.** A train arrives when its leading point passes the station marker in the
 station's direction (reversing double-ended trains: their back point, against it); speed 0, the
-runtime's conditions start, an auto-schedule is taken. Disassembly ("Disassemble Train", station
+runtime's conditions start, the station's auto-schedule replaces the train's schedule. Create's
+ArrivalSoundQueue: after a trip of more than 100 blocks, within 60 blocks of the station, the train's
+bells, note blocks and whistles play from front to back (one block every 2 ticks). Sounds and
+particles (Create's CarriageSounds / CarriageParticles, as world sounds so vanilla clients get them):
+the steam rhythm of the leading carriage, the wheels faster and higher with the speed, a release hiss
+when it stops; sparks at the bogeys while braking fast, steam while it depressurises. **Stalls**
+(Create's Train.tick): an actor that stalls its carriage (a drill breaking a block) stops the whole
+train; it goes on at its previous speed (at most 1 block per tick) when the stall ends. **Portals**
+(Create's DimensionalCarriageEntity): a carriage whose first bogey passes a portal track moves into
+the other dimension with its riders; the train counts as being where its front is. Disassembly ("Disassemble Train", station
 screen) needs the train standing at the station with its front at the marker and every carriage
 yaw a multiple of 90°: the carriages are aligned to the marker and placed back as blocks; the station
 remembers the train's name; a schedule goes back to the player.
@@ -3692,8 +3750,8 @@ Wrench relocation (Create's TrainRelocator): right-clicking a standing train wit
 it ("Click a Track to Relocate {0} to. Sneak-Click to abort"; a moving one: "Cannot relocate a
 moving Train"); while the wrench is held the looked-at track is checked (the train must fit there,
 facing the look direction, within 24 blocks: valid / invalid / too far in the action bar, the client
-mod draws the carriages at the target); a click puts the train there stopped ("Relocation
-successful"), a sneak-click aborts. A dead end
+mod draws the carriages at the target; refused where it would overlap another train or span a
+portal); a click puts the train there stopped ("Relocation successful"), a sneak-click aborts. A dead end
 stops it (`end_of_track`). The leading point of a moving train touching another train's segments
 (within 0.5 block, height within 3): both trains bounce back (speed `−clamp(v, −0.5, 0.5)`) and derail
 (`collision`, "In <dim> near [x,y,z]"); combined speed > 0.2 b/t makes an explosion of power
@@ -3712,15 +3770,25 @@ arrival release their reservations; path costs add `pathPenalty`. Trains provide
 **TrainsExt.h** (for U24 displays and others): `all()` trains (name, speed, graph, occupied edge
 points, station, destination, schedule title), `stations()` (name, present train, predicted arrivals
 in ticks), `onPointEntered` / `onPointLeft` (an edge point lies between a train's ends). Display
-sources on the station (U24): "Train Station Summary" (filter = station name glob; ETA, train,
-schedule title, platform) and "Train Schedule Status" ("Departs in …").
+sources on the station (U24): "Train Station Summary" (display boards only, Create's
+StationSummaryDisplaySource over submitPredictions: every upcoming destination of every running
+schedule whose name or filter matches the filter glob, soonest first, with ETAs accumulated from the
+learned transit times and the delays of the stops, a train standing there as "now"; options: filter
+(default: the station's name), train column size 0..73 %, platform column 0..16 characters) and
+"Train Schedule Status" (the waiting status of the current condition of the first column of the
+train standing there: "Departs in …", "Cargo Idle for …", "Passengers: n/m", …; nothing on the last
+stop of a non-looping schedule).
 
 **Persistence.** `lv:trains:stations` (stations), `lv:trains:trains` (trains: points, route,
 carriages with their contraption ids, speed, runtime, navigation); carriages persist with U4.
 
 **Commands.** `/create trains` (train summary: networks, stations, every train's status line),
 `/create killtrain <name|id>` and `/create train remove <name|id>` (Create 6.0.10's `/create train
-remove`: the carriages vanish, nothing is placed).
+remove`: the carriages vanish, nothing is placed), `/create train tp <name|id>` (Create's train
+teleport: creative / spectator players only, 5 blocks above its first carriage, in its dimension).
+The schedule item lists its destinations as lore (Create's tooltip: "> station", the stop it goes on
+from "-> station"); the schedule editor's station field offers the station names nearest first
+(Create's DestinationSuggestions).
 
 **Screens.** Station (native for companions, forms for vanilla; the station name is the native
 screen's title text field, 25 characters, the present train's name a text field, 35): idle (create new train / why not),
@@ -3759,7 +3827,10 @@ track markers in `src/client/signals/`, contract `src/feature/tracks/SignalsExt.
   stack. While the held stack carries one, the client mod outlines the selected track (Create's
   TrackTargetingClient); the glint of Create's isFoil isn't drawn (§8).
 - The block keeps its target. When the track graph around it is rebuilt or removed, it binds
-  again; while its track is gone the signal is dark (`Invalid`) and the boundary is gone.
+  again; while its track is gone the signal is dark (`Invalid`) and the boundary is gone. The
+  target is kept relative to the block in its BlockData (`signals`), so a contraption moving the
+  block (and its track) binds it again at the same offset (turned with the block).
+- A curve selection reaches `maxTrackPlacementLength` + 16 blocks.
 
 **Signal boundaries and sections.** A signal block is bound to a boundary edge point (type
 `levitate:signal`) on one of its two sides: side 1 controls trains travelling along the point's
@@ -3786,13 +3857,19 @@ this Signal"):
   chain); all of them are reserved at once. Otherwise it waits at the first cross signal of the
   chain, never inside the junction. A path that ends inside the chain, or leaves it through a
   boundary without a signal for its direction, ends the chain.
-- A boundary side without a signal block doesn't stop trains (it still splits sections).
+- A boundary side without a signal block doesn't stop trains driving through it (it still splits
+  sections), but scheduled trains never route through it (Create's canNavigateVia: signals are
+  one-way for path finding).
 - A redstone-powered signal is red for trains (forced red).
 
-**Signal state** (Create's tickState, every tick): red when forced by redstone or when the section
-is occupied by any train or reserved through another signal; for a cross signal, yellow when it
-would be green but a signal leading out of its section (on the way forward, no turns sharper
-than Create's 7/8 rule) is red; green otherwise; off when unbound. The block shows it with its
+**Signal state** (Create's tickState, every tick): invalid when both sides of the boundary are one
+section (a loop); red when forced by redstone or when the section is occupied by any train or
+reserved through another signal; a free cross signal resolves its chain (Create's
+resolveSignalChain over the signals leading out of its section on the way forward, no turns
+sharper than Create's 7/8 rule): green when all of them are green (or invalid), red when all are
+red, yellow when mixed; off when unbound. The block (Create's SignalBlockEntity.enterState) turns
+red only 15 ticks after showing green or yellow; an invalid signal flashes its red lamp (3 of every
+40 ticks); losing the redstone input applies 4 ticks later (SignalBlock.neighborChanged). The block shows it with its
 lamp (`levitate:signal_state`, vanilla clients and the client mod alike). Comparators reading a
 signal output 15 while it is red, 0 otherwise. Redstone input sets `levitate:powered` (the shared
 `redstone::watch`; powered track observers are signal sources there).
@@ -3804,7 +3881,9 @@ the circuit component's strength is set with the state change). The filter slot 
 top (U3 filter slot, "filter") limits it to trains carrying a matching item (in any carriage
 inventory) or fluid (any tank), asked through the trains' cargo provider; an empty filter
 matches every train. A display link on an observer offers "Detected Train Name" (Create's
-`observed_train_name` source, U24 contract): the name of the train it sees, empty otherwise.
+`observed_train_name` source, U24 contract): the name of the train it sees (with the Attached Label
+option, refreshed every 400 ticks), empty otherwise; a change of the observer's power refreshes the
+links reading it at once.
 
 **Client mod** (Create's track overlay): an arrow is drawn on the track at every bound signal side
 (pointing the way of the trains it controls, in the signal's colour) and a square at every
@@ -4520,7 +4599,7 @@ UI pass), `placeholderColour` (outline of unregistered blocks).
 | `/create debuginfo` (Create's DebugInfoCommand: "Collecting debug information...", then the report in chat and the log, Create's `<details><summary>Server Info</summary>` block with the Levitate, System Information and Other Mods sections: mod, LeviLamina and Minecraft versions, network protocol, platform, OS, other mods; on a local world of the client build it is also copied to the host's clipboard, "Debug information has been copied to your clipboard.") | anyone | U32 |
 | `/create util replaceInCommandBlocks <begin> <end> <toReplace> <replaceWith>` and its redirect `/create u ...` (Create's ReplaceInCommandBlocksCommand: in every command block of the area, `toReplace` as a regular expression (Java's `replaceAll`) is replaced; "Replaced occurrences in N blocks." counts the commands containing it literally, "Couldn't find \"x\" anywhere." when none) | op | U32 |
 | `/create kinetics <pos>` (dump network: speed, stress, sources) | op | U2 |
-| `/create killtrain <name\|id>` (Create's `/create train remove`), `/create trains` (train summary) | op | U27 |
+| `/create killtrain <name\|id>` (Create's `/create train remove`), `/create trains` (train summary), `/create train tp <name\|id>` (creative / spectator) | op | U27 |
 | `/create glue clear [radius]` (Create's `/create clearglue`; default 16, around the sender) | op | U4 |
 | `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
 | `/create ponder [id]` (client mod; no id: the index; an entry or a tag id) | anyone | U30 |
@@ -4609,7 +4688,7 @@ matches Create's official Chinese translation wording).
 | Train carriages tilting on slopes for **vanilla** clients (U27) | a falling-block entity is always drawn level | the blocks stand at their tilted places, each drawn level; the client mod draws the carriage pitched (Create's pitch from its bogeys) |
 | Wheels turning on bogeys for **vanilla** clients (U27) | a display entity shows a fixed block model | still wheels; the client mod turns them with the distance travelled (Create's BogeyRenderer) |
 | Station flag animation for **vanilla** clients (U27) | the flag would need a per-frame model | the station's texture shows the flag (green in assembly mode); the client mod raises and waves Create's flag |
-| Train HUD, mouse-wheel throttle and horn for **vanilla** clients (U27) | the server can't see the mouse wheel or the sprint key, nor draw a HUD | action-bar prompts; throttle from schedules; the client mod has Create's HUD, throttle and horn (§3.6.27) |
+| Train HUD and mouse-wheel throttle for **vanilla** clients (U27) | the server can't see the mouse wheel nor draw a HUD | action-bar prompts; throttle from schedules; the horn works for vanilla clients through their sprint input (U57); the client mod has Create's HUD and throttle (§3.6.27) |
 | Train map colours / map markers (U27) | no map mods on Bedrock | none |
 | Train relocation preview for **vanilla** clients (U27) | the server can't draw the train's outline on a vanilla client | relocation works with action-bar prompts (valid / invalid / too far); the client mod draws the carriages at the target |
 | Glint of a signal / track observer item carrying a track selection (Create's isFoil) (U28) | Bedrock draws no enchantment glint on items shown with their block's model (verified: a per-item vtable override of `isGlint` returns true and nothing is drawn) | the selection is on the item stack and travels with it; the client mod outlines the selected track while the item is held |

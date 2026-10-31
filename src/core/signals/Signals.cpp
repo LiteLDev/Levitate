@@ -530,6 +530,39 @@ Authority SignalSystem::checkAhead(
     return a;
 }
 
+SignalSystem::EdgeCost SignalSystem::edgeCost(
+    ct::NodeLocation const& from,
+    ct::NodeLocation const& to,
+    std::string const&      train,
+    double&                 redWeight,
+    double                  redstonePenalty
+) const {
+    EdgeCost out;
+    auto     key = keyOf(from, to);
+    auto     it  = mEdges.find(key);
+    if (it == mEdges.end()) return out;
+    bool                                   ab = key.a == from;
+    std::vector<std::pair<double, size_t>> hits; // (distance from `from`, boundary index)
+    for (auto const& [cpos, idx] : it->second.cuts) hits.push_back({ab ? cpos : it->second.length - cpos, idx});
+    std::sort(hits.begin(), hits.end());
+    for (auto const& [d, idx] : hits) {
+        auto const& b    = mBoundaries[idx];
+        int         side = b.node1 == from ? 1 : 0;
+        auto const& s    = b.sides[size_t(side)];
+        if (!s.hasSignal) { // Create's SignalBoundary.canNavigateVia: no signal faces this way
+            out.barrier = d;
+            break;
+        }
+        if (s.forcedRed) {
+            out.penalty += redstonePenalty;
+        } else if (occupiedFor(mBoundaryGroups[idx][size_t(side)], train)) {
+            out.penalty += redWeight;
+            redWeight /= 2;
+        }
+    }
+    return out;
+}
+
 double SignalSystem::edgePenalty(
     ct::NodeLocation const& from,
     ct::NodeLocation const& to,
@@ -537,19 +570,20 @@ double SignalSystem::edgePenalty(
     double                  redPenalty,
     double                  redstonePenalty
 ) const {
-    auto key = keyOf(from, to);
-    auto it  = mEdges.find(key);
+    double weight = redPenalty;
+    double total  = 0;
+    auto   key    = keyOf(from, to);
+    auto   it     = mEdges.find(key);
     if (it == mEdges.end()) return 0;
-    double penalty = 0;
     for (auto const& [cpos, idx] : it->second.cuts) {
         auto const& b    = mBoundaries[idx];
         int         side = b.node1 == from ? 1 : 0;
         auto const& s    = b.sides[size_t(side)];
         if (!s.hasSignal) continue;
-        if (s.forcedRed) penalty += redstonePenalty;
-        else if (occupiedFor(mBoundaryGroups[idx][size_t(side)], train)) penalty += redPenalty;
+        if (s.forcedRed) total += redstonePenalty;
+        else if (occupiedFor(mBoundaryGroups[idx][size_t(side)], train)) total += weight;
     }
-    return penalty;
+    return total;
 }
 
 // ---- states -------------------------------------------------------------------------------------
@@ -565,23 +599,41 @@ void SignalSystem::updateStates() {
                 mStates[i][size_t(s)] = SignalState::Invalid;
                 continue;
             }
+            if (g == mBoundaryGroups[i][size_t(1 - s)]) { // Create: both sides in one section (a loop)
+                mStates[i][size_t(s)] = SignalState::Invalid;
+                continue;
+            }
             bool red              = side.forcedRed || occupiedUnless(g, b.id, s);
             mStates[i][size_t(s)] = red ? SignalState::Red : SignalState::Green;
         }
     }
-    // cross signals: yellow while a signal leading out of their section is red
-    for (size_t i = 0; i < mBoundaries.size(); ++i) {
-        for (int s = 0; s < 2; ++s) {
-            if (mStates[i][size_t(s)] != SignalState::Green || mBoundaries[i].sides[size_t(s)].type != SignalType::Cross) continue;
-            for (auto const& [id, es] : mExitCache[s].size() > i ? mExitCache[s][i] : std::vector<std::pair<std::string, int>>{}) {
-                auto j = mBoundaryIndex.find(id);
-                if (j == mBoundaryIndex.end() || !mBoundaries[j->second].sides[size_t(es)].hasSignal) continue;
-                if (mStates[j->second][size_t(es)] == SignalState::Red) {
-                    mStates[i][size_t(s)] = SignalState::Yellow;
-                    break;
+    // cross signals: Create's resolveSignalChain over the signals leading out of their section
+    // (green when all are green or invalid, red when all are red, yellow when mixed). Chained cross
+    // signals read each other's results: repeat until nothing changes.
+    std::vector<std::array<bool, 2>> free(mBoundaries.size(), {false, false});
+    for (size_t i = 0; i < mBoundaries.size(); ++i)
+        for (int s = 0; s < 2; ++s) free[i][size_t(s)] = mStates[i][size_t(s)] == SignalState::Green;
+    for (size_t pass = 0; pass < mBoundaries.size() + 1; ++pass) {
+        bool changed = false;
+        for (size_t i = 0; i < mBoundaries.size(); ++i) {
+            for (int s = 0; s < 2; ++s) {
+                if (!free[i][size_t(s)] || mBoundaries[i].sides[size_t(s)].type != SignalType::Cross) continue;
+                bool allFree = true, noneFree = true;
+                for (auto const& [id, es] : mExitCache[s].size() > i ? mExitCache[s][i] : std::vector<std::pair<std::string, int>>{}) {
+                    auto j = mBoundaryIndex.find(id);
+                    if (j == mBoundaryIndex.end() || !mBoundaries[j->second].sides[size_t(es)].hasSignal) continue;
+                    auto other = mStates[j->second][size_t(es)];
+                    allFree &= other == SignalState::Green || other == SignalState::Invalid;
+                    noneFree &= other == SignalState::Red;
+                }
+                auto next = allFree ? SignalState::Green : noneFree ? SignalState::Red : SignalState::Yellow;
+                if (next != mStates[i][size_t(s)]) {
+                    mStates[i][size_t(s)] = next;
+                    changed               = true;
                 }
             }
         }
+        if (!changed) break;
     }
 }
 

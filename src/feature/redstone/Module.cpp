@@ -321,7 +321,6 @@ public:
             registerThresholdScreen();
             registerBellAndLamp();
             registerWrench();
-            registerClipboard();
             // our signal sources power the custom blocks of other units too (shared redstone input)
             for (auto k : {Kind::Link, Kind::Lever, Kind::PulseRepeater, Kind::PulseExtender, Kind::PulseTimer, Kind::PoweredLatch,
                            Kind::ToggleLatch, Kind::SmartObserver, Kind::ThresholdSwitch, Kind::Contact, Kind::DeskBell}) {

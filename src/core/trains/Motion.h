@@ -130,15 +130,20 @@ struct Path {
 };
 
 /// Railways::findPath from `start` to any of `destinations` (positions on their directed edges).
+/// `cost`: penalty and barrier of each edge entered (PathQuery::edgeCost).
 [[nodiscard]] std::optional<Path> findPath(
-    Railways const&                                                  rail,
-    TrackPos const&                                                  start,
-    std::vector<TrackPos> const&                                     destinations,
-    std::function<double(tracks::Graph const&, tracks::Edge const&)> penalty = {},
+    Railways const&                                                            rail,
+    TrackPos const&                                                            start,
+    std::vector<TrackPos> const&                                               destinations,
+    std::function<tracks::EdgeCost(tracks::Graph const&, tracks::Edge const&)> cost = {},
     double                                                           maxCost = 1e9
 );
 
-/// Distance along the path to the first curved edge ahead (-1 if none within `lookahead`).
+/// Whether a curve slows a navigating train (Create: not a straight curve on a mild slope, i.e.
+/// opposite end axes and a rise under .225 of its length).
+[[nodiscard]] bool slowsForCurve(tracks::Curve const& c);
+/// Distance along the path to the first curved edge ahead that slows the train (-1 if none within
+/// `lookahead`).
 [[nodiscard]] double distanceToCurve(Railways const& rail, TrackPos const& at, Path const& path, double lookahead);
 
 /// Horizontal yaw (degrees, Create/Bedrock: counter-clockwise from east looking down, as the

@@ -231,9 +231,9 @@ int nextNetId() { return ++gNetId; }
 
 bool hasConveyor(GlobalPos const& pos) { return idAt(pos) == kChainConveyorId; }
 
-std::optional<std::vector<ItemStack>> loopingPackages(GlobalPos const& pos) {
-    if (!hasConveyor(pos)) return std::nullopt;
+std::vector<ItemStack> loopingPackages(GlobalPos const& pos) {
     std::vector<ItemStack> out;
+    if (!hasConveyor(pos)) return out;
     for (auto const& box : conveyor(pos).looping) out.push_back(box.item);
     return out;
 }

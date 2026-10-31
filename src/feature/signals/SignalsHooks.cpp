@@ -18,6 +18,7 @@
 #include "feature/common/Items.h"
 #include "feature/goggles/Wrenchable.h"
 #include "feature/signals/SignalsInternal.h"
+#include "feature/tracks/TracksInternal.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
 
@@ -151,7 +152,9 @@ bool onTargetingItemUse(Player& player, ItemStack& held, std::string const& item
     }
     auto const& t  = sel->target;
     double      ex = placed.x - t.track.x, ey = placed.y - t.track.y, ez = placed.z - t.track.z;
-    if (t.dim != int(player.getDimensionId()) || std::sqrt(ex * ex + ey * ey + ez * ez) >= kMaxDistance) {
+    // Create: a curve selection reaches maxTrackPlacementLength + 16 blocks
+    double maxDistance = t.curve ? tracks::config().maxTrackPlacementLength + 16.0 : kMaxDistance;
+    if (t.dim != int(player.getDimensionId()) || std::sqrt(ex * ex + ey * ey + ez * ez) >= maxDistance) {
         deny(player, "create.track_target.too_far", "Targeted track is too far from here");
         return true;
     }
