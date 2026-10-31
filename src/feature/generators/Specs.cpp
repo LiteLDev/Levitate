@@ -114,7 +114,9 @@ struct Registrar {
         kinetics::registerBlock(kHandCrank, handleSpec("levitate_hand_crank"));
         kinetics::registerBlock(kCopperValve, handleSpec("levitate_copper_valve_handle"));
         for (int c = 0; c < 16; ++c) {
-            kinetics::registerBlock(valveId(c), handleSpec("levitate_" + std::string(cg::kDyeColours[static_cast<std::size_t>(c)]) + "_valve_handle"));
+            auto spec      = handleSpec("levitate_" + std::string(cg::kDyeColours[static_cast<std::size_t>(c)]) + "_valve_handle");
+            spec.stressKey = "copper_valve_handle"; // HandCrankBlockEntity.getStressConfigKey: every valve handle uses the copper entry
+            kinetics::registerBlock(valveId(c), std::move(spec));
         }
         kinetics::registerBlock(kWaterWheel, waterWheelSpec());
         kinetics::registerBlock(kLargeWheel, largeWheelSpec());

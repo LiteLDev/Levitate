@@ -21,6 +21,7 @@
 #include "mc/network/MinecraftPacketIds.h"
 #include "mc/network/MinecraftPackets.h"
 #include "mc/network/packet/PlaySoundPacket.h"
+#include "mc/network/packet/SpawnParticleEffectPacket.h"
 #include "mc/network/packet/TextPacket.h"
 #include "mc/network/packet/TextPacketPayload.h"
 #include "mc/network/packet/TextPacketType.h"
@@ -86,6 +87,7 @@ struct State {
     std::set<GlobalPos>                         woodSync;
     std::set<GlobalPos>                         extensionCheck;
     std::set<GlobalPos>                         creativeBreaks;
+    std::set<GlobalPos>                         supportCheck; ///< cranks / valves whose support may be gone
     std::vector<GlobalPos>                      stopOnLoad;
     std::uint64_t                               tick = 0;
     std::unordered_map<BlockType const*, Kind>  kinds;
@@ -311,6 +313,14 @@ bool neighbourShaftTowards(GlobalPos const& pos, Face side) {
     return spec->shaftTowards(s, k::opposite(side));
 }
 
+/// The block at `pos` has a collision shape (Create: `!getCollisionShape(...).isEmpty()`).
+bool hasCollision(BlockSource& region, BlockPos const& pos, Block const& block) {
+    if (block.isAir()) return false;
+    AABB box = block.getBlockType().getCollisionShape(block, region, pos, nullptr);
+    return box.max.x - box.min.x > 1e-4f && box.max.y - box.min.y > 1e-4f && box.max.z - box.min.z > 1e-4f;
+}
+bool hasCollision(BlockSource& region, BlockPos const& pos) { return hasCollision(region, pos, region.getBlock(pos)); }
+
 Face lookOf(Player const& player) {
     Vec3 v = player.getViewVector();
     return cg::nearestLooking(v.x, v.y, v.z);
@@ -361,6 +371,10 @@ void onBlockChanged(ll::event::BlockChangedEvent& ev) {
     if (ev.layer() != 0) return;
     auto const& now  = ev.newBlock();
     auto const& prev = ev.previousBlock();
+    // HandCrankBlock.neighborChanged: a crank / valve handle whose block behind lost its
+    // collision shape pops off (checked on the next tick, out of the block change)
+    if (!prev.isAir() && hasCollision(region, ev.pos(), prev) && !hasCollision(region, ev.pos(), now))
+        for (Face f : k::kFaces) s.supportCheck.insert(shifted(pos, k::offsetOf(f)));
     Kind        kn = kindOf(now), kp = kindOf(prev);
     if (kn == Kind::None && kp == Kind::None) return;
 
@@ -401,6 +415,15 @@ void onTick() {
     for (auto const& p : std::exchange(s.woodSync, {})) buildStructure(p);
     for (auto const& p : std::exchange(s.extensionCheck, {})) updateExtension(p);
     s.creativeBreaks.clear();
+
+    // cranks and valve handles without a block behind them break with drops
+    for (auto const& p : std::exchange(s.supportCheck, {})) {
+        auto* b      = blockAt(p);
+        auto* region = regionOf(p.dim);
+        if (!b || !region || (kindOf(*b) != Kind::Crank && kindOf(*b) != Kind::Valve) || canSurvive(*region, p, *b)) continue;
+        if (auto level = ll::service::getLevel()) level->destroyBlock(*region, bp(p), true, BlockChangeContext{});
+        log().info("{} at {} lost its support and broke", b->getTypeName(), posText(p));
+    }
 
     // generators whose block changed (placed, turned, moved by a contraption)
     for (auto const& p : std::exchange(s.refresh, {})) {
@@ -549,11 +572,16 @@ bool useValve(Player& player, GlobalPos const& pos, std::string const& heldId, b
     if (!b || kindOf(*b) != Kind::Valve) return false;
     int colour = cg::dyeColourOf(heldId);
     if (colour >= 0 && colour != valveColour(b->getTypeName())) {
-        // ValveHandleBlock.clicked: BlockHelper.copyProperties onto the dyed handle (the dye stays)
+        // ValveHandleBlock.clicked: BlockHelper.copyProperties onto the dyed handle (the dye stays);
+        // onRemove keeps the block entity when the new block is a valve handle, so the set
+        // angle stays with it
         auto* region = regionOf(pos.dim);
         auto* dyed   = game::blockWith(valveId(colour), {{kFacing, static_cast<int>(facingOf(*b))}});
         if (!region || !dyed) return false;
+        std::optional<Json> data;
+        if (auto const* d = common::blockdata::get(pos)) data = *d;
         game::setBlock(*region, bp(pos), *dyed);
+        if (data) common::blockdata::set(pos, std::move(*data));
         log().info("valve handle at {} dyed {} by {}", posText(pos), cg::kDyeColours[static_cast<std::size_t>(colour)], player.getRealName());
         return true;
     }
@@ -601,11 +629,34 @@ bool applyMaterial(GlobalPos const& pos, std::string const& heldId) {
     return true;
 }
 
+bool canSurvive(BlockSource& region, GlobalPos const& pos, Block const& block) {
+    switch (kindOf(block)) {
+    case Kind::Crank:
+    case Kind::Valve:
+        // HandCrankBlock.canSurvive: the block behind the handle has a collision shape
+        return hasCollision(region, bp(shifted(pos, k::offsetOf(k::opposite(facingOf(block))))));
+    case Kind::WaterWheel: {
+        // WaterWheelBlock.canSurvive: next to another water wheel only along the shared axis
+        Axis axis = k::axisOf(facingOf(block));
+        for (Face f : k::kFaces) {
+            auto* nb = blockAt(shifted(pos, k::offsetOf(f)));
+            if (!nb || kindOf(*nb) != Kind::WaterWheel) continue;
+            if (k::axisOf(facingOf(*nb)) != axis || axis != k::axisOf(f)) return false;
+        }
+        return true;
+    }
+    default:
+        return true;
+    }
+}
+
 void orientPlaced(Player& player, GlobalPos const& pos, Face clickedFace) {
     auto* b = blockAt(pos);
     if (!b) return;
     auto kind = kindOf(*b);
     if (kind != Kind::Crank && kind != Kind::Valve && kind != Kind::WaterWheel && kind != Kind::Motor) return;
+    auto* region = regionOf(pos.dim);
+    if (!region) return;
     bool sneaking  = player.isSneaking();
     auto preferred = cg::preferredFacing([&](Face side) { return neighbourShaftTowards(pos, side); });
     Face facing;
@@ -621,12 +672,50 @@ void orientPlaced(Player& player, GlobalPos const& pos, Face clickedFace) {
         facing = cg::motorFacing(preferred, lookOf(player), sneaking);
         break;
     }
+    std::string id = b->getTypeName();
+    auto const* oriented = game::blockWith(id, {{kFacing, static_cast<int>(facing)}});
+    if (oriented && !canSurvive(*region, pos, *oriented)) {
+        // BlockItem.place: a state that cannot survive is not placed (the item stays with the player)
+        game::clearBlock(*region, bp(pos));
+        if (!player.isCreative()) {
+            if (auto item = common::items::make(id)) {
+                if (!player.add(*item)) player.drop(*item, false);
+            }
+        }
+        player.sendInventory(false);
+        log().info("{} at {} cannot be placed facing {} (no support) by {}", id, posText(pos), k::faceName(facing), player.getRealName());
+        return;
+    }
     setStates(pos, {{kFacing, static_cast<int>(facing)}});
-    log().info("{} placed at {} facing {} by {}", b->getTypeName(), posText(pos), k::faceName(facing), player.getRealName());
+    log().info("{} placed at {} facing {} by {}", id, posText(pos), k::faceName(facing), player.getRealName());
+}
+
+/// Vanilla clients: the box's edges in red particles, every quarter block, for this player only.
+void roomParticles(Player& player, int dim, double const (&lo)[3], double const (&hi)[3]) {
+    constexpr double kStep = .25;
+    for (int axis = 0; axis < 3; ++axis) {
+        int    u = (axis + 1) % 3, v = (axis + 2) % 3;
+        double len = hi[axis] - lo[axis];
+        for (int corner = 0; corner < 4; ++corner) {
+            double p[3];
+            p[u] = corner & 1 ? hi[u] : lo[u];
+            p[v] = corner & 2 ? hi[v] : lo[v];
+            for (double t = 0; t <= len + 1e-6; t += kStep) {
+                p[axis] = lo[axis] + t;
+                SpawnParticleEffectPacket pkt(SpawnParticleEffectPacketPayload(
+                    Vec3{static_cast<float>(p[0]), static_cast<float>(p[1]), static_cast<float>(p[2])},
+                    "levitate:water_wheel_room",
+                    static_cast<uchar>(dim),
+                    std::nullopt
+                ));
+                pkt.sendTo(player);
+            }
+        }
+    }
 }
 
 /// LargeWaterWheelBlockItem.place without room: the status message, and Create's red Outliner
-/// box around the 3x3 the wheel needs (drawn by the client mod).
+/// box around the 3x3 the wheel needs (drawn by the client mod; particles for vanilla clients).
 void noRoom(Player& player, GlobalPos const& at, Axis axis) {
     actionBar(player, "§c" + trFor(player, "create.large_water_wheel.not_enough_space", "Clear Blocks for Placement"));
     log().info("large water wheel at {}: not enough space", posText(at));
@@ -634,7 +723,18 @@ void noRoom(Player& player, GlobalPos const& at, Axis axis) {
     double lo[3]{at.x - 1.0, at.y - 1.0, at.z - 1.0}, hi[3]{at.x + 2.0, at.y + 2.0, at.z + 2.0};
     lo[a] += 1;
     hi[a] -= 1;
-    net::send(player, "generators.room", {{"lo", {lo[0], lo[1], lo[2]}}, {"hi", {hi[0], hi[1], hi[2]}}});
+    if (net::isCompanion(player)) {
+        net::send(player, "generators.room", {{"lo", {lo[0], lo[1], lo[2]}}, {"hi", {hi[0], hi[1], hi[2]}}});
+        return;
+    }
+    // Bedrock repeats the use while the button is held: one outline per player per second (the
+    // particles last 1.5 s)
+    static std::unordered_map<std::int64_t, std::uint64_t> lastOutline;
+    auto  now  = state().tick;
+    auto& last = lastOutline[player.getOrCreateUniqueID().rawID];
+    if (last != 0 && now - last < 20) return;
+    last = now == 0 ? 1 : now;
+    roomParticles(player, at.dim, lo, hi);
 }
 
 bool placeLargeWheel(Player& player, ItemStack& held, GlobalPos const& placement, Face clickedFace) {

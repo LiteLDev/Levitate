@@ -4,11 +4,12 @@
 #                       position screen, a click moves the overlay, Esc saves it, `/create overlay
 #                       reset` puts it back; the wrench turns the consumer; the inventory tooltip of
 #                       the wrench carries Create's "Hold [Shift] for Summary".
-#   remote-vanilla:     the same panel in the action bar.
+#   remote-vanilla:     the same panel next to the crosshair, drawn by the resource pack's HUD from
+#                       a marked title (U52); looking away takes it down.
 #   every mode (U48): the wrench in the hand is the resource pack's attachable, its cog turning
 #                       about the shaft, in first and third person.
 # Screenshots: out/goggles/{wrench-first-person-1,-2,wrench-third-person,wrench-third-person-back}.png,
-#              {overlay,overlay-config,overlay-moved,wrenched,tooltip}.png or overlay-actionbar.png
+#              {overlay,overlay-config,overlay-moved,wrenched,tooltip}.png or overlay-hud.png, overlay-hud-gone.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 if (-not $vanilla) {
     Wait-LogLine 'companion: server accepted the handshake' 90 | Out-Null
@@ -49,9 +50,14 @@ Invoke-Chat '/replaceitem entity @s slot.armor.head 0 levitate:goggles'
 Start-Sleep -Seconds 1
 
 if ($vanilla) {
-    Wait-LogLine 'goggles: overlay for .* lines, action bar\)' 30 -Since $mark | Out-Null
+    Wait-LogLine 'goggles: overlay for .* lines, hud\)' 30 -Since $mark | Out-Null
     Start-Sleep -Milliseconds 800
-    Save-Screenshot 'overlay-actionbar' | Out-Null
+    Save-Screenshot 'overlay-hud' | Out-Null
+    $mark = Get-LogMark
+    Invoke-Chat '/tp @s 0.5 -60 0.5 facing 0.5 -58 -10.5'   # looking away: the panel goes
+    Wait-LogLine 'goggles: overlay hidden for ' 30 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 1000
+    Save-Screenshot 'overlay-hud-gone' | Out-Null
     Assert-NoErrors
     return
 }

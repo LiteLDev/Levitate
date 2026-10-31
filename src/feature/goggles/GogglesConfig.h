@@ -1,12 +1,12 @@
 #pragma once
 
 // `config/goggles.json` (U8): Create's CClient goggle overlay / tooltip keys (read by the client
-// mod; on BDS only the Levitate keys matter) and the vanilla action-bar fallback.
+// mod; on BDS only the Levitate keys matter) and the vanilla-client overlay.
 
 namespace lv::feature::goggles {
 
 struct GogglesConfig {
-    int version = 1;
+    int version = 2; // 2: vanillaOverlayHud
 
     // ---- CClient ----
     /// Show item descriptions on Shift and controls on Ctrl (enableTooltips).
@@ -24,8 +24,12 @@ struct GogglesConfig {
     int customBorderBotOverlay  = static_cast<int>(0x5028007fu);
 
     // ---- Levitate ----
-    /// Show the overlay in the action bar of players without the client mod.
+    /// Show the overlay to players without the client mod.
     bool vanillaOverlay = true;
+    /// Players without the client mod see the overlay as Create's panel next to the crosshair,
+    /// drawn by the resource pack's HUD (ui/hud_screen.json) from a marked title; off: in the
+    /// action bar (for clients that refused the resource pack).
+    bool vanillaOverlayHud = true;
     /// Ticks between two looks at the targeted block (client mod queries and action bar).
     int overlayInterval = 4;
 };

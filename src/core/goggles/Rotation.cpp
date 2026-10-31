@@ -118,15 +118,15 @@ States rotatedStates(States const& in, int face) {
     if (!facingKey) return out;
     int facing = in.at(facingKey);
     if (facing < 0 || facing > 5) return out;
-    bool alongFirst = has(in, kAxisAlongFirst);
+    char const* alongKey = has(in, kAxisAlongFirst) ? kAxisAlongFirst : has(in, kAlongFirst) ? kAlongFirst : nullptr;
 
     if (axisOfDirection(facing) == faceAxis) {
-        if (alongFirst) out[kAxisAlongFirst] = out[kAxisAlongFirst] ? 0 : 1;
+        if (alongKey) out[alongKey] = out[alongKey] ? 0 : 1;
         return out;
     }
     do {
         facing = clockwise(facing, faceAxis);
-        if (faceAxis == kY && alongFirst) out[kAxisAlongFirst] = out[kAxisAlongFirst] ? 0 : 1;
+        if (faceAxis == kY && alongKey) out[alongKey] = out[alongKey] ? 0 : 1;
     } while (axisOfDirection(facing) == faceAxis);
     out[facingKey] = facing;
     return out;

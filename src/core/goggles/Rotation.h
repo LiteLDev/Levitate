@@ -10,6 +10,9 @@
 //   levitate:horizontal_facing                     0 south, 1 west, 2 north, 3 east (Java 2D value)
 //   levitate:horizontal_axis                       0 x, 2 z        (HorizontalAxisKineticBlock)
 //   levitate:axis_along_first                      0 / 1           (DirectionalAxisKineticBlock)
+//   levitate:along_first                           0 / 1           the same flag on the gauges and the
+//                                                                  fluid valve (a block with an axis
+//                                                                  state, the chain drives, never reads it)
 
 #include <array>
 #include <map>
@@ -26,10 +29,11 @@ inline constexpr char const* kAxis             = "levitate:axis";
 inline constexpr char const* kHorizontalFacing = "levitate:horizontal_facing";
 inline constexpr char const* kHorizontalAxis   = "levitate:horizontal_axis";
 inline constexpr char const* kAxisAlongFirst   = "levitate:axis_along_first";
+inline constexpr char const* kAlongFirst       = "levitate:along_first";
 
 /// The state names `rotatedStates` reads.
-inline constexpr std::array<char const*, 6> kRotationStates{
-    kFacing, kVanillaFacing, kAxis, kHorizontalFacing, kHorizontalAxis, kAxisAlongFirst
+inline constexpr std::array<char const*, 7> kRotationStates{
+    kFacing, kVanillaFacing, kAxis, kHorizontalFacing, kHorizontalAxis, kAxisAlongFirst, kAlongFirst
 };
 
 /// Axis of a direction (0..5, Create order): 0 x, 1 y, 2 z.

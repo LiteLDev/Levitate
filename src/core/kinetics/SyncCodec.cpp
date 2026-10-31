@@ -67,6 +67,7 @@ std::string encode(Batch const& b) {
         else appendFloat(out, e.speed);
         out += ',';
         appendInt(out, e.removed ? -1 : e.sourceFace);
+        if (e.overstressed && !e.removed) out += ",o";
     }
     return out;
 }
@@ -85,7 +86,7 @@ std::optional<Batch> decode(std::string_view text) {
     if (body.empty()) return b;
     for (auto item : split(body, ';')) {
         auto f = split(item, ',');
-        if (f.size() != 5) return std::nullopt;
+        if (f.size() != 5 && (f.size() != 6 || f[5] != "o")) return std::nullopt;
         Entry e;
         if (!parse(f[0], e.x) || !parse(f[1], e.y) || !parse(f[2], e.z)) return std::nullopt;
         if (f[3] == "-") {
@@ -94,6 +95,7 @@ std::optional<Batch> decode(std::string_view text) {
             return std::nullopt;
         }
         if (!parse(f[4], e.sourceFace) || e.sourceFace < -1 || e.sourceFace > 5) return std::nullopt;
+        e.overstressed = f.size() == 6;
         b.entries.push_back(e);
     }
     return b;

@@ -10,6 +10,10 @@
 // - Every frame (block entity pass) each remembered block's rotating parts (`rotor = 2..`) are
 //   drawn around their axis at Create's angle: (ticks + partial) * speed * 0.3 + offset, where the
 //   offset makes meshing cogs line up (core::kinetics::rotationOffset).
+// - Create's overstress flash (KineticEffectHandler / KineticBlockEntityRenderer): when a block's
+//   network becomes overstressed its rotating parts flash red, when it recovers spring green, the
+//   tint fading by a tenth a tick (U52).
+// - Eased parts (the flywheel's wheel) chase the network speed by 1/64 a tick (U52).
 // Vanilla clients (no mod) simply see the static `rotor = 0` model.
 
 #include <chrono>
@@ -71,6 +75,7 @@
 
 #include "client/Client.h"
 #include "client/kinetics/KineticsClient.h"
+#include "core/kinetics/Feedback.h"
 #include "core/kinetics/RotorModel.h"
 #include "core/kinetics/Solver.h"
 #include "core/kinetics/SyncCodec.h"
@@ -86,13 +91,23 @@ namespace lv::client::kinetics {
 namespace k  = core::kinetics;
 namespace ks = core::kinetics::sync;
 namespace fk = feature::kinetics;
+namespace feedback = core::kinetics::feedback;
 using fk::KineticSpec;
 
 namespace {
 
 struct Synced {
-    float speed      = 0;
-    int   sourceFace = -1;
+    float         speed        = 0;
+    int           sourceFace   = -1;
+    bool          overstressed = false;
+    float         effect       = 0; ///< overstress flash: 1 overstressed, -1 recovered (at `effectTick`)
+    std::uint64_t effectTick   = 0;
+};
+
+/// An eased part's visual speed and angle (FlywheelBlockEntity.visualSpeed / angle).
+struct Eased {
+    float         visual = 0, angle = 0;
+    std::uint64_t tick   = 0;
 };
 
 struct PosHash {
@@ -122,6 +137,7 @@ struct State {
     std::unordered_map<Block const*, RotorInfo> infos;
 
     // client thread only
+    std::unordered_map<BlockPos, Eased, PosHash, PosEq> eased;
     void const*               level      = nullptr;
     bool                      synced     = false; ///< got the first sync of this level
     int                       dim        = -1;
@@ -179,8 +195,9 @@ std::map<std::string, std::unique_ptr<mce::Mesh>>& meshCache() {
     return cache;
 }
 
-mce::Mesh* rotorMesh(Tessellator& tess, KineticSpec const& spec, std::string const& bone) {
-    auto  key   = spec.rotorModel + "|" + bone + "|" + spec.rotorTexture;
+/// `tint`: 0 white, 1..32 red, -1..-32 spring green by 32nds (the overstress flash).
+mce::Mesh* rotorMesh(Tessellator& tess, KineticSpec const& spec, std::string const& bone, int tint = 0) {
+    auto  key   = spec.rotorModel + "|" + bone + "|" + spec.rotorTexture + "|" + std::to_string(tint);
     auto& cache = meshCache();
     if (auto it = cache.find(key); it != cache.end()) return it->second.get();
     auto& slot   = cache[key];
@@ -195,7 +212,8 @@ mce::Mesh* rotorMesh(Tessellator& tess, KineticSpec const& spec, std::string con
     auto  at = [](std::array<float, 3> const& p) { return Vec3{p[0], p[1], p[2]}; };
 
     tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
-    tess.color(1.f, 1.f, 1.f, 1.f);
+    auto colour = feedback::overstressTint(static_cast<float>(tint) / 32.f);
+    tess.color(colour[0], colour[1], colour[2], 1.f);
     for (auto const& q : b->second) {
         // both windings: the part is seen from every side while it turns
         tess.simpleQuad(at(q.pos[0]), uv(q.uv[0]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[3]), uv(q.uv[3]));
@@ -219,6 +237,7 @@ void resetLevelState(bool leftLevel) {
         s.synced = false;
         s.speeds.clear();
     }
+    s.eased.clear();
     s.infos.clear();
     if (dropTracked) s.tracked.clear();
     meshCache().clear();
@@ -236,19 +255,65 @@ void frameUpdate(ClientInstance& ci) {
         s.level = level;
     }
     if (!level || !player) return;
-    s.dim = static_cast<int>(player->getDimensionId());
+    int dim = static_cast<int>(player->getDimensionId());
+    if (dim != s.dim || s.eased.size() > 4096) s.eased.clear(); // eased parts are per dimension
+    s.dim = dim;
+}
+
+/// The client level's tick (0 outside a level).
+std::uint64_t clientTick() {
+    auto* ci    = lv::client::currentClient();
+    auto* level = ci ? ci->getLevel() : nullptr;
+    return level ? level->getCurrentTick().tickID : 0;
 }
 
 void applyBatch(ks::Batch const& batch) {
-    auto&           s = state();
+    auto            now = clientTick();
+    auto&           s   = state();
+    int             red = 0, green = 0;
     std::lock_guard lock(s.mutex);
     auto&           m = s.speeds[batch.dim];
     if (batch.reset) m.clear();
     for (auto const& e : batch.entries) {
         BlockPos p{e.x, e.y, e.z};
-        if (e.removed) m.erase(p);
-        else m[p] = Synced{e.speed, e.sourceFace};
+        if (e.removed) {
+            m.erase(p);
+            continue;
+        }
+        Synced next{e.speed, e.sourceFace, e.overstressed};
+        if (auto it = m.find(p); it != m.end()) {
+            next.effect     = it->second.effect;
+            next.effectTick = it->second.effectTick;
+            // KineticBlockEntity.read: the overstress state changed while the block turns
+            // (overstressed: the theoretical speed turns; recovered: the speed is back)
+            if (it->second.overstressed != e.overstressed && (e.overstressed || e.speed != 0)) {
+                next.effect     = e.overstressed ? 1.f : -1.f;
+                next.effectTick = now + static_cast<std::uint64_t>(feedback::kOverstressEffectDelay);
+                ++(e.overstressed ? red : green);
+            }
+        }
+        m[p] = next;
     }
+    if (red > 0) log().info("kinetics client: overstress flash (red) on {} blocks", red);
+    if (green > 0) log().info("kinetics client: overstress flash (green) on {} blocks", green);
+}
+
+/// The overstress flash of a block now (0: none).
+float effectAt(Synced const& s, std::uint64_t now) {
+    if (s.effect == 0 || now < s.effectTick) return 0;
+    return feedback::overstressEffectAfter(s.effect, static_cast<int>(std::min<std::uint64_t>(now - s.effectTick, 1000)));
+}
+
+/// Advances an eased part to `now` and returns its angle at `partial` (FlywheelBlockEntity.tick,
+/// FlywheelRenderer: angle + visualSpeed * 3/10 * partialTicks).
+float easedAngle(BlockPos const& pos, float target, std::uint64_t now, float partial) {
+    auto& e = state().eased[pos];
+    if (e.tick == 0 || now < e.tick || now - e.tick > 1200) e.tick = now; // new or long unseen: start here
+    for (; e.tick < now; ++e.tick) {
+        e.visual = feedback::chaseExp(e.visual, target, feedback::kFlywheelChase);
+        e.angle  = std::fmod(e.angle + e.visual * .3f, 360.f);
+    }
+    return e.angle + e.visual * .3f * partial;
 }
 
 /// "kinetics.sync" from the server (client thread).
@@ -340,6 +405,8 @@ void renderRotors(BaseActorRenderContext& ctx) {
     double     time   = static_cast<double>(level->getCurrentTick().tickID) + ctx.mFrameAlpha;
     auto&      world  = screen.camera.worldMatrixStack.get();
 
+    auto                      now     = static_cast<std::uint64_t>(level->getCurrentTick().tickID);
+    float                     partial = ctx.mFrameAlpha;
     std::vector<k::RotorPart> parts;
     for (auto const& item : items) {
         auto const& info = *item.info;
@@ -347,12 +414,15 @@ void renderRotors(BaseActorRenderContext& ctx) {
         if (item.synced.sourceFace >= 0) view.sourceFacing = static_cast<k::Face>(item.synced.sourceFace);
         parts.clear();
         info.spec->rotorParts(view, parts);
+        float effect = effectAt(item.synced, now);
+        int   tint   = static_cast<int>(std::lround(effect * 32.f));
         for (auto const& part : parts) {
-            auto* mesh = rotorMesh(tess, *info.spec, part.bone);
+            auto* mesh = rotorMesh(tess, *info.spec, part.bone, tint);
             if (!mesh) continue;
             float extra  = info.spec->angleOffset ? info.spec->angleOffset(info.snap, part.axis) : 0.f;
             float offset = k::rotationOffset(core::GlobalPos{0, item.pos.x, item.pos.y, item.pos.z}, part.axis, part.largeCog, part.angleOffset + extra);
-            float angle  = k::rotationAngle(time, item.synced.speed * part.speedFactor, offset);
+            float angle  = part.eased ? easedAngle(item.pos, item.synced.speed * part.speedFactor, now, partial) + offset
+                                      : k::rotationAngle(time, item.synced.speed * part.speedFactor, offset);
 
             glm::vec3 axis{part.axis == k::Axis::X ? 1.f : 0.f, part.axis == k::Axis::Y ? 1.f : 0.f, part.axis == k::Axis::Z ? 1.f : 0.f};
             auto      ref = world.push(false);

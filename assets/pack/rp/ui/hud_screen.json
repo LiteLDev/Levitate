@@ -1,0 +1,87 @@
+{
+  "namespace": "hud",
+
+  "lv_goggle_overlay": {
+    "type": "panel",
+    "size": [ 0, 0 ],
+    "anchor_from": "center",
+    "anchor_to": "center",
+    "layer": 25,
+    "controls": [
+      {
+        "lv_goggle_frame": {
+          "type": "image",
+          "texture": "textures/ui/levitate_goggle_tooltip",
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [ 32, -12 ],
+          "size": [ "100%c + 8px", "100%c + 8px" ],
+          "controls": [
+            {
+              "lv_goggle_text": {
+                "type": "label",
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [ 4, 4 ],
+                "color": [ 1.0, 1.0, 1.0 ],
+                "shadow": true,
+                "localize": false,
+                "layer": 1,
+                "text_alignment": "left",
+                "text": "#text",
+                "bindings": [
+                  {
+                    "binding_name": "#hud_title_text_string",
+                    "binding_type": "global"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(#hud_title_text_string - '§l§v§g§r')",
+                    "target_property_name": "#text"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "bindings": [
+      {
+        "binding_name": "#hud_title_text_string",
+        "binding_type": "global"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#hud_title_text_string - '§l§v§g§r') = #hud_title_text_string))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "hud_title_text": {
+    "bindings": [
+      {
+        "binding_name": "#hud_title_text_string",
+        "binding_type": "global"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "((#hud_title_text_string - '§l§v§g§r') = #hud_title_text_string)",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "root_panel": {
+    "modifications": [
+      {
+        "array_name": "controls",
+        "operation": "insert_back",
+        "value": [
+          { "lv_goggle_overlay@hud.lv_goggle_overlay": {} }
+        ]
+      }
+    ]
+  }
+}

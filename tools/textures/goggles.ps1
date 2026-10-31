@@ -1,14 +1,15 @@
 # Textures of the U8 `goggles` unit: the wrench and the engineer's goggles items and the goggles'
 # worn model texture. Original pixel art (not derived from Create's assets).
 #
-#   pwsh tools/textures/goggles.ps1            # writes assets/pack/rp/textures/{items,models}/*.png
+#   pwsh tools/textures/goggles.ps1            # writes assets/pack/rp/textures/{items,models,ui}/*.png
 #   pwsh tools/textures/goggles.ps1 -Preview   # also writes 8x previews to tools/textures/preview/ (not committed)
 param([switch]$Preview)
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/lib.ps1"
 $items  = Join-Path $PSScriptRoot '../../assets/pack/rp/textures/items'
 $models = Join-Path $PSScriptRoot '../../assets/pack/rp/textures/models'
-New-Item -ItemType Directory -Force $items, $models | Out-Null
+$ui     = Join-Path $PSScriptRoot '../../assets/pack/rp/textures/ui'
+New-Item -ItemType Directory -Force $items, $models, $ui | Out-Null
 
 function Save-All([string[]]$Rows, [hashtable]$Palette, [string]$Path) {
     Save-PixelArt -Rows $Rows -Palette $Palette -Path $Path
@@ -95,3 +96,23 @@ foreach ($u in 0, 10, 20, 30) {
 $rows = foreach ($r in $grid) { -join $r }
 $modelPal = @{ s = '#5c3a1e'; t = '#7a5230'; b = '#6b4a14'; r = '#e0b03c'; e = '#9fdcea' }
 Save-All $rows $modelPal (Join-Path $models 'goggles.png')
+
+# U52: the frame of the goggle overlay drawn by the resource pack's HUD for vanilla clients
+# (ui/hud_screen.json; nine-slice 3 px, levitate_goggle_tooltip.json). A tooltip box: a dark
+# translucent fill, a one pixel dark rim with cut corners and a purple inner border, lighter on top.
+$tooltip = @(
+    '.ddddddd.',
+    'dtttttttd',
+    'dtfffffud',
+    'dtfffffud',
+    'dufffffud',
+    'dufffffbd',
+    'dufffffbd',
+    'dbbbbbbbd',
+    '.ddddddd.'
+)
+$tooltipPal = @{
+    d = '#f0100010'; f = '#f0100010'
+    t = '#f05000ff'; u = '#f03c00bf'; b = '#f028007f'
+}
+Save-All $tooltip $tooltipPal (Join-Path $ui 'levitate_goggle_tooltip.png')

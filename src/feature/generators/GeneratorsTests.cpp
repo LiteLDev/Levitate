@@ -411,4 +411,84 @@ LV_REGISTER_SELFTEST("generators.large_wheel_place", [](Context& ctx) -> ll::cor
     }
 });
 
+// ---- U52: alignment with Create 6.0.10 (testPos dx 5260..5285) ----------------------------------------------------
+
+// K6: HandCrankBlock.canSurvive / neighborChanged
+LV_REGISTER_SELFTEST("generators.crank_support", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 5260};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    ctx.require(ctx.setBlock(a.at(0), "minecraft:stone"), "stone");
+    ctx.require(ctx.setBlock(a.at(0, 1), kHandCrank, {{kFacing, static_cast<int>(Face::Up)}}), "a crank on the stone");
+    ctx.require(ctx.setBlock(a.at(2, 1), kCopperValve, {{kFacing, static_cast<int>(Face::Up)}}), "a valve handle over air");
+    auto* region = regionOf(a.at(0).dim);
+    ctx.require(region != nullptr, "region");
+    ctx.check(canSurvive(*region, a.at(0, 1), *blockAt(a.at(0, 1))), "a crank on stone survives");
+    ctx.check(!canSurvive(*region, a.at(2, 1), *blockAt(a.at(2, 1))), "a valve handle over air does not");
+    // placement: a handle that cannot survive the way it was turned is taken back
+    orientPlaced(ctx.player(), a.at(2, 1), Face::Up);
+    co_await ctx.ticks(1);
+    ctx.check(id(a.at(2, 1)) == "minecraft:air", "an unsupported handle is not placed, got " + id(a.at(2, 1)));
+    // the block behind goes: the crank pops off
+    ctx.require(ctx.setBlock(a.at(0), "minecraft:air"), "remove the stone");
+    co_await ctx.ticks(2);
+    ctx.check(id(a.at(0, 1)) == "minecraft:air", "the crank broke without its support, got " + id(a.at(0, 1)));
+    // a shaft behind holds it (it has a collision shape)
+    ctx.require(ctx.setBlock(a.at(4), kShaft, {{"levitate:axis", 1}}), "a vertical shaft");
+    ctx.require(ctx.setBlock(a.at(4, 1), kHandCrank, {{kFacing, static_cast<int>(Face::Up)}}), "a crank on the shaft");
+    ctx.require(ctx.setBlock(a.at(5, 1), "minecraft:stone"), "a neighbour");
+    ctx.require(ctx.setBlock(a.at(5, 1), "minecraft:air"), "the neighbour goes");
+    co_await ctx.ticks(2);
+    ctx.check(id(a.at(4, 1)) == kHandCrank, "a crank with its support stays");
+});
+
+// K9: ItemUseOverrides: sneaking with an item in hand turns the crank backwards
+LV_REGISTER_SELFTEST("generators.crank_sneak_item", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 5268};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    auto& sp = static_cast<SimulatedPlayer&>(ctx.player());
+    stand(sp, a.at(0, 0, 2));
+    ctx.require(ctx.setBlock(a.at(0, -1), "minecraft:stone"), "support");
+    ctx.require(ctx.setBlock(a.at(0), kHandCrank, {{kFacing, static_cast<int>(Face::Up)}}), "place the crank");
+    co_await ctx.ticks(2);
+    sp.simulateSneaking();
+    auto stick = item("minecraft:stick");
+    useOn(sp, stick, a.at(0), ScriptModuleMinecraft::ScriptFacing::Up);
+    co_await ctx.ticks(1);
+    sp.simulateStopSneaking();
+    ctx.check(crankInUse(a.at(0)) > 0, "a sneaking right-click with a stick turns the crank");
+    ctx.check(kinetics::speedAt(a.at(0)) == -32, "backwards: -32 RPM, got " + num(kinetics::speedAt(a.at(0))));
+    co_await ctx.ticks(cg::kCrankUseTicks + 2);
+});
+
+// K7: WaterWheelBlock.canSurvive
+LV_REGISTER_SELFTEST("generators.water_wheel_neighbours", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 5272};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    ctx.require(ctx.setBlock(a.at(0, 1), kWaterWheel, {{kFacing, static_cast<int>(Face::East)}}), "a wheel along x");
+    auto* region = regionOf(a.at(0).dim);
+    ctx.require(region != nullptr, "region");
+    auto const* alongX = game::blockWith(kWaterWheel, {{kFacing, static_cast<int>(Face::East)}});
+    auto const* alongZ = game::blockWith(kWaterWheel, {{kFacing, static_cast<int>(Face::North)}});
+    ctx.require(alongX && alongZ, "wheel states");
+    ctx.check(canSurvive(*region, a.at(1, 1), *alongX), "on the shared axis next to it: fine");
+    ctx.check(!canSurvive(*region, a.at(0, 1, 1), *alongX), "beside it in its plane: refused");
+    ctx.check(!canSurvive(*region, a.at(1, 1), *alongZ), "along x with another axis: refused");
+    ctx.check(canSurvive(*region, a.at(3, 1), *alongZ), "away from other wheels: fine");
+});
+
+// K10: ValveHandleBlock.onRemove keeps the block entity when dyed; K18: one stress entry
+LV_REGISTER_SELFTEST("generators.valve_dye_keeps_angle", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 5278};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    ctx.require(ctx.setBlock(a.at(0), "minecraft:stone"), "support");
+    ctx.require(ctx.setBlock(a.at(0, 1), kCopperValve, {{kFacing, static_cast<int>(Face::Up)}}), "a valve handle");
+    setValveAngle(a.at(0, 1), -90);
+    ctx.require(useValve(ctx.player(), a.at(0, 1), "minecraft:blue_dye", false), "dye it blue");
+    co_await ctx.ticks(1);
+    ctx.check(id(a.at(0, 1)) == valveId(11), "blue valve handle, got " + id(a.at(0, 1)));
+    ctx.check(valveAngle(a.at(0, 1)) == -90, "the angle stays -90, got " + std::to_string(valveAngle(a.at(0, 1))));
+    auto const* spec = kinetics::specOf(valveId(11));
+    ctx.check(spec && spec->stressKey == "copper_valve_handle", "dyed handles use the copper handle's stress entry");
+});
+
 } // namespace lv::feature::generators

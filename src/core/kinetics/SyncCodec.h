@@ -6,12 +6,13 @@
 // src/feature/kinetics/KineticsSync.cpp): {"batches": ["<batch>", ...]}. One batch carries the
 // speeds of the kinetic blocks of one chunk:
 //
-//   "<dim>;<R|D>;<cx>;<cz>|<x>,<y>,<z>,<speed>,<sourceFace>;..."
+//   "<dim>;<R|D>;<cx>;<cz>|<x>,<y>,<z>,<speed>,<sourceFace>[,o];..."
 //
 // R = the first message of a full sync of the dimension (the client drops what it knew about the
 // dimension), D = a delta. `speed` is the effective speed in RPM (shortest round-trip decimal) or
 // "-" when the block was removed; `sourceFace` is the face towards the block's source (0..5,
-// Create's Direction order) or -1.
+// Create's Direction order) or -1. A trailing `o` marks a block of an overstressed network (U52:
+// the client mod flashes its rotating parts as Create's KineticEffectHandler).
 
 #include <optional>
 #include <string>
@@ -34,6 +35,7 @@ struct Entry {
     float speed      = 0;
     int   sourceFace = -1;
     bool  removed    = false;
+    bool  overstressed = false;
     friend bool operator==(Entry const&, Entry const&) = default;
 };
 

@@ -463,7 +463,9 @@ std::vector<std::string> descriptionLines(std::string const& id) {
 
 std::vector<std::string> kineticStats(std::string const& id) {
     std::vector<std::string> out;
-    if (!feature::kinetics::specOf(id)) return out;
+    // KineticStats.create: IRotate blocks and the steam engine (its capacity entry; the powered
+    // shaft is the kinetic block)
+    if (!feature::kinetics::specOf(id) && id != "levitate:steam_engine") return out;
     auto const& k        = config::get<feature::kinetics::KineticsConfig>();
     if (k.disableStress) return out;
     bool        goggles  = wearingGoggles();

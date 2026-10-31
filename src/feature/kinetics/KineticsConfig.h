@@ -9,7 +9,7 @@
 namespace lv::feature::kinetics {
 
 struct KineticsConfig {
-    int version = 2; // 2: gantry_shaft impact 0 (as Create)
+    int version = 3; // 2: gantry_shaft impact 0 (as Create); 3: one copper_valve_handle entry for every valve handle
 
     // ---- CKinetics ----
     /// Disable the stress mechanic (networks never overstress).
@@ -80,23 +80,7 @@ struct KineticsConfig {
         {"large_water_wheel",         128},
         {"water_wheel",               32},
         {"hand_crank",                8},
-        {"copper_valve_handle",       8},
-        {"white_valve_handle",        8},
-        {"orange_valve_handle",       8},
-        {"magenta_valve_handle",      8},
-        {"light_blue_valve_handle",   8},
-        {"yellow_valve_handle",       8},
-        {"lime_valve_handle",         8},
-        {"pink_valve_handle",         8},
-        {"gray_valve_handle",         8},
-        {"light_gray_valve_handle",   8},
-        {"cyan_valve_handle",         8},
-        {"purple_valve_handle",       8},
-        {"blue_valve_handle",         8},
-        {"brown_valve_handle",        8},
-        {"green_valve_handle",        8},
-        {"red_valve_handle",          8},
-        {"black_valve_handle",        8},
+        {"copper_valve_handle",       8}, // every valve handle (Create's getStressConfigKey)
     };
 
     // ---- Levitate ----

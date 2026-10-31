@@ -2,7 +2,9 @@
 #   local / remote-mod: the client mod draws the rotating parts spinning (two screenshots apart),
 #                       meshing cogs line up; the selftests pass on the (integrated) server.
 #   remote-vanilla:     a client without the mod sees the static models, without errors.
-# Screenshots: out/kinetics/{kinetics-a,kinetics-b}.png
+#   local / remote-mod (U52): overstressing the network flashes its rotating parts red, recovering
+#                       flashes them green (Create's KineticEffectHandler).
+# Screenshots: out/kinetics/{kinetics-a,kinetics-b}.png, kinetics-overstressed.png, kinetics-recovered.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 
 if (-not $vanilla) {
@@ -32,4 +34,17 @@ Start-Sleep -Seconds 1
 Save-Screenshot 'kinetics-a' | Out-Null
 Start-Sleep -Milliseconds 400
 Save-Screenshot 'kinetics-b' | Out-Null
+if (-not $vanilla) {
+    # 3 consumers behind the source: 3 x 4 SU/RPM > 8 SU/RPM
+    $mark = Get-LogMark
+    foreach ($dx in 7, 8, 9) { Invoke-Chat "/setblock ~$dx ~1 ~ levitate:kinetics_test_consumer [`"levitate:axis`"=0]" }
+    Wait-LogLine 'kinetics client: overstress flash \(red\)' 30 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 150
+    Save-Screenshot 'kinetics-overstressed' | Out-Null
+    $mark = Get-LogMark
+    foreach ($dx in 7, 8, 9) { Invoke-Chat "/setblock ~$dx ~1 ~ air" }
+    Wait-LogLine 'kinetics client: overstress flash \(green\)' 30 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 150
+    Save-Screenshot 'kinetics-recovered' | Out-Null
+}
 Assert-NoErrors

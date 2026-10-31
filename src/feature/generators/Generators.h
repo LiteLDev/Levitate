@@ -80,7 +80,12 @@ bool useValve(Player& player, GlobalPos const& pos, std::string const& heldId, b
 /// Create's WaterWheelBlockEntity.applyMaterialIfValid (wheel, large wheel or a structure
 /// block of one). Returns true when the wood changed.
 bool applyMaterial(GlobalPos const& pos, std::string const& heldId);
-/// Turns a freshly placed crank / valve / wheel / motor as Create's getStateForPlacement.
+/// Create's canSurvive: a crank / valve handle needs a block with a collision shape behind it
+/// (HandCrankBlock), a water wheel may only touch another one along their shared axis
+/// (WaterWheelBlock). Other blocks always survive.
+[[nodiscard]] bool canSurvive(BlockSource& region, GlobalPos const& pos, Block const& block);
+/// Turns a freshly placed crank / valve / wheel / motor as Create's getStateForPlacement; one
+/// that cannot survive that way is taken back (the item returns to the player).
 void orientPlaced(Player& player, GlobalPos const& pos, Face clickedFace);
 /// Places a large water wheel as Create's LargeWaterWheelBlockItem (the clicked position or one
 /// further). Returns false (and tells the player) when there is no room.
