@@ -45,6 +45,7 @@
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/BlockChangeContext.h"
 #include "mc/world/level/block/actor/BlockActor.h"
+#include "mc/world/level/dimension/Dimension.h"
 #include "mc/world/phys/AABB.h"
 #include "mc/world/Container.h"
 
@@ -869,6 +870,7 @@ public:
             }
         }
         rebuildCollisionCache();
+        if (!pendingSeats.empty()) seatArrivedRiders();
         syncClients();
     }
 
@@ -977,7 +979,8 @@ public:
                 if (a.tickWhileStill && a.tick) a.tick(ctx);
             });
         }
-        c.mMoving = moving; // a stall keeps the actors "moving" (no new startMoving)
+        c.mMoving  = moving; // a stall keeps the actors "moving" (no new startMoving)
+        c.mStalled = moving && stalled;
         if (stalled) {
             // Create: a stalled contraption holds still; the anchor's motion waits too
             next = before;
@@ -1465,6 +1468,63 @@ public:
         return true;
     }
 
+    /// Riders teleported into another dimension with their contraption, seated again on arrival.
+    struct PendingSeat {
+        Id            contraption = 0;
+        cc::Pos       local;
+        std::int64_t  actor = 0;
+        int           dim   = 0;
+        std::uint64_t until = 0;
+    };
+    std::vector<PendingSeat> pendingSeats;
+
+    bool changeDimension(Id id, int dim, cc::Transform const& t) {
+        auto it = live.find(id);
+        if (it == live.end()) return false;
+        auto& c = *it->second;
+        if (c.mDim == dim) {
+            c.mTarget = t;
+            return true;
+        }
+        for (auto& b : c.mBlocks) removeDisplay(b);
+        removeRetiring([id](Retiring const& r) { return r.contraption == id; });
+        sendToDim(c.mDim, "contraption.remove", {{"id", id}});
+        sentTransforms.erase(id);
+        int from = c.mDim;
+        // the riders go along (Create's passengers stay on the carriage entity)
+        auto riders = c.mSeated;
+        c.mSeated.clear();
+        c.mDim       = dim;
+        c.mAnchor    = {dim, c.mAnchor.x, c.mAnchor.y, c.mAnchor.z};
+        c.mTransform = t;
+        c.mTarget.reset();
+        c.mMotion = {};
+        for (auto const& [local, actor] : riders) {
+            if (auto* a = fetchActor(actor)) {
+                auto at = t.toWorld(cc::Vec3d::center(local));
+                a->teleport(Vec3{float(at.x), float(at.y), float(at.z)}, DimensionType(dim));
+                pendingSeats.push_back({id, local, actor, dim, tickCount + 200});
+            }
+        }
+        sendToDim(dim, "contraption.blocks", blocksMessage(c));
+        displaysChanged.insert(id);
+        rebuildCollisionCache();
+        log().info("contraption #{} moved from dimension {} to {} ({} riders)", id, from, dim, riders.size());
+        return true;
+    }
+
+    void seatArrivedRiders() {
+        std::erase_if(pendingSeats, [&](PendingSeat const& p) {
+            auto it = live.find(p.contraption);
+            if (it == live.end() || tickCount > p.until) return true;
+            auto* a = fetchActor(p.actor);
+            if (!a) return true;
+            if (static_cast<int>(a->getDimensionId()) != p.dim) return false; // still on the way
+            it->second->seat(p.local, p.actor);
+            return true;
+        });
+    }
+
     /// Drops a contraption whose displays are gone: its record, the companions' copy, the caches.
     static cc::Box boundsOf(Contraption const& c) { return c.mBounds; }
 
@@ -1549,6 +1609,8 @@ Contraption* find(Id id) {
 bool disassemble(Id id) { return Engine::get().disassemble(id); }
 
 bool discard(Id id) { return Engine::get().discard(id); }
+
+bool changeDimension(Id id, int dim, cc::Transform const& transform) { return Engine::get().changeDimension(id, dim, transform); }
 
 bool setBlockStates(Id id, cc::Pos const& local, cc::States const& states) { return Engine::get().setBlockStates(id, local, states); }
 

@@ -488,7 +488,7 @@ LV_REGISTER_SELFTEST("trains.signal", [](Context& ctx) -> ll::coro::CoroTask<> {
     t1->body.move(tr::railways(), 26, {});
     t1->currentStation.clear();
     tn::placeCarriages(*t1);
-    co_await ctx.ticks(4);
+    co_await ctx.ticks(17); // Create's SignalBlockEntity: a green signal turns red 15 ticks later
     ctx.check(sg::signalState(signal) == lv::core::signals::SignalState::Red, "the occupied section shows red");
 
     auto second = assembleTrain(ctx, l, false);

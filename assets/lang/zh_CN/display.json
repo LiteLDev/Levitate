@@ -85,5 +85,11 @@
   "lv.display.link.none": "（无）",
   "lv.display.link.option_text": "编辑文本选项",
   "lv.display.key.use": "右键",
-  "lv.display.key.attack": "左键"
+  "lv.display.key.attack": "左键",
+  "create.display_source.boiler.for_boiler_status": "来显示锅炉状态",
+  "create.display_source.boiler.not_enough_space": "没有足够的空间 ",
+  "create.display_source.boiler_status": "锅炉状态",
+  "create.display_source.current_floor": "轿厢所在位置",
+  "create.display_source.read_package_address": "获取包裹地址",
+  "create.generic.unit.buckets": "B"
 }

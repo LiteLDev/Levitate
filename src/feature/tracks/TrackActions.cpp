@@ -5,6 +5,8 @@
 
 #include "ll/api/service/Bedrock.h"
 
+#include "mc/world/phys/AABB.h"
+#include "mc/world/level/block/actor/BlockActorType.h"
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/core/string/HashedString.h"
 #include "mc/network/MinecraftPacketIds.h"
@@ -115,11 +117,15 @@ struct PaveBlock {
     bool         girder = false;
 };
 
-std::optional<PaveBlock> paveBlockOf(ItemStack const& offhand) {
+std::optional<PaveBlock> paveBlockOf(BlockSource& region, BlockPos const& at, ItemStack const& offhand) {
     if (offhand.isNull() || !offhand.mBlock || offhand.mBlock->isAir()) return std::nullopt;
     Block const* b  = offhand.mBlock;
     std::string  id = b->getTypeName();
     if (id == kTrackId || id == kFakeTrackId) return std::nullopt;
+    // Create's TrackPlacement.paveTracks: no blocks with a block entity, none without collision
+    if (b->getBlockType().getBlockEntityType() != BlockActorType::Undefined) return std::nullopt;
+    AABB box = b->getBlockType().getCollisionShape(*b, region, at, nullptr);
+    if (box.max.x - box.min.x < 1e-4f || box.max.y - box.min.y < 1e-4f || box.max.z - box.min.z < 1e-4f) return std::nullopt;
     PaveBlock p;
     p.full   = b;
     p.girder = id == kGirderId;
@@ -162,6 +168,16 @@ int paveStraight(
 ) {
     int                     needed = 0;
     std::set<ct::BlockPos3> toPlaceOn;
+    // Create's TrackPaver: girders along a straight run get its axis and the side flag (no top / bottom)
+    Block const* block = pave.full;
+    if (pave.girder && std::abs(direction.y) < 1e-6 && (std::abs(direction.x) < 1e-6) != (std::abs(direction.z) < 1e-6)) {
+        bool alongX = std::abs(direction.x) > 1e-6;
+        if (auto const* g = game::blockWith(
+                std::string(kGirderId),
+                {{"levitate:axis", alongX ? 0 : 2}, {"levitate:top", 0}, {"levitate:bottom", 0}, {alongX ? "levitate:x" : "levitate:z", 1}}
+            ))
+            block = g;
+    }
     ct::Vec3d               start          = startPos.center();
     ct::Vec3d               mainNormal     = direction.cross({0, 1, 0});
     ct::Vec3d               normalizedN    = mainNormal.normalize();
@@ -180,7 +196,7 @@ int paveStraight(
     }
     for (auto const& p : toPlaceOn) {
         if (!visited.insert(p).second) continue;
-        if (placeIfFree(region, p, *pave.full, simulate)) needed += pave.slab ? 2 : 1;
+        if (placeIfFree(region, p, *block, simulate)) needed += pave.slab ? 2 : 1;
     }
     return needed;
 }
@@ -349,7 +365,7 @@ void executeConnection(PendingConnection const& pc) {
         return;
     }
     ItemStack const offhand = player->getOffhandSlot();
-    auto            paving  = paveBlockOf(offhand);
+    auto            paving  = paveBlockOf(region, toGame(plan->pos1), offhand);
     int             tracks  = requiredTracks(region, pc.dim, *plan);
     int             blocks  = paving ? pave(region, *plan, *paving, true) : 0;
     if (!player->isCreative()) {
@@ -429,6 +445,13 @@ bool onTrackItemUse(Player& player, BlockPos const& clicked, int face, Block con
         if (handled) return true;
     }
 
+    // Create's CurvedTrackInteraction: a track item used on a curve says so and places nothing
+    if (clickedBlock && clickedBlock->getTypeName() == kFakeTrackId) {
+        s.lastUse[uuid] = s.tick;
+        actionbar(player, "create.track.turn_start", "Cannot start connection from a Turn");
+        return true;
+    }
+
     std::optional<ct::Shape> clickedShape = clickedBlock ? shapeOf(*clickedBlock) : std::nullopt;
     auto                     sel          = s.selections.find(uuid);
 
@@ -437,6 +460,10 @@ bool onTrackItemUse(Player& player, BlockPos const& clicked, int face, Block con
         s.lastUse[uuid] = s.tick;
         if (ct::isJunction(*clickedShape)) {
             actionbar(player, "create.track.junction_start", "Cannot start connection from a Junction");
+            return true;
+        }
+        if (tiltAt(dim, toCore(clicked))) { // Create's TrackBlockItem: a tilted track can't start one
+            actionbar(player, "create.track.turn_start", "Cannot start connection from a Turn");
             return true;
         }
         Selection selection;

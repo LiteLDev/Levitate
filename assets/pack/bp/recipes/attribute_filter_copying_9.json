@@ -1,0 +1,26 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "levitate:attribute_filter_copying_9"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "levitate:attribute_filter",
+        "count": 9
+      }
+    ],
+    "unlock": [
+      {
+        "item": "levitate:attribute_filter"
+      }
+    ],
+    "result": {
+      "item": "levitate:attribute_filter",
+      "count": 9
+    }
+  }
+}

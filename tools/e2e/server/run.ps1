@@ -28,7 +28,7 @@ param(
     [switch]$Build,
     [switch]$KeepOpen,                 # interactive: keep the server running and forward your console input
     [int]$TimeoutSec = 900,            # whole-scenario budget (boot excluded)
-    [int]$BootTimeoutSec = 180,
+    [int]$BootTimeoutSec = 600,        # a loaded machine (parallel builds) can take minutes to create the world
     [string[]]$Property = @(),         # extra server.properties overrides: -Property gamemode=creative,difficulty=easy
     [string]$ModDir,                   # default: <repo>/bin/server/Levitate
     [int]$Slot = -1,                   # force a specific slot
