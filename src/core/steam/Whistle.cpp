@@ -37,13 +37,13 @@ int pitchId(int pitch, WhistleSize size) { return pitch + 100 * static_cast<int>
 IncrementAction incrementSize(std::function<std::optional<ExtensionShape>(int)> const& above,
                               std::function<bool(int)> const& replaceable) {
     for (int i = 1; i <= 6; ++i) {
-        float pitch = static_cast<float>(std::pow(2.0, -(i * 2) / 12.0));
         if (auto shape = above(i)) {
-            if (*shape == ExtensionShape::Single) return {IncrementAction::Widen, i, pitch};
+            // widening sounds a whole tone lower per block, placing a semitone above that
+            if (*shape == ExtensionShape::Single) return {IncrementAction::Widen, i, static_cast<float>(std::pow(2.0, -(i * 2) / 12.0))};
             continue;
         }
         if (!replaceable(i)) return {};
-        return {IncrementAction::Place, i, pitch};
+        return {IncrementAction::Place, i, static_cast<float>(std::pow(2.0, -(i * 2 - 1) / 12.0))};
     }
     return {};
 }

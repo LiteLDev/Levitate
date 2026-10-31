@@ -129,7 +129,9 @@ void applyFluidEffects();
 void syncHose(GlobalPos const& p, float offset, float speedPerTick, bool gone = false);
 /// A spout started filling (`fluid` colour for the stream).
 void syncSpout(GlobalPos const& p, std::string const& fluid);
-/// Sends every hose of the player's dimension (after the handshake).
+/// Sends the fluid level of spouts and drains that changed (op level / level_remove), once a tick.
+void syncLevels();
+/// Sends every hose and spout / drain level of the player's dimension (after the handshake).
 void syncAllTo(Player& player);
 /// The hose state for the selftests.
 [[nodiscard]] float hoseOffset(GlobalPos const& p);

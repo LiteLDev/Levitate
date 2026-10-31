@@ -17,6 +17,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/contraption/Contraption.h"
+#include "feature/fluids/ItemFluids.h"
 #include "feature/steam/SteamInternal.h"
 #include "game/Blocks.h"
 #include "mod/I18n.h"
@@ -27,6 +28,8 @@ namespace lv::feature::steam {
 namespace blockdata = common::blockdata;
 namespace fluids    = common::fluids;
 namespace citems    = common::items;
+namespace itemfluids = lv::feature::fluids;
+using common::fluids::FluidStack;
 
 namespace {
 
@@ -79,44 +82,6 @@ bool contains(cs::Pos3 const& ctrl, int width, int height, cs::Pos3 const& p) {
 }
 
 std::string idOfItem(ItemStack const& s) { return citems::idOf(s); }
-
-/// The filled container for `emptyId` holding `fluid` (bucket / bottle), with its amount.
-std::optional<std::pair<std::string, int>> filledContainer(std::string const& emptyId, std::string const& fluid) {
-    if (emptyId == "minecraft:glass_bottle") {
-        if (fluid == "minecraft:water") return std::pair<std::string, int>{"minecraft:potion", 250};
-        return std::nullopt;
-    }
-    if (emptyId != "minecraft:bucket") return std::nullopt;
-    static std::map<std::string, std::string> const vanilla{
-        {"minecraft:water",       "minecraft:water_bucket"      },
-        {"minecraft:lava",        "minecraft:lava_bucket"       },
-        {"minecraft:powder_snow", "minecraft:powder_snow_bucket"},
-        {"minecraft:milk",        "minecraft:milk_bucket"       },
-    };
-    if (auto it = vanilla.find(fluid); it != vanilla.end()) return std::pair<std::string, int>{it->second, 1000};
-    // units' buckets follow Create's naming: <namespace>:<fluid>_bucket
-    std::string candidate = fluid + "_bucket";
-    if (auto stack = citems::make(candidate)) {
-        auto inItem = fluids::fluidInItem(*stack);
-        if (inItem.fluid == fluid && inItem.amount == 1000) return std::pair<std::string, int>{candidate, 1000};
-    }
-    return std::nullopt;
-}
-
-std::string emptyContainerOf(std::string const& filledId) {
-    if (filledId == "minecraft:potion") return "minecraft:glass_bottle";
-    return "minecraft:bucket";
-}
-
-void consumeHeld(Player& player, ItemStack const& held, std::optional<ItemStack> const& result) {
-    int count = citems::countOf(held);
-    player.setSelectedItem(count > 1 ? citems::withCount(held, count - 1) : citems::empty());
-    if (result) {
-        if (count <= 1) player.setSelectedItem(*result);
-        else giveOrDrop(player, *result);
-    }
-    player.sendInventory(false);
-}
 
 float exchangePitch(std::int64_t amountAfter) {
     static std::mt19937 rng{std::random_device{}()};
@@ -422,49 +387,58 @@ void processChanges() {
 bool useItemOnTank(Player& player, GlobalPos const& pos, ItemStack const& held) {
     auto info = tankAt(pos);
     if (!info || held.isNull()) return false;
-    auto heldId        = idOfItem(held);
     bool creativePlayer = player.isCreative();
-    auto access        = [&](auto&& fn) {
+    // Create's FluidTankBlock.useItemOn: survival players exchange fluid by hand only with
+    // creative tanks (regular tanks pass to the item's own use)
+    if (!creativePlayer && !info->creative) return false;
+    auto access = [&](auto&& fn) {
         auto* region = regionOf(pos.dim);
         return region ? fn(*region) : decltype(fn(*region)){};
     };
+    // the held item stays as it is: creative players and creative tanks never use it up (Create
+    // copies it), and survival players only reach here on creative tanks
+    auto const bp = game::blockPos(pos);
 
-    // item -> tank (Create's FluidHelper.tryEmptyItemIntoBE: the whole content or nothing)
-    auto inItem = fluids::fluidInItem(held);
-    if (!inItem.empty()) {
-        int accepted = access([&](BlockSource& r) { return fluids::fill(r, game::blockPos(pos), -1, inItem, true); });
-        if (accepted != inItem.amount) return true; // Create: the click is used up, nothing happens
-        if (info->creative && !boilerActive(info->controller)) setTankFluid(info->controller, inItem.fluid, info->capacity);
-        (void)access([&](BlockSource& r) { return fluids::fill(r, game::blockPos(pos), -1, inItem, false); });
-        if (!creativePlayer && !info->creative) consumeHeld(player, held, citems::make(emptyContainerOf(heldId)));
-        auto after = tankAt(pos);
-        playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, inItem.fluid == "minecraft:lava" ? "bucket.empty_lava" : "bucket.empty_water",
-                  .5f, exchangePitch(after ? after->amount : 0));
-        log().info("steam: {} emptied {} mB of {} into the tank at {} {} {}", player.getRealName(), inItem.amount, inItem.fluid, pos.x, pos.y, pos.z);
-        return true;
-    }
-
-    // tank -> item (Create's FluidHelper.tryFillItemFromBE)
-    if (heldId == "minecraft:bucket" || heldId == "minecraft:glass_bottle") {
-        if (info->fluid.empty() || info->amount <= 0 || boilerActive(info->controller)) return true;
-        auto filled = filledContainer(heldId, info->fluid);
-        if (!filled) return true;
-        fluids::FluidStack request{info->fluid, filled->second};
-        auto got = access([&](BlockSource& r) { return fluids::drain(r, game::blockPos(pos), -1, request, true); });
-        if (got.amount != filled->second) return true;
-        (void)access([&](BlockSource& r) { return fluids::drain(r, game::blockPos(pos), -1, request, false); });
-        if (info->creative) setTankFluid(info->controller, "", 0);
-        if (!creativePlayer) {
-            std::optional<ItemStack> out = citems::make(filled->first, 1, 0);
-            consumeHeld(player, held, out);
+    // item -> tank (Create's FluidHelper.tryEmptyItemIntoBE: GenericItemEmptying, all of it or nothing)
+    auto emptied = itemfluids::emptyItem(held);
+    if (emptied && !emptied->fluid.empty()) {
+        auto const& in       = emptied->fluid;
+        int         accepted = access([&](BlockSource& r) { return fluids::fill(r, bp, -1, in, true); });
+        if (accepted == in.amount) {
+            (void)access([&](BlockSource& r) { return fluids::fill(r, bp, -1, in, false); });
+            if (info->creative && !boilerActive(info->controller)) setTankFluid(info->controller, in.fluid, info->capacity);
+            auto after = tankAt(pos);
+            playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, in.fluid == "minecraft:lava" ? "bucket.empty_lava" : "bucket.empty_water", .5f,
+                      exchangePitch(after ? after->amount : 0));
+            log().info("steam: {} emptied {} mB of {} into the tank at {} {} {}", player.getRealName(), in.amount, in.fluid, pos.x, pos.y, pos.z);
+            return true;
         }
-        auto after = tankAt(pos);
-        playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, info->fluid == "minecraft:lava" ? "bucket.fill_lava" : "bucket.fill_water", .5f,
-                  exchangePitch(after ? after->amount : 0));
-        log().info("steam: {} filled {} from the tank at {} {} {}", player.getRealName(), filled->first, pos.x, pos.y, pos.z);
-        return true;
     }
-    return false;
+
+    // tank -> item (Create's FluidHelper.tryFillItemFromBE: GenericItemFilling)
+    if (itemfluids::canBeFilled(held, false) && !info->fluid.empty() && info->amount > 0 && !boilerActive(info->controller)) {
+        FluidStack inTank{info->fluid, static_cast<int>(std::min<std::int64_t>(info->amount, INT32_MAX))};
+        int        need = itemfluids::requiredAmount(held, inTank, false);
+        if (need > 0 && need <= inTank.amount) {
+            auto out = itemfluids::fillItem(held, inTank, false);
+            if (!citems::isEmpty(out)) {
+                (void)access([&](BlockSource& r) { return fluids::drain(r, bp, -1, {info->fluid, need}, false); });
+                if (info->creative) setTankFluid(info->controller, "", 0);
+                // survival players (on a creative tank) keep the empty container and get the filled one
+                if (!creativePlayer) {
+                    giveOrDrop(player, out);
+                    player.sendInventory(false);
+                }
+                auto after = tankAt(pos);
+                playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, info->fluid == "minecraft:lava" ? "bucket.fill_lava" : "bucket.fill_water", .5f,
+                          exchangePitch(after ? after->amount : 0));
+                log().info("steam: {} filled {} from the tank at {} {} {}", player.getRealName(), citems::idOf(out), pos.x, pos.y, pos.z);
+                return true;
+            }
+        }
+    }
+    // Create: an item that could be emptied or filled uses the click up even when nothing happened
+    return (emptied && !emptied->fluid.empty()) || itemfluids::canBeFilled(held, false);
 }
 
 bool tryMultiPlace(Player& player, GlobalPos const& clicked, int face, ItemStack const& held) {

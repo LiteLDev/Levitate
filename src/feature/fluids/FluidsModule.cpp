@@ -1,6 +1,7 @@
 // Fluids unit (U19): module wiring. World helpers, the machine list (ticking), placement
 // orientation, the player interaction hooks and the companion sync of hoses and spouts.
 
+#include <algorithm>
 #include <cmath>
 #include <map>
 #include <mutex>
@@ -306,8 +307,11 @@ bool exchangeWithTank(Player& player, FluidStack& tank, int capacity, ItemStack 
     auto out = fillItem(held, tank, false);
     if (items::isEmpty(out)) return false;
     tankDrain(tank, {tank.fluid, need}, false);
-    if (!creative) player.setSelectedItem(items::withCount(held, items::countOf(held) - 1));
-    giveOrDrop(player, out);
+    // Create: creative players keep the held item and get nothing back
+    if (!creative) {
+        player.setSelectedItem(items::withCount(held, items::countOf(held) - 1));
+        giveOrDrop(player, out);
+    }
     return true;
 }
 
@@ -354,6 +358,15 @@ void sendNear(GlobalPos const& p, Json const& msg) {
         return true;
     });
 }
+/// Every companion in the dimension (levels change rarely and must be right when a player comes closer).
+void sendDim(int dim, Json const& msg) {
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    level->forEachPlayer([&](Player& pl) {
+        if (static_cast<int>(pl.getDimensionId()) == dim && net::isCompanion(pl)) net::send(pl, kSyncChannel, msg);
+        return true;
+    });
+}
 } // namespace
 
 void syncHose(GlobalPos const& p, float offset, float speedPerTick, bool gone) {
@@ -377,6 +390,64 @@ void syncSpout(GlobalPos const& p, std::string const& fluid) {
     sendNear(p, {{"op", "spout"}, {"dim", p.dim}, {"pos", {p.x, p.y, p.z}}, {"color", cf::fluidColor(fluid)}});
 }
 
+namespace {
+/// Last sent tank level per spout / drain: colour and level in hundredths (-1: nothing sent).
+std::map<GlobalPos, std::pair<std::uint32_t, int>>& sentLevels() {
+    static std::map<GlobalPos, std::pair<std::uint32_t, int>> m;
+    return m;
+}
+
+/// The fluid shown in a spout / drain: its colour and the fill level in hundredths of the tank.
+std::optional<std::pair<std::uint32_t, int>> levelOf(GlobalPos const& p, Kind kind) {
+    auto const* d = dataAt(p);
+    auto        t = d ? tankOf(*d) : FluidStack{};
+    if (t.empty()) return std::nullopt;
+    int capacity = kind == Kind::Spout ? 1000 : cf::kDrainCapacity;
+    return std::pair{cf::fluidColor(t.fluid), std::clamp(t.amount * 100 / capacity, 1, 100)};
+}
+
+Json levelJson(GlobalPos const& p, Kind kind, std::pair<std::uint32_t, int> const& v) {
+    return {{"pos", {p.x, p.y, p.z}}, {"kind", kind == Kind::Spout ? "spout" : "drain"}, {"color", v.first}, {"level", v.second / 100.0}};
+}
+} // namespace
+
+void syncLevels() {
+    auto& sent = sentLevels();
+    std::set<GlobalPos> seen;
+    // drains only: Levitate's spout model is an opaque box, its tank can't be seen (SPEC §8)
+    for (auto kind : {Kind::Drain}) {
+        for (auto const& p : tracked(kind)) {
+            auto* region = regionOf(p.dim);
+            if (!region || !region->hasChunksAt(toBlockPos(p), 0, false)) continue;
+            seen.insert(p);
+            auto now = levelOf(p, kind);
+            auto it  = sent.find(p);
+            if (!now) {
+                if (it != sent.end()) {
+                    sent.erase(it);
+                    sendDim(p.dim, {{"op", "level_remove"}, {"dim", p.dim}, {"pos", {p.x, p.y, p.z}}});
+                }
+                continue;
+            }
+            if (it != sent.end() && it->second == *now) continue;
+            sent[p] = *now;
+            auto msg  = levelJson(p, kind, *now);
+            msg["op"]  = "level";
+            msg["dim"] = p.dim;
+            sendDim(p.dim, msg);
+        }
+    }
+    for (auto it = sent.begin(); it != sent.end();) {
+        if (seen.contains(it->first)) {
+            ++it;
+            continue;
+        }
+        auto p = it->first;
+        it     = sent.erase(it);
+        sendDim(p.dim, {{"op", "level_remove"}, {"dim", p.dim}, {"pos", {p.x, p.y, p.z}}});
+    }
+}
+
 void syncAllTo(Player& player) {
     int  dim  = static_cast<int>(player.getDimensionId());
     Json list = Json::array();
@@ -385,6 +456,12 @@ void syncAllTo(Player& player) {
         list.push_back({{"pos", {p.x, p.y, p.z}}, {"offset", hoseOffset(p)}, {"speed", 0}});
     }
     net::send(player, kSyncChannel, {{"op", "hoses"}, {"dim", dim}, {"hoses", list}});
+    Json levels = Json::array();
+    for (auto const& [p, v] : sentLevels()) {
+        if (p.dim != dim) continue;
+        levels.push_back(levelJson(p, blockIdAt(p) == kSpout ? Kind::Spout : Kind::Drain, v));
+    }
+    net::send(player, kSyncChannel, {{"op", "levels"}, {"dim", dim}, {"levels", levels}});
 }
 
 /// ---- interactions (common/Interactions.h) --------------------------------------------------------
@@ -540,6 +617,7 @@ public:
             game::db::onWorldSave([] { saveSources(); });
             game::db::onWorldClosed([] {
                 state() = State{};
+                sentLevels().clear();
             });
             net::onCompanionJoined([](Player& p) { syncAllTo(p); });
             // our machines keep their tanks / held items when a contraption moves them
@@ -618,6 +696,7 @@ private:
                 log().error("fluids: machine at {} {} {} failed: {}", p.x, p.y, p.z, e.what());
             }
         }
+        syncLevels();
         tickSources(s.ticks);
         if (s.ticks % 5 == 0) applyFluidEffects();
     }

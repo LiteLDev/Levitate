@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <deque>
+#include <map>
 #include <set>
 
 namespace lv::core::fluids {
@@ -165,6 +166,40 @@ std::string fluidNameKey(std::string_view fluid) {
     std::string_view path = colon == std::string_view::npos ? fluid : fluid.substr(colon + 1);
     if (ns == "levitate") return "fluid.create." + std::string(path);
     return "fluid_type." + std::string(ns) + "." + std::string(path);
+}
+
+std::optional<NameKey> potionFluidName(Bottle bottle, std::string_view potion) {
+    if (!potionByName(potion)) return std::nullopt;
+    std::string_view base = potion;
+    for (std::string_view prefix : {std::string_view("long_"), std::string_view("strong_")})
+        if (base.starts_with(prefix)) base.remove_prefix(prefix.size());
+    // the English names of the vanilla potion items (Java's lang), plus Bedrock's decay
+    static std::map<std::string_view, std::string_view> const effects{
+        {"night_vision", "Night Vision"}, {"invisibility", "Invisibility"}, {"leaping", "Leaping"},
+        {"fire_resistance", "Fire Resistance"}, {"swiftness", "Swiftness"}, {"slowness", "Slowness"},
+        {"water_breathing", "Water Breathing"}, {"healing", "Healing"}, {"harming", "Harming"}, {"poison", "Poison"},
+        {"regeneration", "Regeneration"}, {"strength", "Strength"}, {"weakness", "Weakness"}, {"decay", "Decay"},
+        {"turtle_master", "the Turtle Master"}, {"slow_falling", "Slow Falling"}, {"wind_charged", "Wind Charging"},
+        {"weaving", "Weaving"}, {"oozing", "Oozing"}, {"infested", "Infestation"},
+    };
+    static constexpr std::string_view items[]{"potion", "splash_potion", "lingering_potion"};
+    static constexpr std::string_view kinds[]{"Potion", "Splash Potion", "Lingering Potion"};
+    int        b = static_cast<int>(bottle);
+    NameKey    out;
+    out.key = "item.minecraft." + std::string(items[b]) + ".effect." + std::string(base);
+    if (base == "water") {
+        static constexpr std::string_view water[]{"Water Bottle", "Splash Water Bottle", "Lingering Water Bottle"};
+        out.english = std::string(water[b]);
+    } else if (base == "mundane" || base == "thick" || base == "awkward") {
+        std::string adj(base);
+        adj[0]      = static_cast<char>(adj[0] - 'a' + 'A');
+        out.english = adj + " " + std::string(kinds[b]);
+    } else if (auto it = effects.find(base); it != effects.end()) {
+        out.english = std::string(kinds[b]) + " of " + std::string(it->second);
+    } else {
+        return std::nullopt;
+    }
+    return out;
 }
 
 // ---- item drain ------------------------------------------------------------------------------

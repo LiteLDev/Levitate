@@ -1,18 +1,26 @@
-// Selftests of the steam unit (U18): `/create selftest "steam.*"`. Test area dx 1800..1899.
+// Selftests of the steam unit (U18): `/create selftest "steam.*"`. Test area dx 1800..1899 (U51: 5100..5149).
 
 #include <algorithm>
 
 #include "ll/api/coro/CoroTask.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
+#include "mc/server/SimulatedPlayer.h"
+#include "mc/server/sim/LookDuration.h"
+#include "mc/world/actor/Mob.h"
+#include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/GameType.h"
 #include "mc/world/level/block/Block.h"
 
 #include "feature/common/Capabilities.h"
+#include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
+#include "feature/goggles/GoggleInfo.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/steam/Steam.h"
 #include "feature/steam/SteamInternal.h"
@@ -176,22 +184,169 @@ LV_REGISTER_SELFTEST("steam.bucket", [](Context& ctx) -> ll::coro::CoroTask<> {
     ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
     place(ctx, a.at(0, 1), kTank);
     co_await ctx.ticks(2);
-    auto& p        = ctx.player();
-    bool  creative = p.isCreative();
+    auto& p = ctx.player();
+    // Create's FluidTankBlock.useItemOn: a survival player can't exchange fluid with a fluid tank
+    p.setPlayerGameType(GameType::Survival);
     p.setSelectedItem(item(ctx, "minecraft:water_bucket"));
-    ctx.check(useItemOnTank(p, a.at(0, 1), p.getSelectedItem()), "a water bucket empties into the tank");
+    ctx.check(!useItemOnTank(p, a.at(0, 1), p.getSelectedItem()), "survival: the bucket passes to its own use");
     auto t = tank(a.at(0, 1));
+    ctx.check(t && t->amount == 0, "survival: the tank stays empty");
+    ctx.check(common::items::idOf(p.getSelectedItem()) == "minecraft:water_bucket", "survival: the bucket keeps its water");
+    // creative players exchange and keep their item
+    p.setPlayerGameType(GameType::Creative);
+    ctx.check(useItemOnTank(p, a.at(0, 1), p.getSelectedItem()), "creative: a water bucket empties into the tank");
+    t = tank(a.at(0, 1));
     ctx.check(t && t->amount == 1000 && t->fluid == "minecraft:water", "1000 mB of water");
-    ctx.check(creative || common::items::idOf(p.getSelectedItem()) == "minecraft:bucket", "the bucket is empty now");
+    ctx.check(common::items::idOf(p.getSelectedItem()) == "minecraft:water_bucket", "creative: the bucket stays as it was");
     p.setSelectedItem(item(ctx, "minecraft:bucket"));
-    ctx.check(useItemOnTank(p, a.at(0, 1), p.getSelectedItem()), "an empty bucket takes it back");
+    ctx.check(useItemOnTank(p, a.at(0, 1), p.getSelectedItem()), "creative: an empty bucket takes it back");
     t = tank(a.at(0, 1));
     ctx.check(t && t->amount == 0, "the tank is empty");
-    ctx.check(creative || common::items::idOf(p.getSelectedItem()) == "minecraft:water_bucket", "the bucket holds water");
+    ctx.check(common::items::idOf(p.getSelectedItem()) == "minecraft:bucket", "creative: the bucket stays empty (nothing given)");
     p.setSelectedItem(item(ctx, "minecraft:potion"));
     useItemOnTank(p, a.at(0, 1), p.getSelectedItem());
     t = tank(a.at(0, 1));
-    ctx.check(t && t->amount == 250, "a water bottle adds 250 mB");
+    ctx.check(t && t->amount == 250 && t->fluid == "minecraft:water", "a water bottle adds 250 mB of water");
+    p.setSelectedItem(common::items::empty());
+    p.setPlayerGameType(GameType::Survival);
+});
+
+// ---- U51: tank containers, creative engines, goggles, the engine's shaft helper (dx 5100..5149) -----
+
+int countOf(Player& p, std::string const& id, int aux = -1) {
+    int   n   = 0;
+    auto& inv = p.getInventory();
+    for (int i = 0; i < inv.getContainerSize(); ++i) {
+        auto const& s = inv.getItem(i);
+        if (!s.isNull() && s.getTypeName() == id && (aux < 0 || s.getAuxValue() == aux)) n += s.mCount;
+    }
+    return n;
+}
+
+LV_REGISTER_SELFTEST("steam.tank_containers", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 5100};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    place(ctx, a.at(0, 1), kTank);
+    place(ctx, a.at(2, 1), kCreativeTank);
+    co_await ctx.ticks(2);
+    auto& p = ctx.player();
+    p.setPlayerGameType(GameType::Creative);
+    // GenericItemEmptying: a honey bottle gives honey, a potion its potion fluid
+    p.setSelectedItem(item(ctx, "minecraft:honey_bottle"));
+    ctx.check(useItemOnTank(p, a.at(0, 1), p.getSelectedItem()), "a honey bottle empties into the tank");
+    auto t = tank(a.at(0, 1));
+    ctx.check(t && t->fluid == "levitate:honey" && t->amount == 250, "250 mB of honey, got " + (t ? t->fluid : std::string{}));
+    ctx.check(common::items::idOf(p.getSelectedItem()) == "minecraft:honey_bottle", "creative: no bucket (or anything) in exchange");
+    ctx.check(drain(a.at(0, 1), "", 250).amount == 250, "drain the honey again");
+    auto potion = common::items::make("minecraft:potion", 1, 14); // swiftness
+    ctx.require(potion.has_value(), "potion of swiftness");
+    p.setSelectedItem(*potion);
+    ctx.check(useItemOnTank(p, a.at(0, 1), p.getSelectedItem()), "a potion empties into the tank");
+    t = tank(a.at(0, 1));
+    ctx.check(t && t->fluid == "levitate:potion/regular/swiftness" && t->amount == 250, "250 mB of swiftness, got " + (t ? t->fluid : std::string{}));
+    // a survival player fills a glass bottle from a creative tank: the bottle stays, the potion comes in
+    p.setPlayerGameType(GameType::Survival);
+    auto ct = tank(a.at(2, 1));
+    ctx.require(ct.has_value(), "creative tank");
+    setTankFluid(ct->controller, "levitate:potion/regular/swiftness", 1);
+    p.setSelectedItem(item(ctx, "minecraft:glass_bottle"));
+    int before = countOf(p, "minecraft:potion", 14);
+    ctx.check(useItemOnTank(p, a.at(2, 1), p.getSelectedItem()), "survival: a glass bottle on a creative tank");
+    ctx.check(countOf(p, "minecraft:potion", 14) == before + 1, "a potion of swiftness comes into the inventory");
+    ctx.check(common::items::idOf(p.getSelectedItem()) == "minecraft:glass_bottle", "the glass bottle is still held");
+    ctx.check(tank(a.at(2, 1))->amount == 0, "filling from a creative tank empties it (Create's setContainedFluid(EMPTY))");
+    // survival, a honey bottle on a creative tank: it sets the fluid, the bottle stays
+    p.setSelectedItem(item(ctx, "minecraft:honey_bottle"));
+    ctx.check(useItemOnTank(p, a.at(2, 1), p.getSelectedItem()), "survival: a honey bottle on a creative tank");
+    ct = tank(a.at(2, 1));
+    ctx.check(ct && ct->fluid == "levitate:honey" && ct->amount == ct->capacity, "the creative tank is full of honey");
+    ctx.check(common::items::idOf(p.getSelectedItem()) == "minecraft:honey_bottle", "the honey bottle is not used up");
+    p.setSelectedItem(common::items::empty());
+});
+
+LV_REGISTER_SELFTEST("steam.creative_engine", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 5110};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    // Create's SteamEngineBlockEntity.isValid: only on a FLUID_TANK; a creative tank boiler (200 mB/t
+    // of water by itself) stands still under an engine
+    place(ctx, a.at(0, 0), kTestHeater, {{"levitate:heat", 3}});
+    for (int y = 1; y <= 4; ++y) place(ctx, a.at(0, y), kCreativeTank);
+    place(ctx, a.at(0, 5), kEngine, {}, {{"minecraft:block_face", "up"}, {"minecraft:cardinal_direction", "south"}});
+    place(ctx, a.at(0, 7), kPoweredShaft, {{"levitate:axis", 0}});
+    co_await ctx.ticks(2);
+    auto t = tank(a.at(0, 1));
+    ctx.require(t && t->creative, "a creative tank column");
+    co_await ctx.ticks(40);
+    t = tank(a.at(0, 1));
+    ctx.check(t && t->boiler, "it is a boiler (the engine counts)");
+    ctx.check(kinetics::theoreticalSpeedAt(a.at(0, 7)) == 0, "the engine on a creative tank doesn't turn its shaft, got "
+                                                                    + std::to_string(kinetics::theoreticalSpeedAt(a.at(0, 7))));
+});
+
+LV_REGISTER_SELFTEST("steam.goggles", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 5115};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    // a 1x1x4 boiler with an engine on top, a whistle on its side, and a creative tank
+    place(ctx, a.at(0, 0), kTestHeater, {{"levitate:heat", 3}});
+    for (int y = 1; y <= 4; ++y) place(ctx, a.at(0, y), kTank);
+    place(ctx, a.at(0, 5), kEngine, {}, {{"minecraft:block_face", "up"}, {"minecraft:cardinal_direction", "south"}});
+    place(ctx, a.at(0, 7), kPoweredShaft, {{"levitate:axis", 0}});
+    place(ctx, a.at(0, 2, 1), kWhistle, {}, {{"minecraft:block_face", "south"}});
+    place(ctx, a.at(3, 1), kCreativeTank);
+    place(ctx, a.at(5, 1), kTank);
+    co_await ctx.ticks(2);
+    for (int i = 0; i < 30; ++i) {
+        fill(a.at(0, 1), "minecraft:water", 20);
+        co_await ctx.ticks(1);
+    }
+    auto& p = ctx.player();
+    p.setArmor(SharedTypes::Legacy::ArmorSlot::Head, item(ctx, "levitate:goggles"));
+    auto text = [&](GlobalPos const& at) {
+        std::string s;
+        for (auto const& l : goggles::overlayFor(p, at).lines) s += l + " | ";
+        return s;
+    };
+    auto boiler = text(a.at(0, 3));
+    ctx.check(boiler.find("Boiler Status") != std::string::npos && boiler.find("via 1 engine") != std::string::npos,
+              "goggles on a boiler: the boiler status: " + boiler);
+    ctx.check(boiler.find("Fluid Container") == std::string::npos, "no fluid container lines on a boiler");
+    auto engine = text(a.at(0, 5));
+    ctx.check(engine.find("Generator Stats") != std::string::npos, "goggles on an engine: its shaft's generator stats: " + engine);
+    auto whistle = text(a.at(0, 2, 1));
+    ctx.check(whistle.find("Pitch: F#") != std::string::npos, "goggles on a whistle: its pitch: " + whistle);
+    ctx.check(goggles::overlayFor(p, a.at(3, 1)).lines.empty(), "a creative tank shows nothing");
+    auto plain = text(a.at(5, 1));
+    ctx.check(plain.find("Fluid Container") != std::string::npos, "a plain tank shows the fluid container: " + plain);
+    p.setArmor(SharedTypes::Legacy::ArmorSlot::Head, ItemStack{});
+});
+
+LV_REGISTER_SELFTEST("steam.engine_shaft_helper", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 5125};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    place(ctx, a.at(0, 1), kTank);
+    place(ctx, a.at(1, 1), kEngine, {}, {{"minecraft:block_face", "east"}});
+    ctx.cleanupBlock(a.at(3, 1));
+    co_await ctx.ticks(2);
+    auto& p = ctx.player();
+    p.setPlayerGameType(GameType::Survival);
+    p.setSelectedItem(item(ctx, kShaft, 4));
+    // look north: the shaft lies along z (the first look direction not on the engine's x axis)
+    {
+        auto& sp    = static_cast<SimulatedPlayer&>(p);
+        auto  stand = a.at(1, 1, 3), look = a.at(1, 1, -6);
+        sp.teleport(Vec3{stand.x + .5f, static_cast<float>(stand.y), stand.z + .5f}, p.getDimensionId());
+        sp.simulateLookAt(Vec3{look.x + .5f, look.y + 1.62f, look.z + .5f}, sim::LookDuration::Instant);
+    }
+    auto&       region  = *regionOf(a.at(0).dim);
+    auto const& block   = region.getBlock(game::blockPos(a.at(1, 1)));
+    std::string blockId = kEngine;
+    std::string itemId  = kShaft;
+    co_await ctx.ticks(5);
+    common::interactions::UseOnContext c{p, p.getSelectedItem(), itemId, block, blockId, a.at(1, 1), 4, {0.f, .5f, .5f}, false, true};
+    ctx.check(common::interactions::dispatchUseOn(c) == common::interactions::Result::Consume, "the shaft helper takes the click");
+    ctx.check(blockAt(a.at(3, 1)) == kPoweredShaft, "a powered shaft two in front of the engine, got " + blockAt(a.at(3, 1)));
+    ctx.check(state(a.at(3, 1), "levitate:axis") == 2, "along z, got " + std::to_string(state(a.at(3, 1), "levitate:axis")));
+    ctx.check(common::items::countOf(p.getSelectedItem()) == 3, "one shaft used");
     p.setSelectedItem(common::items::empty());
 });
 
@@ -359,6 +514,32 @@ LV_REGISTER_SELFTEST("steam.whistle", [](Context& ctx) -> ll::coro::CoroTask<> {
     clear(a.at(0, 2));
     co_await ctx.ticks(2);
     ctx.check(blockAt(a.at(0, 3)) != kExtension, "extensions vanish with their whistle");
+});
+
+LV_REGISTER_SELFTEST("steam.whistle_halves", [](Context& ctx) -> ll::coro::CoroTask<> {
+    Area a{ctx, 5130};
+    ctx.require(co_await ctx.ensureLoaded(a.at(0)), "test area loaded");
+    place(ctx, a.at(0, 1), kTank);
+    place(ctx, a.at(0, 2), kWhistle, {}, {{"minecraft:block_face", "up"}});
+    for (int i = 3; i <= 6; ++i) ctx.cleanupBlock(a.at(0, i));
+    co_await ctx.ticks(2);
+    auto& p = ctx.player();
+    p.setSelectedItem(item(ctx, kWhistle));
+    for (int i = 0; i < 4; ++i) useOnWhistle(p, a.at(0, 2), p.getSelectedItem(), false);
+    co_await ctx.ticks(1);
+    ctx.require(whistlePitch(a.at(0, 2)) == 4, "two full extensions: pitch 4, got " + std::to_string(whistlePitch(a.at(0, 2))));
+    p.setSelectedItem(item(ctx, kWrench));
+    // Create's WhistleExtenderBlock.onSneakWrenched: the lower half of an extension is the wrench's
+    // dismantling, the upper half of a full one halves it (the extensions above fall off)
+    ctx.check(!useOnWhistle(p, a.at(0, 3), p.getSelectedItem(), true, .25), "the lower half: left to the wrench's dismantling");
+    ctx.check(blockAt(a.at(0, 4)) == kExtension, "nothing changed");
+    ctx.check(useOnWhistle(p, a.at(0, 3), p.getSelectedItem(), true, .75), "the upper half of the lower extension halves it");
+    co_await ctx.ticks(1);
+    ctx.check(blockAt(a.at(0, 4)) != kExtension, "the extension above it is gone");
+    ctx.check(state(a.at(0, 3), "levitate:shape") == 0, "a half extension now");
+    ctx.check(whistlePitch(a.at(0, 2)) == 1, "pitch 1, got " + std::to_string(whistlePitch(a.at(0, 2))));
+    ctx.check(!useOnWhistle(p, a.at(0, 3), p.getSelectedItem(), true, .75), "a half extension: left to the wrench's dismantling");
+    p.setSelectedItem(common::items::empty());
 });
 
 // ---- U40: gauges, the looping whistle tone (test area dx 4050..4069) ---------------------------------

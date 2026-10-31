@@ -15,6 +15,8 @@
   "create.boiler.via_engines": "通过 {0} 个引擎",
   "create.boiler.water_input_rate": "水输入速率",
   "create.boiler.per_tick": "{0} 每 Tick",
+  "create.generic.pitch": "音高：{0}",
+  "create.generic.notes": "F#;F;E;D#;D;C#;C;B;A#;A;G#;G",
   "lv.steam.cmd.none": "{0} {1} {2} 处没有流体储罐、蒸汽引擎或蒸汽汽笛。",
   "lv.steam.cmd.filled": "在 {2} {3} {4} 处移动了 {0} mB 的 {1}。"
 }

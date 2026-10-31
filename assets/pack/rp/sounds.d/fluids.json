@@ -1,0 +1,10 @@
+{
+  "levitate.fluids.spout": {
+    "category": "block",
+    "sounds": [
+      { "name": "sounds/levitate/fluids_spout_1", "volume": 1.0 },
+      { "name": "sounds/levitate/fluids_spout_2", "volume": 1.0 },
+      { "name": "sounds/levitate/fluids_spout_3", "volume": 1.0 }
+    ]
+  }
+}

@@ -9,9 +9,18 @@
 // - Particles (Create's spawnProcessingParticles / spawnSplash) for every client; the client mod
 //   draws the stream and squeezes the nozzle (src/client/fluids/FluidsRender.cpp).
 
+#include <algorithm>
+
+#include "mc/deps/core/string/HashedString.h"
+#include "mc/deps/nbt/CompoundTag.h"
+#include "mc/deps/nbt/IntTag.h"
+#include "mc/deps/nbt/StringTag.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/block/Block.h"
+#include "mc/world/level/block/actor/BlockActor.h"
+#include "mc/world/level/block/actor/CauldronBlockActor.h"
 
 #include "feature/advancements/Advancements.h"
 #include "feature/belts/BeltApi.h"
@@ -32,6 +41,8 @@ constexpr int kCapacity    = 1000; ///< Create: SpoutBlockEntity tank
 constexpr int kFillingTime = 20;   ///< Create: FILLING_TIME
 constexpr int kFillAt      = 5;    ///< the item is filled when processingTicks reaches 5
 constexpr int kSplashCount = 20;   ///< Create: SPLASH_PARTICLE_COUNT
+/// Create's AllSoundEvents.SPOUTING (an original Levitate sample, three variants).
+constexpr char kSpoutSound[] = "levitate.fluids.spout";
 
 namespace fx = pipes::fx;
 
@@ -65,33 +76,121 @@ std::optional<common::items::Handler> processingHandler(BlockSource& region, Glo
     return h;
 }
 
-bool isCauldron(GlobalPos const& at) {
-    auto id = blockIdAt(at);
-    return id == "minecraft:cauldron" || id == "minecraft:lava_cauldron";
+// ---- block spouting (Create's AllBlockSpoutingBehaviours) -------------------------------------------
+
+CompoundTag const* statesOf(Block const& block) {
+    auto const& id = block.mSerializationId.get();
+    if (!id.contains("states", Tag::Type::Compound)) return nullptr;
+    return &id["states"].get<CompoundTag>();
 }
 
-/// What the spout would fill now: the item below or a cauldron.
+int stateInt(Block const& block, char const* key) {
+    auto const* st = statesOf(block);
+    if (!st || !st->contains(key, Tag::Type::Int)) return -1;
+    return (*st)[key].get<IntTag>().data;
+}
+
+std::string stateString(Block const& block, char const* key) {
+    auto const* st = statesOf(block);
+    if (!st || !st->contains(key, Tag::Type::String)) return {};
+    return std::string((*st)[key].get<StringTag>());
+}
+
+/// A vanilla cauldron block with `fill_level` / `cauldron_liquid` (nullptr if the game doesn't know it).
+Block const* cauldronBlock(char const* id, int level, char const* liquid) {
+    auto def = Block::tryGetFromRegistry(HashedString(id));
+    if (!def) return nullptr;
+    CompoundTag nbt = def->mSerializationId.get();
+    if (!nbt.contains("states", Tag::Type::Compound)) return nullptr;
+    auto& states = nbt["states"].get<CompoundTag>();
+    states.putInt("fill_level", level);
+    states.putString("cauldron_liquid", liquid);
+    auto b = Block::tryGetFromRegistry(nbt);
+    if (!b || stateInt(*b, "fill_level") != level || stateString(*b, "cauldron_liquid") != liquid) return nullptr;
+    return b.as_ptr();
+}
+
+constexpr int kMudAmount      = 250;  ///< StateChangingBehavior.setTo(250, water, MUD)
+constexpr int kFarmlandAmount = 100;  ///< incrementingState(100, water, MOISTURE)
+constexpr int kCauldronWater  = 250;  ///< water cauldron LEVEL + 1 / CauldronInfo(250, WATER_CAULDRON)
+constexpr int kCauldronLava   = 1000; ///< CauldronInfo(1000, LAVA_CAULDRON)
+constexpr int kFullCauldron   = 6;    ///< Bedrock's fill_level: two steps per Java level (1..3)
+
+/// Create's BlockSpoutingBehaviour.fillBlock for the block two below the spout: the mB it takes (0:
+/// nothing to do). Dirt / coarse dirt / rooted dirt turn into mud (250 mB water), farmland gets one
+/// more moisture (100 mB water), a water cauldron one more level (250 mB water), an empty cauldron
+/// becomes a water cauldron of level 1 (250 mB water) or a full lava cauldron (1000 mB lava).
+int fillBlock(BlockSource& region, GlobalPos const& at, FluidStack const& fluid, bool simulate) {
+    if (fluid.empty()) return 0;
+    auto bp = toBlockPos(at);
+    if (!region.hasChunksAt(bp, 0, false)) return 0;
+    auto const& block = region.getBlock(bp);
+    auto        id    = block.getTypeName();
+    bool        water = fluid.fluid == "minecraft:water";
+    Block const* next = nullptr;
+    int          used = 0;
+    if (id == "minecraft:dirt" || id == "minecraft:coarse_dirt" || id == "minecraft:dirt_with_roots") {
+        if (!water || fluid.amount < kMudAmount) return 0;
+        next = game::blockWith("minecraft:mud");
+        used = kMudAmount;
+    } else if (id == "minecraft:farmland") {
+        int moisture = stateInt(block, "moisturized_amount");
+        if (!water || fluid.amount < kFarmlandAmount || moisture < 0 || moisture >= 7) return 0;
+        next = game::blockWith("minecraft:farmland", {{"moisturized_amount", moisture + 1}});
+        used = kFarmlandAmount;
+    } else if (id == "minecraft:cauldron") {
+        int  level  = stateInt(block, "fill_level");
+        auto liquid = stateString(block, "cauldron_liquid");
+        if (level == 0) {
+            // CauldronSpoutingBehavior: an empty cauldron
+            if (water && fluid.amount >= kCauldronWater) {
+                next = cauldronBlock("minecraft:cauldron", 2, "water");
+                used = kCauldronWater;
+            } else if (fluid.fluid == "minecraft:lava" && fluid.amount >= kCauldronLava) {
+                next = cauldronBlock("minecraft:lava_cauldron", kFullCauldron, "lava");
+                used = kCauldronLava;
+            } else {
+                return 0;
+            }
+        } else {
+            // a water cauldron: LEVEL + 1 until it is full (Bedrock keeps potions and dyed water in the
+            // same block, with the potion / colour in its block actor: those are no water cauldrons)
+            if (!water || liquid != "water" || level < 0 || level >= kFullCauldron || fluid.amount < kCauldronWater) return 0;
+            if (auto* actor = region.getBlockEntity(bp)) {
+                auto const& cauldron = static_cast<CauldronBlockActor const&>(*actor);
+                if (cauldron.mPotionId >= 0 || cauldron.mHasCustomColor) return 0;
+            }
+            next = cauldronBlock("minecraft:cauldron", std::min(kFullCauldron, level + 2), "water");
+            used = kCauldronWater;
+        }
+    } else {
+        return 0;
+    }
+    if (!next) return 0;
+    if (!simulate && !game::setBlock(region, bp, *next)) return 0;
+    return used;
+}
+
+/// What the spout would fill now: the item below or a block (Create's customProcess).
 struct Target {
-    bool       cauldron = false;
+    bool       block = false;
     ItemStack  item;
     int        amount = -1;
 };
 
 std::optional<Target> findTarget(BlockSource& region, GlobalPos const& p, FluidStack const& tank) {
     GlobalPos gap = offsetPos(p, 0, 1), at = offsetPos(p, 0, 2);
-    if (!passableAt(gap)) return std::nullopt; // Create's BeltProcessingBehaviour.isBlocked
-    if (auto h = processingHandler(region, at)) {
-        common::Access acc{region, toBlockPos(at), 1};
-        auto           stack = h->getSlot(acc, 0);
-        if (items::isEmpty(stack) || !canBeFilled(stack, true)) return std::nullopt;
-        int need = requiredAmount(stack, tank, true);
-        if (need <= 0) return std::nullopt;
-        return Target{false, stack, need};
+    if (passableAt(gap)) { // Create's BeltProcessingBehaviour.isBlocked (items only)
+        if (auto h = processingHandler(region, at)) {
+            common::Access acc{region, toBlockPos(at), 1};
+            auto           stack = h->getSlot(acc, 0);
+            if (items::isEmpty(stack) || !canBeFilled(stack, true)) return std::nullopt;
+            int need = requiredAmount(stack, tank, true);
+            if (need <= 0) return std::nullopt;
+            return Target{false, stack, need};
+        }
     }
-    if (isCauldron(at) && !tank.empty()) {
-        if (cfl::fill(region, toBlockPos(at), 1, {tank.fluid, cf::kBucket}, true) != cf::kBucket) return std::nullopt;
-        return Target{true, items::empty(), cf::kBucket};
-    }
+    if (int used = fillBlock(region, at, tank, true); used > 0) return Target{true, items::empty(), used};
     return std::nullopt;
 }
 
@@ -99,11 +198,14 @@ void finish(BlockSource& region, GlobalPos const& p, FluidStack& tank) {
     GlobalPos at = offsetPos(p, 0, 2);
     auto      t  = findTarget(region, p, tank);
     if (!t || t->amount > tank.amount) return;
-    if (t->cauldron) {
-        if (cfl::fill(region, toBlockPos(at), 1, {tank.fluid, cf::kBucket}, false) != cf::kBucket) return;
-        log().info("spout at {} {} {} filled a cauldron with {}", p.x, p.y, p.z, tank.fluid);
-        tankDrain(tank, {tank.fluid, cf::kBucket}, false);
-        playSound(p, "bucket.empty_water", 0.75f, 1.f);
+    if (t->block) {
+        auto fluid = tank.fluid;
+        auto id    = blockIdAt(at);
+        int  used  = fillBlock(region, at, tank, false);
+        if (used <= 0) return;
+        log().info("spout at {} {} {} filled {} with {} mB of {}", p.x, p.y, p.z, id, used, fluid);
+        tankDrain(tank, {fluid, used}, false);
+        splash(p, fluid); // Create: sendSplash, no sound
         return;
     }
     auto           h = processingHandler(region, at);
@@ -119,7 +221,6 @@ void finish(BlockSource& region, GlobalPos const& p, FluidStack& tank) {
     auto rest = h->insert(acc, out, false);
     if (!items::isEmpty(rest)) spawnItem(at.dim, at.x + .5, at.y + 1.0, at.z + .5, rest);
     log().info("spout at {} {} {} filled {} into {}", p.x, p.y, p.z, in, items::idOf(out));
-    playSound(p, "bucket.fill_water", 0.4f, 1.4f);
     splash(p, fluid);
     advancements::onSpoutFilled(p, items::idOf(out));
 }
@@ -152,7 +253,7 @@ belts::ProcessingResult whenItemHeld(belts::ProcessorContext const& c, belts::Tr
         auto& e         = editData(p);
         e["processing"] = kFillingTime;
         e["belt"]       = true; // finished here, not by the spout's tick
-        playSound(p, "bucket.fill_water", 0.75f, 0.9f + 0.2f * static_cast<float>(fx::random01()));
+        playSound(p, kSpoutSound, 0.75f, 0.9f + 0.2f * static_cast<float>(fx::random01())); // AllSoundEvents.SPOUTING
         syncSpout(p, tank.fluid);
         return belts::ProcessingResult::Hold;
     }
@@ -175,7 +276,6 @@ belts::ProcessingResult whenItemHeld(belts::ProcessorContext const& c, belts::Tr
         tankDrain(tank, {tank.fluid, need}, false);
         setTank(editData(p), tank);
         log().info("spout at {} {} {} filled {} into {}", p.x, p.y, p.z, in, items::idOf(out));
-        playSound(p, "bucket.fill_water", 0.4f, 1.4f);
         splash(p, fluid);
         advancements::onSpoutFilled(p, items::idOf(out));
     }
@@ -195,7 +295,8 @@ void tickSpout(GlobalPos const& p) {
         auto t = findTarget(*region, p, tank);
         if (!t || t->amount > tank.amount) return; // Create: wait (HOLD) until there is enough
         editData(p)["processing"] = kFillingTime;
-        playSound(p, "bucket.fill_water", 0.75f, 0.9f);
+        // Create plays SPOUTING only for items it processes (block spouting is silent)
+        if (!t->block) playSound(p, kSpoutSound, 0.75f, 0.9f + 0.2f * static_cast<float>(fx::random01()));
         syncSpout(p, tank.fluid);
         return;
     }
@@ -227,6 +328,7 @@ void registerSpout() {
         return n;
     };
     h.drain = [](common::Access const& at, FluidStack const& request, bool simulate) {
+        if (at.face == 0) return FluidStack{}; // Create: no fluid handler on the nozzle side
         auto p    = game::globalPos(at.region, at.pos);
         auto tank = spoutTank(p);
         auto out  = tankDrain(tank, request, simulate);

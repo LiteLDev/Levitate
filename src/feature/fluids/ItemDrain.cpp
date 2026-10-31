@@ -5,6 +5,9 @@
 // exchange fluid by right-clicking with containers and take the held item with an empty hand.
 // Pipes extract from the tank on every side; nothing is inserted from outside.
 
+#include <algorithm>
+#include <cmath>
+
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorType.h"
@@ -20,6 +23,7 @@
 #include "feature/belts/BeltApi.h"
 #include "feature/common/Items.h"
 #include "feature/fluids/FluidsInternal.h"
+#include "feature/funnels/FunnelsInternal.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
 
@@ -82,6 +86,28 @@ ItemStack insertInto(GlobalPos const& p, ItemStack const& stack, int fromFace, b
     return rest;
 }
 
+/// The face an item entity moving by (mx, mz) travels towards (Create's Direction.getNearest of the
+/// normalised horizontal motion; north for no horizontal motion).
+int fallenTravel(double mx, double mz) {
+    double len = std::sqrt(mx * mx + mz * mz);
+    if (len < 1e-4) return 2;
+    mx /= len;
+    mz /= len;
+    // Direction order: down, up, north, south, west, east; the first strictly best one wins
+    static constexpr int    faces[]{2, 3, 4, 5};
+    static constexpr double fx[]{0, 0, -1, 1}, fz[]{-1, 1, 0, 0};
+    int    best  = 2;
+    double score = 1.4e-45; // Float.MIN_VALUE: a zero product never wins
+    for (int i = 0; i < 4; ++i) {
+        double d = fx[i] * mx + fz[i] * mz;
+        if (d > score) {
+            score = d;
+            best  = faces[i];
+        }
+    }
+    return best;
+}
+
 /// Accepts item entities that land on the drain (Create's updateEntityAfterFallOn).
 void collectFallen(BlockSource& region, GlobalPos const& p) {
     AABB box{
@@ -93,12 +119,29 @@ void collectFallen(BlockSource& region, GlobalPos const& p) {
         auto& ia    = static_cast<ItemActor&>(*a);
         auto  stack = ia.item();
         if (items::isEmpty(stack)) continue;
-        auto rest = insertInto(p, stack, 1, false);
+        // Create: inserted from the horizontal direction nearest the item's motion (Direction.getNearest
+        // of the normalised horizontal motion; north when it lies still), so it crosses the drain
+        auto rest = insertInto(p, stack, cf::oppositeFace(fallenTravel(a->getPosDelta().x, a->getPosDelta().z)), false);
         if (items::countOf(rest) == items::countOf(stack)) return;
         if (items::isEmpty(rest)) a->remove();
         else ia.item() = rest;
         return;
     }
+}
+
+/// Create's ItemDrainRenderer draws the held item crossing the drain, 15/16 up, from the side it came
+/// in towards the side it leaves (`travel`). Companions get the client mod's display item, vanilla
+/// players a client-only item entity (the chute's display, U12).
+void showHeld(GlobalPos const& p, std::optional<Held> const& held) {
+    if (!held || items::isEmpty(held->stack)) {
+        funnels::detail::hideItem(p);
+        return;
+    }
+    static int const dx[] = {0, 0, 0, 0, -1, 1}, dz[] = {0, 0, -1, 1, 0, 0};
+    int    side   = std::clamp(held->move.travel, 0, 5);
+    double along  = static_cast<double>(held->move.beltPosition) - .5;
+    double x      = p.x + .5 + dx[side] * along, z = p.z + .5 + dz[side] * along;
+    funnels::detail::showItem(p, held->stack, Vec3{static_cast<float>(x), static_cast<float>(p.y + 15 / 16.), static_cast<float>(z)});
 }
 
 void output(BlockSource& region, GlobalPos const& p, Held& held) {
@@ -141,14 +184,10 @@ void output(BlockSource& region, GlobalPos const& p, Held& held) {
 
 } // namespace
 
-void tickDrain(GlobalPos const& p) {
-    auto* region = regionOf(p.dim);
-    if (!region) return;
-    auto held = heldOf(dataAt(p));
-    if (!held) {
-        collectFallen(*region, p);
-        return;
-    }
+namespace {
+
+/// One tick of the held item: emptying at the centre, moving, leaving at the far side.
+void moveHeld(BlockSource* region, GlobalPos const& p, std::optional<Held>& held) {
     auto& d          = editData(p);
     int   processing = d.value("processing", 0);
     if (processing > 0) {
@@ -193,6 +232,23 @@ void tickDrain(GlobalPos const& p) {
     setHeld(d, held);
 }
 
+} // namespace
+
+void tickDrain(GlobalPos const& p) {
+    auto* region = regionOf(p.dim);
+    if (!region) return;
+    auto held = heldOf(dataAt(p));
+    if (!held) {
+        funnels::detail::hideItem(p);
+        collectFallen(*region, p);
+        if (auto now = heldOf(dataAt(p))) showHeld(p, now);
+        return;
+    }
+    moveHeld(region, p, held);
+    // shown after this tick's move (the display follows the item, interpolated by the clients)
+    showHeld(p, heldOf(dataAt(p)));
+}
+
 bool useOnDrain(Player& player, GlobalPos const& p, ItemStack const& handItem) {
     auto* region = regionOf(p.dim);
     if (!region) return false;
@@ -224,12 +280,15 @@ void registerDrain() {
         auto h = slot == 0 ? heldOf(dataAt(game::globalPos(at.region, at.pos))) : std::nullopt;
         return h ? h->stack : items::empty();
     };
+    // Create: the item handler exists on the horizontal sides only
     ih.insert = [](common::Access const& at, ItemStack const& stack, bool simulate) {
+        if (at.face == 0 || at.face == 1) return stack;
         return insertInto(game::globalPos(at.region, at.pos), stack, at.face, simulate);
     };
     ih.extract = [](common::Access const& at, items::ItemPredicate const& filter, int amount, bool simulate) -> ItemStack {
         auto p = game::globalPos(at.region, at.pos);
         auto h = heldOf(dataAt(p));
+        if (at.face == 0 || at.face == 1) return items::empty(); // horizontal sides only
         if (!h || amount <= 0 || (filter && !filter(h->stack))) return items::empty();
         int  n   = std::min(amount, items::countOf(h->stack));
         auto out = items::withCount(h->stack, n);
@@ -261,6 +320,7 @@ void registerDrain() {
     };
     fh.fill  = [](common::Access const&, FluidStack const&, bool) { return 0; };
     fh.drain = [](common::Access const& at, FluidStack const& request, bool simulate) {
+        if (at.face == 1) return FluidStack{}; // Create: no fluid handler on the top
         auto p    = game::globalPos(at.region, at.pos);
         auto const* d = dataAt(p);
         if (!d) return FluidStack{};
@@ -274,6 +334,7 @@ void registerDrain() {
     // the held item drops when the drain is broken (Create's onRemove)
     bd::onErase([](GlobalPos const& p, Json const& doc, std::string const& prev) {
         if (prev != kItemDrain) return;
+        funnels::detail::hideItem(p);
         auto it = doc.find(kDataKey);
         if (it == doc.end()) return;
         if (auto h = heldOf(&*it)) spawnItem(p.dim, p.x + .5, p.y + .5, p.z + .5, h->stack);

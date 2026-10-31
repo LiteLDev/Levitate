@@ -4,7 +4,8 @@
 #   local / remote-mod: the client mod draws the hose (log "fluids: rendering ...") and the spout's
 #                       stream with its nozzle squeezing (log "fluids: spout nozzle squeezes ...")
 #   remote-vanilla:     static blocks; the spout's drops and splash (particles) and the filling
-# Screenshots: out/fluids/{blocks,hose,spout-a,spout-b,spout-c}.png
+#   U51: an item drain with water (drawn by the client mod) and an item crossing it (every client).
+# Screenshots: out/fluids/{blocks,hose,spout-a,spout-b,spout-c,drain}.png
 # a chat line typed while the game is busy can get lost (remote clients more often): send the speed
 # command again, up to three times, until the generator reports it
 function Set-TestSpeed([string]$command) {
@@ -70,10 +71,10 @@ if ($withMod) { Set-TestSpeed '/create kinetics ~6 ~2 ~-3 speed 64' }
 Start-Sleep -Milliseconds 500
 Invoke-Chat '/setblock ~5 ~2 ~-4 levitate:mechanical_pump ["levitate:facing"=4]'
 # the cauldron's bucket goes into the spout (1000 mB: four bottles); facing coordinates count from
-# the eyes: aim at the depot's middle
+# the eyes: aim at the depot's top (U55: Create's depot only takes a click on its top face)
 Start-Sleep -Seconds 4
 Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 glass_bottle 4'
-Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~-1.2 ~-4'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~3 ~-0.85 ~-4.1'
 Start-Sleep -Milliseconds 800
 $spoutMark = Get-LogMark
 Click 0.5 0.5 -Relative -Right
@@ -86,5 +87,23 @@ Start-Sleep -Milliseconds 300
 Save-Screenshot 'spout-c' | Out-Null
 if ($withMod) { Wait-LogLine 'fluids: spout nozzle squeezes while filling' 20 -Since $mark | Out-Null }
 
+# U51: an item drain holding water (the client mod draws it) and an item crossing it (a display
+# item for companions, a client-only item entity for vanilla clients)
+$drainMark = Get-LogMark
+Invoke-Chat '/fill ~-5 ~ ~2 ~-1 ~3 ~6 air'
+Invoke-Chat '/setblock ~-3 ~ ~4 levitate:item_drain'
+Invoke-Chat '/setblock ~-2 ~ ~4 stone'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~-3 ~-1.2 ~4'
+Start-Sleep -Milliseconds 800
+Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 water_bucket 1'
+Start-Sleep -Milliseconds 300
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'item drain at -?\d+ -?\d+ -?\d+ exchanged fluid with' 20 -Since $drainMark | Out-Null
+# an item dropped onto the drain crosses it (still: towards the north, the player)
+Invoke-Chat '/loot spawn ~-3 ~2 ~4 loot "blocks/item_drain"'
+Start-Sleep -Milliseconds 900
+Save-Screenshot 'drain' | Out-Null
+if ($withMod) { Wait-LogLine 'fluids: rendering \d+ quads' 20 -Since $mark | Out-Null }
+
 $r = Invoke-SelfTest 'fluids.*'
-if ($r.Pass -lt 14) { throw "expected at least 14 fluids selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 20) { throw "expected at least 20 fluids selftests to pass, got $($r.Pass)" }

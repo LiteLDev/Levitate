@@ -1,7 +1,10 @@
 // Steam unit: module (events, world lifecycle, game hooks), the powered shaft's kinetic spec,
 // the client sync of tank contents / engines, the query API and `/create steam <pos>`.
 
+#include <algorithm>
 #include <climits>
+#include <cmath>
+#include <numbers>
 
 #include "ll/api/command/CommandHandle.h"
 #include "ll/api/event/EventBus.h"
@@ -29,6 +32,8 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
+#include "feature/fluids/ItemFluids.h"
+#include "feature/goggles/GoggleInfo.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/net/Net.h"
 #include "feature/steam/Steam.h"
@@ -133,6 +138,19 @@ Json enginesPayload() {
     return Json{{"engines", list}};
 }
 
+/// The sounding whistles (Create's WhistleRenderer animates their mouth while they blow).
+Json whistlesPayload() {
+    Json list = Json::array();
+    for (auto const& w : index().whistles)
+        if (whistleSounding(w)) list.push_back({{"d", w.dim}, {"p", posJson(w)}});
+    return Json{{"whistles", list}};
+}
+
+Json& lastWhistles() {
+    static Json j;
+    return j;
+}
+
 void saveTankIndex() {
     if (!game::db::available()) return;
     Json a = Json::array();
@@ -194,6 +212,11 @@ void flushSync() {
             broadcast("steam.engines", engines);
         }
     }
+    auto whistles = whistlesPayload();
+    if (whistles != lastWhistles()) {
+        lastWhistles() = whistles;
+        broadcast("steam.whistles", whistles);
+    }
     if (gTankIndexDirty && currentTick() % 20 == 0) saveTankIndex();
 }
 
@@ -204,6 +227,7 @@ void sendFullSync(Player& player) {
     net::send(player, "steam.tanks", Json{{"reset", true}, {"dim", 0}, {"set", Json::array()}, {"del", Json::array()}});
     for (auto const& [d, list] : sets) net::send(player, "steam.tanks", Json{{"dim", d}, {"set", list}, {"del", Json::array()}});
     net::send(player, "steam.engines", enginesPayload());
+    net::send(player, "steam.whistles", whistlesPayload());
 }
 
 // ---- query API -------------------------------------------------------------------------------------------
@@ -229,6 +253,85 @@ std::optional<TankView> tank(GlobalPos const& pos) {
 }
 
 std::vector<std::string> goggleLines(GlobalPos const& pos, Player const* viewer) { return describe(pos, viewer); }
+
+// ---- goggles (U8's overlay: Create's addToGoggleTooltip of the unit's block entities) ----------------
+
+namespace {
+
+namespace goggles = feature::goggles;
+
+/// Command lines (`describe`: two spaces per indent, "" between groups) as goggle lines.
+void addAsGoggleLines(std::vector<std::string> const& lines, goggles::Tooltip& t) {
+    for (auto const& l : lines) {
+        if (l.empty()) t.emplace_back();
+        else if (l.starts_with("  ")) t.push_back(goggles::line(l.substr(2), 1));
+        else t.push_back(goggles::line(l));
+    }
+}
+
+// FluidTankBlockEntity.addToGoggleTooltip: the boiler status of a boiler, else the fluid container
+LV_REGISTER_GOGGLE_INFO(
+    kTank,
+    {
+        .goggle =
+            [](goggles::InfoContext const& c, goggles::Tooltip& t) {
+                auto info = tankAt(c.pos);
+                if (!info) return false;
+                if (boilerActive(info->controller)) {
+                    addAsGoggleLines(describe(c.pos, &c.player), t);
+                    return true;
+                }
+                return goggles::fluidTooltip(c, t);
+            },
+        .replaceDefaults = true,
+    }
+);
+
+// CreativeFluidTankBlockEntity.addToGoggleTooltip: nothing
+LV_REGISTER_GOGGLE_INFO(kCreativeTank, {.replaceDefaults = true});
+
+// SteamEngineBlockEntity.addToGoggleTooltip: the generator stats of its powered shaft
+// (PoweredShaftBlockEntity.addToEngineTooltip)
+LV_REGISTER_GOGGLE_INFO(
+    kEngine,
+    {
+        .goggle =
+            [](goggles::InfoContext const& c, goggles::Tooltip& t) {
+                auto shaftPos = offset(c.pos, engineShape(c.block).facing, 2);
+                if (idAt(c.region, shaftPos) != kPoweredShaft) return false;
+                goggles::InfoContext shaft{c.player, c.region, shaftPos, c.region.getBlock(game::blockPos(shaftPos)), c.sneaking, c.wearingGoggles};
+                return goggles::kineticGoggleTooltip(shaft, t);
+            },
+        .replaceDefaults = true,
+    }
+);
+
+// PoweredShaftBlockEntity.addToGoggleTooltip: nothing (the engine shows it); the kinetic hints stay
+LV_REGISTER_GOGGLE_INFO(kPoweredShaft, {.hover = goggles::kineticHoverTooltip, .replaceDefaults = true});
+
+// WhistleBlockEntity.addToGoggleTooltip: "Pitch: <note>"
+LV_REGISTER_GOGGLE_INFO(
+    kWhistle,
+    {
+        .goggle =
+            [](goggles::InfoContext const& c, goggles::Tooltip& t) {
+                auto notes = c.tr("create.generic.notes", "F#;F;E;D#;D;C#;C;B;A#;A;G#;G");
+                std::vector<std::string> names;
+                for (std::size_t start = 0;;) {
+                    auto semi = notes.find(';', start);
+                    names.push_back(notes.substr(start, semi == std::string::npos ? std::string::npos : semi - start));
+                    if (semi == std::string::npos) break;
+                    start = semi + 1;
+                }
+                auto pitch = static_cast<std::size_t>(std::max(0, whistlePitchAt(c.pos)));
+                t.push_back(goggles::line(c.tr("create.generic.pitch", "Pitch: {0}", names[pitch % names.size()])));
+                return true;
+            },
+        .replaceDefaults = true,
+    }
+);
+
+} // namespace
 
 int comparatorLevel(GlobalPos const& pos) {
     auto info = tankAt(pos);
@@ -261,6 +364,44 @@ bool busy(Player& player) {
 
 namespace {
 
+/// Create's SteamEngineBlock.PlacementHelper: a shaft used on an engine goes to the engine's shaft
+/// position (two in front of it), along the first axis of the player's look order that is not the
+/// engine's facing axis; the server places the powered shaft directly. False when the spot is taken.
+bool placeEngineShaft(Player& player, GlobalPos const& engine, ItemStack& item) {
+    auto* region = regionOf(engine.dim);
+    if (!region) return false;
+    auto      shape    = engineShape(region->getBlock(game::blockPos(engine)));
+    GlobalPos shaftPos = offset(engine, shape.facing, 2);
+    if (!loaded(*region, shaftPos) || !game::replaceable(*region, game::blockPos(shaftPos))) return false;
+    // Direction.orderedByNearest(player): the six directions by how closely the player looks along them
+    auto   rot   = player.getRotation();
+    double pitch = rot.x * std::numbers::pi / 180.0, yaw = rot.y * std::numbers::pi / 180.0;
+    double look[3]{-std::sin(yaw) * std::cos(pitch), -std::sin(pitch), std::cos(yaw) * std::cos(pitch)};
+    std::vector<cs::Dir> order(std::begin(kDirs), std::end(kDirs));
+    auto score = [&](cs::Dir d) {
+        auto n = offset(GlobalPos{0, 0, 0, 0}, d);
+        return n.x * look[0] + n.y * look[1] + n.z * look[2];
+    };
+    std::stable_sort(order.begin(), order.end(), [&](cs::Dir a, cs::Dir b) { return score(a) > score(b); });
+    int axis = static_cast<int>(cs::axisOf(order.front()));
+    for (auto d : order) {
+        if (cs::axisOf(d) == cs::axisOf(shape.facing)) continue;
+        axis = static_cast<int>(cs::axisOf(d));
+        break;
+    }
+    auto const* block = game::blockWith(kPoweredShaft, {{"levitate:axis", axis}});
+    if (!block || !game::setBlock(*region, game::blockPos(shaftPos), *block)) return false;
+    playSound(shaftPos.dim, shaftPos.x + .5, shaftPos.y + .5, shaftPos.z + .5, "use.stone", 1.f, .8f);
+    if (!player.isCreative()) {
+        item.remove(1);
+        player.setSelectedItem(item);
+    }
+    player.sendInventory(false);
+    log().info("steam: {} placed a shaft at {} {} {} for the steam engine at {} {} {}", player.getRealName(), shaftPos.x, shaftPos.y, shaftPos.z,
+               engine.x, engine.y, engine.z);
+    return true;
+}
+
 /// Right-clicks on tanks and whistles, and the placement rules of engines and whistles.
 ia::Result steamUseOn(ia::UseOnContext const& c) {
     Player&            player = c.player;
@@ -282,9 +423,10 @@ ia::Result steamUseOn(ia::UseOnContext const& c) {
             if (!heldId.empty() && !sneak) {
                 if (isTankId(heldId) && tryMultiPlace(player, pos, face, item)) return ia::Result::Consume;
                 if (!isTankId(heldId) && heldId != kEngine && heldId != kWhistle) {
-                    bool container = !common::fluids::fluidInItem(item).empty() || heldId == "minecraft:bucket"
-                                  || heldId == "minecraft:glass_bottle";
-                    if (container && (busy(player) || useItemOnTank(player, pos, item))) {
+                    // Create's FluidTankBlock.useItemOn: creative players, or anyone on a creative tank
+                    bool container = feature::fluids::canBeEmptied(item) || feature::fluids::canBeFilled(item, false);
+                    bool allowed   = player.isCreative() || isCreativeTankId(id);
+                    if (container && allowed && (busy(player) || useItemOnTank(player, pos, item))) {
                         player.sendInventory(false);
                         return ia::Result::Consume;
                     }
@@ -297,10 +439,15 @@ ia::Result steamUseOn(ia::UseOnContext const& c) {
                        && ((heldId == kWhistle && !sneak) || (heldId == kWrench && (!sneak || id == kExtension)));
         if (whistleUse) {
             if (busy(player)) return ia::Result::Consume;
-            if (useOnWhistle(player, pos, item, sneak)) {
+            if (useOnWhistle(player, pos, item, sneak, c.hit[1])) {
                 player.sendInventory(false);
                 return ia::Result::Consume;
             }
+        }
+        // Create's SteamEngineBlock.useItemOn: the shaft placement helper
+        if (id == kEngine && heldId == kShaft && !sneak) {
+            if (busy(player)) return ia::Result::Consume;
+            if (placeEngineShaft(player, pos, ia::mutableItem(item))) return ia::Result::Consume;
         }
         // Create: engines only go on tanks, whistles on tanks (side or top)
         if (heldId == kEngine && !isTankId(id)) {
@@ -358,6 +505,7 @@ public:
                 lastSent().clear();
                 syncDirty().clear();
                 lastEngines() = Json();
+                lastWhistles() = Json();
             });
             net::onCompanionJoined([](Player& p) { sendFullSync(p); });
         }

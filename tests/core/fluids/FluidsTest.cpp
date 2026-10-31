@@ -59,6 +59,23 @@ TEST(FluidsNames, KeysAndColours) {
     EXPECT_NE(fluidColor("levitate:potion/regular/healing"), fluidColor("levitate:potion/regular/poison"));
 }
 
+TEST(FluidsNames, PotionFluidsAreNamedAfterTheirItem) {
+    auto swift = potionFluidName(Bottle::Regular, "long_swiftness");
+    ASSERT_TRUE(swift.has_value());
+    EXPECT_EQ(swift->key, "item.minecraft.potion.effect.swiftness");
+    EXPECT_EQ(swift->english, "Potion of Swiftness");
+    auto splash = potionFluidName(Bottle::Splash, "strong_healing");
+    ASSERT_TRUE(splash.has_value());
+    EXPECT_EQ(splash->key, "item.minecraft.splash_potion.effect.healing");
+    EXPECT_EQ(splash->english, "Splash Potion of Healing");
+    EXPECT_EQ(potionFluidName(Bottle::Lingering, "turtle_master")->english, "Lingering Potion of the Turtle Master");
+    EXPECT_EQ(potionFluidName(Bottle::Regular, "water")->english, "Water Bottle");
+    EXPECT_EQ(potionFluidName(Bottle::Splash, "water")->english, "Splash Water Bottle");
+    EXPECT_EQ(potionFluidName(Bottle::Regular, "awkward")->english, "Awkward Potion");
+    EXPECT_EQ(potionFluidName(Bottle::Lingering, "long_mundane")->key, "item.minecraft.lingering_potion.effect.mundane");
+    EXPECT_FALSE(potionFluidName(Bottle::Regular, "no_such_potion").has_value());
+}
+
 TEST(FluidsDrain, ItemsFromTheSideCrossTheCentreAndLeave) {
     auto item = insertDrainItem(4); // from the west side
     EXPECT_EQ(item.travel, 5);      // travels east

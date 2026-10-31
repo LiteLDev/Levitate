@@ -308,10 +308,43 @@ void refreshGlass(GlobalPos const& p) {
 
 // ---- valves (Create's FluidValveBlockEntity) ------------------------------------------------------
 
+/// Companions draw the valve's pointer turning (Create's FluidValveRenderer): channel "pipes.valve",
+/// {op valve, dim, pos, pointer, target, rate}; the client moves the pointer by `rate` per tick.
+constexpr char kValveChannel[] = "pipes.valve";
+
+nlohmann::json valveJson(GlobalPos const& p, Valve const& v) {
+    return {{"pos", {p.x, p.y, p.z}}, {"pointer", v.pointer}, {"target", v.target}, {"rate", v.rate}};
+}
+
+void sendValve(GlobalPos const& p, Valve const& v) {
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    auto msg   = valveJson(p, v);
+    msg["op"]  = "valve";
+    msg["dim"] = p.dim;
+    level->forEachPlayer([&](Player& pl) {
+        if (static_cast<int>(pl.getDimensionId()) == p.dim && net::isCompanion(pl)) net::send(pl, kValveChannel, msg);
+        return true;
+    });
+}
+
+void syncValvesTo(Player& player) {
+    int            dim  = static_cast<int>(player.getDimensionId());
+    nlohmann::json list = nlohmann::json::array();
+    for (auto const& [p, v] : rt().valves)
+        if (p.dim == dim) list.push_back(valveJson(p, v));
+    net::send(player, kValveChannel, {{"op", "valves"}, {"dim", dim}, {"valves", list}});
+}
+
 void valveSpeedChanged(GlobalPos const& p, float speed) {
-    auto& v  = rt().valves[p];
-    v.target = speed > 0 ? 1.f : 0.f;
-    v.rate   = std::clamp(std::abs(speed) / 16.f / 20.f, 0.f, 1.f);
+    auto [it, fresh] = rt().valves.try_emplace(p);
+    auto& v          = it->second;
+    float target     = speed > 0 ? 1.f : 0.f;
+    float rate   = std::clamp(std::abs(speed) / 16.f / 20.f, 0.f, 1.f);
+    bool  change = fresh || v.target != target || v.rate != rate;
+    v.target     = target;
+    v.rate       = rate;
+    if (change) sendValve(p, v);
 }
 
 void tickValves() {
@@ -636,7 +669,9 @@ public:
             game::db::onWorldClosed([] { closeWorld(); });
             registerOpenPipeEffects();
             net::onCompanionJoined([](Player& p) {
-                if (rt().loaded) syncGlassTo(p);
+                if (!rt().loaded) return;
+                syncGlassTo(p);
+                syncValvesTo(p);
             });
             common::filterslot::registerSlot(kSmartPipe, {"filter", smartSlotCentre, 0.5, [](GlobalPos const& p) { scheduleChanged(p); }});
             // brackets go back to the world when their pipe is gone
