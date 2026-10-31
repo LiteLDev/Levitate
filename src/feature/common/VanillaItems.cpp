@@ -35,8 +35,7 @@ constexpr int   kInterval     = 4;
 struct Entity {
     std::uint64_t          id = 0;
     int                    dim = 0;
-    std::string            what; ///< "id xN" + data: a different stack is a new entity
-    ItemStack              stack;
+    ItemStack              stack; ///< a different stack (item, data or count) is a new entity
     Vec3                   pos{0, 0, 0};
     bool                   moved = false;
     std::set<std::int64_t> viewers;
@@ -106,10 +105,6 @@ void removeAll(Entity const& e) {
         if (auto* p = playerById(uid)) sendRemove(*p, e);
 }
 
-std::string describe(ItemStack const& s) {
-    return items::idOf(s) + " x" + std::to_string(items::countOf(s)) + " " + items::toJson(s).dump();
-}
-
 struct Viewer {
     Player*      player;
     std::int64_t uid;
@@ -135,11 +130,11 @@ void flush() {
     std::set<std::pair<std::string, int>> keep;
     for (auto const& w : wanted) {
         if (items::isEmpty(w.stack)) continue;
-        auto key  = std::make_pair(w.owner.key(), w.slot);
-        auto what = describe(w.stack);
+        auto key = std::make_pair(w.owner.key(), w.slot);
         keep.insert(key);
         auto it = s.entities.find(key);
-        if (it != s.entities.end() && it->second.what != what) {
+        if (it != s.entities.end()
+            && (!items::sameItemSameData(it->second.stack, w.stack) || items::countOf(it->second.stack) != items::countOf(w.stack))) {
             removeAll(it->second);
             s.entities.erase(it);
             it = s.entities.end();
@@ -148,7 +143,6 @@ void flush() {
             Entity e;
             e.id    = nextId();
             e.dim   = w.owner.dim;
-            e.what  = what;
             e.stack = w.stack;
             e.pos   = w.pos;
             s.entities.emplace(key, std::move(e));

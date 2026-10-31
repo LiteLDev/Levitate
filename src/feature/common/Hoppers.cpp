@@ -96,7 +96,7 @@ std::optional<bool> pull(BlockSource& region, Container& to, Vec3 const& hopper)
         auto got = h->extract(at, same, 1, false);
         if (items::isEmpty(got)) continue;
         if (!to.addItem(got)) {
-            (void)h->insert(at, got, false); // no room after all: put it back
+            if (h->insert) (void)h->insert(at, got, false); // no room after all: put it back
             continue;
         }
         return true;

@@ -64,7 +64,8 @@ constexpr char kCarrier[] = "assembly:arm";
 
 // ---- interaction point types (Create's ArmInteractionPointType registry) ------------------------
 
-/// Create's BeltFunnelBlock.Shape.PUSHING in a funnel's `levitate:shape` (U12).
+/// Create's BeltFunnelBlock.Shape.PUSHING in a funnel's `levitate:shape` (U12's kBeltPushing in
+/// feature/funnels/FunnelsInternal.h, a header internal to that unit).
 constexpr int kBeltFunnelPushing = 3;
 
 enum class PointType {

@@ -25,18 +25,18 @@ void basinItems(std::vector<vi::Shown>& out) {
         if (!region || !region->hasChunksAt(game::blockPos(pos), 0, false)) continue;
         auto* b = basinops::get(*region, pos);
         if (!b) continue;
-        std::vector<ItemStack const*> stacks;
+        std::vector<std::pair<int, ItemStack const*>> stacks; // basin slot, stack
         for (int i = 0; i < 2 * cb::kSlotCount; ++i) {
             auto const& s = basinops::slot(*b, i);
-            if (!common::items::isEmpty(s)) stacks.push_back(&s);
+            if (!common::items::isEmpty(s)) stacks.emplace_back(i, &s);
         }
         double radius = stacks.size() > 1 ? .22 : 0;
         for (std::size_t i = 0; i < stacks.size(); ++i) {
             double a = 2 * std::numbers::pi * static_cast<double>(i) / static_cast<double>(stacks.size());
             out.push_back({
                 pos,
-                static_cast<int>(i),
-                *stacks[i],
+                stacks[i].first,
+                *stacks[i].second,
                 Vec3{static_cast<float>(pos.x + .5 + radius * std::cos(a)), pos.y + .15f, static_cast<float>(pos.z + .5 + radius * std::sin(a))},
             });
         }

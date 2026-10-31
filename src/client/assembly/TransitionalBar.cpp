@@ -8,6 +8,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <set>
 #include <string>
 #include <vector>
@@ -23,23 +25,39 @@
 #include "mc/world/item/Item.h"
 #include "mc/world/item/ItemStack.h"
 
-#include "feature/assembly/SequencedAssembly.h"
+#include "core/common/Recipe.h"
+#include "mod/Main.h"
 #include "mod/Module.h"
 
 namespace lv::client::assembly {
 
 namespace {
 
-namespace sa = feature::assembly::sequenced;
+/// The transitional items of the mod's sequenced assembly recipes, read once at install on the main
+/// thread (the render thread must not touch the server's recipe cache).
+std::set<std::string>& transitionalIds() {
+    static std::set<std::string> ids;
+    return ids;
+}
+
+void readTransitionalIds() {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    for (auto const& e : fs::directory_iterator(Mod::getInstance().getSelf().getModDir() / "recipes" / "sequenced_assembly", ec)) {
+        if (e.path().extension() != ".json") continue;
+        std::ifstream in(e.path());
+        auto          doc = nlohmann::json::parse(in, nullptr, false, true);
+        if (doc.is_discarded() || !doc.contains("transitional_item")) continue;
+        auto const& t  = doc["transitional_item"];
+        auto        id = t.value("item", t.value("id", std::string()));
+        if (!id.empty()) transitionalIds().insert(core::common::mapId(id));
+    }
+}
 
 /// The progress (0..1) of a transitional item, nullopt for other items.
 std::optional<float> progressOf(ItemStack const& stack) {
     if (stack.isNull() || !stack.mItem) return std::nullopt;
-    auto const& id = stack.mItem->mFullName->getString();
-    static std::set<std::string> ids;
-    if (ids.empty()) // the recipes load on first use
-        for (auto const& r : sa::all()) ids.insert(r.transitionalItem);
-    if (!ids.contains(id)) return std::nullopt;
+    if (!transitionalIds().contains(stack.mItem->mFullName->getString())) return std::nullopt;
     return std::clamp(float(stack.mAuxValue) / 100.f, 0.f, 1.f);
 }
 
@@ -111,6 +129,7 @@ LL_TYPE_INSTANCE_HOOK(
 class TransitionalBarModule {
 public:
     void install() {
+        if (transitionalIds().empty()) readTransitionalIds();
         TransitionalBarHook::hook();
         TransitionalBarBatchHook::hook();
     }

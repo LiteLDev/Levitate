@@ -181,6 +181,7 @@ LV_REGISTER_SELFTEST("bulk.recipe_items", [](Context& ctx) {
     auto            dir = Mod::getInstance().getSelf().getModDir() / "recipes";
     std::string     unread;
     std::error_code ec;
+    ctx.require(fs::is_directory(dir, ec), "recipes folder " + dir.string());
     for (auto const& e : fs::directory_iterator(dir, ec)) {
         if (!e.is_directory()) continue;
         auto type = e.path().filename().string();

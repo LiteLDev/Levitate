@@ -89,7 +89,7 @@ LV_REGISTER_SELFTEST("assembly.arm_points_create", [](Context& ctx) -> ll::coro:
 LV_REGISTER_SELFTEST("assembly.copper_wax", [](Context& ctx) {
     auto deploy = [&](char const* on, char const* with) -> std::string {
         auto held = item(ctx, with);
-        auto out  = deployer::deployOnItem(item(ctx, on), held, true);
+        auto out  = deployer::deployOnItem(item(ctx, on), held, false); // a simulation returns no outputs
         return out && out->size() == 1 ? items::idOf(out->front()) : std::string("-");
     };
     ctx.check(deploy("minecraft:copper_block", "minecraft:honeycomb_block") == "minecraft:waxed_copper", "copper block waxed");
