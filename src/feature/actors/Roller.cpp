@@ -339,9 +339,11 @@ struct Registrar {
         registerOwnActor(std::string(kRoller), std::move(b));
         con::registerMovementRules(
             std::string(kRoller),
+            // Create: hangs on the block behind it, neither brittle nor unsupportive (the roller
+            // is excluded from the AttachedActorBlock rule of isNotSupportiveFallback)
             con::MovementRules{
                 nullptr,
-                [](cc::States const&) { return true; },
+                nullptr,
                 [](cc::States const& s) { return cc::bit(cc::opposite(facingOf(s))); },
                 nullptr,
             }

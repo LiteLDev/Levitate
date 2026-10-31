@@ -12,5 +12,7 @@
   "create.contraptions.roller_mode.wide_fill": "Sloped Fill Below",
   "block.create.seat.tooltip.summary": "Sit yourself down and enjoy the ride! Will anchor a player onto a moving _contraption_. Great for static furniture too! Comes in a variety of colours.",
   "block.create.seat.tooltip.condition1": "Right click on Seat",
-  "block.create.seat.tooltip.behaviour1": "Sits the player on the _Seat_. Press L-shift to leave the _Seat_."
+  "block.create.seat.tooltip.behaviour1": "Sits the player on the _Seat_. Press L-shift to leave the _Seat_.",
+  "lv.actors.elevator_floors": "Elevator Floors",
+  "lv.actors.elevator_floors.content": "Send the elevator to:"
 }

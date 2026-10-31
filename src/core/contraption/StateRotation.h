@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <string_view>
 #include <variant>
 
 #include "core/contraption/Geometry.h"
@@ -23,8 +24,10 @@ namespace lv::core::contraption {
 using StateValue = std::variant<std::int64_t, std::string>;
 using States     = std::map<std::string, StateValue>;
 
-/// Rotates every known state of `states` by `quarterTurns` about `axis`. Returns true if a state changed.
-bool rotateStates(States& states, Axis axis, int quarterTurns);
+/// Rotates every known state of `states` by `quarterTurns` about `axis`. Returns true if a state
+/// changed. `blockId` picks the order of the legacy `direction` state (doors and trapdoors have
+/// their own); empty: the common S W N E order.
+bool rotateStates(States& states, Axis axis, int quarterTurns, std::string_view blockId = {});
 
 /// Radial chassis side names "north", "south", "east", "west" -> world directions for an axis.
 [[nodiscard]] std::array<Dir, 4> radialSides(Axis axis);

@@ -72,6 +72,37 @@ CollisionResult collide(Transform const& t, std::vector<Box> const& boxes, Box c
     return r;
 }
 
+std::vector<Box> worldBoxes(Transform const& t, Box const& local) {
+    auto bound = [&](Box const& b) {
+        Vec3d lo{1e18, 1e18, 1e18}, hi{-1e18, -1e18, -1e18};
+        for (int i = 0; i < 8; ++i) {
+            Vec3d corner{i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z};
+            auto  w = t.toWorld(corner);
+            lo      = {std::min(lo.x, w.x), std::min(lo.y, w.y), std::min(lo.z, w.z)};
+            hi      = {std::max(hi.x, w.x), std::max(hi.y, w.y), std::max(hi.z, w.z)};
+        }
+        return Box{lo, hi};
+    };
+    double residual = std::abs(std::remainder(t.angle, 90.0));
+    bool   tilted   = std::abs(std::remainder(t.tilt, 90.0)) > 0.5;
+    if (residual <= 0.5 && !tilted) return {bound(local)};
+    // halves along the axes each turn moves
+    bool turned = residual > 0.5;
+    int  n[3]{1, 1, 1};
+    for (int a = 0; a < 3; ++a)
+        if ((turned && static_cast<Axis>(a) != t.axis) || (tilted && static_cast<Axis>(a) != t.tiltAxis)) n[a] = 2;
+    std::vector<Box> out;
+    Vec3d            size = local.size();
+    for (int i = 0; i < n[0]; ++i)
+        for (int j = 0; j < n[1]; ++j)
+            for (int k = 0; k < n[2]; ++k) {
+                Vec3d lo{local.min.x + size.x * i / n[0], local.min.y + size.y * j / n[1], local.min.z + size.z * k / n[2]};
+                Vec3d hi{local.min.x + size.x * (i + 1) / n[0], local.min.y + size.y * (j + 1) / n[1], local.min.z + size.z * (k + 1) / n[2]};
+                out.push_back(bound(Box{lo, hi}));
+            }
+    return out;
+}
+
 bool standsOn(Transform const& t, std::vector<Box> const& boxes, Vec3d const& feet, double probe) {
     Vec3d p = t.toLocal(feet - Vec3d{0, probe, 0});
     return std::any_of(boxes.begin(), boxes.end(), [&](Box const& b) { return b.contains(p); });

@@ -439,15 +439,19 @@ Mechanics in §3.6.25.
 `super_glue` (item), `linear_chassis`, `secondary_linear_chassis`, `radial_chassis`, `sticker`.
 
 - `super_glue`: tool, stack 1, 99 uses (one use per glued region; creative uses none). Right-click a
-  block: first corner ("Click again to confirm"); right-click the second corner: the box is glued if
-  every side is at most `maxSuperGlueRange` (24) blocks ("Selected area is too big") and the corners
+  block: first corner ("First position selected"); right-click the second corner: the box is glued if
+  the corners are closer than `maxSuperGlueRange` (24) blocks (Create's `closerThan`; "Selected area
+  is too big"), are two different blocks (one block alone is no group: "Click again to confirm") and
   are connected through solid blocks inside the box ("Selected blocks must be connected"); sneak +
   right-click discards ("Selection discarded"). Hitting a glued block while holding glue removes
-  its regions. Players holding glue see the regions (particle outlines, §8).
+  its regions. With glue in the off hand (and no wrench in the main hand) a placed block is glued to
+  the block it was placed against (one use; Create's glueInOffHandAppliesOnBlockPlace). Players
+  holding glue see the regions (particle outlines, §8).
 - `linear_chassis` / `secondary_linear_chassis`: states `levitate:axis` 0..2 (x, y, z; from the clicked
   face when placed), `levitate:sticky_top` (positive axis end), `levitate:sticky_bottom`. Slime ball or
   super glue on a non-sticky end makes it sticky; on a sticky end makes both ends sticky; sneak +
-  empty hand on a sticky end clears it (no item is used, as Create). Range 1..`maxChassisRange`,
+  empty hand on a sticky end clears it (no item is used, as Create). A linear chassis face towards a
+  connected chassis of the same kind and axis never changes (Create's glueAllowedOnSide). Range 1..`maxChassisRange`,
   default `maxChassisRange / 2` = 8, shared by the connected chassis group (U3's value box; until then
   `/create contraption chassis <x y z> <range>`). The secondary chassis connects only to secondary
   chassis (shapeless crafting turns one into the other).
@@ -456,11 +460,12 @@ Mechanics in §3.6.25.
 - `sticker`: states `levitate:facing` 0..5 (down, up, north, south, west, east; placed facing the
   player, sneaking: away), `levitate:extended` = powered by redstone (polled every 4 ticks). Extended,
   it holds the block in front on a contraption.
-- Recipes (Create 6.0.10): super glue = andesite alloy, slime ball / iron sheet, andesite alloy;
-  linear chassis ×3 = andesite alloy / log / andesite alloy; radial chassis ×3 = andesite alloy, log,
-  andesite alloy; sticker = andesite alloy, slime ball, andesite alloy / cobblestone, redstone,
-  cobblestone. They need U9's andesite alloy and iron sheet and are added with U9; the shapeless
-  linear ↔ secondary conversions ship now.
+- Recipes (Create 6.0.10): super glue = slime ball, iron sheet / iron nugget, slime ball; linear
+  chassis ×3 = ` P ` / `LLL` / ` P ` (P andesite alloy, L any log); radial chassis ×3 = ` L ` / `PLP` /
+  ` L `; sticker = andesite alloy, slime ball, andesite alloy / C, redstone, C (C = cobblestone, mossy
+  cobblestone or cobbled deepslate, Create's `c:cobblestones`, one recipe each); the shapeless linear ↔
+  secondary conversions; a minecart contraption crafts back into a minecart
+  (`minecart_from_contraption_cart`).
 
 ### 2.18 Contraption actors (U22)
 
@@ -991,21 +996,34 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
 - **Assembly**: an anchor (bearing, piston, pulley, gantry, cart assembler, train station) asks the
   engine to collect blocks: attached blocks per Create's rules (chassis ranges and sticky faces,
   super glue regions, blocks that hang/attach like torches, doors, beds, banners), up to
-  `maxBlocksMoved` 2048 ⚠ and `maxChassisRange` 16 ⚠. Unmovable blocks (bedrock, obsidian ⚠ per Create,
-  portals, ...) stop assembly with the reason shown.
+  `maxBlocksMoved` 2048 and `maxChassisRange` 16. Unmovable blocks (bedrock, obsidian by default,
+  portals, tracks, running bearings, ...) stop assembly with the reason shown.
 - **Moving**: the structure becomes a server entity carrying block states + BlockData; it moves
   (translation / rotation about an axis / following a cart or train) each tick; entities standing
   on it are carried; entities collide with its blocks through the game's own collision (the server's,
   and the client mod's for the local player); seats can be ridden, the riders stay seated.
 - **Actors**: blocks on a contraption may act while moving (`contraption::registerActor`): drills
   break, saws cut, harvesters harvest, ploughs plough, rollers pave, deployers use, PSIs transfer,
-  controls toggle actors.
+  controls toggle actors; droppers and dispensers drop one item from their own carried inventory at
+  each new block (topped off from the storage; into a container in front instead; dispensers shoot
+  TNT, fire charges, arrows, snowballs and eggs; the fail click when empty), vanilla bells ring when
+  the contraption starts, turns back or stops (an elevator's when it arrives; never on trains), lit
+  campfires smoke, funnels collect item entities into the storage or extract (brass: filter and
+  amount) at their active area (Create's AllMovementBehaviours). Drills and saws hurt entities only in
+  blocks that aren't redstone conductors.
+- **Interactions**: a right-click on a carried block runs its `registerInteraction` /
+  `registerInteractionProvider` handler (Create's MovingInteractionBehaviour): levers switch, wooden
+  doors (both halves), trapdoors and fence gates open and close, deployers swap their item with the
+  hand's (a wrench switches punch / use), mounted inventories (vanilla containers, item vaults) open a form to take a stack out or put the held stack in (§8: Bedrock shows a
+  container screen only for a real block).
 - **Storage**: inventories and tanks on a contraption are merged into contraption storage, usable by
   actors and the PSI.
-- **Disassembly**: placing back aligned to the grid (rounding as Create), blocks that can't be placed
-  drop as items.
-- **Super glue**: drag-select a box (two clicks) with super glue to glue a region (max 24 ⚠ blocks
-  in each axis); while the player holds super glue the client mod outlines the regions (passive green
+- **Disassembly**: placing back aligned to the grid (rounding as Create); a world block in the way is
+  destroyed (it drops, unless `noDropWhenContraptionReplaceBlocks`) and the carried block placed; only
+  an unbreakable block, or a block with a collision shape in the place of a carried block without one,
+  keeps its place (the carried block drops).
+- **Super glue**: drag-select a box (two clicks) with super glue to glue a region (corners closer
+  than 24 blocks); `/create glue <from> <to>` (op) glues a box as Create's GlueCommand; while the player holds super glue the client mod outlines the regions (passive green
   0x4D9162, the one under the crosshair 0x68C586) and the selection from the first click to the
   looked-at block (green when it can be glued, yellow 0xC5B548 when too big or not connected); the
   server sends the regions within 48 blocks on `contraption.glue`; vanilla players see particles along
@@ -1046,8 +1064,25 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   side). Doors, beds and double chests move whole. Blocks are moved when they are not air, not
   replaceable and have a collision shape or a block entity (brittle blocks and fence gates always).
   Unmovable: unbreakable blocks (destroy time −1: bedrock, barrier, command/structure blocks, end
-  portal frame…) and `unmovableBlocks` (portals, piston parts, moving blocks); obsidian is movable as in
-  Create. Errors (world untouched): `create.gui.assembly.exception.unmovableBlock` (a forced
+  portal frame…) and `unmovableBlocks` (portals, piston parts, moving blocks); Create's
+  ContraptionMovementSetting config keys `movableObsidian` (obsidian, crying obsidian, respawn anchor)
+  and `movableReinforcedDeepslate` default to `UNMOVABLE`, `movableSpawners` and `amethystMovement`
+  (budding amethyst) to `NO_PICKUP` (moves, but a minecart contraption carrying it can't be picked up);
+  each takes `MOVABLE`, `NO_PICKUP` or `UNMOVABLE`. Tracks and stations never move, a mechanical or
+  clockwork bearing only while it isn't running (`registerMovableAt`, read from its BlockData). A
+  carried mechanical or windmill bearing takes the block in front along (`MovementRules::pulls`), a cart
+  assembler joins the block it carries, and a running windmill moved by another contraption places its
+  sails first and assembles them again where it lands (`registerBeforeCapture`). A mechanical bearing
+  on a bearing contraption (same axis, not facing back into the anchor; clockwork: not next to the
+  anchor) or on a cart contraption assembles its front as a *stabilized* sub-contraption (kind
+  `stabilized`, `anchorData.stabilized` = {parent, local}): it follows its bearing without turning and
+  is placed with its parent. Brittle as Create's `#create:brittle` (also cake, big dripleaf, bamboo
+  saplings, vines, corals, cave vines, every block with `hanging`); moved without a collision shape
+  as `#create:movable_empty_collider` (cobweb, powder snow, tripwire and hook, vines, corals, fence
+  gates, banners); a wall bell hangs towards its facing. Slime and honey stick when *either* block
+  is sticky (NeoForge's canStickTo); only a brittle neighbour refuses. Not supportive on their front:
+  drills, saws, PSIs, mechanical bearings, harvesters and ploughs (rollers on none; none of the three
+  actors is brittle). Errors (world untouched): `create.gui.assembly.exception.unmovableBlock` (a forced
   neighbour or a start block), `.chunkNotLoaded`, `.structureTooLarge` (> `maxBlocksMoved`).
 - **Carried data**: block NBT (`name` + states) and block entity NBT (chests keep their pair);
   `registerDataCarrier({name, capture, restore, rotate})` moves other units' per-block data; the
@@ -1059,7 +1094,7 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   → contraption, local position, block id, quarter turns) whenever displays are spawned,
   `contraption.visual` (actor animation state from `setActorVisual`) and `contraption.remove`;
   `client/contraption/ContraptionClient.h` (`forEachBlock`) gives client units each block's
-  interpolated world centre and rotation per frame for actor animations. Merged storage: vanilla chests, trapped chests,
+  interpolated world centre and rotation per frame for actor animations. Merged storage (U55's `registerItemStorage` adapters for item vaults and creative crates, see §3.6.12): vanilla chests, trapped chests,
   barrels, shulker boxes, hoppers, dispensers and droppers (`Storage::insertItem/extractItem/slot`);
   tanks through `registerFluidStorage(blockId, {read, write})` on the carried data.
 - **Movement each tick**: the anchor's transform or the motion; actors (`registerActor(blockId,
@@ -1078,11 +1113,13 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
 - **Disassembly**: angle rounded to the nearest quarter turn, offset to whole blocks; block states
   rotated (`facing_direction`, `minecraft:facing_direction`, `minecraft:block_face`,
   `minecraft:cardinal_direction`, `pillar_axis`, `direction`, `weirdo_direction`,
-  `ground_sign_direction`, `torch_facing_direction`, `rail_direction`, `minecraft:vertical_half` /
-  `upside_down_bit` on half turns, `levitate:facing`, `levitate:axis`, chassis sticky sides;
-  `registerRotationHandler` for others); solid blocks first, then brittle ones bottom-up; a block whose
-  place is occupied drops as an item (with its container's contents) and the world block stays; glue
-  regions are placed back transformed. One log line per assembly / disassembly / dropped block.
+  `ground_sign_direction`, `torch_facing_direction`, `rail_direction`, `lever_direction` (about every
+  axis), stairs on quarter turns about X / Z (Create's transformStairs), `minecraft:vertical_half` /
+  `upside_down_bit` on half turns, `levitate:facing`, `levitate:axis`, chassis sticky sides; the legacy
+  `direction` in the block's own order (S W N E, doors E S W N, trapdoors E W S N);
+  `registerRotationHandler` for others); solid blocks first, then brittle ones bottom-up; an occupied
+  place is cleared as above; ropes, magnets and doors turned about a horizontal axis break (they drop);
+  glue regions are placed back transformed. One log line per assembly / disassembly / dropped block.
 - **Display**: each block is a vanilla falling-block entity (never falls, never lands; orphans from a
   saved world vanish) at the block's rotated center showing the block rotated by the nearest quarter
   turn; its own rotation carries the axis (pitch) and the remaining angle (yaw). Bedrock clients
@@ -2843,6 +2880,8 @@ Per-block state lives in BlockData `data["pistons"]` (and travels with contrapti
   places the structure.
 - Sounds: assembly = wooden trapdoor open (0.5, 0.5); placement = wooden trapdoor close (0.35, 0.75).
 
+Wearing goggles and looking at an extension pole of a line ending at a piston shows "Pole Length: N"
+(Create's GoggleOverlayRenderer, `create.gui.goggles.pole_length`).
 **Mechanical piston**: extension poles in a straight line behind the piston (and, when extended, the
 poles and head in front) define the range (`maxPistonPoles` 64; more → `tooManyPistonPoles`; none →
 `noPistonPoles`). The pole line becomes part of the contraption: the head (or a pole) stands for the
@@ -2889,7 +2928,9 @@ U10's sliding doors); blank identifiers are numbered from their neighbours (Crea
 wrench turns a contact; facing away from its column it becomes a redstone contact again.
 Contraption controls (U22) integrate through the cabin's `anchorData()["elevator"]`:
 `floors` [[contact y, short, long]], `version`, `column`, `contactY`, `target`, `current`; writing
-`request` = contact y calls that floor. Contacts keep `data["pistons"]["floor"]` = the identifier of the
+`request` = contact y calls that floor. Controls on a cabin (Create's elevatorInteraction) play the
+controller click and assembly sounds and open a form of the floors ("Elevator Floors", the target
+marked `>`); the chosen floor is written as `request`. Contacts keep `data["pistons"]["floor"]` = the identifier of the
 current floor for display links (U24). Stress impact 4.
 
 **Gantries**: gantry shafts (`levitate:part` from same-facing neighbours along the axis; placement
@@ -2951,7 +2992,8 @@ the bearing's state (running, angle, contraption ids, mode) lives in its BlockDa
   Hour hand first / Minute hand first / 24-Hour hand first. Stopping (speed 0) or a right-click
   places both hands.
 - **Turntable** (impact 4): entities standing on it turn: players are carried around its centre by
-  `clamp(speed · 0.3, −16, 16)`° per tick (their view doesn't turn); other entities turn on the spot
+  `clamp(speed · 0.3, −16, 16)`° per tick (the client mod turns the local player's view by about
+  `speed / 3`° per tick, less away from the centre, Create's TurntableHandler); other entities turn on the spot
   by `speed · 0.3`° (yaw).
 - **Sails**: a sail (or frame) is attached to its neighbours in its own plane (Create's
   BlockMovementChecks), so a sail structure moves without glue. A sail or frame in hand on a sail
@@ -2982,6 +3024,8 @@ the bearing's state (running, angle, contraption ids, mode) lives in its BlockDa
 - **Minecart coupling**: use on a cart, then on another: coupled at their distance (whole blocks,
   at least 2) if ≤ `maxCartCouplingLength` (32), each cart has at most two couplings and they don't
   form a loop (`create.minecart_coupling.*` messages); one coupling item used (not in creative).
+  A two-cart contraption takes its pitch from the height difference of its carts (Create's
+  updateOrientation; a tilt about the local axis across the cart line).
   Coupled carts keep their distance (Create's soft collision step: each cart corrected along the
   coupling by the predicted stretch, clamped to 1.75, projected on its rail, speeds ≤ 0.4). Wrench on
   a coupled cart removes its couplings (items dropped, "Removed all couplings from minecart"); a
@@ -2991,7 +3035,8 @@ the bearing's state (running, angle, contraption ids, mode) lives in its BlockDa
 - **Minecart contraption** (item, stack 1): wrench right-click on a cart carrying a contraption
   (survival only when `survivalContraptionPickup`) picks it up as `minecart_contraption` with the
   structure (a chest minecart: `chest_minecart_contraption`, carrying the cart's inventory too); the
-  contraption is discarded (nothing is placed); refused for spawners ("A mystical force…") and for structures over 512 KB of data
+  contraption is discarded (nothing is placed); refused when a block is `NO_PICKUP` (spawners and
+  budding amethyst by default, "A mystical force…") and for structures over 512 KB of data
   ("…too big to pick up"). Using the item on a rail places a minecart with the structure, facing the
   player's view along the rail.
 - **Config** `config/bearings.json` (Create's CKinetics keys and defaults): `windmillSailsPerRPM` 8,
@@ -4600,7 +4645,8 @@ UI pass), `placeholderColour` (outline of unregistered blocks).
 | `/create reload`, `/create selftest ["glob"]` | op | foundation |
 | `/create kinetics <pos>` (dump network: speed, stress, sources) | op | U2 |
 | `/create killtrain <name\|id>` (Create's `/create train remove`), `/create trains` (train summary), `/create train tp <name\|id>` (creative / spectator) | op | U27 |
-| `/create glue clear [radius]` (Create's `/create clearglue`; default 16, around the sender) | op | U4 |
+| `/create glue <from> <to>` (Create's GlueCommand: glues the box) | op | U4 |
+| `/create glue clear [radius]` (Levitate only: removes the regions near the sender; default 16) | op | U4 |
 | `/create contraption assemble <x y z> [axis]` / `move <id> <dx dy dz> [ticks]` / `rotate <id> <axis> <degrees> [ticks]` / `stop <id>` / `disassemble <id>` / `list` / `demo` / `chassis <x y z> <range>` (test anchor) | op | U4 |
 | `/create ponder [id]` (client mod; no id: the index; an entry or a tag id) | anyone | U30 |
 | `/create highlight <pos>` | op | U3 |
@@ -4641,6 +4687,7 @@ goggle-overlay providers of the owning units.
 | Filter slot items rendered on the block face for **vanilla** clients | no item rendering hooks for vanilla clients | the client mod draws the filter item on every face its slot is on, facing out, a quarter block big (display items, U33), and the hover label names it; vanilla players see it in the form / action messages (U3) |
 | Value box outlines and labels for **vanilla** clients | no client-side rendering without the client mod | the client mod outlines the boxes and shows the label next to the crosshair (U3, U42) |
 | Contraption blocks drawn as one rotating model on **vanilla** clients (U4) | a vanilla client draws a falling-block entity axis-aligned and can't be told to turn it | each block is its own falling-block entity at its exact rotated position, showing the block turned by the nearest quarter turn; the client mod turns each block by the remaining angle so the structure looks exact. Displays carry no gravity (actor flag HasGravity off, NoAI on; set again after the entity is added), so a vanilla client, which simulates falling blocks itself, doesn't drop a block that has no real block under it (a train carriage over its bogey) |
+| Container menus of mounted inventories (U53, Create's MountedItemStorage#handleInteraction) | a Bedrock client opens a container screen only for a container block (or entity) it has in its world; a carried chest exists only in the contraption's data | a right-click on a carried container opens a form listing its stacks: a button takes a stack out, another puts the held stack in |
 | Smooth contraption motion on **vanilla** clients (U34) | a vanilla client never applies the movement packets of a falling block that isn't falling: it stays where it was spawned | while a vanilla player is in the dimension, each display entity is spawned again at its place once it is half a block away (at most every 4 ticks per block, and where it comes to rest), so vanilla players see the structure move in half-block steps; the client mod moves the displays smoothly from the contraption's motion |
 | Curved tracks drawn for **vanilla** clients (U5) | Bedrock block models are fixed per block state; a curve is not a block | the client mod draws the curve; vanilla clients see the straight end tracks and a track bed (`levitate:fake_track`) on every block the curve passes through |
 | Tilted track block drawn for **vanilla** clients (U5, U48) | Bedrock block models are fixed per state; the ramp's angle is a real number per block | the curves, the graph and the trains follow Create's tilt for every client (§3.5); the client mod draws the block turned onto the ramp; vanilla clients see the flat block between the two curves' track beds |

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
+#include <variant>
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/world/actor/player/Player.h"
@@ -485,6 +486,47 @@ void registerOptionBox(
     };
     vb::registerBox(std::string(blockId), std::move(box));
 }
+
+
+// ---- movement checks (Create's BlockMovementChecksImpl) ------------------------------------------
+
+cc::Dir facingIn(cc::States const& s) {
+    auto it = s.find("levitate:facing");
+    auto const* v = it == s.end() ? nullptr : std::get_if<std::int64_t>(&it->second);
+    return static_cast<cc::Dir>(std::clamp<std::int64_t>(v ? *v : 1, 0, 5));
+}
+
+/// Create's isMovementAllowedFallback: a mechanical or clockwork bearing moves only while it isn't
+/// running (its structure would be left behind); a carried mechanical or windmill bearing takes the
+/// block in front of it along (moveBearing / moveWindmillBearing), and nothing else sticks to a
+/// mechanical bearing's front (isNotSupportiveFallback). A running windmill moved by another
+/// contraption places its sails first and assembles them again where it lands
+/// (WindmillBearingBlockEntity#disassembleForMovement, queuedReassembly).
+struct MovementChecks {
+    MovementChecks() {
+        auto notRunning = [](BlockSource&, GP const& pos, cc::States const&) { return !load(pos).running; };
+        ct::registerMovableAt(std::string(kMechanicalBearing), notRunning);
+        ct::registerMovableAt(std::string(kClockworkBearing), notRunning);
+        ct::MovementRules mechanical;
+        mechanical.notSupportive = [](cc::States const& s) { return cc::bit(facingIn(s)); };
+        mechanical.pulls         = [](cc::States const& s) { return cc::bit(facingIn(s)); };
+        ct::registerMovementRules(std::string(kMechanicalBearing), mechanical);
+        ct::MovementRules windmill;
+        windmill.pulls = [](cc::States const& s) { return cc::bit(facingIn(s)); };
+        ct::registerMovementRules(std::string(kWindmillBearing), windmill);
+        ct::registerBeforeCapture(std::string(kWindmillBearing), [](BlockSource&, GP const& pos) {
+            auto s = load(pos);
+            if (!s.running) return false;
+            disassemble(s, pos, Kind::Windmill);
+            s.next = true; // queuedReassembly: assembled again once placed
+            store(pos, s);
+            remember(pos, s);
+            log().info("windmill_bearing at {} moved: sails placed, assembled again after the move", pos.key());
+            return true;
+        });
+    }
+};
+MovementChecks const gMovementChecks;
 
 } // namespace
 

@@ -82,6 +82,35 @@ TEST(ContraptionAssembly, AttachedBlocksAndSlime) {
     EXPECT_FALSE(contains(r, {1, 0, 1})); // slime doesn't stick to honey
 }
 
+TEST(ContraptionAssembly, SlimeBesideAMovedBlockSticks) {
+    // NeoForge's canStickTo is true when either block is sticky: a moved stone pulls the slime
+    // block next to it (and the slime then pulls its own neighbours)
+    FakeWorld w;
+    w.solid({0, 0, 0});
+    auto& slime  = w.solid({1, 0, 0}, "slime");
+    slime.sticky = StickyKind::Slime;
+    w.solid({2, 0, 0});
+    auto& torch   = w.solid({0, 0, 1}, "torch"); // brittle neighbours never stick
+    torch.brittle = true;
+    auto r = w.run({{0, 0, 0}});
+    ASSERT_TRUE(r.ok());
+    EXPECT_TRUE(contains(r, {1, 0, 0}));
+    EXPECT_TRUE(contains(r, {2, 0, 0}));
+    EXPECT_FALSE(contains(r, {0, 0, 1}));
+}
+
+TEST(ContraptionAssembly, PulledNeighbourJoins) {
+    // Create's moveBearing: a carried bearing takes the block in front of it along
+    FakeWorld w;
+    auto& bearing         = w.solid({0, 0, 0}, "bearing");
+    bearing.pulls         = bit(Dir::Up);
+    bearing.notSupportive = bit(Dir::Up);
+    w.solid({0, 1, 0});
+    auto r = w.run({{0, 0, 0}});
+    ASSERT_TRUE(r.ok());
+    EXPECT_TRUE(contains(r, {0, 1, 0}));
+}
+
 TEST(ContraptionAssembly, UnmovableAndLimits) {
     FakeWorld w;
     w.solid({0, 0, 0});
@@ -182,6 +211,11 @@ TEST(ContraptionGlue, SelectionChecks) {
     auto solid = [](Pos const& p) { return p.y == 0 && p.z == 0; }; // a line along x
     EXPECT_EQ(checkSelection({0, 0, 0}, {5, 0, 0}, 24, solid), GlueCheck::Ok);
     EXPECT_EQ(checkSelection({0, 0, 0}, {30, 0, 0}, 24, solid), GlueCheck::TooFar);
+    EXPECT_EQ(checkSelection({0, 0, 0}, {23, 0, 0}, 24, solid), GlueCheck::Ok);
+    EXPECT_EQ(checkSelection({0, 0, 0}, {24, 0, 0}, 24, solid), GlueCheck::TooFar);
+    // the corners' distance counts (Create's closerThan), not each side: 20, 0, 20 is ~28 apart
+    EXPECT_EQ(checkSelection({0, 0, 0}, {20, 0, 20}, 24, [](Pos const&) { return true; }), GlueCheck::TooFar);
+    EXPECT_EQ(checkSelection({1, 2, 3}, {1, 2, 3}, 24, solid), GlueCheck::SingleBlock);
     EXPECT_EQ(checkSelection({0, 0, 0}, {3, 0, 2}, 24, solid), GlueCheck::CannotReach);
     std::vector<GlueBox> boxes{GlueBox::of({0, 0, 0}, {2, 1, 0})};
     EXPECT_TRUE(isGlued(boxes, {0, 0, 0}, Dir::Up));

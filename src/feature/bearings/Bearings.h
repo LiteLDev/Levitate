@@ -52,6 +52,7 @@ struct Config {
     int  minimumWindmillSails      = 8;    ///< sail-like blocks a windmill needs to assemble
     int  maxCartCouplingLength     = 32;   ///< longest minecart coupling (blocks)
     bool survivalContraptionPickup = true; ///< survival players may pick up minecart contraptions with a wrench
+    bool minecartContraptionInContainers = false; ///< minecart contraptions may go into shulker boxes / bundles
 };
 
 /// The blocks this unit ticks.
@@ -147,6 +148,9 @@ void orientControllerRail(BlockSource& region, GP const& pos, Player& player);
 bool cartInteract(Player& player, Actor& target);
 /// Minecart contraption item used on a rail. True if handled.
 bool placeMinecartContraption(Player& player, GP const& rail);
+/// A dispenser facing `facing` dispenses a minecart contraption item onto the rail in front
+/// (Create's MinecartContraptionItem dispense behaviour); false: not placed.
+bool dispenseMinecartContraption(BlockSource& region, GP const& dispenser, ItemStack const& stack, cc::Dir facing);
 /// Minecart item used on one of our rails (vanilla refuses: they aren't vanilla rails).
 bool placeMinecartOn(Player& player, GP const& pos, std::string const& itemId);
 void forgetCarts();

@@ -10,5 +10,6 @@
   "create.gui.assembly.exception.column_conflict": "Another Elevator is already targeting this column of contacts",
   "create.elevator_contact.title": "Elevator Contact",
   "create.elevator_contact.floor_identifier": "Floor Identifier",
-  "create.elevator_contact.floor_description": "Floor Description"
+  "create.elevator_contact.floor_description": "Floor Description",
+  "create.gui.goggles.pole_length": "Pole Length:"
 }

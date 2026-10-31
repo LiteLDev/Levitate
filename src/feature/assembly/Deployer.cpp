@@ -835,6 +835,35 @@ void registerActor() {
     contraption::registerActor(kDeployerId, std::move(b));
 }
 
+/// Create's DeployerMovingInteraction: a click on a deployer of a contraption swaps the hand's item
+/// with the deployer's (a wrench switches punch / use).
+void registerInteraction() {
+    contraption::registerInteraction(kDeployerId, [](Player& player, contraption::Contraption& c, core::contraption::Pos const& local) {
+        auto* carriedData = c.blockData(local);
+        auto* actorData   = c.actorData(local);
+        if (!carriedData) return false;
+        Json doc = actorData && actorData->contains("deployer") ? (*actorData)["deployer"]
+                 : carriedData->contains(kCarrier)                ? (*carriedData)[kCarrier]
+                                                                  : Json::object();
+        auto rtv  = fromJson(doc.value(kDataKey, Json::object()));
+        auto held = player.getSelectedItem();
+        if (items::idOf(held) == "levitate:wrench") {
+            rtv.mode = rtv.mode == DeployerMode::Punch ? DeployerMode::Use : DeployerMode::Punch;
+        } else {
+            auto previous = rtv.held;
+            rtv.held      = items::isEmpty(held) ? items::empty() : held;
+            player.setSelectedItem(items::isEmpty(previous) ? ItemStack{} : previous);
+            player.refreshInventory();
+        }
+        doc[kDataKey] = toJson(rtv);
+        (*carriedData)[kCarrier] = doc;
+        if (actorData && actorData->contains("deployer")) (*actorData)["deployer"] = doc;
+        log().info("deployer on contraption #{} at {} {} {}: {} by {}", c.id(), local.x, local.y, local.z,
+                   items::idOf(held) == "levitate:wrench" ? "mode switched" : "items swapped", player.getRealName());
+        return true;
+    });
+}
+
 void registerCarrier() {
     contraption::registerDataCarrier({
         kCarrier,
@@ -1028,6 +1057,7 @@ void install() {
     common::items::registerBlock(kDeployerId, capability());
     registerFilterSlot();
     registerActor();
+    registerInteraction();
     registerCarrier();
 
     bd::onErase([](GlobalPos const& pos, Json const& doc, std::string const& previous) {

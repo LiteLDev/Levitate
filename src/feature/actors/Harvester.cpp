@@ -174,11 +174,13 @@ struct Registrar {
         registerOwnActor(std::string(kHarvester), std::move(b));
         con::registerMovementRules(
             std::string(kHarvester),
+            // Create: an AttachedActorBlock hangs on the block behind it, isn't brittle and
+            // carries nothing on its front (isNotSupportiveFallback)
             con::MovementRules{
                 nullptr,
-                [](cc::States const&) { return true; },
-                [](cc::States const& s) { return cc::bit(cc::opposite(facingOf(s))); },
                 nullptr,
+                [](cc::States const& s) { return cc::bit(cc::opposite(facingOf(s))); },
+                [](cc::States const& s) { return cc::bit(facingOf(s)); },
             }
         );
     }

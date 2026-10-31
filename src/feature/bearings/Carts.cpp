@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -53,6 +54,14 @@
 #include "mod/Config.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
+#include <random>
+#include "ll/api/memory/Hook.h"
+#include "mc/world/inventory/simulation/validation/ShulkerBoxContainerValidation.h"
+#include "mc/world/item/ItemStackBase.h"
+#include "mc/world/level/block/DispenserBlock.h"
+#include "mc/world/level/block/actor/ShulkerBoxBlockActor.h"
+#include "mc/world/level/dimension/Dimension.h"
+#include "mod/Module.h"
 
 namespace lv::feature::bearings {
 
@@ -269,11 +278,13 @@ double widthOf(ct::Contraption const& c) {
 }
 
 /// Sets the contraption so its anchor follows the cart (pivot at the cart, turned by `angle`).
-void follow(ct::Contraption& c, cc::Vec3d const& cart, double baseY, double angle) {
-    auto t   = c.transform();
-    t.axis   = cc::Axis::Y;
-    t.pivot  = {0.5, 0, 0.5};
-    t.angle  = angle;
+void follow(ct::Contraption& c, cc::Vec3d const& cart, double baseY, double angle, std::pair<cc::Axis, double> tilt = {cc::Axis::X, 0}) {
+    auto t     = c.transform();
+    t.axis     = cc::Axis::Y;
+    t.pivot    = {0.5, 0, 0.5};
+    t.angle    = angle;
+    t.tiltAxis = tilt.first;
+    t.tilt     = tilt.second;
     t.offset = cc::Vec3d{cart.x - 0.5, cart.y + baseY, cart.z - 0.5} - t.origin;
     c.setTransform(t);
 }
@@ -620,10 +631,17 @@ void tickCarts() {
         cc::Vec3d diff = p - rec.last;
         rec.last       = p;
         double headingBefore = rec.heading;
+        std::pair<cc::Axis, double> tilt{cc::Axis::X, 0};
         if (rec.coupled) {
             if (auto* other = actorById(rec.coupled)) {
                 auto o      = ccv(other->getPosition());
                 rec.heading = cb::headingOf(o.x - p.x, o.z - p.z);
+                // OrientedContraptionEntity#updateOrientation: the pitch follows the height
+                // difference of the two carts, about the local axis across the cart line
+                double rad = rec.initial * std::numbers::pi / 180.0;
+                int    ax  = static_cast<int>(std::lround(std::cos(rad)));
+                int    az  = static_cast<int>(std::lround(-std::sin(rad)));
+                if (ax != 0 || az != 0) tilt = cc::pitchTilt(ax, az, o - p);
             }
         } else if (static_cast<cb::CartMovementMode>(rec.mode) != cb::CartMovementMode::RotationLocked) {
             cc::Vec3d motion = posDelta(*cart);
@@ -650,7 +668,7 @@ void tickCarts() {
             c->setActorsPaused(paused);
             log().info("cart contraption #{}: actors {} while rotating", rec.id, paused ? "paused" : "resumed");
         }
-        follow(*c, p, rec.baseY, rec.heading - rec.initial);
+        follow(*c, p, rec.baseY, rec.heading - rec.initial, tilt);
     }
     for (auto uid : gone) st.carts.erase(uid);
     if (!gone.empty()) st.dirty = true;
@@ -757,7 +775,8 @@ bool pickupContraption(Player& player, Actor& cart) {
     auto* region = regionOf(rec.dim);
     if (!c || !region) return false;
     for (auto const& b : c->blocks()) {
-        if (b.id == "minecraft:mob_spawner" || b.id == "minecraft:trial_spawner") {
+        // Create's ContraptionMovementSetting.isNoPickup (spawners, budding amethyst by default)
+        if (ct::movementSetting(b.id) == ct::MovementSetting::NoPickup) {
             actionBar(player, "§c" + trFor(player, "create.contraption.minecart_contraption_illegal_pickup", "A mystical force is binding this Cart Contraption to the world"));
             return true;
         }
@@ -802,10 +821,40 @@ bool pickupContraption(Player& player, Actor& cart) {
     return true;
 }
 
+namespace {
+/// Places the cart contraption of `held` on `rail`, facing (fx, fz) along the rail.
+bool placeFromItem(ItemStack const& held, GP const& rail, int fx, int fz, std::string const& by);
+} // namespace
+
 bool placeMinecartContraption(Player& player, GP const& rail) {
+    // the structure faces where the player looks, along the rail
+    auto [fx, fz] = game::facingOffset(game::playerFacing(player));
+    if (!placeFromItem(player.getSelectedItem(), rail, fx, fz, player.getRealName())) return false;
+    consumeSelected(player);
+    return true;
+}
+
+bool dispenseMinecartContraption(BlockSource& region, GP const& dispenser, ItemStack const& stack, cc::Dir facing) {
+    // Create's MinecartContraptionItem dispense behaviour: onto a rail in front (or in front, one down)
+    if (cc::axisOf(facing) == cc::Axis::Y) return false;
+    auto o     = cc::offset(facing);
+    GP   front = {dispenser.dim, dispenser.x + o.x, dispenser.y, dispenser.z + o.z};
+    auto railAt = [&](GP const& p) {
+        auto id = idAt(region, p);
+        return isVanillaRail(id) || id == kCartAssembler || id == kControllerRail;
+    };
+    if (!railAt(front)) {
+        GP below{front.dim, front.x, front.y - 1, front.z};
+        if (!game::replaceable(region, bp(front)) || !railAt(below)) return false;
+        front = below;
+    }
+    return placeFromItem(stack, front, o.x, o.z, "a dispenser");
+}
+
+namespace {
+bool placeFromItem(ItemStack const& held, GP const& rail, int fx, int fz, std::string const& by) {
     auto* region = regionOf(rail.dim);
     if (!region) return false;
-    auto const& held = player.getSelectedItem();
     std::string heldId = it::idOf(held);
     bool        chest  = heldId == kChestMinecartContraption;
     if (heldId != kMinecartContraption && !chest) return false;
@@ -813,8 +862,6 @@ bool placeMinecartContraption(Player& player, GP const& rail) {
     if (!isVanillaRail(id) && id != kCartAssembler && id != kControllerRail) return false;
     auto data = it::getData(held, kItemData);
     if (!data.is_object() || !data.contains("record")) return false;
-    // the structure faces where the player looks, along the rail
-    auto [fx, fz] = game::facingOffset(game::playerFacing(player));
     if (auto axisX = railAxisX(*region, bp(rail))) {
         if (*axisX && fx == 0) fx = fz, fz = 0;
         if (!*axisX && fz == 0) fz = -fx, fx = 0;
@@ -854,10 +901,10 @@ bool placeMinecartContraption(Player& player, GP const& rail) {
     rec.last    = at;
     state().carts[rec.cart] = rec;
     state().dirty           = true;
-    consumeSelected(player);
-    log().info("cart contraption #{} placed at {} by {}", *cid, rail.key(), player.getRealName());
+    log().info("cart contraption #{} placed at {} by {}", *cid, rail.key(), by);
     return true;
 }
+} // namespace
 
 bool placeMinecartOn(Player& player, GP const& pos, std::string const& itemId) {
     static std::map<std::string, std::string> const carts{
@@ -1045,3 +1092,126 @@ void forgetCarts() {
 }
 
 } // namespace lv::feature::bearings
+
+// Minecart contraption items (Create's MinecartContraptionItem): dispensers place them onto the
+// rail in front, and `minecartContraptionInContainers` (false) keeps them out of shulker boxes
+// (Create: canFitInsideContainerItems).
+namespace lv::feature::bearings {
+namespace cart_items {
+
+
+namespace {
+
+bool isCartItem(std::string const& id) { return id == kMinecartContraption || id == kChestMinecartContraption; }
+
+bool keptOut(ItemStackBase const& item) {
+    return !config::get<Config>().minecartContraptionInContainers && isCartItem(item.getTypeName());
+}
+
+/// The dispenser's own random pick (vanilla picks a random filled slot too): a minecart contraption
+/// in front of a rail is placed instead of being shot out.
+bool dispenseCart(BlockSource& region, BlockPos const& pos, std::function<void()> const& vanilla) {
+    auto* container = region.tryGetContainer(pos).as_ptr();
+    if (!container) return false;
+    std::vector<int> filled;
+    bool             anyCart = false;
+    for (int i = 0; i < container->getContainerSize(); ++i) {
+        auto const& s = container->getItem(i);
+        if (s.isNull() || s.mCount == 0) continue;
+        filled.push_back(i);
+        anyCart = anyCart || isCartItem(s.getTypeName());
+    }
+    if (!anyCart) return false;
+    static std::mt19937 rng{std::random_device{}()};
+    int  slot  = filled[std::uniform_int_distribution<std::size_t>(0, filled.size() - 1)(rng)];
+    auto stack = container->getItem(slot);
+    if (!isCartItem(stack.getTypeName())) {
+        // another item was picked: vanilla dispenses it with the carts held back, so its own
+        // random pick can't shoot a cart contraption out instead
+        std::vector<std::pair<int, ItemStack>> held;
+        for (int i : filled) {
+            if (!isCartItem(container->getItem(i).getTypeName())) continue;
+            held.emplace_back(i, container->getItem(i));
+            container->setItem(i, ItemStack{});
+        }
+        vanilla();
+        for (auto const& [i, s] : held) container->setItem(i, s);
+        return true;
+    }
+    auto const& block  = region.getBlock(pos);
+    int         facing = game::intState(block, "facing_direction").value_or(0);
+    GP          at{static_cast<int>(region.getDimensionId()), pos.x, pos.y, pos.z};
+    if (!dispenseMinecartContraption(region, at, stack, static_cast<cc::Dir>(std::clamp(facing, 0, 5)))) return false;
+    container->removeItem(slot, 1);
+    return true;
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    CartDispenseHook,
+    ll::memory::HookPriority::Normal,
+    DispenserBlock,
+    &DispenserBlock::$dispenseFrom,
+    void,
+    BlockSource&    region,
+    BlockPos const& pos
+) {
+    if (!region.getLevel().isClientSide() && getTypeName() == "minecraft:dispenser") {
+        try {
+            if (dispenseCart(region, pos, [&] { origin(region, pos); })) return;
+        } catch (std::exception const& e) {
+            log().error("bearings: cart dispense failed: {}", e.what());
+        }
+    }
+    origin(region, pos);
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    CartShulkerScreenHook,
+    ll::memory::HookPriority::Normal,
+    ShulkerBoxContainerValidation,
+    &ShulkerBoxContainerValidation::$isItemAllowedInSlot,
+    bool,
+    ContainerScreenContext const& screen,
+    int const                     slot,
+    ItemStackBase const&          item,
+    int const                     amount,
+    bool                          flag
+) {
+    if (keptOut(item)) return false;
+    return origin(screen, slot, item, amount, flag);
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    CartShulkerPushHook,
+    ll::memory::HookPriority::Normal,
+    ShulkerBoxBlockActor,
+    &ShulkerBoxBlockActor::$canPushInItem,
+    bool,
+    int              slot,
+    int              face,
+    ItemStack const& item
+) {
+    if (keptOut(item)) return false;
+    return origin(slot, face, item);
+}
+
+class CartItemHooks {
+public:
+    void install() {
+        CartDispenseHook::hook();
+        CartShulkerScreenHook::hook();
+        CartShulkerPushHook::hook();
+    }
+    void uninstall() {
+        CartShulkerPushHook::unhook();
+        CartShulkerScreenHook::unhook();
+        CartDispenseHook::unhook();
+    }
+};
+
+} // namespace
+
+} // namespace cart_items
+} // namespace lv::feature::bearings
+
+LV_REGISTER_MODULE(lv::feature::bearings::cart_items::CartItemHooks);

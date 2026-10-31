@@ -10,5 +10,6 @@
   "create.gui.assembly.exception.column_conflict": "另一部轿厢已经连接到了此升降机井",
   "create.elevator_contact.title": "升降机锚点",
   "create.elevator_contact.floor_identifier": "楼层名称",
-  "create.elevator_contact.floor_description": "楼层描述"
+  "create.elevator_contact.floor_description": "楼层描述",
+  "create.gui.goggles.pole_length": "活塞杆长度："
 }
