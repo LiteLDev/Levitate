@@ -59,8 +59,6 @@ inline constexpr char kWrench[]         = "levitate:wrench";
 inline constexpr char kGoggles[]        = "levitate:goggles";
 inline constexpr char kPoweredShaft[]   = "levitate:powered_shaft"; ///< U18
 inline constexpr char kExtendoGrip[]    = "levitate:extendo_grip";  ///< U31
-/// Create's CEquipment.placementAssistRange (+4 with the extendo grip).
-inline constexpr int kPlacementAssistRange = 12;
 
 // ---- state names ----------------------------------------------------------------------------------
 inline constexpr char kAxis[]       = "levitate:axis";
