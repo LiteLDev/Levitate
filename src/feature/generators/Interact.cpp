@@ -1,7 +1,8 @@
 // Generators (U7): player interaction through the shared dispatch (common/Interactions.h; network
 // players and SimulatedPlayers alike) rather than through the LeviLamina player events.
 //
-// - Hand crank: right-click turns it (sneaking: backwards); sneaking with an item uses the item.
+// - Hand crank: right-click with anything but the wrench turns it (sneaking: backwards), as it is
+//   in Create's ItemUseOverrides; sneak + wrench is the wrench's.
 // - Valve handle: right-click turns it by its angle (sneaking: the other way), a dye of another
 //   colour dyes it; the wrench on its value box opens the board (U3), sneak + wrench is the wrench's.
 // - Water wheels: right-click with planks of another wood changes the wheel's wood.
@@ -29,6 +30,7 @@
 #include "feature/common/Interactions.h"
 #include "feature/common/ValueBox.h"
 #include "feature/generators/Generators.h"
+#include "feature/goggles/Wrenchable.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
 
@@ -91,8 +93,9 @@ std::optional<InteractionResult> useOnBlock(Player& player, ItemStack& item, Blo
     };
     switch (kind) {
     case Kind::Crank:
-        // Java skips the block's use for sneaking players holding an item
-        if (sneaking && !held.empty()) return std::nullopt;
+        // ItemUseOverrides: the crank turns even for sneaking players holding an item; only the
+        // wrench is left to its own use (sneak + wrench picks the crank up)
+        if (sneaking && held == kWrench) return std::nullopt;
         useCrank(player, pos, sneaking, held != kExtendoGrip);
         return finish();
     case Kind::Valve: {
@@ -155,6 +158,17 @@ void placeHandler(ia::PlaceContext const& c) {
     if (placing == Kind::None || kindOf(c.block) != placing) return;
     orientPlaced(c.player, c.pos, static_cast<Face>(c.face));
 }
+
+// IWrenchable.onWrenched: a rotated state that cannot survive (a water wheel turned against
+// another one) is not applied
+namespace wrench = goggles::wrench;
+LV_REGISTER_WRENCHABLE(
+    kWaterWheel,
+    wrench::Handler{.onWrenched = [](wrench::Context& c) {
+        if (!canSurvive(c.region, c.pos, wrench::rotatedBlock(c.block, c.face))) return wrench::Result::Pass;
+        return wrench::defaultOnWrenched(c);
+    }}
+);
 
 std::vector<ia::HandlerId>& handlerIds() {
     static std::vector<ia::HandlerId> ids;

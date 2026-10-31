@@ -57,6 +57,10 @@ inline constexpr char kAndesiteCasing[] = "levitate:andesite_casing";
 inline constexpr char kBrassCasing[]    = "levitate:brass_casing";
 inline constexpr char kWrench[]         = "levitate:wrench";
 inline constexpr char kGoggles[]        = "levitate:goggles";
+inline constexpr char kPoweredShaft[]   = "levitate:powered_shaft"; ///< U18
+inline constexpr char kExtendoGrip[]    = "levitate:extendo_grip";  ///< U31
+/// Create's CEquipment.placementAssistRange (+4 with the extendo grip).
+inline constexpr int kPlacementAssistRange = 12;
 
 // ---- state names ----------------------------------------------------------------------------------
 inline constexpr char kAxis[]       = "levitate:axis";
@@ -146,6 +150,9 @@ void uninstallPlacementHooks();
 // ---- block behaviour (Behaviour.cpp) ----------------------------------------------------------------
 /// Recomputes the chain drive shape at `pos` from its neighbours.
 void updateChainShape(BlockSource& region, GlobalPos const& pos);
+/// Create's ChainDriveBlock.updateShape for every side but the axis, from `state` (placement and
+/// updateAfterWrenched start from part none).
+[[nodiscard]] ct::ChainState chainShapeAt(BlockSource& region, GlobalPos const& pos, ct::ChainState state);
 /// Tracks / untracks a block that needs ticking (redstone, comparator output, gauges).
 void track(GlobalPos const& pos);
 void untrack(GlobalPos const& pos);
@@ -164,6 +171,8 @@ void onBlockChanged(BlockSource& region, GlobalPos const& pos, std::string const
                     std::vector<std::function<void()>>& later);
 /// Registers the comparator output of the gauges and the sequenced gearshift (common/Redstone.h).
 void installComparatorOutput();
+/// (U52) Registers the encased cogwheels' contraption rotation (the shaft ends follow the turn).
+void installEncasedCogRotation();
 void uninstallComparatorOutput();
 
 // ---- sequenced gearshift (Sequencer.cpp) -------------------------------------------------------------

@@ -78,7 +78,7 @@ LV_REGISTER_GOGGLE_INFO(
             [](goggles::InfoContext const& c, goggles::Tooltip& t) {
                 gaugeHeader(c, t);
                 t.push_back(goggles::line(std::string(fmt::kGray) + c.tr("create.gui.speedometer.title", "Rotation Speed")));
-                t.push_back(goggles::line(goggles::formattedSpeed(c.player, kinetics::speedAt(c.pos), kinetics::isOverstressed(c.pos))));
+                t.push_back(goggles::line(goggles::formattedSpeed(c.player, kinetics::theoreticalSpeedAt(c.pos), kinetics::isOverstressed(c.pos))));
                 return true;
             },
         .hover           = goggles::kineticHoverTooltip,

@@ -350,4 +350,41 @@ LV_REGISTER_SELFTEST("goggles.wrench_breaks_minecarts", [](Context& ctx) -> ll::
     if (after && after->isAlive()) after->remove();
 });
 
+// ---- U52: alignment with Create 6.0.10 (testPos dx 5286..5299) ----------------------------------------------------
+
+// K11, K12, K13: the wrench pickup tag, speed requirements and generator speeds of Create's blocks
+LV_REGISTER_SELFTEST("goggles.create_tables", [](Context& ctx) {
+    for (auto const* id : {"minecraft:redstone_lamp", "minecraft:lit_redstone_lamp", "levitate:andesite_bars", "levitate:brass_bars",
+                           "levitate:copper_bars", "levitate:industrial_iron_block", "levitate:weathered_iron_block"})
+        ctx.check(wrench::canWrenchPickup(id), std::string(id) + " is in #create:wrench_pickup");
+    ctx.check(speedRequirementOf("levitate:mechanical_mixer") == SpeedLevel::Medium, "the mixer needs medium speed");
+    ctx.check(speedRequirementOf("levitate:display_board") == SpeedLevel::Medium, "the display board needs medium speed");
+    ctx.check(speedRequirementOf("levitate:mechanical_press") == SpeedLevel::None, "the press has no requirement");
+    auto windmill = generatorSpeedOf("levitate:windmill_bearing");
+    ctx.check(windmill && windmill->rpm == 16 && windmill->mayGenerateLess, "windmill bearing: up to 16 RPM");
+    auto engine = generatorSpeedOf("levitate:steam_engine");
+    ctx.check(engine && engine->rpm == 64 && engine->mayGenerateLess, "steam engine: up to 64 RPM");
+    ctx.check(kinetics::stressCapacityOf("levitate:steam_engine") == 1024, "steam engine capacity 1024 (the item's stats)");
+});
+
+// K12: a mixer turning slower than medium speed shows Create's speed requirement hint
+LV_REGISTER_SELFTEST("goggles.speed_requirement_hint", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // the mixer has no shaft: a cog beside it meshes with its integrated cog, a source below drives the cog
+    auto mixer = at(ctx, 5288, 1), cog = at(ctx, 5289, 1), src = at(ctx, 5289, 0);
+    ctx.require(co_await ctx.ensureLoaded(mixer), "test area loaded");
+    if (!game::blockWith("levitate:mechanical_mixer")) {
+        ctx.info("no mechanical mixer: not tested");
+        co_return;
+    }
+    auto& p = ctx.player();
+    ctx.require(ctx.setBlock(mixer, "levitate:mechanical_mixer"), "a mixer");
+    ctx.require(ctx.setBlock(cog, "levitate:kinetics_test_cog", {{"levitate:axis", Y}}), "a cog beside it");
+    ctx.require(ctx.setBlock(src, kSource, {{"levitate:axis", Y}}), "a 16 RPM source under the cog");
+    co_await ctx.ticks(3);
+    ctx.require(kinetics::speedAt(mixer) != 0, "the mixer turns, got " + std::to_string(kinetics::speedAt(mixer)));
+    p.setArmor(SharedTypes::Legacy::ArmorSlot::Head, ItemStack{});
+    auto lines = overlayFor(p, mixer).lines;
+    ctx.check(contains(lines, "Speed Requirement:") && contains(lines, "enough"), "16 RPM < 30: the hint: " + dump(lines));
+});
+
 } // namespace lv::feature::goggles

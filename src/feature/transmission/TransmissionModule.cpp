@@ -61,6 +61,7 @@ public:
         });
         installPlacementHooks();
         installComparatorOutput();
+        installEncasedCogRotation();
         installClockHooks();
     }
 

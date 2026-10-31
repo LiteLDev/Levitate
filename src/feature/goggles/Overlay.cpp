@@ -54,6 +54,15 @@ namespace {
 constexpr char const* kGogglesId   = "levitate:goggles";
 constexpr double      kMaxQueryRange = 8.0; // the value boxes' edit range (U3)
 
+/// Create's IRotate.getMinimumRequiredSpeedLevel overrides (MechanicalMixerBlock, FlapDisplayBlock;
+/// blocks of U14 / U24, by id).
+std::unordered_map<std::string, SpeedLevel> presetSpeedRequirements() {
+    return {
+        {"levitate:mechanical_mixer", SpeedLevel::Medium},
+        {"levitate:display_board",    SpeedLevel::Medium},
+    };
+}
+
 /// Create's AllBlocks `BlockStressValues.setGeneratorSpeed` calls (blocks of U7, by id).
 std::unordered_map<std::string, GeneratorSpeed> presetGeneratorSpeeds() {
     std::unordered_map<std::string, GeneratorSpeed> m{
@@ -62,6 +71,8 @@ std::unordered_map<std::string, GeneratorSpeed> presetGeneratorSpeeds() {
         {"levitate:water_wheel",         {8, false}  },
         {"levitate:large_water_wheel",   {4, false}  },
         {"levitate:creative_motor",      {256, true} },
+        {"levitate:windmill_bearing",    {16, true}  },
+        {"levitate:steam_engine",        {64, true}  },
     };
     for (auto const* c : {"white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan",
                           "purple", "blue", "brown", "green", "red", "black"}) {
@@ -73,7 +84,7 @@ std::unordered_map<std::string, GeneratorSpeed> presetGeneratorSpeeds() {
 struct Registry {
     std::unordered_map<std::string, std::vector<InfoProvider>> providers;
     std::vector<std::function<bool(Player const&)>>            wearing;
-    std::unordered_map<std::string, SpeedLevel>                speedRequirement;
+    std::unordered_map<std::string, SpeedLevel>                speedRequirement = presetSpeedRequirements();
     std::unordered_set<std::string>                            hideImpact;
     std::unordered_map<std::string, GeneratorSpeed>            generatorSpeed = presetGeneratorSpeeds();
 };
@@ -210,6 +221,44 @@ bool defaultGoggle(InfoContext const& ctx, Tooltip& t) {
 void actionBar(Player& player, std::string const& text) {
     SetTitlePacket pkt(SetTitlePacketPayload::TitleType::Actionbar, text, std::nullopt);
     pkt.sendTo(player);
+}
+
+/// Marks a title as the goggle overlay for the resource pack's HUD (assets/pack/rp/ui/hud_screen.json
+/// draws it next to the crosshair and hides the vanilla title). Formatting codes only, so a client
+/// without the pack shows no stray characters.
+constexpr char const* kHudPrefix = "§l§v§g§r";
+
+void title(Player& player, SetTitlePacketPayload::TitleType type, std::string const& text, int stay = 0) {
+    SetTitlePacket pkt(type, text, std::nullopt);
+    pkt.mFadeInTime  = 0;
+    pkt.mStayTime    = stay;
+    pkt.mFadeOutTime = 0;
+    pkt.sendTo(player);
+}
+
+/// The panel next to the crosshair: the marked title stays 5 s (sent again while it shows).
+void hudShow(Player& player, std::string const& text) {
+    title(player, SetTitlePacketPayload::TitleType::Times, "", 100);
+    title(player, SetTitlePacketPayload::TitleType::Title, kHudPrefix + text, 100);
+}
+
+/// Takes the panel away: an unmarked, invisible title for one tick replaces the marked text (the
+/// HUD keeps the last title text, a clear does not change it), then the default title times.
+void hudHide(Player& player) {
+    title(player, SetTitlePacketPayload::TitleType::Times, "", 1);
+    title(player, SetTitlePacketPayload::TitleType::Title, fmt::kReset, 1);
+    title(player, SetTitlePacketPayload::TitleType::Reset, "");
+}
+
+/// The HUD panel keeps Create's indentation (one formatting reset per line).
+std::string hudText(Tooltip const& lines) {
+    std::string out;
+    for (auto const& l : lines) {
+        if (!out.empty()) out += "\n";
+        out += fmt::kReset;
+        out += l;
+    }
+    return out;
 }
 
 /// The action bar has no indentation: lines are trimmed (formatting codes kept).
@@ -514,6 +563,7 @@ private:
         std::optional<core::GlobalPos> pos;
         std::string                    text;
         std::uint64_t                  sentAt = 0;
+        bool                           hud    = false; ///< the HUD panel's title is up
     };
 
     /// One log line per player and newly shown block (the e2e scenarios wait for it).
@@ -550,19 +600,28 @@ private:
             pos = game::globalPos(player.getDimensionBlockSource(), hit.mBlock);
             o   = overlayFor(player, pos);
         }
-        if (o.lines.empty()) {
-            // the last text fades by itself; sending a blank one would erase other units' messages
+        bool useHud = config::get<GogglesConfig>().vanillaOverlayHud;
+        if (o.lines.empty() || (s.hud && !useHud)) {
+            // the action bar fades by itself (a blank one would erase other units' messages); the
+            // HUD panel is a title, taken away at once
+            if (s.hud) {
+                hudHide(player);
+                log().info("goggles: overlay hidden for {}", player.getRealName());
+            }
+            s.hud = false;
             s.text.clear();
             s.pos.reset();
-            return;
+            if (o.lines.empty()) return;
         }
-        auto text = actionBarText(o.lines);
+        auto text = useHud ? hudText(o.lines) : actionBarText(o.lines);
         if (text != s.text || mTick - s.sentAt >= 20) {
-            actionBar(player, text);
+            if (useHud) hudShow(player, text);
+            else actionBar(player, text);
             s.sentAt = mTick;
+            s.hud    = useHud;
         }
         s.text = text;
-        noteShown(player, pos, o, "action bar");
+        noteShown(player, pos, o, useHud ? "hud" : "action bar");
     }
 
     std::vector<ll::event::ListenerPtr>       mListeners;

@@ -5,6 +5,27 @@
 using namespace lv::core::kinetics;
 using namespace lv::core::kinetics::feedback;
 
+TEST(KineticFeedback, OverstressEffectDecaysAndTints) {
+    EXPECT_FLOAT_EQ(overstressEffectAfter(1.f, 0), 1.f);
+    EXPECT_FLOAT_EQ(overstressEffectAfter(1.f, 1), .9f);
+    EXPECT_NEAR(overstressEffectAfter(-1.f, 2), -.81f, 1e-6);
+    EXPECT_EQ(overstressEffectAfter(1.f, 60), 0.f); // below 1/128 it stops
+    auto white = overstressTint(0);
+    EXPECT_EQ(white, (std::array<float, 3>{1.f, 1.f, 1.f}));
+    auto red = overstressTint(1);
+    EXPECT_EQ(red, (std::array<float, 3>{1.f, 0.f, 0.f}));
+    auto half = overstressTint(-.5f);
+    EXPECT_FLOAT_EQ(half[0], .5f);
+    EXPECT_FLOAT_EQ(half[1], 1.f);
+    EXPECT_NEAR(half[2], .5f + .5f * 127.f / 255.f, 1e-6);
+}
+
+TEST(KineticFeedback, FlywheelChase) {
+    EXPECT_FLOAT_EQ(chaseExp(0, 64, kFlywheelChase), 1.f);
+    EXPECT_FLOAT_EQ(chaseExp(64, 0, kFlywheelChase), 63.f);
+    EXPECT_EQ(chaseExp(32, 32, kFlywheelChase), 32.f);
+}
+
 TEST(KineticFeedback, SpeedLevelColoursAndParticleSpeeds) {
     EXPECT_EQ(speedLevelColour(SpeedLevel::Slow), 0x22FF22u);
     EXPECT_EQ(speedLevelColour(SpeedLevel::Medium), 0x0084FFu);

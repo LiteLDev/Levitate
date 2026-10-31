@@ -65,6 +65,20 @@ TEST(GogglesRotation, AxisAlongFirstCoordinate) {
     EXPECT_EQ(c.at(kAxisAlongFirst), 1);
 }
 
+TEST(GogglesRotation, GaugeAlongFirstAlias) {
+    // gauges / the fluid valve store the flag as levitate:along_first
+    auto a = rotatedStates({{kFacing, kNorth}, {kAlongFirst, 0}}, kSouth);
+    EXPECT_EQ(a.at(kFacing), kNorth);
+    EXPECT_EQ(a.at(kAlongFirst), 1);
+    auto b = rotatedStates({{kFacing, kNorth}, {kAlongFirst, 1}}, kUp);
+    EXPECT_EQ(b.at(kFacing), kEast);
+    EXPECT_EQ(b.at(kAlongFirst), 0);
+    // chain drives (an axis state) keep it
+    auto c = rotatedStates({{kAxis, kX}, {kAlongFirst, 1}}, kUp);
+    EXPECT_EQ(c.at(kAxis), kZ);
+    EXPECT_EQ(c.at(kAlongFirst), 1);
+}
+
 TEST(GogglesRotation, HorizontalStatesOnlyTurnOnTopAndBottom) {
     EXPECT_EQ(rotatedStates({{kHorizontalFacing, 2}}, kUp).at(kHorizontalFacing), 3);   // north -> east
     EXPECT_EQ(rotatedStates({{kHorizontalFacing, 3}}, kDown).at(kHorizontalFacing), 0); // east -> south

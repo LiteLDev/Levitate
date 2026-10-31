@@ -6,6 +6,29 @@
 
 namespace lv::core::kinetics::feedback {
 
+float overstressEffectAfter(float initial, int ticks) {
+    float v = initial;
+    for (int i = 0; i < ticks && v != 0; ++i) {
+        v -= v * .1f;
+        if (std::fabs(v) < 1.f / 128.f) v = 0;
+    }
+    return v;
+}
+
+std::array<float, 3> overstressTint(float effect) {
+    if (effect == 0) return {1.f, 1.f, 1.f};
+    float                w      = std::min(std::fabs(effect), 1.f);
+    std::array<float, 3> target = effect > 0 ? std::array<float, 3>{1.f, 0.f, 0.f} : std::array<float, 3>{0.f, 1.f, 127.f / 255.f};
+    std::array<float, 3> out{};
+    for (int i = 0; i < 3; ++i) out[i] = 1.f + (target[i] - 1.f) * w;
+    return out;
+}
+
+float chaseExp(float current, float target, float speed) {
+    if (std::fabs(current - target) < 1e-5f) return target; // Mth.equal
+    return current + (target - current) * speed;
+}
+
 unsigned speedLevelColour(SpeedLevel level) {
     switch (level) {
     case SpeedLevel::Slow:

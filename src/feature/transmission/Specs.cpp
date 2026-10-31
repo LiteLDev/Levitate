@@ -246,7 +246,7 @@ KineticSpec flywheel() {
     spec.rotorTexture = "levitate_flywheel";
     spec.parts        = [](RenderView const& v, std::vector<RotorPart>& out) {
         Axis axis = axisValue(*v.state);
-        out.push_back(RotorPart{"wheel", axis, 1.f, 0.f, false});
+        out.push_back(RotorPart{"wheel", axis, 1.f, 0.f, false, true}); // FlywheelRenderer: the wheel eases, the shaft does not
         out.push_back(RotorPart{"shaft", axis, 1.f, 0.f, false});
     };
     return spec;

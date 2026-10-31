@@ -750,11 +750,17 @@ command, sync), `src/client/kinetics/` (renderer). Contract header: `feature/kin
   each rotating part every frame at Create's angle `(ticks + partialTicks)·speed·0.3 + offset`
   degrees, where offset is 22.5° when the sum of the block's coordinates off the axis is even, else
   0 (11.25 for large cogs), plus the spec's `angleOffset` — so meshing cogs interlock.
+  Overstress flash (U52, KineticEffectHandler / KineticBlockEntityRenderer): when a block's synced
+  overstress state flips while it turns (overstressed, or recovered with a speed ≠ 0), 2 ticks
+  later its rotating parts are tinted white mixed with red (overstressed) or spring green
+  (recovered) by an effect starting at 1 that loses a tenth a tick and stops below 1/128.
+  A part with `eased` (the flywheel's wheel) is drawn at a visual speed that chases the synced
+  speed by 1/64 of the gap a tick, its angle advancing by `visual·0.3` a tick (FlywheelBlockEntity).
 - **Speed sync** (client mod only): U3's companion protocol, channel `kinetics.sync`
   `{"batches": [...]}` (one `core/kinetics/SyncCodec.h` batch per chunk, ≤ 48 KiB of batches per
   message). After the handshake the server sends a full sync of the player's dimension (again after
   each dimension change; the first batch resets the client's copy), then once per tick the changed
-  speeds. Vanilla clients get nothing. Client units read the speeds with
+  speeds; an entry of an overstressed network carries a trailing `o` (U52). Vanilla clients get nothing. Client units read the speeds with
   `client/kinetics/KineticsClient.h` (`syncedSpeed`, `onSync`).
 - **Kinetic feedback** (U37, `src/feature/kinetics/Feedback.cpp`, rules in
   `core/kinetics/Feedback.h`). Sent by the server to every client: the particle
@@ -1233,8 +1239,10 @@ CuckooClockRenderer, FlywheelBlock(Entity)). Pure rules in
   above decides; else the horizontal shaft neighbours, else across the player's facing. Gauges:
   placed on a shaft end → facing across it (Create's rule from the look direction), else facing =
   clicked face with the shaft axis from the neighbours.
-- **Placement assist** (Create's placement helpers): a shaft used on a shaft extends its line along
-  the axis on the side nearer the hit (up to `placementAssistRange` 12); a cogwheel used on a cog
+- **Placement assist** (Create's placement helpers): a shaft, cogwheel or large cogwheel used on a
+  shaft or a powered shaft (U18) extends the line of shafts, cogwheels, large cogwheels and powered
+  shafts on its axis with the held block, on the side nearer the hit (ShaftBlock.PlacementHelper;
+  up to `placementAssistRange` 12 blocks, 16 with the extendo grip in the other hand, U52); a cogwheel used on a cog
   (not on its shaft) puts the new cog beside it (small on small: same axis, the side nearer the hit;
   large on large: diagonal, perpendicular axis; mixed sizes: diagonal in the plane, same axis); a
   large cogwheel used on a speed controller goes on top across its shaft. One log line per assisted
@@ -1262,7 +1270,16 @@ CuckooClockRenderer, FlywheelBlock(Entity)). Pure rules in
   get a shaft end on each axis side with a neighbouring shaft facing them.
 - **Wrench** (U42, Create's EncasedCogwheelBlock / EncasedShaftBlock IWrenchable): the wrench on an
   encased cogwheel's face along its axis toggles the shaft end on that side (`top_shaft` /
-  `bottom_shaft`, rotate sound); other faces rotate it as any kinetic block. Sneak + wrench on an
+  `bottom_shaft`, rotate sound); other faces rotate it as any kinetic block, the shaft ends
+  following the turn (swapShaftsForRotation: `top_shaft` is the positive end; they swap when it
+  ends up on the negative side; contraptions placing an encased cogwheel back rotated do the
+  same, U52). Chain drives (ChainDriveBlock, U52): a connected one (part ≠ none) turns about its
+  connection axis whatever face is clicked, an unconnected one about the clicked face; then its
+  part is worked out again from part none (updateAfterWrenched; the adjustable chain gearshift
+  reads its redstone again). The speed controller (HorizontalAxisKineticBlock) only turns on its
+  top and bottom faces (x ↔ z). Gauges (DirectionalAxisKineticBlock, `levitate:along_first`):
+  a click on a face along the dial's axis toggles the shaft axis, a top / bottom click turns the
+  dial and toggles it (U52). Sneak + wrench on an
   encased shaft / cogwheel takes the casing off: the block turns back into the shaft / cogwheel /
   large cogwheel on the same axis with the casing's break particles (nothing is given, encasing
   uses no casing).
@@ -1341,8 +1358,9 @@ CuckooClockRenderer, FlywheelBlock(Entity)). Pure rules in
   stopwatch (U24). Item tooltips: Create's cuckoo clock description on both.
 - **Flywheel** (U49, Create's FlywheelBlock): a RotatedPillarKineticBlock (shaft ends on both axis
   faces, the pillar placement rule), no stress impact, a brass wheel 28 px across around the shaft;
-  the client mod spins it with the network (Create eases the wheel's visual speed by 1/64 a tick:
-  here it turns at the network speed at once), vanilla clients see it still. Collision / selection:
+  the client mod spins it as Create's FlywheelBlockEntity: the wheel's visual speed chases the
+  network speed by 1/64 of the gap a tick (the shaft turns at the network speed; U52), vanilla
+  clients see it still. Collision / selection:
   its own block (Bedrock boxes are at most 16 px).
 
 #### 3.6.7 Generators (U7)
@@ -1352,7 +1370,8 @@ LargeWaterWheelBlock(Item), WaterWheelStructuralBlock, CreativeMotorBlock(Entity
 `src/core/generators/` (gtest), game side in `src/feature/generators/`, handle animation and the
 large wheel's cells in `src/client/generators/`. Speeds are along the positive axis; a facing
 converts them as Create's `convertToDirection` (negative facings negate). Capacities (SU per RPM)
-come from the stress table (§5): hand crank / valve handles 8, water wheel 32, large water wheel
+come from the stress table (§5): hand crank 8, valve handles 8 (every colour reads the one
+`copper_valve_handle` entry, HandCrankBlockEntity.getStressConfigKey, U52), water wheel 32, large water wheel
 128, creative motor 16384.
 
 **Placement** (getStateForPlacement). *Preferred side*: the neighbours with a shaft end towards the
@@ -1370,9 +1389,20 @@ new block; sides on two axes cancel out, on one axis the last in Direction order
   and the client mod draws Create's red (0xff5d6c) outline of the 3x3 room it needs for a second
   (`generators.room {lo, hi}`, U42).
 - Hand crank and valve handles keep the water they are placed in (Create's ProperWaterloggedBlock,
-  `minecraft:liquid_detection` can_contain_liquid, U42).
+  `minecraft:liquid_detection` can_contain_liquid, U42); so do shafts, cogwheels and large
+  cogwheels (AbstractShaftBlock, U52).
+- **Survival** (canSurvive, U52): a hand crank or valve handle needs a block with a collision shape
+  behind it (HandCrankBlock): one placed so that it has none is taken back (the item returns to
+  the player), and one whose block behind loses its collision shape breaks with its drops on the
+  next tick (neighborChanged; Levitate watches block changes). A water wheel may only touch
+  another water wheel along their shared axis (WaterWheelBlock): a placement or a wrench turn
+  against that is refused.
+- Vanilla clients see the large water wheel's missing room as red particles along the box's
+  edges, every quarter block, for 1.5 s (`levitate:water_wheel_room`, sent to that player only;
+  U52).
 
-**Hand crank.** Right-click (any item; sneaking with an item uses the item instead) turns it for
+**Hand crank.** Right-click (any item but the wrench, also while sneaking with an item in hand:
+Create's ItemUseOverrides; sneak + wrench picks it up) turns it for
 10 ticks at 32 RPM (`inUse = 10`, refreshed by every click; Bedrock repeats the click while the
 button is held, so holding keeps it turning); sneaking turns it backwards (clockwise). Each click
 costs `32 · crankHungerMultiplier` (0.01) exhaustion unless the player holds the extendo grip
@@ -1389,7 +1419,8 @@ or for 4 ticks after a turn. While it turns it declares a `TurnAngle` sequence c
 (Create's ValveHandleBlockEntity): bearings it drives stop after exactly that angle (scaled by the
 speed ratio). A dye of another colour dyes the handle (the block becomes
 `<colour>_valve_handle`, facing kept, the dye is not used; Create's ValveHandleBlock.clicked); its
-angle resets to 45° as Create's new block entity. Players who may not build (adventure) can't use
+angle stays (ValveHandleBlock.onRemove keeps the block entity when the new block is a valve handle:
+the BlockData goes with it, U52). Players who may not build (adventure) can't use
 it. The value box sits on the handle's front (4.5 px out from the mounting face). Client mod
 (U42): a click on it with an empty hand or the wrench starts Create's click and hold: released
 early it turns the handle (the box's short click), held it opens the board; vanilla: an empty hand
@@ -1454,7 +1485,8 @@ filter slots keep their plain clicks, U3):
   (0 S, 1 W, 2 N, 3 E) turn a quarter clockwise; else `levitate:axis` (0..2) becomes the axis of
   its positive direction turned clockwise about the clicked axis (unchanged when it is that axis);
   else `levitate:facing` / `minecraft:facing_direction` (0..5, Create's Direction order) turns
-  clockwise about the clicked axis (unchanged when along it), `levitate:axis_along_first` toggles
+  clockwise about the clicked axis (unchanged when along it), `levitate:axis_along_first` (or
+  `levitate:along_first` on the gauges and the fluid valve, U52) toggles
   when the facing is along the clicked axis or the click was on top/bottom (Create's
   DirectionalAxisKineticBlock).
 - Sneak + right-click runs `onSneakWrenched`; default: survival players get the block's drops,
@@ -1466,7 +1498,8 @@ filter slots keep their plain clicks, U3):
   × (0.5..1)).
 - Not wrenchable but in Create's `#create:wrench_pickup` (rails, redstone wire, redstone torches,
   repeaters, comparators, levers, buttons, pressure plates, observers, pistons, tripwire, tripwire
-  hooks, daylight detectors, targets, hoppers): sneak + right-click picks it up the same way.
+  hooks, daylight detectors, targets, hoppers, redstone lamps; Create's andesite / brass / copper
+  bars and industrial / weathered iron blocks, U52): sneak + right-click picks it up the same way.
 - One action per click: repeated use packets on the same block within 4 ticks are ignored
   (Java's item use delay).
 - Every kinetic block is wrenchable (Create's IRotate extends IWrenchable); U8 also opts in the
@@ -1520,9 +1553,16 @@ looking at a value box or filter slot) at `centre + (overlayOffsetX, overlayOffs
 background `0xF0100010` at 75 % alpha, border gradient `0x505000FF` → `0x5028007F`, or the custom
 colours with `customColorsOverlay`), the first line 2 px apart, the goggles icon at (+10, −16); it
 fades in over 24 frames sliding 8 px from the offset side. Vanilla clients: every `overlayInterval`
-ticks the server traces the player's look (5.5 blocks) and shows the same lines in the action bar
-(indentation trimmed), resent every second while unchanged (never blanked: it fades, so other units' action-bar messages stay)
-(config `vanillaOverlay`).
+ticks the server traces the player's look (5.5 blocks) and sends the same lines as a title marked
+with `§l§v§g§r` (stay 100 ticks, no fades; resent every second while unchanged); Levitate's
+resource pack (`ui/hud_screen.json`, U52) hides the vanilla title for marked text and draws it as
+Create's panel at `centre + (32, −12)` (Create's default offset plus the hovering-text shift) in a
+tooltip frame (`textures/ui/levitate_goggle_tooltip`, nine-slice, drawn by
+`tools/textures/goggles.ps1`), indentation kept. When the target goes the server sends an
+unmarked invisible title (`§r`) for one tick (the HUD keeps the last title text; a clear does not
+change it), then resets the title times (log `goggles: overlay hidden for <player>`). Config `vanillaOverlay` (off: nothing) and
+`vanillaOverlayHud` (off: the old action-bar text, indentation trimmed, for clients that refused
+the resource pack). The goggles icon is not drawn for vanilla clients.
 
 `/create overlay` (anyone, client mod) opens Create's position screen: the sample tooltip
 (`create.gui.config.overlay1..8`) follows clicks / drags (clamped as Create), Esc saves the offset
@@ -1535,9 +1575,12 @@ replaceDefaults})` — `goggle` / `hover` get an `InfoContext {player, region, p
 wearingGoggles, tr(...)}` and append lines; helpers `line(text, indent)`, `number`, `addHint`,
 `formattedSpeed` / `formattedStress` (Create's IRotate texts for U6's gauges), `kineticGoggleTooltip`,
 `kineticHoverTooltip`, `fluidTooltip` (for providers replacing the defaults); kinetic block
-properties `setSpeedRequirement` (IRotate.getMinimumRequiredSpeedLevel), `setHideStressImpact`,
+properties `setSpeedRequirement` (IRotate.getMinimumRequiredSpeedLevel; preset, U52: mechanical
+mixer and display board medium), `setHideStressImpact`,
 `setGeneratorSpeed(id, rpm, mayGenerateLess)` (BlockStressValues; preset: hand crank and valve
-handles 32, water wheel 8, large water wheel 4, creative motor up to 256).
+handles 32, water wheel 8, large water wheel 4, creative motor up to 256, windmill bearing up to 16,
+steam engine up to 64, U52). The steam engine item gets Create's kinetic stats too (KineticStats
+covers SteamEngineBlock: capacity 1024 "Large", with goggles "-> Up to 65,536su").
 
 **Item tooltips** (client mod, appended to the game's hover text of `levitate:` items):
 - Create's ItemDescription: when `item.create.<path>.tooltip.summary` (or `block.create...`)
@@ -1562,7 +1605,7 @@ handles 32, water wheel 8, large water wheel 4, creative motor up to 256).
   Bedrock mirrors shaped recipes).
 - Logged actions: `wrench: <player> rotated <id> at <pos> (face f)`, `wrench: <player> dismantled
   <id> at <pos>`, `wrench: <player> broke a <minecart>`, `goggles: overlay for <player> at <pos>
-  (<n> lines, client mod|action bar)` (once per new target), `goggles: overlay screen opened for`,
+  (<n> lines, client mod|hud|action bar)` (once per new target), `goggles: overlay screen opened for`,
   `goggles: overlay reset for`, client `goggles: overlay offset set to x, y` / `reset`.
 
 #### 3.6.9 Materials, foods, world generation, decorative stone (U9)
@@ -4340,7 +4383,8 @@ keys and defaults), `maxSuperGlueRange` 24, `glueOutlines` true, `unmovableBlock
 `enableOverstressedTooltip` (true), `overlayOffsetX` (20), `overlayOffsetY` (0),
 `customColorsOverlay` (false), `customBackgroundOverlay` (0xf0100010), `customBorderTopOverlay`
 (0x505000ff), `customBorderBotOverlay` (0x5028007f) — read by the client mod — and Levitate's
-`vanillaOverlay` (true: action-bar overlay for vanilla clients) and `overlayInterval` (4 ticks).
+`vanillaOverlay` (true: overlay for vanilla clients), `vanillaOverlayHud` (true: the resource
+pack's HUD panel; false: the action bar; U52) and `overlayInterval` (4 ticks).
 `config/pipes.json` (U17): `mechanicalPumpRange` (16), `pipesPlaceFluidSourceBlocks` (true) (Create's
 CFluids keys and defaults), `waterSourceConversion` (true) and `lavaSourceConversion` (false) (Java's game
 rules of the same names, which decide whether a drained source refills).
@@ -4438,8 +4482,8 @@ matches Create's official Chinese translation wording).
 
 | Valve handle "holding opens the angle board" for **vanilla** clients (U7) | the server sees no held button (value box row) | client mod: as Create; vanilla: a click turns the handle, the wrench on its front opens the form |
 | Large water wheel as one 3×3 model for **vanilla** clients (U7) | a Bedrock block model may be at most 30 px wide | the wheel and its 8 structure blocks each show their own cell of the wheel; the client mod spins the whole wheel |
-| Red outline of the missing room when a large water wheel can't be placed, for **vanilla** clients (U7) | no client-side line rendering without the client mod | the action bar message only (the client mod draws the outline, U42) |
-| Goggle overlay next to the crosshair for **vanilla** clients (U8) | no client-side drawing without a client mod | the same lines in the action bar (indentation trimmed), refreshed every `overlayInterval` ticks |
+| Red outline lines of the missing room when a large water wheel can't be placed, for **vanilla** clients (U7) | no client-side line rendering without the client mod | red particles along the box's edges (U52); the client mod draws Create's outline (U42) |
+| Goggles icon on the goggle overlay panel for **vanilla** clients (U8) | the HUD panel is a JSON UI label fed by a title; JSON UI has no item renderer fed by a text binding | the panel and its lines as Create (U52); the client mod draws the icon too |
 | Kinetic stats and "Hold [Shift] for Summary" in item tooltips for **vanilla** clients (U8) | Bedrock builds item hover text on the client from the item alone | the client mod appends them to the hover text, with the server's stress table (`kinetics.stress`, U42); vanilla clients see the plain name |
 | Strikethrough in Create's speed text of an overstressed network for **vanilla** clients (U8) | Bedrock text has no strikethrough format | the client mod draws the line (`§~` spans, U42); vanilla: only dark gray |
 | Wall collision predicted by **vanilla** clients (U9) | JSON collision boxes are at most 16 px high | the server and the client mod use Java's 24 px (collision hook); vanilla clients predict 16 px and are corrected by the server's movement authority |

@@ -160,6 +160,8 @@ ct::ChainState chainShape(BlockSource& region, GlobalPos const& pos, ct::ChainSt
 
 } // namespace
 
+ct::ChainState chainShapeAt(BlockSource& region, GlobalPos const& pos, ct::ChainState state) { return chainShape(region, pos, state); }
+
 void updateChainShape(BlockSource& region, GlobalPos const& pos) {
     if (!isChainDrive(idAt(region, pos))) return;
     auto cur  = chainAt(region, pos);
@@ -271,22 +273,34 @@ bool placeLikeHelper(Player& player, ItemStack& item, BlockSource& region, Globa
     return true;
 }
 
-/// Create's PoleHelper (shafts): extend the line of shafts the player clicked.
+/// ShaftBlock.PlacementHelper's line members: every AbstractSimpleShaftBlock (shaft, cogwheel,
+/// large cogwheel) and the powered shaft.
+bool isPoleMember(std::string_view id) { return id == kShaft || id == kCogwheel || id == kLargeCogwheel || id == kPoweredShaft; }
+
+/// The extendo grip in the other hand adds 4 to the range (its reach modifier).
+bool holdsExtendoGrip(Player& player) {
+    auto const& off = player.getOffhandSlot();
+    return !off.isNull() && off.getTypeName() == kExtendoGrip;
+}
+
+/// Create's ShaftBlock.PlacementHelper (a PoleHelper): a shaft or cogwheel item used on a shaft
+/// extends the line of shafts and cogs on its axis with the held block.
 bool shaftHelper(Player& player, ItemStack& item, BlockSource& region, GlobalPos const& clicked, double hx, double hy, double hz) {
-    auto axis = static_cast<Axis>(std::clamp(stateAt(region, clicked, kAxis, 1), 0, 2));
-    auto dirs = ct::orderedByDistance(hx - .5, hy - .5, hz - .5, [&](Face f) { return ck::axisOf(f) == axis; });
-    constexpr int kRange = 12; // CEquipment.placementAssistRange
+    auto        axis   = static_cast<Axis>(std::clamp(stateAt(region, clicked, kAxis, 1), 0, 2));
+    auto        dirs   = ct::orderedByDistance(hx - .5, hy - .5, hz - .5, [&](Face f) { return ck::axisOf(f) == axis; });
+    std::string heldId = items::idOf(item);
+    int         range  = kPlacementAssistRange + (holdsExtendoGrip(player) ? 4 : 0);
     for (Face dir : dirs) {
         int poles = 0;
-        while (poles < kRange) {
+        while (poles < range) {
             GlobalPos p = stepPos(clicked, dir, poles + 1);
-            if (idAt(region, p) != kShaft || stateAt(region, p, kAxis, 1) != static_cast<int>(axis)) break;
+            if (!isPoleMember(idAt(region, p)) || stateAt(region, p, kAxis, 1) != static_cast<int>(axis)) break;
             ++poles;
         }
-        if (poles >= kRange) continue;
+        if (poles >= range) continue;
         GlobalPos target = stepPos(clicked, dir, poles + 1);
         if (!replaceableAt(region, target)) continue;
-        return placeLikeHelper(player, item, region, target, kShaft, {{kAxis, static_cast<int>(axis)}});
+        return placeLikeHelper(player, item, region, target, heldId, {{kAxis, static_cast<int>(axis)}});
     }
     return false;
 }
@@ -402,12 +416,14 @@ bool useOn(Player& player, ItemStack& item, GlobalPos const& clicked, Face face,
 
     // the block's useItemOn (sneaking with an item in hand skips it, as in Java)
     if (sneak && !held.empty()) return false;
+    bool shaftItem = held == kShaft || held == kCogwheel || held == kLargeCogwheel; // AbstractSimpleShaftBlock items
     if (block == kShaft || block == kCogwheel || block == kLargeCogwheel) {
         if (sneak) return false;
         if (tryEncase(player, *region, clicked, block, held)) return true;
-        if (block == kShaft && held == kShaft) return shaftHelper(player, item, *region, clicked, hx, hy, hz);
+        if (block == kShaft && shaftItem) return shaftHelper(player, item, *region, clicked, hx, hy, hz);
         return false;
     }
+    if (block == kPoweredShaft) return !sneak && shaftItem && shaftHelper(player, item, *region, clicked, hx, hy, hz); // PoweredShaftBlock.useItemOn
     if (block == kSpeedController && held == kLargeCogwheel) {
         GlobalPos above   = stepPos(clicked, Face::Up);
         Axis      newAxis = stateAt(*region, clicked, kAxis, 0) == 0 ? Axis::Z : Axis::X;
@@ -467,8 +483,8 @@ ia::Result transmissionUseOn(ia::UseOnContext const& c) {
     auto& item = const_cast<ItemStack&>(c.item);
     gPending.reset();
 
-    // block interactions of the unit
-    if (!blockOfItem(block).empty()) {
+    // block interactions of the unit (and the powered shaft's placement helper, U18's block)
+    if (!blockOfItem(block).empty() || block == kPoweredShaft) {
         // the item may change while the interaction runs: decide on the cooldown first
         static thread_local bool busy = false;
         if (!busy) {

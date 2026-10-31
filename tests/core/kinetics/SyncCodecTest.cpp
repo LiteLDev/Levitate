@@ -22,6 +22,16 @@ TEST(KineticsSync, RoundTrip) {
     EXPECT_EQ(*back, b);
 }
 
+TEST(KineticsSync, OverstressedFlag) {
+    Batch b{0, false, 0, 0, {Entry{1, 2, 3, 0, 2, false, true}, Entry{4, 5, 6, 8, -1, false, false}}};
+    auto  text = encode(b);
+    EXPECT_EQ(text, "0;D;0;0|1,2,3,0,2,o;4,5,6,8,-1");
+    auto back = decode(text);
+    ASSERT_TRUE(back);
+    EXPECT_EQ(*back, b);
+    EXPECT_FALSE(decode("0;D;0;0|1,2,3,0,2,x"));
+}
+
 TEST(KineticsSync, EmptyBatch) {
     Batch b{0, true, 0, 0, {}};
     auto  back = decode(encode(b));

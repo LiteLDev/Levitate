@@ -176,6 +176,14 @@ bool canWrenchPickup(std::string_view id) {
         "minecraft:golden_rail",
         "minecraft:detector_rail",
         "minecraft:activator_rail",
+        "minecraft:redstone_lamp",
+        "minecraft:lit_redstone_lamp",
+        // Create's own: metal bars (MetalBarsGen) and the palette iron blocks (palettesIronBlock)
+        "levitate:andesite_bars",
+        "levitate:brass_bars",
+        "levitate:copper_bars",
+        "levitate:industrial_iron_block",
+        "levitate:weathered_iron_block",
     };
     if (exact.contains(id)) return true;
     // #minecraft:buttons, #minecraft:pressure_plates

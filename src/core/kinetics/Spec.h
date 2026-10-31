@@ -45,6 +45,9 @@ struct RotorPart {
     float speedFactor = 1;    ///< multiplies the block's speed (e.g. -1 for a reversed half shaft)
     float angleOffset = 0;    ///< degrees, added to Create's per-position offset
     bool  largeCog    = false; ///< use the large cog's position offset (11.25 degrees)
+    /// Drawn at a visual speed that chases the network speed by 1/64 a tick (Create's
+    /// FlywheelBlockEntity.visualSpeed) instead of turning at it at once.
+    bool  eased       = false;
 };
 
 /// What the renderer knows about a block: its state, synced speed and source direction.

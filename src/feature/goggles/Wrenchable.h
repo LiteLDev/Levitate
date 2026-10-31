@@ -86,7 +86,8 @@ Result defaultOnSneakWrenched(Context& ctx);
 
 /// Create's `#create:wrench_pickup` tag: vanilla blocks sneak-wrenching picks up (rails,
 /// redstone wire, torches, repeaters, comparators, levers, buttons, pressure plates, observers,
-/// pistons, tripwire, tripwire hooks, daylight detectors, targets, hoppers).
+/// pistons, tripwire, tripwire hooks, daylight detectors, targets, hoppers, redstone lamps) and
+/// Create's metal bars and industrial / weathered iron blocks.
 [[nodiscard]] bool canWrenchPickup(std::string_view blockId);
 
 /// Plays Create's wrench sounds at a block ("levitate.wrench_rotate" / "levitate.wrench_remove").

@@ -60,7 +60,7 @@ std::vector<ks::Entry> entriesOf(int dim) {
     std::vector<ks::Entry> out;
     detail::solver().forEachNode([&](NodeInfo const& n) {
         if (n.pos.dim != dim) return;
-        out.push_back(ks::Entry{n.pos.x, n.pos.y, n.pos.z, n.speed, sourceFaceOf(n.pos, n.source), false});
+        out.push_back(ks::Entry{n.pos.x, n.pos.y, n.pos.z, n.speed, sourceFaceOf(n.pos, n.source), false, n.overstressed});
     });
     return out;
 }
@@ -104,7 +104,8 @@ void syncChanges(std::vector<k::Change> const& changes) {
     if (s.companions.empty()) return;
     for (auto const& c : changes) {
         s.deltas[c.pos.dim].push_back(
-            ks::Entry{c.pos.x, c.pos.y, c.pos.z, c.speed, sourceFaceOf(c.pos, c.source), c.removed}
+            // the effective speed is 0 exactly while the network is overstressed (Solver::effective)
+            ks::Entry{c.pos.x, c.pos.y, c.pos.z, c.speed, sourceFaceOf(c.pos, c.source), c.removed, !c.removed && c.speed == 0 && c.theoretical != 0}
         );
     }
 }

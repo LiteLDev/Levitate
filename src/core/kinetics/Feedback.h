@@ -5,6 +5,7 @@
 // SoundScapes, SoundScape). Pure maths; the server adapter is feature/kinetics/Feedback.cpp.
 // See docs/SPEC.md §3.1 "Kinetic feedback".
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <vector>
@@ -48,6 +49,23 @@ struct Indicator {
 /// KineticEffectHandler.spawnRotationIndicators for the block's current (effective) speed: nothing
 /// at speed 0 or without a rotation axis. Radii: KineticBlock .75 -> .65, large cogs 1 -> 1.125.
 [[nodiscard]] std::optional<Indicator> indicatorFor(float speed, std::optional<Axis> axis, CogType cog, float mediumSpeed, float fastSpeed);
+
+// ---- overstress flash (client mod) ------------------------------------------------------------------
+/// KineticEffectHandler.triggerOverStressedEffect: the effect starts this many ticks after the
+/// client learns of the change (overStressedTime = 2).
+inline constexpr int kOverstressEffectDelay = 2;
+/// KineticEffectHandler.tick: the effect (1 overstressed, -1 recovered) loses a tenth a tick and
+/// stops below 1/128. The value `ticks` ticks after it started at `initial`.
+[[nodiscard]] float overstressEffectAfter(float initial, int ticks);
+/// KineticBlockEntityRenderer.kineticRotationTransform: white mixed with red (effect > 0) or
+/// spring green (effect < 0) by |effect|. RGB 0..1.
+[[nodiscard]] std::array<float, 3> overstressTint(float effect);
+
+// ---- eased visual speed (flywheel) ---------------------------------------------------------------------
+/// FlywheelBlockEntity: LerpedFloat chase (Chaser.EXP) of the visual speed towards the network
+/// speed, 1/64 of the difference a tick.
+inline constexpr float kFlywheelChase = 1.f / 64.f;
+[[nodiscard]] float chaseExp(float current, float target, float speed);
 
 // ---- soundscapes ------------------------------------------------------------------------------------
 enum class Ambience : std::uint8_t { Kinetic, Cog };
