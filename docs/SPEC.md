@@ -3214,10 +3214,10 @@ filter item is taken from the inventory ⚠); right-click another clipboard merg
 frequency items ("Frequencies") and pulse repeaters / extenders / timers whether they are inverted
 ("Block": "Inverted"), as Create's ClipboardCloneables. A left-click on a placed clipboard (or a
 sneak-right-click) picks it up with its pages (Create's breakAndCollect). Sneaking disables copy /
-paste (Create). Item copying (Create's ItemCopyingRecipe): a written schedule, clipboard or filter
-crafted with blank ones of the same kind gives that many + 1 copies (recipes
+paste (Create). Item copying (Create's ItemCopyingRecipe): a written schedule or filter (attribute,
+package filter) crafted with blank ones of the same kind gives that many + 1 copies (recipes
 `<item>_copying_<n>` and a craft hook that copies the data, enchantments dropped; two written ones
-are refused).
+are refused). Clipboards are not copied: on Bedrock they stack to 1, so no recipe can give several.
 Entries may carry an item icon and an amount (Create's `ClipboardEntry.displayItem`) and a
 clipboard may be read-only (Create's `Readonly`: entries can be checked off, not edited or
 erased). Other units write onto clipboards through `src/feature/display/Clipboard.h`:
