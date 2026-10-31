@@ -57,6 +57,9 @@ struct BeltsConfig {
     int maxBeltLength = 20;
     /// Max distance in blocks a weighted ejector can throw (CKinetics.maxEjectorDistance).
     int maxEjectorDistance = 32;
+    /// Ticks until the next item launched by an ejector scans its path for blocks in the way
+    /// (CKinetics.ejectorScanInterval, at least 10).
+    int ejectorScanInterval = 120;
     /// Show items on belts / depots / in flight as item entities (the vanilla-visible display;
     /// players with the client mod get display items drawn by the mod instead).
     bool displayItems = true;
@@ -91,6 +94,7 @@ struct Airborne {
     double     t = 0;
     int        facing = 0;
     GlobalPos  origin;
+    bool       tracked = false; ///< Create's trackedItem: scans its path for obstacles
 };
 
 enum class EjectorState : std::uint8_t { Charged, Launching, Retracting };
@@ -111,6 +115,11 @@ struct Depot {
     int                   stackSize = 0; ///< 0 = any
     int                   targetH   = 1, targetV = 0;
     std::vector<Airborne> airborne;
+    // Create's ejector obstacle scan: the tracked item's path hit a block early
+    int                      scanCooldown = 0;
+    std::optional<cb::Vec3d> earlyTarget;      ///< where items stop (on the hit face)
+    GlobalPos                earlyTargetBlock; ///< the block that was hit (its belt input takes the items)
+    double                   earlyTargetTime = 0;
 };
 
 struct State {

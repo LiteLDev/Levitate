@@ -9,6 +9,7 @@
 #include "ll/api/event/world/ServerLevelTickEvent.h"
 #include "ll/api/memory/Hook.h"
 
+#include "mc/deps/core/math/Vec2.h"
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/server/commands/CommandOrigin.h"
 #include "mc/server/commands/CommandOutput.h"
@@ -120,6 +121,10 @@ ia::Result schematicsUseOn(ia::UseOnContext const& c) {
 
 /// The table faces the player (Create: horizontal facing opposite to the player's).
 void schematicsPlaced(ia::PlaceContext const& c) {
+    if (c.itemId == kCannon && c.blockId == kCannon) {
+        cannonPlaced(c.pos, c.player.getRotation().y, c.sneaking, c.itemBefore);
+        return;
+    }
     if (c.itemId != kTable) return;
     placeId(c.pos, kTable, {{kFacing, lv::game::opposite(lv::game::playerFacing(c.player))}});
 }
@@ -142,7 +147,7 @@ ia::Result schematicsUse(ia::UseContext const& c) {
 /// players break it without drops.
 ia::Result schematicsDestroy(ia::DestroyContext const& c) {
     GlobalPos p = c.pos;
-    if (blueprintAttack(c.player, p)) {
+    if (c.blockId == kBlueprintBlock && blueprintAttack(c.player, p)) {
         if (auto const* b = blockAt(p)) place(p, *b, 3);
         return ia::Result::Deny;
     }
@@ -184,7 +189,10 @@ public:
                 if (prev.empty() || !doc.contains("schematics")) return;
                 Json d = doc["schematics"];
                 if (prev == kTable) tableRemoved(p, d);
-                else if (prev == kCannon) cannonRemoved(p, d);
+                else if (prev == kCannon) {
+                    cannonRemoved(p, d);
+                    defer([p, o = cannonOptions(d)] { tagDroppedCannon(p, o); });
+                }
                 else if (prev == kBlueprintBlock && !blueprintSilent()) {
                     bool drop = gNoDropAt.erase(p) == 0;
                     defer([p, d, drop] { blueprintRemoved(p, d, drop); });
@@ -193,8 +201,10 @@ public:
         }
         mHandlers.push_back(ia::onUseOn({}, schematicsUseOn));
         mHandlers.push_back(ia::onPlace({std::string(kTable), std::string(kTable)}, schematicsPlaced));
+        mHandlers.push_back(ia::onPlace({std::string(kCannon), std::string(kCannon)}, schematicsPlaced));
         mHandlers.push_back(ia::onUse({}, schematicsUse));
         mHandlers.push_back(ia::onDestroy({std::string(kBlueprintBlock)}, schematicsDestroy));
+
         auto& bus = ll::event::EventBus::getInstance();
         mListeners.push_back(bus.emplaceListener<ll::event::ServerLevelTickEvent>([](auto&) { tick(); }));
         mListeners.push_back(bus.emplaceListener<ll::event::PlayerDisconnectEvent>([](ll::event::PlayerDisconnectEvent& ev) {

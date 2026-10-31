@@ -1,0 +1,13 @@
+{
+  "create.command.debuginfo.sending": "Collecting debug information...",
+  "create.command.debuginfo.saved_to_clipboard": "Debug information has been copied to your clipboard.",
+  "lv.integration.need_op": "You need operator permission.",
+  "lv.integration.not_loaded": "That position is not loaded",
+  "lv.integration.clone.usage": "Clones all blocks as well as super glue from the specified area to the target destination",
+  "lv.integration.clone.too_big": "Too many blocks in the specified area (maximum {0}, specified {1})",
+  "lv.integration.clone.blocks": "Successfully cloned {0} Blocks",
+  "lv.integration.clone.glue": "Successfully applied glue {0} times",
+  "lv.integration.replace.none": "Couldn't find \"{0}\" anywhere.",
+  "lv.integration.replace.done": "Replaced occurrences in {0} blocks.",
+  "lv.integration.replace.bad_pattern": "Invalid pattern: {0}"
+}

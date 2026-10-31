@@ -188,6 +188,40 @@ local function check_block_states(bpsrc)
     end
 end
 
+-- Every block / item id in assets/ponder/index.json (component ids, tag icons and tag members) must
+-- be a BP block or BP item identifier, or a minecraft: id; a wrong id silently hides its scenes.
+local function check_ponder_ids(projectdir, bpsrc)
+    local index = path.join(projectdir, "assets", "ponder", "index.json")
+    if not os.isfile(index) then return end
+    local known = {}
+    for _, kind in ipairs({"blocks", "items"}) do
+        for _, file in ipairs(os.files(path.join(bpsrc, kind, "**.json"))) do
+            local doc = json.loadfile(file)
+            for _, key in ipairs({"minecraft:block", "minecraft:item"}) do
+                local def = doc and doc[key]
+                local id = def and def.description and def.description.identifier
+                if type(id) == "string" then known[id] = true end
+            end
+        end
+    end
+    local function check(id, where)
+        if type(id) ~= "string" then return end
+        if id:startswith("minecraft:") or known[id] then return end
+        raise("unknown id '%s' in %s (%s): not a block in %s/blocks or an item in %s/items",
+            id, index, where, bpsrc, bpsrc)
+    end
+    local doc = json.loadfile(index)
+    for _, c in ipairs(doc.components or {}) do
+        check(c.id, "components")
+    end
+    for _, t in ipairs(doc.tags or {}) do
+        check(t.icon, "icon of tag " .. tostring(t.id))
+        for _, item in ipairs(t.items or {}) do
+            check(item, "tag " .. tostring(t.id))
+        end
+    end
+end
+
 -- Processing recipes (Create's recipe types) for the U3 loader: copied as they are, the
 -- previous copy is replaced so deleted recipes disappear.
 local function copy_recipes(projectdir, outdir)
@@ -239,6 +273,7 @@ function main(target, target_type)
     local bpdst = path.join(outdir, "behavior_packs", "Levitate_BP")
     local rpdst = path.join(outdir, "resource_packs", "Levitate_RP")
     check_block_states(bpsrc)
+    check_ponder_ids(projectdir, bpsrc)
     copy_pack(bpsrc, bpdst, version)
     copy_pack(rpsrc, rpdst, version)
     merge_atlas(rpsrc, rpdst, "item_texture.d", "item_texture.json", "atlas.items")

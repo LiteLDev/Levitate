@@ -283,6 +283,11 @@ void redstonePlaced(ia::PlaceContext const& c) {
     if (oriented && oriented != &placed) game::setBlock(region, target, *oriented);
     auto const& now = region.getBlock(target);
     GP          gp  = c.pos;
+    if (now.getTypeName() != idOf(*heldKind)) {
+        // a contact placed into an elevator column became an elevator contact (U20 tracks it)
+        log().info("{} placed at {} by {} as {}", c.blockId, posText(gp), player.getRealName(), now.getTypeName());
+        return;
+    }
     if (!canSurvive(region, target, now, *heldKind)) {
         // Create refuses the placement: give the block back
         if (auto level = ll::service::getLevel()) {
@@ -315,6 +320,8 @@ public:
             registerFilterSlots();
             registerThresholdScreen();
             registerBellAndLamp();
+            registerWrench();
+            registerClipboard();
             // our signal sources power the custom blocks of other units too (shared redstone input)
             for (auto k : {Kind::Link, Kind::Lever, Kind::PulseRepeater, Kind::PulseExtender, Kind::PulseTimer, Kind::PoweredLatch,
                            Kind::ToggleLatch, Kind::SmartObserver, Kind::ThresholdSwitch, Kind::Contact, Kind::DeskBell}) {

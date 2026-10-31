@@ -1,9 +1,10 @@
 # Redstone (U23): every redstone selftest (signals in and out through the game's circuit,
 # links and the link API, analog lever, pulse repeater / extender / timer, latches, smart
 # observer, threshold switch and its screen, contacts, placement, persistence, U49: desk bell and rose
-# quartz lamp), then a link pair driven from the console with its log lines and two rose quartz lamps.
+# quartz lamp; U58: the wrench, funnel transfers, elevator columns, belts / depots, the rope pulley
+# observable and the clipboard), then a link pair driven from the console with its log lines and two rose quartz lamps.
 $r = Invoke-SelfTest 'redstone.*'
-if ($r.Pass -lt 20) { throw "expected at least 20 redstone selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 26) { throw "expected at least 26 redstone selftests to pass, got $($r.Pass)" }
 
 # A transmitter powered by a redstone block and a receiver lighting a lamp, from the console.
 Send-Console 'tickingarea add 0 -64 0 15 -40 15 lv_redstone_e2e true'

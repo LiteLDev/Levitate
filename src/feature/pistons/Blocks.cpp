@@ -28,6 +28,7 @@
 #include "feature/contraption/Contraption.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/pistons/Pistons.h"
+#include "feature/redstone/Redstone.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
 #include "mod/Config.h"
@@ -648,6 +649,17 @@ public:
             registered = true;
             registerRules();
             registerBoxes();
+            // Create's PulleyBlockEntity implements ThresholdSwitchObservable: the rope end's Y
+            // between the bottom of the world and the pulley (added by U58)
+            redstone::threshold::registerObservable(
+                std::string(kRopePulley),
+                redstone::threshold::Observable{
+                    .min     = [](BlockSource& r, BlockPos const&) { return static_cast<int>(r.getMinHeight()); },
+                    .max     = [](BlockSource&, BlockPos const& p) { return p.y; },
+                    .current = [](BlockSource& r, BlockPos const& p) { return p.y - static_cast<int>(offsetOf(game::globalPos(r, p))); },
+                    .format  = [](int v) { return tr("create.gui.threshold_switch.pulley_y_level", "{0}y", v); },
+                }
+            );
             game::db::onWorldReady([] {
                 markRopesClimbable();
                 loadActuators();

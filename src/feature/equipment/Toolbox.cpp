@@ -33,6 +33,7 @@
 
 #include "core/equipment/Toolbox.h"
 #include "core/equipment/ToolboxLid.h"
+#include "feature/bearings/Bearings.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
@@ -60,7 +61,8 @@ constexpr char kScreen[] = "equipment.toolbox";
 
 /// Items that can't go inside container items (Create: canFitInsideContainerItems).
 bool fitsInToolbox(std::string const& id) {
-    return !(isToolbox(id) || id.find("shulker_box") != std::string::npos || id == "minecraft:bundle");
+    return !(isToolbox(id) || id.find("shulker_box") != std::string::npos || id == "minecraft:bundle")
+        && bearings::fitsInsideContainerItems(id); // minecart contraptions (minecartContraptionInContainers)
 }
 
 ce::TStack toT(ItemStack const& s) {

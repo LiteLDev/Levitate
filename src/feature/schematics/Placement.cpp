@@ -18,6 +18,9 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/block/Block.h"
 
+#include "mc/server/commands/CommandPermissionLevel.h"
+
+#include "core/schematics/SafeData.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
@@ -160,6 +163,9 @@ int printInstantly(Player* player, int dim, SchematicData const& d, bool include
     if (!sch) return 0;
     auto const& s     = sch->schematic;
     int         count = 0;
+    // SchematicPlacePacket: `processNBT = !player.canUseGameMasterBlocks()` (op-only entities are
+    // dropped for other players); the server itself (no player) prints as an operator
+    bool processNBT = player && player->getCommandPermissionLevel() < CommandPermissionLevel::GameDirectors;
     for (std::size_t i = 0; i < s.blocks.size(); ++i) {
         auto idx = s.blocks[i];
         if (idx < 0) continue;
@@ -174,23 +180,43 @@ int printInstantly(Player* player, int dim, SchematicData const& d, bool include
         auto const* cur = blockAt(at);
         if (!cur || unbreakable(*cur)) continue;
         place(at, *block, 2);
+        // BlockHelper.prepareBlockEntityData: SAFE_NBT blocks whole, the rest only their safe part
         if (auto it = s.levitateData.find(i); it != s.levitateData.end()) {
             auto doc = Json::parse(it->second, nullptr, false);
-            if (!doc.is_discarded()) common::blockdata::set(at, doc);
+            if (!doc.is_discarded()) {
+                if (auto safe = cs::safeBlockData(block->getTypeName(), doc); !safe.is_null()) common::blockdata::set(at, std::move(safe));
+            }
         }
         if (!st.isAir()) ++count;
     }
-    // Create's creative print places the template with its block entity NBT and its entities
-    int  data = 0, spawned = 0;
+    // Create's creative print places the template's blocks with their safe block entity data
+    // (BlockHelper.prepareBlockEntityData: signs and banners) and its entities
+    int  data = 0, spawned = 0, refused = 0;
     bool bedrock = s.format == "mcstructure"; // Java files carry Java NBT: blocks only
     if (bedrock) {
-        for (auto const& [i, tag] : s.blockEntities)
-            if (s.blocks[i] >= 0 && placeBlockEntity(gp(dim, d.anchor + cs::apply(d.transform, s.posOf(i))), tag, s.worldOrigin, d.transform, d.anchor)) ++data;
-        for (auto const& e : s.entityTags)
+        for (auto const& [i, tag] : s.blockEntities) {
+            if (s.blocks[i] < 0) continue;
+            auto safe = cs::safeBlockEntity(tag);
+            if (safe && placeBlockEntity(gp(dim, d.anchor + cs::apply(d.transform, s.posOf(i))), *safe, s.worldOrigin, d.transform, d.anchor)) ++data;
+        }
+        for (auto const& e : s.entityTags) {
+            if (processNBT && cs::onlyOpCanSetNbt(cs::entityIdOf(e))) {
+                ++refused;
+                continue;
+            }
             if (placeEntity(dim, e, s.worldOrigin, d.transform, d.anchor)) ++spawned;
+        }
     }
     if (player)
-        log().info("schematic: {} printed {} ({} blocks, {} block entities, {} entities)", player->getRealName(), d.file, count, data, spawned);
+        log().info(
+            "schematic: {} printed {} ({} blocks, {} block entities, {} entities, {} operator-only entities skipped)",
+            player->getRealName(),
+            d.file,
+            count,
+            data,
+            spawned,
+            refused
+        );
     return count;
 }
 

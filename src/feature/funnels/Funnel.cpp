@@ -32,6 +32,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
 #include "feature/funnels/FunnelsInternal.h"
+#include "feature/redstone/Redstone.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
@@ -201,7 +202,8 @@ void activateExtractor(BlockSource& region, GlobalPos const& pos, Block const& b
     Vec3 motion{0, up ? 4 / 16.f : 0.f, 0};
     if (auto* item = spawnItem(region, stack, out, motion)) rt.lastObserved = item->getOrCreateUniqueID().rawID;
     rt.cooldown = std::max(1, config().defaultExtractionTimer);
-    advancements::awardOwner(pos, "funnel"); // Create's onTransfer
+    redstone::observer::onFunnelTransfer(region, toBlockPos(pos), stack); // Create's onTransfer
+    advancements::awardOwner(pos, "funnel");
 }
 
 /// Create's FunnelBlockEntity.activateExtractingBeltFunnel: items from the inventory onto the
@@ -232,7 +234,8 @@ void activateExtractingBeltFunnel(BlockSource& region, GlobalPos const& pos, Blo
         if (!items::isEmpty(back)) spawnItem(region, back, Vec3{pos.x + .5f, pos.y + .5f, pos.z + .5f}, Vec3{0, 0, 0});
     }
     rt.cooldown = std::max(1, config().defaultExtractionTimer);
-    advancements::awardOwner(pos, "funnel"); // Create's onTransfer
+    redstone::observer::onFunnelTransfer(region, toBlockPos(pos), stack); // Create's onTransfer
+    advancements::awardOwner(pos, "funnel");
 }
 
 /// Create's FunnelBlock.entityInside for item entities at the funnel's opening.
@@ -342,7 +345,8 @@ belts::PassResult onBeltPass(belts::PassContext& c) {
     if (!items::isEmpty(remainder)) remainder = items::withCount(remainder, items::countOf(remainder) + notFilled);
     else if (notFilled > 0) remainder = items::withCount(c.item.stack, notFilled);
     flap(*region, c.above, *block, true);
-    advancements::awardOwner(c.above, "funnel"); // Create's onTransfer
+    redstone::observer::onFunnelTransfer(*region, toBlockPos(c.above), toInsert); // Create's onTransfer
+    advancements::awardOwner(c.above, "funnel");
     c.item.stack = items::isEmpty(remainder) ? items::empty() : remainder;
     return stop;
 }
@@ -402,7 +406,9 @@ ItemStack funnelInsert(BlockSource& region, GlobalPos const& pos, ItemStack cons
     auto rest   = items::insert(region, attachedPos(pos, facing), facing, stack, simulate);
     if (!simulate && items::countOf(rest) != items::countOf(stack)) {
         flap(region, pos, *block, true);
-        advancements::awardOwner(pos, "funnel"); // Create's onTransfer
+        // Create's onTransfer with the inserted part
+        redstone::observer::onFunnelTransfer(region, toBlockPos(pos), items::withCount(stack, items::countOf(stack) - items::countOf(rest)));
+        advancements::awardOwner(pos, "funnel");
     }
     return rest;
 }

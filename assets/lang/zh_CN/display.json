@@ -85,5 +85,10 @@
   "lv.display.link.none": "（无）",
   "lv.display.link.option_text": "编辑文本选项",
   "lv.display.key.use": "右键",
-  "lv.display.key.attack": "左键"
+  "lv.display.key.attack": "左键",
+  "block.create.clipboard.tooltip.summary": "_保留您的笔记_ 并使您看起来更加专业。",
+  "block.create.clipboard.tooltip.condition1": "右击时",
+  "block.create.clipboard.tooltip.behaviour1": "打开_界面_。对着方块_潜行并点击_以将其_放置_在方块表面上。",
+  "block.create.clipboard.tooltip.condition2": "对方块使用时",
+  "block.create.clipboard.tooltip.behaviour2": "可以_复制（右击）_并在其他地方_应用（左击）_方块的某些_配置_，比如过滤槽。"
 }

@@ -72,6 +72,7 @@ using Key                     = std::tuple<int, int, int, int>;
 struct Aim {
     std::optional<std::array<int, 3>> target, previous;
     Clock::time_point                 changed{};
+    double                            defaultYaw = 0; ///< Create's defaultYaw (resting barrel)
 };
 
 struct State {
@@ -115,6 +116,7 @@ void onCannon(nlohmann::json const& msg) {
     a.previous        = a.target;
     a.target          = target;
     a.changed         = Clock::now();
+    a.defaultYaw      = msg.value("yaw", 0.0);
 }
 
 void renderCannons(BaseActorRenderContext& ctx) {
@@ -153,7 +155,9 @@ void renderCannons(BaseActorRenderContext& ctx) {
         double yaw = 0, pitch = 40; // Create's resting barrel
         {
             std::lock_guard lock(st().mutex);
-            if (auto it = st().aims.find({dim, x, y, z}); it != st().aims.end() && it->second.target) {
+            auto it = st().aims.find({dim, x, y, z});
+            if (it != st().aims.end()) yaw = it->second.defaultYaw;
+            if (it != st().aims.end() && it->second.target) {
                 auto const& a  = it->second;
                 double      f  = std::clamp(std::chrono::duration<double>(Clock::now() - a.changed).count() * 20.0, 0.0, 1.0);
                 auto        to = *a.target;

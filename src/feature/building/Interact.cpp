@@ -23,6 +23,7 @@
 
 #include "feature/building/Building.h"
 #include "feature/common/Interactions.h"
+#include "feature/equipment/Equipment.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
 
@@ -36,7 +37,8 @@ void placeDoor(Player& player, GlobalPos const& pos, Vec3 const& hitRel, double 
 
 namespace {
 
-constexpr int kPlacementAssistRange = 12; // Create CEquipment.placementAssistRange
+/// Create CEquipment.placementAssistRange (config/equipment.json).
+int placementAssistRangeNow() { return equipment::placementAssistRange(); }
 
 std::unordered_map<std::int64_t, std::uint64_t>& lastToggle() {
     static std::unordered_map<std::int64_t, std::uint64_t> m;
@@ -126,7 +128,7 @@ bool ladderHelper(Player& player, Info const& held, GlobalPos const& pos) {
         if (!b || !isLadder(*b)) break;
         if (++count > 256) break;
     }
-    if (count >= kPlacementAssistRange) return false;
+    if (count >= placementAssistRangeNow()) return false;
     auto target = offset(pos, dir, count + 1);
     if (!replaceableAt(target)) return false;
     // canSurvive at the target: a wall behind or the same ladder above
@@ -169,7 +171,7 @@ bool holdsExtendoGrip(Player& player) {
 bool girderHelper(Player& player, GlobalPos const& pos, Vec3 const& hit) {
     auto const* clicked = blockAt(pos);
     if (!clicked) return false;
-    int range = kPlacementAssistRange + (holdsExtendoGrip(player) ? 4 : 0);
+    int range = placementAssistRangeNow() + (holdsExtendoGrip(player) ? 4 : 0);
     std::array<std::pair<double, int>, 6> order;
     for (int d = 0; d < 6; ++d) {
         double ex = kDx[d] - (hit.x - .5), ey = kDy[d] - (hit.y - .5), ez = kDz[d] - (hit.z - .5);
@@ -206,7 +208,7 @@ bool copycatHelper(Player& player, std::string const& heldId, GlobalPos const& p
     auto* region  = regionOf(pos.dim);
     auto const* b = blockAt(pos);
     if (!region || !b) return false;
-    int  range = kPlacementAssistRange + (holdsExtendoGrip(player) ? 4 : 0);
+    int  range = placementAssistRangeNow() + (holdsExtendoGrip(player) ? 4 : 0);
     auto off   = copycatHelperOffset(*region, pos, *b, heldId, hit.x, hit.y, hit.z, range);
     if (!off) return false;
     set(off->pos, *off->block);

@@ -1,0 +1,38 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:pulse_timer_from_andesite"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "RCT",
+      "SSS"
+    ],
+    "key": {
+      "R": {
+        "item": "minecraft:amethyst_shard"
+      },
+      "C": {
+        "item": "levitate:brass_sheet"
+      },
+      "T": {
+        "item": "minecraft:redstone_torch"
+      },
+      "S": {
+        "item": "minecraft:andesite"
+      }
+    },
+    "result": {
+      "item": "levitate:pulse_timer",
+      "count": 1
+    },
+    "unlock": [
+      {
+        "item": "minecraft:amethyst_shard"
+      }
+    ]
+  }
+}

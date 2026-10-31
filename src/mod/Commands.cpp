@@ -1,4 +1,4 @@
-// `/create` (alias `/levitate`):
+// `/create` (aliases `/levitate`, `/c`):
 //   /create selftest [glob]     (op / console) run selftests
 //   /create reload              (op / console) reload configs and translations
 //
@@ -100,6 +100,7 @@ void registerAll() {
         CommandPermissionLevel::Any
     );
     cmd.alias("levitate");
+    cmd.alias("c"); // Create's /c shortcut (CatnipCommands.createOrAddToShortcut); Bedrock has no /c
 
     auto selftest = [](CommandOrigin const& origin, CommandOutput& output, std::string const& glob) {
         if (!isAdmin(origin)) return output.error("You need operator permission.");

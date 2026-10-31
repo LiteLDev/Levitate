@@ -52,7 +52,14 @@ struct Config {
     int  minimumWindmillSails      = 8;    ///< sail-like blocks a windmill needs to assemble
     int  maxCartCouplingLength     = 32;   ///< longest minecart coupling (blocks)
     bool survivalContraptionPickup = true; ///< survival players may pick up minecart contraptions with a wrench
+    /// Whether minecart contraptions can be placed into container items (Create's
+    /// canFitInsideContainerItems: toolboxes and packages here).
+    bool minecartContraptionInContainers = false;
 };
+/// Create's MinecartContraptionItem.canFitInsideContainerItems: false for a minecart contraption
+/// item unless `minecartContraptionInContainers`; true for every other item. Other units' container
+/// items (toolbox, package) ask this.
+[[nodiscard]] bool fitsInsideContainerItems(std::string_view itemId);
 
 /// The blocks this unit ticks.
 enum class Kind : int { Mechanical, Windmill, Clockwork, Turntable, CartAssembler, ControllerRail };

@@ -18,7 +18,10 @@
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/ShapeType.h"
 #include "mc/world/phys/AABB.h"
+#include "mc/world/phys/HitResult.h"
+#include "mc/world/phys/HitResultType.h"
 
 #include "core/common/ValueSettings.h"
 #include "feature/advancements/Advancements.h"
@@ -240,6 +243,12 @@ void activate(Depot& d) {
             ab.launch = l;
             ab.facing = facing;
             ab.origin = d.pos;
+            // Create's addToLaunchedItems: one item per ejectorScanInterval scans its path
+            bool tracking = std::any_of(d.airborne.begin(), d.airborne.end(), [](Airborne const& x) { return x.tracked; });
+            if (d.scanCooldown == 0 && !tracking) {
+                d.scanCooldown = std::max(10, config().ejectorScanInterval);
+                ab.tracked     = true;
+            }
             log().info("belts: ejector at {} launched {} x{} to {}", posText(d.pos), citems::idOf(ab.data.stack), citems::countOf(ab.data.stack), posText(ejectorTarget(d)));
             d.stacks.erase(it);
             d.airborne.push_back(std::move(ab));
@@ -253,22 +262,87 @@ void activate(Depot& d) {
     playSound(d.pos, "tile.piston.out", .35f, 1.5f);
 }
 
+/// Where a launched item is `t` ticks after its launch (Create's EjectorBlockEntity.getLaunchedItemLocation).
+cb::Vec3d launchedAt(Depot const& d, Airborne const& a, double t) {
+    auto      n     = cb::facingNormal(a.facing);
+    cb::Vec3d start{d.pos.x + .5, d.pos.y + cb::kBeltTop, d.pos.z + .5};
+    auto [along, up] = a.launch.at(t);
+    return start + cb::Vec3d{n.x * along, up, n.z * along};
+}
+
+double distanceBetween(cb::Vec3d const& a, cb::Vec3d const& b) {
+    auto v = b - a;
+    return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+/// Create's EjectorBlockEntity.scanTrajectoryForObstacles: the tracked item's step from `time`
+/// to `time + 1` hit a block (other than an extracting funnel), so items now stop on that
+/// block's face (the early target). True when it hit.
+bool scanTrajectory(Depot& d, Airborne const& a, double time) {
+    if (time <= 2) return false;
+    auto* region = regionOf(d.pos.dim);
+    if (!region) return false;
+    auto      src = launchedAt(d, a, time);
+    auto      dst = launchedAt(d, a, time + 1);
+    HitResult hr  = region->clip(
+        Vec3{float(src.x), float(src.y), float(src.z)},
+        Vec3{float(dst.x), float(dst.y), float(dst.z)},
+        false,
+        ShapeType::Collision,
+        64,
+        false,
+        false,
+        nullptr,
+        [](BlockSource const&, Block const&, bool) { return true; },
+        false
+    );
+    bool miss = hr.mType != HitResultType::Tile;
+    if (!miss) {
+        // Create: FunnelBlock.isFunnel && EXTRACTING (belt funnels don't count)
+        auto const& block  = region->getBlock(hr.mBlock);
+        auto const& id     = block.getTypeName();
+        bool        funnel = (id == "levitate:andesite_funnel" || id == "levitate:brass_funnel")
+                     && game::intState(block, "levitate:shape").value_or(0) == 0;
+        if (funnel && game::intState(block, "levitate:extracting").value_or(0) != 0) miss = true;
+    }
+    if (miss) {
+        if (d.earlyTarget && d.earlyTargetTime < time + 1) {
+            d.earlyTarget.reset();
+            d.earlyTargetTime = 0;
+        }
+        return false;
+    }
+    // Bedrock faces: 0 down, 1 up, 2 north, 3 south, 4 west, 5 east
+    static constexpr int kNormal[6][3] = {{0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}};
+    int       f = hr.mFacing < 6 ? hr.mFacing : 1;
+    cb::Vec3d hit{hr.mPos.x, hr.mPos.y, hr.mPos.z};
+    d.earlyTarget      = hit + cb::Vec3d{kNormal[f][0] * .25, kNormal[f][1] * .25, kNormal[f][2] * .25};
+    d.earlyTargetBlock = GlobalPos{d.pos.dim, hr.mBlock.x, hr.mBlock.y, hr.mBlock.z};
+    double step        = distanceBetween(src, dst);
+    d.earlyTargetTime  = time + (step > 1e-9 ? distanceBetween(src, hit) / step : 0);
+    log().info("belts: ejector at {} finds its path blocked at {}", posText(d.pos), posText(d.earlyTargetBlock));
+    return true;
+}
+
 void tickAirborne(Depot& d) {
     for (auto it = d.airborne.begin(); it != d.airborne.end();) {
-        auto& a = *it;
+        auto&  a   = *it;
+        double age = a.t; // Create's launched item age before this tick's increment
         a.t += 1;
-        auto      n     = cb::facingNormal(a.facing);
-        cb::Vec3d start{d.pos.x + .5, d.pos.y + cb::kBeltTop, d.pos.z + .5};
-        auto [along, up] = a.launch.at(std::min(a.t, a.launch.ticks));
-        cb::Vec3d at     = start + cb::Vec3d{n.x * along, up, n.z * along};
-        if (a.t < a.launch.ticks) {
-            syncDisplay(d.pos, a.data, at);
+        auto   n       = cb::facingNormal(a.facing);
+        bool   hit     = a.tracked && scanTrajectory(d, a, age);
+        double maxTime = d.earlyTarget ? std::min(d.earlyTargetTime, a.launch.ticks) : a.launch.ticks;
+        if (!hit && a.t < maxTime) {
+            syncDisplay(d.pos, a.data, launchedAt(d, a, a.t));
             ++it;
             continue;
         }
-        // arrived (Create: inserted into the target's belt input, else dropped there)
+        // arrived (Create's placeItemAtTarget: inserted into the target's belt input, else
+        // dropped there; with an early target, that block and the point on its face)
         removeDisplay(a.data);
-        GlobalPos target{d.pos.dim, d.pos.x + n.x * a.launch.horizontal, d.pos.y + a.launch.vertical, d.pos.z + n.z * a.launch.horizontal};
+        cb::Vec3d at     = d.earlyTarget ? *d.earlyTarget : launchedAt(d, a, maxTime);
+        GlobalPos target = d.earlyTarget ? d.earlyTargetBlock
+                                         : GlobalPos{d.pos.dim, d.pos.x + n.x * a.launch.horizontal, d.pos.y + a.launch.vertical, d.pos.z + n.z * a.launch.horizontal};
         ItemStack rest = a.data.stack;
         if (hasDirectInput(target)) {
             TransportedItem t;
@@ -280,8 +354,8 @@ void tickAirborne(Depot& d) {
             rest             = insertDirect(target, t, 0, false);
         }
         if (!citems::isEmpty(rest)) {
-            auto [a1, u1] = a.launch.at(a.launch.ticks);
-            auto [a0, u0] = a.launch.at(std::max(0.0, a.launch.ticks - 1));
+            auto [a1, u1] = a.launch.at(maxTime);
+            auto [a0, u0] = a.launch.at(std::max(0.0, maxTime - 1));
             spawnItem(d.pos, at.x, at.y, at.z, rest, n.x * (a1 - a0), u1 - u0, n.z * (a1 - a0));
         }
         it      = d.airborne.erase(it);
@@ -301,6 +375,7 @@ void tickEjector(Depot& d) {
         });
         d.powered = poweredAt(d.pos);
     }
+    if (d.scanCooldown > 0) --d.scanCooldown;
     float speed = kinetics::speedAt(d.pos);
     switch (d.state) {
     case EjectorState::Charged: {

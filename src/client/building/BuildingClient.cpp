@@ -69,6 +69,7 @@
 #include "client/Client.h"
 #include "client/building/BlockQuads.h"
 #include "feature/building/Building.h"
+#include "feature/equipment/Equipment.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
@@ -592,7 +593,7 @@ void renderHelperGhost(BaseActorRenderContext& ctx, LocalPlayer& player, double 
     core::GlobalPos at{static_cast<int>(player.getDimensionId()), hit.mBlock.x, hit.mBlock.y, hit.mBlock.z};
     // CEquipment.placementAssistRange, +4 with the extendo grip (as the server)
     auto const& off0  = player.getOffhandSlot();
-    int         range = 12 + (!off0.isNull() && off0.getTypeName() == "levitate:extendo_grip" ? 4 : 0);
+    int         range = feature::equipment::placementAssistRange() + (!off0.isNull() && off0.getTypeName() == "levitate:extendo_grip" ? 4 : 0);
     auto off = fb::copycatHelperOffset(region, at, b, heldId, hit.mPos.x - hit.mBlock.x, hit.mPos.y - hit.mBlock.y, hit.mPos.z - hit.mBlock.z, range);
     if (!off || !off->block) return;
     Drawer d(ctx);

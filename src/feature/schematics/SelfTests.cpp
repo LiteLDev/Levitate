@@ -499,7 +499,8 @@ LV_REGISTER_SELFTEST("schematics.entities", [](Context& ctx) -> ll::coro::CoroTa
         for (int i = 0; i < h->slots(a); ++i)
             if (items::idOf(h->getSlot(a, i)) == "minecraft:diamond") diamonds += items::countOf(h->getSlot(a, i));
     }
-    ctx.check(diamonds == 3, "the printed chest holds the saved items, got " + std::to_string(diamonds));
+    // BlockHelper.prepareBlockEntityData: a chest is no SAFE_NBT block, it is printed empty
+    ctx.check(diamonds == 0, "the printed chest is empty (Create prints only safe block entity data), got " + std::to_string(diamonds));
     auto standAt = d.anchor + cs::apply(d.transform, {1, 0, 0});
     int  stands  = 0;
     for (auto* a : region->getEntities(both, 0.f, ActorType::ArmorStand)) {

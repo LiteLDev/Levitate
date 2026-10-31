@@ -1,0 +1,13 @@
+{
+  "create.command.debuginfo.sending": "正在收集调试信息……",
+  "create.command.debuginfo.saved_to_clipboard": "调试信息已复制到剪贴板。",
+  "lv.integration.need_op": "你需要管理员权限。",
+  "lv.integration.not_loaded": "该位置尚未加载",
+  "lv.integration.clone.usage": "将指定区域内的所有方块及强力胶复制到目标位置",
+  "lv.integration.clone.too_big": "指定区域内的方块太多（最大值为 {0}，指定值为 {1}）",
+  "lv.integration.clone.blocks": "成功复制了 {0} 个方块",
+  "lv.integration.clone.glue": "成功应用强力胶 {0} 次",
+  "lv.integration.replace.none": "未找到“{0}”。",
+  "lv.integration.replace.done": "已替换 {0} 个方块中的内容。",
+  "lv.integration.replace.bad_pattern": "无效的表达式：{0}"
+}

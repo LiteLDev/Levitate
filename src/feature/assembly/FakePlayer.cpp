@@ -10,7 +10,8 @@
 // Like Create's fake player it is no player for the others: it is taken out of every client's
 // player list, command selectors (@a, @p, names) don't find it, it doesn't count for sleeping
 // through the night, and what it kills drops no experience
-// (DeployerFakePlayer.deployerKillsDoNotSpawnXP).
+// (DeployerFakePlayer.deployerKillsDoNotSpawnXP). Mobs it hits don't turn on it as configured
+// by `ignoreDeployerAttacks` (DeployerFakePlayer.entitiesDontRetaliate).
 
 #include <algorithm>
 #include <cmath>
@@ -32,6 +33,10 @@
 #include "mc/server/SimulatedPlayer.h"
 #include "mc/server/commands/CommandSelectorBase.h"
 #include "mc/world/level/PlayerSleepStatus.h"
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/actor/Mob.h"
+#include "mc/world/actor/monster/Skeleton.h"
+#include "mc/world/actor/monster/Warden.h"
 #include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/level/GameType.h"
@@ -197,6 +202,28 @@ LL_TYPE_INSTANCE_HOOK(
     return origin(owner);
 }
 
+// CKinetics.ignoreDeployerAttacks (DeployerFakePlayer.entitiesDontRetaliate): mobs of the
+// configured set never take a deployer player as their target (creepers by default)
+bool ignoresDeployer(Actor const& mob, ::Actor* target) {
+    if (!target || !target->isSimulatedPlayer() || !isFakeId(target->getOrCreateUniqueID().rawID)) return false;
+    auto const& setting = assembly::config().ignoreDeployerAttacks;
+    return setting == "ALL" || (setting == "CREEPERS" && mob.getEntityTypeId() == ActorType::Creeper);
+}
+
+LL_TYPE_INSTANCE_HOOK(DeployerAggroHook, ll::memory::HookPriority::Normal, Mob, &Mob::$setTarget, void, ::Actor* target) {
+    if (ignoresDeployer(*this, target)) return;
+    origin(target);
+}
+// skeletons and wardens override setTarget
+LL_TYPE_INSTANCE_HOOK(DeployerAggroSkeletonHook, ll::memory::HookPriority::Normal, Skeleton, &Skeleton::$setTarget, void, ::Actor* target) {
+    if (ignoresDeployer(*this, target)) return;
+    origin(target);
+}
+LL_TYPE_INSTANCE_HOOK(DeployerAggroWardenHook, ll::memory::HookPriority::Normal, Warden, &Warden::$setTarget, void, ::Actor* target) {
+    if (ignoresDeployer(*this, target)) return;
+    origin(target);
+}
+
 ll::event::ListenerPtr gJoin;
 
 } // namespace
@@ -205,6 +232,9 @@ void install() {
     DeployerSelectorHook::hook();
     DeployerSleepHook::hook();
     DeployerExperienceHook::hook();
+    DeployerAggroHook::hook();
+    DeployerAggroSkeletonHook::hook();
+    DeployerAggroWardenHook::hook();
     gJoin = ll::event::EventBus::getInstance().emplaceListener<ll::event::PlayerJoinEvent>([](ll::event::PlayerJoinEvent& ev) {
         // the joining player got the whole list: take the deployer players out of it
         auto id = ev.self().getOrCreateUniqueID().rawID;
@@ -218,6 +248,9 @@ void uninstall() {
     DeployerSelectorHook::unhook();
     DeployerSleepHook::unhook();
     DeployerExperienceHook::unhook();
+    DeployerAggroHook::unhook();
+    DeployerAggroSkeletonHook::unhook();
+    DeployerAggroWardenHook::unhook();
     if (gJoin) ll::event::EventBus::getInstance().removeListener(gJoin);
     gJoin = nullptr;
 }

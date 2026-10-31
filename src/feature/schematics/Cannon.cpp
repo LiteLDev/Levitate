@@ -26,7 +26,12 @@
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/BlockType.h"
 #include "mc/world/level/block/actor/BlockActorType.h"
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/actor/item/ItemActor.h"
+#include "mc/world/phys/AABB.h"
+#include "mc/deps/core/math/Vec3.h"
 
+#include "core/schematics/SafeData.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
@@ -51,6 +56,7 @@ constexpr char const* kScreen          = "schematics.cannon";
 constexpr int         kNeighbourCheck  = 100;
 constexpr int         kMaxAnchorDist   = 256;
 constexpr char const* kDbKey           = "lv:schematics:cannons";
+constexpr char const* kOptionsKey      = "schematicannon"; ///< item data: Create's SCHEMATICANNON_OPTIONS
 constexpr std::array<cs::Pos, 6> kDirs{{{0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}}};
 
 enum Slot { SchematicIn = 0, SchematicOut = 1, BookIn = 2, BookOut = 3, Gunpowder = 4 };
@@ -73,6 +79,7 @@ struct Requirement {
     bool        invalid = false;
     std::string item;  ///< "" = nothing needed (air)
     int         count = 0;
+    std::vector<std::pair<std::string, int>> extra; ///< more items consumed with it (Create's multi-stack requirements)
 };
 
 struct Cannon {
@@ -82,6 +89,7 @@ struct Cannon {
     std::string              status = "idle";
     int                      fuel = 0, replace = 2;
     bool                     skipMissing = true, replaceBE = false;
+    float                    defaultYaw = 0; ///< Create's defaultYaw: the resting barrel (set when placed)
     int                      placed = 0, toPlace = 0;
     ItemStack                missing;
     float                    book = 0;
@@ -163,6 +171,7 @@ void save(Cannon& c) {
         {"replace",     c.replace                 },
         {"skipMissing", c.skipMissing             },
         {"replaceBE",   c.replaceBE               },
+        {"yaw",         c.defaultYaw              },
         {"placed",      c.placed                  },
         {"toPlace",     c.toPlace                 },
         {"entityIndex", c.entityIndex             },
@@ -186,6 +195,7 @@ Cannon& cannonAt(GlobalPos const& p) {
         c.replace     = std::clamp(d->value("replace", 2), 0, 3);
         c.skipMissing = d->value("skipMissing", true);
         c.replaceBE   = d->value("replaceBE", false);
+        c.defaultYaw  = d->value("yaw", 0.f);
         c.placed      = d->value("placed", 0);
         c.toPlace     = d->value("toPlace", 0);
         c.entityIndex = d->value("entityIndex", std::size_t{0});
@@ -239,6 +249,33 @@ std::optional<std::int64_t> state(Block const& b, std::string_view key) {
 
 std::map<Block const*, Requirement> gReqCache;
 
+/// Create's SpecialBlockItemRequirement.getRequiredItems of the blocks Levitate has (blocks whose
+/// item is another block's: encased shafts and cogwheels, encased and glass pipes, girder-encased
+/// shafts, elevator contacts, lectern controllers, bogeys, nixie tubes). Belt funnels share the
+/// funnels' ids here, backtanks drop their own item already.
+std::optional<std::vector<std::pair<std::string, int>>> specialRequirement(std::string const& id) {
+    using List = std::vector<std::pair<std::string, int>>;
+    static std::map<std::string, List, std::less<>> const kTable{
+        {"levitate:andesite_encased_shaft",          {{"levitate:shaft", 1}}                                },
+        {"levitate:brass_encased_shaft",             {{"levitate:shaft", 1}}                                },
+        {"levitate:andesite_encased_cogwheel",       {{"levitate:cogwheel", 1}}                             },
+        {"levitate:brass_encased_cogwheel",          {{"levitate:cogwheel", 1}}                             },
+        {"levitate:andesite_encased_large_cogwheel", {{"levitate:large_cogwheel", 1}}                       },
+        {"levitate:brass_encased_large_cogwheel",    {{"levitate:large_cogwheel", 1}}                       },
+        {"levitate:encased_fluid_pipe",              {{"levitate:fluid_pipe", 1}}                           },
+        {"levitate:glass_fluid_pipe",                {{"levitate:fluid_pipe", 1}}                           },
+        {"levitate:metal_girder_encased_shaft",      {{"levitate:shaft", 1}, {"levitate:metal_girder", 1}}  },
+        {"levitate:elevator_contact",                {{"levitate:redstone_contact", 1}}                     },
+        {"levitate:lectern_controller",              {{"minecraft:lectern", 1}, {"levitate:linked_controller", 1}}},
+        {"levitate:small_bogey",                     {{"levitate:railway_casing", 1}}                       },
+        {"levitate:large_bogey",                     {{"levitate:railway_casing", 1}}                       },
+    };
+    if (auto it = kTable.find(id); it != kTable.end()) return it->second;
+    // NixieTubeBlock: every colour is printed from the (orange) nixie tube
+    if (id.starts_with("levitate:") && id.ends_with("_nixie_tube")) return List{{"levitate:nixie_tube", 1}};
+    return std::nullopt;
+}
+
 Requirement requirementOf(Block const& b) {
     if (auto it = gReqCache.find(&b); it != gReqCache.end()) return it->second;
     Requirement r;
@@ -250,6 +287,11 @@ Requirement requirementOf(Block const& b) {
                || name == "minecraft:piston_arm_collision" || name == "minecraft:sticky_piston_arm_collision" || name == "minecraft:moving_block"
                || name == "minecraft:bubble_column") {
         r.invalid = true;
+    } else if (auto special = specialRequirement(name)) {
+        // SpecialBlockItemRequirement: what the block is made from
+        r.item  = special->front().first;
+        r.count = special->front().second;
+        r.extra.assign(special->begin() + 1, special->end());
     } else {
         auto inst = b.getBlockType().asItemInstance(b, nullptr);
         if (inst.isNull() || inst.getTypeName().empty() || inst.getTypeName() == "minecraft:air") {
@@ -270,6 +312,24 @@ Requirement requirementOf(Block const& b) {
     }
     gReqCache[&b] = r;
     return r;
+}
+
+/// Every item a block of the schematic uses up: its requirement and, for a placard, the item it
+/// holds (PlacardBlock.getRequiredItems: the held item is printed with it).
+std::vector<std::pair<std::string, int>> neededItems(Cannon& c, cs::Pos offset, Block const& want, Requirement const& req) {
+    std::vector<std::pair<std::string, int>> out{{req.item, req.count}};
+    out.insert(out.end(), req.extra.begin(), req.extra.end());
+    if (want.getTypeName() != "levitate:placard" || !c.sch) return out;
+    auto const& s     = c.sch->schematic;
+    cs::Pos     local = cs::unapply(c.sd.transform, offset);
+    if (!s.contains(local)) return out;
+    auto it = s.levitateData.find(s.index(local));
+    if (it == s.levitateData.end()) return out;
+    auto doc = Json::parse(it->second, nullptr, false);
+    if (doc.is_discarded() || !doc.contains("building") || !doc["building"].is_object() || !doc["building"].contains("item")) return out;
+    auto held = items::fromJson(doc["building"]["item"]);
+    if (!items::isEmpty(held)) out.emplace_back(items::idOf(held), 1);
+    return out;
 }
 
 /// Create's shouldIgnoreBlockState: second halves are placed with their first half.
@@ -389,7 +449,7 @@ void updateChecklist(Cannon& c) {
                     auto const* want = schematicBlock(c, off);
                     auto        req  = requirementOf(*want);
                     if (req.invalid || req.item.empty()) continue;
-                    c.checklist.require(req.item, req.count);
+                    for (auto const& [item, count] : neededItems(c, off, *want, req)) c.checklist.require(item, count);
                     ++c.toPlace;
                 }
             }
@@ -500,7 +560,12 @@ void sendAim(Cannon& c, std::optional<cs::Pos> target) {
     c.aimResend = 40;
     auto level = ll::service::getLevel();
     if (!level) return;
-    Json msg{{"dim", c.pos.dim}, {"pos", {c.pos.x, c.pos.y, c.pos.z}}, {"target", target ? Json{target->x, target->y, target->z} : Json()}};
+    Json msg{
+        {"dim",    c.pos.dim                                                    },
+        {"pos",    {c.pos.x, c.pos.y, c.pos.z}                                  },
+        {"target", target ? Json{target->x, target->y, target->z} : Json()      },
+        {"yaw",    c.defaultYaw                                                 },
+    };
     level->forEachPlayer([&](Player& p) {
         if (!net::isCompanion(p) || static_cast<int>(p.getDimensionId()) != c.pos.dim) return true;
         auto   pos = p.getFeetPos();
@@ -715,7 +780,9 @@ void tickPrinter(Cannon& c) {
         return;
     }
     if (!req.item.empty()) {
-        if (!grabItems(c, req.item, req.count, true)) {
+        auto needed = neededItems(c, *c.current, *want, req);
+        for (auto const& [item, count] : needed) {
+            if (grabItems(c, item, count, true)) continue;
             if (c.skipMissing) {
                 c.status       = "skipping";
                 c.blockSkipped = true;
@@ -725,13 +792,13 @@ void tickPrinter(Cannon& c) {
                 }
                 return;
             }
-            c.missing = makeItem(req.item, req.count).value_or(items::empty());
+            c.missing = makeItem(item, count).value_or(items::empty());
             c.state   = "PAUSED";
             c.status  = "missingBlock";
             c.dirty = c.viewDirty = true;
             return;
         }
-        grabItems(c, req.item, req.count, false);
+        for (auto const& [item, count] : needed) grabItems(c, item, count, false);
     }
     c.state  = "RUNNING";
     c.status = want->isAir() ? "clearing" : "placing";
@@ -742,18 +809,25 @@ void tickPrinter(Cannon& c) {
     c.dirty = c.viewDirty = true;
 }
 
-/// Create's NBTProcessors in survival: of the block entity data only a sign's text is printed.
-void signText(Cannon& c, GlobalPos const& t, Block const& b) {
-    if (!c.sch || c.sch->schematic.format != "mcstructure" || !b.getTypeName().ends_with("sign")) return;
+/// Create's launchBlockOrBelt -> BlockHelper.prepareBlockEntityData: the landed block gets the safe
+/// part of its saved data (a sign's text, a banner; Levitate's BlockData of SAFE_NBT blocks, the
+/// filters and settings of the others).
+void printedData(Cannon& c, GlobalPos const& t, Block const& b) {
+    if (!c.sch) return;
     auto const& s     = c.sch->schematic;
     cs::Pos     local = cs::unapply(c.sd.transform, cp(t) - c.sd.anchor);
     if (!s.contains(local)) return;
-    auto it = s.blockEntities.find(s.index(local));
-    if (it == s.blockEntities.end() || !it->second.asCompound()) return;
-    cs::nbt::Compound safe;
-    for (auto const* key : {"id", "FrontText", "BackText", "Text", "IsWaxed"})
-        if (auto const* v = it->second.asCompound()->find(key)) safe.set(key, *v);
-    placeBlockEntity(t, cs::nbt::Tag(std::move(safe)), s.worldOrigin, c.sd.transform, c.sd.anchor);
+    auto index = s.index(local);
+    if (s.format == "mcstructure") {
+        if (auto it = s.blockEntities.find(index); it != s.blockEntities.end()) {
+            if (auto safe = cs::safeBlockEntity(it->second)) placeBlockEntity(t, *safe, s.worldOrigin, c.sd.transform, c.sd.anchor);
+        }
+    }
+    if (auto it = s.levitateData.find(index); it != s.levitateData.end()) {
+        auto doc = Json::parse(it->second, nullptr, false);
+        if (doc.is_discarded()) return;
+        if (auto safe = cs::safeBlockData(b.getTypeName(), doc); !safe.is_null()) common::blockdata::set(t, std::move(safe));
+    }
 }
 
 void landed(Cannon& c, Flying const& f) {
@@ -770,7 +844,7 @@ void landed(Cannon& c, Flying const& f) {
         clearAt(t);
     } else if (auto const* b = blockFromSnbt(f.snbt)) {
         place(t, *b);
-        signText(c, t, *b);
+        printedData(c, t, *b);
         for (auto const& p : f.partners)
             if (auto const* pb = blockFromSnbt(p.snbt)) place(gp(c.pos.dim, p.pos), *pb);
         particle(t.dim, t.x + 0.5, t.y + 0.5, t.z + 0.5, "minecraft:basic_crit_particle");
@@ -905,6 +979,11 @@ void tickCannon(Cannon& c) {
     if (++c.lazy >= 30) {
         c.lazy = 0;
         findInventories(c);
+        // idle cannons: tell companions that came close since where the barrel rests
+        if (!c.current && currentTick() % 90 < 30) { // about every 4.5 s
+            c.aimResend = 1;
+            sendAim(c, std::nullopt);
+        }
     }
     // launched blocks
     for (std::size_t i = 0; i < c.flying.size();) {
@@ -989,7 +1068,7 @@ bool validFor(int slot, ItemStack const& s) {
     case SchematicIn:
         return id == kSchematic;
     case BookIn:
-        return id == "minecraft:book" || id == "minecraft:writable_book" || id == kClipboard;
+        return id == "minecraft:book" || id == "minecraft:written_book" || id == kClipboard; // SchematicannonInventory.isItemValid(2)
     case Gunpowder:
         return id == "minecraft:gunpowder";
     default:
@@ -1196,6 +1275,48 @@ void loadCannons() {
     if (!list || !list->is_array()) return;
     for (auto const& j : *list)
         if (auto p = posFrom(j)) cannonAt(*p);
+}
+
+void cannonPlaced(GlobalPos const& p, float playerYaw, bool sneaking, ItemStack const* item) {
+    gCannons.erase(p); // a cannon broken here before
+    auto& c = cannonAt(p);
+    // SchematicannonBlock.setPlacedBy: the barrel rests towards the placer (away when sneaking),
+    // snapped to 16 directions
+    float yaw    = playerYaw + (sneaking ? 180.f : 0.f);
+    c.defaultYaw = static_cast<float>((-static_cast<int>(std::floor(yaw * 16.f / 360.f + .5f)) & 15) * 360.0 / 16.0);
+    // applyImplicitComponents: the settings the item kept
+    if (item) {
+        auto o = items::getData(*item, kOptionsKey);
+        if (o.is_object()) {
+            c.replace     = std::clamp(o.value("replace", c.replace), 0, 3);
+            c.skipMissing = o.value("skipMissing", c.skipMissing);
+            c.replaceBE   = o.value("replaceBE", c.replaceBE);
+        }
+    }
+    c.dirty = true;
+    save(c);
+    persistList();
+    sendAim(c, std::nullopt);
+}
+
+Json cannonOptions(Json const& doc) {
+    return Json{
+        {"replace",     doc.value("replace", 2)       },
+        {"skipMissing", doc.value("skipMissing", true)},
+        {"replaceBE",   doc.value("replaceBE", false) },
+    };
+}
+
+void tagDroppedCannon(GlobalPos const& p, Json const& options) {
+    auto* region = regionOf(p.dim);
+    if (!region) return;
+    AABB box{Vec3{p.x - .5f, p.y - .5f, p.z - .5f}, Vec3{p.x + 1.5f, p.y + 1.5f, p.z + 1.5f}};
+    for (auto* a : region->getEntities(box, 0.f, ActorType::ItemEntity)) {
+        auto& stack = static_cast<ItemActor&>(*a).item();
+        if (items::idOf(stack) != kCannon || items::countOf(stack) != 1 || items::getData(stack, kOptionsKey).is_object()) continue;
+        items::setData(stack, kOptionsKey, options);
+        return;
+    }
 }
 
 void cannonRemoved(GlobalPos const& p, Json const& doc) {

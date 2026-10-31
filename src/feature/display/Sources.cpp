@@ -332,7 +332,7 @@ struct Registration {
         }
 
         // ---- smart observer (U23): contents of the observed inventory / tank ----
-        registerSource("levitate:smart_observer", Source{
+        registerSource("levitate:content_observer", Source{
             .id = "count_items", .name = "create.display_source.count_items", .nameFallback = "Amount of matching Items",
             .text = [](Context& ctx, TargetStats const&) -> Lines {
                 long long total = 0;
@@ -341,7 +341,7 @@ struct Registration {
             },
             .options = {labelOption()},
         });
-        registerSource("levitate:smart_observer", Source{
+        registerSource("levitate:content_observer", Source{
             .id = "list_items", .name = "create.display_source.list_items", .nameFallback = "List matching Items",
             .text = [](Context& ctx, TargetStats const& stats) -> Lines {
                 auto list = countItems(ctx);
@@ -353,7 +353,7 @@ struct Registration {
             },
             .options = {valueDisplayOption()}, .multiLine = true,
         });
-        registerSource("levitate:smart_observer", Source{
+        registerSource("levitate:content_observer", Source{
             .id = "count_fluids", .name = "create.display_source.fluid_amount", .nameFallback = "Amount of matching Fluids",
             .text = [](Context& ctx, TargetStats const&) -> Lines {
                 long long total = 0;
@@ -362,7 +362,7 @@ struct Registration {
             },
             .options = {labelOption()},
         });
-        registerSource("levitate:smart_observer", Source{
+        registerSource("levitate:content_observer", Source{
             .id = "list_fluids", .name = "create.display_source.list_fluids", .nameFallback = "List matching Fluids",
             .text = [](Context& ctx, TargetStats const& stats) -> Lines {
                 auto list = countFluids(ctx);
@@ -376,7 +376,7 @@ struct Registration {
         });
 
         // ---- threshold switch (U23): fill level of the observed inventory ----
-        registerSource("levitate:threshold_switch", Source{
+        registerSource("levitate:stockpile_switch", Source{
             .id = "fill_level", .name = "create.display_source.fill_level", .nameFallback = "Container Fill Level",
             .text = [](Context& ctx, TargetStats const& stats) -> Lines {
                 double level = 0;

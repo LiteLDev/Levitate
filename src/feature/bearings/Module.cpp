@@ -36,6 +36,11 @@ namespace lv::feature::bearings {
 
 namespace ia = common::interactions;
 
+bool fitsInsideContainerItems(std::string_view itemId) {
+    if (itemId != kMinecartContraption && itemId != kChestMinecartContraption) return true;
+    return config::get<Config>().minecartContraptionInContainers;
+}
+
 namespace {
 
 constexpr char kIndexKey[] = "lv:bearings:index";

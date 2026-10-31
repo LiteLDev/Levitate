@@ -220,7 +220,16 @@ void trackCannon(GlobalPos const& p);
 void tickCannons();
 void resetCannons();
 void loadCannons();
+/// A player placed a cannon (Create's setPlacedBy + applyImplicitComponents): the resting yaw and
+/// the settings the item kept.
+void cannonPlaced(GlobalPos const& p, float playerYaw, bool sneaking, ItemStack const* item);
+/// The cannon at `p` is gone: drops its inventory.
 void cannonRemoved(GlobalPos const& p, Json const& doc);
+/// The settings a cannon's item keeps (Create's SCHEMATICANNON_OPTIONS) from its data.
+[[nodiscard]] Json cannonOptions(Json const& doc);
+/// Writes them onto the cannon item its block just dropped at `p` (collectImplicitComponents; the
+/// loot table drops the item, a creative break or a command drops none).
+void tagDroppedCannon(GlobalPos const& p, Json const& options);
 /// Cannon state for selftests.
 struct CannonView {
     std::string state, status;

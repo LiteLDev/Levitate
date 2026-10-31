@@ -492,7 +492,9 @@ yellow, lime, pink, gray, light_gray, cyan, purple, blue, brown, green, red, bla
 old paths `content_observer` / `stockpile_switch`, so those are our ids. Every block drops itself.
 Behaviour, states and numbers: §3.6.23.
 
-Recipes (Create 6.0.10, `c:stones` = stone, `c:rods/wooden` = stick): powered latch = redstone
+Recipes (Create 6.0.10, `c:stones` = stone, andesite, diorite, granite, deepslate, tuff: Bedrock
+recipes can't take a vanilla item tag here, so each latch / brass diode recipe has a
+`<id>_from_<stone>` variant per stone; `c:rods/wooden` = stick): powered latch = redstone
 torch / redstone, lever, redstone / 3 stone; powered toggle latch = redstone torch / lever / 3
 stone (both in the BP). Waiting for U9/U10 items in `assets/pending_recipes/redstone/`: analog
 lever = stick / andesite casing; pulse repeater = redstone, brass sheet, redstone torch / 3 stone;
@@ -3052,6 +3054,9 @@ loaded (`lv:redstone:blocks`); settings live in BlockData `data["redstone"]`.
   receiver within range of it receives that power; receivers emit it weakly on all sides and
   strongly into the block they hang on. Contract for other units: `feature/redstone/RedstoneLink.h`
   (`link::add/remove/setTransmit/setKey/setListening/move/received/powerAt/anyPower/keyOf`).
+  The wrench toggles the mode as well (RedstoneLinkBlock.onWrenched; the block never turns), sneak +
+  wrench picks it up. A clipboard copies both frequencies (LinkBehaviour's ClipboardCloneable,
+  key `Frequencies`) and pastes them onto another link.
 - **Analog lever** (`face` floor / wall / ceiling, `facing`, `state` handle 0..15, `power`):
   right-click +1, sneak + empty hand −1 (sneak with an item: nothing), click sound pitch
   `.25 + (state + 5) / 15 · .5`, red dust while on. The output (and neighbours) follow the handle
@@ -3067,25 +3072,41 @@ loaded (`lv:redstone:blocks`); settings live in BlockData `data["redstone"]`.
   Output 15 into the front (strong) when `powering` xor `inverted`; right-click (not sneaking,
   not the wrench) toggles `inverted` (lever click .3, pitch .6 / .5). On the delay box (client
   mod, U42) a short click toggles `inverted` too and holding opens the board (vanilla: the click
-  opens the board).
+  opens the board). A clipboard copies the inversion (key `Block`) onto any brass diode.
 - **Powered latch** (`powered`, `powered_side`, `powering`): back sets, either side resets, 1-tick
   scheduling; a click toggles the output only when both inputs agree. **Powered toggle latch**:
   each rising back edge toggles; a click toggles. Output 15 to the front.
+  Brass diodes and latches are IWrenchable (AbstractDiodeBlock): a wrench click on the top or bottom
+  turns them clockwise, a side click does nothing; sneak + wrench picks them up.
 - **Smart observer** (`facing`, `target` wall / floor / ceiling, `powered`): placed facing an
   inventory / tank around it (else away from the player, sneaking: towards). Filter slot on the
   back and top (Create's FilteredDetectorFilterSlot). Every tick: the observed block itself
-  matching a non-empty filter → on for 3 ticks; an inventory (U3 item capability) with an item
-  passing the filter, or a tank with a passing fluid → on for 6 ticks. Funnels (U12) call
-  `observer::onFunnelTransfer` → 4-tick pulse. Emits 15 weakly on every side but the target.
+  matching a non-empty filter → on for 3 ticks; else, in Create's order (the first kind present
+  decides): a belt segment / depot / ejector with a passing item within .45 of its centre, a pipe /
+  pump / valve with a complete inbound flow of a passing fluid (U17 `pipes::inboundFlows`), a chain
+  conveyor with a passing package looping on it (U25 `packages::loopingPackages`), an inventory
+  (U3 item capability) with an item passing the filter, or a tank with a passing fluid → on for 6
+  ticks. Funnels (U12) call `observer::onFunnelTransfer` with the stack of every transfer
+  (FunnelBlockEntity.onTransfer: extraction, belt-funnel extraction, belt insertion, direct
+  insertion) → 4-tick pulse. Emits 15 weakly on every side but the target. The smart observer and
+  the threshold switch are IWrenchable (DirectedDirectionalBlock): a top / bottom click turns
+  FACING, a side click turns the target direction about the clicked axis (on a negative face the
+  other way), so a target can become floor / ceiling; sneak + wrench picks them up.
 - **Threshold switch** (`facing`, `target`, `level` 0..5, `powered`): every 10 ticks measures the
   target: items (slots × max stack size, filtered count), tanks (capacity, filtered mB) or a
-  registered observable (`threshold::registerObservable`); on at or above `onAbove` (default
+  registered observable (`threshold::registerObservable`: U20's rope pulley, Create's
+  PulleyBlockEntity, reads the rope end's Y between the bottom of the world and the pulley,
+  labelled `create.gui.threshold_switch.pulley_y_level` "{0}y"); on at or above `onAbove` (default
   128), off at or below `offBelow` (64); the output follows 2 ticks later (inverted if set).
   Right-click (any item but the wrench, not sneak+item) opens the screen: native (Create's
   layout: ≥ / ≤ scroll inputs in items, stacks of 64 or buckets of 1000 mB, item measure, invert
   button, target with "Currently"/range tooltip) for the client mod, a form for vanilla players.
 - **Redstone contact** (`facing` 0..5, `powered`): placed facing away from the player (sneaking
-  or a facing contact on the clicked block: towards the clicked block); powered while a contact
+  or a facing contact on the clicked block: towards the clicked block; a horizontal contact placed
+  into an existing elevator column, one with elevator contacts or an assembled elevator, U20
+  `pistons::elevatorColumnExists`, becomes an elevator contact: RedstoneContactItem; the wrench
+  turns it, WrenchableDirectionalBlock, converts it the same way when it then faces into a column,
+  and sneak + wrench picks it up); powered while a contact
   (or U20's elevator contact) faces it; emits 15 weakly except into its front. On a contraption
   (U4 actor) it powers the world contact it passes (active area .65 blocks in front, not on the
   first movement) until it moves on / stops.
@@ -3789,12 +3810,20 @@ placement transforms, print order, replace modes, checklist, blueprint layout; g
   Position until deployed), Ctrl+scroll uses it (distance / push along the look axis / up-down /
   90° turns and mirroring about the footprint's centre), right-click with Position deploys with the
   target block as the bottom centre (Ctrl: at the fixed distance), Print places it instantly
-  (creative, `creativePrintIncludesAir`) with its block entity NBT and its entities (positions and
-  facings turned and mirrored like the blocks, new entity ids). Sneak-right-click: coordinates screen (x, y, z as native number fields
+  (creative, `creativePrintIncludesAir`) with the safe part of its block data (Create's
+  BlockHelper.prepareBlockEntityData, `core/schematics/SafeData.h`: of vanilla block entities only
+  signs and banners, `create:safe_nbt`; of Levitate BlockData the whole document of Create's
+  SAFE_NBT blocks (links, levers, diodes, funnels, chassis, pistons, bearings, pulleys, motors,
+  creative tanks, cart assemblers, sequenced gearshifts, speed controllers, placards, clipboards)
+  but the kinetic record and the advancement owner, of other blocks their filter slots and the
+  threshold switch's thresholds, a copycat's material and a track's curves: chests, spawners, command blocks are printed empty) and its
+  entities (positions and facings turned and mirrored like the blocks, new entity ids; command
+  block minecarts, falling blocks and NPCs, Java's `onlyOpCanSetNbt`, only for players with
+  operator permission: SchematicPlacePacket's `processNBT`). Sneak-right-click: coordinates screen (x, y, z as native number fields
   taking digits and `-`, Enter confirms; rotation, mirror). Vanilla: right-click a block deploys there, sneak-right-click opens the same values as a
   form (with Print for creative players), particle outline of the bounds.
-- **Schematicannon.** Slots: schematic, used schematics out, book (book / book and quill /
-  clipboard), checklist out, gunpowder (hoppers, funnels and arms insert into the matching slot and
+- **Schematicannon.** Slots: schematic, used schematics out, book (book / written book /
+  clipboard, Create's SchematicannonInventory), checklist out, gunpowder (hoppers, funnels and arms insert into the matching slot and
   extract outputs). States STOPPED / PAUSED / RUNNING with Create's status keys
   (`create.schematicannon.status.*`). A schematic loads as soon as it is inserted ("Ready", paused):
   not anchored → "Schematic not Positioned", no file / empty → "Schematic File Expired" and broken
@@ -3809,8 +3838,8 @@ placement transforms, print order, replace modes, checklist, blueprint layout; g
   from the six neighbouring inventories (any item capability; a creative crate makes everything
   free); missing items pause with "Missing Item:" or, with Skip missing Blocks (default on), skip
   the block. A launched block flies `max(10, 4·dist^½)` ticks and is placed with its second half
-  (doors, beds, tall plants); of its block entity data only a sign's text is printed (Create's
-  NBTProcessors in survival). After the blocks the printer launches the schematic's entities that
+  (doors, beds, tall plants) with the same safe data as the creative print (Create's
+  launchBlockOrBelt → prepareBlockEntityData). After the blocks the printer launches the schematic's entities that
   have an item requirement (Create's ItemRequirement.of(entity): armor stands with what they wear
   and hold; item frames are blocks on Bedrock), one per shot. Sounds as Create (explode 0.1/1.1 per
   shot, note bell 1/0.7 at the end). The checklist printer turns a book into a written "Material
@@ -3819,10 +3848,14 @@ placement transforms, print order, replace modes, checklist, blueprint layout; g
   missing amount, completed ones checked off; Create's createWrittenClipboard) in 20 ticks. Client
   mod: launched blocks drawn along their arc; the connector turns and the barrel pitches towards the
   printer's current target (`schematics.cannon`; Create's angles: yaw = atan2(dx, dz), pitch =
-  atan2(distance, dy·3 + distance·2) + 10° from vertical, eased over a tick; resting: south, 40°)
+  atan2(distance, dy·3 + distance·2) + 10° from vertical, eased over a tick; resting: Create's
+  defaultYaw, the placer's yaw (+180° when sneaking) snapped to 16 directions, 40°; sent with the
+  aim and again about every 90 ticks while idle)
   and recoils up to 0.1 block in the 10 ticks after a shot (the block's `levitate:barrel` = 1
   permutation hides both bones for the client mod's chunk mesh); everyone: smoke at the barrel,
-  particles at the target.
+  particles at the target. The block drops itself with its replace mode, Skip missing Blocks and
+  Protect Block Entities in the item's data (`schematicannon`; Create's SCHEMATICANNON_OPTIONS,
+  none when broken in creative), and a cannon placed from such an item takes them back.
 - **Crafting blueprint.** Placed against a face (walls, floor, ceiling) as the largest of 3x3, 2x2,
   1x1 that fits (free blocks with a solid block behind each). Each section: 9 recipe slots (filters
   allowed), the display item (inferred from the crafting recipe, or set by hand) and a secondary
@@ -4347,8 +4380,16 @@ rules of the same names, which decide whether a drained source refills).
 `config/basin.json` (U14): Create's CRecipes `bulkPressing` (false), `allowShapelessInMixer` (true),
 `allowShapedSquareInPress` (true), `allowBrewingInMixer` (true, no effect until U19's potion fluids);
 Levitate: `basinIntakeInterval` (1 tick), `burnerParticles` (true).
-`config/belts.json` (U11): `maxBeltLength` 20, `maxEjectorDistance` 32 (Create's CKinetics keys and
-defaults), `displayItems` true (show items on belts / depots / in flight as item entities, §8).
+`config/belts.json` (U11): `maxBeltLength` 20, `maxEjectorDistance` 32, `ejectorScanInterval` 120
+(Create's CKinetics keys and defaults; the last: ticks until the next item an ejector launches scans
+its path, at least 10: when that item's step hits a block other than an extracting funnel, it and
+the items after it stop 1/4 block before the hit face and go into that block's belt input, else drop
+there, until a later scan of the tracked item misses), `displayItems` true (show items on belts /
+depots / in flight as item entities, §8).
+`config/bearings.json` (U21, Create's CKinetics keys and defaults): `windmillSailsPerRPM` 8,
+`minimumWindmillSails` 8, `maxCartCouplingLength` 32, `survivalContraptionPickup` true,
+`minecartContraptionInContainers` false (whether minecart contraption items fit into container items:
+the toolbox and packages; the item hatch of U12 does not ask yet).
 `config/fluids.json` (U19, Create's CFluids and CLogistics defaults): `hosePulleyBlockThreshold`
 10000 (-1: never infinite), `fillInfinite` false, `hosePulleyRange` 128, `bottomlessFluidMode`
 `ALLOW_BY_TAG` (`ALLOW_ALL`, `DENY_ALL`, `ALLOW_BY_TAG`, `DENY_BY_TAG`), `bottomlessAllow`
@@ -4359,12 +4400,17 @@ true, `psiTimeout` 60.
 `fanParticleDensity` 0.5 (Create's client option).
 `config/steam.json` (U18): `fluidTankCapacity` (8, buckets per tank block) and `fluidTankMaxHeight`
 (32), Create's CFluids keys and defaults.
-`config/assembly.json` (U15): `mechanicalArmRange` 5 (Create's CLogistics key and default).
+`config/assembly.json` (U15): `mechanicalArmRange` 5 (Create's CLogistics key and default),
+`ignoreDeployerAttacks` `CREEPERS` (Create's CKinetics key and default; `ALL`, `CREEPERS`, `NONE`:
+which mobs never take a deployer's player as their target, so they don't turn on the deployer
+that hits them).
 `config/funnels.json` (U12): `defaultExtractionTimer` 8, `vaultCapacity` 20, `brassTunnelTimer` 10
 (Create's CLogistics), `fanBlockCheckRate` 30 (Create's CKinetics; how often chutes re-check their air flow).
 `config/equipment.json` (U31, Create's CEquipment keys and defaults): `toolboxRange` 10, `airInBacktank`
 900, `enchantedBacktankCapacity` 300, `maxExtendoGripActions` 1000, `maxPotatoCannonShots` 200, `maxSymmetryWandRange` 50 (the
-controller's link range is U23's `redstone.linkRange`).
+controller's link range is U23's `redstone.linkRange`), `placementAssistRange` 12 (at least 3: how
+far the placement helpers of ladders, girders, shafts and copycats extend a line; +4 with the
+extendo grip where Create adds it; the client mod's helper preview reads its own copy).
 
 `config/kinetics.json` (U2): `disableStress` (false), `maxRotationSpeed` (256), `kineticValidationFrequency`
 (60), `mediumSpeed` (30), `fastSpeed` (100), `mediumStressImpact` (4), `highStressImpact` (8),
@@ -4395,7 +4441,10 @@ UI pass), `placeholderColour` (outline of unregistered blocks).
 
 | Command | Who | Owner |
 |---|---|---|
-| `/create reload`, `/create selftest ["glob"]` | op | foundation |
+| `/create reload`, `/create selftest ["glob"]` (`/create` has the aliases `/levitate` and `/c`, Create's `/c` shortcut) | op | foundation |
+| `/create clone <begin> <end> <destination> [skipBlocks]` (Create's CloneCommand: the blocks of the area with their block entities and BlockData to `destination` (its min corner), then every glue region overlapping the area, cropped to it (single-block crops skipped); `skipBlocks`: the glue only. At most 32768 blocks (Java's default `commandModificationBlockLimit`), both areas loaded; replies "Successfully cloned N Blocks" / "Successfully applied glue N times"; without arguments the usage line) | op | U32 |
+| `/create debuginfo` (Create's DebugInfoCommand: "Collecting debug information...", then the report in chat and the log, Create's `<details><summary>Server Info</summary>` block with the Levitate, System Information and Other Mods sections: mod, LeviLamina and Minecraft versions, network protocol, platform, OS, other mods; on a local world of the client build it is also copied to the host's clipboard, "Debug information has been copied to your clipboard.") | anyone | U32 |
+| `/create util replaceInCommandBlocks <begin> <end> <toReplace> <replaceWith>` and its redirect `/create u ...` (Create's ReplaceInCommandBlocksCommand: in every command block of the area, `toReplace` as a regular expression (Java's `replaceAll`) is replaced; "Replaced occurrences in N blocks." counts the commands containing it literally, "Couldn't find \"x\" anywhere." when none) | op | U32 |
 | `/create kinetics <pos>` (dump network: speed, stress, sources) | op | U2 |
 | `/create killtrain <name\|id>` (Create's `/create train remove`), `/create trains` (train summary) | op | U27 |
 | `/create glue clear [radius]` (Create's `/create clearglue`; default 16, around the sender) | op | U4 |
@@ -4449,6 +4498,8 @@ matches Create's official Chinese translation wording).
 | Sliding door animation for **vanilla** clients (U10) | Bedrock models are static per state and must fit 30 px | the client mod draws the panel sliding / folding (Create's 0.15 per tick, eased); vanilla clients see the open state clipped to the model bounds, no animation |
 | Item on the placard, copycat material, brackets drawn on **vanilla** clients (U10) | a block model can't show another item / block | the data and every behaviour exist on both; the client mod draws the placard's item (display item, U33), the copycat in its material (Create's cropped panel / step models) and the bracket on its shaft or cogwheel; vanilla clients see the placard frame, the copycat base and the plain shaft |
 | Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer, for **vanilla** clients (U11) | Bedrock has no item renderer for vanilla clients | the client mod draws each stack (display items, U33: lying, half size, a pile for bigger stacks, interpolated between ticks) and does not draw the fallback; vanilla players see each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick); with `displayItems` off they see nothing |
+| `/create debuginfo` copied to the clipboard on **remote** clients, its Graphics section (U32) | the server can't reach a Bedrock client's clipboard or renderer; Java's JVM / GPU entries don't exist for a native mod | the report is printed in chat and the log; only the host of a local world of the client build gets it in the clipboard; sections Levitate (mod, LeviLamina, Minecraft, protocol, platform), System Information (OS) and Other Mods |
+| `/create clone` copying scheduled block ticks (U32) | Bedrock exposes no tick-list copy | blocks, block entities, BlockData and glue are cloned; pending ticks are not |
 | Belt drops when removed by `/setblock ... destroy` (U11) | the block change the server sees carries no cause: a command's destroy mode looks like a replace | survival players breaking a segment and explosions (each segment with Create's 1 / radius survival chance) drop the connector / shaft; command removals drop nothing but the items on the belt |
 | Items drawn inside chutes by a block entity renderer, for **vanilla** clients (U12) | custom blocks have no block entity renderers | the client mod draws the moving stack (display item, U33, interpolated); vanilla clients get client-only item entities (packets only, never a server entity, so nobody can pick them up) that follow each moving stack |
 | Smooth (lerped) funnel flaps for **vanilla** clients (U12) | no per-frame block animation for custom blocks without a renderer | the flap is a block state shown for 4 ticks after a transfer; the client mod draws Create's four swinging strips |
@@ -4489,7 +4540,7 @@ matches Create's official Chinese translation wording).
 | Train relocation preview for **vanilla** clients (U27) | the server can't draw the train's outline on a vanilla client | relocation works with action-bar prompts (valid / invalid / too far); the client mod draws the carriages at the target |
 | Glint of a signal / track observer item carrying a track selection (Create's isFoil) (U28) | Bedrock draws no enchantment glint on items shown with their block's model (verified: a per-item vtable override of `isGlint` returns true and nothing is drawn) | the selection is on the item stack and travels with it; the client mod outlines the selected track while the item is held |
 | Signal lamp rendered toward the track, track overlay for vanilla clients (U28) | Bedrock block models are fixed per state and can't face an edge point | the lamp shows on all four sides of the signal head (block state); the client mod draws Create's arrows / squares on the track |
-| Crafting blueprint as a hanging entity (U29) | Create's blueprint is a hanging entity; a block group behaves the same for clicks, crafting and breaking | each section is a thin, non-colliding `levitate:placed_crafting_blueprint` block; the 2x2 / 3x3 group is placed and removed together; the client mod draws the display items on the canvas (Create's BlueprintRenderer), vanilla clients see the empty canvas |
+| Crafting blueprint as a hanging entity (U29) | not a Bedrock limit but a design choice (U58 re-check): a behavior-pack entity with its own geometry could carry the sections and U36 already routes entity clicks and attacks, but vanilla clients could see the canvas only, as now; the block group keeps the sections in BlockData and reuses the block clicks and display items. The one difference: each section occupies its block cell (nothing else can be put there), Create's hanging entity does not | each section is a thin, non-colliding `levitate:placed_crafting_blueprint` block; the 2x2 / 3x3 group is placed and removed together; the client mod draws the display items on the canvas (Create's BlueprintRenderer), vanilla clients see the empty canvas |
 | Schematic files saved as Create `.nbt` (U29) | Bedrock block states have no lossless Java form | the quill saves Bedrock `.mcstructure`; Create `.nbt` files are read (uploads, `schematics/`) with best-effort Java→Bedrock state mapping, unmapped block types are reported and skipped |
 | Schematic tools, ghost and quill outline for **vanilla** clients (U29) | no client-side input (Ctrl / Alt / scroll) or world rendering without the client mod | sprinting = Ctrl for mid-air corners; no face resizing; right-click a block deploys a schematic there, sneak-right-click opens a form for exact coordinates / rotation / mirror / Print; particle outlines of the selection and of the deployed bounds |
 | Picking local files at the schematic table for **vanilla** clients (U29) | the server can't read the player's disk | the form lists the player's schematics stored on the server (quill saves, earlier uploads) |

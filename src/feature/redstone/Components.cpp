@@ -20,6 +20,10 @@
 #include "feature/common/Items.h"
 #include "feature/common/Redstone.h"
 #include "feature/common/ValueBox.h"
+#include "feature/display/Clipboard.h"
+#include "feature/goggles/Wrenchable.h"
+#include "feature/pistons/ElevatorColumns.h"
+#include "core/goggles/Rotation.h"
 #include "feature/redstone/Internal.h"
 #include "feature/redstone/Redstone.h"
 #include "game/Blocks.h"
@@ -69,6 +73,15 @@ int attachedDirection(Block const& block, Kind kind) {
     return opposite(state(block, sFacing, kUp));
 }
 
+/// The elevator contact a contact facing `facing` at `pos` turns into (Create's
+/// RedstoneContactItem.getPlacementState / RedstoneContactBlock.onWrenched), nullptr when there is
+/// no elevator column there (or the contact faces up / down).
+Block const* elevatorContactFor(BlockSource& region, BlockPos const& pos, int facing, int powered) {
+    if (!isHorizontal(facing)) return nullptr;
+    if (!pistons::elevatorColumnExists(static_cast<int>(region.getDimensionId()), pos.x, pos.z, facing)) return nullptr;
+    return vanillaBlock(kElevatorContact, Json{{sFacing, facing}, {sPowered, powered}});
+}
+
 bool supports(BlockSource& region, BlockPos const& pos) {
     if (!loadedAt(region, pos)) return true; // unknown: keep the block
     return !game::replaceable(region, pos);
@@ -113,7 +126,11 @@ Block const* placementState(BlockSource& region, BlockPos const& pos, Block cons
         int facing         = opposite(nearestLooking(p.pitch, p.yaw));
         int placeDirection = opposite(p.clickedFace);
         if (p.sneaking || hasValidContact(region, pos, placeDirection)) facing = placeDirection;
-        return withStates(placed, {{sFacing, facing}, {sPowered, hasValidContact(region, pos, facing) ? 1 : 0}});
+        int powered = hasValidContact(region, pos, facing) ? 1 : 0;
+        // RedstoneContactItem.getPlacementState: a horizontal contact placed into an existing
+        // elevator column becomes an elevator contact
+        if (auto const* elevator = elevatorContactFor(region, pos, facing, powered)) return elevator;
+        return withStates(placed, {{sFacing, facing}, {sPowered, powered}});
     }
     // DeskBellBlock: the bell stands on the clicked face
     case Kind::DeskBell: return withStates(placed, {{sFacing, p.clickedFace}, {sPowered, 0}});
@@ -357,6 +374,134 @@ void registerValueBoxes() {
             if (block.getTypeName() == idOf(kind)) toggleDiode(region, pos, block, kind);
         };
         common::valuebox::registerBox(idOf(kind), std::move(box));
+    }
+}
+
+// ---- wrench (Create's IWrenchable blocks of the unit) ------------------------------------------
+
+namespace {
+
+namespace wrench = goggles::wrench;
+
+/// AbstractDiodeBlock: IWrenchable's default rotation, which only turns the horizontal FACING about
+/// the vertical axis (a click on the top or bottom face; side faces leave it).
+Block const* rotateDiode(Block const& block, int face) {
+    if (face != kUp && face != kDown) return &block;
+    return withStates(block, {{sFacing, clockwise(state(block, sFacing, kNorth))}});
+}
+
+} // namespace
+
+Block const* rotateDirected(Block const& block, int face) {
+    if (face == kUp || face == kDown) return withStates(block, {{sFacing, clockwise(state(block, sFacing, kNorth))}});
+    int target = targetDirection(block);
+    int axis   = face == kNorth || face == kSouth ? 2 : 0;
+    int next   = core::goggles::clockwise(target, axis);
+    if (face == kNorth || face == kWest) next = opposite(next); // AxisDirection.NEGATIVE
+    if (next == kUp || next == kDown) return withStates(block, {{sTarget, next == kUp ? 2 : 1}});
+    return withStates(block, {{sTarget, 0}, {sFacing, next}});
+}
+
+void registerWrench() {
+    // RedstoneLinkBlock: the wrench toggles transmitter / receiver (the block never turns);
+    // sneak + wrench picks it up
+    wrench::registerBlock(
+        kLink,
+        wrench::Handler{
+            .onWrenched =
+                [](wrench::Context& c) {
+                    toggleLinkMode(c.region, c.pos);
+                    return wrench::Result::Success;
+                },
+            .rotate = [](Block const& block, int) -> Block const* { return &block; },
+        }
+    );
+    for (auto kind : {Kind::PulseRepeater, Kind::PulseExtender, Kind::PulseTimer, Kind::PoweredLatch, Kind::ToggleLatch})
+        wrench::registerBlock(idOf(kind), wrench::Handler{.rotate = rotateDiode});
+    for (auto kind : {Kind::SmartObserver, Kind::ThresholdSwitch}) {
+        wrench::registerBlock(
+            idOf(kind),
+            wrench::Handler{
+                .onWrenched =
+                    [](wrench::Context& c) {
+                        auto r = wrench::defaultOnWrenched(c);
+                        touch(c.pos);
+                        return r;
+                    },
+                .rotate = rotateDirected,
+            }
+        );
+    }
+    // RedstoneContactBlock (WrenchableDirectionalBlock): turns FACING, then becomes an elevator
+    // contact when it now faces into an elevator column
+    wrench::registerBlock(
+        kContact,
+        wrench::Handler{
+            .onWrenched =
+                [](wrench::Context& c) {
+                    auto        r   = wrench::defaultOnWrenched(c);
+                    auto        bp  = game::blockPos(c.pos);
+                    auto const& now = c.region.getBlock(bp);
+                    if (now.getTypeName() != kContact) return r;
+                    touch(c.pos);
+                    int facing = state(now, sFacing, kUp);
+                    if (auto const* elevator = elevatorContactFor(c.region, bp, facing, hasValidContact(c.region, bp, facing) ? 1 : 0)) {
+                        game::setBlock(c.region, bp, *elevator);
+                        log().info("redstone contact at {} became an elevator contact", posText(c.pos));
+                    }
+                    return r;
+                },
+        }
+    );
+}
+
+// ---- clipboard (Create's ClipboardCloneable) ------------------------------------------------------
+
+void registerClipboard() {
+    // LinkBehaviour: the two frequencies under "Frequencies"
+    display::clipboard::registerCloneable(
+        kLink,
+        display::clipboard::Cloneable{
+            .key   = "Frequencies",
+            .write =
+                [](GP const& pos) {
+                    auto [first, last] = frequencies(pos);
+                    return Json{{"First", common::items::toJson(first)}, {"Last", common::items::toJson(last)}};
+                },
+            .read =
+                [](Player& player, GP const& pos, Json const& data, bool simulate) {
+                    if (!data.is_object() || !data.contains("First") || !data.contains("Last")) return false;
+                    if (simulate) return true;
+                    setFrequency(pos, true, common::items::fromJson(data["First"]));
+                    setFrequency(pos, false, common::items::fromJson(data["Last"]));
+                    log().info("redstone link at {} frequencies pasted by {}", posText(pos), player.getRealName());
+                    return true;
+                },
+        }
+    );
+    // BrassDiodeBlockEntity: the inversion under "Block"
+    for (auto kind : {Kind::PulseRepeater, Kind::PulseExtender, Kind::PulseTimer}) {
+        display::clipboard::registerCloneable(
+            idOf(kind),
+            display::clipboard::Cloneable{
+                .key   = "Block",
+                .write =
+                    [](GP const& pos) {
+                        auto* region = regionOf(pos.dim);
+                        if (!region || !loadedAt(*region, game::blockPos(pos))) return Json();
+                        return Json{{"Inverted", state(region->getBlock(game::blockPos(pos)), sInverted) != 0}};
+                    },
+                .read =
+                    [](Player&, GP const& pos, Json const& data, bool simulate) {
+                        if (!data.is_object() || !data.contains("Inverted") || !data["Inverted"].is_boolean()) return false;
+                        if (simulate) return true;
+                        auto* region = regionOf(pos.dim);
+                        if (!region) return true;
+                        setStates(*region, game::blockPos(pos), {{sInverted, data["Inverted"].get<bool>() ? 1 : 0}});
+                        return true;
+                    },
+            }
+        );
     }
 }
 

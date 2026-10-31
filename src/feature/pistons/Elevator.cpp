@@ -17,6 +17,7 @@
 
 #include "feature/common/Screens.h"
 #include "feature/contraption/PistonsExt.h"
+#include "feature/pistons/ElevatorColumns.h"
 #include "feature/pistons/Pistons.h"
 #include "game/WorldDb.h"
 #include "mod/I18n.h"
@@ -124,6 +125,16 @@ void gatherColumn(ColumnCoords const& c) {
     column(c).namesVersion++;
     st().dirty = true;
     if (converted) log().info("elevator column at {} {}: {} redstone contact(s) became elevator contacts", c.x, c.z, converted);
+}
+
+bool elevatorColumnExists(int dim, int x, int z, int side) {
+    if (side < 2 || side > 5) return false;
+    ColumnCoords c{dim, x, z, static_cast<cc::Dir>(side)};
+    // Create: an elevator contact's onPlace creates its column; checkEmpty removes it once it has
+    // no contacts and no assembled elevator
+    if (!columnContacts(c).empty()) return true;
+    auto it = st().columns.find(c);
+    return it != st().columns.end() && it->second.active;
 }
 
 void columnTarget(ColumnCoords const& c, int y) {

@@ -461,6 +461,15 @@ std::vector<Entry> lastViewedEntries(Contents const& c) {
 
 // ---- copy / paste of settings -----------------------------------------------------------------
 
+namespace {
+std::map<std::string, std::vector<Cloneable>>& cloneables() {
+    static std::map<std::string, std::vector<Cloneable>> m;
+    return m;
+}
+} // namespace
+
+void registerCloneable(std::string const& blockId, Cloneable cloneable) { cloneables()[blockId].push_back(std::move(cloneable)); }
+
 Json copySettings(BlockSource& region, GlobalPos const& pos) {
     auto const* block = loadedBlock(region, game::blockPos(pos));
     if (!block) return nullptr;
@@ -479,6 +488,12 @@ Json copySettings(BlockSource& region, GlobalPos const& pos) {
         Json filters = Json::object();
         for (auto const* s : slotsOf(*block)) filters[s->id] = items::toJson(filterslot::get(pos, s->id));
         if (!filters.empty()) out["Filtering"] = filters;
+    }
+    if (auto it = cloneables().find(id); it != cloneables().end()) {
+        for (auto const& c : it->second) {
+            if (!c.write) continue;
+            if (auto j = c.write(pos); !j.is_null()) out[c.key] = std::move(j);
+        }
     }
     return out.empty() ? Json(nullptr) : out;
 }
@@ -521,6 +536,13 @@ bool pasteSettings(Player& player, BlockSource& region, GlobalPos const& pos, Js
             filterslot::set(pos, wanted, s->id);
             if (!items::isEmpty(previous) && common::filter::isFilterItem(previous) && !creative) giveOrDrop(player, previous);
             if (s->onChanged) s->onChanged(pos);
+        }
+    }
+    if (auto it = cloneables().find(id); it != cloneables().end()) {
+        for (auto const& c : it->second) {
+            auto data = copied.find(c.key);
+            if (data == copied.end() || !c.read) continue;
+            if (c.read(player, pos, *data, simulate)) applied = true;
         }
     }
     return applied;

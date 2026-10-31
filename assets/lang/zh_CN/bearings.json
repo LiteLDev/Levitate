@@ -22,5 +22,8 @@
   "create.minecart_coupling.removed": "从矿车上移除所有矿车连轴器",
   "create.contraption.minecart_contraption_too_big": "这一矿车结构似乎太大了，无法拾起",
   "create.contraption.minecart_contraption_illegal_pickup": "一股神秘的力量将这一结构与世界牢牢绑定在了一起",
-  "lv.bearings.coupling_too_close": "矿车之间距离过近，无法组成双矿车装置"
+  "lv.bearings.coupling_too_close": "矿车之间距离过近，无法组成双矿车装置",
+  "block.create.controller_rail.tooltip.summary": "一种_单向动力铁轨_，能够_精细控制_经过的矿车的_移动速度_。",
+  "item.create.minecart_coupling.tooltip.summary": "将_矿车__连接_在一起，使它们一起移动。",
+  "block.create.turntable.tooltip.summary": "让_旋转力_给你带来一场刺激的晕车体验。"
 }

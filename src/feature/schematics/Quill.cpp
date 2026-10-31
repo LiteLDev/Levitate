@@ -178,6 +178,7 @@ std::optional<std::string> quillSave(Player& player, std::string name, bool conv
         if (size > static_cast<std::uintmax_t>(cfg.maxTotalSchematicSize) * 1000) {
             message(player, "§c" + trFor(player, "create.schematics.uploadTooLarge", "Your schematic exceeds limitations specified by the server.") + " ("
                                 + std::to_string(size / 1000) + " KB).");
+            message(player, trFor(player, "create.schematics.maxAllowedSize", "The maximum allowed schematic file size is:") + " " + std::to_string(cfg.maxTotalSchematicSize) + " KB");
             return file;
         }
         if (!holdingQuill(player)) return file;

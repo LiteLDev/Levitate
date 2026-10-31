@@ -713,13 +713,13 @@
       ]
     },
     {
-      "id": "levitate:smart_observer",
+      "id": "levitate:content_observer",
       "scenes": [
         "smart_observer"
       ]
     },
     {
-      "id": "levitate:threshold_switch",
+      "id": "levitate:stockpile_switch",
       "scenes": [
         "threshold_switch"
       ]
@@ -737,67 +737,97 @@
       ]
     },
     {
-      "id": "levitate:oak_postbox",
+      "id": "levitate:white_postbox",
       "scenes": [
         "postbox"
       ]
     },
     {
-      "id": "levitate:spruce_postbox",
+      "id": "levitate:orange_postbox",
       "scenes": [
         "postbox"
       ]
     },
     {
-      "id": "levitate:birch_postbox",
+      "id": "levitate:magenta_postbox",
       "scenes": [
         "postbox"
       ]
     },
     {
-      "id": "levitate:jungle_postbox",
+      "id": "levitate:light_blue_postbox",
       "scenes": [
         "postbox"
       ]
     },
     {
-      "id": "levitate:acacia_postbox",
+      "id": "levitate:yellow_postbox",
       "scenes": [
         "postbox"
       ]
     },
     {
-      "id": "levitate:dark_oak_postbox",
+      "id": "levitate:lime_postbox",
       "scenes": [
         "postbox"
       ]
     },
     {
-      "id": "levitate:mangrove_postbox",
+      "id": "levitate:pink_postbox",
       "scenes": [
         "postbox"
       ]
     },
     {
-      "id": "levitate:cherry_postbox",
+      "id": "levitate:gray_postbox",
       "scenes": [
         "postbox"
       ]
     },
     {
-      "id": "levitate:bamboo_postbox",
+      "id": "levitate:light_gray_postbox",
       "scenes": [
         "postbox"
       ]
     },
     {
-      "id": "levitate:crimson_postbox",
+      "id": "levitate:cyan_postbox",
       "scenes": [
         "postbox"
       ]
     },
     {
-      "id": "levitate:warped_postbox",
+      "id": "levitate:purple_postbox",
+      "scenes": [
+        "postbox"
+      ]
+    },
+    {
+      "id": "levitate:blue_postbox",
+      "scenes": [
+        "postbox"
+      ]
+    },
+    {
+      "id": "levitate:brown_postbox",
+      "scenes": [
+        "postbox"
+      ]
+    },
+    {
+      "id": "levitate:green_postbox",
+      "scenes": [
+        "postbox"
+      ]
+    },
+    {
+      "id": "levitate:red_postbox",
+      "scenes": [
+        "postbox"
+      ]
+    },
+    {
+      "id": "levitate:black_postbox",
       "scenes": [
         "postbox"
       ]
@@ -1122,8 +1152,8 @@
         "levitate:brass_funnel",
         "levitate:andesite_tunnel",
         "levitate:brass_tunnel",
-        "levitate:smart_observer",
-        "levitate:threshold_switch",
+        "levitate:content_observer",
+        "levitate:stockpile_switch",
         "levitate:creative_crate",
         "levitate:portable_storage_interface"
       ]
@@ -1150,8 +1180,8 @@
       "icon": "minecraft:redstone",
       "index": true,
       "items": [
-        "levitate:smart_observer",
-        "levitate:threshold_switch",
+        "levitate:content_observer",
+        "levitate:stockpile_switch",
         "levitate:nixie_tube",
         "levitate:redstone_contact",
         "levitate:analog_lever",
@@ -1306,8 +1336,8 @@
         "levitate:white_seat",
         "levitate:depot",
         "levitate:nixie_tube",
-        "levitate:threshold_switch",
-        "levitate:smart_observer",
+        "levitate:stockpile_switch",
+        "levitate:content_observer",
         "levitate:andesite_tunnel",
         "levitate:track_observer",
         "levitate:track_station",
@@ -1339,7 +1369,7 @@
     },
     {
       "id": "threshold_switch_targets",
-      "icon": "levitate:threshold_switch",
+      "icon": "levitate:stockpile_switch",
       "index": false,
       "items": [
         "levitate:rope_pulley",

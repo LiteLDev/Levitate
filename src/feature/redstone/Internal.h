@@ -276,6 +276,16 @@ void tickThresholdSwitch(BlockSource& region, GP const& pos, Block const& block,
 /// Smart observer pulse (Create's activate(ticks)).
 void activateObserver(BlockSource& region, GP const& pos, int ticks);
 
+// ---- wrench ------------------------------------------------------------------------------------
+/// Create's IWrenchable for the link, the brass diodes, the latches, the smart observer, the
+/// threshold switch and the contact (the bell and the lamp: registerBellAndLamp).
+void registerWrench();
+/// Create's ClipboardCloneable for link frequencies and brass diode inversion.
+void registerClipboard();
+/// DirectedDirectionalBlock.getRotatedBlockState (smart observer, threshold switch): a top or
+/// bottom click turns FACING, a side click turns the target direction about the clicked axis.
+[[nodiscard]] Block const* rotateDirected(Block const& block, int face);
+
 // ---- contacts ----------------------------------------------------------------------------------
 [[nodiscard]] bool hasValidContact(BlockSource& region, BlockPos const& pos, int facing);
 void               registerContactActor();

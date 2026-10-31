@@ -25,6 +25,7 @@
 
 #include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
+#include "feature/equipment/Equipment.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/transmission/TransmissionInternal.h"
 #include "game/Blocks.h"
@@ -275,7 +276,7 @@ bool placeLikeHelper(Player& player, ItemStack& item, BlockSource& region, Globa
 bool shaftHelper(Player& player, ItemStack& item, BlockSource& region, GlobalPos const& clicked, double hx, double hy, double hz) {
     auto axis = static_cast<Axis>(std::clamp(stateAt(region, clicked, kAxis, 1), 0, 2));
     auto dirs = ct::orderedByDistance(hx - .5, hy - .5, hz - .5, [&](Face f) { return ck::axisOf(f) == axis; });
-    constexpr int kRange = 12; // CEquipment.placementAssistRange
+    int const kRange = equipment::placementAssistRange(); // CEquipment.placementAssistRange
     for (Face dir : dirs) {
         int poles = 0;
         while (poles < kRange) {
