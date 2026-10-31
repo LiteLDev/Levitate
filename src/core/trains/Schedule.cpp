@@ -442,6 +442,12 @@ void Runtime::startInstruction(Driver& driver) {
         break;
     case StartResult::NoDriver:
         break; // the driver reported missing / opposite driver itself
+    case StartResult::Skip:
+    case StartResult::SkipCooldown:
+        state = RuntimeState::PreTransit;
+        ++currentEntry;
+        if (r == StartResult::SkipCooldown) cooldown = kInterval;
+        return;
     case StartResult::AlreadyThere:
     case StartResult::Navigating:
         if (failedLast) driver.status("navigation_success", {}, true);
@@ -508,6 +514,114 @@ std::string Runtime::title() const {
         if (e.instruction.id == ids::kDestination) return filterTitle(strOf(e.instruction.data, "Text"));
     }
     return {};
+}
+
+namespace {
+constexpr int kTbd     = -1;
+constexpr int kInvalid = -2;
+} // namespace
+
+std::vector<Runtime::Prediction> Runtime::predictions(PredictionInput const& in) const {
+    std::vector<Prediction> out;
+    if (!hasSchedule || schedule.entries.empty()) return out;
+    int const size = int(schedule.entries.size());
+
+    // Create's estimateStayDuration: the first condition column made of delays only
+    auto stay = [&](int index) {
+        if (index >= size) {
+            if (!schedule.cyclic) return kInvalid;
+            index = 0;
+        }
+        for (auto const& column : schedule.entries[size_t(index)].conditions) {
+            int  total  = 0;
+            bool delays = true;
+            for (auto const& c : column) {
+                if (c.id != ids::kDelay) {
+                    delays = false;
+                    break;
+                }
+                total += waitTicks(c.data);
+            }
+            if (delays) return total;
+        }
+        return kInvalid;
+    };
+    // Create's createPrediction (nullptr for an invalid time)
+    auto add = [&](int index, std::string const& destination, std::string const& title, int time) {
+        if (time == kInvalid) return;
+        if (index >= size) {
+            if (!schedule.cyclic) {
+                out.push_back({time, " ", destination});
+                return;
+            }
+            index %= size;
+        }
+        std::string text = title;
+        if (text.find_first_not_of(" \t") == std::string::npos) {
+            for (int i = 1; i < size; ++i) {
+                auto const& e = schedule.entries[size_t((index + i) % size)];
+                if (e.instruction.id != ids::kDestination) continue;
+                text = filterTitle(strOf(e.instruction.data, "Text"));
+                break;
+            }
+        }
+        out.push_back({time, text, destination});
+    };
+    // Create's predictForEntry
+    auto predictFor = [&](int index, std::string const& title, int accumulated) {
+        auto const& e = schedule.entries[size_t(index)];
+        if (e.instruction.id != ids::kDestination) return accumulated;
+        if (int(predictionTicks.size()) <= currentEntry) return accumulated;
+        std::string filter    = strOf(e.instruction.data, "Text");
+        int         departure = stay(index);
+        if (accumulated < 0) {
+            add(index, filter, title, accumulated);
+            return std::min(accumulated, departure);
+        }
+        int predicted = index < int(predictionTicks.size()) ? predictionTicks[size_t(index)] : kTbd;
+        accumulated += predicted;
+        if (predicted == kTbd) accumulated = kTbd;
+        add(index, filter, title, accumulated);
+        if (accumulated != kTbd) accumulated += departure;
+        if (departure == kInvalid) accumulated = kInvalid;
+        return accumulated;
+    };
+
+    int accumulated = 0;
+    int current     = currentEntry;
+    if (state == RuntimeState::PostTransit || current >= size) {
+        if (!in.currentStation.empty()) add(current, in.currentStation, currentTitle, 0);
+        int departure = stay(current);
+        accumulated   = departure == kInvalid ? kInvalid : accumulated + departure;
+    } else if (!in.navDestination.empty()) {
+        int remaining = in.speed > 0 ? int(in.distanceToDestination / in.speed) * 2 : 0;
+        if (int(predictionTicks.size()) > current && in.distanceStartedAt != 0) {
+            float predicted = float(predictionTicks[size_t(current)]);
+            if (predicted > 0) {
+                predicted *= float(std::clamp(in.distanceToDestination / in.distanceStartedAt, 0.0, 1.0));
+                remaining = (remaining + int(predicted)) / 2;
+            }
+        }
+        accumulated += remaining;
+        add(current, in.navDestination, currentTitle, accumulated);
+        int departure = stay(current);
+        accumulated   = departure != kInvalid ? accumulated + departure : kInvalid;
+    } else {
+        accumulated = predictFor(current, currentTitle, accumulated);
+    }
+
+    std::string title = currentTitle;
+    for (int i = 1; i < size; ++i) {
+        int index = (i + current) % size;
+        if (index == 0 && !schedule.cyclic) break;
+        auto const& e = schedule.entries[size_t(index)];
+        if (e.instruction.id == ids::kRename) {
+            title = strOf(e.instruction.data, "Text");
+            continue;
+        }
+        accumulated = predictFor(index, title, accumulated);
+    }
+    return out;
 }
 
 int Runtime::remainingWaitTicks() const {

@@ -117,3 +117,7 @@ std::string displayName(ItemStack const& stack) {
 }
 
 } // namespace lv::feature::common::items
+
+// Death messages naming a second party (U59, common/DeathMessages.h; an .inc so the build adds no
+// object file: the prelink command line is near the Windows limit)
+#include "feature/common/DeathMessages.inc"

@@ -22,6 +22,9 @@
   "create.recipe.assembly.deploying_item": "安装 {0}",
   "create.recipe.assembly.cutting": "用动力锯切割",
   "create.recipe.assembly.repeat": "该序列需要重复 {0} 次",
-  "create.recipe.assembly.junk": "随机废料"
-
+  "create.recipe.assembly.junk": "随机废料",
+  "create.hint.full_deployer.title": "机械手无法工作",
+  "create.hint.full_deployer": "显然_机械手_内含_多余的物品_，它们需要被_提取_。请使用_漏斗_或其他元件提取多余的物品。",
+  "create.hint.mechanical_arm_no_targets.title": "没有目标",
+  "create.hint.mechanical_arm_no_targets": "看起来这个_动力臂_没有被分配任何_目标_。_手持动力臂_，_右击_选取传送带、置物台、漏斗或其他元件来设置目标。"
 }

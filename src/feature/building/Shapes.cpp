@@ -179,3 +179,7 @@ void installShapes() { BuildingCollisionHook::hook(); }
 void uninstallShapes() { BuildingCollisionHook::unhook(); }
 
 } // namespace lv::feature::building
+
+// Create's requiresCorrectToolForDrops and the copycats' material rules (U59; an .inc so the build
+// adds no object file: the prelink command line is near the Windows limit)
+#include "feature/building/Harvest.inc"

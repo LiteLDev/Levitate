@@ -10,6 +10,7 @@
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/network/MinecraftPacketIds.h"
 #include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/LevelSoundEventPacket.h"
 #include "mc/network/packet/PlaySoundPacket.h"
 #include "mc/world/actor/player/AbilitiesIndex.h"
 #include "mc/world/actor/player/Player.h"
@@ -136,6 +137,22 @@ void playSound(GlobalPos const& p, std::string const& sound, float volume, float
     pkt.mPos    = BlockPos{p.x * 8 + 4, p.y * 8 + 4, p.z * 8 + 4};
     pkt.mVolume = volume;
     pkt.mPitch  = pitch;
+    pkt.sendTo(BlockPos{p.x, p.y, p.z}, DimensionType(p.dim));
+}
+
+void playMaterialPlaceSound(GlobalPos const& p, Block const& material) {
+    // the game's place sound event: each client picks the place sound of the block's sound type
+    // from its runtime id (Bedrock plays block place sounds at its own pitch)
+    auto packet = MinecraftPackets::createPacket(MinecraftPacketIds::LevelSoundEvent);
+    if (!packet) return;
+    auto& pkt               = static_cast<LevelSoundEventPacket&>(*packet);
+    pkt.mSoundEvent->mSound = SharedTypes::Legacy::LevelSoundEvent::Place;
+    pkt.mPos                = Vec3{p.x + .5f, p.y + .5f, p.z + .5f};
+    pkt.mData               = static_cast<int>(material.mNetworkId);
+    pkt.mActorIdentifier->clear();
+    pkt.mActor->rawID = -1;
+    pkt.mIsGlobal     = false;
+    pkt.mIsBaby       = false;
     pkt.sendTo(BlockPos{p.x, p.y, p.z}, DimensionType(p.dim));
 }
 

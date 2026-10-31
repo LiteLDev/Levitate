@@ -21,6 +21,7 @@
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/block/BlockSupportType.h"
 #include "mc/world/level/block/BlockType.h"
 #include "mc/world/phys/HitResult.h"
 
@@ -92,7 +93,10 @@ std::vector<ce::IPos> brushPositions(LocalPlayer& p, ce::ShaperSettings const& s
             if (b.getBlockType().getDestroySpeed() < 0) return false;
             if (!fuzzy && game::blockId(b) != targetId) return false;
             if (repl(q)) return false;
-            if (surface && !repl(stepFace(q, face))) return false;
+            if (surface) { // Create: skip blocks covered by a sturdy face (DynamicBrush)
+                auto const& above = region.getBlock(bp(stepFace(q, face)));
+                if (!above.isAir() && above.canProvideSupport(static_cast<uchar>(face ^ 1), BlockSupportType::Edge)) return false;
+            }
             return true;
         }
         auto on = stepFace(q, face ^ 1);
@@ -181,3 +185,6 @@ private:
 LV_REGISTER_MODULE(lv::client::equipment::ShaperPreviewModule);
 
 #endif // LV_CLIENT
+
+// Create's symmetry mirror (U59)
+#include "client/equipment/SymmetryPreview.inc"

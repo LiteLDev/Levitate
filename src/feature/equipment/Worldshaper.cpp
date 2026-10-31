@@ -8,15 +8,21 @@
 #include <set>
 
 #include "ll/api/form/CustomForm.h"
+#include "ll/api/service/Bedrock.h"
 
 #include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/core/string/HashedString.h"
 #include "mc/deps/nbt/CompoundTag.h"
+#include "mc/network/packet/LevelEventPacket.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
+#include "mc/world/item/ItemInstance.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
+#include "mc/world/level/block/BlockSupportType.h"
 #include "mc/world/level/block/BlockType.h"
 #include "mc/world/level/block/actor/BlockActorType.h"
 #include "mc/world/phys/HitResult.h"
@@ -26,6 +32,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
 #include "feature/equipment/Equipment.h"
+#include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "mod/I18n.h"
 #include "mod/Log.h"
@@ -262,25 +269,58 @@ void deny(Player& player, std::string const& text) {
 
 } // namespace
 
+namespace {
+Block const* shaperSelectable(Block const& block) {
+    // Create's trySelect: blocks with an item, no block entity (outside safe NBT), no double-block
+    // halves, attached or hanging blocks, no bed parts
+    auto inst = block.getBlockType().asItemInstance(block, nullptr);
+    if (inst.isNull() || inst.getTypeName().empty() || inst.getTypeName() == "minecraft:air") return nullptr;
+    if (block.getBlockType().getBlockEntityType() != BlockActorType::Undefined) return nullptr;
+    for (auto const* s : {"upper_block_bit", "attached_bit", "hanging", "head_piece_bit"})
+        if (game::intState(block, s)) return nullptr;
+    // ... and keeps it normalised: leaves PERSISTENT (Bedrock: persistent_bit, no pending decay
+    // check); Java's straight stairs shape and waterlogging are no block states on Bedrock
+    Block const* out = &block;
+    auto set = [&](char const* name, int v) {
+        if (auto const* s = out->getBlockType().getBlockState(HashedString(name)))
+            if (auto next = out->setState(*s, v)) out = next.as_ptr();
+    };
+    if (game::intState(block, "persistent_bit")) set("persistent_bit", 1);
+    if (game::intState(block, "update_bit")) set("update_bit", 0);
+    return out;
+}
+} // namespace
+
 bool shaperSelect(Player& player, ItemStack& shaper, GlobalPos const& pos) {
+    // Create's ZapperItem#canAttackBlock is false: a left click on a block never breaks it,
+    // whether or not it picks a material
+    (void)pos;
+    shaperPick(player, shaper);
+    return true;
+}
+
+bool shaperPick(Player& player, ItemStack& shaper) {
     if (player.isSneaking()) return false;
+    // Create's trySelect: the block looked at within the zapping range (128 blocks)
+    auto hit = player.traceRay(128.0f, false, true);
+    if (hit.mType != HitResultType::Tile) return false;
+    GlobalPos   pos{static_cast<int>(player.getDimensionId()), hit.mBlock.x, hit.mBlock.y, hit.mBlock.z};
     auto const* b = blockAt(pos);
-    if (!b) return false;
-    // Create: no blocks without an item, block entities (outside safe NBT) or double blocks
-    if (b->getBlockType().getDestroySpeed() < 0 || b->getBlockType().getBlockEntityType() != BlockActorType::Undefined
-        || common::blockdata::has(pos) || std::string(b->getTypeName()).find("door") != std::string::npos
-        || std::string(b->getTypeName()).ends_with("_bed")) {
-        return true;
-    }
-    int  slot = player.getSelectedItemSlot();
-    auto st   = settingsOf(shaper);
-    st.material = shaperMaterialOf(*b);
+    if (!b || common::blockdata::has(pos)) return false;
+    auto const* picked = shaperSelectable(*b);
+    if (!picked) return false;
+    int  slot     = player.getSelectedItemSlot();
+    auto st       = settingsOf(shaper);
+    auto material = shaperMaterialOf(*picked);
+    if (st.material == material) return false; // Create: the same state again changes nothing
+    st.material = material;
     writeSettings(player, slot, st);
     shaper = player.getSelectedItem();
+    // Create's AllSoundEvents.CONFIRM (note block bell, 0.5, 0.8)
     auto p = player.getPosition();
-    sound(static_cast<int>(player.getDimensionId()), p.x, p.y, p.z, "random.orb", .5f, 1.2f);
-    actionBar(player, trFor(player, "create.terrainzapper.usingBlock", "Using: {}", blockName(player, *b)));
-    log().info("equipment: {} picked {} for the worldshaper", player.getRealName(), b->getTypeName());
+    sound(static_cast<int>(player.getDimensionId()), p.x, p.y, p.z, "note.bell", .5f, .8f);
+    actionBar(player, trFor(player, "create.terrainzapper.usingBlock", "Using: {}", blockName(player, *picked)));
+    log().info("equipment: {} picked {} for the worldshaper", player.getRealName(), picked->getTypeName());
     return true;
 }
 
@@ -307,13 +347,33 @@ bool shaperUse(Player& player, ItemStack& shaper) {
     if (hit.mType != HitResultType::Tile) return true;
     GlobalPos target{static_cast<int>(player.getDimensionId()), hit.mBlock.x, hit.mBlock.y, hit.mBlock.z};
     shapeAt(player, st, target, hit.mFacing);
+    zapBeam(player, hit.mPos.x, hit.mPos.y, hit.mPos.z);
     return true;
 }
 
-int shapeAt(Player& player, ce::ShaperSettings const& st, GlobalPos const& at, int face) {
-    Block const* material = materialBlock(st);
-    int      dim = at.dim;
-    ce::IPos target{at.x, at.y, at.z};
+void zapBeam(Player& player, double x, double y, double z) {
+    // Create's ZapperBeamPacket / ZapperRenderHandler: a beam from the barrel to the hit point, 10
+    // end rod and 10 firework particles there, and AllSoundEvents.WORLDSHAPER_PLACE (note block
+    // basedrum, volume 0.1, pitch 0.1 for the main hand: Java clamps it to 0.5)
+    int  dim   = static_cast<int>(player.getDimensionId());
+    auto start = gunBarrel(player, true, .35, -.1, 1);
+    double dx = x - start.x, dy = y - start.y, dz = z - start.z;
+    double len = std::sqrt(dx * dx + dy * dy + dz * dz);
+    int    n   = std::min(96, static_cast<int>(len / 0.75));
+    for (int i = 0; i <= n; ++i) {
+        double t = n ? double(i) / n : 0;
+        particle(dim, start.x + dx * t, start.y + dy * t, start.z + dz * t, "minecraft:basic_crit_particle");
+    }
+    for (int i = 0; i < 10; ++i) {
+        auto off = [] { return (random01() - .5) * .2; };
+        particle(dim, x + off(), y + off(), z + off(), "minecraft:endrod");
+        particle(dim, x + off(), y + off(), z + off(), "minecraft:sparkler_emitter");
+    }
+    sound(dim, start.x, start.y, start.z, "note.bd", .1f, .5f);
+}
+
+/// Create's Brush#addToGlobalPositions at a block face (before the pattern).
+std::vector<ce::IPos> brushPositions(ce::ShaperSettings const& st, int dim, ce::IPos target, int face) {
     std::vector<ce::IPos> positions;
     if (ce::hasPlacement(st.brush)) {
         auto off = ce::placementOffset(st, face);
@@ -331,7 +391,12 @@ int shapeAt(Player& player, ce::ShaperSettings const& st, GlobalPos const& at, i
                 if (!b || b->getBlockType().getDestroySpeed() < 0) return false;
                 if (!fuzzy && std::string(b->getTypeName()) != targetId) return false;
                 if (replaceable(dim, p)) return false;
-                if (surface && !replaceable(dim, stepFace(p, face))) return false;
+                // Create (DynamicBrush): the surface brush skips a block covered by a block
+                // with a sturdy face toward it
+                if (surface) {
+                    auto const* above = blockAt(gp(dim, stepFace(p, face)));
+                    if (above && !above->isAir() && above->canProvideSupport(static_cast<uchar>(face ^ 1), BlockSupportType::Edge)) return false;
+                }
                 return true;
             }
             auto on = stepFace(p, face ^ 1);
@@ -340,6 +405,14 @@ int shapeAt(Player& player, ce::ShaperSettings const& st, GlobalPos const& at, i
             return replaceable(dim, p);
         });
     }
+    return positions;
+}
+
+int shapeAt(Player& player, ce::ShaperSettings const& st, GlobalPos const& at, int face) {
+    Block const* material = materialBlock(st);
+    int      dim = at.dim;
+    ce::IPos target{at.x, at.y, at.z};
+    std::vector<ce::IPos> positions = brushPositions(st, dim, target, face);
     std::erase_if(positions, [&](ce::IPos const& p) { return !ce::patternKeeps(st.pattern, p, [] { return random01() < .5; }); });
     // Create: the dynamic brushes' Overlay places on the found layer
     auto tool = st.tool;
@@ -363,7 +436,6 @@ int shapeAt(Player& player, ce::ShaperSettings const& st, GlobalPos const& at, i
             else if (a == 2 && clearAt(gp(dim, p))) ++changed;
         }
     }
-    sound(dim, target.x + .5, target.y + .5, target.z + .5, "mob.shulker.shoot", .3f, 1.5f);
     log().info("equipment: {} used the worldshaper ({} / {}) at {} {} {}: {} blocks", player.getRealName(), ce::brushFallback(st.brush),
                ce::toolFallback(st.tool), target.x, target.y, target.z, changed);
     return changed;
@@ -373,7 +445,54 @@ Block const* shaperMaterial(ce::ShaperSettings const& st) { return materialBlock
 
 std::string shaperMaterialOf(Block const& block) { return block.mSerializationId->toSnbt(SnbtFormat::Minimize, 0); }
 
-void tickShaper() {}
+void tickShaper() {
+    // the preview outline for vanilla players (Create's WorldshaperRenderHandler outlines the
+    // blocks the brush would change for the holder; the client mod draws it, ShaperPreview.cpp):
+    // particles along the cluster's edges every 10 ticks, sent to the holder only; the outline is
+    // rebuilt only when the aim or the settings change
+    struct Preview {
+        std::string             key;
+        std::vector<ce::Edge>   edges;
+    };
+    static std::map<std::int64_t, Preview> previews;
+    if (currentTick() % 10 != 0) return;
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    std::set<std::int64_t> seen;
+    level->forEachPlayer([&](Player& p) {
+        if (net::isCompanion(p) || p.isSimulated() || items::idOf(p.getSelectedItem()) != kWorldshaper) return true;
+        auto st = settingsOf(p.getSelectedItem());
+        if (!st.configured) return true;
+        auto hit = p.traceRay(128.0f, false, true);
+        if (hit.mType != HitResultType::Tile) return true;
+        int  dim = static_cast<int>(p.getDimensionId());
+        auto uid = uidOf(p);
+        seen.insert(uid);
+        auto& pv  = previews[uid];
+        auto  key = st.toJson().dump() + "@" + std::to_string(dim) + "," + std::to_string(hit.mBlock.x) + "," + std::to_string(hit.mBlock.y)
+                 + "," + std::to_string(hit.mBlock.z) + "," + std::to_string(static_cast<int>(hit.mFacing));
+        if (pv.key != key) {
+            pv.key   = key;
+            pv.edges = ce::clusterEdges(brushPositions(st, dim, {hit.mBlock.x, hit.mBlock.y, hit.mBlock.z}, hit.mFacing));
+        }
+        int budget = 1500; // particles per outline
+        for (auto const& e : pv.edges) {
+            double dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, dz = e.b.z - e.a.z;
+            int    n  = std::max(1, static_cast<int>(std::sqrt(dx * dx + dy * dy + dz * dz) * 2));
+            for (int i = 0; i <= n && budget > 0; ++i, --budget) {
+                double     t = double(i) / n;
+                LevelEventPacket pkt;
+                pkt.mEventId = 0x4000 | 41; // ParticleLegacyEvent | ParticleType::VillagerHappy
+                pkt.mPos     = Vec3{float(e.a.x + dx * t), float(e.a.y + dy * t), float(e.a.z + dz * t)};
+                pkt.mData    = 0;
+                pkt.sendTo(p);
+            }
+            if (budget <= 0) break;
+        }
+        return true;
+    });
+    std::erase_if(previews, [&](auto const& e) { return !seen.contains(e.first); });
+}
 
 void installShaper() {
     static bool done = false;

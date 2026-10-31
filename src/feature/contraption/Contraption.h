@@ -196,6 +196,9 @@ public:
     /// Create's isActorActive of a cart in "Pause actors while rotating" mode while it turns.
     void setActorsPaused(bool paused) { mActorsPaused = paused; }
     [[nodiscard]] bool actorsPaused() const { return mActorsPaused; }
+    /// An actor held the contraption still on its last move (MovementContext::stall; Create's
+    /// AbstractContraptionEntity.isStalled). Trains stop for it (U27).
+    [[nodiscard]] bool stalled() const { return mStalled; }
     void stop() { mMotion = {}; mTarget.reset(); }
     /// World position of a local point at the current transform.
     [[nodiscard]] cc::Vec3d toWorld(cc::Vec3d const& local) const { return mTransform.toWorld(local); }
@@ -237,6 +240,7 @@ private:
     std::unique_ptr<Storage>          mStorage;
     bool                              mMoving = false;
     bool                              mActorsPaused = false;
+    bool                              mStalled      = false;
     std::vector<cc::Box>              mBoxes;           ///< local collision boxes (cache)
     std::vector<Block const*>         mBoxBlocks;       ///< the block of each collision box (cache)
     bool                              mTicksWhileStill = false; ///< an actor ticks while it stands still (cache)
@@ -276,6 +280,10 @@ bool discard(Id id);
 /// Changes the states of the carried block at `local` (Create's contraption entity setBlock:
 /// a door opening on a train). Its collision and display follow. False if unknown or unchanged.
 bool setBlockStates(Id id, cc::Pos const& local, cc::States const& states);
+/// Moves the contraption into dimension `dim` at `transform` (Create's carriages passing a portal
+/// track: DimensionalCarriageEntity). Its displays and the companions' copy move with it; seated
+/// riders are teleported along and seated again when they arrive. False if unknown.
+bool changeDimension(Id id, int dim, cc::Transform const& transform);
 /// Local bounds of the carried blocks (Create's contraption bounds); nullopt if unknown.
 [[nodiscard]] std::optional<cc::Box> bounds(Id id);
 /// All live contraptions (ids).

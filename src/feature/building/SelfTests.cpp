@@ -386,3 +386,6 @@ LV_REGISTER_SELFTEST("building.bracket", [](Context& ctx) -> ll::coro::CoroTask<
     ctx.setBlock(p, b::kShaftId);
     ctx.check(b::useBracket(sp, b::makeItem("levitate:metal_bracket", 1), p, b::North) && b::bracketAt(p), "a bracket goes onto a shaft");
 });
+
+// U59: tool requirements and copycat material rules (dx 5920..5939)
+#include "feature/building/HarvestTests.inc"

@@ -50,6 +50,10 @@ struct BlockRec {
     int         side = 1; ///< signals: boundary side the block controls
     int         type = 0; ///< signals: SignalType (cached block state)
     bool        powered = false; ///< signals: redstone input (cached block state)
+    // Create's SignalBlockEntity (not saved)
+    cs::SignalState shown     = cs::SignalState::Invalid; ///< the state the block shows (enterState)
+    int             redHold   = 0;  ///< switchToRedAfterTrainEntered: ticks before it may turn red
+    std::uint64_t   unpowerAt = 0;  ///< SignalBlock.neighborChanged: loss of power applies 4 ticks later
 };
 
 /// A selected track. As Create's TrackTargetingBlockItem it lives on the item stack (item data
@@ -107,8 +111,11 @@ bool addBlock(Kind kind, GlobalPos const& pos, Target const& target);
 void removeBlock(GlobalPos const& pos);
 /// Wrench: cycles the signal type of the block's side. False when the signal isn't bound.
 bool cycleType(GlobalPos const& pos);
-/// The lamp state of a signal block.
+/// The state of the signal's boundary side (what the block is going to show).
 cs::SignalState lampOf(BlockRec const& rec);
+/// Create's SignalBlockEntity.enterState: the state the block shows (green / yellow hold 15 ticks
+/// before turning red).
+cs::SignalState shownOf(BlockRec const& rec);
 /// Whether the block at `pos` gets redstone power.
 bool poweredAt(BlockSource& region, BlockPos const& pos);
 

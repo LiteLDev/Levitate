@@ -2,5 +2,7 @@
   "fluid.create.honey": "Honey",
   "fluid.create.chocolate": "Chocolate",
   "fluid.create.tea": "Builder's Tea",
-  "fluid.create.potion": "Potion"
+  "fluid.create.potion": "Potion",
+  "create.hint.hose_pulley.title": "Bottomless Supply",
+  "create.hint.hose_pulley": "The targeted body of fluid is considered infinite."
 }

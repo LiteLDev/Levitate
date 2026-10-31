@@ -74,6 +74,20 @@ std::map<GlobalPos, std::int64_t>& lecternUsers() {
     return m;
 }
 
+} // namespace
+
+bool lecternInRange(Player const& player, GlobalPos const& pos) {
+    // Create's playerInRange: eye to the block centre < 0.4 x the block interaction range (4.5 in
+    // survival, 5 in creative: 1.8 / 2 blocks)
+    if (static_cast<int>(player.getDimensionId()) != pos.dim) return false;
+    double reach = 0.4 * (player.isCreative() ? 5.0 : 4.5);
+    auto   e     = player.getEyePos();
+    double dx = e.x - (pos.x + .5), dy = e.y - (pos.y + .5), dz = e.z - (pos.z + .5);
+    return dx * dx + dy * dy + dz * dz < reach * reach;
+}
+
+namespace {
+
 /// A frequency slot: an item (Create's Frequency), stored as item JSON (or an item id).
 using Freq = std::pair<ItemStack, ItemStack>;
 
@@ -403,7 +417,9 @@ bool lecternUse(Player& player, ItemStack& held, GlobalPos const& pos) {
     if (!player.isSneaking()) {
         auto it = lecternUsers().find(pos);
         if (it != lecternUsers().end() && it->second != uidOf(player)) return true; // one user at a time
-        setActive(player, !(controllerActive(player) && users()[uidOf(player)].lectern == pos), pos);
+        bool stop = controllerActive(player) && users()[uidOf(player)].lectern == pos;
+        if (!stop && !lecternInRange(player, pos)) return true; // Create's tryStartUsing: too far away
+        setActive(player, !stop, pos);
         return true;
     }
     auto current = lecternController(pos);
@@ -442,9 +458,7 @@ void tickControllers() {
             bool keep = true;
             if (u.lectern) {
                 // Create: the user must stay near the lectern
-                auto const& v = p->getPosition();
-                double dx = v.x - (u.lectern->x + .5), dy = v.y - (u.lectern->y + .5), dz = v.z - (u.lectern->z + .5);
-                keep = idAt(*u.lectern) == kLecternController && dx * dx + dy * dy + dz * dz < 4.0 * 4.0 && static_cast<int>(p->getDimensionId()) == u.lectern->dim;
+                keep = idAt(*u.lectern) == kLecternController && lecternInRange(*p, *u.lectern);
             } else keep = heldController(*p) != nullptr;
             if (!keep) {
                 setActive(*p, false, std::nullopt);
