@@ -49,12 +49,16 @@ void registerSeat(std::string blockId, double sittingHeight) { table<double>()[s
 void registerFluidStorage(std::string blockId, FluidStorageAdapter adapter) {
     table<FluidStorageAdapter>()[std::move(blockId)] = std::move(adapter);
 }
+void registerItemStorage(std::string blockId, ItemStorageAdapter adapter) {
+    table<ItemStorageAdapter>()[std::move(blockId)] = std::move(adapter);
+}
 
 namespace detail {
 MovementRules const*       movementRules(std::string const& id) { return lookup<MovementRules>(id); }
 RotationHandler const*     rotationHandler(std::string const& id) { return lookup<RotationHandler>(id); }
 MovementBehaviour const*   actorFor(std::string const& id) { return lookup<MovementBehaviour>(id); }
 FluidStorageAdapter const* fluidAdapter(std::string const& id) { return lookup<FluidStorageAdapter>(id); }
+ItemStorageAdapter const*  itemAdapter(std::string const& id) { return lookup<ItemStorageAdapter>(id); }
 std::optional<double>      seatHeight(std::string const& id) {
     auto const* h = lookup<double>(id);
     return h ? std::optional<double>(*h) : std::nullopt;

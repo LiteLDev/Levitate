@@ -10,6 +10,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
+#include "feature/contraption/Contraption.h"
 #include "feature/funnels/FunnelsInternal.h"
 #include "game/Blocks.h"
 
@@ -44,6 +45,20 @@ common::items::Handler capability() {
 
 void installCrate() {
     common::items::registerBlock(kCreativeCrate, capability());
+    // (U55) Create's CreativeCrateMountedStorage: on a contraption the crate supplies its filter
+    // item endlessly and voids what is inserted
+    contraption::registerItemStorage(
+        kCreativeCrate,
+        contraption::ItemStorageAdapter{
+            .bottomless = [](Json const& carried) -> ItemStack {
+                auto bd = carried.find("common:blockdata");
+                if (bd == carried.end() || !bd->is_object()) return items::empty();
+                auto f = bd->find("filter");
+                if (f == bd->end() || !f->is_object() || !f->contains("filter")) return items::empty();
+                return items::fromJson((*f)["filter"]);
+            },
+        }
+    );
     common::filterslot::registerSlot(
         kCreativeCrate,
         {"filter",

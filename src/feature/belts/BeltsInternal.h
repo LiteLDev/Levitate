@@ -57,6 +57,8 @@ struct BeltsConfig {
     int maxBeltLength = 20;
     /// Max distance in blocks a weighted ejector can throw (CKinetics.maxEjectorDistance).
     int maxEjectorDistance = 32;
+    /// Ticks between two obstacle scans of a weighted ejector's arc (CKinetics.ejectorScanInterval).
+    int ejectorScanInterval = 120;
     /// Show items on belts / depots / in flight as item entities (the vanilla-visible display;
     /// players with the client mod get display items drawn by the mod instead).
     bool displayItems = true;
@@ -86,11 +88,19 @@ struct Belt {
 
 /// A launched item (weighted ejector).
 struct Airborne {
-    StackData  data;
-    cb::Launch launch;
-    double     t = 0;
-    int        facing = 0;
-    GlobalPos  origin;
+    StackData     data;
+    cb::Launch    launch;
+    double        t = 0;
+    int           facing = 0;
+    GlobalPos     origin;
+    std::uint64_t id = 0; ///< to tell the tracked (scanned) item apart
+};
+
+/// Where a launched item hits a block on its way (Create's EjectorBlockEntity.earlyTarget).
+struct EarlyTarget {
+    cb::Vec3d at;    ///< the hit point, a quarter block off the hit face
+    GlobalPos block; ///< the block that was hit
+    double    time = 0;
 };
 
 enum class EjectorState : std::uint8_t { Charged, Launching, Retracting };
@@ -111,6 +121,10 @@ struct Depot {
     int                   stackSize = 0; ///< 0 = any
     int                   targetH   = 1, targetV = 0;
     std::vector<Airborne> airborne;
+    // Create's scanTrajectoryForObstacles: one launched item is tracked every ejectorScanInterval
+    std::optional<EarlyTarget> earlyTarget;
+    std::uint64_t              trackedItem  = 0;
+    int                        scanCooldown = 0;
 };
 
 struct State {
@@ -132,6 +146,7 @@ struct State {
     std::vector<Removal>                             removals;    ///< belt segments that disappeared
     std::map<GlobalPos, bool>                        playerBroke; ///< pos -> creative
     std::map<GlobalPos, float>                       exploded;    ///< pos -> explosion radius (this tick)
+    std::set<GlobalPos>                              commandDestroyed; ///< removed by `/setblock|fill ... destroy` (this tick)
     std::uint64_t                                    blownSegments = 0; ///< belt segments removed by explosions (selftests)
     struct PlaceIntent {
         std::string uuid;
@@ -258,6 +273,8 @@ void tickDepot(Depot& depot);
 bool onDepotUse(Player& player, GlobalPos const& pos, int face, cb::Vec3d const& hitInBlock);
 /// Sneak + right-click with the ejector item: selects a target (Create's EjectorTargetHandler).
 bool onEjectorItemUse(Player& player, GlobalPos const& clicked);
+/// Tells the player's client mod that no ejector target is selected (Create's EjectorTargetHandler).
+void clearEjectorSelection(Player& player);
 /// An ejector was placed: apply the player's selected target and facing.
 void onEjectorPlaced(GlobalPos const& pos, State::PlaceIntent const& intent);
 ItemStack depotInsert(Depot& depot, TransportedItem const& item, int side, bool simulate);

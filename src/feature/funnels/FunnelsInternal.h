@@ -135,6 +135,12 @@ void giveOrDrop(Player& player, ItemStack const& stack);
 /// The amount setting of a brass funnel / smart chute (value box "Extracted Amount").
 [[nodiscard]] cf::AmountSetting amountOf(GlobalPos const& pos);
 void                            setAmount(GlobalPos const& pos, cf::AmountSetting s);
+/// Create's FilteringBehaviour.getMaxStackSize (the filter's max stack size, 64 without one).
+[[nodiscard]] int filterMaxStack(GlobalPos const& pos);
+/// Create's getCountLabelForValueBox ("*", the count, "" when the count isn't shown).
+[[nodiscard]] std::string amountCountLabel(GlobalPos const& pos);
+/// Create's setFilter: an "exactly" count is capped at the new filter's max stack size.
+void clampAmountToFilter(GlobalPos const& pos);
 /// Registers the "Extracted Amount" value box on a block (Create's FilteringBehaviour count).
 void registerAmountBox(std::string const& blockId, std::function<std::optional<std::array<double, 3>>(Block const&, int face)> centre);
 
@@ -166,6 +172,10 @@ void placeChute(Player* player, BlockSource& region, GlobalPos const& pos, int c
 void updateChuteShape(BlockSource& region, GlobalPos const& pos);
 void forgetChute(GlobalPos const& pos);
 [[nodiscard]] ItemStack chuteItem(GlobalPos const& pos);
+/// Create's ChuteItem.place on a chute's side: nullopt = a normal placement, true = done, false = refused.
+[[nodiscard]] std::optional<bool> chuteItemPlace(Player& player, BlockSource& region, BlockPos const& clicked, int face, bool sneaking);
+/// Create's ChuteBlock.canSurvive: a chute can't go under a diagonal chute.
+[[nodiscard]] bool chuteCanSurvive(BlockSource& region, BlockPos const& pos);
 // tunnels
 void installTunnels();
 void tickTunnel(BlockSource& region, GlobalPos const& pos, Block const& block, std::uint64_t tick);
@@ -178,6 +188,8 @@ void installVaults();
 void tickVaults(std::uint64_t tick);
 bool wrenchVault(Player& player, BlockSource& region, GlobalPos const& pos, Block const& block, int face);
 void placeVault(Player* player, BlockSource& region, GlobalPos const& pos, int clickedFace, bool sneaking);
+/// Create's ItemVaultItem.tryMultiPlace (after a vault was placed against another one).
+void tryMultiPlace(Player& player, BlockSource& region, GlobalPos const& pos, int face);
 /// A vault block changed (placed, removed, axis): its structure is formed again next tick.
 void vaultChanged(GlobalPos const& pos);
 void forgetVaults();

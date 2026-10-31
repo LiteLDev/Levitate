@@ -184,16 +184,9 @@ public:
                 if (facing < 2 || facing > 5 || face != (facing ^ 1)) return std::nullopt;
                 return core::common::Vec{0.5, 0.2, 0.5};
             };
+            // (a filter item in the slot drops with the block: the filter slot code does it for
+            // every unit, U55)
             common::filterslot::registerSlot(kItemHatch, std::move(slot));
-            // ItemHatchBlockEntity's filtering behaviour drops a filter item with the block
-            common::blockdata::onErase([](GlobalPos const& pos, Json const& doc, std::string const& previous) {
-                if (previous != kItemHatch) return;
-                std::vector<ItemStack> drops;
-                if (auto f = doc.find("filter"); f != doc.end() && f->is_object())
-                    for (auto const& [k, v] : f->items())
-                        if (auto s = items::fromJson(v); common::filter::isFilterItem(s)) drops.push_back(s);
-                dropLater(pos, std::move(drops));
-            });
             game::db::onWorldSave([] { closeDue(true); });
             game::db::onWorldClosed([] { st() = State{}; });
         }
