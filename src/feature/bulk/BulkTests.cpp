@@ -633,8 +633,18 @@ LV_REGISTER_SELFTEST("bulk.crusher_kills", [](Context& ctx) -> ll::coro::CoroTas
     co_await watchFrom(ctx, a.at(1, 3, 1));
     auto ctrl   = co_await downCrusher(ctx, a, 3);
     int  before = lootingBoosts();
-    auto* pig   = spawnMob(region, "minecraft:pig", {ctrl.x + .5, ctrl.y + 1.2, ctrl.z + .5});
-    ctx.require(pig != nullptr, "spawn a pig above the crusher");
+    // a spawned pig is a piglet one time in twenty (the pig's entity_spawned event), and piglets
+    // have no loot table: nothing to roll with looting. Spawn again until it is an adult.
+    Actor* pig = nullptr;
+    for (int attempt = 0; attempt < 16 && !pig; ++attempt) {
+        pig = spawnMob(region, "minecraft:pig", {ctrl.x + .5, ctrl.y + 1.2, ctrl.z + .5});
+        ctx.require(pig != nullptr, "spawn a pig above the crusher");
+        if (pig->isBaby()) {
+            pig->remove();
+            pig = nullptr;
+        }
+    }
+    ctx.require(pig != nullptr, "an adult pig above the crusher");
     auto id = idOf(*pig);
     for (int i = 0; i < 40 && (entityById(id) || lootingBoosts() == before); ++i) co_await ctx.ticks(2);
     auto* left = entityById(id);
