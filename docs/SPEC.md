@@ -667,9 +667,12 @@ is U21's (it is made by its cart assembler). Mechanics in §3.6.31.
 
 `filter` ("List Filter": 18 ghost slots in 2 rows of 9, Allow-List / Deny-List, Respect Data /
 Ignore Data, entries may be filters themselves), `attribute_filter` (reference item + attribute
-list, Allow-List (Any) / Allow-List (All) / Deny-List; up to 8 attributes ⚠). Both stack to 64
-(stacks with different contents don't merge). Right-click opens the filter screen (§4); the lore
-shows Create's summary (mode + the first entries). Recipes: `filter` = iron nugget, wool, iron
+list, Allow-List (Any) / Allow-List (All) / Deny-List; no limit on the attributes, an attribute
+already listed (inverted or not) can't be added again). Both stack to 64
+(stacks with different contents don't merge). Right-click (not sneaking, Create's FilterItem.use)
+opens the filter screen (§4); the reset button clears the entries / attributes and keeps Deny-List,
+Respect Data and the attribute mode (GhostItemMenu.clearContents). The lore shows Create's summary
+(makeSummary: the mode, then up to 4 entries and "- ..."; nothing for an empty filter). Recipes: `filter` = iron nugget, wool, iron
 nugget in a row; `attribute_filter` = brass nugget, wool, brass nugget ⚠ (lands with U9's
 `brass_nugget`). Contents live in the item's user data (`lv:filter`, `lv:attribute_filter`).
 
@@ -862,7 +865,9 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
 - **Filters** (`Filter.h`): `matches(filter, stack, matchData)`, `matchesFluid`, `predicate()`
   with Create's FilterItemStack semantics: an empty filter slot matches everything; a plain item
   matches the same item (data ignored unless matching data); a list filter matches if any entry
-  matches (entries recursively, with its Respect Data flag), Deny-List inverts, an *empty* list
+  matches (entries recursively, with its Respect Data flag), Deny-List inverts; a configured list
+  (stored settings) without entries rejects everything (accepts everything as a Deny-List,
+  Create's ListFilterItemStack), a blank list
   filter only matches list filters; attribute filters combine attribute tests (inverted ones
   negate) as Allow-List (Any) / (All) / Deny-List, an empty one only matches attribute filters;
   attribute filters never match fluids. Attribute types (Create's, same ids and wording):
@@ -870,20 +875,42 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   badly_damaged (> 75 %), not_stackable, equipable, furnace_fuel, washable (splashing recipe),
   hauntable (haunting recipe), crushable (crushing or milling recipe), smeltable / smokable /
   blastable (vanilla furnace / smoker / blast furnace recipe), compostable, in_tag (Bedrock item
-  tags), in_item_group (creative group), added_by (namespace), has_enchant, shulker_fill_level,
-  has_fluid, has_name, book_author, book_copy. Units add more with `registerAttribute`.
+  tags, shown as `#tag`), in_item_group (creative group), added_by (namespace, shown as the mod
+  name), has_enchant (shown as the enchantment's name), shulker_fill_level, has_color (Create's
+  ColorAttribute: a dye's colour, firework star / rocket colours, `<color>_` item paths; "is dyed
+  Red"), has_fluid (the fluid's name), has_name, book_author, book_copy. Units add more with
+  `registerAttribute`.
 - **Filter slots** (`ValueBox.h`, `filterslot::`): `registerSlot(blockId, {id, centre, scale,
-  onChanged})`; the stack lives in `data["filter"][id]`. Right-click on the slot with an item sets
-  a copy (filter items are taken from the hand in survival and given back when replaced),
-  right-click with an empty hand clears it (returning a filter item). The client mod shows the
-  slot's content in the hover label (below).
+  onChanged, onHold, accepts, label, countLabel})`; the stack lives in `data["filter"][id]`.
+  Right-click on the slot with an item sets a copy (filter items are taken from the hand in
+  survival and given back when replaced, to creative players only when not in their inventory
+  yet), right-click with an empty hand clears it (returning a filter item); item frame "add item"
+  sound (.25 / .1). Create's FilteringBehaviour rules (U55): the wrench and the mechanical arm never
+  become the filter (canShortInteract: the click is the slot's, nothing changes); a slot's
+  `accepts` (withPredicate) refuses items with "Cannot use this item here." and the deny sound,
+  keeping the old filter (roller: paving blocks only; contraption controls: Create's
+  `#contraption_controlled` items); the clipboard passes slots and boxes (it copies settings).
+  When the block goes (break, replace, explosion) every filter *item* in its slots drops at its
+  centre (Create's FilteringBehaviour.destroy): one BlockData erase listener in the filter slot
+  code does it for every unit (explicit erases and contraption moves drop nothing). Hover label
+  (Create's FilteringRenderer): the slot's label ("Filter"), the item with its count label (`*`
+  = up to a full stack), "Click with item to set" / "Click with item to replace", and "Click and
+  hold for amount" where the count is shown.
 - **Value boxes** (`valuebox::`): `registerBox(blockId, {id, label, board, centre, scale, get,
-  set, format})`. Create 6 edits values on a *value settings board*: rows (e.g. the creative
+  set, format, ..., boardAt, activeAt, bulk, formatAt})` (`boardAt` / `formatAt`: per position,
+  e.g. the amount board ends at the filter's max stack size; `activeAt`: Create's
+  `acceptsValueSettings`, e.g. the brass tunnel's mode only while it distributes). A click with any
+  held item works a box (Create's ValueSettingsInputHandler; only "requires wrench" boxes need the
+  wrench; the clipboard passes); a confirmed new value plays Create's feedback sound (item frame
+  add .25 / 2 + iron xylophone .03 / 1.125), an unchanged one is not set again. `bulk` boxes
+  (Create's BulkScrollValueBehaviour, the chassis range) apply to the whole group only when the
+  board is confirmed with Ctrl (`valuebox.set {ctrl}`, `ctrlDown()` during `set`); vanilla players
+  get a toggle in the form. Create 6 edits values on a *value settings board*: rows (e.g. the creative
   motor's ⟳ / ⟲) × columns 0..max with milestone ticks (`core/common/ValueSettings.h`: plain,
   signed and option boards; `requiresWrench` as Create's: only the wrench opens it). A box is hit
   when the click is within `scale / 2` (default 0.25)
   blocks of its centre (Create's ValueBoxTransform.testHit). Client mod (U42, Create's
-  ValueSettingsClient): a right-click with the wrench or an empty hand on a box starts a *hold*:
+  ValueSettingsClient): a right-click on a box (any held item, U55) starts a *hold*:
   the server asks the client mod to watch the use button (`valuebox.hold {token, pos}`), the client
   answers `valuebox.release {token, state}`: held for more than 3 ticks → the board opens (pointer
   picks row and value, wheel ±1, Shift+wheel jumps milestones, click confirms, right-click / Esc
@@ -896,8 +923,10 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
   at a block with boxes outlines the boxes of the looked-at face (`client/render/Outline.h`,
   the hovered one white, the others grey; boxes needing the wrench only while holding it) and
   shows the hovered box's label, value and "Click and hold to edit" next to the crosshair.
-  Vanilla: the same right-click opens a form
-  (row dropdown + value slider; small boards as a step slider of the formatted values). Edits are
+  Vanilla (U55, §8): the hold is inferred from the use packets the client repeats while the
+  button is held: a repeat on the same box within 16 ticks opens a form (row dropdown + value
+  slider; small boards as a step slider of the formatted values), a click without one is the
+  short click; filter slots with `onHold` work the same way. Edits are
   validated server side (reach 8 blocks, value clamped to the board).
 - **Recipe loader** (`Recipes.h`): `recipes::ofType("pressing")` / `loadType` reads
   `<mod>/recipes/<type>/**.json` (copied from `assets/recipes/` at build time) in Create's 1.20 and
@@ -985,8 +1014,7 @@ Headers in `src/feature/common/` (pure logic in `src/core/common/`, unit-tested)
 - **Interactions**: a right-click on a carried block runs its `registerInteraction` /
   `registerInteractionProvider` handler (Create's MovingInteractionBehaviour): levers switch, wooden
   doors (both halves), trapdoors and fence gates open and close, deployers swap their item with the
-  hand's (a wrench switches punch / use), mounted inventories (vanilla containers, vaults, toolboxes,
-  creative crates) open a form to take a stack out or put the held stack in (§8: Bedrock shows a
+  hand's (a wrench switches punch / use), mounted inventories (vanilla containers, item vaults) open a form to take a stack out or put the held stack in (§8: Bedrock shows a
   container screen only for a real block).
 - **Storage**: inventories and tanks on a contraption are merged into contraption storage, usable by
   actors and the PSI.
@@ -1066,9 +1094,7 @@ Implementation (U4, `src/feature/contraption/Contraption.h` is the contract):
   → contraption, local position, block id, quarter turns) whenever displays are spawned,
   `contraption.visual` (actor animation state from `setActorVisual`) and `contraption.remove`;
   `client/contraption/ContraptionClient.h` (`forEachBlock`) gives client units each block's
-  interpolated world centre and rotation per frame for actor animations. Merged storage (vanilla containers first, then `registerItemStorage(blockId, {slots, insert,
-  extract})` over the carried data, or `slotStorage(read, write)` for a plain slot list: item vaults,
-  toolboxes, creative crates): vanilla chests, trapped chests,
+  interpolated world centre and rotation per frame for actor animations. Merged storage (U55's `registerItemStorage` adapters for item vaults and creative crates, see §3.6.12): vanilla chests, trapped chests,
   barrels, shulker boxes, hoppers, dispensers and droppers (`Storage::insertItem/extractItem/slot`);
   tanks through `registerFluidStorage(blockId, {read, write})` on the carried data.
 - **Movement each tick**: the anchor's transform or the motion; actors (`registerActor(blockId,
@@ -1809,7 +1835,9 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   perpendicular to the axis (vertical shafts: straight only), not turning against each other and only
   replaceable blocks or same-axis shafts in between. One connector is used (survival), wool sound.
   Shafts in between become pulleys; vertical shafts make a sideways belt, a vertical line a vertical
-  belt. Sneak + use (block or air) clears the selection; any second click clears it. While a shaft
+  belt. Sneak + use (block or air) clears the selection; a belt made clears it, a failed connection
+  (also the same shaft again) keeps it; a first shaft that is gone or 2 x `maxBeltLength` away is
+  replaced by the clicked one. While a shaft
   is selected and the connector held, dust shows the planned belt every tick (Create's
   BeltConnectorHandler: from the selected shaft towards the shaft looked at, or the block in front of
   the face looked at; the component along the axis dropped and the direction snapped to straight /
@@ -1824,12 +1852,16 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   direction-aware speed is positive (`rpm * step(facing) * (x axis ? -1 : 1) > 0`); items keep one
   block apart, stop 0.45 before a blocked end (solid block), 0.25 before a block that takes items
   (another belt, depot, ejector, other units' direct inputs) and fall off an open end (thrown along the
-  belt at max(speed, 1/8) plus 1/8 up). Vertical and sideways belts carry nothing (items fall off).
+  belt at max(speed, 1/8) plus 1/8 up); only a full (sturdy) face towards the belt blocks the end
+  (Create's resolveEnding: items fall off past slabs and fences). Vertical and sideways belts carry nothing (items fall off).
   Belt-to-belt: the end inserts into the block after it (any direct input: belts, depots, ejectors,
   chutes, upward inserting funnels; for slopes also the block level with the
   last segment) with the movement direction as side; a belt refuses insertion against its movement,
-  side insertions start 0.35 off-centre and slide to the middle (a distributing brass tunnel above
-  the segment takes them instead). Items crossing into another segment are reported to the block
+  side insertions start 0.675 off-centre and slide to the middle, a hand-over from a belt behind the
+  segment starts .26 further back (a distributing brass tunnel above the segment takes them
+  instead). A crushing wheel controller above a segment, facing the way the belt moves, takes the
+  items .399 before the segment centre (Create's BeltCrusherInteractionHandler; a full controller
+  makes them wait). Items crossing into another segment are reported to the block
   above it (tunnels, `beltlink::itemEntering`; a stuck item waits at .99 / .01 of its segment);
   belt funnels above the segments take the items crossing their entry (Create's checkForFunnels).
   Dropped item entities landing on a
@@ -1838,25 +1870,32 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   segment's centre. Sloped segments collide as eight 2 px steps following the band (server and client
   mod; vanilla clients are corrected by the server).
 - **Entities** (BeltMovementHandler): mobs, items and players standing on a moving belt (|rpm| >= 1)
-  move at `rpm / 480` along it, are pulled to the middle (not while walking), climb / descend slopes;
-  sneaking or flying players are not carried.
+  move at `rpm / 480` along it, are pulled to the middle (not while a player walks), climb / descend
+  slopes; mobs get Slowness II while carried, fall distance is reset, and below .5 blocks per tick
+  an entity in the way stops them; sneaking players (unless they wear cardboard boots), flying
+  players and diving-boot wearers are not carried.
 - **Right-click on a belt**: dye (any `*_dye`) colours the whole belt, water (bucket, water bottle)
   removes the colour (nothing used, as Create); a shaft on a middle segment makes it a pulley (1 used);
   andesite / brass casing encases the segment (not used, as Create); the belt connector on the outer
   half of an end extends the belt by one (free; the old end loses its shaft) or merges it with a
   compatible belt end there (2 shafts + 1 connector back); the wrench: on the outer half of an end
   shortens the belt (length > 2; a pulley that becomes the end gives its shaft back), elsewhere splits it
-  between this segment and its neighbour on the clicked half (both parts >= 2; a shaft from the
-  inventory per new end that isn't a pulley yet); on a cased segment's side the casing comes off, on a
+  between this segment and its neighbour on the clicked half (both parts >= 2; in survival a shaft
+  from the inventory per new end that isn't a pulley yet and one belt connector, nothing taken
+  unless all are there); on a cased segment's side the casing comes off, on a
   pulley's side its shaft comes out.
 - **Breaking** a segment destroys the whole belt: items drop, pulleys become shafts again, the other
   segments vanish; a survival player gets one belt connector plus a shaft if the broken segment had a
-  pulley; each segment blown up by an explosion drops that loot with a chance of 1 / radius each.
+  pulley; each segment blown up by an explosion drops that loot with a chance of 1 / radius each;
+  a segment removed by `/setblock ... destroy` or `/fill ... destroy` drops it too (Create's
+  destroyBlock with drops; the commands are hooked).
 - **Depot** (DepotBehaviour): holds one stack (max stack size) and an 8-slot output buffer.
   Comparator output (depot and ejector, U36): f = (held + output buffer counts) / max stack size
-  (64, the ejector's stack size setting when set); floor(14·f) + (f > 0).
-  Right-click gives back the held stack and the outputs, then puts the held hand stack on it (slides from
-  0.25 to the centre). Items arrive from belts / funnels / ejectors (DirectBeltInput) only when it is
+  (a depot: the held stack's max stack size, 64 when empty; an ejector: its stack size setting, 0 =
+  64); floor(14·f) + (f > 0).
+  Right-click on the top face (Create's SharedDepotBlockMethods.onUse; a side click places blocks
+  against it) gives back the held stack and the outputs, then puts the held hand stack on it (slides
+  from 0.25 to the centre; the mechanical arm is not put down). Items arrive from belts / funnels / ejectors (DirectBeltInput) only when it is
   empty, slide to the centre (1/4 of the distance per tick), are processed by the block 2 above (Create's
   BeltProcessingBehaviour, unless the block between has a collision box), outputs go to the buffer.
   Item capability: 9 slots (0 held, 1..8 outputs), insert only into an empty depot, extract outputs
@@ -1864,16 +1903,27 @@ drawing in `src/client/belts/`. Config `config/belts.json` (§5).
   0.125 / 1.5, item frame add 0.25 / 1.25). A pulling belt funnel on top takes the outputs, then the
   centred held stack (one transfer per tick; on an ejector not against its launch direction).
 - **Weighted ejector**: a depot with a launch plate; kinetic (impact 2 SU/RPM, shaft on the sides).
-  Target: sneak + right-click a block with the ejector item ("Target Selected"), then place it: it
-  faces the target and throws there if the target is in line with it, not straight above / below and
-  within `maxEjectorDistance` (32) ("Ejecting to [x,y,z]"), else ("Target was not Valid") the block in
-  front; placed without a selection it faces away from the player. Launches when charged, turning, not
-  powered by redstone (the shared redstone watch), and an entity stands on the plate or the held stack is
-  centred and (stack size value box 0 = any) at least the configured size and the targeted block can take
-  it. The stack flies on Create's arc (gravity 0.08, drag 0.98 / 0.91 per tick, apex 1 + 0.3 x distance
-  blocks above the higher end) and is inserted into the target's belt input or dropped there; entities
-  get the same velocity. The plate stays up 2 ticks and recharges at `|rpm| / 256 / distance` per tick.
-  Value box (front and back faces): "Ejected Stack Size" 0..64 (`*` = any).
+  It merges incoming stacks (Create's enableMerging) up to min(stack size setting or 64, the held
+  stack's max stack size) minus what is held, incoming and in the outputs (getRemainingSpace).
+  Target: sneak + right-click a block with the ejector item ("Target Selected", sneak + left-click
+  on it clears it), then place it: it faces the target and throws there if the target is in line
+  with it, not straight above / below and within `maxEjectorDistance` (32) ("Ejecting to [x,y,z]",
+  green), else ("Target was not Valid") the block in front; placed without a selection it faces away
+  from the player ("No Target was Selected"). The client mod outlines the selected target and shows
+  the arc as dust from where the ejector would go (green in line, red when corrected; Create's
+  EjectorTargetHandler). The wrench passes the ejector (rotate / pick up). Launches when charged,
+  turning, not powered by redstone (the shared redstone watch), and an entity stands on the plate or
+  something is present (held + outputs), at least the configured stack size, the held stack (if
+  any) centred and the targeted block can take it. The held stack, the incoming stacks and the 8
+  output slots fly (Create's launchItems) on Create's EntityLauncher arc from the block centre
+  (yPeak = max(0, v + (h + .5) / 8) + (h <= 1 ? 1 : 4), its closed-form path pulled onto the
+  target); one item every `ejectorScanInterval` ticks is traced, and a block in its way ends the
+  flight there (extracting funnels let it through). It is inserted into the target's belt input
+  or dropped there; entities are put on top and get the launch motion, players wearing an elytra
+  start gliding. Sounds: wooden trapdoor close (.35) + chest open (.1, 1.4) on launch, a wooden
+  button click while winding up. The plate stays up 2 ticks and recharges at
+  `|rpm| / 256 / distance` per tick. Value box (front and back faces): "Ejected Stack Size" 0..64
+  (`*` = any).
 - **Contract** for other units (`src/feature/belts/BeltApi.h`): transported items (Create's
   TransportedItemStack), `handleCenteredProcessing` / `handleProcessingOnAllItems` / `itemsAt` on a
   belt segment or depot, processors 2 above (`registerProcessor`: received / held -> pass / hold /
@@ -1932,10 +1982,14 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
   - Flaps on the client mod: Create's four strips swinging after each transfer ("funnels.flap"
     {dim, pos, inward}; damped as Create's LerpedFloat, .05 per tick); horizontal funnels are left
     out of the chunk mesh and drawn every frame.
-- **Tunnels** (Create's BeltTunnelBlock / BrassTunnelBlockEntity) sit on a belt segment (beltlink).
+- **Tunnels** (Create's BeltTunnelBlock / BrassTunnelBlockEntity) sit on a belt segment (beltlink):
+  they can only be placed on a horizontal belt (BeltTunnelItem.canPlace), case an uncased segment
+  (andesite / brass casing), and break (dropping themselves) when the segment below goes, slopes or
+  loses its casing (canSurvive).
   Shape: a T on each side with an output (a belt running across, or a Levitate block taking items
   from that side), cross for both; a straight tunnel between two tunnels gets a window (wrench:
-  window ↔ closed). The belt reports items crossing into the segment
+  window ↔ closed; an extended belt funnel facing the tunnel counts as a tunnel there,
+  canHaveWindow). The belt reports items crossing into the segment
   (`beltlink::itemEntering`):
   - andesite tunnel junction, belt along the tunnel's axis, stack > 1: one item split off to every
     side output that takes it (the item waits if one refuses); the rest goes on;
@@ -1943,44 +1997,65 @@ Config `config/funnels.json`: `defaultExtractionTimer` 8, `vaultCapacity` 20, `b
     belt item waits while the tunnel still holds one) and distributes it after 2 ticks, then every
     `brassTunnelTimer` (10) ticks, among the exits of its group (brass tunnels side by side on
     parallel belts, same axis): own sides first, then forward, then the other tunnels' exits;
-    exits with a filter first, then the others. Modes (option box on top, "Distribution Method",
-    shared by the group): Split, Forced Split, Round Robin, Forced Round Robin, Prefer Nearest,
+    exits with a filter first, then the others; a side with a pulling belt funnel facing out is no
+    exit (the funnel takes the items), a direct input only when it takes items from that side.
+    Modes (option box on top while the tunnel distributes, "Distribution Method", shared by the
+    group; a tunnel joining a group takes its mode): Split, Forced Split, Round Robin, Forced Round Robin, Prefer Nearest,
     Randomize, Synchronize Inputs (`core::funnels::planDistribution`; synchronize releases items
-    only when every tunnel of the group holds one). Filter slots on each open side: inbound filters
+    only when every tunnel of the group holds one; Forced Round Robin gives a target that fits only
+    part of the stack that part, and waits only when it takes nothing). Filter slots on each open side: inbound filters
     block non-matching belt items, outbound filters sort; a side without its own filter uses the
     filter of the block on that side (e.g. a brass funnel). Exits: the belt / machine on that side
     (item capability), or forward out of the end of the belt as an item entity. Items can be
     inserted into a brass tunnel directly (item capability); empty-hand right-click retrieves the
-    group's stacks.
+    group's stacks. Goggles (Create's addToGoggleTooltip): "Currently distributing:", one "> item
+    xN" line per stack of the group, "Right-Click to retrieve".
 - **Chutes** (Create's ChuteBlockEntity). One stack per chute moving at
   `((push + pull) / 64 clamped to ±20, − 4 when ≤ 0) / 20` blocks per tick (gravity: 4 blocks/s
-  down). Encased fans (airflow) above facing down (pull) or below facing up (push) speed items up
-  or reverse them; push / pull propagate along connected chutes (shared among branches). Input:
+  down). Encased fans (U13 registers `levitate:encased_fan` with `airflow::registerFan`: its facing
+  and signed speed) above facing down (pull) or below facing up (push) speed items up or reverse them; push / pull propagate along connected chutes (shared among branches). Input:
   from the inventory above (below for upward chutes), 16 items at a time; from chutes feeding into
   it; from items dropped on top of an open chute; upward chutes suck in item entities up to 1 / 2 /
   3 blocks below at 32 / 64 / 128 RPM. Output: the inventory / chute below (a smart chute below
   counts as an inventory), the chute it feeds (diagonal chutes: below and behind), or dropped out
   of the bottom (centre − 12/16, falling at .25) unless the block below has a solid top or a
   downward funnel; upward: the inventory above an open chute, the fastest input chute, or out of
-  the top. A diagonal chute is made by clicking the side of a block (not sneaking); shapes update
-  with the chutes around (intersection when fed diagonally). Wrench: normal ↔ window, encased →
+  the top. A diagonal chute is made by clicking the side of a block (not sneaking); clicking the
+  side of a chute (not sneaking) builds the chain: the new chute goes one block up, leaning into the
+  clicked one, or a downward chute there turns diagonal (Create's ChuteItem.place); no chute can be
+  placed under a diagonal one (canSurvive). Shapes update with the chutes around (intersection when
+  fed diagonally). Wrench: normal ↔ window, encased →
   normal; industrial iron block: encase. Empty-hand right-click takes the stack out. Belts work
   through the item capability (a chute below a belt pulls the items on that segment; a chute above
   drops onto it) and belt ends / ejectors / tunnels insert into an open chute from any side while
-  it can pick items up (Create's DirectBeltInputBehaviour of the chute).
+  it can pick items up (Create's DirectBeltInputBehaviour of the chute); its item handler itself
+  takes items from every side (Create's ChuteItemHandler). Goggles: "Chute Information", the fans
+  ("No attached fans" / "Fans pull from Above" / ...), "-> Items move Downward / Upward" and
+  "Contains: item xN".
 - **Smart chutes**: a chute with a filter slot on each side (8, 11 px) and the "Extracted
-  Amount" setting (default 64; shown while it pulls from an inventory); redstone power stops it.
+  Amount" setting (shown while it pulls from an inventory); redstone power stops it. The amount
+  board of brass funnels and smart chutes ends at the filter's max stack size (64 without a
+  filter; no count for filters that don't stack), "Any" is "up to" that size, and an "exactly"
+  count is capped when the filter changes (Create's FilteringBehaviour).
 - **Item vaults** (Create's ItemVaultBlock / ConnectivityHandler): vault blocks of the same
   horizontal axis join into cuboids with a square cross-section up to 3×3 and up to 3× the width
   long (the controller at the lowest corner forming the most blocks wins; ties: the wider one).
   Placement: the axis of the vault clicked on (not sneaking), else the player's horizontal
-  facing; wrench on the top / bottom turns the axis. Each block holds `vaultCapacity` (20) stacks;
+  facing; placed on the end of a wider vault (along its axis) it fills the whole width x width
+  layer when the hand holds enough vaults (Create's ItemVaultItem.tryMultiPlace); wrench on the top /
+  bottom turns the axis. Each block holds `vaultCapacity` (20) stacks;
   the whole structure is one inventory for every item capability user (no manual access).
   Connected textures through block states. Comparators next to any block read the whole vault
   (`floor(fill × 14) + 1` when not empty, Create's `calcRedstoneFromInventory`). Broken blocks
   drop their own stacks.
 - **Creative crate**: an endless supply of the item in its filter slot (top): extraction gives up
   to a full stack of it, insertion voids the items (Create's BottomlessItemHandler).
+- **On contraptions** (U55): vaults are part of a moving contraption's storage (Create's
+  ItemVaultMountedStorage, through `contraption::registerItemStorage`), creative crates supply their
+  item and void insertions there (CreativeCrateMountedStorage); funnels are actors (Create's
+  FunnelMovementBehaviour): an inserting funnel pulls the item entities of each block it enters into
+  the contraption's storage (filtered), an extracting one drops what its filter and amount allow
+  into an empty, non-solid block (a stack at a time, pickup delay, `random.pop`).
 - **Items in chutes** are shown to every client (vanilla and client mod) as client-only display
   item entities that follow the stack (Display.cpp, §8).
 - **Item hatch** (U49, Create's ItemHatchBlock / ItemHatchBlockEntity / ItemHatchHandler /
@@ -4395,8 +4470,8 @@ rules of the same names, which decide whether a drained source refills).
 `config/basin.json` (U14): Create's CRecipes `bulkPressing` (false), `allowShapelessInMixer` (true),
 `allowShapedSquareInPress` (true), `allowBrewingInMixer` (true, no effect until U19's potion fluids);
 Levitate: `basinIntakeInterval` (1 tick), `burnerParticles` (true).
-`config/belts.json` (U11): `maxBeltLength` 20, `maxEjectorDistance` 32 (Create's CKinetics keys and
-defaults), `displayItems` true (show items on belts / depots / in flight as item entities, §8).
+`config/belts.json` (U11): `maxBeltLength` 20, `maxEjectorDistance` 32, `ejectorScanInterval` 120
+(Create's CKinetics keys and defaults), `displayItems` true (show items on belts / depots / in flight as item entities, §8).
 `config/fluids.json` (U19, Create's CFluids and CLogistics defaults): `hosePulleyBlockThreshold`
 10000 (-1: never infinite), `fillInfinite` false, `hosePulleyRange` 128, `bottomlessFluidMode`
 `ALLOW_BY_TAG` (`ALLOW_ALL`, `DENY_ALL`, `ALLOW_BY_TAG`, `DENY_BY_TAG`), `bottomlessAllow`
@@ -4474,7 +4549,7 @@ matches Create's official Chinese translation wording).
 |---|---|---|
 | Animated parts / contraptions for **vanilla** clients | Bedrock has no client-side rendering hooks without a client mod | static block models; a moving contraption is drawn as one falling-block display entity per block, moved by the server (respawned when it drifts half a block); the client mod draws everything as Create does |
 | JEI/EMI recipe viewers | third-party Java mods with no Bedrock counterpart | recipes visible in Ponder/tooltips; the configs are edited with `/create config` (U42) or as JSON + `/create reload` |
-| Value box editing by *holding* right-click for **vanilla** clients | the server only sees discrete use packets, no release; the client mod reports it (`valuebox.hold` / `valuebox.release`, U42) | vanilla: a click opens the form |
+| Value box editing by *holding* right-click for **vanilla** clients, exactly as Create (U55 reworked) | the server sees no button state, only the use packets a vanilla client repeats while the button is held (about every 11 ticks on 1.26.51, measured in remote-vanilla); the client mod reports the hold itself (`valuebox.hold` / `valuebox.release`, U42) | vanilla: a repeat of the use on the same box within 16 ticks is a hold (the form opens), a click without one is the short click (`onShortClick`, after the 16 ticks); the hold is only noticed when the first repeat arrives (~0.5 s, Create: 3 ticks) |
 | Filter slot items rendered on the block face for **vanilla** clients | no item rendering hooks for vanilla clients | the client mod draws the filter item on every face its slot is on, facing out, a quarter block big (display items, U33), and the hover label names it; vanilla players see it in the form / action messages (U3) |
 | Value box outlines and labels for **vanilla** clients | no client-side rendering without the client mod | the client mod outlines the boxes and shows the label next to the crosshair (U3, U42) |
 | Contraption blocks drawn as one rotating model on **vanilla** clients (U4) | a vanilla client draws a falling-block entity axis-aligned and can't be told to turn it | each block is its own falling-block entity at its exact rotated position, showing the block turned by the nearest quarter turn; the client mod turns each block by the remaining angle so the structure looks exact. Displays carry no gravity (actor flag HasGravity off, NoAI on; set again after the entity is added), so a vanilla client, which simulates falling blocks itself, doesn't drop a block that has no real block under it (a train carriage over its bogey) |
@@ -4499,10 +4574,10 @@ matches Create's official Chinese translation wording).
 | Sliding door animation for **vanilla** clients (U10) | Bedrock models are static per state and must fit 30 px | the client mod draws the panel sliding / folding (Create's 0.15 per tick, eased); vanilla clients see the open state clipped to the model bounds, no animation |
 | Item on the placard, copycat material, brackets drawn on **vanilla** clients (U10) | a block model can't show another item / block | the data and every behaviour exist on both; the client mod draws the placard's item (display item, U33), the copycat in its material (Create's cropped panel / step models) and the bracket on its shaft or cogwheel; vanilla clients see the placard frame, the copycat base and the plain shaft |
 | Items riding belts / held on depots / thrown by ejectors drawn by the belt renderer, for **vanilla** clients (U11) | Bedrock has no item renderer for vanilla clients | the client mod draws each stack (display items, U33: lying, half size, a pile for bigger stacks, interpolated between ticks) and does not draw the fallback; vanilla players see each stack as an item entity (no pickup, no despawning, they don't merge by themselves, teleported along the belt every tick); with `displayItems` off they see nothing |
-| Belt drops when removed by `/setblock ... destroy` (U11) | the block change the server sees carries no cause: a command's destroy mode looks like a replace | survival players breaking a segment and explosions (each segment with Create's 1 / radius survival chance) drop the connector / shaft; command removals drop nothing but the items on the belt |
 | Items drawn inside chutes by a block entity renderer, for **vanilla** clients (U12) | custom blocks have no block entity renderers | the client mod draws the moving stack (display item, U33, interpolated); vanilla clients get client-only item entities (packets only, never a server entity, so nobody can pick them up) that follow each moving stack |
 | Smooth (lerped) funnel flaps for **vanilla** clients (U12) | no per-frame block animation for custom blocks without a renderer | the flap is a block state shown for 4 ticks after a transfer; the client mod draws Create's four swinging strips |
-| Editing a filter's amount by *holding* the filter slot, for **vanilla** clients (U12) | the server sees no held click from a vanilla client (the client mod reports it: `valuebox.release`) | companions hold the slot to open the "Extracted Amount" board (`SlotSpec::onHold`); vanilla players use a separate "Extracted Amount" value box next to the filter slot |
+| Swinging brass / andesite tunnel flaps (Create's TunnelFlapPacket, BeltTunnelVisual; U12, U55) | the tunnel is a static block model; animating its flaps needs the whole tunnel (shapes, windows, the belt funnel cut-outs) drawn per frame by the client mod like the funnels, which is not done yet | the flaps stay still for every client (vanilla clients could only get a state-driven flap) |
+| Editing a filter's amount by *holding* the filter slot, for **vanilla** clients (U12, U55) | as the value box row: only the client's repeated use packets show a held button | companions hold the slot to open the "Extracted Amount" board (`SlotSpec::onHold`); vanilla players hold it too (inferred from the repeats, the form opens), and keep a separate "Extracted Amount" value box next to the filter slot |
 | Items floating in the basin for **vanilla** clients (U14) | no item rendering hooks for vanilla clients | the client mod draws the stacks inside (Create's ring around the centre, tilted, slowly turning, bobbing on the fluid, one more copy per 8 items) with the world item renderer (U33) and the fluid surface; vanilla clients see the basin; the items are taken out with an empty hand or seen by funnels |
 | Deployer fake player (U15) | Bedrock has no fake players: a player that acts in the world must be a real (simulated) server player | one simulated player per dimension ("Deployer", invisible, invulnerable, survival) acts for every deployer: it is moved into the hand for each action and waits above the build limit in between. Like Create's fake player it is no player for the others: it is taken out of every client's player list, command selectors don't find it, it doesn't count for sleeping through the night and its kills drop no experience |
 | Item held by a deployer drawn in its hand, item held by the arm, for **vanilla** clients (U15) | no item rendering hooks for vanilla clients | the client mod draws the held item in the moving hand and between the arm's claws (world item renderer, U33; the server sends the stack with the animation state); vanilla clients see static models, the hand pose shows whether it holds something |

@@ -37,7 +37,6 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/common/Screens.h"
-#include "feature/contraption/Contraption.h"
 #include "feature/equipment/Equipment.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
@@ -478,50 +477,6 @@ common::items::Handler handler() {
     return h;
 }
 
-/// Create's ToolboxMountedStorage: a toolbox carried on a contraption is part of its storage
-/// (the same rules as the capability, over the carried BlockData).
-contraption::ItemStorageAdapter mountedStorage() {
-    auto invOf = [](Json const& carried) {
-        auto const* doc = carried.contains("common:blockdata") ? &carried["common:blockdata"] : nullptr;
-        if (!doc || !doc->is_object() || !doc->contains("equipment")) return ce::ToolboxInv{};
-        auto const& e = (*doc)["equipment"];
-        return e.is_object() && e.contains("toolbox") ? ce::ToolboxInv::fromJson(e["toolbox"]) : ce::ToolboxInv{};
-    };
-    auto storeIn = [](Json& carried, ce::ToolboxInv const& inv) {
-        auto& doc = carried["common:blockdata"];
-        if (!doc.is_object()) doc = Json::object();
-        auto& e = doc["equipment"];
-        if (!e.is_object()) e = Json::object();
-        e["toolbox"] = inv.toJson();
-    };
-    contraption::ItemStorageAdapter a;
-    a.slots = [invOf](Json const& carried) {
-        std::vector<ItemStack> out;
-        auto                   inv = invOf(carried);
-        for (auto const& t : inv.slots) out.push_back(toItem(t));
-        return out;
-    };
-    a.insert = [invOf, storeIn](Json& carried, ItemStack const& stack, bool simulate) {
-        if (items::isEmpty(stack) || !fitsInToolbox(items::idOf(stack))) return stack;
-        auto inv  = invOf(carried);
-        auto rest = inv.insert(toT(stack), false, simulate);
-        if (!simulate) storeIn(carried, inv);
-        return rest.empty() ? items::empty() : items::withCount(stack, rest.count);
-    };
-    a.extract = [invOf, storeIn](Json& carried, std::function<bool(ItemStack const&)> const& filter, int amount, bool simulate) {
-        auto inv = invOf(carried);
-        for (int c = 0; c < ce::kCompartments; ++c) {
-            auto first = inv.first(c);
-            if (first.empty() || (filter && !filter(toItem(first)))) continue;
-            auto got = inv.extract(c, std::min(amount, first.max), simulate);
-            if (!simulate) storeIn(carried, inv);
-            return toItem(got);
-        }
-        return items::empty();
-    };
-    return a;
-}
-
 // ---- breaking -----------------------------------------------------------------------------------------
 
 /// Positions picked up by a left-click (the item was given already).
@@ -874,10 +829,7 @@ void installToolboxes() {
     done = true;
     registerScreen();
     registerNet();
-    for (auto c : kColours) {
-        common::items::registerBlock(toolboxId(c), handler());
-        contraption::registerItemStorage(toolboxId(c), mountedStorage());
-    }
+    for (auto c : kColours) common::items::registerBlock(toolboxId(c), handler());
     game::db::onWorldReady([] { loadLinks(); });
     game::db::onWorldSave([] {
         gLinksDirty = true;

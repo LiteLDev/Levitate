@@ -377,6 +377,20 @@ void controlsInstall() {
                     + it::idOf(fs::get(p, "filter"))
                 );
             },
+            // (U55) Create's withPredicate(AllItemTags.CONTRAPTION_CONTROLLED::matches): only the
+            // items of blocks controls can switch ("Cannot use this item here." otherwise)
+            .accepts = [](GlobalPos const&, ItemStack const& s) {
+                static constexpr std::string_view kControlled[] = {
+                    "levitate:portable_fluid_interface", "levitate:mechanical_drill", "levitate:mechanical_saw", "levitate:deployer",
+                    "levitate:portable_storage_interface", "levitate:redstone_contact", "levitate:mechanical_harvester",
+                    "levitate:mechanical_plough", "levitate:mechanical_roller", "levitate:andesite_funnel", "levitate:brass_funnel",
+                    "levitate:peculiar_bell", "levitate:haunted_bell", "levitate:andesite_door", "levitate:brass_door",
+                    "levitate:copper_door", "levitate:train_door", "levitate:framed_glass_door", "minecraft:bell", "minecraft:campfire",
+                    "minecraft:soul_campfire", "minecraft:dispenser", "minecraft:dropper",
+                };
+                auto id = it::idOf(s);
+                return std::find(std::begin(kControlled), std::end(kControlled), id) != std::end(kControlled);
+            },
         }
     );
 }

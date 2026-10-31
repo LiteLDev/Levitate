@@ -88,7 +88,6 @@ DistributionPlan planDistribution(SelectionMode mode, int stackCount, int target
                 if (force || robin) return plan; // waits / skips this output next time
                 continue;
             }
-            if (force && *a < stackCount) return plan;
             given[static_cast<std::size_t>(t)] = *a;
             break;
         }

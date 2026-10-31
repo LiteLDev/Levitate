@@ -418,16 +418,17 @@ void rollerInstall() {
             .centre    = [](Block const& b, int face) { return topBox(b, face, 1); },
             .scale     = 0.5,
             .onChanged = [](GlobalPos const& p) {
-                // Create only accepts full-cube blocks without block entities (not stairs)
-                auto f = fs::get(p, "filter");
-                if (!it::isEmpty(f) && !common::filter::isFilterItem(f)) {
-                    auto*        region = regionOf(p.dim);
-                    Block const* b      = pavingBlockOf(f);
-                    if (!b || (region && !fullCube(*region, toBlockPos(p), *b))) fs::set(p, ItemStack::EMPTY_ITEM(), "filter");
-                }
                 share(p);
                 logAction("roller paving material at " + std::to_string(p.x) + " " + std::to_string(p.y) + " " + std::to_string(p.z) + " set to "
                           + it::idOf(fs::get(p, "filter")));
+            },
+            // (U55) Create's RollerBlockEntity.isValidMaterial through withPredicate: a refused item
+            // keeps the old material ("Cannot use this item here."): full-cube blocks without block
+            // entities, no stairs
+            .accepts = [](GlobalPos const& p, ItemStack const& f) {
+                auto*        region = regionOf(p.dim);
+                Block const* b      = pavingBlockOf(f);
+                return b && (!region || fullCube(*region, toBlockPos(p), *b));
             },
         }
     );

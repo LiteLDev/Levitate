@@ -19,22 +19,19 @@
 
 #include "ll/api/service/Bedrock.h"
 
-#include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/item/ItemActor.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/Level.h"
-#include "mc/world/level/Spawner.h"
-#include "mc/world/phys/AABB.h"
 #include "mc/world/level/block/Block.h"
 
 #include "feature/advancements/Advancements.h"
 #include "feature/belts/BeltApi.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Filter.h"
-#include "feature/contraption/Contraption.h"
 #include "feature/common/Items.h"
+#include "feature/contraption/Contraption.h"
 #include "feature/common/ValueBox.h"
 #include "feature/funnels/FunnelsInternal.h"
 #include "feature/net/Net.h"
@@ -548,112 +545,76 @@ void placeFunnel(Player* player, BlockSource& region, GlobalPos const& pos, bool
 
 void forgetFunnel(GlobalPos const& pos) { runtimes().erase(pos.key()); }
 
-// ---- on contraptions (Create's FunnelMovementBehaviour) ------------------------------------------
-
-/// The carried BlockData part `key` of a funnel on a contraption (null when absent).
-Json const* carriedPart(contraption::MovementContext& ctx, char const* key) {
-    auto const* carried = ctx.contraption.blockData(ctx.localPos);
-    if (!carried || !carried->contains("common:blockdata")) return nullptr;
-    auto const& doc = (*carried)["common:blockdata"];
-    if (!doc.is_object() || !doc.contains(key)) return nullptr;
-    return &doc[key];
-}
-
-ItemStack carriedFilter(contraption::MovementContext& ctx) {
-    auto const* f = carriedPart(ctx, "filter");
-    return f && f->is_object() && f->contains("filter") ? items::fromJson((*f)["filter"]) : items::empty();
-}
-
-void funnelExtract(contraption::MovementContext& ctx, GlobalPos const& pos, bool brass, int facing) {
-    auto* region = regionOf(pos.dim);
-    auto  level  = ll::service::getLevel();
-    if (!region || !level) return;
-    core::contraption::Vec3d entityPos = ctx.position;
-    if (facing != cf::kDown) entityPos.y -= .5;
-    auto const& visited = region->getBlock(toBlockPos(pos));
-    if (!visited.isAir()) {
-        AABB shape = visited.getBlockType().getCollisionShape(visited, *region, toBlockPos(pos), nullptr);
-        if (shape.max.x - shape.min.x > 1e-4f && shape.max.y - shape.min.y > 1e-4f && shape.max.z - shape.min.z > 1e-4f) return;
-    }
-    BlockPos cell{int(std::floor(entityPos.x)), int(std::floor(entityPos.y)), int(std::floor(entityPos.z))};
-    AABB     box{Vec3{float(cell.x), float(cell.y), float(cell.z)}, Vec3{cell.x + 1.f, cell.y + 1.f, cell.z + 1.f}};
-    if (!region->getEntities(box, 0.f, ActorType::ItemEntity).empty()) return;
-    ItemStack filter = brass ? carriedFilter(ctx) : items::empty();
-    int       count  = 1;
-    bool      upTo   = false;
-    if (brass) {
-        cf::AmountSetting amount;
-        if (auto const* d = carriedPart(ctx, "funnels"); d && d->is_object()) {
-            amount.count = std::clamp(d->value("count", 64), 1, 64);
-            amount.upTo  = d->value("upTo", true);
-        }
-        count = amount.count;
-        upTo  = amount.upTo;
-    }
-    auto accept = [&](ItemStack const& s) { return items::isEmpty(filter) || common::filter::matches(filter, s); };
-    auto& storage = ctx.contraption.storage();
-    if (!upTo) {
-        // ExtractionCountMode.EXACTLY: all or nothing
-        auto probe = storage.extractItem(accept, count, true);
-        if (items::countOf(probe) < count) return;
-    }
-    auto stack = storage.extractItem(accept, count, false);
-    if (items::isEmpty(stack)) return;
-    auto* item = level->getSpawner().spawnItem(*region, stack, nullptr, Vec3{float(entityPos.x), float(entityPos.y), float(entityPos.z)}, 0);
-    if (!item) return;
-    item->mPickupDelay = 5;
-    item->lerpMotion(Vec3{0, 0, 0});
-    playSound(*region, toBlockPos(pos), "random.pop", 1 / 16.f, .1f);
-}
-
-void funnelCollect(contraption::MovementContext& ctx, GlobalPos const& pos, bool brass) {
-    auto* region = regionOf(pos.dim);
-    if (!region) return;
-    ItemStack filter = brass ? carriedFilter(ctx) : items::empty();
-    AABB      box{Vec3{float(pos.x), float(pos.y), float(pos.z)}, Vec3{pos.x + 1.f, pos.y + 1.f, pos.z + 1.f}};
-    for (auto* a : region->getEntities(box, 0.f, ActorType::ItemEntity)) {
-        if (!a || !a->isAlive()) continue;
-        auto& entityItem = static_cast<ItemActor*>(a)->item();
-        if (items::isEmpty(entityItem)) continue;
-        if (!items::isEmpty(filter) && !common::filter::matches(filter, entityItem)) continue;
-        auto rest = ctx.contraption.storage().insertItem(entityItem, false);
-        if (items::countOf(rest) == items::countOf(entityItem)) continue;
-        if (items::isEmpty(rest)) a->remove();
-        else entityItem.set(items::countOf(rest));
-    }
-}
-
-contraption::MovementBehaviour funnelBehaviour(bool brass) {
+namespace {
+/// Create's FunnelMovementBehaviour: a funnel on a moving contraption pulls item entities into the
+/// contraption's storage, or (extracting) drops items from it.
+contraption::MovementBehaviour funnelActor(bool brass) {
     contraption::MovementBehaviour b;
-    // the active area: 0.65 out of the front (0.15 for extracting funnels not facing up); a new
-    // block there is visited (MovementBehaviour#visitNewPosition through getActiveAreaOffset)
-    b.tick = [brass](contraption::MovementContext& ctx) {
-        auto intState   = [&](char const* key, std::int64_t fallback) {
-            auto it = ctx.states.find(key);
-            auto const* v = it == ctx.states.end() ? nullptr : std::get_if<std::int64_t>(&it->second);
-            return v ? *v : fallback;
+    b.visitNewPosition = [brass](contraption::MovementContext& ctx, GlobalPos const& visited) {
+        auto* region = regionOf(visited.dim);
+        if (!region) return;
+        auto stateOf = [&](char const* name, int fallback) {
+            auto it = ctx.states.find(name);
+            if (it != ctx.states.end())
+                if (auto const* v = std::get_if<std::int64_t>(&it->second)) return static_cast<int>(*v);
+            return fallback;
         };
-        int  facing     = static_cast<int>(std::clamp<std::int64_t>(intState(kFacing, 1), 0, 5));
-        bool extracting = intState(kExtracting, 0) != 0;
-        double k        = facing != cf::kUp && extracting ? .15 : .65;
-        auto   o        = core::contraption::offset(static_cast<core::contraption::Dir>(facing));
-        auto   dir      = ctx.contraption.transform().rotateVector(core::contraption::Vec3d::of(o));
-        auto   area     = ctx.position + dir * k;
-        GlobalPos at{ctx.worldPos.dim, int(std::floor(area.x)), int(std::floor(area.y)), int(std::floor(area.z))};
-        auto      last = ctx.data.value("FunnelVisited", Json());
-        Json      now  = Json::array({at.x, at.y, at.z});
-        if (last == now) return;
-        ctx.data["FunnelVisited"] = now;
-        if (extracting) funnelExtract(ctx, at, brass, facing);
-        else funnelCollect(ctx, at, brass);
+        // the carried block data: the filter slot and the amount setting
+        ItemStack  filterStack = items::empty();
+        int        amount      = 1;
+        bool       upTo        = true;
+        if (auto* data = ctx.contraption.blockData(ctx.localPos)) {
+            if (auto it = data->find("common:blockdata"); it != data->end() && it->is_object()) {
+                if (auto f = it->find("filter"); f != it->end() && f->is_object() && f->contains("filter")) filterStack = items::fromJson((*f)["filter"]);
+            }
+        }
+        if (brass) {
+            // Create's FilterAmount / UpTo; the count follows the filter's max stack size
+            int max = items::isEmpty(filterStack) ? 64 : std::max(1, static_cast<int>(filterStack.getMaxStackSize()));
+            amount  = max;
+            if (auto* data = ctx.contraption.blockData(ctx.localPos)) {
+                if (auto it = data->find("common:blockdata"); it != data->end() && it->is_object()) {
+                    if (auto fu = it->find("funnels"); fu != it->end() && fu->is_object()) {
+                        amount = std::clamp(fu->value("count", max), 1, max);
+                        upTo   = fu->value("upTo", true);
+                    }
+                }
+            }
+        }
+        auto filter = common::filter::predicate(filterStack);
+        auto bp     = toBlockPos(visited);
+        if (stateOf(kExtracting, 0) != 0) {
+            Vec3 at{float(ctx.position.x), float(ctx.position.y), float(ctx.position.z)};
+            if (stateOf(kFacing, cf::kUp) != cf::kDown) at.y -= .5f;
+            if (!replaceableAt(*region, bp)) return;
+            BlockPos cell{static_cast<int>(std::floor(at.x)), static_cast<int>(std::floor(at.y)), static_cast<int>(std::floor(at.z))};
+            if (!itemsIn(*region, Vec3{float(cell.x), float(cell.y), float(cell.z)}, Vec3{cell.x + 1.f, cell.y + 1.f, cell.z + 1.f}).empty()) return;
+            auto& storage = ctx.contraption.storage();
+            if (!upTo && items::countOf(storage.extractItem(filter, amount, true)) < amount) return; // EXACTLY
+            auto got = storage.extractItem(filter, amount, false);
+            if (items::isEmpty(got)) return;
+            spawnItem(*region, got, at, Vec3{0, 0, 0});
+            playSound(*region, bp, "random.pop", 1 / 16.f, .1f);
+            log().info("funnels: a moving funnel dropped {} x{} at {}", items::idOf(got), items::countOf(got), visited.key());
+            return;
+        }
+        for (auto* e : itemsIn(*region, Vec3{float(bp.x), float(bp.y), float(bp.z)}, Vec3{bp.x + 1.f, bp.y + 1.f, bp.z + 1.f})) {
+            auto stack = e->item();
+            if (items::isEmpty(stack) || !filter(stack)) continue;
+            auto rest = ctx.contraption.storage().insertItem(stack, false);
+            if (items::countOf(rest) == items::countOf(stack)) continue;
+            log().info("funnels: a moving funnel took {} x{} at {}", items::idOf(stack), items::countOf(stack) - items::countOf(rest), visited.key());
+            if (items::isEmpty(rest)) e->remove();
+            else e->item() = rest;
+        }
     };
-    b.stopMoving = [](contraption::MovementContext& ctx) { ctx.data.erase("FunnelVisited"); };
     return b;
 }
+} // namespace
 
 void installFunnels() {
-    contraption::registerActor(kAndesiteFunnel, funnelBehaviour(false));
-    contraption::registerActor(kBrassFunnel, funnelBehaviour(true));
+    contraption::registerActor(kAndesiteFunnel, funnelActor(false));
+    contraption::registerActor(kBrassFunnel, funnelActor(true));
     for (char const* id : {kAndesiteFunnel, kBrassFunnel}) {
         common::items::registerBlock(id, capability());
         belts::registerAboveInteractor(id, onBeltPass);
@@ -680,7 +641,13 @@ void installFunnels() {
     // Create: holding the filter slot opens its count (the "Extracted Amount" board) on funnels that
     // support an amount (extracting / belt funnels); the separate amount box stays for vanilla
     // players (SPEC §8)
-    common::filterslot::SlotSpec slot{"filter", filterCentre, 0.5, nullptr, nullptr};
+    common::filterslot::SlotSpec slot{"filter", filterCentre, 0.5, clampAmountToFilter, nullptr};
+    slot.countLabel = [](GlobalPos const& pos) {
+        auto* region = regionOf(pos.dim);
+        auto const* b = region ? loadedBlock(*region, toBlockPos(pos)) : nullptr;
+        if (!b || (beltShapeOf(*b) == kNotOnBelt && !state(*b, kExtracting))) return std::string{}; // no count shown
+        return amountCountLabel(pos);
+    };
     slot.onHold = [](Player& p, GlobalPos const& pos) {
         auto* region = regionOf(pos.dim);
         auto const* b = region ? loadedBlock(*region, toBlockPos(pos)) : nullptr;

@@ -45,27 +45,20 @@ common::items::Handler capability() {
 
 void installCrate() {
     common::items::registerBlock(kCreativeCrate, capability());
-    // Create's CreativeCrateMountedStorage: on a contraption it still supplies its filter item
-    // endlessly and voids what is inserted
-    auto supplyOf = [](Json const& carried) {
-        auto const* doc = carried.contains("common:blockdata") ? &carried["common:blockdata"] : nullptr;
-        if (!doc || !doc->is_object() || !doc->contains("filter")) return items::empty();
-        auto const& f = (*doc)["filter"];
-        return f.is_object() && f.contains("filter") ? items::fromJson(f["filter"]) : items::empty();
-    };
-    contraption::ItemStorageAdapter mounted;
-    mounted.slots = [supplyOf](Json const& carried) {
-        auto s = supplyOf(carried);
-        if (items::isEmpty(s)) return std::vector<ItemStack>{};
-        return std::vector<ItemStack>{items::withCount(s, std::max(1, static_cast<int>(s.getMaxStackSize())))};
-    };
-    mounted.insert  = [](Json&, ItemStack const&, bool) { return items::empty(); };
-    mounted.extract = [supplyOf](Json& carried, std::function<bool(ItemStack const&)> const& filter, int amount, bool) {
-        auto s = supplyOf(carried);
-        if (items::isEmpty(s) || amount <= 0 || (filter && !filter(s))) return items::empty();
-        return items::withCount(s, std::min(amount, std::max(1, static_cast<int>(s.getMaxStackSize()))));
-    };
-    contraption::registerItemStorage(kCreativeCrate, std::move(mounted));
+    // (U55) Create's CreativeCrateMountedStorage: on a contraption the crate supplies its filter
+    // item endlessly and voids what is inserted
+    contraption::registerItemStorage(
+        kCreativeCrate,
+        contraption::ItemStorageAdapter{
+            .bottomless = [](Json const& carried) -> ItemStack {
+                auto bd = carried.find("common:blockdata");
+                if (bd == carried.end() || !bd->is_object()) return items::empty();
+                auto f = bd->find("filter");
+                if (f == bd->end() || !f->is_object() || !f->contains("filter")) return items::empty();
+                return items::fromJson((*f)["filter"]);
+            },
+        }
+    );
     common::filterslot::registerSlot(
         kCreativeCrate,
         {"filter",

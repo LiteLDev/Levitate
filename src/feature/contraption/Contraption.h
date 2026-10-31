@@ -157,28 +157,17 @@ struct FluidStorageAdapter {
     std::function<void(nlohmann::json& carried, FluidTank const&)>          write;
 };
 void registerFluidStorage(std::string blockId, FluidStorageAdapter adapter);
-
-/// An item inventory carried on a contraption (Create's MountedItemStorage: item vaults,
-/// toolboxes, creative crates, depots). Units adapt their blocks over the carried data (carrier
-/// name -> data; their BlockData is under "common:blockdata"); the contraption's merged storage
-/// (actors, the PSI) uses them after the vanilla containers.
+/// (U55) An item inventory carried on a contraption that is no vanilla container (Create's
+/// MountedItemStorage types, e.g. ItemVaultMountedStorage): `read` / `write` its slots in the
+/// carried data. With `bottomless` set it is Create's CreativeCrateMountedStorage instead: an
+/// endless supply of that item (empty: none), and inserted items are voided.
 struct ItemStorageAdapter {
-    /// The stacks it holds now (what Storage::slot shows).
-    std::function<std::vector<ItemStack>(nlohmann::json const& carried)> slots;
-    /// Inserts; returns what didn't fit.
-    std::function<ItemStack(nlohmann::json& carried, ItemStack const& stack, bool simulate)> insert;
-    /// Extracts up to `count` items of one kind matching `filter` (null: any).
-    std::function<ItemStack(nlohmann::json& carried, std::function<bool(ItemStack const&)> const& filter, int count, bool simulate)>
-        extract;
+    std::function<std::vector<ItemStack>(nlohmann::json const& carried)>        read;
+    std::function<void(nlohmann::json& carried, std::vector<ItemStack> const&)> write;
+    std::function<ItemStack(nlohmann::json const& carried)>                     bottomless;
 };
 void registerItemStorage(std::string blockId, ItemStorageAdapter adapter);
-/// An adapter over a list of slots kept in the carried data (`read` returns every slot, empty
-/// ones included): insert merges into matching stacks, then fills empty slots; extract takes from
-/// the first matching slots.
-[[nodiscard]] ItemStorageAdapter slotStorage(
-    std::function<std::vector<ItemStack>(nlohmann::json const& carried)>             read,
-    std::function<void(nlohmann::json& carried, std::vector<ItemStack> const& slots)> write
-);
+
 
 /// The merged inventories and tanks of a contraption (Create's MountedStorageManager).
 class Storage {

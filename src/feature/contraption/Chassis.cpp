@@ -384,10 +384,13 @@ private:
                     return core::common::plainToSettings(chassisRange(p));
                 },
                 .set = [](core::GlobalPos const& p, core::common::ValueSettings v, Player&) {
-                    setChassisRange(p, core::common::plainFromSettings(v, 1, maxRange()));
+                    // Create's BulkScrollValueBehaviour: the whole group only with Ctrl (U55)
+                    if (common::valuebox::ctrlDown()) setChassisRange(p, core::common::plainFromSettings(v, 1, maxRange()));
+                    else storeRange(p, clampRange(core::common::plainFromSettings(v, 1, maxRange())));
                 },
                 .format         = {},
                 .requiresWrench = true,
+                .bulk           = true,
             });
         }
     }

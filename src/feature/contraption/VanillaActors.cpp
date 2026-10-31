@@ -286,35 +286,19 @@ void logClick(Player& player, Contraption const& c, cc::Pos const& local, std::s
 
 void openStorage(Player& player, Id id, cc::Pos local);
 
-/// The stacks of the inventory at `local` (vanilla slots or an adapted inventory).
+/// The stacks of the inventory at `local` (vanilla slots and adapted ones, e.g. vaults).
 std::vector<ItemStack> stacksAt(Contraption& c, cc::Pos const& local) {
     std::vector<ItemStack> out;
     for (auto* s : detail::blockSlots(c, local)) out.push_back(*s);
-    if (!out.empty()) return out;
-    auto const* b = blockAt(c, local);
-    if (!b) return out;
-    if (auto const* adapter = detail::itemAdapter(b->id); adapter && adapter->slots) out = adapter->slots(b->data);
     return out;
 }
 
 /// Takes slot `index`'s stack (or what is left of it) into the player's inventory.
 void take(Player& player, Contraption& c, cc::Pos const& local, int index) {
     auto slots = detail::blockSlots(c, local);
-    ItemStack got;
-    if (!slots.empty()) {
-        if (index < 0 || index >= static_cast<int>(slots.size())) return;
-        got           = *slots[static_cast<std::size_t>(index)];
-        *slots[static_cast<std::size_t>(index)] = ItemStack{};
-    } else {
-        auto const* b       = blockAt(c, local);
-        auto const* adapter = b ? detail::itemAdapter(b->id) : nullptr;
-        auto*       data    = c.blockData(local);
-        if (!adapter || !adapter->slots || !adapter->extract || !data) return;
-        auto view = adapter->slots(*data);
-        if (index < 0 || index >= static_cast<int>(view.size()) || items::isEmpty(view[static_cast<std::size_t>(index)])) return;
-        auto want = view[static_cast<std::size_t>(index)];
-        got       = adapter->extract(*data, [&](ItemStack const& s) { return s.isStackable(want); }, items::countOf(want), false);
-    }
+    if (index < 0 || index >= static_cast<int>(slots.size())) return;
+    ItemStack got = *slots[static_cast<std::size_t>(index)];
+    *slots[static_cast<std::size_t>(index)] = ItemStack{};
     if (items::isEmpty(got)) return;
     auto copy = got;
     if (!player.add(copy)) player.drop(copy, false);
@@ -328,7 +312,7 @@ void deposit(Player& player, Contraption& c, cc::Pos const& local) {
     if (items::isEmpty(held)) return;
     ItemStack rest = held;
     auto      slots = detail::blockSlots(c, local);
-    if (!slots.empty()) {
+    {
         for (int pass = 0; pass < 2 && items::countOf(rest) > 0; ++pass) {
             for (auto* s : slots) {
                 if (items::countOf(rest) == 0) break;
@@ -347,12 +331,6 @@ void deposit(Player& player, Contraption& c, cc::Pos const& local) {
                 rest.set(rest.mCount - moved);
             }
         }
-    } else {
-        auto const* b       = blockAt(c, local);
-        auto const* adapter = b ? detail::itemAdapter(b->id) : nullptr;
-        auto*       data    = c.blockData(local);
-        if (!adapter || !adapter->insert || !data) return;
-        rest = adapter->insert(*data, held, false);
     }
     if (items::countOf(rest) == items::countOf(held)) return;
     player.setSelectedItem(items::countOf(rest) == 0 ? ItemStack{} : rest);
@@ -432,7 +410,10 @@ struct Interactions {
             [](std::string_view id) {
                 return id == "minecraft:chest" || id == "minecraft:trapped_chest" || id == "minecraft:barrel" || id.ends_with("shulker_box")
                     || id == "minecraft:dispenser" || id == "minecraft:dropper" || id == "minecraft:hopper"
-                    || detail::itemAdapter(std::string(id)) != nullptr;
+                    || [&] {
+                           auto const* a = detail::itemAdapter(std::string(id));
+                           return a && a->read && !a->bottomless; // vaults (a creative crate has no slots)
+                       }();
             },
             [](Player& player, Contraption& c, cc::Pos const& local) {
                 detail::playSound(c.dimension(), c.toWorld(cc::Vec3d::center(local)), "random.chestopen", 0.5f, 1.f);
