@@ -4,7 +4,8 @@
 #   local / remote-mod: the client mod draws the hose (log "fluids: rendering ...") and the spout's
 #                       stream with its nozzle squeezing (log "fluids: spout nozzle squeezes ...")
 #   remote-vanilla:     static blocks; the spout's drops and splash (particles) and the filling
-# Screenshots: out/fluids/{blocks,hose,spout-a,spout-b,spout-c}.png
+#   U51: an item drain with water (drawn by the client mod) and an item crossing it (every client).
+# Screenshots: out/fluids/{blocks,hose,spout-a,spout-b,spout-c,drain}.png
 # a chat line typed while the game is busy can get lost (remote clients more often): send the speed
 # command again, up to three times, until the generator reports it
 function Set-TestSpeed([string]$command) {
@@ -86,5 +87,23 @@ Start-Sleep -Milliseconds 300
 Save-Screenshot 'spout-c' | Out-Null
 if ($withMod) { Wait-LogLine 'fluids: spout nozzle squeezes while filling' 20 -Since $mark | Out-Null }
 
+# U51: an item drain holding water (the client mod draws it) and an item crossing it (a display
+# item for companions, a client-only item entity for vanilla clients)
+$drainMark = Get-LogMark
+Invoke-Chat '/fill ~-3 ~ ~2 ~3 ~3 ~6 air'
+Invoke-Chat '/setblock ~ ~ ~4 levitate:item_drain'
+Invoke-Chat '/setblock ~1 ~ ~4 stone'
+Invoke-Chat '/tp @s ~ ~ ~ facing ~ ~0.5 ~4'
+Start-Sleep -Milliseconds 800
+Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 water_bucket 1'
+Start-Sleep -Milliseconds 300
+Click 0.5 0.5 -Relative -Right
+Wait-LogLine 'item drain at -?\d+ -?\d+ -?\d+ exchanged fluid with' 20 -Since $drainMark | Out-Null
+# an item dropped onto the drain crosses it (still: towards the north, the player)
+Invoke-Chat '/loot spawn ~ ~2 ~4 loot "blocks/item_drain"'
+Start-Sleep -Milliseconds 900
+Save-Screenshot 'drain' | Out-Null
+if ($withMod) { Wait-LogLine 'fluids: rendering \d+ quads' 20 -Since $mark | Out-Null }
+
 $r = Invoke-SelfTest 'fluids.*'
-if ($r.Pass -lt 14) { throw "expected at least 14 fluids selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 20) { throw "expected at least 20 fluids selftests to pass, got $($r.Pass)" }

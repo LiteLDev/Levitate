@@ -323,7 +323,8 @@ Bedrock blocks (details in §3.6.14):
 - `mechanical_pump`: `levitate:facing` 0..5 (Bedrock FacingID: down, up, north, south, west, east; the
   arrow), `levitate:rotor` (kinetic model state).
 - `fluid_valve`: `levitate:facing`, `levitate:along_first` (Create's AXIS_ALONG_FIRST_COORDINATE),
-  `levitate:enabled` (open), `levitate:rotor`.
+  `levitate:enabled` (open), `levitate:rotor`, `levitate:pointer` (1: no handle; only the client mod's
+  chunk meshes use it, the handle is then drawn turning, §3.6.17).
 - `smart_fluid_pipe`: `levitate:face` (0 floor, 1 ceiling, 2 wall), `levitate:facing` (0 north,
   1 south, 2 west, 3 east).
 - Recipes (Create 6.0.10, in `assets/pending_recipes/pipes/` until U6/U9 land their ingredients):
@@ -350,7 +351,8 @@ Bedrock blocks (details in §3.6.14):
   it can only be placed on tanks and pops when its tank goes. Drops itself.
 - `steam_whistle`: on the side of a tank (wall, bracket towards the tank) or on its top (floor,
   mouth towards the player who placed it); states `levitate:size` (0 medium (the default),
-  1 small, 2 large), `levitate:powered`. `steam_whistle_extension` (no item, drops nothing): `levitate:size`,
+  1 small, 2 large), `levitate:powered`, `levitate:mouth` (1: no mouth; only the client mod's chunk
+  meshes use it, the mouth is then drawn moving, §3.6.18). `steam_whistle_extension` (no item, drops nothing): `levitate:size`,
   `levitate:shape` (0 single = half, 1 double, 2 double_connected).
 - `powered_shaft`: what a shaft (U6's `levitate:shaft`, `levitate:axis`) becomes two blocks in front of
   an engine; states `levitate:axis`, `levitate:rotor` (kinetic rotor model); drops a shaft (given by
@@ -2512,7 +2514,11 @@ pipe block entities; the phase restarts after a load), valve pointers alongside,
 per face with a flow, a 6 px wide column of the fluid growing `progress / 2` blocks from the face
 (inbound) or from the centre (outbound), advanced every tick at the flow's speed; the server sends the
 flows of glass pipes over `pipes.glass` when they change, chunk meshes leave the static fluid out);
-pumps' cogs and valves' shafts rotate through the kinetic renderer (U2).
+pumps' cogs and valves' shafts rotate through the kinetic renderer (U2). Valve pointers (Create's
+FluidValveRenderer): the server sends each valve's pointer, target and rate over `pipes.valve` (on a
+speed change and to a companion joining); the client mod's chunk meshes leave the handle out
+(`levitate:pointer` 1) and draw it turned by `-90° · pointer` about the facing, the pointer moving
+`rate` per tick; vanilla clients see the handle switch between closed and open (`levitate:enabled`).
 **Command** `/create pipes <pos>` (op): pressures, flows and transfers of a pipe.
 
 #### 3.6.18 Fluid tanks, boilers, steam engines and whistles (U18)
@@ -2550,13 +2556,19 @@ level with 15 / 1.2 = 12 and the parts above with 1, only with windows.
 into an empty tank, drains any or the requested fluid. Comparator level = Create's
 `fractionToRedstoneLevel(amount / capacity)` (floor(14·f + (f > 0))) of the whole structure (also
 creative tanks), read by vanilla comparators through `common/Redstone.h` (U36). Right-click (not
-sneaking) with a filled bucket / water bottle empties it into the tank when it all fits (Create's
-`tryEmptyItemIntoBE`; survival: the empty container comes back), with an empty bucket / glass bottle
-takes 1000 / 250 mB (bottles only water); creative players keep their item. Units' buckets
-(`<ns>:<fluid>_bucket`, registered with `registerFluidItem`) work too. Sound: bucket empty / fill,
-volume .5, pitch `clamp(1 − amount / (capacity per block · 16), 0, 1) / 1.5 + .5 ± .125`.
+sneaking) by hand exchange (Create's FluidTankBlock.useItemOn) only for **creative players, or any
+player on a creative tank**; a survival player's click on a fluid tank passes to the item's own use
+(a water bucket places its water next to the tank). An item U19's GenericItemEmptying can empty
+(buckets, water bottles, potions, honey bottles, builder's tea) goes in when all of it fits (Create's
+`tryEmptyItemIntoBE`), else an item GenericItemFilling can fill (empty bucket: any fluid with a
+bucket; glass bottle: water, potion fluids (the matching potion, splash or lingering bottle), tea)
+takes its amount (`tryFillItemFromBE`). The held item is never used up (creative players, or a
+creative tank); a survival player filling from a creative tank gets the filled item into the
+inventory and keeps the empty one; creative players get nothing. An item that could be emptied or
+filled uses the click up even when nothing moved. Sound: bucket empty / fill, volume .5, pitch
+`clamp(1 − amount / (capacity per block · 16), 0, 1) / 1.5 + .5 ± .125`.
 **Creative tank**: always full of its fluid (`setContainedFluid`), drains never empty it, fills are
-accepted and voided; a filled bucket sets its fluid, an empty bucket takes some and empties it.
+accepted and voided; an item emptied into it sets its fluid, filling an item from it empties it.
 Contraptions carry tanks with their contents (data carrier `steam:tank`, fluid storage for U4's
 mounted storage); they re-form when placed back.
 
@@ -2570,14 +2582,23 @@ the best of the last 10 samples (creative tanks: 200 mB/t). Limits: size `min(18
 water `min(18, ceil(supply) / 10)`, heat; **level = min(active heat, water limit, size limit)**
 (0..18). Passive: passive heat with size and water limits ≥ 1. Engine efficiency: passive
 `1/8 / engines`; no active heat 0; else 1 when engines ≤ level, otherwise level / engines.
-Goggles (Create's lines and colours): "Boiler Status: Passive / Idle / Lvl N / Max", the Size,
+Goggles (U8's overlay with Engineer's Goggles, and `/create steam`; Create's lines and colours):
+"Boiler Status: Passive / Idle / Lvl N / Max", the Size,
 Water and Heat bars (`|` per level: dark green up to the minimum, green at it, dark green up to the
 value, dark red up to the maximum, grey up to the next multiple of 5, max 18), then either "Water
 input rate" with "N mB / 10 mB per Tick" (engines, size ok, no water, heat) or "Kinetic Stress
 Capacity:" `efficiency · 16 · max(level, engines) · 1024` su "via N engines". Without engines and
-whistles: Create's fluid container lines.
+whistles: Create's fluid container lines. A creative tank shows nothing (CreativeFluidTankBlockEntity),
+a steam engine its powered shaft's kinetic and generator stats (PoweredShaftBlockEntity
+.addToEngineTooltip), the powered shaft itself only the kinetic hints, a whistle "Pitch: <note>"
+(`create.generic.pitch`, the note `pitch mod 12` of `create.generic.notes`).
 
-**Steam engine** (SteamEngineBlockEntity, each tick). Its shaft is the block two in front of it
+**Steam engine** (SteamEngineBlockEntity, each tick). Only an engine on a regular fluid tank runs
+(`isValid`: an engine on a creative tank keeps its shaft still, though it makes the creative tank a
+boiler). A shaft item used on an engine (not sneaking; Create's SteamEngineBlock.PlacementHelper)
+places a powered shaft at the engine's shaft position when that block is replaceable, its axis the
+first of the player's look directions (nearest first) that is not the engine's facing axis (sound
+`use.stone`, one shaft used in survival); otherwise the click places the shaft normally. Its shaft is the block two in front of it
 (`getShaftPos`); a plain shaft there whose axis differs from the engine's facing axis becomes a
 **powered shaft** (Create's `pickCorrectShaftType` / `SteamEngineBlock.onPlace`), which turns back
 into a shaft when no engine two blocks away points at it. A powered shaft takes one engine
@@ -2589,15 +2610,23 @@ the other way the engine flips its own setting. The powered shaft generates `dir
 (1 + (e ≥ 1 ? 3 : min(2, ⌊4e⌋)))` RPM (64 at full, 48 / 32 / 16 below) with a capacity of `e · 1024 /
 modifier` su per RPM (= e · 16384 su: a full engine 16384 su, a passive one 2048 su); no tank, no
 shaft or efficiency 0: speed 0. Value box "Rotation Direction" (Clockwise / Counter-Clockwise) on the
-engine's four side faces. Puffs of steam (sound `levitate.steam.engine`, a `levitate:steam_jet`
-particle out of the cylinder's front) twice per shaft turn while it runs.
+engine's four side faces. Puffs of steam twice per shaft turn while it runs: a `levitate:steam_jet`
+particle out of the cylinder's front and Create's boiler sound pool: one pool per boiler side (Create's
+SoundPool(4, 2)) collects the puffs of its engines for 2 ticks and plays at most 4 of them (random
+ones when more), each at the engine's block corner as `extinguish.candle` at volume
+`3 / max(2, engines / 6)` (integer division), pitch `1.18 − rand · .25`, plus the original
+`levitate.steam.engine` sample (Create's `create:steam`) at a sixteenth of that volume, pitch .8.
 
 **Whistle** (WhistleBlock / BlockEntity). Pitch = 2 semitones per full extension above it, 1 for a
 half (single) one at the top (`updatePitch`, up to 25). Using a whistle item on a whistle or an
 extension grows the column (Create's `incrementSize`: up to 6 blocks: a half extension becomes full,
-else a half extension is added on the next free block; the item is not used up; place sound pitched
-2^(−2i/12)). Wrench: the next size (small → medium → large → small) for the whole column; sneaking
-with the wrench on the top extension shortens it by half a block. Extensions without a whistle or
+else a half extension is added on the next free block; the item is not used up; sound pitched
+2^(−(2i−1)/12) when placing a half extension on block i, 2^(−2i/12) when widening one: `note.xylophone`
+at volume 1/4 and the copper hit sound `hit.copper` at volume 1). Wrench: the next size (small →
+medium → large → small) for the whole column. Sneaking with the wrench on the upper half of a full
+extension (Create's WhistleExtenderBlock.onSneakWrenched) makes it a half one (the extensions above
+it fall off, wrench remove sound); on its lower half or on a half extension it is the wrench's own
+dismantling (U8). Extensions without a whistle or
 extension below vanish. Powered by redstone (polled, §8) on a boiler with heat (passive or active) it
 sounds: the `levitate.steam.whistle_chiff` hiss when it starts (per player at volume
 `.175 · (64 − distance) / 64`, pitch `f + .75` for small whistles), then the tone as one looping
@@ -2625,7 +2654,12 @@ no fluid but a brass gauge in the middle of every side of its bottom layer, the 
 the needle turning `145° · gauge` from its rest position; the gauge chases (Create's `chase(target,
 .125, EXP)`) the target `1/8` for a passive boiler, else `level / size limit` (Create's
 BoilerData.read); a side whose gauge position has a block with a collision box in front of it
-(Create's updateOcclusion) shows none. Vanilla clients see the tank only (§8).
+(Create's updateOcclusion) shows none. Vanilla clients see the tank only (§8). **Whistle mouths**
+(Create's WhistleRenderer): the server sends the sounding whistles (`steam.whistles`); the client
+mod's chunk meshes leave the mouth out (`levitate:mouth` 1) and draw it moved up by
+`animation · 4/16` (Create's chaser: towards 1 while it sounds, EXP .5; back to 0, LINEAR .4) and,
+while sounding and more than half open, down by `sin(ticks / 8 · 2π · (4 − size)) / 16` (size: small
+0, medium 1, large 2); vanilla clients see the mouth still.
 
 **Persistence**: tank parts in BlockData (`data["steam"]`: controller, width, height, window,
 fluid, amount), engines' value box there too; the engine / whistle / powered shaft index in
@@ -2639,7 +2673,11 @@ Code in `src/feature/fluids/` (pure logic `src/core/fluids/`, gtested), client d
 contraptions (data carrier `fluids`). Every machine exposes the U3 fluid capability.
 
 - **Fluid registry** (`feature/fluids/FluidRegistry.h`, Create's GenericItemEmptying /
-  GenericItemFilling / FillingBySpout / PotionFluidHandler): buckets ↔ 1000 mB (water, lava, milk,
+  GenericItemFilling / FillingBySpout / PotionFluidHandler). A potion fluid is named after its potion
+  item for its bottle type (Create's PotionFluidType: "Potion of Swiftness", "Splash Potion of
+  Healing", "Lingering Water Bottle"; long / strong variants share the name), with the vanilla keys
+  `item.minecraft.{potion,splash_potion,lingering_potion}.effect.<potion>` in en_US and zh_CN.
+  Buckets ↔ 1000 mB (water, lava, milk,
   honey, chocolate; powder snow is not a fluid, as in Create), bottles ↔ 250 mB (a regular water
   bottle is water; every other potion item is the potion fluid of its type and bottle; honey bottle
   and builder's tea through the emptying / filling recipes and the U3 container registry). Glass
@@ -2650,7 +2688,8 @@ contraptions (data carrier `fluids`). Every machine exposes the U3 fluid capabil
   sequenced assembly recipe's `ingredient` starts at step 0. When step `n mod len(sequence)` is a
   `filling` step and the fluid matches, the spout fills it and advances the step; after
   `len × loops` steps one result is picked by weight (Create's rollResult).
-- **Spout**: 1000 mB tank, filled from every side but the nozzle (bottom). It processes the item two
+- **Spout**: 1000 mB tank, filled and drained from every side but the nozzle (bottom; Create's
+  capability is absent there). It processes the item two
   blocks below (the block between must have no collision, funnels excepted: Create's
   BeltProcessingBehaviour). Belts and depots (U11) hold the item through their processing behaviour
   (`belts::registerProcessor`, Create's onItemReceived / whenItemHeld): an item that can be filled
@@ -2659,26 +2698,41 @@ contraptions (data carrier `fluids`). Every machine exposes the U3 fluid capabil
   passes. Other **Levitate** blocks exposing the item as slot 0 from the top through the item
   capability are filled through it (the result goes back, leftovers drop; vanilla containers have no
   processing behaviour). Filling takes 20 ticks (FILLING_TIME); the item is filled 15 ticks in, one
-  item per cycle. With too little fluid it waits. A cauldron two blocks below is filled with a whole
-  bucket (water, lava, powder snow). Sounds: start / fill. Particles for every client (U17's
+  item per cycle. With too little fluid it waits. **Block spouting** (Create's
+  AllBlockSpoutingBehaviours, no gap check, the same 20 tick cycle, done 15 ticks in, a splash and no
+  sound): dirt / coarse dirt / rooted dirt (`dirt_with_roots`) become mud for 250 mB of water;
+  farmland gets one more moisture (`moisturized_amount` + 1 up to 7) for 100 mB of water; a water
+  cauldron one more level (Java levels 1..3 are Bedrock's `fill_level` 2 / 4 / 6: + 2 up to 6) for 250 mB
+  of water; an empty cauldron becomes a water cauldron of level 1 (`fill_level` 2) for 250 mB of water or
+  a full lava cauldron for 1000 mB of lava (CauldronSpoutingBehavior; powder snow is no fluid). Sound:
+  `levitate.fluids.spout` (Create's SPOUTING, an original sample in three variants, volume .75, pitch
+  .9..1.1) when an item starts filling; none when it is done. Particles for every client (U17's
   `levitate:fluid_particle`): a drop leaves the nozzle every tick from 20 to 8 ticks left, 20 drops
   splash off the item when it is filled. Client mod: the stream (its width follows Create's
   `((2p − 1)² − 1) / 32`) and the nozzle drawn in three bits (top, middle, bottom) that squeeze
   together (Create's squeeze: the stream's curve, −1 from 10 to 2 ticks left, then back; each bit
   `3/32 · squeeze` above the one before), the chunk mesh leaving them out (`levitate:nozzle` 1).
-  Logs: `spout at x y z filled <in> into <out>`, `... filled a cauldron with <fluid>`.
-- **Item drain**: 1500 mB tank, pipes extract on every side, nothing is inserted from outside.
-  Items enter through the item capability (one at a time when they hold fluid, otherwise the whole
-  stack), as a direct belt input (U11's `registerDirectInput`, Create's DirectBeltInputBehaviour:
-  belt ends, saws, chutes hand items in; not travelling upwards), from item entities landing on top, and travel at 1/8 block per tick away from the side
-  they came from (from above: down, starting at the centre). At the centre an item that can be
+  Client mod: the fluid in the spout's tank (Create's SpoutRenderer: 2.5..13.5 px wide, from 2.5 px
+  up by `11 px · max(level, .175)`), easing towards the level the server sends (`fluids.sync` op
+  `level`). Logs: `spout at x y z filled <in> into <out>`, `... filled <block> with <n> mB of <fluid>`.
+- **Item drain**: 1500 mB tank, pipes extract on every side but the top, nothing is inserted from
+  outside. Items enter through the item capability on the horizontal sides (one at a time when they
+  hold fluid, otherwise the whole stack; none through the top or bottom), as a direct belt input (U11's
+  `registerDirectInput`, Create's DirectBeltInputBehaviour: belt ends, saws, chutes hand items in; not
+  travelling upwards), and from item entities landing on top (Create's updateEntityAfterFallOn: inserted
+  from the horizontal direction nearest their motion, north when they lie still, starting at that
+  edge), and travel at 1/8 block per tick away from the side they came from (from above through a
+  direct input: down, starting at the centre). At the centre an item that can be
   emptied is held for 20 ticks; 15 ticks in it is emptied if all of its fluid fits (otherwise it
   waits). At the far edge it goes into the next Levitate block (belt, depot, chute, funnel, drain:
   Create's DirectBeltInputBehaviour), or, if that side is not solid, is ejected as an item entity
   (motion 1/8 outwards + 1/8 up); else it waits. Right-click with a fluid container empties it into
   the tank / fills an empty bucket or bottle from it (Create's FluidHelper exchange); right-click
-  with anything else takes the held item; block items without fluid are placed. Breaking drops the
-  held item. Logs: `item drain at x y z emptied <item> (<n> mB <fluid>)`, `... passed <item> on`,
+  with anything else takes the held item; block items without fluid are placed (a creative player
+  keeps the held container and gets nothing back, FluidHelper). Breaking drops the held item. The held
+  item is shown crossing the drain 15/16 up (Create's ItemDrainRenderer): companions get a display item
+  (U33, half size, interpolated), vanilla players a client-only item entity (the chute's, U12). The
+  client mod draws the fluid inside (2..14 px wide, from 5 px up by `7 px · level`). Logs: `item drain at x y z emptied <item> (<n> mB <fluid>)`, `... passed <item> on`,
   `... ejected <item>`, `... exchanged fluid with <player>`.
 - **Hose pulley**: kinetic (impact `hose_pulley` 4 SU/RPM), rotation axis = the clockwise neighbour
   of its facing; placed facing the player (sneak: away). The hose moves `speed / 512` blocks per tick
@@ -4460,9 +4514,10 @@ matches Create's official Chinese translation wording).
 | Crafter items on the crafter's face for **vanilla** clients (U16) | Create renders the slot / grid items client-side; vanilla clients have no hook for it | the client mod draws the slot item, the grouped grid, the exported grid sliding to the next crafter and the growing result with the world item renderer (U33); every client sees the blocks, the crit particles, the sounds and the result popping out |
 | Glass pipe flow fronts for **vanilla** clients (U17) | no client-side rendering without the client mod; a block state per progress step, face and fluid would not fit | the client mod draws Create's advancing fronts; vanilla clients see the glass pipe's `levitate:fluid` state fill the whole pipe as soon as a flow starts |
 | Fluid inside tanks and the moving engine piston for **vanilla** clients (U18) | no client-side rendering without the client mod; a fluid level per block would need a block state per level and fluid | the client mod draws them; vanilla clients see the tank (windows show an empty inside) and a static engine |
-| Boiler gauges for **vanilla** clients (U18) | the needle moves with the boiler level: client-side drawing (the client mod draws the gauges); a block state per needle position and side would need hundreds of tank states | vanilla clients see the boiler without gauges; the goggle lines (`/create steam`, U8's overlay) show the same status |
+| Boiler gauges for **vanilla** clients (U18) | the needle moves with the boiler level: client-side drawing (the client mod draws the gauges); a block state per needle position and side would need hundreds of tank states | vanilla clients see the boiler without gauges; the goggle overlay (U8, with Engineer's Goggles, also in the action bar of vanilla clients) and `/create steam` show the same status |
+| Spout / item drain fluid, the turning valve pointer and the moving whistle mouth for **vanilla** clients (U17, U18, U19) | client-side drawing of continuous values; a block state per level / angle and fluid would multiply the blocks' states | the client mod draws them; vanilla clients see the static models (the valve handle switches between closed and open) |
 | Flowing honey/chocolate in the world (U19) | Bedrock has no data-driven custom fluids: a custom block can't flow, be swum in or use the fluid renderer | they exist everywhere fluids are handled (pipes, tanks, basins, spouts, drains, buckets); in the world a bucket or a hose pulley places a translucent, non-colliding, non-flowing source block (`levitate:honey` / `levitate:chocolate`) that buckets and hose pulleys pick up again; entities in it are slowed (Slowness II) and take no fall damage instead of Create's viscous fluid motion; lava touching it turns into obsidian / limestone / scoria; no fog colour under it |
-| Hose drawn for **vanilla** clients (U19) | Create draws the hose with a block entity renderer; a block in its place would block the fluid it hangs in | the client mod draws the hose and its end piece; vanilla clients see the pulley only (draining and filling work the same) |
+| Hose drawn for **vanilla** clients (U19) | Create draws the hose with a block entity renderer; a block in its place would block the fluid it hangs in. Bedrock has no block display entity: the only stand-in is a falling block actor per hose block, which on Bedrock falls and lands as a block unless the server keeps holding it (the contraption engine does that for its own actors through server hooks); a hose reaches `hosePulleyRange` (128) blocks, so one pulley could need up to 128 server entities per hanging hose, moved every tick it winds. Judged too costly for a decoration | the client mod draws the hose and its end piece; vanilla clients see the pulley only (draining and filling work the same) |
 | Spout stream and nozzle squeeze for **vanilla** clients (U19) | no client-side animation without the client mod | the client mod draws Create's stream and squeezes the nozzle; vanilla clients see the static nozzle and the drops and splash (particles, every client) and hear the sounds |
 | Ropes / elevator belts of *moving* pulleys for **vanilla** clients (U20) | the rope length changes every tick; it can't be a rigid contraption block, and placing rope blocks while moving would collide with riders | the client mod draws rope, belt and magnet; vanilla players see the moving structure, and the ropes and magnet as blocks once it stops |
 | Cart assembler and controller rail as real rails (U21) | Bedrock minecarts only ride vanilla rail blocks; a data-driven block can't be a rail | they are rail-shaped blocks without collision; a minecart on one is guided by the server: held on the rail line at rail height and moved along it at the speed the rail gives it (no off-rail friction), then the next vanilla rail takes it over. A minecart item used on them places a cart there |

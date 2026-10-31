@@ -191,7 +191,8 @@ void resetWhistleTones();
 [[nodiscard]] int           whistleToneListeners(GlobalPos const& whistle);
 
 /// Whistle interactions (Create's WhistleBlock.use / onWrenched / WhistleExtenderBlock).
-bool useOnWhistle(Player& player, GlobalPos const& pos, ItemStack const& held, bool sneaking);
+/// `hitY`: the block-local height of the click (0..1).
+bool useOnWhistle(Player& player, GlobalPos const& pos, ItemStack const& held, bool sneaking, double hitY = 0.5);
 [[nodiscard]] int whistlePitchAt(GlobalPos const& whistle);
 
 /// Engine value box (Create's ScrollOptionBehaviour<RotationDirection>).

@@ -15,6 +15,10 @@
         "levitate:powered": [
           0,
           1
+        ],
+        "levitate:mouth": [
+          0,
+          1
         ]
       },
       "traits": {
@@ -37,7 +41,10 @@
           "bracket": "q.block_state('minecraft:block_face') != 'up' && q.block_state('minecraft:block_face') != 'down'",
           "small": "q.block_state('levitate:size') == 1",
           "medium": "q.block_state('levitate:size') == 0",
-          "large": "q.block_state('levitate:size') == 2"
+          "large": "q.block_state('levitate:size') == 2",
+          "mouth_small": "q.block_state('levitate:size') == 1 && q.block_state('levitate:mouth') == 0",
+          "mouth_medium": "q.block_state('levitate:size') == 0 && q.block_state('levitate:mouth') == 0",
+          "mouth_large": "q.block_state('levitate:size') == 2 && q.block_state('levitate:mouth') == 0"
         }
       },
       "minecraft:material_instances": {

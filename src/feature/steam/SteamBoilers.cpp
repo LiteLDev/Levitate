@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <random>
 #include <set>
 
 #include "mc/world/actor/player/Player.h"
@@ -20,6 +21,7 @@
 #include "feature/common/FluidRegistry.h"
 #include "feature/common/Items.h"
 #include "feature/common/ValueBox.h"
+#include "feature/goggles/Wrenchable.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/steam/SteamInternal.h"
 #include "game/Blocks.h"
@@ -72,6 +74,69 @@ std::set<GlobalPos>& converting() {
 }
 bool          gIndexDirty = false;
 std::uint64_t gTick       = 0;
+
+// ---- engine puffs (Create's BoilerData sound pools) ------------------------------------------------
+
+/// One SoundPool(4, 2) per boiler side: puffs queued by its engines are merged over 2 ticks and at
+/// most 4 of them play, so a big boiler doesn't sound like hundreds of engines.
+struct PuffPool {
+    std::vector<GlobalPos> queued;
+    int                    ticks   = 0;
+    int                    engines = 0;
+};
+std::map<std::pair<GlobalPos, int>, PuffPool>& puffPools() {
+    static std::map<std::pair<GlobalPos, int>, PuffPool> m;
+    return m;
+}
+std::mt19937& puffRng() {
+    static std::mt19937 rng{std::random_device{}()};
+    return rng;
+}
+
+void queuePuff(GlobalPos const& controller, cs::Dir side, GlobalPos const& engine, int engines) {
+    auto& pool   = puffPools()[{controller, static_cast<int>(side)}];
+    pool.engines = engines;
+    pool.queued.push_back(engine);
+}
+
+/// Create's BoilerData sound: candle extinguish at 3 / max(2, engines / 6), pitch 1.18 − rand · .25,
+/// and the steam sample at a sixteenth of that volume (pitch .8), at the engine's block corner.
+void playPuffAt(GlobalPos const& p, int engines) {
+    std::uniform_real_distribution<float> d(0.f, 1.f);
+    float volume = 3.f / static_cast<float>(std::max(2, engines / 6));
+    float pitch  = 1.18f - d(puffRng()) * .25f;
+    playSound(p.dim, p.x, p.y, p.z, "extinguish.candle", volume, pitch);
+    playSound(p.dim, p.x, p.y, p.z, "levitate.steam.engine", volume / 16.f, .8f);
+}
+
+void playPuffs() {
+    constexpr int kMaxConcurrent = 4, kMergeTicks = 2;
+    for (auto it = puffPools().begin(); it != puffPools().end();) {
+        auto& pool = it->second;
+        if (pool.queued.empty()) {
+            it = puffPools().erase(it);
+            continue;
+        }
+        if (++pool.ticks < kMergeTicks) {
+            ++it;
+            continue;
+        }
+        pool.ticks = 0;
+        auto& q    = pool.queued;
+        if (static_cast<int>(q.size()) <= kMaxConcurrent) {
+            for (auto const& p : q) playPuffAt(p, pool.engines);
+        } else {
+            for (int i = 0; i < kMaxConcurrent; ++i) {
+                std::uniform_int_distribution<std::size_t> pick(0, q.size() - 1);
+                auto                                       at = pick(puffRng());
+                playPuffAt(q[at], pool.engines);
+                q.erase(q.begin() + static_cast<std::ptrdiff_t>(at));
+            }
+        }
+        q.clear();
+        ++it;
+    }
+}
 
 std::string at(GlobalPos const& p) { return std::to_string(p.x) + " " + std::to_string(p.y) + " " + std::to_string(p.z); }
 
@@ -418,6 +483,7 @@ void resetRuntime() {
     whistleStates().clear();
     resetWhistleTones();
     engineStates().clear();
+    puffPools().clear();
     loggedLevels().clear();
     converting().clear();
     index() = Index{};
@@ -564,7 +630,7 @@ int whistlePitchAt(GlobalPos const& whistle) {
     return cs::whistlePitch([&](int i) { return extensionShapeAt(*region, offset(whistle, cs::Dir::Up, i)); });
 }
 
-bool useOnWhistle(Player& player, GlobalPos const& pos, ItemStack const& held, bool sneaking) {
+bool useOnWhistle(Player& player, GlobalPos const& pos, ItemStack const& held, bool sneaking, double hitY) {
     auto* region = regionOf(pos.dim);
     if (!region) return false;
     auto id     = idAt(*region, pos);
@@ -592,19 +658,27 @@ bool useOnWhistle(Player& player, GlobalPos const& pos, ItemStack const& held, b
             if (auto const* b = game::blockWith(kExtension, {{"levitate:size", size}, {"levitate:shape", 0}})) game::setBlock(*region, game::blockPos(target), *b);
         }
         if (action.kind != cs::IncrementAction::None) {
-            playSound(pos.dim, target.x + .5, target.y + .5, target.z + .5, "dig.copper", 1.f, action.soundPitch);
+            // Create: the note block xylophone at a quarter volume and the whistle's (copper) hit sound
+            playSound(pos.dim, target.x + .5, target.y + .5, target.z + .5, "note.xylophone", .25f, action.soundPitch);
+            playSound(pos.dim, target.x + .5, target.y + .5, target.z + .5, "hit.copper", 1.f, action.soundPitch);
             log().info("steam: {} changed the whistle at {}: pitch {}", player.getRealName(), at(base), whistlePitchAt(base));
         }
         return true;
     }
     if (heldId == kWrench) {
         if (sneaking && id == kExtension) {
-            // the top extension shrinks by half a block / goes away
-            if (idAt(*region, offset(pos, cs::Dir::Up)) == kExtension) return true;
+            // Create's WhistleExtenderBlock.onSneakWrenched: the upper half of a full extension halves
+            // it (the extensions above lose their support); the lower half or a half extension is
+            // the wrench's own dismantling (U8)
             auto shape = extensionShapeAt(*region, pos).value_or(cs::ExtensionShape::Single);
-            if (shape == cs::ExtensionShape::Single) removeBlock(*region, pos);
-            else setStates(*region, pos, {{"levitate:shape", static_cast<int>(cs::ExtensionShape::Single)}});
-            playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "dig.copper", 1.f, 1.f);
+            if (hitY < .5 || shape == cs::ExtensionShape::Single) return false;
+            for (int i = 1; i <= 32; ++i) {
+                GlobalPos p = offset(pos, cs::Dir::Up, i);
+                if (idAt(*region, p) != kExtension) break;
+                removeBlock(*region, p);
+            }
+            setStates(*region, pos, {{"levitate:shape", static_cast<int>(cs::ExtensionShape::Single)}});
+            goggles::wrench::playRemoveSound(pos);
             log().info("steam: {} changed the whistle at {}: pitch {}", player.getRealName(), at(base), whistlePitchAt(base));
             return true;
         }
@@ -725,7 +799,9 @@ void tickSteam() {
             auto& ss   = shaftStates()[shaftPos];
             shaftValid = axis != static_cast<int>(cs::axisOf(shape.facing)) && ss.initialTicks == 0 && (!ss.engine || *ss.engine == pos);
         }
-        if (!tank || !shaftValid) {
+        // Create's SteamEngineBlockEntity.isValid: only a regular fluid tank drives the engine (an
+        // engine on a creative fluid tank stands still)
+        if (!tank || !shaftValid || tank->creative) {
             auto it = shaftStates().find(shaftPos);
             if (shaftId == kPoweredShaft && it != shaftStates().end() && it->second.engine && *it->second.engine == pos && it->second.efficiency != 0
                 && loaded(*region, tankPos))
@@ -752,7 +828,7 @@ void tickSteam() {
         auto& es    = engineStates()[pos];
         if (speed != 0 && efficiency > 0 && gTick >= es.nextChuff) {
             es.nextChuff = gTick + static_cast<std::uint64_t>(std::max(4.f, 600.f / std::abs(speed)));
-            playSound(pos.dim, pos.x + .5, pos.y + .5, pos.z + .5, "levitate.steam.engine", .5f, .75f + .25f * std::min(1.f, efficiency));
+            queuePuff(tank->controller, shape.facing, pos, rt->boiler.attachedEngines);
             // a steam jet out of the cylinder's front, along the facing and a little up
             auto   f  = offset(pos, shape.facing);
             double nx = f.x - pos.x, ny = f.y - pos.y, nz = f.z - pos.z;
@@ -829,6 +905,7 @@ void tickSteam() {
         }
     }
     tickWhistleTones();
+    playPuffs();
 
     if (gIndexDirty) saveIndex();
 }

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <map>
 
 #include "core/steam/Boiler.h"
@@ -304,9 +305,11 @@ TEST(SteamWhistle, IncrementSize) {
     auto a     = incrementSize(above, free);
     EXPECT_EQ(a.kind, IncrementAction::Place);
     EXPECT_EQ(a.offset, 1);
+    EXPECT_FLOAT_EQ(a.soundPitch, static_cast<float>(std::pow(2.0, -1 / 12.0)));
     col = {S::Single};
     a   = incrementSize(above, free);
     EXPECT_EQ(a.kind, IncrementAction::Widen);
+    EXPECT_FLOAT_EQ(a.soundPitch, static_cast<float>(std::pow(2.0, -2 / 12.0)));
     col = {S::Double, S::Double, S::Double, S::Double, S::Double, S::Double};
     EXPECT_EQ(incrementSize(above, free).kind, IncrementAction::None);
     col = {S::Double};

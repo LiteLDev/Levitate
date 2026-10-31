@@ -4,9 +4,11 @@
 #                       fronts in the glass pipes (log "pipes client: drawing N glass pipe flows"),
 #                       the open end pours fluid particles and places a water source; the selftests
 #                       pass on the (integrated) server.
+#                       A fluid valve turned by a test source opens; the client mod turns its
+#                       pointer smoothly (log "pipes client: a valve pointer turns", U51).
 #   remote-vanilla:     a client without the mod sees the same static models and the water in the
-#                       glass pipes (block states), without errors.
-# Screenshots: out/pipes/{pipes-built,pipes-front (mod),pipes-flowing}.png
+#                       glass pipes (block states), the valve handle switching to open, without errors.
+# Screenshots: out/pipes/{pipes-built,pipes-front (mod),pipes-flowing,pipes-valve}.png
 # a chat line typed while the game is busy can get lost (remote clients more often): send the speed
 # command again, up to three times, until the generator reports it
 function Set-TestSpeed([string]$command) {
@@ -59,6 +61,16 @@ Start-Sleep -Seconds 6
 Save-Screenshot 'pipes-flowing' | Out-Null
 Invoke-Chat '/create pipes ~8 ~1 ~0'
 Wait-LogLine 'pipes: levitate:glass_fluid_pipe at' 30 -Since $mark | Out-Null
+
+# the valve on the smart pipe, turned by test sources on both horizontal axes (one meets its shaft)
+$valveMark = Get-LogMark
+Invoke-Chat '/setblock ~6 ~2 ~4 levitate:kinetics_test_source ["levitate:axis"=0]'
+Invoke-Chat '/setblock ~7 ~2 ~5 levitate:kinetics_test_source ["levitate:axis"=2]'
+if (-not $vanilla) { Wait-LogLine 'pipes client: a valve pointer turns' 30 -Since $valveMark | Out-Null }
+Wait-LogLine 'pipes: valve at -?\d+ -?\d+ -?\d+ opened' 30 -Since $valveMark | Out-Null
+Invoke-Chat '/tp @s ~ ~ ~ facing ~7 ~2 ~4'
+Start-Sleep -Milliseconds 800
+Save-Screenshot 'pipes-valve' | Out-Null
 
 if (-not $vanilla) {
     $r = Invoke-SelfTest 'pipes.*'

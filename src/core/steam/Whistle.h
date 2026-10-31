@@ -29,7 +29,7 @@ enum class ExtensionShape : int { Single = 0, Double = 1, DoubleConnected = 2 };
 struct IncrementAction {
     enum Kind { None, Widen, Place } kind = None;
     int   offset = 0;  ///< blocks above the whistle
-    float soundPitch = 1; ///< 2^(-(offset·2)/12)
+    float soundPitch = 1; ///< widen 2^(-(offset·2)/12), place 2^(-(offset·2-1)/12)
 };
 /// `above(i)` as in `whistlePitch`; `replaceable(i)` tells whether block i above can be replaced.
 [[nodiscard]] IncrementAction incrementSize(std::function<std::optional<ExtensionShape>(int)> const& above,

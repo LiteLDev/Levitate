@@ -1,4 +1,4 @@
-// Selftests of the fluids unit (U19, testPos dx 1900..1999; U40's additions 4040..4049).
+// Selftests of the fluids unit (U19, testPos dx 1900..1999; U40's additions 4040..4049; U51's 5150..5199).
 //
 // `levitate:fluids_test_depot` stands in for Create's depot (U11) in these tests: one slot from
 // the top through the item capability, and a mounted 8000 mB tank on contraptions.
@@ -17,6 +17,7 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/BlockSource.h"
+#include "mc/world/level/GameType.h"
 #include "mc/world/level/dimension/DimensionType.h"
 #include "mc/world/phys/AABB.h"
 
@@ -24,7 +25,9 @@
 #include "feature/common/BlockData.h"
 #include "feature/common/Items.h"
 #include "feature/contraption/Contraption.h"
+#include "feature/common/FluidRegistry.h"
 #include "feature/fluids/FluidsInternal.h"
+#include "feature/itemrender/DisplayItems.h"
 #include "feature/kinetics/Kinetics.h"
 #include "feature/pipes/FluidFX.h"
 #include "game/Blocks.h"
@@ -451,6 +454,146 @@ LV_REGISTER_SELFTEST("fluids.drain_player_exchange", [](Context& ctx) -> ll::cor
     auto& inv    = sp.getInventory();
     for (int i = 0; i < inv.getContainerSize(); ++i) hasLava |= items::idOf(inv.getItem(i)) == "minecraft:lava_bucket";
     ctx.check(hasLava, "the player got a lava bucket");
+});
+
+// ---- U51 (dx 5150..5199) -------------------------------------------------------------------------
+
+int stateOf(Context& ctx, GlobalPos const& p, char const* name) {
+    auto const& b = regionOf(ctx).getBlock(toBlockPos(p));
+    return game::intState(b, name).value_or(-1);
+}
+
+LV_REGISTER_SELFTEST("fluids.spout_block_behaviours", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // Create's AllBlockSpoutingBehaviours: water cauldron levels (250 mB each), dirt / coarse dirt
+    // -> mud (250)
+    auto p = at(ctx.testPos(5150), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(at(p, 6, 0, 0)), "test area loaded");
+    auto& region = regionOf(ctx);
+    ctx.setBlock(p, "minecraft:cauldron");
+    ctx.setBlock(at(p, 3, 0, 0), "minecraft:dirt");
+    for (int dx : {0, 3, 6}) {
+        ctx.cleanupBlock(at(p, dx, 1, 0));
+        ctx.setBlock(at(p, dx, 2, 0), kSpout);
+    }
+    // (farmland, moisture + 1 for 100 mB, is not checked here: it turned into dirt in the test world
+    // before the spout's first cycle)
+    ctx.setBlock(at(p, 6, 0, 0), "minecraft:coarse_dirt");
+    co_await ctx.ticks(2);
+    for (int dx : {0, 3, 6}) (void)cfl::fill(region, toBlockPos(at(p, dx, 2, 0)), 1, {"minecraft:water", 1000}, false);
+    co_await ctx.ticks(25);
+    ctx.check(stateOf(ctx, p, "fill_level") == 2, "an empty cauldron gets one level of water, fill_level " + std::to_string(stateOf(ctx, p, "fill_level")));
+    ctx.check(tank(ctx, at(p, 0, 2, 0)) == FluidStack{"minecraft:water", 750}, "250 mB used for it");
+    ctx.check(idAt(ctx, at(p, 3, 0, 0)) == "minecraft:mud", "dirt turned into mud, got " + idAt(ctx, at(p, 3, 0, 0)));
+    ctx.check(tank(ctx, at(p, 3, 2, 0)) == FluidStack{"minecraft:water", 750}, "250 mB for the mud");
+    ctx.check(idAt(ctx, at(p, 6, 0, 0)) == "minecraft:mud", "coarse dirt turned into mud, got " + idAt(ctx, at(p, 6, 0, 0)));
+    co_await ctx.ticks(50);
+    ctx.check(stateOf(ctx, p, "fill_level") == 6, "three levels fill the cauldron, fill_level " + std::to_string(stateOf(ctx, p, "fill_level")));
+    ctx.check(tank(ctx, at(p, 0, 2, 0)) == FluidStack{"minecraft:water", 250}, "750 mB used in all");
+    ctx.check(tank(ctx, at(p, 3, 2, 0)) == FluidStack{"minecraft:water", 750}, "mud takes nothing more");
+    ctx.check(tank(ctx, at(p, 6, 2, 0)) == FluidStack{"minecraft:water", 750}, "250 mB for the coarse dirt");
+});
+
+LV_REGISTER_SELFTEST("fluids.drain_thrown_item", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // Create's ItemDrainBlock.updateEntityAfterFallOn: an item landing on a drain is inserted from its
+    // horizontal motion, crosses it and leaves on the far side (here: a drain standing on stone)
+    auto p = at(ctx.testPos(5160), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(at(p, 3, 0, 0)), "test area loaded");
+    ctx.setBlock(at(p, 0, -1, 0), "minecraft:stone");
+    ctx.setBlock(p, kItemDrain);
+    ctx.cleanupBlock(at(p, 1, 0, 0));
+    ctx.cleanupBlock(at(p, 0, 1, 0));
+    co_await ctx.ticks(2);
+    spawnItem(p.dim, p.x + .3, p.y + 1.05, p.z + .5, item(ctx, "minecraft:stick"), .12, 0, 0);
+    int travel = -1;
+    for (int i = 0; i < 20 && travel < 0; ++i) {
+        co_await ctx.ticks(1);
+        if (auto const* d = dataAt(p); d && d->contains("held")) travel = (*d)["held"].value("travel", -1);
+    }
+    ctx.require(travel >= 0, "the drain caught the stick");
+    ctx.check(travel == 5, "it travels east, as it was thrown (not down), got face " + std::to_string(travel));
+    co_await ctx.ticks(20);
+    ctx.check(items::isEmpty(slot0(ctx, p)), "it left the drain on the far side");
+    // ejected east (the test player standing nearby may have picked it up)
+    int   sticks = countItemsNear(ctx, at(p, 2, 0, 0), "minecraft:stick", true);
+    auto& inv    = ctx.player().getInventory();
+    for (int i = 0; i < inv.getContainerSize(); ++i)
+        if (items::idOf(inv.getItem(i)) == "minecraft:stick") ++sticks;
+    ctx.check(sticks >= 1, "the stick was ejected east of the drain");
+});
+
+LV_REGISTER_SELFTEST("fluids.capability_sides", [](Context& ctx) -> ll::coro::CoroTask<> {
+    auto p = at(ctx.testPos(5165), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    ctx.setBlock(p, kSpout);
+    ctx.setBlock(at(p, 2, 0, 0), kItemDrain);
+    co_await ctx.ticks(2);
+    auto& region = regionOf(ctx);
+    (void)cfl::fill(region, toBlockPos(p), 1, {"minecraft:water", 500}, false);
+    ctx.check(cfl::drain(region, toBlockPos(p), 0, {"", 100}, true).empty(), "nothing drains through the spout's nozzle");
+    ctx.check(cfl::drain(region, toBlockPos(p), 2, {"", 100}, true).amount == 100, "the spout drains from its sides");
+    auto drain = at(p, 2, 0, 0);
+    ctx.require(items::isEmpty(items::insert(region, toBlockPos(drain), 4, item(ctx, "minecraft:water_bucket"), false)), "a water bucket from the west");
+    co_await ctx.ticks(30);
+    ctx.require(tank(ctx, drain).amount == 1000, "the drain holds the water");
+    ctx.check(cfl::drain(region, toBlockPos(drain), 1, {"", 100}, true).empty(), "nothing drains from the drain's top");
+    ctx.check(cfl::drain(region, toBlockPos(drain), 0, {"", 100}, true).amount == 100, "the drain's bottom drains");
+    (void)items::extract(region, toBlockPos(drain), 5, items::any(), 64, false);
+    ctx.check(!items::isEmpty(items::insert(region, toBlockPos(drain), 1, item(ctx, "minecraft:stone"), true)), "no items through the drain's top");
+    ctx.check(!items::isEmpty(items::insert(region, toBlockPos(drain), 0, item(ctx, "minecraft:stone"), true)), "no items through the drain's bottom");
+    ctx.check(items::isEmpty(items::insert(region, toBlockPos(drain), 3, item(ctx, "minecraft:stone"), true)), "items through its sides");
+    (void)countItemsNear(ctx, drain, "minecraft:bucket", true);
+});
+
+LV_REGISTER_SELFTEST("fluids.drain_creative_exchange", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // FluidHelper.tryFillItemFromBE: a creative player keeps the empty bucket and gets nothing
+    auto p = at(ctx.testPos(5170), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    ctx.setBlock(p, kItemDrain);
+    co_await ctx.ticks(2);
+    auto& pl = ctx.player();
+    pl.setPlayerGameType(GameType::Creative);
+    FluidStack tank{"minecraft:lava", 1000};
+    int        before = 0;
+    auto&      inv    = pl.getInventory();
+    for (int i = 0; i < inv.getContainerSize(); ++i) before += items::idOf(inv.getItem(i)) == "minecraft:lava_bucket" ? 1 : 0;
+    pl.setSelectedItem(item(ctx, "minecraft:bucket"));
+    ctx.check(exchangeWithTank(pl, tank, 1500, pl.getSelectedItem(), true), "the creative player fills the bucket");
+    ctx.check(tank.empty(), "the lava was taken");
+    int after = 0;
+    for (int i = 0; i < inv.getContainerSize(); ++i) after += items::idOf(inv.getItem(i)) == "minecraft:lava_bucket" ? 1 : 0;
+    ctx.check(after == before, "no lava bucket given to a creative player");
+    ctx.check(items::idOf(pl.getSelectedItem()) == "minecraft:bucket", "the empty bucket is still held");
+    pl.setSelectedItem(items::empty());
+    pl.setPlayerGameType(GameType::Survival);
+});
+
+LV_REGISTER_SELFTEST("fluids.drain_display", [](Context& ctx) -> ll::coro::CoroTask<> {
+    // ItemDrainRenderer: the held item is shown crossing the drain (display item / client-only entity)
+    auto p = at(ctx.testPos(5175), 0, 1, 0);
+    ctx.require(co_await ctx.ensureLoaded(p), "test area loaded");
+    ctx.setBlock(p, kItemDrain);
+    ctx.setBlock(at(p, 1, 0, 0), "minecraft:stone");
+    co_await ctx.ticks(2);
+    auto& region = regionOf(ctx);
+    (void)items::insert(region, toBlockPos(p), 4, item(ctx, "minecraft:stick"), false);
+    co_await ctx.ticks(3);
+    auto const* shown = itemrender::find(p, 0);
+    ctx.require(shown != nullptr, "the stick is shown on the drain");
+    ctx.check(std::abs(shown->at.y - (p.y + 15 / 16.)) < 1e-3, "15/16 up");
+    ctx.check(shown->at.x > p.x && shown->at.x < p.x + 1.01, "within the drain");
+    (void)items::extract(region, toBlockPos(p), 4, items::any(), 64, false);
+    co_await ctx.ticks(2);
+    ctx.check(itemrender::find(p, 0) == nullptr, "nothing shown once it is gone");
+});
+
+LV_REGISTER_SELFTEST("fluids.potion_names", [](Context& ctx) {
+    // Create's PotionFluidType: the potion item's name for its bottle type, translated
+    namespace ft = common::fluidtypes;
+    auto name    = [](char const* id, char const* locale) { return ft::displayName(id, locale); };
+    ctx.check(name("levitate:potion/regular/long_swiftness", "en_US") == "Potion of Swiftness", "regular: " + name("levitate:potion/regular/long_swiftness", "en_US"));
+    ctx.check(name("levitate:potion/splash/strong_healing", "en_US") == "Splash Potion of Healing", "splash: " + name("levitate:potion/splash/strong_healing", "en_US"));
+    ctx.check(name("levitate:potion/lingering/water", "en_US") == "Lingering Water Bottle", "lingering water: " + name("levitate:potion/lingering/water", "en_US"));
+    ctx.check(name("levitate:potion/splash/swiftness", "zh_CN") == "喷溅型迅捷药水", "zh_CN: " + name("levitate:potion/splash/swiftness", "zh_CN"));
 });
 
 // ---- hose pulley -------------------------------------------------------------------------------

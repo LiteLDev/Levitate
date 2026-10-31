@@ -9,6 +9,10 @@
 //   fills (squeeze = the stream's curve, -1 from 10 to 2 ticks left, then back to 0): chunk meshes
 //   draw spouts without their nozzle (levitate:nozzle 1) and the bits are drawn here, each one
 //   3 / 32 * squeeze higher than the one above it. Vanilla clients see the static nozzle.
+// - Spout and item drain tanks (op level / levels / level_remove): the fluid inside, as Create's
+//   SpoutRenderer (2.5..13.5 px wide, from 2.5 px up by 11 px · max(level, .175)) and
+//   ItemDrainRenderer (2..14 px wide, from 5 px up by 7 px · level), the level easing towards the
+//   server's (Create's LerpedFloat chase).
 
 #ifdef LV_CLIENT
 
@@ -90,9 +94,18 @@ struct Spout {
     Clock::time_point at;
 };
 
+struct Level {
+    std::uint32_t     color  = 0;
+    bool              spout  = false;
+    float             target = 0;  ///< fill level 0..1 from the server
+    float             shown  = -1; ///< what is drawn (eases towards target)
+    Clock::time_point at;
+};
+
 std::mutex           gMutex;
 std::map<Key, Hose>  gHoses;
 std::map<Key, Spout> gSpouts;
+std::map<Key, Level> gLevels;
 bool                 gLoggedHose = false;
 
 constexpr char const* kSpoutId = "levitate:spout";
@@ -127,6 +140,22 @@ void onSync(nlohmann::json const& msg) {
             for (auto it = gHoses.begin(); it != gHoses.end();) it = std::get<0>(it->first) == dim ? gHoses.erase(it) : std::next(it);
             for (auto const& h : msg.value("hoses", nlohmann::json::array()))
                 gHoses[keyOf(dim, h.at("pos"))] = {h.value("offset", 0.f), h.value("speed", 0.f), Clock::now()};
+        } else if (op == "level" || op == "levels") {
+            if (op == "levels")
+                for (auto it = gLevels.begin(); it != gLevels.end();) it = std::get<0>(it->first) == dim ? gLevels.erase(it) : std::next(it);
+            auto add = [&](nlohmann::json const& l) {
+                auto& e  = gLevels[keyOf(dim, l.at("pos"))];
+                e.color  = l.value("color", 0u);
+                e.spout  = l.value("kind", "") == "spout";
+                e.target = l.value("level", 0.f);
+                if (e.shown < 0) e.shown = e.target;
+                e.at = Clock::now();
+            };
+            if (op == "level") add(msg);
+            else
+                for (auto const& l : msg.value("levels", nlohmann::json::array())) add(l);
+        } else if (op == "level_remove") {
+            gLevels.erase(keyOf(dim, msg.at("pos")));
         } else if (op == "spout") {
             gSpouts[keyOf(dim, msg.at("pos"))] = {msg.value("color", 0u), Clock::now()};
         }
@@ -167,7 +196,24 @@ void drawFluids(BaseActorRenderContext& ctx) {
     std::vector<Quad> quads;
     {
         std::lock_guard lock(gMutex);
-        if (gHoses.empty() && gSpouts.empty()) return;
+        if (gHoses.empty() && gSpouts.empty() && gLevels.empty()) return;
+        for (auto& [k, l] : gLevels) {
+            auto [d, x, y, z] = k;
+            if (d != dim) continue;
+            // Create's fluid level chase (LerpedFloat, about an eighth of the way per tick)
+            float ticks = std::chrono::duration<float>(now - l.at).count() * 20.f;
+            l.at        = now;
+            l.shown += (l.target - l.shown) * std::min(1.f, ticks * .125f);
+            if (l.shown <= 0.001f) continue;
+            float r = lin(int(l.color >> 16 & 0xff)), g = lin(int(l.color >> 8 & 0xff)), b = lin(int(l.color & 0xff));
+            if (l.spout) {
+                float lo = 2.5f / 16, hi = lo + 11.f / 16, top = lo + 11.f / 16 * std::max(l.shown, .175f);
+                box(quads, {x + lo, y + lo, z + lo}, {x + hi, y + top, z + hi}, r, g, b);
+            } else {
+                float lo = 2.f / 16, hi = lo + 12.f / 16, bottom = 5.f / 16, top = bottom + 7.f / 16 * l.shown;
+                box(quads, {x + lo, y + bottom, z + lo}, {x + hi, y + top, z + hi}, r, g, b);
+            }
+        }
         for (auto const& [k, h] : gHoses) {
             auto [d, x, y, z] = k;
             if (d != dim) continue;
@@ -214,7 +260,7 @@ void drawFluids(BaseActorRenderContext& ctx) {
     MeshHelpers::renderMeshImmediately(sc, tess, material(), OffscreenCaptureDescription{});
     if (!gLoggedHose) {
         gLoggedHose = true;
-        log().info("fluids: rendering {} quads (hoses / spout streams)", quads.size());
+        log().info("fluids: rendering {} quads (hoses / spout streams / tank levels)", quads.size());
     }
 }
 
@@ -402,6 +448,7 @@ public:
                 std::lock_guard lock(gMutex);
                 gHoses.clear();
                 gSpouts.clear();
+                gLevels.clear();
                 gLoggedHose = false;
             }
             resetNozzles();
@@ -415,6 +462,7 @@ public:
         std::lock_guard lock(gMutex);
         gHoses.clear();
         gSpouts.clear();
+        gLevels.clear();
     }
 
 private:

@@ -3,12 +3,15 @@
 # (emptying, passing items on, ejecting, player exchange), hose pulley (lowering, draining,
 # filling, infinite bodies, winding up, placement facing), honey / chocolate source blocks
 # (bucket place / pick up, lava, slowness), the portable fluid interface on a contraption, and the
-# spout over U11's depots and moving belts (Create's belt processing: held, filled one at a time).
+# spout over U11's depots and moving belts (Create's belt processing: held, filled one at a time);
+# U51: block spouting (cauldron levels, mud, farmland), thrown items crossing a drain, the drain's
+# shown item, capability sides, potion fluid names.
 $mark = Get-LogMark
 $r = Invoke-SelfTest 'fluids.*'
-if ($r.Pass -lt 14) { throw "expected at least 14 fluids selftests to pass, got $($r.Pass)" }
+if ($r.Pass -lt 20) { throw "expected at least 20 fluids selftests to pass, got $($r.Pass)" }
 Wait-LogLine 'spout at -?\d+ -?\d+ -?\d+ filled minecraft:glass_bottle into minecraft:potion' 10 -Since $mark | Out-Null
-Wait-LogLine 'spout at -?\d+ -?\d+ -?\d+ filled a cauldron with minecraft:lava' 10 -Since $mark | Out-Null
+Wait-LogLine 'spout at -?\d+ -?\d+ -?\d+ filled minecraft:cauldron with 1000 mB of minecraft:lava' 10 -Since $mark | Out-Null
+Wait-LogLine 'spout at -?\d+ -?\d+ -?\d+ filled minecraft:dirt with 250 mB of minecraft:water' 10 -Since $mark | Out-Null
 Wait-LogLine 'belts: \S+ connected a belt from' 10 -Since $mark | Out-Null
 Wait-LogLine 'item drain at -?\d+ -?\d+ -?\d+ emptied minecraft:water_bucket \(1000 mB minecraft:water\)' 10 -Since $mark | Out-Null
 Wait-LogLine 'item drain at -?\d+ -?\d+ -?\d+ ejected minecraft:bucket' 10 -Since $mark | Out-Null

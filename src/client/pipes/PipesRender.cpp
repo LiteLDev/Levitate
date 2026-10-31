@@ -8,13 +8,23 @@
 // src/feature/pipes/PipeEffects.cpp) when they change; the fronts advance here every tick at the
 // flow's speed. Chunk meshes draw glass pipes without their static fluid (levitate:fluid 0), so
 // only this renderer shows it; vanilla clients keep the static fluid.
+//
+// Fluid valves: Create's FluidValveRenderer turns the pointer smoothly (0 to -90 degrees about the
+// valve's facing as `pointer` goes from closed to open). The server sends each valve's pointer,
+// target and rate ("pipes.valve"); chunk meshes draw valves without their handle
+// (levitate:pointer 1) and the handle is drawn here, turned by the pointer moving `rate` per tick.
+// Vanilla clients see the handle switch between open and closed (levitate:enabled).
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
+#include <string>
 #include <unordered_map>
 
 #include "glm/gtc/matrix_transform.hpp"
@@ -62,9 +72,11 @@
 #include "mc/world/level/block/actor/BlockActorRendererId.h"
 
 #include "client/Client.h"
+#include "core/kinetics/RotorModel.h"
 #include "feature/net/Net.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
+#include "mod/Main.h"
 #include "mod/Module.h"
 
 namespace lv::client::pipes {
@@ -74,6 +86,7 @@ using Json = nlohmann::json;
 namespace {
 
 constexpr char const* kGlassPipe = "levitate:glass_fluid_pipe";
+constexpr char const* kValve     = "levitate:fluid_valve";
 constexpr float       kRadius    = 3.f / 16.f; ///< the fluid column's half width (the static fluid's)
 
 struct Flow {
@@ -87,11 +100,20 @@ struct Pipe {
 };
 using Key = std::array<int, 4>; // dim, x, y, z
 
+struct Valve {
+    float         pointer = 0, target = 0, rate = 0;
+    std::uint64_t tick = 0; ///< client tick `pointer` was received at
+};
+
 struct State {
-    std::mutex                                     mutex; ///< hidden (chunk builder threads)
+    std::mutex                                     mutex; ///< hidden, valves seen (chunk builder threads)
     std::unordered_map<Block const*, Block const*> hidden;
-    std::map<Key, Pipe>                            pipes; ///< client thread
-    bool                                           logged = false;
+    std::unordered_map<Block const*, Block const*> handleless; ///< valve states without their handle
+    std::set<std::array<int, 3>>                   valvesSeen;
+    std::map<Key, Pipe>                            pipes;  ///< client thread
+    std::map<Key, Valve>                           valves; ///< client thread
+    std::map<std::string, std::unique_ptr<mce::Mesh>> handleMeshes; ///< client thread
+    bool                                           logged = false, loggedValve = false;
 };
 
 State& state() {
@@ -119,6 +141,25 @@ void onGlass(Json const& msg) {
         p.tick = clientTick();
         for (auto const& f : flows) p.flows.push_back({f.at(0).get<int>(), f.at(1).get<int>(), f.at(2).get<int>() != 0, f.at(3).get<float>(), f.at(4).get<float>()});
         s.pipes[key] = std::move(p);
+    } catch (...) {
+    }
+}
+
+void onValve(Json const& msg) {
+    try {
+        auto& s   = state();
+        auto  op  = msg.value("op", "");
+        int   dim = msg.value("dim", 0);
+        auto  add = [&](Json const& v) {
+            auto pos = v.at("pos");
+            s.valves[Key{dim, pos.at(0).get<int>(), pos.at(1).get<int>(), pos.at(2).get<int>()}] =
+                Valve{v.value("pointer", 0.f), v.value("target", 0.f), v.value("rate", 0.f), clientTick()};
+        };
+        if (op == "valve") add(msg);
+        else if (op == "valves") {
+            for (auto it = s.valves.begin(); it != s.valves.end();) it = (*it).first[0] == dim ? s.valves.erase(it) : std::next(it);
+            for (auto const& v : msg.value("valves", Json::array())) add(v);
+        }
     } catch (...) {
     }
 }
@@ -230,6 +271,116 @@ void renderFlows(BaseActorRenderContext& rc) {
     }
 }
 
+// ---- valve handles ---------------------------------------------------------------------------------
+
+/// The handle bone of a valve state (one per facing and along_first), as a mesh in block units.
+mce::Mesh* handleMesh(Tessellator& tess, std::string const& bone) {
+    auto& s = state();
+    if (auto it = s.handleMeshes.find(bone); it != s.handleMeshes.end()) return it->second.get();
+    auto& slot = s.handleMeshes[bone];
+    static std::optional<core::kinetics::RotorModel> model = []() -> std::optional<core::kinetics::RotorModel> {
+        auto          file = lv::Mod::getInstance().getSelf().getModDir() / "resource_packs" / "Levitate_RP" / "models" / "blocks" / "fluid_valve.geo.json";
+        std::ifstream in(file);
+        auto          j = Json::parse(in, nullptr, false, true);
+        if (j.is_discarded()) return std::nullopt;
+        auto parsed = core::kinetics::parseGeometry(j);
+        if (!parsed || !parsed->contains("geometry.levitate.fluid_valve")) return std::nullopt;
+        return parsed->at("geometry.levitate.fluid_valve");
+    }();
+    if (!model) return nullptr;
+    auto b = model->bones.find(bone);
+    if (b == model->bones.end() || b->second.empty()) return nullptr;
+    auto  tex = BlockGraphics::getTextureUVCoordinateSet("levitate_fluid_valve", 0, 0);
+    float u0 = tex._u0, v0 = tex._v0, u1 = tex._u1, v1 = tex._v1;
+    auto  uv = [&](std::array<float, 2> const& t) { return Vec2{u0 + (u1 - u0) * t[0], v0 + (v1 - v0) * t[1]}; };
+    auto  at = [](std::array<float, 3> const& p) { return Vec3{p[0], p[1], p[2]}; };
+    tess.begin(Tessellator::DebugContextCallback{}, mce::PrimitiveMode::QuadList, 0, false);
+    tess.color(1.f, 1.f, 1.f, 1.f);
+    for (auto const& q : b->second) {
+        tess.simpleQuad(at(q.pos[0]), uv(q.uv[0]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[3]), uv(q.uv[3]));
+        tess.simpleQuad(at(q.pos[3]), uv(q.uv[3]), at(q.pos[2]), uv(q.uv[2]), at(q.pos[1]), uv(q.uv[1]), at(q.pos[0]), uv(q.uv[0]));
+    }
+    slot = std::make_unique<mce::Mesh>(tess.end(Tessellator::UploadMode::Buffered, "levitate_valve_handle", SupplementaryFieldAutoGenerationMode::None));
+    return slot.get();
+}
+
+/// Create's FluidValveRenderer: the handle of every valve chunk meshes drew without one, turned by
+/// the pointer (closed 0 .. open 1, -90 degrees about the facing).
+void renderValves(BaseActorRenderContext& rc) {
+    auto& s = state();
+    std::vector<std::array<int, 3>> positions;
+    {
+        std::lock_guard lock(s.mutex);
+        if (s.valvesSeen.empty()) return;
+        positions.assign(s.valvesSeen.begin(), s.valvesSeen.end());
+    }
+    auto* player = client::currentPlayer();
+    if (!player) return;
+    int   dim    = static_cast<int>(player->getDimensionId());
+    auto& region = player->getDimensionBlockSource();
+    auto* moving = static_cast<MovingBlockActorRenderer*>(rc.mBlockEntityRenderDispatcher.mRenderers->operator[](BlockActorRendererId::MovingBlock).get());
+    if (!moving) return;
+    auto const& material = moving->mBlockMaterials[static_cast<int>(BlockRenderLayer::RenderlayerAlphatest)].get();
+    std::variant<std::monostate, mce::TexturePtr, mce::ClientTexture, mce::ServerTexture> texture = moving->mAtlasTexture.get();
+    Vec3  cam  = rc.mImpl.get()->mCameraTargetPosition;
+    auto& tess = rc.mScreenContext.tessellator;
+    float now  = static_cast<float>(clientTick()) + rc.mFrameAlpha;
+    static constexpr char const* faces[]{"down", "up", "north", "south", "west", "east"};
+    std::vector<std::array<int, 3>> stale;
+    int                             turning = 0;
+    for (auto const& p : positions) {
+        BlockPos bp{p[0], p[1], p[2]};
+        if (!region.hasChunksAt(bp, 0, false) || region.getBlock(bp).getTypeName() != kValve) {
+            stale.push_back(p);
+            continue;
+        }
+        auto const& block   = region.getBlock(bp);
+        int         facing  = std::clamp(game::intState(block, "levitate:facing").value_or(0), 0, 5);
+        int         along   = game::intState(block, "levitate:along_first").value_or(0) != 0 ? 1 : 0;
+        float       pointer = game::intState(block, "levitate:enabled").value_or(0) != 0 ? 1.f : 0.f;
+        if (auto it = s.valves.find(Key{dim, p[0], p[1], p[2]}); it != s.valves.end()) {
+            auto const& v     = it->second;
+            float       ticks = std::max(0.f, now - static_cast<float>(v.tick));
+            float       step  = v.rate * ticks;
+            pointer = v.pointer < v.target ? std::min(v.target, v.pointer + step) : std::max(v.target, v.pointer - step);
+        }
+        if (pointer > 0.f && pointer < 1.f) ++turning;
+        auto* mesh = handleMesh(tess, std::string("handle_closed_") + faces[facing] + "_" + std::to_string(along));
+        if (!mesh) continue;
+        // the facing axis (model x is mirrored: Bedrock's -x)
+        glm::vec3 axis = facing < 2 ? glm::vec3{0, 1, 0} : facing < 4 ? glm::vec3{0, 0, 1} : glm::vec3{1, 0, 0};
+        float     sign = (facing % 2 == 1) ? 1.f : -1.f;
+        auto&     screen = rc.mScreenContext;
+        auto      ref    = screen.camera.worldMatrixStack.get().push(false);
+        glm::mat4 m{1.f};
+        m = glm::translate(m, glm::vec3{bp.x - cam.x + .5f, bp.y - cam.y + .5f, bp.z - cam.z + .5f});
+        m = glm::rotate(m, glm::radians(-90.f * pointer * sign), axis);
+        m = glm::translate(m, glm::vec3{-.5f});
+        ref.mat->_m.get() = ref.mat->_m.get() * m;
+        mesh->renderMesh(screen, material, texture, 0, 0, OffscreenCaptureDescription{}, nullptr);
+    }
+    if (!stale.empty()) {
+        std::lock_guard lock(s.mutex);
+        for (auto const& p : stale) s.valvesSeen.erase(p);
+    }
+    if (turning > 0 && !s.loggedValve) {
+        s.loggedValve = true;
+        log().info("pipes client: a valve pointer turns");
+    }
+}
+
+/// The valve state without its handle (levitate:pointer 1), cached per state.
+Block const* withoutHandle(Block const& block) {
+    auto&           s = state();
+    std::lock_guard lock(s.mutex);
+    auto [it, fresh] = s.handleless.try_emplace(&block, nullptr);
+    if (fresh && game::intState(block, "levitate:pointer").value_or(1) == 0) {
+        if (auto const* type = block.getBlockType().getBlockState(HashedString("levitate:pointer")))
+            if (auto b = block.setState(*type, 1)) it->second = b.as_ptr();
+    }
+    return it->second;
+}
+
 /// The glass pipe state without its static fluid, cached per state.
 Block const* withoutFluid(Block const& block) {
     auto&           s = state();
@@ -247,9 +398,14 @@ void reset() {
     {
         std::lock_guard lock(s.mutex);
         s.hidden.clear();
+        s.handleless.clear();
+        s.valvesSeen.clear();
     }
     s.pipes.clear();
-    s.logged = false;
+    s.valves.clear();
+    s.handleMeshes.clear();
+    s.logged      = false;
+    s.loggedValve = false;
     meshCache().clear();
 }
 
@@ -276,6 +432,14 @@ LL_STATIC_HOOK(
     Block const* use = &block;
     if (visualReference == ClientBlockPipeline::VisualReference::Block && block.getTypeName() == kGlassPipe) {
         if (auto const* hidden = withoutFluid(block)) use = hidden;
+    } else if (visualReference == ClientBlockPipeline::VisualReference::Block && block.getTypeName() == kValve) {
+        if (auto const* hidden = withoutHandle(block)) {
+            use                 = hidden;
+            BlockPos const& rel = iterData.relativePos;
+            auto&           s   = state();
+            std::lock_guard lock(s.mutex);
+            s.valvesSeen.insert({chunkMinPos.x + rel.x, chunkMinPos.y + rel.y, chunkMinPos.z + rel.z});
+        }
     }
     return origin(*use, iterData, extraction, worldView, shouldGenerateFaceCulling, visualReference, tintResolver, biomeTintCache, chunkMinPos, checkIgnoreBlockTransforms);
 }
@@ -290,9 +454,9 @@ LL_TYPE_INSTANCE_HOOK(
     bool                    renderAlphaLayer
 ) {
     origin(renderContext, renderAlphaLayer);
-    if (!renderAlphaLayer) return; // translucent: drawn with the alpha layer
     try {
-        renderFlows(renderContext);
+        if (!renderAlphaLayer) renderValves(renderContext);
+        else renderFlows(renderContext); // translucent: drawn with the alpha layer
     } catch (...) {
     }
 }
@@ -303,6 +467,7 @@ public:
         PipesExtractHook::hook();
         PipesRenderHook::hook();
         feature::net::client::on("pipes.glass", [](Json const& msg) { onGlass(msg); });
+        feature::net::client::on("pipes.valve", [](Json const& msg) { onValve(msg); });
         mExit = ll::event::EventBus::getInstance().emplaceListener<ll::event::ClientExitLevelEvent>([](auto&) { reset(); });
     }
     void uninstall() {

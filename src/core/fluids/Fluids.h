@@ -73,6 +73,14 @@ struct ItemRef {
 [[nodiscard]] std::uint32_t fluidColor(std::string_view fluid);
 /// Translation key of a fluid's name (Create's "fluid.create.honey", vanilla NeoForge's "fluid_type.minecraft.water"), as in the fluid registry.
 [[nodiscard]] std::string fluidNameKey(std::string_view fluid);
+/// The name of a potion fluid (Create's PotionFluidType.getDescriptionId: the potion item's name for
+/// its bottle type): the vanilla item key ("item.minecraft.splash_potion.effect.swiftness"; long /
+/// strong variants share their potion's name) and its English text ("Splash Potion of Swiftness").
+struct NameKey {
+    std::string key;
+    std::string english;
+};
+[[nodiscard]] std::optional<NameKey> potionFluidName(Bottle bottle, std::string_view potion);
 
 // ---- item drain ------------------------------------------------------------------------------
 

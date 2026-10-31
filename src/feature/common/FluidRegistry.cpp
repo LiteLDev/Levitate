@@ -117,8 +117,12 @@ bool hasBlockState(std::string_view id) {
 std::string displayName(std::string_view id, std::string_view locale) {
     auto const* t = find(id);
     if (isPotion(id)) {
+        // Create's PotionFluidType: the potion item's name for its bottle type
+        auto bottle = core::fluids::Bottle::Regular;
+        if (auto parsed = core::fluids::parsePotionFluid(id)) bottle = parsed->bottle;
+        auto name = potionName(id);
+        if (auto n = core::fluids::potionFluidName(bottle, name)) return std::string(translate(n->key, n->english, locale));
         auto potion = std::string(translate(t ? t->nameKey : "fluid.create.potion", t ? t->nameFallback : "Potion", locale));
-        auto name   = potionName(id);
         return name.empty() ? potion : potion + " (" + readable(name, false) + ")";
     }
     if (t) return std::string(translate(t->nameKey, t->nameFallback, locale));
