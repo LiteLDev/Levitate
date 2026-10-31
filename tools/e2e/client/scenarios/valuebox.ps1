@@ -6,7 +6,8 @@
 #                       factory gauges (gauges.png); a speedometer of an overstressed network seen
 #                       with goggles (overstressed.png); a blocked
 #                       large water wheel (room.png).
-#   remote-vanilla:     the click on the box opens the form at once (valve-form.png); the config
+#   remote-vanilla:     holding the button on the box opens the form (U55: inferred from the
+#                       client's repeats) (valve-form.png); the config
 #                       form (config-form.png).
 $vanilla = $script:Mode -eq 'remote-vanilla'
 if (-not $vanilla) { Wait-LogLine 'companion joined: ' 90 | Out-Null }
@@ -25,8 +26,12 @@ if ($vanilla) {
     Wait-LogLine 'valve handle at .* turned' 20 -Since $mark | Out-Null
     Invoke-Chat '/give @s levitate:wrench'
     Start-Sleep -Milliseconds 600
+    # U55: a vanilla client repeats the held button; the repeat makes it a hold (the form opens)
     $mark = Get-LogMark
-    Click 0.5 0.5 -Relative -Right
+    [BsE2E.Native]::MouseButton(1, $false)
+    Start-Sleep -Milliseconds 1500
+    [BsE2E.Native]::MouseButton(1, $true)
+    Wait-LogLine 'value box hold at .*: hold \(vanilla\)' 20 -Since $mark | Out-Null
     Wait-LogLine 'value box angle at .* opened for .* \(form\)' 20 -Since $mark | Out-Null
     Start-Sleep -Milliseconds 1200
     Save-Screenshot 'valve-form' | Out-Null

@@ -29,6 +29,7 @@
 #include "feature/common/Items.h"
 #include "feature/common/Redstone.h"
 #include "feature/funnels/FunnelsInternal.h"
+#include "feature/contraption/Contraption.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
@@ -290,10 +291,83 @@ void placeVault(Player* player, BlockSource& region, GlobalPos const& pos, int c
     }
     if (axis >= 0) setStates(region, bp, {{kAxis, axis}});
     vaultChanged(pos);
+    if (player && !sneaking && clickedFace >= 0) tryMultiPlace(*player, region, pos, clickedFace);
+}
+
+void tryMultiPlace(Player& player, BlockSource& region, GlobalPos const& pos, int face) {
+    // Create's ItemVaultItem.tryMultiPlace: a vault placed on the end of a wide vault (along its
+    // axis) fills the whole width x width layer
+    GlobalPos   on    = offset(pos, cf::oppositeFace(face));
+    auto const* onB   = loadedBlock(region, toBlockPos(on));
+    if (!onB || kindOf(onB->getTypeName()) != Kind::Vault) return;
+    int axis = vaultAxis(*onB);
+    if (cf::axisOf(face) != axis) return;
+    auto s = vaultStructure(on);
+    if (!s || s->width <= 1) return;
+    int  positive = cf::positiveFace(axis);
+    auto n        = cf::faceOffset(positive);
+    // the layer just before the controller, or just after the far end
+    int along = face == cf::oppositeFace(positive) ? -1 : s->length;
+    GlobalPos start{pos.dim, s->origin.x + n[0] * along, s->origin.y, s->origin.z + n[2] * along};
+    if ((axis == 0 ? start.x : start.z) != (axis == 0 ? pos.x : pos.z)) return;
+    std::vector<BlockPos> toPlace;
+    for (int a = 0; a < s->width; ++a) {
+        for (int b = 0; b < s->width; ++b) {
+            BlockPos p = axis == 0 ? BlockPos{start.x, start.y + a, start.z + b} : BlockPos{start.x + a, start.y + b, start.z};
+            auto const* blk = loadedBlock(region, p);
+            if (!blk) return;
+            if (kindOf(blk->getTypeName()) == Kind::Vault) continue;
+            if (!replaceableAt(region, p)) return;
+            toPlace.push_back(p);
+        }
+    }
+    if (toPlace.empty()) return;
+    auto held = player.getSelectedItem();
+    if (!player.isCreative() && (items::idOf(held) != kItemVault || items::countOf(held) < static_cast<int>(toPlace.size()))) return;
+    auto const* vault = game::blockWith(kItemVault, {{kAxis, axis}});
+    if (!vault) return;
+    for (auto const& p : toPlace) game::setBlock(region, p, *vault);
+    if (!player.isCreative()) {
+        player.setSelectedItem(items::withCount(held, items::countOf(held) - static_cast<int>(toPlace.size())));
+        player.sendInventory(false);
+    }
+    log().info("funnels: {} placed a {}x{} item vault layer at {}", player.getRealName(), s->width, s->width, pos.key());
 }
 
 void installVaults() {
     common::items::registerBlock(kItemVault, capability());
+    // (U55) Create's ItemVaultMountedStorage: a vault on a moving contraption is part of its storage
+    // (each block's stacks in its carried BlockData, as on the ground)
+    contraption::registerItemStorage(
+        kItemVault,
+        contraption::ItemStorageAdapter{
+            .read =
+                [](Json const& carried) {
+                    std::vector<ItemStack> out;
+                    if (auto bd = carried.find("common:blockdata"); bd != carried.end() && bd->is_object()) {
+                        if (auto fu = bd->find("funnels"); fu != bd->end() && fu->is_object() && fu->contains("items") && (*fu)["items"].is_array())
+                            for (auto const& e : (*fu)["items"]) out.push_back(e.is_null() ? items::empty() : items::fromJson(e));
+                    }
+                    if (static_cast<int>(out.size()) < capacity()) out.resize(static_cast<std::size_t>(capacity()), items::empty());
+                    return out;
+                },
+            .write =
+                [](Json& carried, std::vector<ItemStack> const& stacks) {
+                    Json arr = Json::array();
+                    bool any = false;
+                    for (auto const& s : stacks) {
+                        arr.push_back(items::isEmpty(s) ? Json(nullptr) : items::toJson(s));
+                        any |= !items::isEmpty(s);
+                    }
+                    auto& bd = carried["common:blockdata"];
+                    if (!bd.is_object()) bd = Json::object();
+                    auto& fu = bd["funnels"];
+                    if (!fu.is_object()) fu = Json::object();
+                    if (any) fu["items"] = std::move(arr);
+                    else fu.erase("items");
+                },
+        }
+    );
     // comparators next to any block of a vault read the fill level of the whole vault
     common::redstone::registerAnalog(kItemVault, [](BlockSource& region, BlockPos const& pos, Block const&) {
         return vaultSignal(game::globalPos(region, pos));

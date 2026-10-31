@@ -27,6 +27,7 @@
 #include "feature/belts/BeltApi.h"
 #include "feature/bulk/Bulk.h"
 #include "feature/common/BlockData.h"
+#include "feature/common/FunnelsExt.h"
 #include "feature/common/Interactions.h"
 #include "feature/kinetics/Kinetics.h"
 #include "game/Blocks.h"
@@ -384,6 +385,12 @@ public:
                 return controller_cap::insert(pos, item.stack, simulate);
             },
         });
+        // (U55) chutes read the encased fan's facing and speed (Create's ChuteBlockEntity.calculatePull / Push)
+        lv::feature::common::airflow::registerFan(std::string(kFan), [](BlockSource& region, BlockPos const& p, Block const& b) {
+            return std::optional<lv::feature::common::airflow::Fan>(
+                lv::feature::common::airflow::Fan{stateOf(b, "levitate:facing"), lv::kinetics::speedAt(lv::game::globalPos(region, p))}
+            );
+        });
         mUseOn = ia::onUseOn({}, onUseOn);
         mVeto  = ia::onUseOn({}, vetoPlacement, ia::priority::Low);
         installCrusherCollision();
@@ -395,6 +402,7 @@ public:
     }
 
     void uninstall() {
+        lv::feature::common::airflow::unregisterFan(std::string(kFan));
         ia::remove(mUseOn);
         ia::remove(mVeto);
         uninstallCrusherCollision();

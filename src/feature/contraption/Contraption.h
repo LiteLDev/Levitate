@@ -125,6 +125,16 @@ struct FluidStorageAdapter {
     std::function<void(nlohmann::json& carried, FluidTank const&)>          write;
 };
 void registerFluidStorage(std::string blockId, FluidStorageAdapter adapter);
+/// (U55) An item inventory carried on a contraption that is no vanilla container (Create's
+/// MountedItemStorage types, e.g. ItemVaultMountedStorage): `read` / `write` its slots in the
+/// carried data. With `bottomless` set it is Create's CreativeCrateMountedStorage instead: an
+/// endless supply of that item (empty: none), and inserted items are voided.
+struct ItemStorageAdapter {
+    std::function<std::vector<ItemStack>(nlohmann::json const& carried)>        read;
+    std::function<void(nlohmann::json& carried, std::vector<ItemStack> const&)> write;
+    std::function<ItemStack(nlohmann::json const& carried)>                     bottomless;
+};
+void registerItemStorage(std::string blockId, ItemStorageAdapter adapter);
 
 /// The merged inventories and tanks of a contraption (Create's MountedStorageManager).
 class Storage {
