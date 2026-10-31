@@ -321,6 +321,10 @@ struct Registrar {
         b.startMoving = [](con::MovementContext& ctx) { ctx.data.erase("PsiDone"); };
         b.stopMoving = [](con::MovementContext& ctx) { ctx.data.erase("PsiStall"); };
         registerOwnActor(std::string(kPsi), std::move(b));
+        // Create's isNotSupportiveFallback: nothing sticks to the interface's front
+        con::MovementRules rules;
+        rules.notSupportive = [](cc::States const& s) { return cc::bit(facingOf(s)); };
+        con::registerMovementRules(std::string(kPsi), std::move(rules));
     }
 };
 Registrar const gRegistrar;

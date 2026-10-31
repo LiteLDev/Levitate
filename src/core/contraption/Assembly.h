@@ -44,6 +44,7 @@ struct BlockInfo {
     DirMask     attachedTowards = 0; ///< faces this block hangs on (torch on a wall: the wall's side)
     DirMask     notSupportive   = 0; ///< faces that don't carry neighbours (Create's isNotSupportive)
     std::vector<Pos> linked;          ///< positions that always move with this one (other door half)
+    DirMask     pulls = 0;            ///< neighbours that always join when this block moves (bearing fronts)
     std::string id;                   ///< block id (error messages)
 
     // chassis

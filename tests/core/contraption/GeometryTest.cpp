@@ -210,3 +210,44 @@ TEST(ContraptionStates, RotatesChassisStickySides) {
     EXPECT_EQ(std::get<std::int64_t>(radial["levitate:sticky_west"]), 1);
     EXPECT_EQ(std::get<std::int64_t>(radial["levitate:sticky_north"]), 0);
 }
+
+TEST(ContraptionStates, RotatesLeversStairsAndLegacyOrders) {
+    // Create's StructureTransform turns levers about every axis
+    States lever{{"lever_direction", std::string("up_east_west")}};
+    rotateStates(lever, Axis::X, 1); // on the floor -> on a wall facing south
+    EXPECT_EQ(std::get<std::string>(lever["lever_direction"]), "south");
+    States wall{{"lever_direction", std::string("north")}};
+    rotateStates(wall, Axis::X, 1); // facing north -> on the floor, swinging north-south
+    EXPECT_EQ(std::get<std::string>(wall["lever_direction"]), "up_north_south");
+    States yaw{{"lever_direction", std::string("up_east_west")}};
+    rotateStates(yaw, Axis::Y, 1);
+    EXPECT_EQ(std::get<std::string>(yaw["lever_direction"]), "up_north_south");
+    States side{{"lever_direction", std::string("east")}};
+    rotateStates(side, Axis::Y, 1);
+    EXPECT_EQ(std::get<std::string>(side["lever_direction"]), "north");
+
+    // stairs on a quarter turn about X (transformStairs): a bottom stair facing north becomes a
+    // top stair facing north
+    States stairs{{"weirdo_direction", std::int64_t{3}}, {"upside_down_bit", std::int64_t{0}}};
+    rotateStates(stairs, Axis::X, 1);
+    EXPECT_EQ(std::get<std::int64_t>(stairs["weirdo_direction"]), 3);
+    EXPECT_EQ(std::get<std::int64_t>(stairs["upside_down_bit"]), 1);
+    States along{{"weirdo_direction", std::int64_t{0}}, {"upside_down_bit", std::int64_t{0}}};
+    rotateStates(along, Axis::X, 1); // facing east, along the axis: unchanged
+    EXPECT_EQ(std::get<std::int64_t>(along["weirdo_direction"]), 0);
+    EXPECT_EQ(std::get<std::int64_t>(along["upside_down_bit"]), 0);
+    rotateStates(along, Axis::X, 2); // a half turn flips the half
+    EXPECT_EQ(std::get<std::int64_t>(along["upside_down_bit"]), 1);
+
+    // trapdoors count E W S N: south turned a quarter about Y is east
+    States trapdoor{{"direction", std::int64_t{2}}};
+    rotateStates(trapdoor, Axis::Y, 1, "minecraft:spruce_trapdoor");
+    EXPECT_EQ(std::get<std::int64_t>(trapdoor["direction"]), 0);
+    // doors count E S W N; a half turn about X flips south to north, keeps east
+    States door{{"direction", std::int64_t{1}}};
+    rotateStates(door, Axis::X, 2, "minecraft:wooden_door");
+    EXPECT_EQ(std::get<std::int64_t>(door["direction"]), 3);
+    States eastDoor{{"direction", std::int64_t{0}}};
+    rotateStates(eastDoor, Axis::X, 2, "minecraft:wooden_door");
+    EXPECT_EQ(std::get<std::int64_t>(eastDoor["direction"]), 0);
+}

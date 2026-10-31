@@ -126,6 +126,8 @@ public:
     void build(std::vector<CarriedBlock> const& blocks) {
         mSlots.clear();
         mTanks.clear();
+        mAdapted.clear();
+        mViewDirty = true;
         for (int b = 0; b < static_cast<int>(blocks.size()); ++b) {
             auto const&        carried = blocks[b];
             std::string const& id      = carried.id;
@@ -143,8 +145,20 @@ public:
                 for (int i = 0; i < size; ++i) mSlots.push_back({b, i, items[i]});
             }
             if (detail::fluidAdapter(id)) mTanks.push_back(b);
+            if (detail::itemAdapter(id)) mAdapted.push_back(b);
         }
     }
+
+    /// The slots of one carried container (a dropper's own inventory).
+    std::vector<ItemStack*> slotsOf(int block) {
+        std::vector<ItemStack*> out;
+        for (auto& s : mSlots)
+            if (s.block == block) out.push_back(&s.stack);
+        return out;
+    }
+
+    /// The carried data of an adapted inventory (Create's mounted item storages of other units).
+    CarriedBlock& carriedAt(int b) { return const_cast<CarriedBlock&>(mOwner.blocks()[b]); }
 
     /// Writes the slots back into the blocks' NBT (before saving / placing).
     void writeBack(std::vector<CarriedBlock>& blocks) const {
@@ -191,7 +205,16 @@ public:
                 rest.set(rest.mCount - moved);
             }
         }
-        if (rest.mCount == 0) return ItemStack{};
+        // then the inventories of other units (vaults, toolboxes, creative crates, depots)
+        for (int b : mAdapted) {
+            if (rest.isNull() || rest.mCount == 0) break;
+            auto& carried = carriedAt(b);
+            auto* adapter = detail::itemAdapter(carried.id);
+            if (!adapter || !adapter->insert) continue;
+            rest = adapter->insert(carried.data, rest, simulate);
+            if (!simulate) mViewDirty = true;
+        }
+        if (rest.isNull() || rest.mCount == 0) return ItemStack{};
         return rest;
     }
 
@@ -212,13 +235,32 @@ public:
                 else s.stack.set(left);
             }
         }
+        for (int b : mAdapted) {
+            if (taken >= count) break;
+            auto& carried = carriedAt(b);
+            auto* adapter = detail::itemAdapter(carried.id);
+            if (!adapter || !adapter->extract) continue;
+            auto same = [&](ItemStack const& st) { return (!filter || filter(st)) && (out.isNull() || out.isStackable(st)); };
+            auto got  = adapter->extract(carried.data, same, count - taken, simulate);
+            if (got.isNull() || got.mCount == 0) continue;
+            if (out.isNull()) out = got;
+            taken += got.mCount;
+            if (!simulate) mViewDirty = true;
+        }
         if (out.isNull()) return out;
         out.set(taken);
         return out;
     }
 
-    int              slotCount() const override { return static_cast<int>(mSlots.size()); }
-    ItemStack const& slot(int i) const override { return mSlots.at(i).stack; }
+    int slotCount() const override {
+        refreshView();
+        return static_cast<int>(mSlots.size() + mView.size());
+    }
+    ItemStack const& slot(int i) const override {
+        if (i < static_cast<int>(mSlots.size())) return mSlots.at(i).stack;
+        refreshView();
+        return mView.at(static_cast<std::size_t>(i) - mSlots.size());
+    }
 
     int fill(std::string const& fluid, int amount, bool simulate) override {
         int accepted = 0;
@@ -265,9 +307,25 @@ public:
     }
 
 private:
-    Contraption&          mOwner;
-    std::vector<ItemSlot> mSlots;
-    std::vector<int>      mTanks;
+    /// The adapted inventories' stacks, listed after the vanilla slots.
+    void refreshView() const {
+        if (!mViewDirty) return;
+        mView.clear();
+        for (int b : mAdapted) {
+            auto const& carried = mOwner.blocks()[b];
+            auto*       adapter = detail::itemAdapter(carried.id);
+            if (!adapter || !adapter->slots) continue;
+            for (auto& st : adapter->slots(carried.data)) mView.push_back(std::move(st));
+        }
+        mViewDirty = false;
+    }
+
+    Contraption&                   mOwner;
+    std::vector<ItemSlot>          mSlots;
+    std::vector<int>               mTanks;
+    std::vector<int>               mAdapted;
+    mutable std::vector<ItemStack> mView;
+    mutable bool                   mViewDirty = true;
 };
 
 } // namespace
@@ -663,7 +721,7 @@ public:
 
     static Block const* rotatedBlock(Block const& block, cc::States states, cc::Axis axis, int quarter) {
         if (cc::normQuarter(quarter) == 0) return &block;
-        cc::rotateStates(states, axis, quarter);
+        cc::rotateStates(states, axis, quarter, block.getTypeName());
         if (auto const* h = detail::rotationHandler(block.getTypeName())) (*h)(states, axis, quarter);
         return detail::withStates(block, states);
     }
@@ -835,17 +893,6 @@ public:
     };
     std::vector<CollisionEntry> collisionCache;
 
-    static AABB worldBox(cc::Transform const& t, cc::Box const& b) {
-        cc::Vec3d lo{1e18, 1e18, 1e18}, hi{-1e18, -1e18, -1e18};
-        for (int i = 0; i < 8; ++i) {
-            cc::Vec3d corner{i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z};
-            auto      w = t.toWorld(corner);
-            lo          = {std::min(lo.x, w.x), std::min(lo.y, w.y), std::min(lo.z, w.z)};
-            hi          = {std::max(hi.x, w.x), std::max(hi.y, w.y), std::max(hi.z, w.z)};
-        }
-        return AABB{mcVec(lo), mcVec(hi)};
-    }
-
     void rebuildCollisionCache() {
         collisionCache.clear();
         for (auto const& [id, c] : live) {
@@ -854,8 +901,13 @@ public:
             e.dim    = c->mDim;
             e.bounds = worldBounds(*c, 0.0);
             e.boxes.reserve(c->mBoxes.size());
-            for (auto const& b : c->mBoxes) e.boxes.push_back(worldBox(c->mTransform, b));
-            e.blocks = c->mBoxBlocks;
+            for (std::size_t i = 0; i < c->mBoxes.size(); ++i) {
+                // Create collides with the oriented boxes: turned blocks give several thinner boxes
+                for (auto const& w : cc::worldBoxes(c->mTransform, c->mBoxes[i])) {
+                    e.boxes.push_back(AABB{mcVec(w.min), mcVec(w.max)});
+                    e.blocks.push_back(i < c->mBoxBlocks.size() ? c->mBoxBlocks[i] : nullptr);
+                }
+            }
             collisionCache.push_back(std::move(e));
         }
     }
@@ -871,6 +923,18 @@ public:
     void tickOne(Contraption& c) {
         auto* region = detail::regionOf(c.mDim);
         if (!region) return;
+        if (c.mKind == kStabilizedKind) {
+            auto const& st     = c.mAnchorData.value("stabilized", json::object());
+            auto        parent = live.find(st.value("parent", Id{0}));
+            if (parent == live.end()) {
+                // the parent is gone (placed or discarded): the sub-contraption is placed too
+                Id id = c.mId;
+                log().info("contraption #{}: its parent is gone, placed", id);
+                disassemble(id);
+                return;
+            }
+            c.mTarget = stabilizedTransform(c, *parent->second, posOf(st.value("local", json::array())), false);
+        }
         // where the structure is now: frozen while that chunk is unloaded (Create's entities stop too)
         auto here = game::blockPosOf(mcVec(c.mTransform.toWorld(c.mBounds.center())));
         if (!region->hasChunksAt(here, 0, false)) return;
@@ -973,6 +1037,49 @@ public:
         syncDisplays(c, *region);
     }
 
+    // -- stabilized sub-contraptions (Create's StabilizedContraption) --
+    static constexpr char kStabilizedKind[]   = "stabilized";
+    static constexpr char kMechanicalBearing[] = "levitate:mechanical_bearing";
+
+    /// Create's canBeStabilized: bearing contraptions stabilize bearings on their own axis (not one
+    /// facing back into the anchor), clockwork hands not next to the anchor, cart contraptions
+    /// every bearing, the others none.
+    static bool canBeStabilized(AssembleOptions const& o, cc::Pos const& anchor, cc::Pos const& p, cc::Dir facing) {
+        if (o.kind == "cart_assembler") return true;
+        bool bearing = o.kind == "mechanical_bearing" || o.kind == "windmill_bearing";
+        if (!bearing && o.kind != "clockwork_bearing") return false;
+        if (o.start.empty() || cc::axisOf(facing) != o.axis) return false;
+        cc::Pos first = o.start.front();
+        if (o.kind == "clockwork_bearing") return p != first && p + cc::offset(facing) != first;
+        std::optional<cc::Dir> parentFacing;
+        for (auto d : cc::kAllDirs)
+            if (anchor + cc::offset(d) == first) parentFacing = d;
+        return !(p == first && parentFacing && facing == cc::opposite(*parentFacing));
+    }
+
+    /// The stabilized sub-contraptions of `parent`, with the bearing's local position in it.
+    std::vector<std::pair<Id, cc::Pos>> childrenOf(Id parent) const {
+        std::vector<std::pair<Id, cc::Pos>> out;
+        for (auto const& [id, c] : live) {
+            if (c->mKind != kStabilizedKind) continue;
+            auto const& st = c->mAnchorData.value("stabilized", json::object());
+            if (st.value("parent", Id{0}) == parent) out.emplace_back(id, posOf(st.value("local", json::array())));
+        }
+        return out;
+    }
+
+    /// The transform of a stabilized sub-contraption: its bearing block follows the parent, the
+    /// structure keeps its assembly orientation (StabilizedContraption: no rotation of its own).
+    static cc::Transform stabilizedTransform(Contraption const& child, Contraption const& parent, cc::Pos const& bearingLocal, bool grid) {
+        cc::Transform t = child.mTransform;
+        t.angle         = 0;
+        t.tilt          = 0;
+        cc::Vec3d at    = grid ? cc::Vec3d::of(parent.mTransform.placeBlock(bearingLocal))
+                               : parent.mTransform.toWorld(cc::Vec3d::center(bearingLocal)) - cc::Vec3d{0.5, 0.5, 0.5};
+        t.offset        = at - t.origin;
+        return t;
+    }
+
     // -- assembly --
     AssembleResult assemble(AssembleOptions const& o) {
         AssembleResult result;
@@ -994,9 +1101,22 @@ public:
         if (start.empty()) start.push_back(anchor);
         bool includeAnchor = o.includeAnchor || o.start.empty();
 
+        // Create's moveBearing: a mechanical bearing carried by a bearing (same axis) or a cart
+        // contraption becomes a stabilized sub-contraption instead of taking its front along
+        std::map<cc::Pos, cc::Dir> subBearings;
         auto query = [&](cc::Pos const& p) {
             auto info = detail::describe(*region, dim, p);
             if (p == anchor && !includeAnchor) info.anchor = true;
+            if (info.id == kMechanicalBearing && !info.anchor) {
+                auto states = detail::statesOf(region->getBlock(detail::toBlockPos(p)));
+                auto it     = states.find("levitate:facing");
+                auto const* v = it == states.end() ? nullptr : std::get_if<std::int64_t>(&it->second);
+                auto facing = static_cast<cc::Dir>(std::clamp<std::int64_t>(v ? *v : 1, 0, 5));
+                if (canBeStabilized(o, anchor, p, facing)) {
+                    info.pulls &= static_cast<cc::DirMask>(~cc::bit(facing));
+                    subBearings[p] = facing;
+                }
+            }
             return info;
         };
         auto glue = [&](cc::Pos const& p, cc::Dir d) { return detail::glued(dim, p, d); };
@@ -1006,6 +1126,17 @@ public:
         limits.minY      = region->getMinHeight();
         limits.maxY      = region->getMaxHeight();
         auto r           = cc::assemble(start, query, glue, limits);
+        // Create's moveBlock hooks that change the world first (a running windmill places its
+        // sails): collect again once they did
+        for (int round = 0; round < 4 && r.ok() && detail::hasBeforeCapture(); ++round) {
+            bool changed = false;
+            for (auto const& p : r.blocks) {
+                auto const* hook = detail::beforeCapture(region->getBlock(detail::toBlockPos(p)).getTypeName());
+                if (hook && (*hook)(*region, {dim, p.x, p.y, p.z})) changed = true;
+            }
+            if (!changed) break;
+            r = cc::assemble(start, query, glue, limits);
+        }
         switch (r.error) {
         case cc::AssemblyError::Unmovable:
             return fail(
@@ -1107,10 +1238,32 @@ public:
         auto& ref = *c;
         live[ref.mId] = std::move(c);
         syncDisplays(ref, *region);
-        save(ref);
+        Id parentId = ref.mId;
+        for (auto const& [sub, facing] : subBearings) {
+            if (!positions.contains(sub)) continue;
+            AssembleOptions so;
+            so.anchor = {dim, sub.x, sub.y, sub.z};
+            so.start  = {sub + cc::offset(facing)};
+            so.axis   = cc::axisOf(facing);
+            so.kind   = kStabilizedKind;
+            if (!region->hasChunksAt(detail::toBlockPos(so.start[0]), 0, false)) continue;
+            if (!detail::describe(*region, dim, so.start[0]).necessary) continue;
+            auto child = assemble(so);
+            if (!child.ok()) continue;
+            auto* sc = find(*child.id);
+            auto* parent = find(parentId);
+            if (!sc || !parent) continue;
+            sc->mAnchorData["stabilized"] = {{"parent", parentId}, {"local", pos(sub - anchor)}};
+            save(*sc);
+            log().info("contraption #{}: stabilized sub-contraption #{} on the bearing at {} {} {}", parentId, *child.id, sub.x, sub.y, sub.z);
+        }
+        auto* parentNow = find(parentId);
+        if (!parentNow) return result;
+        auto& ref2 = *parentNow;
+        save(ref2);
         game::db::save(kDbNextId, json{{"next", nextId}});
-        log().info("contraption #{} assembled: {} blocks ({}) at {} {} {}", ref.mId, ref.mBlocks.size(), ref.mKind, anchor.x, anchor.y, anchor.z);
-        result.id = ref.mId;
+        log().info("contraption #{} assembled: {} blocks ({}) at {} {} {}", ref2.mId, ref2.mBlocks.size(), ref2.mKind, anchor.x, anchor.y, anchor.z);
+        result.id = ref2.mId;
         return result;
     }
 
@@ -1154,13 +1307,38 @@ public:
 
         int placed = 0, dropped = 0;
         std::vector<cc::Pos> placedAt;
+        bool const shouldDrop = !config::get<Config>().noDropWhenContraptionReplaceBlocks;
+        auto       level      = ll::service::getLevel();
         for (auto& p : plan) {
             auto bp = detail::toBlockPos(p.target);
             bool ok = p.block && region->hasChunksAt(bp, 0, false) && p.target.y >= region->getMinHeight()
                    && p.target.y < region->getMaxHeight();
             if (ok) {
+                // Create's addBlocksToWorld: the carried block gives way only to an unbreakable
+                // block, or (having no collision shape itself) to a block with one; otherwise the
+                // world block is destroyed (dropping, unless noDropWhenContraptionReplaceBlocks)
                 auto const& existing = region->getBlock(bp);
-                ok = existing.isAir() || existing.getBlockType().canBeBuiltOver(existing, *region, bp);
+                if (!existing.isAir()) {
+                    bool unbreakable = existing.getBlockType().getDestroySpeed() < 0;
+                    bool shapeless   = !p.b->collision && detail::collisionOf(*region, p.target).has_value();
+                    ok               = !unbreakable && !shapeless;
+                    std::string const existingId = existing.getTypeName();
+                    bool liquid = existingId == "minecraft:water" || existingId == "minecraft:flowing_water" || existingId == "minecraft:lava"
+                               || existingId == "minecraft:flowing_lava";
+                    if (ok && !liquid && level) {
+                        log().info("contraption #{}: {} at {} {} {} replaced by {}", c.mId, existingId, p.target.x, p.target.y, p.target.z, p.b->id);
+                        if (auto container = region->tryGetContainer(bp); container && shouldDrop) {
+                            // (vanilla's destroyBlock drops the block, the container keeps its items)
+                            for (int i = 0; i < container->getContainerSize(); ++i) {
+                                auto const& item = container->getItem(i);
+                                if (!item.isNull()) level->getSpawner().spawnItem(*region, item, nullptr, mcVec(cc::Vec3d::center(p.target)), 10);
+                            }
+                            container->removeAllItems();
+                        }
+                        BlockChangeContext destroyCtx{};
+                        level->destroyBlock(*region, bp, shouldDrop, destroyCtx);
+                    }
+                }
             }
             if (!ok) {
                 log().info(
@@ -1173,8 +1351,22 @@ public:
                     region->hasChunksAt(bp, 0, false) ? region->getBlock(bp).getTypeName() : std::string("unloaded")
                 );
                 // Create: the contraption's block drops as an item, the world block stays
-                if (p.block) detail::dropItemAt(*region, cc::Vec3d::center(p.target), *p.block, p.b->blockEntity);
-                dropContents(*region, p.target, p.b->blockEntity);
+                if (p.block && shouldDrop) {
+                    detail::dropItemAt(*region, cc::Vec3d::center(p.target), *p.block, p.b->blockEntity);
+                    dropContents(*region, p.target, p.b->blockEntity);
+                }
+                ++dropped;
+                continue;
+            }
+            // Create's addBlocksToWorld: ropes, magnets and doors turned about a horizontal axis
+            // break where they land (a door drops once, from its lower half)
+            bool door = (p.b->id.ends_with("_door") && p.b->id.find("trapdoor") == std::string::npos) || p.b->id == "minecraft:wooden_door";
+            if (cc::normQuarter(quarter) != 0 && axis != cc::Axis::Y
+                && (door || p.b->id == "levitate:rope" || p.b->id == "levitate:pulley_magnet")) {
+                auto upper = p.b->states.find("upper_block_bit");
+                bool lower = upper == p.b->states.end() || std::get_if<std::int64_t>(&upper->second) == nullptr
+                          || *std::get_if<std::int64_t>(&upper->second) == 0;
+                if (shouldDrop && (!door || lower)) detail::dropItemAt(*region, cc::Vec3d::center(p.target), *p.block, p.b->blockEntity);
                 ++dropped;
                 continue;
             }
@@ -1213,7 +1405,15 @@ public:
             addGlue(c.mDim, cc::transformBox(g, [&](cc::Pos const& p) { return c.mTransform.placeBlock(p); }));
         }
         log().info("contraption #{} disassembled: {} placed, {} dropped", c.mId, placed, dropped);
+        Id parentId = c.mId;
+        auto children = childrenOf(parentId);
+        for (auto const& [childId, local] : children) {
+            auto ci = live.find(childId);
+            if (ci == live.end()) continue;
+            ci->second->mTransform = stabilizedTransform(*ci->second, c, local, true);
+        }
         forget(it);
+        for (auto const& [childId, local] : children) disassemble(childId);
         return true;
     }
 
@@ -1270,7 +1470,10 @@ public:
         for (auto& b : c.mBlocks) removeDisplay(b);
         removeRetiring([id](Retiring const& r) { return r.contraption == id; });
         log().info("contraption #{} discarded: {} blocks", c.mId, c.mBlocks.size());
+        auto children = childrenOf(id);
         forget(it);
+        // its stabilized sub-contraptions are placed where they are
+        for (auto const& [childId, local] : children) disassemble(childId);
         return true;
     }
 
@@ -1370,6 +1573,61 @@ std::optional<cc::Box> bounds(Id id) {
 
 
 
+ItemStorageAdapter slotStorage(
+    std::function<std::vector<ItemStack>(nlohmann::json const& carried)>             read,
+    std::function<void(nlohmann::json& carried, std::vector<ItemStack> const& slots)> write
+) {
+    ItemStorageAdapter a;
+    a.slots  = read;
+    a.insert = [read, write](nlohmann::json& carried, ItemStack const& stack, bool simulate) {
+        if (stack.isNull() || stack.mCount == 0) return stack;
+        auto      slots = read(carried);
+        ItemStack rest  = stack;
+        for (int pass = 0; pass < 2 && rest.mCount > 0; ++pass) {
+            for (auto& s : slots) {
+                if (rest.mCount == 0) break;
+                bool empty = s.isNull() || s.mCount == 0;
+                if (pass == 0 ? (empty || !s.isStackable(rest)) : !empty) continue;
+                int max   = std::max<int>(1, rest.getMaxStackSize());
+                int have  = empty ? 0 : s.mCount;
+                int moved = std::min<int>(max - have, rest.mCount);
+                if (moved <= 0) continue;
+                if (empty) {
+                    s = rest;
+                    s.set(moved);
+                } else {
+                    s.set(have + moved);
+                }
+                rest.set(rest.mCount - moved);
+            }
+        }
+        if (!simulate && rest.mCount != stack.mCount) write(carried, slots);
+        return rest.mCount == 0 ? ItemStack{} : rest;
+    };
+    a.extract = [read, write](nlohmann::json& carried, std::function<bool(ItemStack const&)> const& filter, int count, bool simulate) {
+        auto      slots = read(carried);
+        ItemStack out;
+        int       taken = 0;
+        for (auto& s : slots) {
+            if (taken >= count) break;
+            if (s.isNull() || s.mCount == 0) continue;
+            if (filter && !filter(s)) continue;
+            if (!out.isNull() && !out.isStackable(s)) continue;
+            int n = std::min<int>(count - taken, s.mCount);
+            if (out.isNull()) out = s;
+            taken += n;
+            int left = s.mCount - n;
+            if (left <= 0) s = ItemStack{};
+            else s.set(left);
+        }
+        if (out.isNull()) return out;
+        if (!simulate) write(carried, slots);
+        out.set(taken);
+        return out;
+    };
+    return a;
+}
+
 void setActorVisual(Id id, cc::Pos const& local, nlohmann::json visual) {
     auto& e  = Engine::get();
     auto  it = e.live.find(id);
@@ -1405,6 +1663,12 @@ void forEachCollision(int dim, AABB const& query, std::function<void(AABB const&
 }
 
 void forceVanillaViewers(bool on) { Engine::get().forceVanilla = on; }
+std::vector<ItemStack*> blockSlots(Contraption& c, cc::Pos const& local) {
+    auto const& blocks = c.blocks();
+    for (int i = 0; i < static_cast<int>(blocks.size()); ++i)
+        if (blocks[i].local == local) return static_cast<MergedStorage&>(c.storage()).slotsOf(i);
+    return {};
+}
 bool isDisplayActor(::Actor const& actor) {
     return ownsDisplay(actor.getOrCreateUniqueID().rawID) || actor.hasTag(kDisplayTag);
 }

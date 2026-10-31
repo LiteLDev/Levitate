@@ -1,5 +1,6 @@
 // `/create contraption ...` (the test anchor: assemble, move, rotate, stop, disassemble without a
-// bearing or piston) and `/create glue clear <radius>` (Create's /create clearglue). Op only.
+// bearing or piston), `/create glue <from> <to>` (Create's GlueCommand: adds a super glue region)
+// and `/create glue clear [radius]` (Levitate only: removes the regions near the caller). Op only.
 
 #include <cmath>
 
@@ -7,6 +8,7 @@
 
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/server/commands/CommandOrigin.h"
+#include "mc/server/commands/CommandPosition.h"
 #include "mc/server/commands/CommandOutput.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/player/Player.h"
@@ -17,6 +19,7 @@
 #include "game/Blocks.h"
 #include "mod/Commands.h"
 #include "mod/I18n.h"
+#include "mod/Log.h"
 
 namespace lv::feature::contraption {
 
@@ -48,6 +51,10 @@ struct ContraptionChassisParams {
 };
 struct GlueClearParams {
     int radius = 16;
+};
+struct GlueAddParams {
+    CommandPosition from{};
+    CommandPosition to{};
 };
 
 namespace {
@@ -218,6 +225,20 @@ LV_REGISTER_SUBCOMMAND([](ll::command::CommandHandle& cmd) {
             setChassisRange({dimOf(origin), p.x, p.y, p.z}, p.range);
             output.success(tr("create.contraptions.chassis.range", "Range of Sticky Sides") + ": " + std::to_string(chassisRange({dimOf(origin), p.x, p.y, p.z})));
         });
+    cmd.overload<GlueAddParams>().text("glue").required("from").required("to").execute(
+        [](Origin& origin, CommandOutput& output, GlueAddParams const& p) {
+            if (!commands::isAdmin(origin)) return output.error(tr("lv.contraption.need_op", "You need operator permission."));
+            constexpr int kLatest = 0x7FFFFFFF; // newest rules for relative positions
+            auto from = game::blockPosOf(p.from.getPosition(kLatest, origin, Vec3{0, 0, 0}));
+            auto to   = game::blockPosOf(p.to.getPosition(kLatest, origin, Vec3{0, 0, 0}));
+            int  dim  = dimOf(origin);
+            auto box  = cc::GlueBox::of({from.x, from.y, from.z}, {to.x, to.y, to.z});
+            addGlue(dim, box);
+            detail::playSound(dim, cc::Vec3d::center(box.min), "mob.slime.big", 0.5f, 0.9f);
+            log().info("super glue added by command: {} {} {} .. {} {} {}", box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z);
+            output.success(tr("lv.contraption.glue_added", "Glued {} {} {} .. {} {} {}", box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z));
+        }
+    );
     cmd.overload<GlueClearParams>().text("glue").text("clear").optional("radius").execute(
         [](Origin& origin, CommandOutput& output, GlueClearParams const& p) {
             if (!commands::isAdmin(origin)) return output.error(tr("lv.contraption.need_op", "You need operator permission."));

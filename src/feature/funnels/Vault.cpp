@@ -28,6 +28,7 @@
 #include "feature/common/Capabilities.h"
 #include "feature/common/Items.h"
 #include "feature/common/Redstone.h"
+#include "feature/contraption/Contraption.h"
 #include "feature/funnels/FunnelsInternal.h"
 #include "game/Blocks.h"
 #include "mod/Log.h"
@@ -294,6 +295,41 @@ void placeVault(Player* player, BlockSource& region, GlobalPos const& pos, int c
 
 void installVaults() {
     common::items::registerBlock(kItemVault, capability());
+    // Create's ItemVaultMountedStorage: a vault carried on a contraption is part of its storage
+    // (each block keeps its own slots in BlockData["funnels"]["items"])
+    contraption::registerItemStorage(
+        kItemVault,
+        contraption::slotStorage(
+            [](Json const& carried) {
+                std::vector<ItemStack> inv;
+                auto const* doc = carried.contains("common:blockdata") ? &carried["common:blockdata"] : nullptr;
+                if (doc && doc->is_object() && doc->contains("funnels")) {
+                    auto const& f = (*doc)["funnels"];
+                    if (f.is_object() && f.contains("items") && f["items"].is_array())
+                        for (auto const& e : f["items"]) inv.push_back(e.is_null() ? items::empty() : items::fromJson(e));
+                }
+                if (static_cast<int>(inv.size()) < capacity()) inv.resize(static_cast<std::size_t>(capacity()), items::empty());
+                return inv;
+            },
+            [](Json& carried, std::vector<ItemStack> const& inv) {
+                auto& doc = carried["common:blockdata"];
+                if (!doc.is_object()) doc = Json::object();
+                auto& f = doc["funnels"];
+                if (!f.is_object()) f = Json::object();
+                Json arr = Json::array();
+                bool any = false;
+                for (auto const& s : inv) {
+                    if (items::isEmpty(s)) arr.push_back(nullptr);
+                    else {
+                        arr.push_back(items::toJson(s));
+                        any = true;
+                    }
+                }
+                if (any) f["items"] = std::move(arr);
+                else f.erase("items");
+            }
+        )
+    );
     // comparators next to any block of a vault read the fill level of the whole vault
     common::redstone::registerAnalog(kItemVault, [](BlockSource& region, BlockPos const& pos, Block const&) {
         return vaultSignal(game::globalPos(region, pos));

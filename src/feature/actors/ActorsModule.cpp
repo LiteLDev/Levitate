@@ -190,7 +190,8 @@ std::optional<ContraptionHit> raycastContraption(Player& player, double reach) {
         cc::Vec3d   lo = t.toLocal(eye);
         cc::Vec3d   ld = t.unrotateVector(dir);
         for (auto const& b : c->blocks()) {
-            if (b.id != kControls && !isSeat(b.id)) continue;
+            // controls, seats and the blocks with a moving interaction (levers, doors, containers, ...)
+            if (b.id != kControls && !isSeat(b.id) && !con::interactionFor(b.id)) continue;
             cc::Box box = cc::Box::unit(b.local);
             if (isSeat(b.id)) box.max.y = box.min.y + .5;
             auto d = rayBox(lo, ld, box);
@@ -234,6 +235,8 @@ bool useOnContraption(Player& player, ContraptionHit const& target) {
         }
         return true;
     }
+    // Create's MovingInteractionBehaviour of other blocks (contraption contract)
+    if (auto const* interaction = con::interactionFor(hit->block)) return (*interaction)(player, *c, hit->local);
     return false;
 }
 

@@ -12,5 +12,7 @@
   "create.contraptions.roller_mode.wide_fill": "坡度填充下方",
   "block.create.seat.tooltip.summary": "坐下来享受旅程吧！坐垫将会把玩家固定在_动态结构_上。用来作为装饰也不错！五颜六色的它会给你的建筑增添新的风采。",
   "block.create.seat.tooltip.condition1": "右击坐垫时",
-  "block.create.seat.tooltip.behaviour1": "玩家将坐到_坐垫_上。按下潜行键以离开_坐垫_。"
+  "block.create.seat.tooltip.behaviour1": "玩家将坐到_坐垫_上。按下潜行键以离开_坐垫_。",
+  "lv.actors.elevator_floors": "电梯楼层",
+  "lv.actors.elevator_floors.content": "将电梯送往："
 }

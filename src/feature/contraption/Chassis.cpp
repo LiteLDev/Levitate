@@ -214,11 +214,22 @@ bool chassisUse(Player& player, int dim, cc::Pos const& pos, cc::Dir face, std::
     auto const* side    = glueableState(kind, axis, face);
     if (!side) return false;
     auto stickyOf = [&](char const* key) { return std::get<std::int64_t>(states[key]) != 0; };
+    // LinearChassisBlock#glueAllowedOnSide: never towards a connected chassis of the same kind and axis
+    auto allowed = [&](cc::Dir d) {
+        if (kind == cc::ChassisKind::Radial) return true;
+        cc::Pos     n      = pos + cc::offset(d);
+        auto const& other  = region->getBlock(toBlockPos(n));
+        if (other.getTypeName() != id) return true;
+        auto        ostates = statesOf(other);
+        auto        it      = ostates.find("levitate:axis");
+        auto const* oaxis   = it == ostates.end() ? nullptr : std::get_if<std::int64_t>(&it->second);
+        return !oaxis || static_cast<cc::Axis>(std::clamp<std::int64_t>(*oaxis, 0, 2)) != axis;
+    };
     if (isSlime && stickyOf(side)) {
         // slime on a sticky face: make every glueable face sticky
         bool changed = false;
         for (auto d : cc::kAllDirs) {
-            if (auto const* s = glueableState(kind, axis, d); s && !stickyOf(s)) {
+            if (auto const* s = glueableState(kind, axis, d); s && !stickyOf(s) && allowed(d)) {
                 states[s] = std::int64_t{1};
                 changed   = true;
             }
@@ -228,6 +239,7 @@ bool chassisUse(Player& player, int dim, cc::Pos const& pos, cc::Dir face, std::
         if (!heldId.empty() && !isSlime) return false;
         if (heldId.empty() && !sneaking) return false;
         if (stickyOf(side) == isSlime) return false;
+        if (!allowed(face)) return false;
         states[side] = std::int64_t{isSlime ? 1 : 0};
     }
     setStates(*region, pos, states);
@@ -330,6 +342,11 @@ public:
                 if (player && region) detail::orientPlaced(*region, p, face, *player);
             });
         }));
+        // super glue in the off hand glues a placed block to the block it was placed against
+        mHandlers.push_back(ia::onPlace({}, [](ia::PlaceContext const& c) {
+            if (c.pos.dim != c.clicked.dim) return;
+            detail::glueOnPlace(c.player, {c.pos.x, c.pos.y, c.pos.z}, {c.clicked.x, c.clicked.y, c.clicked.z});
+        }));
         // hitting a block with super glue removes its glue regions (the block stays)
         mHandlers.push_back(ia::onDestroy({.item = std::string(kSuperGlue)}, [](ia::DestroyContext const& c) {
             return detail::glueAttack(c.player, {c.pos.x, c.pos.y, c.pos.z}) ? ia::Result::Consume : ia::Result::Pass;
@@ -399,7 +416,9 @@ private:
         if (kind != cc::ChassisKind::None && (held == "minecraft:slime_ball" || held == kSuperGlue || (held.empty() && sneak))
             && glueableState(kind, chassisAxisAt(*region, pos), face)) {
             if (cooldown(uid)) return ia::Result::Consume;
-            detail::chassisUse(player, dim, pos, face, held, sneak);
+            if (detail::chassisUse(player, dim, pos, face, held, sneak) || held != kSuperGlue) return ia::Result::Consume;
+            // nothing to change on that face: super glue selects as on any block (Create's PASS)
+            detail::glueClick(player, pos, sneak);
             return ia::Result::Consume;
         }
         if (held == kSuperGlue) {

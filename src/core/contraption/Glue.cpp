@@ -28,10 +28,12 @@ bool isGlued(std::vector<GlueBox> const& boxes, Pos const& a, Dir d) {
 }
 
 GlueCheck checkSelection(Pos const& first, Pos const& second, int maxRange, std::function<bool(Pos const&)> const& solid) {
-    auto box  = GlueBox::of(first, second);
-    auto size = box.size();
-    if (size.x > maxRange || size.y > maxRange || size.z > maxRange) return GlueCheck::TooFar;
-    if (first == second) return GlueCheck::Ok;
+    auto box = GlueBox::of(first, second);
+    // Create's BlockPos#closerThan(hovered, 24): the corners' distance, not each side
+    Pos  d   = second - first;
+    long long dist2 = static_cast<long long>(d.x) * d.x + static_cast<long long>(d.y) * d.y + static_cast<long long>(d.z) * d.z;
+    if (dist2 >= static_cast<long long>(maxRange) * maxRange) return GlueCheck::TooFar;
+    if (first == second) return GlueCheck::SingleBlock; // searchGlueGroup: no 1-block glue
     std::deque<Pos>                  frontier{first};
     std::unordered_set<Pos, PosHash> visited{first};
     while (!frontier.empty()) {

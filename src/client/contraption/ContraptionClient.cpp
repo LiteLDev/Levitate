@@ -14,6 +14,7 @@
 
 #include "client/contraption/ContraptionClient.h"
 #include "client/contraption/Display.h"
+#include "core/contraption/Collision.h"
 
 #include <cmath>
 #include <map>
@@ -269,16 +270,10 @@ void appendCollision(int dim, cc::Box const& query, std::vector<std::pair<cc::Bo
         auto const& t = k.motion.current();
         for (auto const& b : k.blocks) {
             if (!b.collision) continue;
-            auto      local = b.collision->moved(cc::Vec3d::of(b.local));
-            cc::Vec3d lo{1e18, 1e18, 1e18}, hi{-1e18, -1e18, -1e18};
-            for (int i = 0; i < 8; ++i) {
-                cc::Vec3d corner{i & 1 ? local.max.x : local.min.x, i & 2 ? local.max.y : local.min.y, i & 4 ? local.max.z : local.min.z};
-                auto      w = t.toWorld(corner);
-                lo          = {std::min(lo.x, w.x), std::min(lo.y, w.y), std::min(lo.z, w.z)};
-                hi          = {std::max(hi.x, w.x), std::max(hi.y, w.y), std::max(hi.z, w.z)};
-            }
-            cc::Box world{lo, hi};
-            if (world.intersects(query)) out.emplace_back(world, b.id);
+            auto local = b.collision->moved(cc::Vec3d::of(b.local));
+            // the same thinner boxes of turned blocks as the server (core/contraption/Collision.h)
+            for (auto const& world : cc::worldBoxes(t, local))
+                if (world.intersects(query)) out.emplace_back(world, b.id);
         }
     }
 }

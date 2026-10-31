@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "ll/api/form/SimpleForm.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/world/actor/player/Player.h"
@@ -178,7 +179,45 @@ void wrapActorsOf(con::Contraption const& c) {
     for (auto const& id : ids) wrap(id);
 }
 
+/// Create's ContraptionControlsMovingInteraction#elevatorInteraction: controls on an elevator cabin
+/// pick a floor (Create: scroll, then click) and send the cabin there (ElevatorTargetFloorPacket).
+/// The floors come from the elevator's anchorData (U20's publishFloors); the choice is a form.
+void elevatorControls(Player& player, con::Contraption& c, cc::Pos const& local) {
+    auto  at  = c.toWorld(cc::Vec3d::center(local));
+    int   dim = c.dimension();
+    ext::playSound(dim, at, "random.click", 1.f, 1.5f);     // CONTROLLER_CLICK
+    ext::playSound(dim, at, "random.chestopen", .75f, .8f); // CONTRAPTION_ASSEMBLE
+    auto const& e = c.anchorData().value("elevator", Json::object());
+    auto floors   = e.value("floors", Json::array());
+    if (!floors.is_array() || floors.empty()) return;
+    int  target  = e.value("target", INT32_MIN);
+    auto id      = c.id();
+    auto content = trFor(player, "lv.actors.elevator_floors.content", "Send the elevator to:");
+    ll::form::SimpleForm form(trFor(player, "lv.actors.elevator_floors", "Elevator Floors"), content);
+    for (auto const& f : floors) {
+        if (!f.is_array() || f.size() < 3) continue;
+        int         y     = f[0].get<int>();
+        std::string label = f[1].get<std::string>();
+        if (auto longName = f[2].get<std::string>(); !longName.empty()) label += "  " + longName;
+        if (y == target) label = "> " + label;
+        form.appendButton(label, [id, y, local](Player& p) {
+            auto* cabin = con::find(id);
+            if (!cabin || cabin->kind() != "elevator") return;
+            auto& el = cabin->anchorData()["elevator"];
+            if (!el.is_object()) return;
+            el["request"] = y;
+            ext::playSound(cabin->dimension(), cabin->toWorld(cc::Vec3d::center(local)), "random.click", 1.f, 1.5f);
+            logAction(p.getRealName() + " sent the elevator #" + std::to_string(id) + " to y " + std::to_string(y));
+        });
+    }
+    form.sendTo(player);
+}
+
 void controlsClickOnContraption(Player& player, con::Contraption& c, cc::Pos const& local) {
+    if (c.kind() == "elevator") {
+        elevatorControls(player, c, local);
+        return;
+    }
     wrapActorsOf(c);
     std::string filter = filterIdOf(ext::carriedBlockData(c, local));
     auto&       list   = disabled()[c.id()];

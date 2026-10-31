@@ -28,6 +28,12 @@ collide(Transform const& transform, std::vector<Box> const& localBoxes, Box cons
 /// True when a point just below `feet` (world) is inside a structure box: the entity stands on it.
 [[nodiscard]] bool standsOn(Transform const& transform, std::vector<Box> const& localBoxes, Vec3d const& feet, double probe = 0.08);
 
+/// World boxes for the game's axis-aligned collision of a local box at `transform` (Create's
+/// ContraptionCollider uses the oriented box). At a quarter turn: its bounding box. Turned by
+/// another angle the box is cut into halves along the turned axes and each part gives its bounding
+/// box, so a 45 degree plank reaches about 0.1 block past its corners instead of 0.2.
+[[nodiscard]] std::vector<Box> worldBoxes(Transform const& transform, Box const& local);
+
 /// Where a carried point moves when the structure goes from `before` to `after`.
 [[nodiscard]] inline Vec3d carry(Transform const& before, Transform const& after, Vec3d const& world) {
     return after.toWorld(before.toLocal(world));

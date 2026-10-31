@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "levitate:linear_chassis"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " P ",
+      "LLL",
+      " P "
+    ],
+    "key": {
+      "P": {
+        "item": "levitate:andesite_alloy"
+      },
+      "L": {
+        "tag": "minecraft:logs"
+      }
+    },
+    "unlock": [
+      {
+        "item": "levitate:andesite_alloy"
+      }
+    ],
+    "result": {
+      "item": "levitate:linear_chassis",
+      "count": 3
+    }
+  }
+}

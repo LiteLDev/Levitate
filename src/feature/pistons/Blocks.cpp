@@ -34,6 +34,11 @@
 #include "mod/I18n.h"
 #include "mod/Log.h"
 #include "mod/Module.h"
+#include <string>
+#include "mc/deps/nbt/ByteTag.h"
+#include "mc/deps/nbt/CompoundTag.h"
+#include "mc/deps/nbt/IntTag.h"
+#include "feature/goggles/GoggleInfo.h"
 
 LV_REGISTER_CONFIG("pistons", lv::feature::pistons::Config);
 
@@ -736,3 +741,54 @@ std::vector<std::string> movementModeNames(Player const* viewer) {
 } // namespace lv::feature::pistons
 
 LV_REGISTER_MODULE(lv::feature::pistons::PistonsModule);
+
+// Goggle line of piston extension poles (Create's GoggleOverlayRenderer: "Pole Length: N" while
+// wearing goggles and looking at a pole line that ends at a mechanical piston).
+namespace lv::feature::pistons {
+namespace pole_goggles {
+
+
+namespace {
+
+namespace goggles = ::lv::feature::goggles;
+
+int facingState(Block const& block) {
+    auto const& nbt = *block.mSerializationId;
+    if (!nbt.contains("states") || !nbt["states"].contains(kFacing)) return 1;
+    auto const& tag = nbt["states"][kFacing];
+    if (tag.hold(Tag::Type::Int)) return std::clamp(tag.get<IntTag>().data, 0, 5);
+    if (tag.hold(Tag::Type::Byte)) return std::clamp<int>(tag.get<ByteTag>().data, 0, 5);
+    return 1;
+}
+
+LV_REGISTER_GOGGLE_INFO(std::string(kPole), {
+    .goggle = [](goggles::InfoContext const& c, goggles::Tooltip& t) {
+        auto axis  = cc::axisOf(static_cast<cc::Dir>(facingState(c.block)));
+        int  poles = 1;
+        bool pistonFound = false;
+        for (bool positive : {true, false}) {
+            auto     dir = cc::offset(cc::dirOf(axis, positive));
+            BlockPos at{c.pos.x, c.pos.y, c.pos.z};
+            int      attached = 0;
+            // PistonExtensionPoleBlock.PlacementHelper#attachedPoles: poles of the same axis in a row
+            while (attached < 1024) {
+                BlockPos next{at.x + dir.x, at.y + dir.y, at.z + dir.z};
+                auto const& b = c.region.getBlock(next);
+                if (b.getTypeName() != kPole || cc::axisOf(static_cast<cc::Dir>(facingState(b))) != axis) break;
+                at = next;
+                ++attached;
+            }
+            poles += attached;
+            auto id = c.region.getBlock(BlockPos{at.x + dir.x, at.y + dir.y, at.z + dir.z}).getTypeName();
+            pistonFound = pistonFound || id == kPiston || id == kStickyPiston;
+        }
+        if (!pistonFound) return false;
+        t.push_back(goggles::line(c.tr("create.gui.goggles.pole_length", "Pole Length:") + " " + std::to_string(poles)));
+        return true;
+    },
+});
+
+} // namespace
+
+} // namespace pole_goggles
+} // namespace lv::feature::pistons

@@ -75,8 +75,27 @@ struct MovementRules {
     std::function<bool(cc::States const&)>          brittle;         ///< default: false
     std::function<cc::DirMask(cc::States const&)>   attachedTowards; ///< faces it hangs on
     std::function<cc::DirMask(cc::States const&)>   notSupportive;   ///< faces that don't carry
+    /// Neighbours that always join when this block moves (Create's moveBearing /
+    /// moveWindmillBearing: the block in front of a bearing).
+    std::function<cc::DirMask(cc::States const&)>   pulls;
 };
 void registerMovementRules(std::string blockId, MovementRules rules);
+
+/// Movability that depends on more than the states (Create's isMovementAllowed reading a block
+/// entity: a bearing only while it isn't running). Checked with `MovementRules::movable`.
+using MovableAt = std::function<bool(BlockSource&, core::GlobalPos const&, cc::States const&)>;
+void registerMovableAt(std::string blockId, MovableAt movable);
+
+/// Create's ContraptionMovementSetting of a block (config keys `movableSpawners`,
+/// `amethystMovement`, `movableObsidian`, `movableReinforcedDeepslate`).
+enum class MovementSetting { Movable, NoPickup, Unmovable };
+[[nodiscard]] MovementSetting movementSetting(std::string_view blockId);
+
+/// Runs for each block a new contraption would collect, before anything is lifted (Create's
+/// moveBlock hooks such as WindmillBearingBlockEntity#disassembleForMovement). Return true when
+/// it changed the world (e.g. placed its own structure back): the blocks are collected again.
+using BeforeCapture = std::function<bool(BlockSource&, core::GlobalPos const&)>;
+void registerBeforeCapture(std::string blockId, BeforeCapture fn);
 
 // ---- actors (Create's MovementBehaviour) ------------------------------------------------------
 
@@ -107,6 +126,19 @@ struct MovementBehaviour {
 /// Registers the movement behaviour of block `blockId`.
 void registerActor(std::string blockId, MovementBehaviour behaviour);
 
+// ---- interactions (Create's MovingInteractionBehaviour) -----------------------------------------
+
+/// A right-click on a block of a contraption (levers, doors, containers, deployers ...): the
+/// player, the contraption and the clicked block's local position. Return true when handled.
+using MovingInteraction = std::function<bool(Player&, Contraption&, cc::Pos const& local)>;
+/// Registers the interaction of block `blockId`.
+void registerInteraction(std::string blockId, MovingInteraction fn);
+/// Registers an interaction for every block id `matches` accepts (Create's tag providers:
+/// wooden doors, trapdoors, fence gates); exact ids win.
+void registerInteractionProvider(std::function<bool(std::string_view blockId)> matches, MovingInteraction fn);
+/// The interaction of a block id (nullptr: none).
+[[nodiscard]] MovingInteraction const* interactionFor(std::string const& blockId);
+
 // ---- seats ------------------------------------------------------------------------------------
 
 /// Blocks entities can sit on while moving (U22's seats register themselves).
@@ -125,6 +157,28 @@ struct FluidStorageAdapter {
     std::function<void(nlohmann::json& carried, FluidTank const&)>          write;
 };
 void registerFluidStorage(std::string blockId, FluidStorageAdapter adapter);
+
+/// An item inventory carried on a contraption (Create's MountedItemStorage: item vaults,
+/// toolboxes, creative crates, depots). Units adapt their blocks over the carried data (carrier
+/// name -> data; their BlockData is under "common:blockdata"); the contraption's merged storage
+/// (actors, the PSI) uses them after the vanilla containers.
+struct ItemStorageAdapter {
+    /// The stacks it holds now (what Storage::slot shows).
+    std::function<std::vector<ItemStack>(nlohmann::json const& carried)> slots;
+    /// Inserts; returns what didn't fit.
+    std::function<ItemStack(nlohmann::json& carried, ItemStack const& stack, bool simulate)> insert;
+    /// Extracts up to `count` items of one kind matching `filter` (null: any).
+    std::function<ItemStack(nlohmann::json& carried, std::function<bool(ItemStack const&)> const& filter, int count, bool simulate)>
+        extract;
+};
+void registerItemStorage(std::string blockId, ItemStorageAdapter adapter);
+/// An adapter over a list of slots kept in the carried data (`read` returns every slot, empty
+/// ones included): insert merges into matching stacks, then fills empty slots; extract takes from
+/// the first matching slots.
+[[nodiscard]] ItemStorageAdapter slotStorage(
+    std::function<std::vector<ItemStack>(nlohmann::json const& carried)>             read,
+    std::function<void(nlohmann::json& carried, std::vector<ItemStack> const& slots)> write
+);
 
 /// The merged inventories and tanks of a contraption (Create's MountedStorageManager).
 class Storage {

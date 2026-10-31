@@ -26,8 +26,17 @@ struct Config {
     int  version           = 1;
     int  maxBlocksMoved    = 2048; ///< Create: maxBlocksMoved
     int  maxChassisRange   = 16;   ///< Create: maxChassisRange
-    int  maxSuperGlueRange = 24;   ///< largest side of a super glue selection
+    int  maxSuperGlueRange = 24;   ///< super glue: the corners must be closer than this (Create's closerThan 24)
     bool glueOutlines      = true; ///< particle outlines of glue regions for players holding super glue
+    /// Create's ContraptionMovementSetting keys: "MOVABLE", "NO_PICKUP" (moves, but a minecart
+    /// contraption carrying it can't be picked up) or "UNMOVABLE".
+    std::string movableSpawners            = "NO_PICKUP"; ///< mob spawners
+    std::string amethystMovement           = "NO_PICKUP"; ///< budding amethyst
+    std::string movableObsidian            = "UNMOVABLE"; ///< obsidian, crying obsidian, respawn anchor
+    std::string movableReinforcedDeepslate = "UNMOVABLE"; ///< reinforced deepslate
+    /// Create's noDropWhenContraptionReplaceBlocks: world blocks a contraption is placed into vanish
+    /// instead of dropping.
+    bool noDropWhenContraptionReplaceBlocks = false;
     /// Blocks that never move, on top of the game's unbreakable blocks (Create's NON_MOVABLE tag).
     std::vector<std::string> unmovableBlocks{
         "minecraft:portal",
@@ -97,6 +106,8 @@ void dropItemAt(BlockSource& region, cc::Vec3d const& pos, Block const& block, s
 std::vector<cc::GlueBox> takeGlue(int dim, std::unordered_set<cc::Pos, cc::PosHash> const& positions);
 /// Super glue item use on a block: two-click selection (selftests call it directly).
 void glueClick(Player& player, cc::Pos const& pos, bool sneaking);
+/// Super glue in the off hand: a placed block is glued to the block it was placed against.
+bool glueOnPlace(Player& player, cc::Pos const& placed, cc::Pos const& against);
 /// Attack with super glue: removes the regions containing the block.
 bool glueAttack(Player& player, cc::Pos const& pos);
 /// Particle outlines of glue regions near a player holding super glue.
@@ -129,6 +140,8 @@ void appendCollision(int dim, AABB const& query, std::vector<AABB>& out);
 void forEachCollision(int dim, AABB const& query, std::function<void(AABB const&, Block const*)> const& fn);
 /// Server side: the falling block is one of our display entities (owned or orphaned).
 [[nodiscard]] bool isDisplayActor(::Actor const& actor);
+/// The slots of the container carried at `local` (Create's MountedItemStorage of a dropper).
+[[nodiscard]] std::vector<ItemStack*> blockSlots(Contraption& c, cc::Pos const& local);
 /// Selftests: behave as if a player without the client mod were in every dimension (displays
 /// are spawned again as they move, see Engine::needsRespawn).
 void forceVanillaViewers(bool on);
