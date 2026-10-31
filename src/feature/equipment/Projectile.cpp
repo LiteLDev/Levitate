@@ -312,7 +312,12 @@ void hitEntity(Projectile& p, Actor& target, double x, double y, double z) {
     // naming the custom-named item the shooter holds
     if (owner) {
         std::string ownerName = owner->isPlayer() ? static_cast<Player*>(owner)->getRealName() : owner->getNameTag();
-        if (ownerName.empty()) ownerName = "%entity." + std::string(owner->getTypeName()) + ".name";
+        if (ownerName.empty()) {
+            // a vanilla mob's name key has no namespace (entity.zombie.name)
+            std::string type = owner->getTypeName();
+            if (type.starts_with("minecraft:")) type = type.substr(10);
+            ownerName = "%entity." + type + ".name";
+        }
         std::string custom = owner->isPlayer() ? static_cast<Player*>(owner)->getSelectedItem().getCustomName() : std::string();
         if (!custom.empty()) common::deathmsg::mark(target, "death.attack.create.potato_cannon.item", {ownerName, custom});
         else common::deathmsg::mark(target, "death.attack.create.potato_cannon", {ownerName});

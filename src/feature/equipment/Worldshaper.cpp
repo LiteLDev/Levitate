@@ -13,6 +13,7 @@
 #include "mc/deps/core/math/Vec3.h"
 #include "mc/deps/core/string/HashedString.h"
 #include "mc/deps/nbt/CompoundTag.h"
+#include "mc/network/packet/LevelEventPacket.h"
 #include "mc/world/actor/player/Inventory.h"
 #include "mc/world/actor/player/Player.h"
 #include "mc/world/item/ItemInstance.h"
@@ -446,31 +447,51 @@ std::string shaperMaterialOf(Block const& block) { return block.mSerializationId
 
 void tickShaper() {
     // the preview outline for vanilla players (Create's WorldshaperRenderHandler outlines the
-    // blocks the brush would change; the client mod draws it, ShaperPreview.cpp): particles along
-    // the cluster's edges every 10 ticks
+    // blocks the brush would change for the holder; the client mod draws it, ShaperPreview.cpp):
+    // particles along the cluster's edges every 10 ticks, sent to the holder only; the outline is
+    // rebuilt only when the aim or the settings change
+    struct Preview {
+        std::string             key;
+        std::vector<ce::Edge>   edges;
+    };
+    static std::map<std::int64_t, Preview> previews;
     if (currentTick() % 10 != 0) return;
     auto level = ll::service::getLevel();
     if (!level) return;
-    level->forEachPlayer([](Player& p) {
-        if (net::isCompanion(p) || items::idOf(p.getSelectedItem()) != kWorldshaper) return true;
+    std::set<std::int64_t> seen;
+    level->forEachPlayer([&](Player& p) {
+        if (net::isCompanion(p) || p.isSimulated() || items::idOf(p.getSelectedItem()) != kWorldshaper) return true;
         auto st = settingsOf(p.getSelectedItem());
         if (!st.configured) return true;
         auto hit = p.traceRay(128.0f, false, true);
         if (hit.mType != HitResultType::Tile) return true;
-        int  dim       = static_cast<int>(p.getDimensionId());
-        auto edges     = ce::clusterEdges(brushPositions(st, dim, {hit.mBlock.x, hit.mBlock.y, hit.mBlock.z}, hit.mFacing));
-        int  budget    = 1500; // particles per outline
-        for (auto const& e : edges) {
+        int  dim = static_cast<int>(p.getDimensionId());
+        auto uid = uidOf(p);
+        seen.insert(uid);
+        auto& pv  = previews[uid];
+        auto  key = st.toJson().dump() + "@" + std::to_string(dim) + "," + std::to_string(hit.mBlock.x) + "," + std::to_string(hit.mBlock.y)
+                 + "," + std::to_string(hit.mBlock.z) + "," + std::to_string(static_cast<int>(hit.mFacing));
+        if (pv.key != key) {
+            pv.key   = key;
+            pv.edges = ce::clusterEdges(brushPositions(st, dim, {hit.mBlock.x, hit.mBlock.y, hit.mBlock.z}, hit.mFacing));
+        }
+        int budget = 1500; // particles per outline
+        for (auto const& e : pv.edges) {
             double dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, dz = e.b.z - e.a.z;
             int    n  = std::max(1, static_cast<int>(std::sqrt(dx * dx + dy * dy + dz * dz) * 2));
             for (int i = 0; i <= n && budget > 0; ++i, --budget) {
-                double t = double(i) / n;
-                particle(dim, e.a.x + dx * t, e.a.y + dy * t, e.a.z + dz * t, "minecraft:villager_happy");
+                double     t = double(i) / n;
+                LevelEventPacket pkt;
+                pkt.mEventId = 0x4000 | 41; // ParticleLegacyEvent | ParticleType::VillagerHappy
+                pkt.mPos     = Vec3{float(e.a.x + dx * t), float(e.a.y + dy * t), float(e.a.z + dz * t)};
+                pkt.mData    = 0;
+                pkt.sendTo(p);
             }
             if (budget <= 0) break;
         }
         return true;
     });
+    std::erase_if(previews, [&](auto const& e) { return !seen.contains(e.first); });
 }
 
 void installShaper() {

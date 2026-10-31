@@ -1,7 +1,7 @@
 // Included at the end of SelfTests.cpp (its helpers `at` and `clearInventory`). Selftests of the U59 alignment of the equipment with Create (testPos dx 5900..5999): comparator
 // output of backtanks, suspicious stew ammo, the potato cannon's death message, bells rung by
 // projectiles, the worldshaper's material pick and surface brush, the extendo grip's knockback,
-// Infinity on the potato cannon and the diving helmet's breathing rules.
+// Infinity on the potato cannon and the diving helmet's Aqua Affinity.
 
 #include <cmath>
 
@@ -252,5 +252,4 @@ LV_REGISTER_SELFTEST("equipment.u59_helmet_aqua_affinity", [](Context& ctx) {
     clearInventory(p);
 });
 
-// Create's lava swimming multiplier (DivingBootsItem#getMovementMultiplier) is checked by gtest;
-// here: netherite boots in lava speed a falling, moving player up.
+// (Create's lava swimming multiplier, DivingBootsItem#getMovementMultiplier, is checked by gtest.)
