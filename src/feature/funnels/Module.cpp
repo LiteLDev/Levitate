@@ -34,9 +34,11 @@
 #include "mc/world/level/dimension/Dimension.h"
 #include "mc/world/phys/AABB.h"
 
+#include "feature/belts/BeltApi.h"
 #include "feature/common/BlockData.h"
 #include "feature/common/Capabilities.h"
 #include "feature/common/Filter.h"
+#include "feature/common/FunnelsExt.h"
 #include "feature/common/Interactions.h"
 #include "feature/common/Items.h"
 #include "feature/common/Redstone.h"
@@ -306,13 +308,36 @@ ItemStack extractCounted(
     return items::empty();
 }
 
+int filterMaxStack(GlobalPos const& pos) {
+    // Create's FilteringBehaviour.getMaxStackSize: the filter's max stack size, 64 without one
+    auto f = common::filterslot::get(pos, "filter");
+    return items::isEmpty(f) ? 64 : std::max(1, static_cast<int>(f.getMaxStackSize()));
+}
+
 cf::AmountSetting amountOf(GlobalPos const& pos) {
     cf::AmountSetting s;
+    int               max = filterMaxStack(pos);
+    s.count               = max;
     if (auto const* d = docOf(pos)) {
-        s.count = std::clamp(d->value("count", 64), 1, 64);
+        s.count = std::clamp(d->value("count", max), 1, max);
         s.upTo  = d->value("upTo", true);
     }
     return s;
+}
+
+std::string amountCountLabel(GlobalPos const& pos) {
+    // Create's getCountLabelForValueBox: "*" for "up to" the max stack size, else the number
+    if (filterMaxStack(pos) <= 1) return {};
+    auto s = amountOf(pos);
+    return s.upTo && s.count == filterMaxStack(pos) ? std::string("*") : std::to_string(s.count);
+}
+
+void clampAmountToFilter(GlobalPos const& pos) {
+    // Create's setFilter: an "exactly" count is capped at the new filter's max stack size
+    auto const* d = docOf(pos);
+    if (!d || !d->contains("count")) return;
+    int max = filterMaxStack(pos);
+    if (!d->value("upTo", true) && d->value("count", 64) > max) editDoc(pos)["count"] = max;
 }
 
 void setAmount(GlobalPos const& pos, cf::AmountSetting s) {
@@ -333,15 +358,29 @@ void registerAmountBox(std::string const& blockId, std::function<std::optional<s
         b.rows              = {tr("create.logistics.filter.up_to", "Up to"), tr("create.logistics.filter.exactly", "Exactly")};
         return b;
     };
+    // Create's FilteringBehaviour.createBoard: up to the filter's max stack size; no count for
+    // filters that don't stack (isCountVisible)
+    spec.boardAt = [](GlobalPos const& p, Block const&) {
+        core::common::BoardSpec b;
+        b.maxValue          = filterMaxStack(p);
+        b.milestoneInterval = 16;
+        b.rows              = {tr("create.logistics.filter.up_to", "Up to"), tr("create.logistics.filter.exactly", "Exactly")};
+        return b;
+    };
+    spec.activeAt = [](GlobalPos const& p) { return filterMaxStack(p) > 1; };
+    spec.formatAt = [](GlobalPos const& p, Block const&, core::common::ValueSettings v) {
+        return cf::amountLabel(cf::AmountSetting{v.value, v.row == 0}, filterMaxStack(p), tr("create.logistics.filter.any_amount_short", "Any"));
+    };
     spec.centre = std::move(centre);
     spec.get    = [](GlobalPos const& p) {
         auto s = amountOf(p);
         return core::common::ValueSettings{s.upTo ? 0 : 1, s.count};
     };
     spec.set = [](GlobalPos const& p, core::common::ValueSettings v, Player&) {
-        setAmount(p, cf::AmountSetting{std::clamp(v.value, 1, 64), v.row == 0});
+        setAmount(p, cf::AmountSetting{std::clamp(v.value, 1, filterMaxStack(p)), v.row == 0});
     };
     spec.format = [](Block const&, core::common::ValueSettings v) {
+        // (the board's labels are built per position: "Any" is the top of an "up to" row)
         return cf::amountLabel(cf::AmountSetting{v.value, v.row == 0}, 64, tr("create.logistics.filter.any_amount_short", "Any"));
     };
     common::valuebox::registerBox(blockId, std::move(spec));
@@ -380,7 +419,16 @@ void onPlaced(GlobalPos const& pos, Kind kind, std::optional<Intent> intent) {
     case Kind::SmartChute: placeChute(player, *region, pos, intent ? face : -1, sneak); break;
     case Kind::Vault: placeVault(player, *region, pos, intent ? face : -1, sneak); break;
     case Kind::AndesiteTunnel:
-    case Kind::BrassTunnel: updateTunnelShape(*region, pos); break;
+    case Kind::BrassTunnel: {
+        // Create's BeltTunnelItem.updateCustomBlockEntityTag: an uncased segment below takes the
+        // tunnel's casing
+        auto below = offset(pos, cf::kDown);
+        if (auto seg = common::beltlink::segmentAt(*region, toBlockPos(below)); seg && !seg->casing)
+            belts::setCasing(below, kind == Kind::AndesiteTunnel ? 1 : 2);
+        editDoc(pos)["cased"] = true; // from now on a lost casing breaks the tunnel
+        updateTunnelShape(*region, pos);
+        break;
+    }
     default: break;
     }
     if (player) log().info("funnels: {} placed at {} by {}", game::blockIdAt(*region, toBlockPos(pos)), pos.key(), player->getRealName());
@@ -462,6 +510,26 @@ ia::Result useOnHandler(ia::UseOnContext const& c) {
             return ia::Result::Consume;
         }
     }
+    if ((c.itemId == kAndesiteTunnel || c.itemId == kBrassTunnel) && (c.sneaking || !c.block.getBlockType().isInteractiveBlock())) {
+        // Create's BeltTunnelItem.canPlace: only on a horizontal belt
+        auto target = placementPos(region, at, static_cast<uchar>(c.face));
+        auto seg    = common::beltlink::segmentAt(region, offset(target, cf::kDown));
+        if (!seg || !seg->horizontal) {
+            if (c.firstEvent || player.isSimulatedPlayer()) log().info("funnels: {} can't be placed at {} (no horizontal belt below)", c.itemId, game::globalPos(region, target).key());
+            return ia::Result::Deny;
+        }
+    }
+    if (c.itemId == kChute && (c.sneaking || !c.block.getBlockType().isInteractiveBlock() || kindOf(c.blockId) != Kind::None)) {
+        if (auto placed = chuteItemPlace(player, region, at, c.face, c.sneaking)) {
+            if (*placed) markHandled(uid, c.pos);
+            player.sendInventory(false);
+            return *placed ? ia::Result::Consume : ia::Result::Deny;
+        }
+        if (!chuteCanSurvive(region, placementPos(region, at, static_cast<uchar>(c.face)))) {
+            if (c.firstEvent || player.isSimulatedPlayer()) log().info("funnels: a chute can't be placed under a diagonal chute");
+            return ia::Result::Deny;
+        }
+    }
     if (!c.itemId.empty() && ourBlockItem(c.itemId)) {
         Intent in;
         in.player   = uid;
@@ -536,14 +604,7 @@ private:
             if (auto v = it->find("items"); v != it->end() && v->is_array())
                 for (auto const& e : *v) drops.push_back(items::fromJson(e));
         }
-        if (kind != Kind::None) {
-            if (auto f = doc.find("filter"); f != doc.end() && f->is_object()) {
-                for (auto const& [k, v] : f->items()) {
-                    auto s = items::fromJson(v);
-                    if (common::filter::isFilterItem(s)) drops.push_back(s);
-                }
-            }
-        }
+        // (filter items in the slots are dropped centrally by the filter slot code, U55)
         dropLater(pos, std::move(drops));
     }
 

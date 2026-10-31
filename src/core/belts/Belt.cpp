@@ -499,67 +499,42 @@ bool depotSlide(Item& item) {
 // ---- ejector -----------------------------------------------------------------------------------------
 
 namespace {
-/// Height after `t` whole ticks (Minecraft order: move, then gravity, then drag).
-double heightAfter(double vy, int ticks, LaunchPhysics const& p) {
-    double y = 0;
-    for (int i = 0; i < ticks; ++i) {
-        y += vy;
-        vy = (vy - p.gravity) * p.verticalDrag;
-    }
-    return y;
-}
-double apexOf(double vy, LaunchPhysics const& p) {
-    double y = 0, best = 0;
-    for (int i = 0; i < 400 && vy > 0; ++i) {
-        y += vy;
-        vy   = (vy - p.gravity) * p.verticalDrag;
-        best = std::max(best, y);
-    }
-    return best;
+// Create's EntityLauncher closed forms (Minecraft drag .91 / .98, gravity .08)
+double launcherX(double vx, double t) { return vx * -10.6033 * (-1 + std::pow(0.91, t)); }
+double launcherY(double vy, double t) {
+    double f = std::pow(0.98, t);
+    return vy * -49.4983 * f + 49.4983 * vy - 194.033 * f - 3.92 * t + 194.033;
 }
 } // namespace
 
 std::pair<double, double> Launch::at(double t) const {
     if (t <= 0) return {0, 0};
-    double along = vx * (1 - std::pow(physics.horizontalDrag, t)) / (1 - physics.horizontalDrag);
-    int    whole = int(std::floor(t));
-    double y0    = heightAfter(vy, whole, physics);
-    double y1    = heightAfter(vy, whole + 1, physics);
-    double frac  = t - whole;
-    return {along, y0 + (y1 - y0) * frac};
+    double xt       = launcherX(vx, t);
+    double yt       = launcherY(vy, t);
+    double progress = std::clamp(t / ticks, 0.0, 1.0);
+    double strength = progress * progress * progress;
+    return {xt + (horizontal - xt) * strength, yt + (vertical - yt) * strength * 0.5};
+}
+
+std::pair<double, double> Launch::velocity(double t) const {
+    double f = std::pow(0.98, t);
+    return {vx * std::pow(0.91, t), vy * f + ((f - 1) / (0.98 - 1)) * -0.0784};
 }
 
 Launch planLaunch(int horizontal, int vertical, LaunchPhysics physics) {
+    // Create's EntityLauncher.recalculateTrajectory, term for term
     Launch l;
-    l.horizontal = horizontal;
-    l.vertical   = vertical;
-    l.physics    = physics;
-    // A high arc: the apex clears the target height by at least a block, more for longer shots.
-    double apex = std::max(vertical, 0) + 1.0 + 0.3 * std::abs(horizontal);
-    double lo = 0, hi = 8;
-    for (int i = 0; i < 60; ++i) {
-        double mid = (lo + hi) / 2;
-        if (apexOf(mid, physics) < apex) lo = mid;
-        else hi = mid;
-    }
-    l.vy = hi;
-    // first tick on the way down at or below the target height (interpolated)
-    double y = 0, vy = l.vy, prevY = 0;
-    double t = 1;
-    for (int i = 1; i < 600; ++i) {
-        prevY = y;
-        y += vy;
-        vy = (vy - physics.gravity) * physics.verticalDrag;
-        if (vy < 0 && y <= vertical && prevY > y) {
-            double frac = prevY == y ? 1 : (prevY - vertical) / (prevY - y);
-            t           = (i - 1) + std::clamp(frac, 0.0, 1.0);
-            break;
-        }
-        t = i;
-    }
-    l.ticks = std::max(1.0, t);
-    double reach = (1 - std::pow(physics.horizontalDrag, l.ticks)) / (1 - physics.horizontalDrag);
-    l.vx         = horizontal / reach;
+    l.horizontal  = horizontal;
+    l.vertical    = vertical;
+    l.physics     = physics;
+    double xTarget = horizontal, yTarget = vertical;
+    double xError  = (-0.0007 * std::pow(xTarget + .5, 2) + 0.484)
+                  - (std::min(5.0, yTarget) / 5) * std::min(1.0, 0.076 * xTarget - 0.0014 * xTarget * xTarget);
+    double yPeak = std::max(0.0, yTarget + (xTarget + .5) / 8.0) + (xTarget <= 1 ? 1 : 4);
+    l.vy         = std::sqrt(2 * yPeak / 13) + 0.015 * yPeak;
+    double tPeak = std::log(98 / (25 * l.vy + 98)) / (2 * std::log(7.0) - 2 * std::log(5.0) - std::log(2.0));
+    l.ticks      = std::sqrt(yPeak - l.vy) * 4.87 + 0.115 * (yPeak - l.vy) + tPeak;
+    l.vx         = (xTarget - xError + .5) / (-10.6033 * (-1 + std::pow(0.91, l.ticks)));
     return l;
 }
 

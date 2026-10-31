@@ -37,6 +37,8 @@
 #include <string>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "core/GlobalPos.h"
 #include "core/common/ValueSettings.h"
 
@@ -70,6 +72,17 @@ struct BoxSpec {
     /// released before the board opened (e.g. the valve handle turns). Vanilla players: their
     /// click opens the form; units keep their own vanilla fallback for the short click.
     std::function<void(GlobalPos const&, Player&)> onShortClick;
+    /// (U55) The board of the box at a position, used instead of `board` when set (Create builds
+    /// some boards from the block entity, e.g. the amount board from the filter's max stack size).
+    std::function<BoardSpec(GlobalPos const&, Block const&)> boardAt;
+    /// (U55) Whether the box takes clicks at a position (Create's `acceptsValueSettings` /
+    /// `isActive`); unset: always. The client mod still outlines it (it can't see block data).
+    std::function<bool(GlobalPos const&)> activeAt;
+    /// (U55) Create's BulkScrollValueBehaviour: confirming the board with Ctrl applies the value to
+    /// the whole group (`set` reads `ctrlDown()`); vanilla players get a toggle in the form.
+    bool bulk = false;
+    /// (U55) `format` with the position (e.g. "Any" at the filter's max stack size); used first.
+    std::function<std::string(GlobalPos const&, Block const&, ValueSettings)> formatAt;
 };
 
 /// What happens when a held right-click resolves (the player is looked up again, server thread).
@@ -95,7 +108,12 @@ void unregisterBox(std::string const& blockId, std::string const& boxId);
 /// Opens the editor for a box (native board for companions, form otherwise).
 void openEditor(Player& player, GlobalPos const& pos, std::string const& boxId);
 /// Applies settings as if the player confirmed them (validated and clamped).
-bool apply(Player& player, GlobalPos const& pos, std::string const& boxId, ValueSettings settings);
+bool apply(Player& player, GlobalPos const& pos, std::string const& boxId, ValueSettings settings, bool ctrlDown = false);
+/// (U55) True while a box's `set` runs for a board confirmed with Ctrl held (Create's
+/// `ValueSettingsPacket.ctrlDown`, used by BulkScrollValueBehaviour).
+[[nodiscard]] bool ctrlDown();
+/// (U55) The box hit at `pos` (as `boxAt`, also checking `activeAt`).
+[[nodiscard]] BoxSpec const* boxAt(GlobalPos const& pos, Block const& block, int face, Vec const& hit);
 
 } // namespace valuebox
 
@@ -113,6 +131,14 @@ struct SlotSpec {
     /// Companions holding right-click on the slot (Create: the amount board of a filter whose
     /// count is editable). Unset: a click acts at once, as before.
     std::function<void(Player&, GlobalPos const&)> onHold;
+    /// (U55) Create's `FilteringBehaviour.withPredicate`: items the slot refuses ("Cannot use this
+    /// item here.", the old filter stays). Unset: every item.
+    std::function<bool(GlobalPos const&, ItemStack const&)> accepts;
+    /// (U55) Title of the hover label (Create's `getLabel`); empty: "Filter".
+    std::string label, labelFallback;
+    /// (U55) The count shown with the filter item (Create's `getCountLabelForValueBox`: "*" for
+    /// any amount, the number otherwise, "" when the count isn't visible). Unset: none.
+    std::function<std::string(GlobalPos const&)> countLabel;
 };
 
 void registerSlot(std::string const& blockId, SlotSpec spec);
@@ -130,6 +156,13 @@ void                    set(GlobalPos const& pos, ItemStack const& filter, std::
 [[nodiscard]] bool matches(GlobalPos const& pos, ItemStack const& stack, std::string const& slotId = "filter");
 /// Applies a player's right-click on a slot (Create's FilteringBehaviour.onShortInteract).
 void interact(Player& player, GlobalPos const& pos, SlotSpec const& slot);
+/// (U55) Create's `FilteringBehaviour.canShortInteract`: the wrench and the mechanical arm never
+/// become a filter (a click with them on a slot does nothing).
+[[nodiscard]] bool canShortInteract(std::string const& heldId);
+/// (U55) Create's `FilteringBehaviour.destroy`: drops the filter items of the slots stored in a
+/// BlockData document (next tick, at the block's centre). The value box module calls it from one
+/// central erase listener for every unit's block, so units don't drop filters themselves.
+void dropFiltersOf(GlobalPos const& pos, nlohmann::json const& doc);
 
 } // namespace filterslot
 

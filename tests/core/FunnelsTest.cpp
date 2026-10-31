@@ -73,8 +73,12 @@ TEST(Funnels, RoundRobin) {
     p = planDistribution(SelectionMode::RoundRobin, 8, 3, 1, capacities({64, 5, 64}));
     EXPECT_EQ(given(p)[1], 5);
     EXPECT_EQ(p.kept, 3);
-    // forced: waits until the whole stack fits
+    // forced (Create's distribute): a target that fits part of the stack gets that part ...
     p = planDistribution(SelectionMode::ForcedRoundRobin, 8, 3, 1, capacities({64, 5, 64}));
+    EXPECT_EQ(given(p)[1], 5);
+    EXPECT_EQ(p.kept, 3);
+    // ... and one that takes nothing makes it wait
+    p = planDistribution(SelectionMode::ForcedRoundRobin, 8, 3, 1, capacities({64, 0, 64}));
     EXPECT_TRUE(p.give.empty());
 }
 

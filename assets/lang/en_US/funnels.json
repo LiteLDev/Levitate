@@ -15,5 +15,17 @@
   "block.create.item_hatch.tooltip.condition1": "When R-Clicked",
   "block.create.item_hatch.tooltip.behaviour1": "_Deposits_ your _held item_ into the _container_ it is placed on. _Sneak-click_ to _deposit_ _everything_ except Hotbar items.",
   "create.item_hatch.deposit_item": "Held item deposited",
-  "create.item_hatch.deposit_inventory": "Inventory items deposited"
+  "create.item_hatch.deposit_inventory": "Inventory items deposited",
+  "create.tooltip.chute.header": "Chute Information",
+  "create.tooltip.chute.no_fans_attached": "No attached fans",
+  "create.tooltip.chute.fans_pull_up": "Fans pull from Above",
+  "create.tooltip.chute.fans_push_down": "Fans push from Above",
+  "create.tooltip.chute.fans_push_up": "Fans push from Below",
+  "create.tooltip.chute.fans_pull_down": "Fans pull from Below",
+  "create.tooltip.chute.items_move_down": "Items move Downward",
+  "create.tooltip.chute.items_move_up": "Items move Upward",
+  "create.tooltip.chute.contains": "Contains: {0} x{1}",
+  "create.tooltip.brass_tunnel.contains": "Currently distributing:",
+  "create.tooltip.brass_tunnel.contains_entry": "> {0} x{1}",
+  "create.tooltip.brass_tunnel.retrieve": "Right-Click to retrieve"
 }

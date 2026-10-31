@@ -6,7 +6,8 @@
 #   U41: encased sloped and vertical belts, a pulling belt funnel on the belt, and the belt
 #        connector preview (dust from a selected shaft towards the shaft looked at; the client mod
 #        draws it itself, vanilla clients get it from the server).
-# Screenshots: out/belts/{belts-a,belts-b,belts-casing,connector-preview}.png
+#   U55: the weighted ejector target outline and arc preview of the client mod.
+# Screenshots: out/belts/{belts-a,belts-b,belts-casing,connector-preview,ejector-arc}.png
 $vanilla = $script:Mode -eq 'remote-vanilla'
 
 if (-not $vanilla) {
@@ -69,4 +70,28 @@ if (-not $vanilla) { Wait-LogLine 'belts client: connector preview towards .* \(
 Start-Sleep -Milliseconds 1500
 Save-Screenshot 'connector-preview' | Out-Null
 Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 air'
+
+# U55: the weighted ejector's target (Create's EjectorTargetHandler): sneak + right-click a block
+# with the ejector selects it; the client mod outlines it and draws the arc from where the ejector
+# would be placed (the ground one block east, in line with the target)
+if (-not $vanilla) {
+    Invoke-Chat '/fill 1 -60 -1 7 -58 1 air'
+    Invoke-Chat '/setblock 5 -60 0 stone'
+    Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 levitate:weighted_ejector 4'
+    Invoke-Chat '/tp @s 0.5 -60 0.5 -90 12.6'   # at the stone (5 -60 0)
+    Start-Sleep -Milliseconds 800
+    $mark = Get-LogMark
+    [BsE2E.Native]::Key([uint16]0x10, $false)   # sneak
+    Start-Sleep -Milliseconds 300
+    Click 0.5 0.5 -Relative -Right
+    Start-Sleep -Milliseconds 300
+    [BsE2E.Native]::Key([uint16]0x10, $true)
+    Wait-LogLine 'belts: .* selected the ejector target ' 15 -Since $mark | Out-Null
+    Wait-LogLine 'belts client: ejector target ' 15 -Since $mark | Out-Null
+    Invoke-Chat '/tp @s 0.5 -60 0.5 -90 58.3'   # at the ground east of the player (the ejector would go to 1 -60 0)
+    Wait-LogLine 'belts client: ejector arc to .* \(valid\)' 15 -Since $mark | Out-Null
+    Start-Sleep -Milliseconds 1200
+    Save-Screenshot 'ejector-arc' | Out-Null
+    Invoke-Chat '/replaceitem entity @s slot.weapon.mainhand 0 air'
+}
 Assert-NoErrors

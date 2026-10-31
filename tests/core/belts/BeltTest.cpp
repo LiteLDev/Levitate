@@ -263,12 +263,19 @@ TEST(Ejector, TargetsAndLaunches) {
     for (auto [h, v] : {std::pair{1, 0}, {4, 0}, {6, 3}, {10, -4}, {32, 8}}) {
         auto l   = planLaunch(h, v);
         auto end = l.at(l.ticks);
-        EXPECT_NEAR(end.first, h, 1e-3) << h << "," << v;
-        EXPECT_NEAR(end.second, v, 0.05) << h << "," << v;
+        EXPECT_NEAR(end.first, h, 1e-3) << h << "," << v; // pulled onto the target at the end
+        // Create's arc only goes half the remaining way towards the target height (getGlobalPos):
+        // close for short level shots, up to a few blocks off for long or steep ones
+        EXPECT_NEAR(end.second, v, std::abs(v) <= 3 && h <= 6 ? 1.0 : 3.5) << h << "," << v;
         EXPECT_GT(l.vy, 0);
         auto mid = l.at(l.ticks / 2);
         EXPECT_GT(mid.second, std::max(v, 0)); // an arc above the target
+        EXPECT_GE(l.itemTicks(), 3.0);
     }
+    // Create's EntityLauncher numbers (h 1, v 0): yPeak 1.0625 + ... -> yMotion = sqrt(2 yPeak / 13) + .015 yPeak
+    auto one   = planLaunch(1, 0);
+    double yPk = std::max(0.0, (1 + .5) / 8.0) + 1;
+    EXPECT_NEAR(one.vy, std::sqrt(2 * yPk / 13) + 0.015 * yPk, 1e-9);
 }
 
 TEST(BeltPreview, StraightLineAlongTheBelt) {

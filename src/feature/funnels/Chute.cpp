@@ -25,6 +25,7 @@
 #include "feature/common/ValueBox.h"
 #include "feature/contraption/Contraption.h"
 #include "feature/funnels/FunnelsInternal.h"
+#include "feature/goggles/GoggleInfo.h"
 #include "game/Blocks.h"
 #include "game/WorldDb.h"
 #include "mod/Log.h"
@@ -373,9 +374,9 @@ common::items::Handler capability() {
         auto        pos = game::globalPos(at.region, at.pos);
         auto const& b   = at.region.getBlock(at.pos);
         auto&       r   = rt(pos);
+        // Create's ChuteItemHandler takes items from every side (belts and dropped items are gated
+        // by canDirectlyInsert in their own paths)
         if (items::isEmpty(stack) || !canAcceptItem(b, pos, r, stack)) return stack;
-        // from the top only while Create's DirectBeltInputBehaviour would take it
-        if (at.face == cf::kUp && !r.canPickUp) return stack;
         int max  = std::max(1, static_cast<int>(stack.getMaxStackSize()));
         int take = std::min(max, items::countOf(stack));
         if (!simulate) setItem(pos, r, items::withCount(stack, take), motionAt(at.region, at.pos) < 0 ? 1.f : 0.f);
@@ -552,6 +553,65 @@ void placeChute(Player* player, BlockSource& region, GlobalPos const& pos, int c
     updateChuteShape(region, pos);
 }
 
+std::optional<bool> chuteItemPlace(Player& player, BlockSource& region, BlockPos const& clicked, int face, bool sneaking) {
+    // Create's ChuteItem.place: a click on a chute's side (not sneaking) builds the diagonal chain
+    // one block up, or turns a downward chute there towards the clicked one
+    if (sneaking || !cf::isHorizontal(face) || !chuteBlock(region, clicked)) return std::nullopt;
+    BlockPos correct = offset(offset(clicked, face), cf::kUp);
+    auto     gpos    = toGlobal(static_cast<int>(player.getDimensionId()), correct);
+    if (replaceableAt(region, correct)) {
+        auto const* nb = game::blockWith(kChute, {{kFacing, facingState(face)}});
+        if (!nb || !game::setBlock(region, correct, *nb)) return false;
+        updateChuteShape(region, gpos);
+        if (!player.isCreative()) {
+            auto held = player.getSelectedItem();
+            player.setSelectedItem(items::withCount(held, items::countOf(held) - 1));
+        }
+        playSound(region, correct, "use.netherite", 1.f, .8f);
+        log().info("funnels: {} placed a diagonal chute at {}", player.getRealName(), gpos.key());
+        return true;
+    }
+    auto const* b = chuteBlock(region, correct);
+    if (!b || isSmart(*b) || chuteFacingOf(*b) != cf::kDown) return false;
+    setStates(region, correct, {{kFacing, facingState(face)}});
+    updateChuteShape(region, gpos);
+    log().info("funnels: {} turned the chute at {} diagonal", player.getRealName(), gpos.key());
+    return true;
+}
+
+bool chuteCanSurvive(BlockSource& region, BlockPos const& pos) {
+    // Create's ChuteBlock.canSurvive: not under a chute that isn't facing down
+    int above = chuteFacing(region, offset(pos, cf::kUp));
+    return above == -1 || above == cf::kDown;
+}
+
+namespace {
+/// Create's ChuteBlockEntity.addToGoggleTooltip.
+bool chuteGoggle(goggles::InfoContext const& c, goggles::Tooltip& t) {
+    auto  bp       = toBlockPos(c.pos);
+    float pull     = pullAt(c.region, bp);
+    float push     = pushAt(c.region, bp);
+    bool  downward = motionAt(c.region, bp) < 0;
+    t.push_back(goggles::line(c.tr("create.tooltip.chute.header", "Chute Information")));
+    if (pull == 0 && push == 0) t.push_back(goggles::line("§7" + c.tr("create.tooltip.chute.no_fans_attached", "No attached fans")));
+    if (pull != 0)
+        t.push_back(goggles::line(
+            "§7" + (pull > 0 ? c.tr("create.tooltip.chute.fans_pull_up", "Fans pull from Above") : c.tr("create.tooltip.chute.fans_push_down", "Fans push from Above"))
+        ));
+    if (push != 0)
+        t.push_back(goggles::line(
+            "§7" + (push > 0 ? c.tr("create.tooltip.chute.fans_push_up", "Fans push from Below") : c.tr("create.tooltip.chute.fans_pull_down", "Fans pull from Below"))
+        ));
+    t.push_back(goggles::line(
+        "§e-> " + (downward ? c.tr("create.tooltip.chute.items_move_down", "Items move Downward") : c.tr("create.tooltip.chute.items_move_up", "Items move Upward"))
+    ));
+    auto const& item = rt(c.pos).item;
+    if (!items::isEmpty(item))
+        t.push_back(goggles::line("§a" + c.tr("create.tooltip.chute.contains", "Contains: {0} x{1}", items::displayName(item), items::countOf(item))));
+    return true;
+}
+} // namespace
+
 void forgetChute(GlobalPos const& pos) {
     runtimes().erase(pos.key());
     hideItem(pos);
@@ -577,11 +637,13 @@ void installChutes() {
     }
     // Create: holding the filter slot opens its count (the "Extracted Amount" board); the separate
     // amount box stays for vanilla players (SPEC §8)
-    common::filterslot::registerSlot(
-        kSmartChute,
-        {"filter", smartFilterCentre, 0.5, nullptr, [](Player& p, GlobalPos const& pos) { common::valuebox::openEditor(p, pos, "amount"); }}
-    );
+    common::filterslot::SlotSpec smartSlot{
+        "filter", smartFilterCentre, 0.5, clampAmountToFilter, [](Player& p, GlobalPos const& pos) { common::valuebox::openEditor(p, pos, "amount"); }
+    };
+    smartSlot.countLabel = [](GlobalPos const& pos) { return amountCountLabel(pos); };
+    common::filterslot::registerSlot(kSmartChute, std::move(smartSlot));
     registerAmountBox(kSmartChute, smartAmountCentre);
+    for (char const* id : {kChute, kSmartChute}) goggles::registerBlock(id, {.goggle = chuteGoggle, .replaceDefaults = true});
     // `levitate:facing` of a chute is not in facing order (0 down, 1..4 north..east): undo the
     // common rotation, turn the real facing and keep the old one when it would leave the chute's
     // set (down or horizontal), as Create's horizontal-only states
